@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.23  2003/06/09 11:19:27  the_krow
+# Bugfixes concerning CollectionInfo
+# Audio CD infos added
+#
 # Revision 1.22  2003/06/08 19:59:53  dischi
 # make the code smaller
 #
@@ -181,8 +185,9 @@ class MediaInfo:
             if k in keys:
                 keys.remove(k)
 
-        result = reduce( lambda a,b: self[b] and "%s\r\n   %s: %s" % \
-                         (a.__str__(), b.__str__(), self[b].__str__()) or a, keys, "" )
+        result = ""
+        result = reduce( lambda a,b: self[b] and "%s\n   %s: %s" % \
+                         (a, b.__str__(), self[b].__str__()) or a, keys, "" )
         return result
             
     def append(self, table):
@@ -196,7 +201,7 @@ class MediaInfo:
             if self.__dict__.has_key(item):
                 self.__dict__[item] = dict[key]
             else:
-                print "Unknown key: %s" % item
+                _debug("Unknown key: %s" % item)
         except:
             pass
 
@@ -209,6 +214,7 @@ class MediaInfo:
     def has_key(self, key):
         return self.__dict__.has_key(key)
 
+
 class AudioInfo(MediaInfo):
     def __init__(self):
         self.keys = []
@@ -218,9 +224,8 @@ class AudioInfo(MediaInfo):
 
 class MusicInfo(AudioInfo):
     def __init__(self):
-        MediaInfo.__init__(self)
-        AudioInfo.__init__(self)
-        for k in MUSICCORE:
+        self.keys = []
+        for k in MEDIACORE+AUDIOCORE+MUSICCORE:
             setattr(self,k,None)
             self.keys.append(k)
 
@@ -281,12 +286,11 @@ class CollectionInfo(MediaInfo):
     def __init__(self):
         MediaInfo.__init__(self)
         self.tracks = []
-        self.keys.append( 'tracks' )
+        #self.keys.append( 'tracks' )
 
     def __str__(self):
-        result = "Track list:"
-        #result += reduce( lambda a,b: a + " \nTrack %d:\n %s" %
-        #(++counter, b.__str__()), self.tracks, "" )
+        result = MediaInfo.__str__(self)
+        result += "\nTrack list:"
         for counter in range(0,len(self.tracks)):
              result += " \nTrack %d:\n%s" % (counter+1, self.tracks[counter])
         return result

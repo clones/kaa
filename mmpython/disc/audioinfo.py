@@ -76,6 +76,8 @@ class AudioInfo(mediainfo.DiscInfo):
                 mi.title = read_info['TTITLE' + `i`]
                 mi.album = query_info['title']
                 mi.genre = query_info['category']
+                mi.codec = 'PCM'
+                mi.samplerate = 44100
                 mi.trackno = i+1
                 mi.trackof = disc_id[1]
                 self.tracks.append(mi)

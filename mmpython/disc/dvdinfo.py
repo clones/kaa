@@ -89,7 +89,10 @@ class DVDInfo(mediainfo.DiscInfo):
             return 0
 
         for title in range(1, title_num+1):
-            self.appendtrack(DVDTitle(title))
+            ti = DVDTitle(title)
+            ti.trackno = title
+            ti.trackof = title_num+1
+            self.appendtrack(ti)
 
         ifoparser.close()
         return 1
