@@ -1,4 +1,5 @@
 import sys
+import os
 
 import mediainfo
 try:
@@ -19,6 +20,7 @@ import video.vcdinfo
 import video.realinfo
 import video.ogminfo
 try:
+    import disc.discinfo
     import disc.dvdinfo
     import disc.vcdinfo
     import disc.audioinfo
@@ -37,6 +39,9 @@ def use_cache(directory):
     use directory to search for cached results
     """
     global object_cache
+    if not os.path.isdir(directory):
+        print 'WARNING: cache directory %s doesn\'t exists, caching deactivated' % directory
+        return 0
     object_cache = cache.Cache(directory)
 
 
@@ -61,13 +66,6 @@ def cache_dir(directory, uncachable_keys = uncachable_keys):
     return object_cache.cache_dir(directory, uncachable_keys)
 
 
-def cache_disc(info):
-    """
-    cache disc informations for future use
-    """
-    return object_cache.cache_disc(info)
-
-
 def parse(filename, bypass_cache = 0):
     """
     parse the file
@@ -79,5 +77,9 @@ def parse(filename, bypass_cache = 0):
             return object_cache.find(filename)
         except cache.FileNotFoundException:
             pass
-        
-    return mediainfo.get_singleton().create_from_filename(filename)
+    info = mediainfo.get_singleton().create_from_filename(filename)
+    if info and object_cache and isinstance(info, disc.discinfo.DiscInfo):
+        print 'cache'
+        object_cache.cache_disc(info)
+    return info
+

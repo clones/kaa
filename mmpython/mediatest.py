@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.24  2003/06/21 14:53:00  dischi
+# autocache disc info
+#
 # Revision 1.23  2003/06/20 19:57:30  the_krow
 # GNU Header
 #
@@ -45,7 +48,7 @@ import mmpython
 # To use the cache, make sure /tmp/mmpython exists
 # DVD/VCD/AudioCDs are cached with this proram when USE_CACHE == 1
 
-USE_CACHE = 0
+USE_CACHE = 1
 
 if USE_CACHE:
     mmpython.use_cache('./cache')
@@ -61,8 +64,3 @@ for file in sys.argv[1:]:
         print
     else:
         print "No Match found"
-
-
-    if USE_CACHE:
-        mmpython.cache_disc(medium)
-    
