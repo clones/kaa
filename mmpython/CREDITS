@@ -1,4 +1,18 @@
-This package includes some code from other projects:
+Credits for mmpython
+====================
+
+$Id$
+
+
+Maintainer: Thomas Schueppel <stain@acm.org>
+
+Developer:
+o Thomas Schueppel <stain@acm.org>
+o Dirk Meyer <dmeyer@tzi.de>
+
+
+
+This package also includes some code from the following projects:
 
 - disc/ifomodule.c is based on ifoinfo from Jens Arnfast
   http://arnfast.net/projects/ifoinfo.php
@@ -6,3 +20,4 @@ This package includes some code from other projects:
 - The Python CDDB module from Ben Gertzfield <che@debian.org>
   http://cddb-py.sourceforge.net/
 
+- bins support by John Cooper, made for the Freevo project
