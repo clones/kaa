@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.35  2003/06/20 09:24:17  the_krow
+# Documentation
+#
 # Revision 1.34  2003/06/19 17:30:07  dischi
 # small bugfix, always return results
 #
@@ -228,6 +231,16 @@ def url_splitter(url):
 
     
 class MediaInfo:
+    """
+    MediaInfo is the base class to all Media Metadata Containers. It defines the 
+    basic structures that handle metadata. MediaInfo and its derivates contain
+    a common set of metadata attributes that is listed in keys. Specific derivates
+    contain additional keys to the dublin core set that is defined in MediaInfo.
+    MediaInfo also contains tables of addional metadata. These tables are maps
+    of keys to values. The keys themselves should remain in the format that is
+    defined by the metadata (I.E. Hex-Numbers, FOURCC, ...) and will be translated
+    to more readable and i18nified values by an external entity.
+    """
     def __init__(self):
         self.keys = []
         self.tables = {}
@@ -254,6 +267,9 @@ class MediaInfo:
         return result
         
     def appendtable(self, name, hashmap):
+        """
+        Appends a tables of additional metadata to the Object. 
+        """
         self.tables[name] = table.Table(hashmap, name)
     
     def setitem(self,item,dict,key):
@@ -276,6 +292,9 @@ class MediaInfo:
 
 
 class AudioInfo(MediaInfo):
+    """
+    Audio Tracks in a Multiplexed Container.
+    """
     def __init__(self):
         self.keys = []
         for k in AUDIOCORE:
@@ -283,6 +302,9 @@ class AudioInfo(MediaInfo):
             self.keys.append(k)
 
 class MusicInfo(AudioInfo):
+    """
+    Digital Music.
+    """
     def __init__(self):
         MediaInfo.__init__(self)
         for k in AUDIOCORE+MUSICCORE:
@@ -290,6 +312,9 @@ class MusicInfo(AudioInfo):
             self.keys.append(k)
 
 class VideoInfo(MediaInfo):
+    """
+    Video Tracks in a Multiplexed Container.
+    """
     def __init__(self):
         self.keys = []
         for k in VIDEOCORE:
@@ -298,6 +323,9 @@ class VideoInfo(MediaInfo):
            
 
 class AVInfo(MediaInfo):
+    """
+    Container for Audio and Video streams.
+    """
     def __init__(self):
         MediaInfo.__init__(self)
         for k in AVCORE:
@@ -325,6 +353,9 @@ class AVInfo(MediaInfo):
 
         
 class ImageInfo(MediaInfo):
+    """
+    Digital Images, Photos, Pictures.
+    """
     def __init__(self):
         MediaInfo.__init__(self)        
         for k in IMAGECORE:
@@ -332,18 +363,21 @@ class ImageInfo(MediaInfo):
             self.keys.append(k)
 
     def add_bins_data(self, filename):
-	if os.path.isfile(filename + '.xml'):
-            try:
-                binsinfo = bins.get_bins_desc(filename)
-                for key in IMAGECORE + MEDIACORE:
-                    for bins_type in ('desc', 'exif'):
-                        if not self[key] and binsinfo[bins_type].has_key(key):
-                            self[key] = binsinfo[bins_type][key]
-            except:
-                pass
+	  if os.path.isfile(filename + '.xml'):
+        try:
+            binsinfo = bins.get_bins_desc(filename)
+            for key in IMAGECORE + MEDIACORE:
+                for bins_type in ('desc', 'exif'):
+                    if not self[key] and binsinfo[bins_type].has_key(key):
+                        self[key] = binsinfo[bins_type][key]
+        except:
+            pass
 
 
 class CollectionInfo(MediaInfo):
+    """
+    Collection of Digial Media like CD, DVD, Directory, Playlist
+    """
     def __init__(self):
         MediaInfo.__init__(self)
         self.tracks = []
