@@ -9,29 +9,42 @@ VORBIS_PACKET_SETUP = '\05vorbis'
 class OggInfo(mediainfo.AudioInfo):
     def __init__(self,file):
         mediainfo.AudioInfo.__init__(self)
-        h = file.read(4096)
-        if h[:4] != "OggS":
+        h = file.read(4+1+1+20+1)
+        if h[:5] != "OggS\00":
+            print "Invalid header"
+            self.valid = 0
+            return
+        if ord(h[5]) != 2:
+            print "Invalid header type flag (trying to go ahead anyway)"          
+        self.pageSegCount = ord(h[-1])
+        # Skip the PageSegCount
+        file.seek(self.pageSegCount,1)
+        h = file.read(7)
+        if h != VORBIS_PACKET_INFO:
+            print "Wrong vorbis header type, giving up."
             self.valid = 0
             return
         self.valid = 1
         self.mime = 'application/ogg'
         self.header = {}
-        idx = h.find(VORBIS_PACKET_INFO)
-        if idx == -1:
-            self.valid = 0
-            return
-        info = h[idx+len(VORBIS_PACKET_INFO):]
-        junk, self.channels, self.samplerate, bitmax, self.audiobitrate, bitmin = struct.unpack('<IBIiii',info[:21])
-        idx = h.find(VORBIS_PACKET_HEADER)
-        if idx != -1:
-            header = h[idx+len(VORBIS_PACKET_HEADER):]
-            self.header['vendor'] = self._extractHeaderString(header,0)
-            startoffset = struct.unpack('<I',header[:4])[0] + 8
-            for i in range(struct.unpack('<I',header[startoffset-4:startoffset])[0]):
-                s = self._extractHeaderString(header,startoffset)
+        info = file.read(23)
+        self.version, self.channels, self.samplerate, bitrate_max, self.audiobitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',info[:23])
+        # INFO Header, read Oggs and skip 10 bytes
+        h = file.read(4+10+13)        
+        if h[:4] == 'OggS':
+            (serial, pagesequence, checksum, numEntries) = struct.unpack( '<14xIIIB', h )
+            # skip past numEntries
+            file.seek(numEntries,1)
+            h = file.read(7)
+            if h != VORBIS_PACKET_HEADER:
+                # Not a corrent info header
+                return                        
+            self.header['vendor'] = self._extractHeaderString(file)
+            numItems = struct.unpack('<I',file.read(4))[0]
+            for i in range(numItems):
+                s = self._extractHeaderString(file)
                 a = re.split('=',s)
                 self.header[a[0]]=a[1]
-                startoffset += struct.unpack('<I',header[startoffset:startoffset+4])[0] + 4
             # Put Header fields into info fields
             if self.header.has_key('TITLE'):
                 self.title = self.header['TITLE']
@@ -54,8 +67,9 @@ class OggInfo(mediainfo.AudioInfo):
         else: return self.header[key]
             
                     
-    def _extractHeaderString(self,h,offset):
-        return h[offset+4:offset+4+struct.unpack('<I',h[offset:offset+4])[0]]
+    def _extractHeaderString(self,f):
+        len = struct.unpack( '<I', f.read(4) )[0]
+        return f.read(len)
 
 
 factory = mediainfo.get_singleton()
