@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.19  2003/07/01 21:04:07  dischi
+# some fixes
+#
 # Revision 1.18  2003/07/01 08:24:09  the_krow
 # bugfixes
 #
@@ -104,7 +107,7 @@ import cPickle as pickle
 import stat
 import re
 
-import mediainfo
+import mmpython
 import factory
 
 from disc import DiscID
@@ -228,15 +231,18 @@ class Cache:
             try:
                 info = self.find(file)
             except FileNotFoundException:
-                info = mediainfo.Factory().create(file)
+                info = mmpython.Factory().create(file)
 
             if info:
                 for k in uncachable_keys:
                     if info.has_key(k):
                         info[k] = None
+                del info.tables
             objects[key] = info
 
-        pickle.dump((self.CACHE_VERSION, objects), open(cachefile, 'w'))
+        f = open(cachefile, 'w')
+        pickle.dump((self.CACHE_VERSION, objects), f, 1)
+        f.close()
         self.current_objects = objects
         return objects
     
@@ -250,7 +256,9 @@ class Cache:
             return 0
 
         cachefile = '%s/disc/%s' % (self.cachedir, info.id)
-        pickle.dump((self.DISC_CACHE_VERSION, info), open(cachefile, 'w'))
+        f = open(cachefile, 'w')
+        pickle.dump((self.DISC_CACHE_VERSION, info), f, 1)
+        f.close()
         return 1
 
     
@@ -283,7 +291,9 @@ class Cache:
         cachefile = '%s/disc/%s' % (self.cachedir, id)
         if not os.path.isfile(cachefile):
             raise FileNotFoundException
-        (version, object) = pickle.load(open(cachefile, 'r'))
+        f = open(cachefile, 'r')
+        (version, object) = pickle.load(f)
+        f.close()
         if not isinstance(object, DiscInfo):
             # it's a data disc and it was cached as directory
             # build a DataDiscInfo with all files as tracks
@@ -332,17 +342,17 @@ class Cache:
             if not (cachefile and os.path.isfile(cachefile)):
                 raise FileNotFoundException
 
-            (version, objects) = pickle.load(open(cachefile, 'r'))
+            f = open(cachefile, 'r')
+            (version, objects) = pickle.load(f)
+            f.close()
             if not version == self.CACHE_VERSION:
                 raise FileNotFoundException
             
             self.current_dir     = dname
             self.current_objects = objects
 
-        if self.current_objects.has_key(key):
-            if mediainfo.DEBUG > 1:
-                print 'found item in cache'
+        try:
             return self.current_objects[key]
-
-        raise FileNotFoundException
+        except:
+            raise FileNotFoundException
 
