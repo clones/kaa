@@ -19,7 +19,9 @@ import disc.vcdinfo
 import disc.audioinfo
 
 
-object_cache = None
+object_cache    = None
+uncachable_keys = [ 'thumbnail', ]
+
 
 def use_cache(directory):
     """
@@ -29,14 +31,14 @@ def use_cache(directory):
     object_cache = cache.Cache(directory)
 
 
-def cache_dir(directory):
+def cache_dir(directory, uncachable_keys = uncachable_keys):
     """
     cache every file in the directory for future use
     """
     global object_cache
     if not object_cache:
         return 0
-    return object_cache.cache_dir(directory)
+    return object_cache.cache_dir(directory, uncachable_keys)
 
 
 def cache_disc(info):
