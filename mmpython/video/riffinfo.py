@@ -248,7 +248,7 @@ class RiffInfo(mediainfo.VideoInfo):
             # Read current info size
             file.seek(self.infoStart,0)
             s = file.read(12)
-            (list, info, size) = struct.unpack('<4s4sI',s)
+            (list, size, info) = struct.unpack('<4sI4s',s)
             self.junkSize += size + 8
         else:
             self.infoStart = self.junkStart
