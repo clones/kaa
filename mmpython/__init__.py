@@ -23,7 +23,8 @@ try:
     import disc.datainfo
 except ImportError:
     pass
-import audio.mp3info
+import audio.eyed3info
+#import audio.mp3info
 import audio.webradioinfo
 
 try:
