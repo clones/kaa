@@ -24,7 +24,7 @@ default_server = 'http://freedb.freedb.org/~cddb/cddb.cgi'
 
 def query(track_info, server_url=default_server,
 	  user=default_user, host=hostname, client_name=name,
-          client_version=version):
+          client_version=version, trying=0):
 
     disc_id = track_info[0]
     num_tracks = track_info[1]
@@ -45,7 +45,13 @@ def query(track_info, server_url=default_server,
     # Four elements in header: status, category, disc-id, title
     header = string.split(string.rstrip(response.readline()), ' ', 3)
 
-    header[0] = string.atoi(header[0])
+    try:
+        header[0] = string.atoi(header[0])
+    except:
+        if trying > 10:
+            return [ 900, None ]
+        return query(track_info, default_server,
+                     default_user, hostname, name, version, trying+1)
 
     if header[0] == 200:		# OK
 	result = { 'category': header[1], 'disc_id': header[2], 'title':
@@ -76,7 +82,7 @@ def query(track_info, server_url=default_server,
 
 def read(category, disc_id, server_url=default_server, 
 	 user=default_user, host=hostname, client_name=name,
-         client_version=version):
+         client_version=version, trying=0):
 
     url = "%s?cmd=cddb+read+%s+%s&hello=%s+%s+%s+%s&proto=%i" % \
 	  (server_url, category, disc_id, user, host, client_name,
@@ -86,7 +92,14 @@ def read(category, disc_id, server_url=default_server,
     
     header = string.split(string.rstrip(response.readline()), ' ', 3)
 
-    header[0] = string.atoi(header[0])
+    try:
+        header[0] = string.atoi(header[0])
+    except:
+        if trying > 10:
+            return [ 900, None ]
+        return read(category, disc_id, default_server, 
+                    user, host, client_name, client_version, trying+1)
+
     if header[0] == 210 or header[0] == 417: # success or access denied
 	reply = []
 
