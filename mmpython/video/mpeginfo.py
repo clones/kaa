@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.28  2004/11/15 21:43:36  dischi
+# remove bad debugging stuff
+#
 # Revision 1.27  2004/11/12 18:10:45  dischi
 # add ac3 support in mpeg streams
 #
@@ -494,10 +497,8 @@ class MpegInfo(mediainfo.AVInfo):
         Return position of timer in buffer or -1 if not found.
         This function is valid for 'normal' mpeg files
         """
-        print 'search', len(buffer)
         pos = buffer.find('\x00\x00\x01%s' % chr(PACK_PKT))
         if pos == -1:
-            print 'no'
             return -1
         return pos + 4
         
@@ -773,8 +774,7 @@ class MpegInfo(mediainfo.AVInfo):
 
         file = open(self.filename)
         file.seek(os.stat(self.filename)[stat.ST_SIZE]-self.__sample_size__)
-        file.seek(100000)
-        buffer = file.read(self.__sample_size__*10000)
+        buffer = file.read(self.__sample_size__)
 
         end = -1
         while 1:
