@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.12  2004/07/07 09:35:50  dischi
+# remove guessing of tracknum in TCON
+#
 # Revision 1.11  2004/05/29 12:31:36  dischi
 # try to find trackof in TCON or trackno
 #
@@ -169,20 +172,6 @@ class eyeD3Info(mediainfo.MusicInfo):
                 elif mediainfo.DEBUG:
                    print f.__class__
             self.appendtable('id3v2', tab, 'en')
-
-
-            # since mp3 id tags have no trackof, some tools store it
-            # in the comment as number or (number)
-            if id3.tag.frames['TCON']:
-               comment = id3.tag.frames['TCON'][0].text
-               try:
-                  self.trackof = int(comment)
-               except:
-                  if comment[0] == '(' and comment[-1] == ')':
-                     try:
-                        self['trackof'] = int(comment[1:-1])
-                     except:
-                        pass
 
             # and some tools store it as trackno/trackof in TRCK
             if not self['trackof'] and self['trackno'] and self['trackno'].find('/') > 0:
