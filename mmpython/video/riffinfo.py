@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.8  2003/06/07 21:48:47  the_krow
+# Added Copying info
+# started changing riffinfo to new AV stuff
+#
 # Revision 1.7  2003/05/13 12:31:43  the_krow
 # + Copyright Notice
 #
@@ -36,9 +40,11 @@ import fourcc
 # File Format
 # http://www.taenam.co.kr/pds/documents/odmlff2.pdf
 
-class RiffInfo(mediainfo.VideoInfo):
+_print = mediainfo._debug
+
+class RiffInfo(mediainfo.AVInfo):
     def __init__(self,file):
-        mediainfo.VideoInfo.__init__(self)
+        mediainfo.AVInfo.__init__(self)
         # read the header
         h = file.read(12)
         if h[:4] != "RIFF" and h[:4] != 'SDSS':
@@ -95,7 +101,7 @@ class RiffInfo(mediainfo.VideoInfo):
           retval['dwStart'],
           retval['dwLength'] ) = v
         if retval['dwMicroSecPerFrame'] == 0:
-            print "ERROR: Corrupt AVI"
+            _print("ERROR: Corrupt AVI")
             self.valid = 0
             return {}
 
@@ -104,7 +110,7 @@ class RiffInfo(mediainfo.VideoInfo):
     def parseSTRH(self,t):
         retval = {}
         retval['fccType'] = t[0:4]
-        #print "%s : %d bytes" % ( retval['fccType'], len(t) )
+        _print("%s : %d bytes" % ( retval['fccType'], len(t)))
         if retval['fccType'] != 'auds':
             retval['fccHandler'] = t[4:8]
             v = struct.unpack('<IHHIIIIIIIII',t[8:52])
@@ -133,14 +139,16 @@ class RiffInfo(mediainfo.VideoInfo):
               retval['nAvgBytesPerSec'],
               retval['nBlockAlign'],
               retval['nBitsPerSample'],
-            ) = struct.unpack('<HHHHHH',t[0:12])  
-            self.samplerate = retval['nSamplesPerSec']
-            self.audiochannels = retval['nChannels']
-            self.samplebits = retval['nBitsPerSample']
+            ) = struct.unpack('<HHHHHH',t[0:12])
+            vi = mediainfo.VideoInfo()
+            vi.samplerate = retval['nSamplesPerSec']
+            vi.channels = retval['nChannels']
+            vi.samplebits = retval['nBitsPerSample']
             try:
-                self.audiocodec = fourcc.RIFFWAVE[retval['wFormatTag']]
+                vi.codec = fourcc.RIFFWAVE[retval['wFormatTag']]
             except:
-                self.audiocodec = "Unknown"
+                vi.codec = "Unknown"            
+            self.video.append(vi)  
         elif fccType == 'vids':
             v = struct.unpack('<IIIHH',t[0:16])
             ( retval['biSize'],
@@ -175,7 +183,7 @@ class RiffInfo(mediainfo.VideoInfo):
             retval[key] = self.parseSTRH(value)
             i += sz
         else:
-            print "parseSTRL: Error"
+            _print("parseSTRL: Error")
 #        if ord(t[i]) == 0: i = i+1
         key = t[i:i+4]
         sz = struct.unpack('<I',t[i+4:i+8])[0]
@@ -185,28 +193,28 @@ class RiffInfo(mediainfo.VideoInfo):
             retval[key] = self.parseSTRF(value,retval['strh']['fccType'])
             i += sz
         else:
-            print "parseSTRL: Unknown Key %s" % key        
+            _print("parseSTRL: Unknown Key %s" % key)
         return ( retval, i )
             
     def parseLIST(self,t):
         retval = {}
         i = 0
         size = len(t)
-        print "parseList of size %d" % size
+        _print("parseList of size %d" % size)
         while i < size-8:
             # skip zero
             if ord(t[i]) == 0: i += 1
             key = t[i:i+4]
             sz = 0
-            print "parseList %s" % key
+            _print("parseList %s" % key)
             if key == 'LIST':
-                print "->"
+                _print("->")
                 sz = struct.unpack('<I',t[i+4:i+8])[0]
-                print "SUBLIST: len: %d, %d" % ( sz, i+4 )
+                _print("SUBLIST: len: %d, %d" % ( sz, i+4 ))
                 i+=8
                 key = "LIST:"+t[i:i+4]
                 value = self.parseLIST(t[i:i+sz])
-                print "<-"
+                _print("<-")
                 if key == 'strl':
                     for k in value.keys():
                         retval[k] = value[k]
@@ -214,7 +222,7 @@ class RiffInfo(mediainfo.VideoInfo):
                     retval[key] = value
                 i+=sz
             elif key == 'avih':
-                print "SUBAVIH"
+                _print("SUBAVIH")
                 sz = struct.unpack('<I',t[i+4:i+8])[0]
                 i += 8
                 value = self.parseAVIH(t[i:i+sz])
@@ -223,13 +231,13 @@ class RiffInfo(mediainfo.VideoInfo):
             elif key == 'strl':
                 i += 4
                 (value, sz) = self.parseSTRL(t[i:])
-                print "SUBSTRL: len: %d" % sz
+                _print("SUBSTRL: len: %d" % sz)
                 key = value['strh']['fccType']
                 i += sz
                 retval[key] = value
             else:
                 sz = struct.unpack('<I',t[i+4:i+8])[0]
-                # print "Unknown Key: %s, len: %d" % (key,sz)
+                _print("Unknown Key: %s, len: %d" % (key,sz))
                 i+=8
                 value = self._extractHeaderString(t,i,sz)
                 retval[key] = value
@@ -250,15 +258,15 @@ class RiffInfo(mediainfo.VideoInfo):
             self.header[key] = value
             if key == 'INFO':
                 self.infoStart = pos
-                self.info = value
+                self.appendtable( 'AVIINFO', value )
             elif key == 'MID ':
-                self.mid = value
+                self.appendtable( 'AVIMID', value )
         elif name == 'JUNK':
                 self.junkStart = file.tell() - 8
                 self.junkSize = size
-        else:        
+        else:
             t = file.seek(size,1)
-#            print "Skipping %s" % name
+            _print("Skipping %s [%i]" % (name,size))
         return 0
 
     def buildTag(self,key,value):
@@ -278,9 +286,9 @@ class RiffInfo(mediainfo.VideoInfo):
             if (len(tag))%2 == 1: tag += '\0'
             tags.append(tag)
             size += len(tag)
-            print "Tag [%i]: %s" % (len(tag),tag)
+            _print("Tag [%i]: %s" % (len(tag),tag))
         if self.infoStart != None:
-            print "Infostart found. %i" % (self.infoStart)
+            _print("Infostart found. %i" % (self.infoStart))
             # Read current info size
             file.seek(self.infoStart,0)
             s = file.read(12)
@@ -288,21 +296,21 @@ class RiffInfo(mediainfo.VideoInfo):
             self.junkSize += oldsize + 8
         else:
             self.infoStart = self.junkStart
-            print "Infostart computed. %i" % (self.infoStart)
+            _print("Infostart computed. %i" % (self.infoStart))
         file.seek(self.infoStart,0)
         if ( size > self.junkSize - 8 ):
-            raise "Too large"        
+            raise "Too large"
         file.write( "LIST" + struct.pack('<I',size) + "INFO" )
         for tag in tags:
             file.write( tag )
-        print "Junksize %i" % (self.junkSize-size-8)
+        _print("Junksize %i" % (self.junkSize-size-8))
         file.write( "JUNK" + struct.pack('<I',self.junkSize-size-8) )
         
 
 factory = mediainfo.get_singleton()
 aviinfo = RiffInfo
 factory.register( 'video/avi', ['avi'], mediainfo.TYPE_VIDEO, aviinfo )
-print "riff type registered"
+print("riff type registered")
 
 if __name__ == '__main__':
     import sys

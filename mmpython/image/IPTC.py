@@ -3,8 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/06/07 21:48:47  the_krow
+# Added Copying info
+# started changing riffinfo to new AV stuff
+#
 # Revision 1.6  2003/05/13 17:49:41  the_krow
-# IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
+# IPTC restructured
+# EXIF Height read correctly
+# JPEG Endmarker read
 #
 # Revision 1.5  2003/05/13 15:23:59  the_krow
 # IPTC

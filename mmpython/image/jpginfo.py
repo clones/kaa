@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2003/06/07 21:48:47  the_krow
+# Added Copying info
+# started changing riffinfo to new AV stuff
+#
 # Revision 1.8  2003/05/13 18:28:17  the_krow
 # JPEG Resolution
 #
@@ -51,6 +55,7 @@ import struct
 
 # interesting file format info:
 # http://www.dcs.ed.ac.uk/home/mxr/gfx/2d-hi.html
+# http://www.funducode.com/freec/Fileformats/format3/format3b.htm
 
 SOF = { 0xC0 : "Baseline",   
         0xC1 : "Extended sequential",   

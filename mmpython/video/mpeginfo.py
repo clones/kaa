@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.5  2003/06/07 21:48:47  the_krow
+# Added Copying info
+# started changing riffinfo to new AV stuff
+#
 # Revision 1.4  2003/05/13 17:49:42  the_krow
 # IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
 #
@@ -74,7 +78,6 @@ SEQ_START_CODE = 0xB3
 PACK_PKT       = 0xBA
 SYS_PKT        = 0xBB
 PADDING_PKT    = 0xBE
-
 AUDIO_PKT      = 0xC0
 VIDEO_PKT      = 0xE0
 
@@ -86,7 +89,7 @@ class MpegInfo(mediainfo.VideoInfo):
         mediainfo.VideoInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        self.valid = self.isVideo(file)
+        self.valid = self.isVideo(file)        
         self.mime = 'video/mpeg'
         self.type = 'mpeg video'
         self.dxy(file)
@@ -100,7 +103,7 @@ class MpegInfo(mediainfo.VideoInfo):
         self.height = struct.unpack('>H',v[1:3])[0] & 0x0FFF
 
     def isVideo(self,file):
-        buffer = file.read(1000)
+        buffer = file.read(4000)
         self.offset = 0
         while ( self.offset <= len(buffer) - 4 ):
             a = ord(buffer[self.offset])
@@ -118,11 +121,12 @@ class MpegInfo(mediainfo.VideoInfo):
             if ( d == SEQ_START_CODE ):
 	        return 1
 	    elif ( self.context == 'video' ) and ( d == SYS_PKT ):
+	        print "videocontext"
 	        return 0
             self.offset += 1
-        return 1
+        return 0
 
 factory = mediainfo.get_singleton()  
 mpginfo = MpegInfo
-factory.register( 'video/mpeg', ['mpeg','mpg','mp4'], mediainfo.TYPE_VIDEO, mpginfo )
+factory.register( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_VIDEO, mpginfo )
 print "mpeg video type registered"
