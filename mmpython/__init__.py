@@ -79,7 +79,7 @@ def parse(filename, bypass_cache = 0):
             return object_cache.find(filename)
         except cache.FileNotFoundException:
             pass
-    info = mediainfo.get_singleton().create_from_filename(filename)
+    info = mediainfo.get_singleton().create(filename)
     if info and object_cache and isinstance(info, disc.discinfo.DiscInfo):
         object_cache.cache_disc(info)
     return info

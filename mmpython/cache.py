@@ -5,6 +5,10 @@
 # $Id$
 #
 # $Log$
+# Revision 1.14  2003/06/24 10:09:51  dischi
+# o improved URL parsing to support cd: scheme
+# o added function create to mediainfo who calls the needed create_from
+#
 # Revision 1.13  2003/06/23 19:27:05  dischi
 # use new (fixed) DiscID interface
 #
@@ -142,10 +146,10 @@ class Cache:
         return the cachefile and the filelist for this directory
         """
         if mediainfo.isurl(directory):
+            split  = mediainfo.url_splitter(directory)
             # this is a complete cd caching
-            type, data = mediainfo.url_splitter(directory)
-            if type == 'cd':
-                device, mountpoint, filename, complete_filename = data
+            if split[0] == 'cd':
+                device, mountpoint, filename, complete_filename = split[1:]
                 cachefile = self.__get_filename__(device)
                 files = []
                 os.path.walk(mountpoint, self.__walk_helper__,
@@ -193,9 +197,9 @@ class Cache:
         objects = {}
         for file in files:
             if mediainfo.isurl(file):
-                type, data = mediainfo.url_splitter(file)
-                if type == 'cd':
-                    device, mountpoint, filename, complete_filename = data
+                split = mediainfo.url_splitter(file)
+                if split[0] == 'cd':
+                    device, mountpoint, filename, complete_filename = split[1:]
                     key  = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
                 else:
                     continue
@@ -284,9 +288,10 @@ class Cache:
         no or out-dated informations.
         """
         if mediainfo.isurl(file):
-            type, data = mediainfo.url_splitter(file)
-            if type == 'cd':
-                device, mountpoint, filename, complete_filename = data
+            split  = mediainfo.url_splitter(directory)
+            # this is a complete cd caching
+            if split[0] == 'cd':
+                device, mountpoint, filename, complete_filename = split[1:]
             else:
                 raise FileNotFoundException
 

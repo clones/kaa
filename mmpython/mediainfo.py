@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.45  2003/06/24 10:09:51  dischi
+# o improved URL parsing to support cd: scheme
+# o added function create to mediainfo who calls the needed create_from
+#
 # Revision 1.44  2003/06/23 22:35:08  the_krow
 # Started working on create_from_url
 #
@@ -229,16 +233,14 @@ def isurl(url):
     return url.find('://') > 0
 
 def url_splitter(url):
-    if url.find('cd:///') == 0:
-        device     = url[5:url[4:].find(':')+4]
-        filename   = url[url[6:].find(':')+7:]
-        mountpoint = filename[:filename.find(':')]
-        filename   = filename[len(mountpoint)+1:]
-        data = ('cd', (device, mountpoint, filename, os.path.join(mountpoint, filename)))
-        return data
-    else:
-        print 'unknown url type: %s' % url
-        return (None, None)
+    split = urlparse.urlsplit(url)
+    if split[0] != 'cd':
+        return split
+    path       = split[2]
+    device     = path[2:path[2:].find(':')+2]
+    filename   = path[path.rfind(':')+1:]
+    mountpoint = path[len(device)+3:len(path)-len(filename)-1]
+    return (split[0], device, mountpoint, filename, '%s/%s' % (mountpoint, filename))
 
     
 class MediaInfo:
@@ -432,6 +434,9 @@ class MetaDataFactory:
         self.device_types = []
         
     def create_from_file(self,file):
+        """
+        create based on the file stream 'file
+        """
         # Check extension as a hint
         for e in self.extmap.keys():
             if DEBUG > 1: print "trying ext %s" % e
@@ -456,19 +461,25 @@ class MetaDataFactory:
         if DEBUG: print 'not found'
         return None
 
+
     def create_from_url(self,url):
-        split = urlparse.urlsplit(url)
-        (scheme, location, path, query, fragment) = split
+        """
+        Create information for urls. This includes file:// and cd://
+        """
+        split  = url_splitter(url)
+        scheme = split[0]
+
         if scheme == 'file':
-            self.create_from_filename(location+path)
+            (scheme, location, path, query, fragment) = split
+            return self.create_from_filename(location+path)
+
         elif scheme == 'cd':
-            # XXX FIXME
-            # CDs do not fit into the url naming scheme :(
-            # Either parse manually or change to format
-            pass
-            # cd://device:mountpoint:file, e.g. for bla.avi:
-            # cd:///dev/cdrom:/mnt/cdrom:bla.avi
+            r = self.create_from_filename(split[4])
+            if r:
+                r.url = url
+
         else:
+            (scheme, location, path, query, fragment) = split
             uhandle = urllib.urlopen(url)
             mime = uhandle.info().gettype()
             if self.mimemap.has_key(mime):
@@ -476,35 +487,48 @@ class MetaDataFactory:
                 if t.valid: return t
             # XXX Todo: Try other types
         pass
-        
-    def create_from_filename(self,filename):
-        if isurl(filename):
-            type, data = url_splitter(filename)
-            if type == 'cd':
-                url = filename
-                filename = data[3]
-        else:
-            url = 'file://%s' % os.path.abspath(filename)
 
-        if stat.S_ISBLK(os.stat(filename)[stat.ST_MODE]):
-            r = self.create_from_device(filename)
-        elif os.path.isfile(filename):
+
+    def create_from_filename(self,filename):
+        """
+        Create information for the given filename
+        """
+        if os.path.isfile(filename):
             f = open(filename,'rb')
             r = self.create_from_file(f)
             f.close()
-        else:
-            r = None
-        if r:
-            r.url = url
-        return r
+            if r:
+                r.url = 'file://%s' % os.path.abspath(filename)
+                return r
+        return None
+    
 
     def create_from_device(self,devicename):
+        """
+        Create information from the device. Currently only rom drives
+        are supported.
+        """
         for e in self.device_types:
             if DEBUG: print 'Trying %s' % e[0]
             t = e[3](devicename)
-            if t.valid: return t
+            if t.valid:
+                t.url = 'file://%s' % os.path.abspath(devicename)
+                return t
         return None
             
+
+    def create(self, name):
+        """
+        Global 'create' function. This function calls the different
+        'create_from_'-functions.
+        """
+        if isurl(name):
+            return self.create_from_url(name)
+        if stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
+            return self.create_from_device(name)
+        return self.create_from_filename(name)
+
+        
     def register(self,mimetype,extensions,type,c):
         if DEBUG: print "%s registered" % mimetype
         tuple = (mimetype,extensions,type,c)
@@ -569,4 +593,5 @@ class SynchronizedObject:
             return self.__methods[name]
         except KeyError:
             return getattr(self.__obj, name)
+
 
