@@ -19,7 +19,6 @@
 ################################################################################
 import re, os, string, stat, shutil, tempfile, binascii;
 from stat import *;
-
 from mmpython.audio.eyeD3 import *;
 
 import utils as utils
@@ -27,6 +26,7 @@ import mp3 as eyeD3_mp3
 
 from frames import *;
 from binfuncs import *;
+
 
 ID3_V1_COMMENT_DESC = "ID3 v1 Comment";
 
@@ -429,7 +429,6 @@ class Tag:
    #
    # Converts all ID3v1 data into ID3v2 frames internally.
    # May throw IOError, or TagException if parsing fails.
-
    def link(self, f, v = ID3_ANY_VERSION):
       self.clear();
 
@@ -1029,7 +1028,7 @@ class Tag:
 
          # Move tmp to orig.
          shutil.copyfile(tmpName, self.linkedFile.name);
-         os.unlink(tmpName)
+         os.unlink(tmpName);
 
       # Update our state.
       TRACE_MSG("Tag write complete.  Updating state.");

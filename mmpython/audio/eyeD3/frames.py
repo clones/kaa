@@ -21,7 +21,6 @@
 
 import os, os.path, re, zlib, StringIO, time;
 from StringIO import StringIO;
-
 from utils import *;
 from binfuncs import *;
 
@@ -314,7 +313,11 @@ class FrameHeader:
       TRACE_MSG("FrameHeader [start byte]: %d (0x%X)" % (f.tell(),
                                                          f.tell()));
       frameId = f.read(4);
-      TRACE_MSG("FrameHeader [id]: " + frameId);
+      TRACE_MSG("FrameHeader [id]: %s (0x%x%x%x%x)" % (frameId,
+                                                       ord(frameId[0]),
+                                                       ord(frameId[1]),
+                                                       ord(frameId[2]),
+                                                       ord(frameId[3])));
 
       if self.isFrameIdValid(frameId):
          self.id = frameId;
@@ -366,7 +369,7 @@ class FrameHeader:
 
    def isFrameIdValid(self, id):
       return re.compile(r"^[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]$").match(id) or \
-             id == 'MP3e';
+             id == 'MP3e' or id[1:] == 'MP3'
 
    def clearFlags(self):
       flags = [0] * 16;
@@ -548,14 +551,14 @@ class DateFrame(TextFrame):
       if self.header.id != DATE_FID:
          raise FrameException("Invalid frame id for DateFrame: " + \
                               self.header.id);
-      try:
-         self.setDate(data);
-      except FrameException, ex:
-         # This will very probably happen for MSWindows every time
-         # so we should just ignore it and be happy without a date
-         pass
+      self.setDate(self.text);
    
    def setDate(self, d):
+      if not d:
+         self.date = None;
+         self.date_str = None;
+         return;
+
       for fmt in timeStampFormats:
          try:
             if isinstance(d, tuple):
@@ -570,12 +573,9 @@ class DateFrame(TextFrame):
                      strippedDate += c;
                d = strippedDate;
                try:
-                  # XXX strptime is not avaiable on all systems!
                   self.date = time.strptime(d, fmt);
                except TypeError, ex:
-                  print str(ex)
-               except AttributeError, ex:
-                  print str(ex)
+                  continue;
                self.date_str = d;
             break;
          except ValueError:
@@ -738,7 +738,8 @@ class UserURLFrame(URLFrame):
       return self.assembleFrame(data);
 
    def __repr__(self):
-      return '<%s (%s): %s [Encoding: %x] [Desc: %s]>' %\
+      print type(self.encoding);
+      return '<%s (%s): %s [Encoding: %s] [Desc: %s]>' %\
              (self.getFrameDesc(), self.header.id,
               self.url, self.encoding, self.description)
 
@@ -1032,6 +1033,11 @@ class FrameSet(list):
 
       while sizeLeft > 0:
          TRACE_MSG("sizeLeft: " + str(sizeLeft));
+         if sizeLeft < (10 + 1):
+            TRACE_MSG("FrameSet: Implied padding (sizeLeft < minFrameSize)");
+            paddingSize = sizeLeft;
+            break;
+
          TRACE_MSG("FrameSet: Reading Frame #" + str(len(self) + 1));
          frameHeader = FrameHeader(tagHeader);
          if not frameHeader.parse(tagBuffer):
