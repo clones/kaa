@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.22  2004/06/22 21:37:34  dischi
+# o PES support
+# o basic length detection for TS and PES
+#
 # Revision 1.21  2004/06/21 20:37:34  dischi
 # basic support for mpeg-ts
 #
@@ -132,17 +136,28 @@ class MpegInfo(mediainfo.AVInfo):
         self.context = 'video'
         self.offset = 0
 
-        # try to find some basic info
+        # detect TS (fast scan)
         self.valid = self.isTS(file) 
+
         if not self.valid:
+            # detect system mpeg (many infos)
             self.valid = self.isSystem(file) 
+
         if not self.valid:
+            # detect unknown mpeg, poor support
             self.valid = self.isVideo(file) 
 
+        if not self.valid:
+            # detect PES, very poor support
+            self.valid = self.isPES(file) 
+            
         if self.valid:       
             self.mime = 'video/mpeg'
             if not self.video:
                 self.video.append(mediainfo.VideoInfo())
+
+            if self.offset <= 0:
+                return
 
             for vi in self.video:
                 vi.width, vi.height = self.dxy(file)
@@ -377,7 +392,119 @@ class MpegInfo(mediainfo.AVInfo):
         return 0
 
 
-    def TSinfo(self, file):
+    # PES ============================================================
+
+
+    def PESinfo(self, offset, buffer, id=0, length_check=False):
+        if not buffer[0:3] == '\x00\x00\x01':
+            return 0
+
+        packet_length = (ord(buffer[4]) << 8) + ord(buffer[5]) + 6
+        align         = ord(buffer[6]) & 4
+        header_length = ord(buffer[8])
+
+        # PES Payload (starting with 001)
+        if ord(buffer[3]) & 0xE0 == 0xC0:
+            id = id or ord(buffer[3]) & 0x1F
+            type = 'audio'
+            for a in self.audio:
+                if a.id == id:
+                    break
+            else:
+                self.audio.append(mediainfo.AudioInfo())
+                self.audio[-1].id = id
+                self.audio[-1].keys.append('id')
+
+        elif ord(buffer[3]) & 0xF0 == 0xE0:
+            id = id or ord(buffer[3]) & 0xF
+            type = 'video'
+            for v in self.video:
+                if v.id == id:
+                    break
+            else:
+                self.video.append(mediainfo.VideoInfo())
+                self.video[-1].id = id
+                self.video[-1].keys.append('id')
+
+            # new mpeg starting
+            if buffer[header_length+9:header_length+13] == \
+                   '\x00\x00\x01\xB3' and not self.offset:
+                # yes, remember offset for later use
+                self.offset = offset + header_length+9
+        else:
+            # unknown content
+            pass
+
+        ptsdts        = ord(buffer[7]) >> 6
+
+        if ptsdts and ptsdts == ord(buffer[9]) >> 4:
+            # we have a timestamp
+            pts1 = ((ord(buffer[9]) & 0xF) >> 1)
+            pts2 = (ord(buffer[10]) << 7) + ord(buffer[11]) >> 1
+            pts3 = (ord(buffer[12]) << 7) + ord(buffer[13]) >> 1
+            if not hasattr(self, 'pts') or length_check:
+                self.pts = ((long(pts1) << 30 ) + (pts2 << 15) + pts3) / 90000
+
+        return packet_length
+    
+
+
+    def isPES(self, file):
+        if mediainfo.DEBUG:
+            print 'trying mpeg-pes scan'
+        file.seek(0,0)
+        buffer = file.read(3)
+
+        # header (also valid for all mpegs)
+        if not buffer == '\x00\x00\x01':
+            return 0
+
+        self.offset = 0
+        buffer += file.read(10000)
+
+        offset = 0
+        while offset + 1000 < len(buffer):
+            pos = self.PESinfo(offset, buffer[offset:])
+            if not pos:
+                return 0
+            if self.offset:
+                # we have good informations here
+                break
+            offset += pos
+
+            if offset + 1000 < len(buffer) and len(buffer) < 1000000 or 1:
+                # looks like a pes, read more
+                buffer += file.read(10000)
+        
+        if not self.video and not self.audio:
+            # no video and no audio? 
+            return 0
+
+        self.type = 'MPEG-PES'
+
+        # get length:
+        file.seek(os.stat(file.name)[stat.ST_SIZE]-100000)
+        buffer = file.read(1000000)
+        offset = buffer.find('\x00\x00\x01')
+
+        start = self.pts
+        
+        while offset + 1000 < len(buffer):
+            pos = self.PESinfo(offset, buffer[offset:], length_check=True)
+            if pos == 0:
+                # Oops, that was a mpeg header, no PES header
+                offset += buffer[offset:].find('\x00\x00\x01')
+            else:
+                offset += pos
+
+        if self.pts > start:
+            self.length = self.pts - start
+        return 1
+            
+
+    # Transport Stream ===============================================
+    
+    def TSinfo(self, file, length_check=False):
         PACKET_LENGTH = 188
         SYNC          = 0x47
 
@@ -407,44 +534,9 @@ class MpegInfo(mediainfo.AVInfo):
                 # meta info present, skip it for now
                 offset += ord(buffer[c+offset]) + 1
 
-            if adapt & 0x01 and ord(buffer[c+offset]) == ord(buffer[c+offset+1]) == 0 \
-                   and ord(buffer[c+offset+2]) == 1:
-                align         = ord(buffer[c+offset+6]) & 4
-                header_length = ord(buffer[c+offset+8])
-                dts           = ord(buffer[c+offset+7]) >> 6
-
-                # PES Payload (starting with 001)
-                if ord(buffer[c+offset+3]) & 0xE0 == 0xC0:
-                    id = ord(buffer[c+offset+3]) & 0x1F
-                    type = 'audio'
-                    for a in self.audio:
-                        if a.id == tsid:
-                            break
-                    else:
-                        self.audio.append(mediainfo.AudioInfo())
-                        self.audio[-1].id = tsid
-                        self.audio[-1].keys.append('id')
-
-                elif ord(buffer[c+offset+3]) & 0xE0 == 0xE0:
-                    id = ord(buffer[c+offset+3]) & 0xF
-                    type = 'video'
-                    for v in self.video:
-                        if v.id == tsid:
-                            break
-                    else:
-                        self.video.append(mediainfo.VideoInfo())
-                        self.video[-1].id = tsid
-                        self.video[-1].keys.append('id')
-
-                    # new mpeg starting
-                    if buffer[c+offset+header_length+9:c+offset+header_length+13] == \
-                           '\x00\x00\x01\xB3' and not self.offset:
-                        # yes, remember offset for later use
-                        self.offset = c+offset+header_length+9
-                else:
-                    # unknown content
-                    continue
-
+            if adapt & 0x01 and self.PESinfo(c+offset, buffer[c+offset:], tsid, length_check):
+                # PES
+                pass
             elif adapt & 0x01:
                 # no PES, scan for something else here
                 pass
@@ -460,7 +552,20 @@ class MpegInfo(mediainfo.AVInfo):
         if mediainfo.DEBUG:
             print 'trying mpeg-ts scan'
         file.seek(0,0)
-        return self.TSinfo(file)
+        valid = self.TSinfo(file)
+        if not valid:
+            return 0
+
+        start = self.pts
+
+        # get length:
+        file.seek(os.stat(file.name)[stat.ST_SIZE]-100000)
+        self.TSinfo(file, True)
+        
+        if self.pts > start:
+            self.length = self.pts - start
+        return 1
+
 
     
 mmpython.registertype( 'video/mpeg', ('mpeg','mpg','mp4', 'ts'), mediainfo.TYPE_AV, MpegInfo )
