@@ -32,10 +32,7 @@ class DVDInfo(mediainfo.DiscInfo):
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'video/dvd'
-        self.type = 'dvd video'
-
-        self.keys.append('title_list')
-        
+        self.type = 'dvd video'        
 
     def isDisc(self, device):
         if mediainfo.DiscInfo.isDisc(self, device) != 2:
@@ -64,9 +61,8 @@ class DVDInfo(mediainfo.DiscInfo):
         if not title_num:
             return 0
 
-        self.title_list = []
         for title in range(1, title_num+1):
-            self.title_list.append(DVDTitle(title))
+            self.appendtrack(DVDTitle(title))
 
         ifoparser.close()
         return 1

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.13  2003/06/08 11:23:06  the_krow
+# added Collection Type for Media Collection like Audio CDS, DVDs, VCDs
+#
 # Revision 1.12  2003/06/08 10:24:07  dischi
 # Added subdir disc
 #
@@ -103,7 +106,7 @@ def get_singleton():
     return _singleton
 
 MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype', 'date', 'keywords', 'country', 'language']
-AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits', 'bitrate']
+AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits', 'bitrate', 'language']
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
              'width', 'height',]
 IMAGECORE = ['width','height','thumbnail','software','hardware']
@@ -149,13 +152,14 @@ class MediaInfo:
 
 class AudioInfo(MediaInfo):
     def __init__(self):
-        MediaInfo.__init__(self)
+        self.keys = []
         for k in AUDIOCORE:
             setattr(self,k,None)
             self.keys.append(k)
 
 class MusicInfo(AudioInfo):
     def __init__(self):
+        MediaInfo.__init__(self)
         AudioInfo.__init__(self)
         for k in MUSICCORE:
             setattr(self,k,None)
@@ -163,7 +167,7 @@ class MusicInfo(AudioInfo):
 
 class VideoInfo(MediaInfo):
     def __init__(self):
-        MediaInfo.__init__(self)
+        self.keys = []
         for k in VIDEOCORE:
             setattr(self,k,None)
             self.keys.append(k)
@@ -186,13 +190,21 @@ class ImageInfo(MediaInfo):
             self.keys.append(k)
         
 
+class CollectionInfo(MediaInfo):
+    def __init__(self):
+        MediaInfo.__init__(self)
+        self.tracks = []
+    
+    def appendtrack(self, track):
+        self.tracks.append(track)
+
 CDROM_DRIVE_STATUS=0x5326
 CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
 CDROM_DISC_STATUS=0x5327
 CDS_AUDIO=100
 CDS_MIXED=105
 
-class DiscInfo(MediaInfo):
+class DiscInfo(CollectionInfo):
     def isDisc(self, device):
         try:
             fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
