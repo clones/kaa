@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.15  2003/09/22 16:21:20  the_krow
+# o ogg parsing should basically work
+# o utf-8 for vorbis comments
+#
 # Revision 1.14  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -134,7 +138,7 @@ class OggInfo(mediainfo.MusicInfo):
                                             
     def _extractHeaderString(self,f):
         len = struct.unpack( '<I', f.read(4) )[0]
-        return f.read(len)
+        return unicode(f.read(len), 'utf-8')
     
 
     def _calculateTrackLength(self,f):

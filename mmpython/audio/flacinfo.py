@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/09/22 16:21:20  the_krow
+# o ogg parsing should basically work
+# o utf-8 for vorbis comments
+#
 # Revision 1.4  2003/08/30 09:36:22  dischi
 # turn off some debug based on DEBUG
 #
@@ -46,6 +50,9 @@
 from mmpython import mediainfo
 import mmpython.audio.ogginfo as ogginfo
 import mmpython
+import struct
+
+# See: http://flac.sourceforge.net/format.html
 
 
 class FlacInfo(mediainfo.MusicInfo):
@@ -54,16 +61,23 @@ class FlacInfo(mediainfo.MusicInfo):
         if file.read(4) != 'fLaC':
             self.valid = 0
             return
+        self.valid = 1
         while 1:
-            import struct
-            (blockheader,) = struct.unpack('>i',file.read(4))
-            type = blockheader >> 24 & 0x7F
+            (blockheader,) = struct.unpack('>I',file.read(4))
+            lastblock = (blockheader >> 31) & 1
+            type = (blockheader >> 24) & 0x7F
+            numbytes = blockheader & 0xFFFFFF
             if mmpython.mediainfo.DEBUG:
-                print type
-
+                print "Last?: %d, NumBytes: %d, Type: %d" % (lastblock, numbytes, type)                                
+            # Read this blocks the data
+            data = file.read(numbytes)
             if type == 0:
                 # STREAMINFO
-                pass
+                bits = struct.unpack('>L', data[10:14])[0]
+                self.samplerate = (bits >> 12) & 0xFFFFF
+                self.channels = ((bits >> 9) & 7) + 1
+                self.samplebits = ((bits >> 4) & 0x1F) + 1
+                md5 = data[18:34]
             elif type == 1:
                 # PADDING
                 pass            
@@ -74,18 +88,29 @@ class FlacInfo(mediainfo.MusicInfo):
                 # SEEKTABLE 
                 pass            
             elif type == 4:
-                # VORBIS_COMMENT 
-                print "Found comment"
-                pass            
+                # VORBIS_COMMENT                
+                skip, self.vendor = self._extractHeaderString(data)
+                num, = struct.unpack('<I', data[skip:skip+4])
+                start = skip+4
+                header = {}
+                for i in range(num):
+                    (nextlen, s) = self._extractHeaderString(h[start:])
+                    start += nextlen
+                    a = re.split('=',s)
+                    header[(a[0]).upper()]=a[1]
+                self.appendtable('VORBISCOMMENT', header)
             elif type == 5:
                 # CUESHEET 
                 pass
             else:
                 # UNKNOWN TYPE
                 pass
-            numbytes = blockheader & 0xFFFFFF
-            if blockheader & 0x80000000L == 0x80000000L:
+            if lastblock:
                 break
-                
+
+    def _extractHeaderString(self,header):
+        len = struct.unpack( '<I', header[:4] )[0]
+        return (len+4,unicode(header[4:4+len], 'utf-8'))
+
                 
 mmpython.registertype( 'application/flac', ('flac',), mediainfo.TYPE_MUSIC, FlacInfo )                
