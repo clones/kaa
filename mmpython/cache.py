@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.2  2003/06/08 15:48:07  dischi
+# removed some debug
+#
 # Revision 1.1  2003/06/08 15:38:58  dischi
 # class to cache the results
 #
@@ -111,9 +114,7 @@ class Cache:
             key = '%s_%s' % (info.id, info.label)
         elif hasattr(info, 'disc_id'):
             key = '%s %d ' % (info.disc_id, len(info.tracks))
-            print '.%s.' % key
         else:
-            print 'can\'t add object to cache, it has no id'
             return 0
 
         self.current_objects[key] = info
