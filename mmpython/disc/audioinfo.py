@@ -96,7 +96,7 @@ class AudioInfo(mediainfo.DiscInfo):
             _debug("failure getting disc info, status %i" % query_stat)
             for i in range(0, disc_id[1]):
                 mi = mediainfo.MusicInfo()
-                mi.title = 'Track %s' % i+1
+                mi.title = 'Track %s' % (i+1)
                 mi.codec = 'PCM'
                 mi.samplerate = 44.1
                 mi.trackno = i+1
