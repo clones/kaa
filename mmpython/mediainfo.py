@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.29  2003/06/09 23:13:06  the_krow
+# bugfix: unknown files are now resetted before trying if they are valid
+# first rudimentary eyed3 mp3 parser added
+#
 # Revision 1.28  2003/06/09 16:12:30  dischi
 # make the disc ids like the one from Freevo
 #
@@ -384,6 +388,7 @@ class MetaDataFactory:
         for e in self.types:
             if DEBUG: print "Trying %s" % e[0]
             try:
+                file.seek(0,0)
                 t = e[3](file, filename)
                 if t.valid: return t
             except:

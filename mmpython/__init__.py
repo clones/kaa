@@ -5,7 +5,6 @@ import cache
 
 import audio.ogginfo
 import audio.pcminfo
-import audio.mp3info
 import video.riffinfo
 import video.mpeginfo
 import video.asfinfo
@@ -18,6 +17,8 @@ import image.tiffinfo
 import disc.dvdinfo
 import disc.vcdinfo
 import disc.audioinfo
+import audio.mp3info
+#import audio.eyed3info
 
 
 object_cache    = None
