@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.32  2003/09/01 18:54:12  dischi
+# add callback for cache_dir
+#
 # Revision 1.31  2003/08/30 12:17:32  dischi
 # cache for cd:// only needed directories
 #
@@ -235,7 +238,7 @@ class Cache:
         return new
     
         
-    def cache_dir(self, directory, uncachable_keys):
+    def cache_dir(self, directory, uncachable_keys, callback):
         """
         cache every file in the directory for future use
         """
@@ -267,7 +270,9 @@ class Cache:
                 info = self.find(file)
             except FileNotFoundException:
                 info = mmpython.Factory().create(file)
-
+                if callback:
+                    callback()
+                    
             if info:
                 for k in uncachable_keys:
                     if info.has_key(k):

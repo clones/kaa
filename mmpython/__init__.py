@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.21  2003/09/01 18:54:12  dischi
+# add callback for cache_dir
+#
 # Revision 1.20  2003/08/26 13:16:41  outlyer
 # Enabled m4a support
 #
@@ -130,14 +133,14 @@ def check_cache(directory):
     return object_cache.check_cache(directory)
 
 
-def cache_dir(directory, uncachable_keys = uncachable_keys):
+def cache_dir(directory, uncachable_keys = uncachable_keys, callback=None):
     """
     cache every file in the directory for future use
     """
     global object_cache
     if not object_cache:
         return {}
-    return object_cache.cache_dir(directory, uncachable_keys)
+    return object_cache.cache_dir(directory, uncachable_keys, callback)
 
 
 def parse(filename, bypass_cache = 0):
