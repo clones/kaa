@@ -140,7 +140,7 @@ class DVDInfo(DiscInfo):
         if not os.path.isdir(dirname+'/VIDEO_TS'):
             return 0
 
-        return self.lsdvd(device)
+        return self.lsdvd(dirname)
 
     
     def isDisc(self, device):
