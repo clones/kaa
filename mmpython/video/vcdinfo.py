@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.5  2003/06/29 11:59:55  dischi
+# bugfix
+#
 # Revision 1.4  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -53,7 +56,7 @@ class VCDInfo(mediainfo.CollectionInfo):
         mediainfo.CollectionInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        self.valid = self.isVCD(file, file.name)
+        self.valid = self.isVCD(file)
         self.mime = 'video/vcd'
         self.type = 'vcd video'        
 
