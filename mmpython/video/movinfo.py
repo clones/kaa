@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.24  2004/07/14 13:42:57  dischi
+# small debug updates
+#
 # Revision 1.23  2004/05/24 12:54:35  dischi
 # debug update
 #
@@ -106,6 +109,7 @@
 import re
 import struct
 import string
+import time
 import zlib
 import fourcc
 import mmpython
@@ -214,9 +218,15 @@ class MovInfo(mediainfo.AVInfo):
                     ai = mediainfo.AudioInfo()
                     ai.id = tkhd[3]
                     
-                    # XXX Date number of Seconds is since January 1st 1904!!!
-                    self.date = tkhd[1]
-
+                    try:
+                        # XXX Date number of Seconds is since January 1st 1904!!!
+                        # XXX 2082844800 is the difference between Unix and Apple time
+                        # XXX Fix me to work on Apple, too
+                        self.date = int(tkhd[1]) - 2082844800
+                        self.date = time.strftime('%y/%m/%d', time.gmtime(self.date))
+                    except Exception, e:
+                        print 'ex', e
+                    
                 elif datatype == 'mdia':
                     pos      += 8
                     datasize -= 8
@@ -262,16 +272,31 @@ class MovInfo(mediainfo.AVInfo):
                                     # jpeg is no video, remove it from the list
                                     self.video.remove(vi)
                                     info = None
-                                    
+
+                        elif mdia[1] == 'dinf':
+                            dref = struct.unpack('>I4s', atomdata[pos+8:pos+8+8])
+                            if ATOM_DEBUG:
+                                print '  --> %s, %s' % mdia
+                                print '    --> %s, %s (reference)' % dref
+                            
                         elif ATOM_DEBUG:
-                            print '  --> %s, %s' % mdia
+                            if mdia[1].startswith('st'):
+                                print '  --> %s, %s (sample)' % mdia
+                            elif mdia[1] in ('vmhd', 'smhd'):
+                                print '  --> %s, %s (media information header)' % mdia
+                            else:
+                                print '  --> %s, %s (unknown)' % mdia
+
                         pos      += mdia[0]
                         datasize -= mdia[0]
 
                 elif datatype == 'udta' and ATOM_DEBUG:
                     print struct.unpack('>I4s', atomdata[:8])
                 elif ATOM_DEBUG:
-                    print "--> %s [%d]" % (datatype, datasize)
+                    if datatype == 'edts':
+                        print "--> %s [%d] (edit list)" % (datatype, datasize)
+                    else:
+                        print "--> %s [%d] (unknown)" % (datatype, datasize)
                 pos += datasize
 
         elif atomtype == 'mvhd':
@@ -323,8 +348,12 @@ class MovInfo(mediainfo.AVInfo):
         elif atomtype == 'mdat':
             pos = file.tell() + atomsize - 8
             # maybe there is data inside the mdat
+            if ATOM_DEBUG:
+                print 'parsing mdat'
             while self._readatom(file):
                 pass
+            if ATOM_DEBUG:
+                print 'end of mdat'
             file.seek(pos, 0)
             
         
