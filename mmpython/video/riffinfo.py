@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.26  2003/07/10 11:18:11  the_krow
+# few more attributes added
+#
 # Revision 1.25  2003/07/07 21:36:44  dischi
 # make fps a float and round it to two digest after the comma
 #
@@ -116,6 +119,9 @@ AVIINFO_tags = { 'title': 'INAM',
                  'writer': 'IWRI',
                  'genre': 'IGNR',
                  'copyright': 'ICOP',
+                 'trackno': 'IPRT',
+                 'trackof': 'IFRM',
+                 'comment': 'ICMT',
                }
 
 
