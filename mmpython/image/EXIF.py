@@ -769,7 +769,7 @@ class EXIF_header:
             else:
                 values=[]
                 signed=(field_type in [6, 8, 9, 10])
-                if count > 10000:
+                if count > 1000:
                     # XXX change in mmpython. Ignore fields that are too long
                     # XXX This is some special camera data we don't need
                     # XXX anyway. This is a major speed enhancement for some
