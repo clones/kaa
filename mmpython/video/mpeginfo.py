@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.19  2004/02/11 20:11:54  dischi
+# Updated length calculation for mpeg files. This may not work for all files.
+#
 # Revision 1.18  2003/08/30 12:16:01  dischi
 # turn off debug
 #
@@ -74,12 +77,14 @@
 #endif
 
 import re
+import os
 import struct
 import string
 import fourcc
 
 from mmpython import mediainfo
 import mmpython
+import stat
 
 ##------------------------------------------------------------------------
 ## START_CODE
@@ -171,20 +176,24 @@ class MpegInfo(mediainfo.AVInfo):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        self.valid = self.isVideo(file) 
+        self.valid = self.isSystem(file) 
+        if not self.valid:
+            self.valid = self.isVideo(file) 
         if self.valid:       
             self.mime = 'video/mpeg'
-            self.type = 'MPEG video'
             vi = mediainfo.VideoInfo()
             vi.width, vi.height = self.dxy(file)
             vi.fps, vi.aspect = self.framerate_aspect(file)
             vi.bitrate = self.bitrate(file)
-            vi.length = self.mpgsize(file) * 8 / vi.bitrate
+            vi.length = self.mpgsize(file) * 8 / (vi.bitrate)
             self.video.append(vi)
-            if vi.width == 480:
-                self.type = 'MPEG2 video' # SVCD spec
-            if vi.width == 352:
-                self.type = 'MPEG1 video' # VCD spec
+            if not self.type:
+                if vi.width == 480:
+                    self.type = 'MPEG2 video' # SVCD spec
+                elif vi.width == 352:
+                    self.type = 'MPEG1 video' # VCD spec
+                else:
+                    self.type = 'MPEG video'
                 
     def dxy(self,file):  
         file.seek(self.offset+4,0)
@@ -243,6 +252,10 @@ class MpegInfo(mediainfo.AVInfo):
     ##
     ##
     ##------------------------------------------------------------------------ 
+
+
+    ## Some parts in the code are based on mpgtx (mpgtx.sf.net)
+    
     def bitrate(self,file):
         file.seek(self.offset+8,0)
         t,b = struct.unpack( '>HB', file.read(3) )
@@ -252,8 +265,138 @@ class MpegInfo(mediainfo.AVInfo):
     def mpgsize(self,file):
         file.seek(0,2)
         return file.tell()
+
+
+    def ParseSystemPacket(self, buffer):
+        size = (ord(buffer[4]) * 256 + ord(buffer[5])) - 6
+        if size % 3:
+            return 0
+        if mediainfo.DEBUG:
+            print '%s Streams in MPEG' % (size / 3)
+        num_v = 0
+        num_a = 0
+        for i in range(size/3):
+            code = ord(buffer[12+i*3])
+            if (code&0xF0)==0xC0:
+                num_a += 1
+            elif (code&0xF0)==0xE0 or (code & 0xF0)==0xD0:
+                num_v += 1
+        if num_v:
+            self.has_video = 1
+        if num_a:
+            self.has_audio = 1
+        return 1
+
+
+    def ReadTSMpeg2(self, buffer):
+	highbit = (ord(buffer[0])&0x20)>>5
+
+	low4Bytes= ((ord(buffer[0]) & 0x18) >> 3) << 30
+	low4Bytes |= (ord(buffer[0]) & 0x03) << 28
+	low4Bytes |= ord(buffer[1]) << 20
+	low4Bytes |= (ord(buffer[2]) & 0xF8) << 12
+	low4Bytes |= (ord(buffer[2]) & 0x03) << 13
+	low4Bytes |= ord(buffer[3]) << 5
+	low4Bytes |= (ord(buffer[4])) >> 3
+
+	sys_clock_ref=(ord(buffer[4]) & 0x3) << 7
+	sys_clock_ref|=(ord(buffer[5]) >> 1)
+
+ 	return (long(highbit * (1<<16) * (1<<16)) + low4Bytes) / 90000
+
+
+    def ReadTSMpeg1(self, buffer):
+	highbit = (ord(buffer[0]) >> 3) & 0x01
+
+	low4Bytes = ((ord(buffer[0]) >> 1) & 0x03) << 30
+	low4Bytes |= ord(buffer[1]) << 22;
+	low4Bytes |= (ord(buffer[2]) >> 1) << 15;
+	low4Bytes |= ord(buffer[3]) << 7;
+	low4Bytes |= ord(buffer[4]) >> 1;
+
+	return (long(highbit) * (1<<16) * (1<<16) + low4Bytes) / 90000;
+
+
+    def isSystem(self, file):
+        file.seek(0,0)
+        buffer = file.read(10000)
+        offset = 0
+        while buffer[offset] == '\0':
+            offset += 1
+        offset -= 2
+
+        if buffer[offset:offset+4] == '\x00\x00\x01%s' % chr(PACK_PKT):
+            offset += 4
+
+            if ord(buffer[4]) & 0xF0 == 0x20:
+                self.type = 'MPEG1 video'
+                PACKlength = 12
+                self.ReadTS = self.ReadTSMpeg1
+            elif (ord(buffer[4]) & 0xC0) == 0x40:
+                self.type = 'MPEG2 video'
+                PACKlength = 14 + (ord(buffer[13]) & 0x07)
+                self.ReadTS = self.ReadTSMpeg2
+            else:
+                return 0
+
+            if not self.ParseSystemPacket(buffer[PACKlength:]):
+                return 0
+
+            type = ord(buffer[0])
+            if ord(buffer[15+PACKlength]) in (VIDEO_PKT, AUDIO_PKT):
+                type = VIDEO_PKT
+            if type != VIDEO_PKT:
+                if mediainfo.DEBUG:
+                    print 'unknown packet type %s, this may cause problems' % type
+
+            if not self.isVideo(file):
+                return 0
+
+            self.ts_start = self.ReadTS(buffer[4:])
+            self.filename = file.name
+            self.length   = self.get_length()
+            if mediainfo.DEBUG:
+                print 'detected ts format'
+            return 1
+        return 0
+
+
+    def get_length(self):
+        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+            return -1
+        file = open(self.filename)
+        file.seek(os.stat(self.filename)[stat.ST_SIZE]-10000)
+        buffer = file.read(10000)
+        pos    = buffer.rfind('\x00\x00\x01%s' % chr(PACK_PKT))
+        length = self.ReadTS(buffer[pos+4:]) - self.ts_start
+        file.close()
+        return length
+    
+
+    def seek(self, pos):
+        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+            return 0
+        file    = open(self.filename)
+        seek_to = 0
+        while 1:
+            file.seek(1000000, 1)
+            buffer = file.read(10000)
+            if len(buffer) < 10000:
+                break
+            pack_pos = buffer.find('\x00\x00\x01%s' % chr(PACK_PKT))
+            if pack_pos == -1:
+                continue
+            if self.ReadTS(buffer[pack_pos+4:]) - self.ts_start >= pos:
+                break
+            buffer  = buffer[pack_pos+50:]
+            seek_to = file.tell()
+
+        file.close()
+        return seek_to
+
     
     def isVideo(self,file):
+        file.seek(0,0)
         buffer = file.read(10000)
         self.offset = buffer.find( '\x00\x00\x01\xB3' )
         if self.offset >= 0:
