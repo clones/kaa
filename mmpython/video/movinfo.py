@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.15  2003/06/29 18:30:56  dischi
+# length is broken, deactivated it until it is fixed
+#
 # Revision 1.14  2003/06/29 11:59:35  dischi
 # make some debug silent
 #
@@ -148,7 +151,9 @@ class MovInfo(mediainfo.AVInfo):
                     vi.width = tkhd[10] >> 16
                     vi.height = tkhd[11] >> 16
                     vi.id = tkhd[3]
-                    self.length = vi.length = tkhd[5]
+                    # XXX length is broken, it report days (!) when you interpret
+                    # XXX the length as seconds
+                    #self.length = vi.length = tkhd[5]
                     self.date = tkhd[1]
                     self.video.append(vi)
                     #print tkhd
