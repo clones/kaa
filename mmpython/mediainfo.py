@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.18  2003/06/08 13:44:22  dischi
+# import table again, sorry
+#
 # Revision 1.17  2003/06/08 13:40:09  the_krow
 # table added
 #
@@ -142,6 +145,7 @@ AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
 
 DEVICE    = 'device'
 
+import table
 
 class MediaInfo:
     def __init__(self):
