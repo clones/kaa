@@ -1,7 +1,7 @@
 import mediainfo
 import IPTC
 import EXIF
-import Image
+#import Image
 
 # interesting file format info:
 # http://www.dcs.ed.ac.uk/home/mxr/gfx/2d-hi.html
@@ -11,17 +11,11 @@ class JPGInfo(mediainfo.ImageInfo):
 
     def __init__(self,file):
         mediainfo.ImageInfo.__init__(self)
-        self.iptc = None
-        try:
-            im = Image.open(file)
-            self.valid = 1
-        except:
-            self.valid = 0
-            return
-        
+        self.iptc = None        
         self.mime = 'image/jpeg'
         self.type = 'jpeg image'
-        self.iptc = IPTC.getiptcinfo(im)
+        self.iptc = IPTC.getiptcinfo(file)
+        self.valid = 1
         file.seek(0)
         self.exif = EXIF.process_file(file)
         if self.exif:
@@ -34,12 +28,12 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'software', self.exif, 'Image Software' )
             self.setitem( 'thumbnail', self.exif, 'JPEGThumbnail' ) 
         if self.iptc:
-            self.setitem( 'title', self.iptc, (2,5) ) 
-            self.setitem( 'date' , self.iptc, (2,55) )
-            self.setitem( 'comment', self.iptc, (2,105) )
-            self.setitem( 'keywords', self.iptc, (2,25) )
-            self.setitem( 'artist', self.iptc, (2,80) )
-            self.setitem( 'country', self.iptc, (2,100) ) 
+            self.setitem( 'title', self.iptc, 517 ) 
+            self.setitem( 'date' , self.iptc, 567 )
+            self.setitem( 'comment', self.iptc, 617 )
+            self.setitem( 'keywords', self.iptc, 537 )
+            self.setitem( 'artist', self.iptc, 592 )
+            self.setitem( 'country', self.iptc, 612 ) 
         self.height = self.exif.keys()
         return
        
