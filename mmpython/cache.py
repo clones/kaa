@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.20  2003/07/02 20:14:48  dischi
+# some fixes with abspath
+#
 # Revision 1.19  2003/07/01 21:04:07  dischi
 # some fixes
 #
@@ -193,6 +196,7 @@ class Cache:
         Return how many files in this directory are not in the cache. It's
         possible to guess how much time the update will need.
         """
+        directory = os.path.abspath(directory)
         cachefile, files = self.__get_cachefile_and_filelist__(directory)
 
         if not cachefile:
@@ -211,6 +215,7 @@ class Cache:
         """
         cache every file in the directory for future use
         """
+        directory = os.path.abspath(directory)
         cachefile, files = self.__get_cachefile_and_filelist__(directory)
 
         if not cachefile:
@@ -237,7 +242,10 @@ class Cache:
                 for k in uncachable_keys:
                     if info.has_key(k):
                         info[k] = None
-                del info.tables
+                try:
+                    del info.tables
+                except:
+                    pass
             objects[key] = info
 
         f = open(cachefile, 'w')
@@ -337,7 +345,6 @@ class Cache:
             key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
 
         cachefile = self.__get_filename__(dname)
-
         if not dname == self.current_dir:
             if not (cachefile and os.path.isfile(cachefile)):
                 raise FileNotFoundException
@@ -350,7 +357,6 @@ class Cache:
             
             self.current_dir     = dname
             self.current_objects = objects
-
         try:
             return self.current_objects[key]
         except:
