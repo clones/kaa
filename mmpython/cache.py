@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.13  2003/06/23 19:27:05  dischi
+# use new (fixed) DiscID interface
+#
 # Revision 1.12  2003/06/21 15:41:10  dischi
 # correct an error that all discs are data discs
 #
@@ -238,7 +241,7 @@ class Cache:
             return None
         
         elif disc_type == 1:
-            disc_id = DiscID.disc_id(DiscID.open(device))
+            disc_id = DiscID.disc_id(device)
             id = '%08lx_%d' % (disc_id[0], disc_id[1])
 
         else:
