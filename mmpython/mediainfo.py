@@ -3,6 +3,10 @@ TYPE_AUDIO = 1
 TYPE_VIDEO = 2
 TYPE_IMAGE = 4
 TYPE_HYPERTEXT = 8
+
+import string
+import types
+
 # Audiocore: TITLE, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
 #  + ID3 Tags
 #  + ID3V2 Tags
@@ -17,7 +21,7 @@ TYPE_HYPERTEXT = 8
 #  + EXIF
 #  + IPTC
 #  + Filename
-
+#u = s.decode(whateverencoding)
 # Module variable that contains an initialized MetaDataFactory() object
 _singleton = None
 
@@ -59,6 +63,24 @@ class MediaInfo:
                 print "Unknown key: %s" % item
         except:
             pass
+
+    def expand_keywords(self):
+        resultset = []
+        keywords = ()
+        if isinstance(self.__dict__['keywords'],types.TupleType):
+            print("tuple")
+            keywords = self.__dict__['keywords']
+        else:
+            keywords = (self.__dict__['keywords'],)
+        for i in keywords:
+            print("append: %s" % i)
+            k = string.split( i, ',' ) 
+            for it in k:
+                s = string.strip( it )
+                resultset.append( s )
+        self.__dict__['keywords'] = tuple( resultset )
+        
+            
 
 class AudioInfo(MediaInfo):
     def __init__(self):
