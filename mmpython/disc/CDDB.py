@@ -16,7 +16,10 @@ version = 1.3
 if os.environ.has_key('EMAIL'):
     (default_user, hostname) = string.split(os.environ['EMAIL'], '@')
 else:
-    default_user = os.geteuid() or os.environ['USER'] or 'user'
+    try:
+        default_user = os.geteuid() or os.environ['USER'] or 'user'
+    except:
+        default_user = 'user'
     hostname = socket.gethostname() or 'host'
 
 proto = 4
