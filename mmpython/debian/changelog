@@ -1,3 +1,9 @@
+python2.2-mmpython (0.0.1cvs20030710-freevo3) unstable; urgency=low
+
+  * New snapshot with Ogg fixes
+
+ -- Aubin Paul <debian@outlyer.org>  Thu, 10 Jul 2003 08:52:28 -0400
+
 python2.2-mmpython (0.0.1cvs20030702-freevo2) unstable; urgency=low
 
   * Oops, debug was left on.
