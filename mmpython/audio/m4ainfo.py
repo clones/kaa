@@ -46,18 +46,23 @@ class Mpeg4(mediainfo.MusicInfo):
             data = self.read(length, file)
         if name == '\xa9nam':
             self.title = data[8:]
+            self.valid = 1
         if name == '\xa9ART':
             self.artist = data[8:]
+            self.valid = 1
         if name == '\xa9alb':
             self.album = data[8:]
+            self.valid = 1
         if name == 'trkn':
             # Fix this
             self.trackno = data
+            self.valid = 1
         if name == '\xa9day':
             self.year = data[8:]
+            self.valid = 1
         if name == '\xa9too':
             self.encoder = data[8:]
-        self.valid = 1
+            self.valid = 1
         return 0
         
     def read(self, b, file):
