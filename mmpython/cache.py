@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.5  2003/06/08 20:13:03  dischi
+# added check_cache to get an idea how long the update will take
+#
 # Revision 1.4  2003/06/08 17:06:25  dischi
 # cache_dir now uses the prev cache to write the cache and returns the
 # list of all objects.
@@ -62,6 +65,9 @@ class FileNotFoundException(Exception):
 
 
 class Cache:
+    """
+    Class to cache mediainfo objects
+    """
     def __init__(self, cachedir):
         self.cachedir = cachedir
 
@@ -86,7 +92,25 @@ class Cache:
         """
         return '%s/%s' % (self.cachedir, self.hexify(md5.new(directory).digest()))
     
+
+    def check_cache(self, directory):
+        """
+        Return how many files in this directory are not in the cache. It's
+        possible to guess how much time the update will need.
+        """
+        cachefile = self.__get_filename__(directory)
+        if not cachefile:
+            return -1
+
+        new = 0
+        for file in [ os.path.join(directory, dname) for dname in os.listdir(directory) ]:
+            try:
+                info = self.find(file)
+            except FileNotFoundException:
+                new += 1
+        return new
     
+        
     def cache_dir(self, directory, uncachable_keys):
         """
         cache every file in the directory for future use

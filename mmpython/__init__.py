@@ -31,13 +31,24 @@ def use_cache(directory):
     object_cache = cache.Cache(directory)
 
 
+def check_cache(directory):
+    """
+    Return how many files in this directory are not in the cache. It's
+    possible to guess how much time the update will need.
+    """
+    global object_cache
+    if not object_cache:
+        return -1
+    return object_cache.check_cache(directory)
+
+
 def cache_dir(directory, uncachable_keys = uncachable_keys):
     """
     cache every file in the directory for future use
     """
     global object_cache
     if not object_cache:
-        return 0
+        return {}
     return object_cache.cache_dir(directory, uncachable_keys)
 
 
