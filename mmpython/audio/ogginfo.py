@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/06/07 23:32:11  the_krow
+# changed names to new format
+# debug messages
+#
 # Revision 1.6  2003/05/13 15:23:59  the_krow
 # IPTC
 #
@@ -38,29 +42,31 @@ VORBIS_PACKET_INFO = '\01vorbis'
 VORBIS_PACKET_HEADER = '\03vorbis'
 VORBIS_PACKET_SETUP = '\05vorbis'
 
+_print = mediainfo._debug
+
 class OggInfo(mediainfo.AudioInfo):
     def __init__(self,file):
         mediainfo.AudioInfo.__init__(self)
         h = file.read(4+1+1+20+1)
         if h[:5] != "OggS\00":
-            print "Invalid header"
+            _print("Invalid header")
             self.valid = 0
             return
         if ord(h[5]) != 2:
-            print "Invalid header type flag (trying to go ahead anyway)"          
+            _print("Invalid header type flag (trying to go ahead anyway)")
         self.pageSegCount = ord(h[-1])
         # Skip the PageSegCount
         file.seek(self.pageSegCount,1)
         h = file.read(7)
         if h != VORBIS_PACKET_INFO:
-            print "Wrong vorbis header type, giving up."
+            _print("Wrong vorbis header type, giving up.")
             self.valid = 0
             return
         self.valid = 1
         self.mime = 'application/ogg'
         self.header = {}
         info = file.read(23)
-        self.version, self.audiochannels, self.samplerate, bitrate_max, self.audiobitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',info[:23])
+        self.version, self.channels, self.samplerate, bitrate_max, self.bitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',info[:23])
         # INFO Header, read Oggs and skip 10 bytes
         h = file.read(4+10+13)        
         if h[:4] == 'OggS':
@@ -120,7 +126,7 @@ class OggInfo(mediainfo.AudioInfo):
             if check != 0:
                 print h[:10]
                 return
-            print "granule = %d / %d" % (granule_position, absPos)
+            _print("granule = %d / %d" % (granule_position, absPos))
         # the last one is the one we are interested in
         return (granule_position / self.samplerate)
 
