@@ -18,12 +18,11 @@ class Mpeg4(mediainfo.MusicInfo):
         self.skipTags = {'meta':4 }
 
         mediainfo.MusicInfo.__init__(self)
-        self.f = file
         self.valid = 0
         returnval = 0
         while returnval == 0:
             try:
-                self.readNextTag()
+                self.readNextTag(file)
             except ValueError:
                 returnval = 1
         if mediainfo.DEBUG:
@@ -33,18 +32,18 @@ class Mpeg4(mediainfo.MusicInfo):
             print self.year
             print self.encoder
 
-    def readNextTag(self):
-        length, name = self.readInt(), self.read(4)
+    def readNextTag(self, file):
+        length, name = self.readInt(file), self.read(4, file)
         length -= 8
         if length < 0:
             raise ValueError, "Oops?"
         #print "%r" % str(name) # (%r bytes, starting at %r)" % \
-        #  (name, length, self.f.tell() + 8)
+        #  (name, length, file.tell() + 8)
         if name in self.containerTags:
-            self.read(self.skipTags.get(name, 0))
+            self.read(self.skipTags.get(name, 0), file)
             data = '[container tag]'
         else:
-            data = self.read(length)
+            data = self.read(length, file)
         if name == '\xa9nam':
             self.title = data[8:]
         if name == '\xa9ART':
@@ -61,14 +60,14 @@ class Mpeg4(mediainfo.MusicInfo):
         self.valid = 1
         return 0
         
-    def read(self, b):
-        data = self.f.read(b)
+    def read(self, b, file):
+        data = file.read(b)
         if len(data) < b:
             raise ValueError, "EOF"
         return data
 
-    def readInt(self):
-        return struct.unpack('>I', self.read(4))[0]
+    def readInt(self, file):
+        return struct.unpack('>I', self.read(4, file))[0]
         
 mmpython.registertype( 'application/m4a', ('m4a',), mediainfo.TYPE_MUSIC, Mpeg4 )
 
