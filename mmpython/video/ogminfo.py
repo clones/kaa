@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.11  2003/09/09 19:32:26  dischi
+# bugfix for finding oggs
+#
 # Revision 1.10  2003/08/04 08:44:51  the_krow
 # Maximum iterations field added as suggested by Magnus in the
 # freevo list.
@@ -240,4 +243,4 @@ class OgmInfo(mediainfo.AVInfo):
 
 
 
-mmpython.registertype( 'application/ogg', ('ogm, ogg',), mediainfo.TYPE_AV, OgmInfo )
+mmpython.registertype( 'application/ogg', ('ogm', 'ogg',), mediainfo.TYPE_AV, OgmInfo )
