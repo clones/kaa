@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.62  2004/05/28 12:26:24  dischi
+# Replace __str__ with unicode to avoid bad transformations. Everything
+# inside mmpython should be handled as unicode object.
+#
 # Revision 1.61  2004/05/27 08:59:50  dischi
 # fix chapters printing
 #
@@ -11,41 +15,6 @@
 #
 # Revision 1.59  2004/05/18 21:54:49  dischi
 # add chapter support
-#
-# Revision 1.58  2004/05/17 19:10:57  dischi
-# better DEBUG handling
-#
-# Revision 1.57  2004/05/12 18:41:42  dischi
-# include all tags in desc from bins
-#
-# Revision 1.56  2004/02/04 19:14:11  dischi
-# add attributes to list of getable items
-#
-# Revision 1.55  2004/02/03 20:41:18  dischi
-# add directory support
-#
-# Revision 1.54  2003/10/04 14:30:08  dischi
-# add audio delay for avi
-#
-# Revision 1.53  2003/08/05 17:22:58  dischi
-# add doc and __delitem__
-#
-# Revision 1.52  2003/07/19 11:38:19  dischi
-# turn off debug as default, some exception handling
-#
-# Revision 1.51  2003/07/07 21:35:47  dischi
-# added aspect to VIDEOCORE
-#
-# Revision 1.50  2003/07/02 11:17:29  the_krow
-# language is now part of the table key
-#
-# Revision 1.49  2003/06/30 13:17:18  the_krow
-# o Refactored mediainfo into factory, synchronizedobject
-# o Parsers now register directly at mmpython not at mmpython.mediainfo
-# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
-# o Bugfix in PNG parser
-# o Renamed disc.AudioInfo into disc.AudioDiscInfo
-# o Renamed disc.DataInfo into disc.DataDiscInfo
 #
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
@@ -90,13 +59,18 @@ import os
 
 MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype',
              'date', 'keywords', 'country', 'language', 'url']
+
 AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits',
              'bitrate', 'language']
+
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
              'width', 'height', 'fps', 'aspect']
+
 IMAGECORE = ['description', 'people', 'location', 'event',
              'width','height','thumbnail','software','hardware', 'dpi']
+
 MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
+
 AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
              'genre', 'secondary genre', 'subject', 'writer', 'producer', 
              'cinematographer', 'production designer', 'edited by', 'costume designer',
@@ -111,7 +85,6 @@ AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
 UNPRINTABLE_KEYS = [ 'thumbnail', ]
 
 import table
-
 import mmpython
 
 EXTENSION_DEVICE    = 'device'
@@ -129,8 +102,13 @@ def _debug(text):
     """
     Function for debug prints of MediaItem implementations.
     """
-    if DEBUG > 1: print text
+    if DEBUG > 1:
+        try:
+            print text
+        except:
+            print text.encode('latin-1', 'replace')
     
+
 class MediaInfo:
     """
     MediaInfo is the base class to all Media Metadata Containers. It defines the 
@@ -150,7 +128,7 @@ class MediaInfo:
             self.keys.append(k)
 
 
-    def __str__(self):
+    def __unicode__(self):
         import copy
         keys = copy.copy(self.keys)
 
@@ -158,14 +136,14 @@ class MediaInfo:
             if k in keys:
                 keys.remove(k)
 
-        result = ''
-        result += reduce( lambda a,b: self[b] and b != 'url' and "%s\n        %s: %s" % \
-                         (a, b.__str__(), self[b].__str__()) or a, keys, "" )
+        result = u''
+        result += reduce( lambda a,b: self[b] and b != u'url' and u'%s\n        %s: %s' % \
+                         (a, unicode(b), unicode(self[b])) or a, keys, u'' )
         if DEBUG:
             try:
                 for i in self._tables.keys():
                     try:
-                        result += self._tables[i].__str__()
+                        result += unicode(self._tables[i])
                     except AttributeError:
                         pass
             except AttributeError:
@@ -304,6 +282,7 @@ class AVInfo(MediaInfo):
         self.subtitles = []
         self.chapters  = []
 
+
     def find_subtitles(self, filename):
         """
         Search for subtitle files. Right now only VobSub is supported
@@ -320,25 +299,25 @@ class AVInfo(MediaInfo):
             file.close()
 
             
-    def __str__(self):
-        result = "Attributes:"
-        result += MediaInfo.__str__(self)
+    def __unicode__(self):
+        result = u'Attributes:'
+        result += MediaInfo.__unicode__(self)
         if len(self.video) + len(self.audio) + len(self.subtitles) > 0:
             result += "\n Stream list:"
             if len(self.video):
-                result += reduce( lambda a,b: a + "  \n   Video Stream:" + b.__str__(),
-                                  self.video, "" )
+                result += reduce( lambda a,b: a + u'  \n   Video Stream:' + unicode(b),
+                                  self.video, u'' )
             if len(self.audio):
-                result += reduce( lambda a,b: a + "  \n   Audio Stream:" + b.__str__(),
-                                  self.audio, "" )
+                result += reduce( lambda a,b: a + u'  \n   Audio Stream:' + unicode(b),
+                                  self.audio, u'' )
             if len(self.subtitles):
-                result += reduce( lambda a,b: a + "  \n   Subtitle Stream:" + b.__str__(),
-                                  self.subtitles, "" )
+                result += reduce( lambda a,b: a + u'  \n   Subtitle Stream:' + unicode(b),
+                                  self.subtitles, u'' )
         if not isinstance(self.chapters, int) and len(self.chapters) > 0:
-            result += '\n Chapter list:'
+            result += u'\n Chapter list:'
             for i in range(len(self.chapters)):
-                result += '\n   %2s: "%s" %s' % (i+1, self.chapters[i]['name'],
-                                                 self.chapters[i]['pos'])
+                result += u'\n   %2s: "%s" %s' % (i+1, unicode(self.chapters[i]['name']),
+                                                  self.chapters[i]['pos'])
         return result
 
         
@@ -363,11 +342,11 @@ class CollectionInfo(MediaInfo):
         self.keys.append('id')
         self.id = None
 
-    def __str__(self):
-        result = MediaInfo.__str__(self)
-        result += "\nTrack list:"
+    def __unicode__(self):
+        result = MediaInfo.__unicode__(self)
+        result += u'\nTrack list:'
         for counter in range(0,len(self.tracks)):
-             result += " \nTrack %d:\n%s" % (counter+1, self.tracks[counter])
+             result += u' \nTrack %d:\n%s' % (counter+1, unicode(self.tracks[counter]))
         return result
     
     def appendtrack(self, track):

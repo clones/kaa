@@ -3,25 +3,12 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2004/05/28 12:26:24  dischi
+# Replace __str__ with unicode to avoid bad transformations. Everything
+# inside mmpython should be handled as unicode object.
+#
 # Revision 1.8  2003/07/02 11:17:29  the_krow
 # language is now part of the table key
-#
-# Revision 1.7  2003/07/02 09:16:42  the_krow
-# bugfix if no language file was found
-#
-# Revision 1.6  2003/07/02 09:09:41  the_krow
-# i18n stuff added to AVI
-# some debug outputs removed
-#
-# Revision 1.5  2003/06/23 09:22:54  the_krow
-# Typo and Indentation fixes.
-#
-# Revision 1.4  2003/06/23 09:20:29  the_krow
-# Added Language to table Attributes
-#
-# Revision 1.3  2003/06/20 19:57:30  the_krow
-# GNU Header
-#
 #
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
@@ -73,9 +60,9 @@ class Table:
         
     def gettext(self, message, language = None):
         try:
-            return self.translations[language].gettext(message.__str__())
+            return self.translations[language].gettext(unicode(message))
         except KeyError:
-            return "%s" % (message.__str__())
+            return unicode(message)
         
     def __setitem__(self,key,value):
         self.dict[key] = value
@@ -88,21 +75,25 @@ class Table:
          
     def getstr(self,key):
         s = self[key]
-        if s and len(s.__str__()) < 100: 
-            return s
-        else:
+        try:
+            if s and len(unicode(s)) < 100: 
+                return s
+            else:
+                return "Not Displayable"
+        except UnicodeDecodeError:
             return "Not Displayable"
          
     def has_key(self, key):
         return self.dict.has_key(key)    
     
     def getEntry(self, key, language = 'en'):
-        pair = (self.gettext(key), self.dict[key].__str__())
+        pair = (self.gettext(key), unicode(self.dict[key]))
     
-    def __str__(self):
+    def __unicode__(self):
         header = "\nTable %s (%s):" % (self.name, self.language)
         result = reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
-                         (a, self.gettext(b,'en'), self.getstr(b)) or a, self.dict.keys(), header )
+                         (a, self.gettext(b,'en'), self.getstr(b)) or \
+                         a, self.dict.keys(), header )
         return result
 
     def accept(self,mi):
