@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/07/10 13:05:05  the_krow
+# o id3v2 tabled added to eyed3
+# o type changed to MUSIC
+#
 # Revision 1.7  2003/07/02 20:15:42  dischi
 # return nothing, not 0
 #
@@ -64,6 +68,7 @@ from mmpython import mediainfo
 import mmpython
 
 from eyeD3 import tag as eyeD3_tag
+from eyeD3 import frames as eyeD3_frames
 import os
 import traceback
 
@@ -137,6 +142,23 @@ class eyeD3Info(mediainfo.MusicInfo):
                      setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].text)
             if id3.tag.getYear():
                self.date = id3.tag.getYear()
+            tab = {}
+            for f in id3.tag.frames:
+                if f.__class__ is eyeD3_frames.TextFrame:                
+                    tab[f.header.id] = f.text
+                elif f.__class__ is eyeD3_frames.UserTextFrame:
+                    tab[f.header.id] = f.text
+                elif f.__class__ is eyeD3_frames.DateFrame:
+                    tab[f.header.id] = f.date_str
+                elif f.__class__ is eyeD3_frames.CommentFrame:
+                    tab[f.header.id] = f.comment
+                elif f.__class__ is eyeD3_frames.URLFrame:
+                    tab[f.header.id] = f.url
+                elif f.__class__ is eyeD3_frames.UserURLFrame:
+                    tab[f.header.id] = f.url
+                else:
+                    print f.__class__
+            self.appendtable('id3v2', tab, 'en')
          if id3:
             self.length = id3.getPlayTime()
       except:
@@ -144,4 +166,4 @@ class eyeD3Info(mediainfo.MusicInfo):
 
       
          
-mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, eyeD3Info )
+mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_MUSIC, eyeD3Info )

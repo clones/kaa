@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.12  2003/07/10 13:05:05  the_krow
+# o id3v2 tabled added to eyed3
+# o type changed to MUSIC
+#
 # Revision 1.11  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -525,4 +529,4 @@ class MP3Info(mediainfo.MusicInfo):
                 self.encoder = id3.tags[tag]
 
 
-mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, MP3Info )
+mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_MUSIC, MP3Info )
