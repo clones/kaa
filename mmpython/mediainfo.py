@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.61  2004/05/27 08:59:50  dischi
+# fix chapters printing
+#
 # Revision 1.60  2004/05/20 15:55:08  dischi
 # add xml file detection
 #
@@ -280,7 +283,7 @@ class ChapterInfo(MediaInfo):
     """
     Chapter in a Multiplexed Container.
     """
-    def __init__(self, name, pos):
+    def __init__(self, name, pos=0):
         self.keys = ['name', 'pos']
         setattr(self,'name', name)
         setattr(self,'pos', pos)
@@ -331,7 +334,7 @@ class AVInfo(MediaInfo):
             if len(self.subtitles):
                 result += reduce( lambda a,b: a + "  \n   Subtitle Stream:" + b.__str__(),
                                   self.subtitles, "" )
-        if len(self.chapters) > 0:
+        if not isinstance(self.chapters, int) and len(self.chapters) > 0:
             result += '\n Chapter list:'
             for i in range(len(self.chapters)):
                 result += '\n   %2s: "%s" %s' % (i+1, self.chapters[i]['name'],
