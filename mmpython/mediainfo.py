@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.15  2003/06/08 13:14:14  dischi
+# added DEBUG flag and moved the register print to the register function
+#
 # Revision 1.14  2003/06/08 11:30:22  the_krow
 # *** empty log message ***
 #
@@ -75,6 +78,8 @@ import stat
 import re
 from fcntl import ioctl
 
+
+DEBUG = 1
 
 # Audiocore: TITLE, CAPTION, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
 #  + ID3 Tags
@@ -255,15 +260,15 @@ class MetaDataFactory:
     def create_from_file(self,file,filename=None):
         # Check extension as a hint
         for e in self.extmap.keys():
-            print "trying %s" % e
+            if DEBUG: print "trying %s" % e
             if filename and filename.find(e) >= 0:
                 file.seek(0,0)
                 t = self.extmap[e][3](file)
                 if t.valid: return t
 
-        print "No Type found by Extension. Trying all"
+        if DEBUG: print "No Type found by Extension. Trying all"
         for e in self.types:
-            print "Trying %s" % e[0]
+            if DEBUG: print "Trying %s" % e[0]
             t = e[3](file)
             if t.valid: return t
         return None
@@ -282,12 +287,13 @@ class MetaDataFactory:
         
     def create_from_device(self,devicename):
         for e in self.device_types:
-            print 'Trying %s' % e[0]
+            if DEBUG: print 'Trying %s' % e[0]
             t = e[3](devicename)
             if t.valid: return t
         return None
             
     def register(self,mimetype,extensions,type,c):
+        if DEBUG: print "%s registered" % mimetype
         tuple = (mimetype,extensions,type,c)
         if extensions == DEVICE:
             self.device_types.append(tuple)
