@@ -29,6 +29,8 @@ from mmpython import mediainfo
 import DiscID
 import CDDB
 
+_debug = mediainfo._debug
+
 class AudioInfo(mediainfo.DiscInfo):
     def __init__(self,device):
         mediainfo.DiscInfo.__init__(self)
@@ -55,11 +57,12 @@ class AudioInfo(mediainfo.DiscInfo):
                     break
             else:
                 query_info = query_info[0]
-            
+                         
         elif query_stat != 200:
-            print "failure getting disc info, status %i" % query_stat
+            _debug("failure getting disc info, status %i" % query_stat)
             return 1
 
+        self.title = query_info['title']
         (read_stat, read_info) = CDDB.read(query_info['category'], 
                                            query_info['disc_id'])
         for key in query_info:
@@ -69,9 +72,15 @@ class AudioInfo(mediainfo.DiscInfo):
 
         if read_stat == 210:
             for i in range(0, disc_id[1]):
-                self.tracks.append(read_info['TTITLE' + `i`])
+                mi = mediainfo.MusicInfo()
+                mi.title = read_info['TTITLE' + `i`]
+                mi.album = query_info['title']
+                mi.genre = query_info['category']
+                mi.trackno = i+1
+                mi.trackof = disc_id[1]
+                self.tracks.append(mi)
         else:
-            print "failure getting track info, status: %i" % read_stat
+            _debug("failure getting track info, status: %i" % read_stat)
 
         return 1
     
