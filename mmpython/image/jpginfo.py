@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/05/13 15:23:59  the_krow
+# IPTC
+#
 # Revision 1.4  2003/05/13 15:00:23  the_krow
 # Tiff parsing
 #
@@ -47,9 +50,13 @@ class JPGInfo(mediainfo.ImageInfo):
         self.iptc = None        
         self.mime = 'image/jpeg'
         self.type = 'jpeg image'
-        self.iptc = IPTC.getiptcinfo(file)
         self.valid = 1
+        if file.read(2) != '\xff\xd8':
+            self.valid = 0
+            return
         file.seek(0)
+        self.iptc = IPTC.getiptcinfo(file)
+        file.seek(0)        
         self.exif = EXIF.process_file(file)
         if self.exif:
             self.setitem( 'comment', self.exif, 'EXIF UserComment' )
@@ -67,7 +74,6 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'keywords', self.iptc, 537 )
             self.setitem( 'artist', self.iptc, 592 )
             self.setitem( 'country', self.iptc, 612 ) 
-        self.height = self.exif.keys()
         return
        
 

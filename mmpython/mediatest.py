@@ -9,7 +9,7 @@ import video.mpeginfo
 import video.movinfo
 import image.jpginfo
 import image.pnginfo
-
+import image.tiffinfo
 
 import sys
 

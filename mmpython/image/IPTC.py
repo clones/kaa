@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/05/13 15:23:59  the_krow
+# IPTC
+#
 # Revision 1.4  2003/05/13 15:16:02  the_krow
 # width+height hacked
 #
@@ -149,7 +152,7 @@ def getiptcinfo(file):
       while 1:
           segtype = app[:2]
           (seglen,) = unpack(">H", app[2:])
-          print "%x, len=%d" % (ord(segtype[1]),seglen)          
+#          print "%x, len=%d" % (ord(segtype[1]),seglen)          
           if segtype == '\0xFF\0xD9':
               return None
           elif segtype != '\xff\xed':

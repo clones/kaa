@@ -1,10 +1,15 @@
 #if 0
+# -----------------------------------------------------------------------
 # $Id$
+# -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/05/13 15:23:59  the_krow
+# IPTC
+#
 # Revision 1.4  2003/05/13 12:31:43  the_krow
 # + Copyright Notice
 #
-#
+# -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
 # Copyright (C) 2003 Thomas Schueppel
 #
@@ -163,6 +168,9 @@ class MetaDataFactory:
         r = self.create_from_file(f,filename)
         f.close()
         return r
+        
+    def create_from_device(self,devicename):
+        raise "Not yet Implemented"
     
     def register(self,mimetype,extensions,type,c):
         tuple = (mimetype,extensions,type,c)
