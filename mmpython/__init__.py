@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.35  2004/10/15 09:02:11  dischi
+# add ac3 parser
+#
 # Revision 1.34  2004/05/20 15:55:08  dischi
 # add xml file detection
 #
@@ -117,6 +120,7 @@ import mediainfo
 #import audio.ogginfo
 import audio.pcminfo
 import audio.m4ainfo
+import audio.ac3info
 import video.riffinfo
 import video.mpeginfo
 import video.asfinfo
