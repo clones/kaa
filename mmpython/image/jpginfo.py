@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.19  2004/05/20 15:56:31  dischi
+# use Python Imaging for more info and gif/bmp support
+#
 # Revision 1.18  2003/06/30 13:17:19  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -90,6 +93,8 @@ import IPTC
 import EXIF
 import struct
 
+import ImageInfo
+
 # interesting file format info:
 # http://www.dcs.ed.ac.uk/home/mxr/gfx/2d-hi.html
 # http://www.funducode.com/freec/Fileformats/format3/format3b.htm
@@ -164,7 +169,7 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'country', iptc_info, 612 ) 
             self.setitem( 'caption', iptc_info, 632 )
             self.appendtable( 'IPTC', iptc_info )            
-        self.add_bins_data(file.name)
+        ImageInfo.add(file.name, self)
         return
        
 

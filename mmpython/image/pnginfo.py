@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.10  2004/05/20 15:56:31  dischi
+# use Python Imaging for more info and gif/bmp support
+#
 # Revision 1.9  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -63,7 +66,7 @@ import IPTC
 import EXIF
 import struct
 import zlib
-#import Image
+import ImageInfo
 
 # interesting file format info:
 # http://www.libpng.org/pub/png/png-sitemap.html#programming
@@ -90,7 +93,7 @@ class PNGInfo(mediainfo.ImageInfo):
             pass
         if len(self.meta.keys()):
             self.appendtable( 'PNGMETA', self.meta )
-        self.add_bins_data(file.name)
+        ImageInfo.add(file.name, self)
         return       
         
     def _readChunk(self,file):

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.11  2004/05/20 15:56:31  dischi
+# use Python Imaging for more info and gif/bmp support
+#
 # Revision 1.10  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -66,6 +69,7 @@ import mmpython
 import IPTC
 import EXIF
 import struct
+import ImageInfo
 
 MOTOROLASIGNATURE = 'MM\x00\x2a'
 INTELSIGNATURE = 'II\x2a\x00'
@@ -133,6 +137,7 @@ class TIFFInfo(mediainfo.ImageInfo):
                     else:
                         self.height = offset
         else:
+            ImageInfo.add(file.name, self)
             return
             
         if iptc:
@@ -145,7 +150,7 @@ class TIFFInfo(mediainfo.ImageInfo):
             self.setitem( 'caption', iptc, 632 )
             self.appendtable('IPTC', iptc)
 
-        self.add_bins_data(file.name)
+        ImageInfo.add(file.name, self)
         return
             
 
