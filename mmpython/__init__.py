@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.20  2003/08/26 13:16:41  outlyer
+# Enabled m4a support
+#
 # Revision 1.19  2003/07/10 11:17:35  the_krow
 # ogminfo is used to parse ogg files
 #
@@ -69,6 +72,7 @@ import os
 import mediainfo
 #import audio.ogginfo
 import audio.pcminfo
+import audio.m4ainfo
 import video.riffinfo
 import video.mpeginfo
 import video.asfinfo
