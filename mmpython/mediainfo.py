@@ -3,6 +3,11 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.20  2003/06/08 16:49:48  dischi
+# Added a list for unprintable keys we don't want to see when converting
+# to string (right now only thumbnail, it's very ugly). Also added
+# __setitem__ and has_key for better access as dict.
+#
 # Revision 1.19  2003/06/08 15:42:00  dischi
 # cosmetic stuff
 #
@@ -147,6 +152,8 @@ AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
 
 DEVICE    = 'device'
 
+UNPRINTABLE_KEYS = [ 'thumbnail', ]
+
 import table
 
 class MediaInfo:
@@ -158,8 +165,15 @@ class MediaInfo:
             self.keys.append(k)
 
     def __str__(self):
+        import copy
+        keys = copy.copy(self.keys)
+
+        for k in UNPRINTABLE_KEYS:
+            if k in keys:
+                keys.remove(k)
+
         result = reduce( lambda a,b: self[b] and "%s\r\n   %s: %s" % \
-                         (a.__str__(), b.__str__(), self[b].__str__()) or a, self.keys, "" )
+                         (a.__str__(), b.__str__(), self[b].__str__()) or a, keys, "" )
         return result
             
     def append(self, table):
@@ -179,6 +193,12 @@ class MediaInfo:
 
     def __getitem__(self,key):
         return self.__dict__[key]
+
+    def __setitem__(self, key, val):
+        self.__dict__[key] = val
+
+    def has_key(self, key):
+        return self.__dict__.has_key(key)
 
 class AudioInfo(MediaInfo):
     def __init__(self):
@@ -328,12 +348,14 @@ class MetaDataFactory:
     def create_from_filename(self,filename):
         if stat.S_ISBLK(os.stat(filename)[stat.ST_MODE]):
             r = self.create_from_device(filename)
-        else:
+        elif os.path.isfile(filename):
             f = open(filename,'rb')
             r = self.create_from_file(f,filename)
             f.close()
+        else:
+            r = None
         return r
-        
+
     def create_from_device(self,devicename):
         for e in self.device_types:
             if DEBUG: print 'Trying %s' % e[0]
