@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.5  2003/06/08 15:40:26  dischi
+# catch exception, raised for small text files
+#
 # Revision 1.4  2003/06/08 13:44:58  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -46,10 +49,14 @@ class AsfInfo(mediainfo.VideoInfo):
         self.mime = 'video/asf'
         self.type = 'asf video'
         h = file.read(8)
-        (type1,type2) = struct.unpack('<II',h)
-        if ( type1 == 0x3026b275 ) or ( type1 == 0x75b22630 ):
-            self.valid = 1
-
+        try:
+            (type1,type2) = struct.unpack('<II',h)
+        except struct.error:
+            pass
+        else:
+            if ( type1 == 0x3026b275 ) or ( type1 == 0x75b22630 ):
+                self.valid = 1
+        
 
 factory = mediainfo.get_singleton()  
 factory.register( 'video/asf', ['asf'], mediainfo.TYPE_VIDEO, AsfInfo )

@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.5  2003/06/08 15:40:26  dischi
+# catch exception, raised for small text files
+#
 # Revision 1.4  2003/06/08 13:44:58  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -46,9 +49,13 @@ class MovInfo(mediainfo.VideoInfo):
         self.mime = 'video/quicktime'
         self.type = 'Quicktime Video'
         h = file.read(8)
-        (type1,type2) = struct.unpack('<II',h)
-        if ( type2 == 0x6d6f6f76 ) or ( type2 == 0x6d646174 ) or ( type2 == 0x706e6f74 ):
-            self.valid = 1
+        try:
+            (type1,type2) = struct.unpack('<II',h)
+        except struct.error:
+            pass
+        else:
+            if ( type2 == 0x6d6f6f76 ) or ( type2 == 0x6d646174 ) or ( type2 == 0x706e6f74 ):
+                self.valid = 1
 
 
 factory = mediainfo.get_singleton()  
