@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.19  2003/06/23 20:38:04  the_krow
+# Support for larger LIST chunks because some files did not work.
+#
 # Revision 1.18  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -299,7 +302,7 @@ class RiffInfo(mediainfo.AVInfo):
         if len(h) < 4: return 1
         name = h[:4]
         size = struct.unpack('<I',h[4:8])[0]        
-        if name == 'LIST' and size < 10000:
+        if name == 'LIST' and size < 20000:
             pos = file.tell() - 8
             t = file.read(size)
             key = t[:4]
