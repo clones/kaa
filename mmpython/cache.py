@@ -5,6 +5,12 @@
 # $Id$
 #
 # $Log$
+# Revision 1.37  2003/12/30 15:18:34  dischi
+# o don't calc the cachefile for every file when caching a directory
+# o use higher pickle for Python 2.3
+# o make it possible to store the data in a directory structure instead
+#   of md5 hashed files.
+#
 # Revision 1.36  2003/11/05 21:17:37  dischi
 # do not cache directory on audio discs
 #
@@ -117,13 +123,6 @@
 # exif thumbnail will slow everything down (cache filesize is 10 MB for my
 # testdir, now 200 KB). Use the bypass cache option if you want all infos.
 #
-# Revision 1.2  2003/06/08 15:48:07  dischi
-# removed some debug
-#
-# Revision 1.1  2003/06/08 15:38:58  dischi
-# class to cache the results
-#
-#
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
 # Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
@@ -151,6 +150,7 @@ import os
 import cPickle as pickle
 import stat
 import re
+import sys
 
 import mmpython
 import factory
@@ -158,6 +158,10 @@ import factory
 from disc.discinfo import cdrom_disc_status, cdrom_disc_id, DiscInfo
 from disc.datainfo import DataDiscInfo
 
+if float(sys.version[0:3]) < 2.3:
+    PICKLE_PROTOCOL = 1
+else:
+    PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 
 class FileNotFoundException(Exception):
     pass
@@ -173,9 +177,11 @@ class Cache:
         if os.path.isdir(cachedir) and not os.path.isdir('%s/disc' % cachedir):
             os.mkdir('%s/disc' % cachedir)
         self.current_objects    = {}
-        self.current_cachefile = None
+        self.current_cachefile  = None
         self.CACHE_VERSION      = 1
         self.DISC_CACHE_VERSION = 1
+        self.md5_cachedir       = True
+
 
     def hexify(self, str):
         hexStr = string.hexdigits
@@ -196,9 +202,23 @@ class Cache:
             id = cdrom_disc_id(file)[1]
             if not id:
                 return None
-            return '%s/disc/%s' % (self.cachedir, id)
-        return '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
-    
+            if self.md5_cachedir:
+                return '%s/disc/%s' % (self.cachedir, id)
+            else:
+                return '%s/disc/%s.mmpython' % (self.cachedir, id)
+
+        if not self.md5_cachedir:
+            try:
+                directory = os.path.join(self.cachedir, file[1:])
+                if not os.path.isdir(directory):
+                    os.makedirs(directory)
+                return os.path.join(directory, 'mmpython')
+
+            except IOError:
+                pass
+
+        return  '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
+            
 
     def __get_cachefile_and_filelist__(self, directory):
         """
@@ -243,12 +263,13 @@ class Cache:
         new = 0
         for file in files:
             try:
-                info = self.find(file)
+                info = self.find(file, cachefile=cachefile, dirname=directory)
             except FileNotFoundException:
                 new += 1
         return new
     
         
+
     def cache_dir(self, directory, uncachable_keys, callback, ext_only):
         """
         cache every file in the directory for future use
@@ -260,7 +281,7 @@ class Cache:
         if not cachefile:
             return {}
 
-        if len(cachefile[cachefile.rfind('/'):]) < 16:
+        if self.md5_cachedir and len(cachefile[cachefile.rfind('/'):]) < 16:
             return {}
 
         objects = {}
@@ -309,7 +330,7 @@ class Cache:
             if os.path.isfile(cachefile):
                 os.unlink(cachefile)
             f = open(cachefile, 'w')
-            pickle.dump((self.CACHE_VERSION, objects), f, 1)
+            pickle.dump((self.CACHE_VERSION, objects), f, PICKLE_PROTOCOL)
             f.close()
         except IOError:
             print 'unable to save to cachefile %s' % cachefile
@@ -317,11 +338,11 @@ class Cache:
         return objects
     
 
+
     def cache_disc(self, info):
         """
         Adds the information 'info' about a disc into a special disc database
         """
-
         if not isinstance(info, DiscInfo):
             return 0
 
@@ -329,11 +350,13 @@ class Cache:
             return 0
         
         cachefile = '%s/disc/%s' % (self.cachedir, info.id)
+        if not self.md5_cachedir:
+            cachefile += '.mmpython'
         try:
             if os.path.isfile(cachefile):
                 os.unlink(cachefile)
             f = open(cachefile, 'w')
-            pickle.dump((self.DISC_CACHE_VERSION, info), f, 1)
+            pickle.dump((self.DISC_CACHE_VERSION, info), f, PICKLE_PROTOCOL)
             f.close()
         except IOError:
             print 'unable to save to cachefile %s' % cachefile
@@ -351,6 +374,8 @@ class Cache:
             return None
         
         cachefile = '%s/disc/%s' % (self.cachedir, id)
+        if not self.md5_cachedir:
+            cachefile += '.mmpython'
         if not os.path.isfile(cachefile):
             raise FileNotFoundException
         f = open(cachefile, 'r')
@@ -375,7 +400,7 @@ class Cache:
         return object
 
         
-    def find(self, file):
+    def find(self, file, cachefile=None, dirname=''):
         """
         Search the cache for informations about that file. The functions
         returns that information. Because the information can be 'None',
@@ -390,10 +415,10 @@ class Cache:
             else:
                 raise FileNotFoundException
 
-            dname = device
+            dirname = device
             key = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
             
-        else:
+        elif not dirname:
             file  = os.path.abspath(file)
 
             if not os.path.exists(file):
@@ -402,10 +427,15 @@ class Cache:
             if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
                 return self.__find_disc__(file)
 
-            dname = os.path.dirname(file)
+            dirname = os.path.dirname(file)
             key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
 
-        cachefile = self.__get_filename__(dname)
+        else:
+            key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+
+        if not cachefile:
+            cachefile = self.__get_filename__(dirname)
+
         if not cachefile == self.current_cachefile:
             self.current_cachefile = cachefile
             self.current_objects   = {}
