@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.25  2003/11/07 13:58:52  dischi
+# extra check for dvd
+#
 # Revision 1.24  2003/09/22 16:24:58  the_krow
 # o added flac
 # o try-except block around ioctl since it is not avaiable in all OS
@@ -98,12 +101,17 @@ import video.realinfo
 import video.ogminfo
 try:
     import disc.discinfo
-    import disc.dvdinfo
     import disc.vcdinfo
     import disc.audioinfo
     import disc.datainfo
 except ImportError:
     pass
+
+try:
+    import disc.dvdinfo
+except ImportError:
+    pass
+
 import audio.eyed3info
 #import audio.mp3info
 import audio.webradioinfo
