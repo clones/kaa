@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.23  2004/09/14 20:12:25  dischi
+# fix future warning
+#
 # Revision 1.22  2004/08/28 17:27:16  dischi
 # handle empty discs
 #
@@ -136,7 +139,7 @@ def cdrom_disc_status(device, handle_mix = 0):
     # doesn't work. Suppress that warning for Linux users,
     # until a better solution can be found.
     if os.uname()[0] == 'FreeBSD':
-        CDIOREADTOCENTRYS = 0xc0086305
+        CDIOREADTOCENTRYS = 0xc0086305L
         CD_MSF_FORMAT = 2
         
     try:
