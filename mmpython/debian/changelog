@@ -1,3 +1,9 @@
+mmpython (0.2.0cvs20030826-freevo1) unstable; urgency=low
+
+  * New snapshot, includes preliminary m4a support
+
+ -- Aubin Paul <debian@outlyer.org>  Tue, 26 Aug 2003 17:03:55 -0400
+
 mmpython (0.2.0cvs20030806-freevo3) unstable; urgency=low
 
   * Fixed Python 2.3 dependency (python >2.3 package doesn't exist)
