@@ -5,6 +5,10 @@
 # $Id$
 #
 # $Log$
+# Revision 1.4  2003/06/08 17:06:25  dischi
+# cache_dir now uses the prev cache to write the cache and returns the
+# list of all objects.
+#
 # Revision 1.3  2003/06/08 16:52:29  dischi
 # Better handling for cache_disc if you don't provide a disc. Also added
 # uncachable_keys to cache_dir. Caching a directory of photos all with
@@ -89,12 +93,15 @@ class Cache:
         """
         cachefile = self.__get_filename__(directory)
         if not cachefile:
-            return 0
+            return {}
 
         objects = {}
         for file in [ os.path.join(directory, dname) for dname in os.listdir(directory) ]:
             key  = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
-            info = mediainfo.get_singleton().create_from_filename(file)
+            try:
+                info = self.find(file)
+            except FileNotFoundException:
+                info = mediainfo.get_singleton().create_from_filename(file)
 
             if info:
                 for k in uncachable_keys:
@@ -103,7 +110,8 @@ class Cache:
             objects[key] = info
 
         pickle.dump((self.CACHE_VERSION, objects), open(cachefile, 'w'))
-        return 1
+        self.current_objects = objects
+        return objects
     
 
     def cache_disc(self, info):
