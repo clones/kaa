@@ -1,7 +1,16 @@
-#!/usr/bin/env python
+#if 0
+# -----------------------------------------------------------------------
+# $Id$
+# -----------------------------------------------------------------------
+# $Log$
+# Revision 1.3  2003/06/07 23:10:50  the_krow
+# Changed mp3 into new format.
+#
 # 
-# Copyright (c) 2002 Vivake Gupta (vivakeATomniscia.org).  All rights reserved.
-# 
+# -----------------------------------------------------------------------
+# MMPython - Media Metadata for Python
+# Copyright (C) 2003 Thomas Schueppel, et. al
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of the
@@ -17,10 +26,13 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 # USA
 #
+# Most of the code of this module was taken from Vivake Guptas mp3info
+# code. Below is his copyright notice. All credit to him.
+#
+# Copyright (c) 2002 Vivake Gupta (vivakeATomniscia.org).  All rights reserved.
 # This software is maintained by Vivake (vivakeATomniscia.org) and is available at:
 #     http://www.omniscia.org/~vivake/python/MP3Info.py
 #
-# Some stuff to fit this into the mediainfo-framework added by Thomas Schueppel
 #
 
 
@@ -412,9 +424,9 @@ class MPEG:
                     self.length = int(round(frames * self.samplesperframe / self.samplerate))
                     self.bitrate = ((bytes * 8.0 / self.length) / 1000)
 
-class MP3Info(mediainfo.AudioInfo):
+class MP3Info(mediainfo.MusicInfo):
     def __init__(self, file):
-        mediainfo.AudioInfo.__init__(self)
+        mediainfo.MusicInfo.__init__(self)
         self.valid = 0        
         self.id3 = None
         self.mpeg = MPEG(file)
@@ -423,10 +435,10 @@ class MP3Info(mediainfo.AudioInfo):
             return
         self.info = {}
         self.samplerate = self.mpeg.samplerate
-        self.audiobitrate = self.mpeg.bitrate * 1000
+        self.bitrate = self.mpeg.bitrate * 1000
         self.length = self.mpeg.length
-        self.audiochannels = self.mpeg.mode
-        if self.samplerate and self.audiochannels and self.audiobitrate:
+        self.channels = self.mpeg.mode
+        if self.samplerate and self.channels and self.bitrate:
             pass
         else:
             self.valid = 0
@@ -452,7 +464,7 @@ class MP3Info(mediainfo.AudioInfo):
             elif tag == 'TP1' or tag == 'TPE1':
                 self.artist = self.id3.tags[tag]
             elif tag == 'TRK' or tag == 'TRCK':
-                self.track = self.id3.tags[tag]
+                self.trackno = self.id3.tags[tag]
             elif tag == 'TYE' or tag == 'TYER':
                 self.date = self.id3.tags[tag]
             elif tag == 'COM' or tag == 'COMM':

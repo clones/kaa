@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.11  2003/06/07 23:10:49  the_krow
+# Changed mp3 into new format.
+#
 # Revision 1.10  2003/06/07 22:54:28  the_krow
 # AVInfo stuff added.
 #
@@ -97,7 +100,6 @@ AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
              'width', 'height',]
 IMAGECORE = ['width','height','thumbnail','software','hardware']
-
 MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
 AVCORE = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product', 'genre', 'secondary genre', 'subject', 'writer', 'producer', 
              'cinematographer', 'production designer', 'edited by', 'costume designer', 'music by', 'studio', 

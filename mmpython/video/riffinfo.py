@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.10  2003/06/07 23:10:50  the_krow
+# Changed mp3 into new format.
+#
 # Revision 1.9  2003/06/07 22:30:22  the_krow
 # added new avinfo structure
 #
@@ -130,6 +133,7 @@ class RiffInfo(mediainfo.AVInfo):
               retval['rcFrame'], ) = v
             self.bitrate = retval['dwRate']
             self.length = retval['dwLength']
+        # TODO: Add 'vids' parsing!!
         return retval
 
     def parseSTRF(self,t,strh):
