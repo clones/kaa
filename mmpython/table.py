@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/07/02 09:16:42  the_krow
+# bugfix if no language file was found
+#
 # Revision 1.6  2003/07/02 09:09:41  the_krow
 # i18n stuff added to AVI
 # some debug outputs removed
@@ -51,7 +54,10 @@ class Table:
         self.translations = {}
         self.languages = []
         self.i18ndir = os.path.join(LOCALEDIR, name.lower())
-        self.read_translations()
+        try:
+            self.read_translations()
+        except:
+            pass
     
     def read_translations(self):
         for filename in [x for x in os.listdir(self.i18ndir) if x.endswith('.mo')]:
@@ -66,7 +72,7 @@ class Table:
         try:
             return self.translations[language].gettext(message)
         except KeyError:
-            return "%s (No Message in '%s')" % (message, en)
+            return "%s (No Message in '%s')" % (message, language)
         
     def __setitem__(self,key,value):
         self.dict[key] = value
