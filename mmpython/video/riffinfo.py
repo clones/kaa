@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.14  2003/06/09 16:10:52  dischi
+# error handling
+#
 # Revision 1.13  2003/06/08 19:53:21  dischi
 # also give the filename to init for additional data tests
 #
@@ -77,8 +80,13 @@ class RiffInfo(mediainfo.AVInfo):
             self.mime = 'video/avi'
         elif self.type == 'WAVE':
             self.mime = 'application/x-wave'
-        while not self.parseRIFFChunk(file):
+        try:
+            while not self.parseRIFFChunk(file):
+                pass
+        except IOError:
+            if mediainfo.DEBUG: print 'error in file, stop parsing'
             pass
+        
         # Push the result into funky attributes of self
         self.setitem('title',self.info,'INAM')
         self.setitem('artist',self.info,'IART')
