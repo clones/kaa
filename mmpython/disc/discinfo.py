@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.6  2003/07/02 22:03:13  dischi
+# cache the disc id, it cannot change in 1 sec
+#
 # Revision 1.5  2003/06/23 19:26:16  dischi
 # Fixed bug in the cdrommodule that the file was not closed after usage.
 # The result was a drive you can't eject while the program (e.g. Freevo)
@@ -54,6 +57,8 @@
 from mmpython import mediainfo
 import os
 import re
+import time
+
 
 try:
     from fcntl import ioctl
@@ -93,17 +98,26 @@ def cdrom_disc_status(device):
     return 2
     
 
+id_cache = {}
+
 def cdrom_disc_id(device):
     """
     return the disc id of the device or None if no disc is there
     """
+    global id_cache
+    try:
+        if id_cache[device][0] + 1 > time.time():
+            return id_cache[device][1]
+    except:
+        pass
+
     disc_type = cdrom_disc_status(device)
     if disc_type == 0:
-        return None
+        id = None
         
     elif disc_type == 1:
         disc_id = DiscID.disc_id(device)
-        return '%08lx_%d' % (disc_id[0], disc_id[1])
+        id = '%08lx_%d' % (disc_id[0], disc_id[1])
 
     else:
         f = open(device,'rb')
@@ -116,8 +130,10 @@ def cdrom_disc_id(device):
             
         m = re.match("^(.*[^ ]) *$", label)
         if m:
-            return '%s%s' % (id, m.group(1))
-        return id
+            id = '%s%s' % (id, m.group(1))
+            
+    id_cache[device] = time.time(), id
+    return id
 
 
 class DiscInfo(mediainfo.CollectionInfo):
