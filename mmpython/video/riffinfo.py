@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.27  2003/10/04 14:30:08  dischi
+# add audio delay for avi
+#
 # Revision 1.26  2003/07/10 11:18:11  the_krow
 # few more attributes added
 #
@@ -206,6 +209,26 @@ class RiffInfo(mediainfo.AVInfo):
               retval['dwQuality'],
               retval['dwSampleSize'],
               retval['rcFrame'], ) = v
+        else:
+            try:
+                v = struct.unpack('<IHHIIIIIIIII',t[8:52])
+                ( retval['dwFlags'],
+                  retval['wPriority'],
+                  retval['wLanguage'],
+                  retval['dwInitialFrames'],
+                  retval['dwScale'],
+                  retval['dwRate'],
+                  retval['dwStart'],
+                  retval['dwLength'],
+                  retval['dwSuggestedBufferSize'],
+                  retval['dwQuality'],
+                  retval['dwSampleSize'],
+                  retval['rcFrame'], ) = v
+                self.delay = float(retval['dwStart']) / \
+                             (float(retval['dwRate']) / retval['dwScale'])
+            except:
+                pass
+            
         return retval
 
     def parseSTRF(self,t,strh):

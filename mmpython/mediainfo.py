@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.54  2003/10/04 14:30:08  dischi
+# add audio delay for avi
+#
 # Revision 1.53  2003/08/05 17:22:58  dischi
 # add doc and __delitem__
 #
@@ -83,7 +86,7 @@ AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
              'archival location', 'commisioned by', 'engineer', 'cropped', 'sharpness',
              'dimensions', 'lightness', 'dots per inch', 'palette setting',
              'default audio stream', 'logo url', 'watermark url', 'info url',
-             'banner image', 'banner url', 'infotext']
+             'banner image', 'banner url', 'infotext', 'delay']
 
 
 UNPRINTABLE_KEYS = [ 'thumbnail', ]
