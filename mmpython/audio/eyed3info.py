@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.10  2004/02/08 17:42:56  dischi
+# reduce debug
+#
 # Revision 1.9  2003/08/30 09:36:22  dischi
 # turn off some debug based on DEBUG
 #
@@ -119,15 +122,17 @@ class eyeD3Info(mediainfo.MusicInfo):
          except:
             # The MP3 tag decoder crashed, assume the file is still
             # MP3 and try to play it anyway
-            print 'music: oops, mp3 tag parsing failed!'
-            print 'music: filename = "%s"' % file.name
-            traceback.print_exc()
+            if mediainfo.DEBUG:
+               print 'music: oops, mp3 tag parsing failed!'
+               print 'music: filename = "%s"' % file.name
+               traceback.print_exc()
       except:
          # The MP3 tag decoder crashed, assume the file is still
          # MP3 and try to play it anyway
-         print 'music: oops, mp3 tag parsing failed!'
-         print 'music: filename = "%s"' % file.name
-         traceback.print_exc()
+         if mediainfo.DEBUG:
+            print 'music: oops, mp3 tag parsing failed!'
+            print 'music: filename = "%s"' % file.name
+            traceback.print_exc()
 
       if not self.valid:
          return
@@ -165,7 +170,8 @@ class eyeD3Info(mediainfo.MusicInfo):
          if id3:
             self.length = id3.getPlayTime()
       except:
-         traceback.print_exc()
+         if mediainfo.DEBUG:
+            traceback.print_exc()
 
       
          
