@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.3  2003/06/29 12:03:41  dischi
+# fixed it to be _real_ eyed3 info
+#
 # Revision 1.2  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -42,29 +45,31 @@
 
 from mmpython import mediainfo
 
-import eyeD3.mp3 as mp3
-import eyeD3.utils as utils
-import eyeD3.tag as eyeD3_tag
-from eyeD3.frames import *
-from eyeD3.binfuncs import *
-from eyeD3.tag import *
- 
+from audio.eyeD3 import tag as eyeD3_tag
 import os
-    
-################################################################################
-# ID3 tag class.  The class is capable of reading v1 and v2 tags.  ID3 v1.x
-# are converted to v2 frames.
-################################################################################
+import traceback
+
+MP3_INFO_TABLE = { "APIC": "picture",
+                   "COMM": "comments",
+                   "LINK": "link",
+                   "TALB": "album",
+                   "TCOM": "composer",
+                   "TCOP": "copyright",
+                   "TDOR": "release",
+                   "TYER": "date",
+                   "TEXT": "text",
+                   "TIT2": "title",
+                   "TLAN": "language",
+                   "TLEN": "length",
+                   "TMED": "media_type",
+                   "TPE2": "artist",
+                   "TRCK": "trackno" }
+
 class eyeD3Info(mediainfo.MusicInfo):
    
    fileName       = str();
    fileSize       = int();
-   header         = mp3.Header();
-   xingHeader     = None;
-   tag            = Tag();
-   invalidFileExc = InvalidAudioFormatException("File is not mp3");
-   # Number of seconds required to play the audio file.
-
+   
    def __init__(self, file, tagVersion = eyeD3_tag.ID3_ANY_VERSION):
       mediainfo.MusicInfo.__init__(self)
       self.fileName = file.name;
@@ -72,114 +77,43 @@ class eyeD3Info(mediainfo.MusicInfo):
       self.mime = 'audio/mp3'
 
       if not eyeD3_tag.isMp3File(file.name):
-         raise self.invalidFileExc;
+         self.valid = 0
+         return 0
 
-      # Parse ID3 tag.
-      tag = Tag();
-      hasTag = tag.link(file, tagVersion);
-      # Find the first mp3 frame.
-      if tag.isV1():
-         framePos = 0;
-      elif not hasTag:
-         framePos = 0;
-         tag = None;
-      else:
-         # XXX: Note that v2.4 allows for appended tags; account for that.
-         framePos = tag.header.SIZE + tag.header.tagSize;
-      file.seek(framePos);
-      bString = file.read(4);
-      if len(bString) < 4:
-         raise InvalidAudioFormatException("Unable to find a valid mp3 "\
-                                           "frame");
-      frameHead = bin2dec(bytes2bin(bString));
-      header = mp3.Header();
-      # Keep reading until we find a valid mp3 frame header.
-      while not header.isValid(frameHead):
-         frameHead <<= 8;
-         bString = file.read(1);
-         if len(bString) != 1:
-            raise InvalidAudioFormatException("Unable to find a valid mp3 "\
-                                              "frame");
-         frameHead |= ord(bString[0]);
-      TRACE_MSG("mp3 header %x found at position: %d (0x%x)" % \
-                (frameHead, file.tell() - 4, file.tell() - 4));
-
-      # Decode the header.
+      id3 = None
       try:
-         header.decode(frameHead);
-         # Check for Xing header inforamtion which will always be in the
-         # first "null" frame.
-         file.seek(-4, 1);
-         mp3Frame = file.read(header.frameLength);
-         if mp3Frame.find("Xing") != -1:
-            xingHeader = mp3.XingHeader();
-            if not xingHeader.decode(mp3Frame):
-               raise InvalidAudioFormatException("Corrupt Xing header");
-         else:
-            xingHeader = None;
-      except mp3.Mp3Exception, ex:
-         raise InvalidAudioFormatException(str(ex));
+         id3 = eyeD3_tag.Mp3AudioFile(file.name)
+      except eyeD3_tag.TagException:
+         try:
+            id3 = eyeD3_tag.Mp3AudioFile(file.name, 1)
+         except eyeD3_tag.InvalidAudioFormatException:
+            # File is not an MP3
+            self.valid = 0
+            return 0
+         except:
+            # The MP3 tag decoder crashed, assume the file is still
+            # MP3 and try to play it anyway
+            print 'music: oops, mp3 tag parsing failed!'
+            print 'music: filename = "%s"' % file.name
+            traceback.print_exc()
+      except:
+         # The MP3 tag decoder crashed, assume the file is still
+         # MP3 and try to play it anyway
+         print 'music: oops, mp3 tag parsing failed!'
+         print 'music: filename = "%s"' % file.name
+         traceback.print_exc()
 
-      # Compute track play time.
-      tpf = mp3.computeTimePerFrame(header);
-      if xingHeader:
-         self.length = int(tpf * xingHeader.numFrames);
-      else:
-         length = self.getSize();
-         if tag and tag.isV2():
-            length -= tag.header.SIZE + tag.header.tagSize;
-            # Handle the case where there is a v2 tag and a v1 tag.
-            file.seek(-128, 2)
-            if file.read(3) == "TAG":
-               length -= 128;
-         elif tag and tag.isV1():
-            length -= 128;
-         self.length = int((length / header.frameLength) * tpf);    
+      if not self.valid:
+         return 0
 
-      self.header = header;
-      self.xingHeader = xingHeader;
-      self.tag = tag;
-      self.bitrate = self.getBitRate()[1]
-      self.appendtable('ID3',self.tag.frames)
+      for k in MP3_INFO_TABLE:
+         if id3.tag.frames[k]:
+            if k == 'APIC':
+               setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].imageData)
+            else:
+               setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].text)
+      
 
-   def getTag(self):
-      return self.tag;
-
-   def getSize(self):
-      if not self.fileSize:
-         self.fileSize = os.stat(self.fileName)[ST_SIZE];
-      return self.fileSize;
-
-   def getPlayTimeString(self):
-      total = self.length;
-      h = total / 3600;
-      m = (total % 3600) / 60;
-      s = (total % 3600) % 60;
-      if h:
-         timeStr = "%d:%.2d:%.2d" % (h, m, s);
-      else:
-         timeStr = "%d:%.2d" % (m, s);
-      return timeStr;
-
-   # Returns a tuple.  The first value is a boolean which if true means the
-   # bit rate returned in the second value is variable.
-   def getBitRate(self):
-      xHead = self.xingHeader;
-      if xHead:
-         tpf = mp3.computeTimePerFrame(self.header);
-         br = int((xHead.numBytes * 8) / (tpf * xHead.numFrames * 1000));
-         vbr = 1;
-      else:
-         br = self.header.bitRate;
-         vbr = 0;
-      return (vbr, br);
-
-   def getBitRateString(self):
-      (vbr, bitRate) = self.getBitRate();
-      brs = "%d kb/s" % bitRate;
-      if vbr:
-         brs = "~" + brs;
-      return brs;
          
 factory = mediainfo.get_singleton()
 factory.register( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, eyeD3Info )
