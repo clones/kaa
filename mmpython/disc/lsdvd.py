@@ -137,7 +137,7 @@ class DVDInfo(DiscInfo):
         child = popen2.Popen3('%s -v -n -a -s "%s"' % (LSDVD_EXE, path), 1, 100)
         for line in child.fromchild.readlines():
             data = line.replace(',', '').replace('\t', '').\
-                   replace('\n', '').replace('  ', ' ').split(' ')
+                   replace('\n', '').lstrip(' ').split(' ')
             if len(data) > 2:
                 if data[0] == 'Title:':
                     ti = DVDTitle(data)
