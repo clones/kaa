@@ -81,7 +81,16 @@ FRMSIZCOD = [ 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192,
 class AC3Info(mediainfo.MusicInfo):
     def __init__(self,file):
         mediainfo.MusicInfo.__init__(self)
-        if file.read(2) != '\x0b\x77':
+        if file.name.endswith('.ac3'):
+            # when the ending is ac3, force the detection. It may not be necessary
+            # the the header is at the beginning but in the first 2000 bytes
+            check_length = 1000
+        else:
+            check_length = 1
+        for i in range(check_length):
+            if file.read(2) == '\x0b\x77':
+                break
+        else:
             self.valid = False
             return
 
