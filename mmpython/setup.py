@@ -6,6 +6,7 @@ __revision__ = "$Id$"
 
 from distutils.core import setup, Extension
 import popen2
+import version
 
 extensions = [ Extension('mmpython/disc/cdrom', ['disc/cdrommodule.c']) ]
 
@@ -22,7 +23,7 @@ child.wait()
 
 setup (# Distribution meta-data
        name = "mmpython",
-       version = "0.3",
+       version = version.VERSION,
        description = "Module for retrieving information about media files",
        author = "Thomas Schueppel, Dirk Meyer",
        author_email = "freevo-devel@lists.sourceforge.net",
