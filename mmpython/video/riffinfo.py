@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.30  2004/08/25 16:18:14  dischi
+# detect aspect ratio
+#
 # Revision 1.29  2004/05/24 16:17:09  dischi
 # Small changes for future updates
 #
@@ -331,6 +334,33 @@ class RiffInfo(mediainfo.AVInfo):
         return ( retval, i )
 
             
+    def parseVPRP(self,t):
+        retval = {}
+        v = struct.unpack('<IIIIIIIIII',t[:4*10])
+        
+        ( retval['VideoFormat'],
+          retval['VideoStandard'],
+          retval['RefreshRate'],
+          retval['HTotalIn'],
+          retval['VTotalIn'],
+          retval['FrameAspectRatio'],
+          retval['wPixel'],
+          retval['hPixel'] ) = v[1:-1]
+
+        # I need an avi with more informations
+        # enum {FORMAT_UNKNOWN, FORMAT_PAL_SQUARE, FORMAT_PAL_CCIR_601,
+        #    FORMAT_NTSC_SQUARE, FORMAT_NTSC_CCIR_601,...} VIDEO_FORMAT; 
+        # enum {STANDARD_UNKNOWN, STANDARD_PAL, STANDARD_NTSC, STANDARD_SECAM}
+        #    VIDEO_STANDARD; 
+        #
+        r = retval['FrameAspectRatio']
+        r = float(r >> 16) / (r & 0xFFFF)
+        retval['FrameAspectRatio'] = r
+        if self.video:
+            map(lambda v: setattr(v, 'aspect', r), self.video)
+        return ( retval, v[0] )
+
+            
     def parseLIST(self,t):
         retval = {}
         i = 0
@@ -373,6 +403,12 @@ class RiffInfo(mediainfo.AVInfo):
                 i += 4
                 (value, sz) = self.parseODML(t[i:])
                 _print("ODML: len: %d" % sz)
+                i += sz
+            elif key == 'vprp':
+                i += 4
+                (value, sz) = self.parseVPRP(t[i:])
+                _print("VPRP: len: %d" % sz)
+                retval[key] = value
                 i += sz
             elif key == 'JUNK':
                 sz = struct.unpack('<I',t[i+4:i+8])[0]
