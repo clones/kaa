@@ -15,9 +15,11 @@ class Mpeg4(mediainfo.MusicInfo):
     containerTags = ('moov', 'udta', 'trak', 'mdia', 'minf', 'dinf', 'stbl', 'meta', 'ilst', '----')
     skipTags = {'meta':4 }
 
-    def __init__(self, fn):
+    def __init__(self, file):
         mediainfo.MusicInfo.__init__(self)
-        self.f = open(fn)
+        #self.f = open(fn)
+        self.f = file
+        self.valid = 1
         returnval = 0
         while returnval == 0:
             try:
