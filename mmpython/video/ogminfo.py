@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.9  2003/07/13 15:20:53  dischi
+# make the module quiet
+#
 # Revision 1.8  2003/07/10 11:16:31  the_krow
 # o Added length calculation for audio only files.
 # o In the future we will use this as a general parser for ogm/ogg
@@ -104,7 +107,7 @@ class OgmInfo(mediainfo.AVInfo):
         # Copy Metadata from tables into the main set of attributes        
         self.tag_map = { ('VORBISCOMMENT', 'en') : VORBISCOMMENT_tags }
         for k in self.tag_map.keys():
-            print k
+            _print(k)
             map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),self.tag_map[k][x]), self.tag_map[k].keys())        
         # Chapter parser
         
@@ -114,16 +117,16 @@ class OgmInfo(mediainfo.AVInfo):
             # Regular File end
             return None        
         elif len(h) < 27:
-            print "%d Bytes of Garbage found after End." % len(h)
+            _print("%d Bytes of Garbage found after End." % len(h))
             return None
         if h[:4] != "OggS":        
             self.valid = 0
-            print "Invalid Ogg"
+            _print("Invalid Ogg")
             return None
         self.valid = 1
         version = ord(h[4])
         if version != 0:
-            print("Unsupported OGG/OGM Version %d." % version)
+            _print("Unsupported OGG/OGM Version %d." % version)
             return None
         head = struct.unpack('<BQIIIB', h[5:])
         headertype, granulepos, serial, pageseqno, checksum, pageSegCount = head
@@ -217,10 +220,10 @@ class OgmInfo(mediainfo.AVInfo):
                 ai = mediainfo.AudioInfo()
                 (type, ssize, timeunit, ai.samplerate, ai.length, buffersize, ai.bitrate, ai.channels, bloc, ai.bitrate) = streamheader
                 self.samplerate = ai.samplerate
-                print "Samplerate %d" % self.samplerate
+                _print("Samplerate %d" % self.samplerate)
                 self.audio.append(ai)
         else:
-            print "Unknown Header" 
+            _print("Unknown Header")
               
 
     def _extractHeaderString(self,header):
