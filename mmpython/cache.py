@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.39  2003/12/31 16:37:56  dischi
+# again: faster, but all cachefiles have to be rebuild
+#
 # Revision 1.38  2003/12/30 22:30:04  dischi
 # more speed improvments
 #
@@ -184,7 +187,7 @@ class Cache:
         self.current_cachedir   = None
         self.CACHE_VERSION      = 1
         self.DISC_CACHE_VERSION = 1
-        self.md5_cachedir       = True
+        self.md5_cachedir       = 1
 
 
     def hexify(self, str):
@@ -213,15 +216,13 @@ class Cache:
                     return '%s/disc/%s.mmpython' % (self.cachedir, id)
 
         if not self.md5_cachedir:
-            try:
-                directory = os.path.join(self.cachedir, file[1:])
-                if not os.path.isdir(directory):
+            directory = os.path.join(self.cachedir, file[1:])
+            if not os.path.isdir(directory):
+                try:
                     os.makedirs(directory)
-                return os.path.join(directory, 'mmpython')
-
-            except IOError:
-                pass
-
+                except IOError:
+                    return  '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
+            return os.path.join(directory, 'mmpython')
         return  '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
             
 
@@ -291,20 +292,19 @@ class Cache:
 
         objects = {}
         for file in files:
-            if mmpython.mediainfo.DEBUG:
-                print file
             if factory.isurl(file):
                 split = factory.url_splitter(file)
                 if split[0] == 'cd':
                     device, mountpoint, filename, complete_filename = split[1:]
-                    key  = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
+                    timestamp = os.stat(complete_filename)[stat.ST_MTIME]
+                    key       = filename
                 else:
                     continue
             else:
                 if not os.path.exists(file):
                     continue
-
-                key  = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+                timestamp = os.stat(file)[stat.ST_MTIME]
+                key       = file
 
             try:
                 info = self.find(file)
@@ -321,7 +321,8 @@ class Cache:
                     del info._tables
                 except:
                     pass
-            objects[key] = info
+            objects[key] = (info, timestamp)
+
 
         if factory.isurl(directory) and factory.url_splitter(directory)[0] == 'cd' and \
                not isinstance(self.current_objects, DiscInfo):
@@ -420,8 +421,9 @@ class Cache:
             else:
                 raise FileNotFoundException
 
-            dirname = device
-            key = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
+            dirname   = device
+            timestamp = os.stat(complete_filename)[stat.ST_MTIME]
+            key       = filename
             
         elif not dirname:
             if not file.startswith('/'):
@@ -434,11 +436,13 @@ class Cache:
                 if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
                     return self.__find_disc__(file)
 
-            dirname = os.path.dirname(file)
-            key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+            dirname   = os.path.dirname(file)
+            timestamp = os.stat(file)[stat.ST_MTIME]
+            key       = file
 
         else:
-            key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+            timestamp = os.stat(file)[stat.ST_MTIME]
+            key       = file
 
         if dirname != self.current_cachedir:
             if not cachefile:
@@ -464,11 +468,13 @@ class Cache:
 
                 self.current_objects = objects
 
-
         if isinstance(self.current_objects, DiscInfo):
             raise FileNotFoundException
-        try:
-            return self.current_objects[key]
-        except:
+        if self.current_objects.has_key(key):
+            obj, t = self.current_objects[key]
+            if t != timestamp:
+                raise FileNotFoundException
+            return obj
+        else:
             raise FileNotFoundException
 
