@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2003/05/13 15:16:02  the_krow
+# width+height hacked
+#
 # Revision 1.1  2003/05/13 15:00:23  the_krow
 # Tiff parsing
 #
@@ -60,14 +63,20 @@ class TIFFInfo(mediainfo.ImageInfo):
             app = file.read(len*12)
             for i in range(len):
                 (tag, type, length, value, offset) = struct.unpack('>HHIHH', app[i*12:i*12+12])
-#                print "[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset)
+                print "[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset)
                 if tag == 0x8649:
                     file.seek(offset,0)
                     self.iptc = IPTC.flatten(IPTC.parseiptc(file.read(1000)))
                 elif tag == 0x0100:
-                    self.width = value
+                    if value != 0:
+                        self.width = value
+                    else:
+                        self.width = offset
                 elif tag == 0x0101:
-                    self.height = value
+                    if value != 0:
+                        self.height = value
+                    else:
+                        self.height = offset
 
         elif header[:4] == INTELSIGNATURE:
             print "intel"
@@ -81,14 +90,20 @@ class TIFFInfo(mediainfo.ImageInfo):
             app = file.read(len*12)
             for i in range(len):
                 (tag, type, length, offset, value) = struct.unpack('<HHIHH', app[i*12:i*12+12])
-#                print "[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset)
+                print "[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset)
                 if tag == 0x8649:
                     file.seek(offset)
                     self.iptc = IPTC.flatten(IPTC.parseiptc(file.read(1000)))
                 elif tag == 0x0100:
-                    self.width = value
+                    if value != 0:
+                        self.width = value
+                    else:
+                        self.width = offset
                 elif tag == 0x0101:
-                    self.height = value
+                    if value != 0:
+                        self.height = value
+                    else:
+                        self.height = offset
         else:
             return
 

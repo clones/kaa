@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/05/13 15:16:02  the_krow
+# width+height hacked
+#
 # Revision 1.3  2003/05/13 15:00:23  the_krow
 # Tiff parsing
 #
@@ -105,7 +108,7 @@ def parseiptc(app):
                return iptc
            (key,len) = unpack('>HH',data[offset+1:offset+5])
            val = data[offset+5:offset+len+5]
-#           print "0x%x (%d) %s" % (key, len, val)
+           print "0x%x (%d) %s" % (key, len, val)
            if iptc.has_key(key):
                iptc[key].append(val)
            else:
