@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.13  2003/06/09 16:12:47  the_krow
+# MPEG Length computation added
+#
 # Revision 1.12  2003/06/09 14:31:57  the_krow
 # fixes on the mpeg parser
 # resolutions, fps and bitrate should be reported correctly now
@@ -139,7 +142,7 @@ ASPECT_RATIO = [ 'Forbidden',
 		      '4/3 (TV)',
 		      '16/9 (Large TV)',
 		      '2.21/1 (Cinema)',
-		      ]
+	       ]
  
 
 class MpegInfo(mediainfo.AVInfo):
@@ -155,6 +158,7 @@ class MpegInfo(mediainfo.AVInfo):
             vi.width, vi.height = self.dxy(file)
             vi.fps, aspect = self.framerate_aspect(file)
             vi.bitrate = self.bitrate(file)
+            vi.length = self.mpgsize(file) * 8 / vi.bitrate
             self.video.append(vi)
 
     def dxy(self,file):  
@@ -219,7 +223,10 @@ class MpegInfo(mediainfo.AVInfo):
         vrate = t << 2 | b >> 6
         return vrate * 400
         
-        
+    def mpgsize(self,file):
+        file.seek(0,2)
+        return file.tell()
+    
     def isVideo(self,file):
         buffer = file.read(10000)
         self.offset = buffer.find( '\x00\x00\x01\xB3' )
