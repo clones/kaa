@@ -28,3 +28,4 @@ setup (# Distribution meta-data
                                  libraries=[ 'dvdread' ]),
                        Extension('mmpython/disc/cdrom', ['disc/cdrommodule.c']) ]
       )
+

@@ -3,7 +3,7 @@ echo "This script only compiles the extentions"
 echo "please use 'python ./setup.py' for a full installation"
 echo "******************************************************"
 
-rm -rf build video/ifoinfo.so
+rm -rf build disc/*.so
 python ./setup.py build_ext
 cp -r build/lib*/mmpython/* .
 

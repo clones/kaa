@@ -14,6 +14,7 @@ import image.tiffinfo
 
 import disc.dvdinfo
 import disc.vcdinfo
+import disc.audioinfo
 
 import sys
 

@@ -1,0 +1,8 @@
+This package includes some code from other projects:
+
+- disc/ifomodule.c is based on ifoinfo from Jens Arnfast
+  http://arnfast.net/projects/ifoinfo.php
+
+- The Python CDDB module from Ben Gertzfield <che@debian.org>
+  http://cddb-py.sourceforge.net/
+
