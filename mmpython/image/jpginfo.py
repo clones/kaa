@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/05/13 15:52:42  the_krow
+# Caption added
+#
 # Revision 1.5  2003/05/13 15:23:59  the_krow
 # IPTC
 #
@@ -74,6 +77,7 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'keywords', self.iptc, 537 )
             self.setitem( 'artist', self.iptc, 592 )
             self.setitem( 'country', self.iptc, 612 ) 
+            self.setitem( 'caption', self.iptc, 632 )
         return
        
 

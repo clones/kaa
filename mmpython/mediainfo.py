@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/05/13 15:52:41  the_krow
+# Caption added
+#
 # Revision 1.5  2003/05/13 15:23:59  the_krow
 # IPTC
 #
@@ -40,7 +43,7 @@ TYPE_HYPERTEXT = 8
 import string
 import types
 
-# Audiocore: TITLE, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
+# Audiocore: TITLE, CAPTION, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
 #  + ID3 Tags
 #  + ID3V2 Tags
 #  + Ogg Vorbis Headers
@@ -69,7 +72,7 @@ def get_singleton():
         
     return _singleton
 
-MEDIACORE = ['title', 'comment', 'artist', 'size', 'type', 'subtype', 'date', 'keywords', 'country', 'language']
+MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype', 'date', 'keywords', 'country', 'language']
 AUDIOCORE = ['trackno', 'trackof', 'album', 'audiochannels', 'samplerate', 'length', 'encoder', 'audiocodec', 
              'samplebits', 'genre', 'audiobitrate']
 VIDEOCORE = ['length', 'encoder', 'audiobitrate', 'audiochannels', 'bitrate', 'samplerate', 'audiocodec', 'videocodec', 'samplebits',

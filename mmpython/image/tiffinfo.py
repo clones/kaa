@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/05/13 15:52:43  the_krow
+# Caption added
+#
 # Revision 1.3  2003/05/13 15:23:59  the_krow
 # IPTC
 #
@@ -117,6 +120,8 @@ class TIFFInfo(mediainfo.ImageInfo):
             self.setitem( 'keywords', self.iptc, 537 )
             self.setitem( 'artist', self.iptc, 592 )
             self.setitem( 'country', self.iptc, 612 ) 
+            self.setitem( 'caption', self.iptc, 632 )
+
             
 
 factory = mediainfo.get_singleton()
