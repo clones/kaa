@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.34  2003/06/19 17:30:07  dischi
+# small bugfix, always return results
+#
 # Revision 1.33  2003/06/11 20:50:59  the_krow
 # Title, Artist and some other data sucessfully parsed from wmv, asf, wma
 #
@@ -318,7 +321,7 @@ class AVInfo(MediaInfo):
             if len(self.subtitles):
                 result += reduce( lambda a,b: a + "  \n   Subtitle Stream:" + b.__str__(),
                                   self.subtitles, "" )
-            return result
+        return result
 
         
 class ImageInfo(MediaInfo):
