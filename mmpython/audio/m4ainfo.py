@@ -13,9 +13,9 @@ import mmpython
 
 class Mpeg4(mediainfo.MusicInfo):
     def __init__(self, file):
-        containerTags = ('moov', 'udta', 'trak', 'mdia', 'minf', 'dinf', 'stbl',
-                         'meta', 'ilst', '----')
-        skipTags = {'meta':4 }
+        self.containerTags = ('moov', 'udta', 'trak', 'mdia', 'minf', 'dinf', 'stbl',
+                              'meta', 'ilst', '----')
+        self.skipTags = {'meta':4 }
 
         mediainfo.MusicInfo.__init__(self)
         self.f = file
