@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.22  2004/08/28 17:27:16  dischi
+# handle empty discs
+#
 # Revision 1.21  2004/06/25 13:20:35  dischi
 # FreeBSD patches
 #
@@ -192,8 +195,8 @@ def cdrom_disc_status(device, handle_mix = 0):
     if s == CDS_AUDIO or s == CDS_MIXED:
         return 1
     
-    fd = open(device, 'rb')
     try:
+        fd = open(device, 'rb')
         # try to read from the disc to get information if the disc
         # is a rw medium not written yet
         
