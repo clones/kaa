@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.48  2003/06/30 11:38:00  dischi
+# catch exception
+#
 # Revision 1.47  2003/06/29 18:29:02  dischi
 # small fixes
 #
@@ -303,10 +306,13 @@ class MediaInfo:
             pass
 
     def __getitem__(self,key):
-        if isinstance(self.__dict__[key], str):
-            return self.__dict__[key].strip().rstrip().replace('\0', '')
-        return self.__dict__[key]
-
+        try:
+            if isinstance(self.__dict__[key], str):
+                return self.__dict__[key].strip().rstrip().replace('\0', '')
+            return self.__dict__[key]
+        except KeyError:
+            return None
+        
     def __setitem__(self, key, val):
         self.__dict__[key] = val
 
