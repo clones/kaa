@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.31  2003/08/30 12:17:32  dischi
+# cache for cd:// only needed directories
+#
 # Revision 1.30  2003/08/23 17:54:14  dischi
 # move id translation of bad chars directly after parsing
 #
@@ -155,8 +158,8 @@ class Cache:
 
         if os.path.isdir(cachedir) and not os.path.isdir('%s/disc' % cachedir):
             os.mkdir('%s/disc' % cachedir)
-        self.current_objects    = None
-        self.current_dir        = None
+        self.current_objects    = {}
+        self.current_cachefile = None
         self.CACHE_VERSION      = 1
         self.DISC_CACHE_VERSION = 1
 
@@ -183,27 +186,20 @@ class Cache:
         return '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
     
 
-    def __walk_helper__(self, (result, prefix, mountpoint), dirname, names):
-        for name in names:
-            fullpath = os.path.join(dirname, name)[len(mountpoint)+1:]
-            fullpath = '%s%s:%s' % (prefix, mountpoint, fullpath)
-            result.append(fullpath)
-        return result
-
-
     def __get_cachefile_and_filelist__(self, directory):
         """
         return the cachefile and the filelist for this directory
         """
         if factory.isurl(directory):
             split  = factory.url_splitter(directory)
-            # this is a complete cd caching
+            # this is a cd caching, one file for the complete disc
             if split[0] == 'cd':
                 device, mountpoint, filename, complete_filename = split[1:]
                 cachefile = self.__get_filename__(device)
                 files = []
-                os.path.walk(mountpoint, self.__walk_helper__,
-                             (files, 'cd://%s:' % device, mountpoint))
+                for file in os.listdir(os.path.join(mountpoint, filename)):
+                    files.append('cd://%s:%s:%s' % (device, mountpoint,
+                                                    os.path.join(filename, file)))
             else:
                 return (None, None)
                 
@@ -227,7 +223,6 @@ class Cache:
         if not factory.isurl(directory):
             directory = os.path.abspath(directory)
         cachefile, files = self.__get_cachefile_and_filelist__(directory)
-
         if not cachefile:
             return -1
 
@@ -283,6 +278,14 @@ class Cache:
                     pass
             objects[key] = info
 
+        if factory.isurl(directory) and factory.url_splitter(directory)[0] == 'cd' and \
+               not isinstance(self.current_objects, DiscInfo):
+            if mmpython.mediainfo.DEBUG:
+                print 'cd: add old entries'
+            for key in self.current_objects:
+                if mmpython.mediainfo.DEBUG:
+                    print key
+                objects[key] = self.current_objects[key]
         f = open(cachefile, 'w')
         pickle.dump((self.CACHE_VERSION, objects), f, 1)
         f.close()
@@ -377,7 +380,10 @@ class Cache:
             key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
 
         cachefile = self.__get_filename__(dname)
-        if not dname == self.current_dir:
+        if not cachefile == self.current_cachefile:
+            self.current_cachefile = cachefile
+            self.current_objects   = {}
+            
             if not (cachefile and os.path.isfile(cachefile)):
                 raise FileNotFoundException
 
@@ -391,8 +397,9 @@ class Cache:
             if not version == self.CACHE_VERSION:
                 raise FileNotFoundException
             
-            self.current_dir     = dname
             self.current_objects = objects
+
+
         if isinstance(self.current_objects, DiscInfo):
             raise FileNotFoundException
         try:
