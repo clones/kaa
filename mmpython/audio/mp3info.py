@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2003/06/09 22:59:37  the_krow
+# hopefully mp3 files are not detected everytime an mp3 stream is inside a
+# container any longer.
+#
 # Revision 1.8  2003/06/09 14:31:56  the_krow
 # fixes on the mpeg parser
 # resolutions, fps and bitrate should be reported correctly now
@@ -55,6 +59,7 @@
 import struct
 import string
 from mmpython import mediainfo
+import re
 
 def _from_synch_safe(synchsafe):
     if isinstance(synchsafe, type(1)):
@@ -291,14 +296,20 @@ _mode_extensions = [
 
 _emphases = [ "none", "50/15 ms", "reserved", "CCIT J.17" ]
 
-_MP3_HEADER_SEEK_LIMIT = 8192
+_MP3_HEADER_SEEK_LIMIT = 4096
 
 class MPEG:
     def __init__(self, file):
         self.valid = 0
-        self.filesize = file.tell()
-
+        s = file.read(4096)
+        if s[:3] == 'ID3':
+            self.valid = 1
+        if re.compile(r'0*\xFF\xFB\xB0\x04$').search(s):
+            self.valid = 1
+        if re.compile(r'0*\xFF\xFA\xB0\x04$').search(s):
+            self.valid = 1
         file.seek(0, 2)
+        self.filesize = file.tell()        
         file.seek(0, 0)
 
         self.version = 0
@@ -444,64 +455,62 @@ class MP3Info(mediainfo.MusicInfo):
     def __init__(self, file, filename):
         mediainfo.MusicInfo.__init__(self)
         self.valid = 0
-        self.id3 = None
-        self.mpeg = MPEG(file)
-        if not self.mpeg.valid:
+        mpeg = MPEG(file)
+        if not mpeg.valid:
             self.valid = 0
             return
         self.info = {}
-        self.samplerate = self.mpeg.samplerate
-        self.bitrate = self.mpeg.bitrate * 1000
-        self.length = self.mpeg.length
-        self.channels = self.mpeg.mode
+        self.samplerate = mpeg.samplerate
+        self.bitrate = mpeg.bitrate * 1000
+        self.length = mpeg.length
+        self.channels = mpeg.mode
         if self.samplerate and self.channels and self.bitrate:
             pass
         else:
             self.valid = 0
             return
-        self.type = 'MPEG %1.f' % self.mpeg.version
-        self.subtype = 'Layer %d' % self.mpeg.layer
+        self.type = 'MPEG %1.f' % mpeg.version
+        self.subtype = 'Layer %d' % mpeg.layer
         self.valid = 1
         id3 = ID3v1(file)
         if id3.valid:
-            self.id3 = id3
             self.appendtable('id3v1', id3.tags)
 
-        id3 = ID3v2(file)
+        id3v2 = ID3v2(file)
         if id3.valid:
-            self.id3 = id3
+            id3 = id3v2
             self.appendtable('id3v2', id3.tags)
 
-        if self.id3 is None:
+        if id3 is None:
             return
 
         # Set the info fields
-        for tag in self.id3.tags.keys():
+        for tag in id3.tags.keys():
             if tag == 'TT2' or tag == 'TIT2':
-                self.title = self.id3.tags[tag]
+                self.title = id3.tags[tag]
             elif tag == 'TP1' or tag == 'TPE1':
-                self.artist = self.id3.tags[tag]
+                self.artist = id3.tags[tag]
             elif tag == 'TRK' or tag == 'TRCK':
-                self.trackno = self.id3.tags[tag]
+                self.trackno = id3.tags[tag]
             elif tag == 'TYE' or tag == 'TYER':
-                self.date = self.id3.tags[tag]
+                self.date = id3.tags[tag]
             elif tag == 'COM' or tag == 'COMM':
-                self.comment = self.id3.tags[tag]
+                self.comment = id3.tags[tag]
             elif tag == 'TCM':
-                self.composer = self.id3.tags[tag]
+                self.composer = id3.tags[tag]
             elif tag == 'TAL' or tag == 'TALB':
-                self.album = self.id3.tags[tag]
+                self.album = id3.tags[tag]
             elif tag == 'TPA':
-                self.disc = self.id3.tags[tag]
+                self.disc = id3.tags[tag]
             elif tag == 'TCO' or tag == 'TCON':
-                genre = self.genre = self.id3.tags[tag]
+                genre = self.genre = id3.tags[tag]
                 if genre and genre[0] == '(' and genre[-1] == ')':
                     try:
                         self.info['genre'] = _genres[int(genre[1:-1])]
                     except IndexError:
                         self.info['genre'] = ""
             elif tag == 'TEN' or tag == 'TENC':
-                self.encoder = self.id3.tags[tag]
+                self.encoder = id3.tags[tag]
 
 
 factory = mediainfo.get_singleton()
