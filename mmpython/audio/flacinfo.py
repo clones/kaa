@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/08/30 09:36:22  dischi
+# turn off some debug based on DEBUG
+#
 # Revision 1.3  2003/08/27 02:53:48  outlyer
 # Still doesn't do anything, but at least compiles now; problem is I don't
 # know how to conver the endian "headers" in to the types we expect, and I'm
@@ -55,7 +58,8 @@ class FlacInfo(mediainfo.MusicInfo):
             import struct
             (blockheader,) = struct.unpack('>i',file.read(4))
             type = blockheader >> 24 & 0x7F
-            print type
+            if mmpython.mediainfo.DEBUG:
+                print type
 
             if type == 0:
                 # STREAMINFO

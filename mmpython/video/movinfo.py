@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.18  2003/08/30 09:36:22  dischi
+# turn off some debug based on DEBUG
+#
 # Revision 1.17  2003/07/02 11:17:30  the_krow
 # language is now part of the table key
 #
@@ -161,7 +164,7 @@ class MovInfo(mediainfo.AVInfo):
                     self.appendtable('QTUDTA', i18ntabl[k], QTLANGUAGES[k])
                     self.appendtable('QTUDTA', tabl, QTLANGUAGES[k])
             else:
-                print "NO i18"
+                #print "NO i18"
                 self.appendtable('QTUDTA', tabl)
              
         elif atomtype == 'trak':

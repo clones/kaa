@@ -26,7 +26,8 @@ class Mpeg4(mediainfo.MusicInfo):
                 self.readNextTag()
             except ValueError:
                 returnval = 1
-        self.output()
+        if mediainfo.DEBUG:
+            self.output()
 
     def readNextTag(self):
         length, name = self.readInt(), self.read(4)

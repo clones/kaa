@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.17  2003/08/30 09:36:22  dischi
+# turn off some debug based on DEBUG
+#
 # Revision 1.16  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -288,7 +291,7 @@ class AsfInfo(mediainfo.AVInfo):
             size = struct.unpack('<I',s[42:46])[0]
             data = s[46:46+size]
             while len(data):
-                print "Sub:"
+                _print("Sub:")
                 h = self._getnextheader(data)
                 data = data[h[1]:]
             
@@ -359,10 +362,10 @@ class AsfInfo(mediainfo.AVInfo):
             bfail = 1
             for h in GUIDS.keys():
                 if GUIDS[h] == guid:
-                    print "Unparsed %s [%d]" % (h,objsize)
+                    _print("Unparsed %s [%d]" % (h,objsize))
                     bfail = 0
             if bfail:
-                print "unknown: %s [%d]" % (self._printguid(guid), objsize)
+                _print("unknown: %s [%d]" % (self._printguid(guid), objsize))
         return r
         
 mmpython.registertype( 'video/asf', ('asf','wmv','wma'), mediainfo.TYPE_AV, AsfInfo )

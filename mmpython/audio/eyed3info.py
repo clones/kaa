@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2003/08/30 09:36:22  dischi
+# turn off some debug based on DEBUG
+#
 # Revision 1.8  2003/07/10 13:05:05  the_krow
 # o id3v2 tabled added to eyed3
 # o type changed to MUSIC
@@ -156,8 +159,8 @@ class eyeD3Info(mediainfo.MusicInfo):
                     tab[f.header.id] = f.url
                 elif f.__class__ is eyeD3_frames.UserURLFrame:
                     tab[f.header.id] = f.url
-                else:
-                    print f.__class__
+                elif mediainfo.DEBUG:
+                   print f.__class__
             self.appendtable('id3v2', tab, 'en')
          if id3:
             self.length = id3.getPlayTime()
