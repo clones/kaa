@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.2  2004/03/21 08:57:31  dischi
+# major bugfix
+#
 # Revision 1.1  2004/01/31 12:24:15  dischi
 # add basic matroska info
 #
@@ -44,37 +47,48 @@ from string import *
 _print = mediainfo._debug
 
 # Main IDs for the Matroska streams
-MATROSKA_HEADER_ID       = '\x1A\x45\xDF\xA3'
-MATROSKA_TRACKS_ID       = '\x16\x54\xAE\x6B'
-MATROSKA_SEGMENT_ID      = '\x18\x53\x80\x67'
-MATROSKA_SEEK_HEAD_ID    = '\x11\x4D\x9B\x74'
-MATROSKA_SEGMENT_INFO_ID = '\x15\x49\xA9\x66'
-MATROSKA_CLUSTER_ID      = '\x1F\x43\xB6\x75'
-MATROSKA_VOID_ID         = '\xEC'
-MATROSKA_CRC_ID          = '\xBF'
-MATROSKA_VIDEO_TYPE_ID   = '\x83'
-MATROSKA_CODEC_ID        = '\x86'
-MATROSKA_CODEC_NAME_ID   = '\x25\x86\x88'
-MATROSKA_FRAME_DURATION_ID = '\x23\xE3\x83'
-MATROSKA_VIDEO_SETTINGS_ID = '\xE0'
-MATROSKA_VID_WIDTH_ID      = '\xB0'
-MATROSKA_VID_HEIGHT_ID     = '\xBA'
-MATROSKA_AUDIO_SETTINGS_ID = '\xE1'
-MATROSKA_AUDIO_SAMPLERATE_ID = '\xB5'
-MATROSKA_AUDIO_CHANNELS_ID   = '\x9F'
-MATROSKA_TRACK_LANGUAGE_ID   = '\x22\xB5\x9C'
-MATROSKA_TIMECODESCALE_ID    = '\x2A\xD7\xB1'
-MATROSKA_DURATION_ID         = '\x44\x89'
-MATROSKA_MUXING_APP_ID       = '\x4D\x80'
-MATROSKA_WRITING_APP_ID      = '\x57\x41'
-
 MATROSKA_VIDEO_TRACK = 1
 MATROSKA_AUDIO_TRACK = 2
+
+MATROSKA_HEADER_ID  = 0x1A45DFA3
+MATROSKA_TRACKS_ID  = 0x1654AE6B
+MATROSKA_SEGMENT_ID = 0x18538067
+MATROSKA_SEGMENT_INFO_ID      = 0x1549A966
+MATROSKA_CLUSTER_ID           = 0x1F43B675
+MATROSKA_VOID_ID              = 0xEC
+MATROSKA_CRC_ID               = 0xBF
+MATROSKA_TIMECODESCALE_ID     = 0x2AD7B1
+MATROSKA_DURATION_ID          = 0x4489
+MATROSKA_CRC32_ID             = 0xBF
+MATROSKA_TRACK_TYPE_ID        = 0x83
+MATROSKA_TRACK_LANGUAGE_ID    = 0x22B59C
+MATROSKA_TIMECODESCALE_ID     = 0x4489
+MATROSKA_MUXING_APP_ID        = 0x4D80
+MATROSKA_WRITING_APP_ID       = 0x5741
+MATROSKA_CODEC_ID             = 0x86
+MATROSKA_CODEC_NAME_ID        = 0x258688
+MATROSKA_FRAME_DURATION_ID    = 0x23E383
+MATROSKA_VIDEO_SETTINGS_ID    = 0xE0
+MATROSKA_VID_WIDTH_ID         = 0xB0
+MATROSKA_VID_HEIGHT_ID        = 0xBA
+MATROSKA_AUDIO_SETTINGS_ID    = 0xE1
+MATROSKA_AUDIO_SAMPLERATE_ID  = 0xB5
+MATROSKA_AUDIO_CHANNELS_ID    = 0x9F
 
 # This is class that is responsible to handle one Ebml entity as described in the Matroska/Ebml spec
 class EbmlEntity:
     def __init__(self, inbuf):
         # Compute the EBML id
+        # Set the CRC len to zero
+        self.crc_len = 0
+        # Now loop until we find an entity without CRC
+        self.build_entity(inbuf)
+        while self.get_id() == MATROSKA_CRC32_ID:
+            self.crc_len += self.get_total_len()
+            inbuf = inbuf[self.get_total_len():]
+            self.build_entity(inbuf)
+
+    def build_entity(self, inbuf):
         self.compute_id(inbuf)
         #_print("Entity id : %08X" % self.entity_id)
         if ( self.id_len == 0):
@@ -151,6 +165,9 @@ class EbmlEntity:
             self.len_size = 8
             return -1
 
+    def get_crc_len(self):
+        return self.crc_len
+
     def get_value(self):
         value = self.value
         return value
@@ -184,29 +201,34 @@ class MkvInfo(mediainfo.AVInfo):
 
         # Check the Matroska header
         header = EbmlEntity(buffer)
-        if ( header.get_str_id() == MATROSKA_HEADER_ID ):
+        if ( header.get_id() == MATROSKA_HEADER_ID ):
             _print("HEADER ID found %08X" % header.get_id() )
             self.valid = 1
             self.mime = 'application/mkv'
             self.type = 'Matroska'
             # Now get the segment
             segment = EbmlEntity(buffer[header.get_total_len():])
-            if ( segment.get_str_id() == MATROSKA_SEGMENT_ID):
+            if ( segment.get_id() == MATROSKA_SEGMENT_ID):
+                _print("SEGMENT ID found %08X" % segment.get_id() )
                 #MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype',
                 #'date', 'keywords', 'country', 'language', 'url']
                 segtab = self.process_one_level(segment)
                 seginfotab = self.process_one_level(segtab[MATROSKA_SEGMENT_INFO_ID])
                 try:
-                    scalecode = seginfotab[MATROSKA_TIMECODESCALE_ID].get_value()
+                    # Express scalecode in ms instead of ns
+                    # Rescale it to the second
+                    scalecode = float(seginfotab[MATROSKA_TIMECODESCALE_ID].get_value() / (1000*1000))
                 except:
                     scalecode = 1000
                 try:
-                    duration = unpack('!f', seginfotab[MATROSKA_DURATION_ID].get_data() )[0]
-                    duration = duration / scalecode
-                    self.length = duration
+                    duration = float(unpack('!f', seginfotab[MATROSKA_DURATION_ID].get_data() )[0])
+                    duration = float(duration / scalecode)
+                    # Express the time in minutes
+                    self.length = int(duration/60)
                 except:
                     pass
                 try:
+                    _print ("Searching for id : %X" % MATROSKA_TRACKS_ID)
                     entity = segtab[MATROSKA_TRACKS_ID]
                     self.process_tracks(entity)
                 except:
@@ -222,7 +244,7 @@ class MkvInfo(mediainfo.AVInfo):
         while indice < tracks.get_len():
             trackelem = EbmlEntity(tracksbuf[indice:])
             self.process_one_track(trackelem)
-            indice += trackelem.get_total_len()
+            indice += trackelem.get_total_len() + trackelem.get_crc_len()
 
     def process_one_level(self, item):
         buf = item.get_data()
@@ -230,17 +252,17 @@ class MkvInfo(mediainfo.AVInfo):
         tabelem = {}
         while indice < item.get_len():
             elem = EbmlEntity(buf[indice:])
-            tabelem[elem.get_str_id()] = elem
-            #print "Found elem %s" % elem.get_str_id()
-            indice += elem.get_total_len()
+            tabelem[elem.get_id()] = elem
+            indice += elem.get_total_len() + elem.get_crc_len()
         return tabelem
 
     def process_one_track(self, track):
         # Process all the items at the track level
         tabelem = self.process_one_level(track)
         # We have the dict of track eleme, now build the MMPYTHON information
-        type = tabelem[MATROSKA_VIDEO_TYPE_ID]
+        type = tabelem[MATROSKA_TRACK_TYPE_ID]
         if (type.get_value() == MATROSKA_VIDEO_TRACK ):
+            _print("VIDEO TRACK found !!" )
             #VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
             #     'width', 'height', 'fps', 'aspect']
             vi = mediainfo.VideoInfo()
@@ -260,9 +282,10 @@ class MkvInfo(mediainfo.AVInfo):
                 vi.width  = vidtab[MATROSKA_VID_WIDTH_ID].get_value()
                 vi.height = vidtab[MATROSKA_VID_HEIGHT_ID].get_value()
             except:
-                _print("No info about video track !!!")
+                _print("No other info about video track !!!")
             self.video.append(vi)
         elif (type.get_value() == MATROSKA_AUDIO_TRACK ):
+            _print("AUDIO TRACK found !!" )
             #AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits',
             #     'bitrate', 'language']
             ai = mediainfo.AudioInfo()
@@ -282,9 +305,9 @@ class MkvInfo(mediainfo.AVInfo):
                 ai.samplerate  = unpack('!f', audtab[MATROSKA_AUDIO_SAMPLERATE_ID].get_value())[0]
                 ai.channels = audtab[MATROSKA_AUDIO_CHANNELS_ID].get_value()
             except:
-                _print("No info about audio track !!!")
+                _print("No other info about audio track !!!")
             self.audio.append(ai)
 
-        _print("Found %d elem for this track" % len(tabelem) )
+        #_print("Found %d elem for this track" % len(tabelem) )
 
 mmpython.registertype( 'application/mkv', ('mkv', 'mka',), mediainfo.TYPE_AV, MkvInfo )
