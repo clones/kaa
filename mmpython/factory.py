@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/07/05 16:03:05  dischi
+# catch exception
+#
 # Revision 1.4  2003/07/04 15:34:45  outlyer
 # Allow 'cdda' as well as 'cd' since we get that sometimes, and make sure
 # we import urllib.
@@ -89,9 +92,13 @@ class Factory:
             if DEBUG > 1: print "trying ext %s" % e
             if file.name.find(e) + len(e) == len(file.name):
                 if DEBUG == 1: print "trying ext %s" % e
-                file.seek(0,0)
-                t = self.extmap[e][3](file)
-                if t.valid: return t
+                try:
+                    file.seek(0,0)
+                    t = self.extmap[e][3](file)
+                    if t.valid: return t
+                except:
+                    if DEBUG:
+                        traceback.print_exc()
 
         if DEBUG: print "No Type found by Extension. Trying all"
         for e in self.types:
