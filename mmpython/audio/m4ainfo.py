@@ -25,7 +25,7 @@ class Mpeg4(mediainfo.MusicInfo):
                 self.readNextTag(file)
             except ValueError:
                 returnval = 1
-        if mediainfo.DEBUG:
+        if mediainfo.DEBUG and self.valid:
             print self.title
             print self.artist
             print self.album
@@ -35,7 +35,7 @@ class Mpeg4(mediainfo.MusicInfo):
     def readNextTag(self, file):
         length, name = self.readInt(file), self.read(4, file)
         length -= 8
-        if length < 0:
+        if length < 0 or length > 1000:
             raise ValueError, "Oops?"
         #print "%r" % str(name) # (%r bytes, starting at %r)" % \
         #  (name, length, file.tell() + 8)
