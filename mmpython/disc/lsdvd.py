@@ -7,6 +7,9 @@
 #
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.13  2005/01/13 20:19:34  dischi
+# detect video_ts in lower case
+#
 # Revision 1.12  2004/08/27 17:27:44  dischi
 # do not import ifoparser
 #
@@ -125,8 +128,8 @@ class DVDInfo(DiscInfo):
                 # badly mastered dvd
                 self.length = first
 
-        if mediainfo.DEBUG > 1:
-            print 'lsdvd detection ok'
+            if mediainfo.DEBUG > 1:
+                print 'lsdvd detection ok'
             
         self.mime    = 'video/dvd'
         self.type    = 'DVD'
@@ -172,9 +175,11 @@ class DVDInfo(DiscInfo):
     
             
     def isDVDdir(self, dirname):
-        if not os.path.isdir(dirname+'/VIDEO_TS'):
-            return 0
-        return self.lsdvd(dirname)
+        if os.path.isdir(dirname+'/VIDEO_TS') or \
+               os.path.isdir(dirname+'/video_ts') or \
+               os.path.isdir(dirname+'/Video_ts'):
+            return self.lsdvd(dirname)
+        return 0
 
     
     def isDisc(self, device):

@@ -94,7 +94,9 @@ class DVDInfo(DiscInfo):
 
 
     def isDVDdir(self, dirname):
-        if not os.path.isdir(dirname+'/VIDEO_TS'):
+        if not (os.path.isdir(dirname+'/VIDEO_TS') or \
+                os.path.isdir(dirname+'/video_ts') or \
+                os.path.isdir(dirname+'/Video_ts')):
             return 0
 
         # OK, try libdvdread
