@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/06/08 20:27:42  dischi
+# small fix for broken files and fixed a wrong bins_data call
+#
 # Revision 1.5  2003/06/08 19:55:22  dischi
 # added bins metadata support
 #
@@ -74,10 +77,14 @@ class PNGInfo(mediainfo.ImageInfo):
         self._readChunk(file)
         self._readChunk(file)
         self._readChunk(file)
+        self.add_bins_data(filename)
         return       
         
     def _readChunk(self,file):
-        (length, type) = struct.unpack('>I4s', file.read(8))
+        try:
+            (length, type) = struct.unpack('>I4s', file.read(8))
+        except:
+            return
         if ( type == 'tEXt' ):
           print 'latin-1 Text found.'
           (data,crc) = struct.unpack('>%isI' % length,file.read(length+4))
@@ -105,7 +112,6 @@ class PNGInfo(mediainfo.ImageInfo):
           file.seek(length+4,1)
           print "%s of length %d ignored." % (type, length)
 
-        self.add_bins_data(filename)
         return
 
 factory = mediainfo.get_singleton()
