@@ -1,4 +1,7 @@
 # Library to extract EXIF information in digital camera image files
+# Source: http://home.cfl.rr.com/genecash/digital_camera
+# Contains bad hack to speed up reading the MakerNote field
+# This hack is around the function s2nlist and it's usage.
 #
 # Contains code from "exifdump.py" originally written by Thierry Bousch
 # <bousch@topo.math.u-psud.fr> and released into the public domain.
@@ -721,6 +724,24 @@ class EXIF_header:
             pass
         return val
 
+    # convert slice to integer, based on sign and endian flags
+    # Note: this function was added by Dirk Meyer to improve
+    # speed when reading the MakerNote. The old function seeked
+    # and read every 'typelen' bits in one session. Reading once
+    # for big data (MakerNote > 3000), this is a huge speedup
+    def s2nlist(self, offset, typelen, count, signed=0):
+        ret = []
+        self.file.seek(self.offset+offset)
+        buffer = self.file.read((count+1) * typelen)
+        if self.endian == 'I':
+            s2n = s2n_intel
+        else:
+            s2n = s2n_motorola
+        for j in range(count):
+            ret.append(s2n(buffer[count*typelen:(count+1)*typelen]))
+        return ret
+    
+
     # convert offset to string
     def n2s(self, offset, length):
         s=''
@@ -778,15 +799,16 @@ class EXIF_header:
             else:
                 values=[]
                 signed=(field_type in [6, 8, 9, 10])
-                for j in range(count):
-                    if field_type in (5, 10):
+                if field_type in (5, 10):
+                    for j in range(count):
                         # a ratio
                         value_j=Ratio(self.s2n(offset,   4, signed),
                                       self.s2n(offset+4, 4, signed))
-                    else:
-                        value_j=self.s2n(offset, typelen, signed)
-                    values.append(value_j)
-                    offset=offset+typelen
+                        values.append(value_j)
+                        offset=offset+typelen
+                else:
+                    values += self.s2nlist(offset, typelen, count, signed)
+                    offset=offset+count*typelen
             # now "values" is either a string or an array
             if count == 1 and field_type != 2:
                 printable=str(values[0])
