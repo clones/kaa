@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/06/23 20:59:11  the_krow
+# PNG should now fill a correct table.
+#
 # Revision 1.7  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -59,6 +62,8 @@ import zlib
 
 PNGSIGNATURE = "\211PNG\r\n\032\n"
 
+_print = mediainfo._debug
+
 class PNGInfo(mediainfo.ImageInfo):
 
     def __init__(self,file):
@@ -68,18 +73,14 @@ class PNGInfo(mediainfo.ImageInfo):
         self.type = 'PNG image'
         self.valid = 1
         signature = file.read(8)
-        signature
-        
         if ( signature != PNGSIGNATURE ):
             self.valid = 0
             return
-        self._readChunk(file)
-        self._readChunk(file)
-        self._readChunk(file)
-        self._readChunk(file)
-        self._readChunk(file)
-        self._readChunk(file)
-        self._readChunk(file)
+        self.meta = {}
+        while self._readChunk(file):
+            pass
+        if len(self.meta.keys()):
+            self.appendtable( 'PNGMETA', self.meta )
         self.add_bins_data(file.name)
         return       
         
@@ -87,35 +88,37 @@ class PNGInfo(mediainfo.ImageInfo):
         try:
             (length, type) = struct.unpack('>I4s', file.read(8))
         except:
-            return
+            return 0
         if ( type == 'tEXt' ):
-          print 'latin-1 Text found.'
-          (data,crc) = struct.unpack('>%isI' % length,file.read(length+4))
+          _print('latin-1 Text found.')
+          (data, crc) = struct.unpack('>%isI' % length,file.read(length+4))
           (key, value) = data.split('\0')
-          print "%s -> %s" % (key,value)
+          meta[key] = value
+          _print("%s -> %s" % (key,value))
         elif ( type == 'zTXt' ):
-          print 'Compressed Text found.'
+          _print('Compressed Text found.')
           (data,crc) = struct.unpack('>%isI' % length,file.read(length+4))
           split = data.split('\0')
           key = split[0]
-          value = "".join(split[1:])          
+          value = "".join(split[1:])
           compression = ord(value[0])
           value = value[1:]
           if compression == 0:
               decompressed = zlib.decompress(value)
-              print "%s (Compressed %i) -> %s" % (key,compression,decompressed)
+              _print("%s (Compressed %i) -> %s" % (key,compression,decompressed))
           else:
-              print "%s has unknown Compression %c" % (key,compression)
+              _print("%s has unknown Compression %c" % (key,compression))
+          meta[key] = value
         elif ( type == 'iTXt' ):
-          print 'International Text found.'
+          _print('International Text found.')
           (data,crc) = struct.unpack('>%isI' % length,file.read(length+4))
           (key, value) = data.split('\0')
-          print "%s -> %s" % (key,value)          
+          meta[key] = value
+          _print("%s -> %s" % (key,value))
         else:
           file.seek(length+4,1)
-          print "%s of length %d ignored." % (type, length)
-
-        return
+          _print("%s of length %d ignored." % (type, length))
+        return 1
 
 factory = mediainfo.get_singleton()
 factory.register( 'image/png', ['png'], mediainfo.TYPE_IMAGE, PNGInfo )

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.43  2003/06/23 20:59:11  the_krow
+# PNG should now fill a correct table.
+#
 # Revision 1.42  2003/06/23 20:48:11  the_krow
 # width + height fixes for OGM files
 #
@@ -175,7 +178,7 @@ from image import bins
 import re
 
 
-DEBUG = 2
+DEBUG = 1
 
 # Audiocore: TITLE, CAPTION, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
 #  + ID3 Tags
