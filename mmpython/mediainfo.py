@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.46  2003/06/24 12:59:33  the_krow
+# Added Webradio.
+# Added Stream Type to mediainfo
+#
 # Revision 1.45  2003/06/24 10:09:51  dischi
 # o improved URL parsing to support cd: scheme
 # o added function create to mediainfo who calls the needed create_from
@@ -224,6 +228,7 @@ AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
              'banner image', 'banner url', 'infotext']
 
 DEVICE    = 'device'
+STREAM    = 'stream'
 
 UNPRINTABLE_KEYS = [ 'thumbnail', ]
 
@@ -432,6 +437,7 @@ class MetaDataFactory:
         self.mimemap = {}
         self.types = []
         self.device_types = []
+        self.stream_types = []
         
     def create_from_file(self,file):
         """
@@ -478,10 +484,23 @@ class MetaDataFactory:
             if r:
                 r.url = url
 
+        elif scheme == 'http':
+            # Quick Hack for webradio support
+            # We will need some more soffisticated and generic construction
+            # method for this. Perhaps move file.open stuff into __init__
+            # instead of doing it here...
+            for e in self.stream_types:
+                if DEBUG: print 'Trying %s' % e[0]
+                t = e[3](url)
+                if t.valid:
+                    t.url = url
+                    return t
+            
         else:
             (scheme, location, path, query, fragment) = split
             uhandle = urllib.urlopen(url)
             mime = uhandle.info().gettype()
+            print "Trying %s" % mime
             if self.mimemap.has_key(mime):
                 t = self.mimemap[mime][3](file)
                 if t.valid: return t
@@ -534,6 +553,8 @@ class MetaDataFactory:
         tuple = (mimetype,extensions,type,c)
         if extensions == DEVICE:
             self.device_types.append(tuple)
+        elif extensions == STREAM:
+            self.stream_types.append(tuple)
         else:
             self.types.append(tuple)
             for e in extensions:

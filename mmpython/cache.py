@@ -5,6 +5,10 @@
 # $Id$
 #
 # $Log$
+# Revision 1.15  2003/06/24 12:59:33  the_krow
+# Added Webradio.
+# Added Stream Type to mediainfo
+#
 # Revision 1.14  2003/06/24 10:09:51  dischi
 # o improved URL parsing to support cd: scheme
 # o added function create to mediainfo who calls the needed create_from
@@ -288,7 +292,7 @@ class Cache:
         no or out-dated informations.
         """
         if mediainfo.isurl(file):
-            split  = mediainfo.url_splitter(directory)
+            split  = mediainfo.url_splitter(file)
             # this is a complete cd caching
             if split[0] == 'cd':
                 device, mountpoint, filename, complete_filename = split[1:]
