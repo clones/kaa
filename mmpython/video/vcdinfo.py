@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.7  2004/06/25 13:20:34  dischi
+# FreeBSD patches
+#
 # Revision 1.6  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -85,8 +88,8 @@ class VCDInfo(mediainfo.CollectionInfo):
         
         # brute force reading of the bin to find out if it is a VCD
         f = open(bin,'rb')
-        f.seek(32808, 0)
-        buffer = f.read(50000)
+        f.seek(32768, 0)
+        buffer = f.read(60000)
         f.close()
 
         if buffer.find('SVCD') > 0 and buffer.find('TRACKS.SVD') > 0 and \

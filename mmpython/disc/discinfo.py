@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.21  2004/06/25 13:20:35  dischi
+# FreeBSD patches
+#
 # Revision 1.20  2004/02/08 17:44:05  dischi
 # close fd
 #
@@ -191,11 +194,18 @@ def cdrom_disc_status(device, handle_mix = 0):
     
     fd = open(device, 'rb')
     try:
-    	fd.seek(0x0000832d)
+        # try to read from the disc to get information if the disc
+        # is a rw medium not written yet
+        
+        fd.seek(32768) # 2048 multiple boundary for FreeBSD
+        # FreeBSD doesn't return IOError unless we try and read:
+        fd.read(1)
     except IOError:
+        # not readable
     	fd.close()
 	return 3
-    else :
+    else:
+        # disc ok
     	fd.close()
     	return 2
     
@@ -223,21 +233,17 @@ def cdrom_disc_id(device, handle_mix=0):
     else:
         f = open(device,'rb')
 
-        f.seek(0x0000832d)
         if os.uname()[0] == 'FreeBSD':
-            # why doesn't seeking to 0x0000832d+40 and reading 32 work?
-            # no idea, do it this way
-            label = f.read(72);
-            label = label[40:72]
-        else:    
-            id = f.read(16)
-        f.seek(32808, 0)
-        if os.uname()[0] == 'FreeBSD':
-            # why doesn't seeking to 32808 + 829 and reading 16 work?
-            # no idea, do it this way
-            id = f.read(829);
+            # FreeBSD can only seek to 2048 multiple boundaries.
+            # Below works on Linux and FreeBSD:
+            f.seek(32768)
+            id = f.read(829)
+            label = id[40:72]
             id = id[813:829]
         else:
+            f.seek(0x0000832d)
+            id = f.read(16)
+            f.seek(32808, 0)
             label = f.read(32)
 
         if CREATE_MD5_ID:
