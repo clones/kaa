@@ -23,26 +23,7 @@ medium = m.create_from_filename(sys.argv[1])
 #medium.expand_keywords()
 if medium:
     print "medium is: %s" % medium.type
-    for k in medium.keys:
-        val = medium[k]
-        if val != None: 
-            print "  %s: %s" % (k,val)
-    try:
-        for v in medium.video:
-            for k in v.keys:
-                val = v[k]
-                if val != None: 
-                    print "  Video: %s: %s" % (k,val)
-    except: 
-        pass
-    try:
-        for v in medium.audio:
-            for k in v.keys:
-               val = v[k]
-               if val != None: 
-                   print "  Audio: %s: %s" % (k,val)
-    except: 
-        pass
+    print medium
 else:
     print "No Match found"
 

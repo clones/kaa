@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.17  2003/06/08 13:40:09  the_krow
+# table added
+#
 # Revision 1.16  2003/06/08 13:17:44  dischi
 # some cleanup
 #
@@ -77,6 +80,7 @@ import string
 import types
 import os
 import stat
+import table
 
 import re
 from fcntl import ioctl
@@ -104,7 +108,8 @@ DEBUG = 1
 _singleton = None
 
 def _debug(text):
-    print text
+    pass
+    #print text
 
 def get_singleton():
     global _singleton
@@ -145,6 +150,10 @@ class MediaInfo:
         for k in MEDIACORE:
             setattr(self,k,None)
             self.keys.append(k)
+
+    def __str__(self):
+        result = reduce( lambda a,b: self[b] and "%s\r\n   %s: %s" % (a.__str__(), b.__str__(), self[b].__str__()) or a, self.keys, "" )
+        return result
             
     def append(self, table):
         self.tables[table.name] = table
@@ -185,6 +194,7 @@ class VideoInfo(MediaInfo):
         for k in VIDEOCORE:
             setattr(self,k,None)
             self.keys.append(k)
+           
 
 class AVInfo(MediaInfo):
     def __init__(self):
@@ -195,8 +205,19 @@ class AVInfo(MediaInfo):
         self.audio = []
         self.video = []
         self.subtitles = []
-        self.keys.append( ['audio', 'video', 'subtitles'] )
-
+        self.keys.append('audio')
+        self.keys.append('video')
+        self.keys.append('subtitles')
+        
+    def __str__(self):
+        result = "Attributes:"
+        result += MediaInfo.__str__(self)
+        result += "\n Stream list:"
+        result += reduce( lambda a,b: a + "  \n Video Stream:" + b.__str__(), self.video, "" )
+        result += reduce( lambda a,b: a + "  \n Audio Stream:" + b.__str__(), self.audio, "" )
+        result += reduce( lambda a,b: a + "  \n Subtitle Stream:" + b.__str__(), self.subtitles, "" )
+        return result
+        
 class ImageInfo(MediaInfo):
     def __init__(self):
         MediaInfo.__init__(self)        
@@ -210,6 +231,13 @@ class CollectionInfo(MediaInfo):
         MediaInfo.__init__(self)
         self.tracks = []
         self.keys.append( 'tracks' )
+
+    def __str__(self):
+        result = "Track list:"
+        #result += reduce( lambda a,b: a + " \nTrack %d:\n %s" % (++counter, b.__str__()), self.tracks, "" )
+        for counter in range(0,len(self.tracks)):
+             result += " \nTrack %d:\n%s" % (counter, self.tracks[counter])
+        return result
     
     def appendtrack(self, track):
         self.tracks.append(track)

@@ -31,6 +31,7 @@ import mediainfo
 
 class DVDAudio(mediainfo.AudioInfo):
     def __init__(self, title, number):
+        mediainfo.AudioInfo.__init__(self)
         self.number = number
         self.title  = title
         self.id, self.language, self.codec, self.channels, self.samplerate = \
@@ -50,8 +51,7 @@ class DVDTitle(mediainfo.AVInfo):
             
         for s in range(1, subtitles_num+1):
             self.subtitles.append(ifoparser.subtitle(number, s)[0])
-
-
+            
 class DVDInfo(mediainfo.DiscInfo):
     def __init__(self,device):
         mediainfo.DiscInfo.__init__(self)
