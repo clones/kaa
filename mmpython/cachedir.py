@@ -1,5 +1,5 @@
 import sys
-sys.path.append('..')
+sys.path = ['..'] + sys.path
 
 import mmpython
 
@@ -12,8 +12,8 @@ import mmpython
 # cachedir cd://device:mountpoint:
 # e.g. cachedir cd:///dev/cdrom:/mnt/cdrom:
 
-mmpython.mediainfo.DEBUG = 0
-mmpython.use_cache('/tmp/mmpython')
+#mmpython.mediainfo.DEBUG = 0
+mmpython.use_cache('cache')
 
 print '%s file(s) are missing in the cache' % mmpython.check_cache(sys.argv[1])
 
