@@ -60,7 +60,7 @@ class MpegInfo(mediainfo.VideoInfo):
         self.type = 'mpeg video'
 
     def isVideo(self,file):
-        buffer = file.read(1000)
+        buffer = file.read(4)
         offset = 0
         while ( offset <= len(buffer) - 4 ):
             a = ord(buffer[offset])

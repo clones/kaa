@@ -4,7 +4,11 @@ import audio.ogginfo
 import audio.pcminfo
 import audio.mp3info
 import video.riffinfo
+import video.asfinfo
+import video.mpeginfo
+import video.movinfo
 import image.jpginfo
+
 
 import sys
 
