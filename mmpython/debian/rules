@@ -53,8 +53,7 @@ binary-arch: build install
 	dh_installdocs $(doclist)
 	dh_installmenu
 	dh_installchangelogs 
-	# Use my hacked dh_python since upstream doesn't work with 2.3
-	debian/dh_python
+	dh_python
 	dh_link
 	dh_strip
 	dh_fixperms

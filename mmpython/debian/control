@@ -2,12 +2,12 @@ Source: mmpython
 Section: devel
 Priority: optional
 Maintainer: Aubin Paul <debian@outlyer.org>
-Build-Depends: debhelper (>= 3.0.0), python2.3-dev, libdvdread3-dev
+Build-Depends: debhelper (>= 4.1.60), python2.3-dev, libdvdread3-dev
 Standards-Version: 3.5.2
 
 Package: python2.3-mmpython
 Architecture: any
-Depends: python2.3
+Depends: python2.3, ${python:Depends}
 Description: Media Metadata Library for Python
  MMPython is a Media Meta Data retrieval framework. It retrieves
  metadata from mp3, ogg, avi, jpg, tiff and other file formats. Among
