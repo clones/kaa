@@ -1,8 +1,66 @@
+#!/usr/bin/python
+#if 0
+# -----------------------------------------------------------------------
+# $Id$
+# -----------------------------------------------------------------------
+# $Log$
+# Revision 1.17  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
+# -----------------------------------------------------------------------
+# MMPython - Media Metadata for Python
+# Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# 
+# -----------------------------------------------------------------------
+#endif
+
+# Do this stuff before importing the info instances since they 
+# depend on this function
+
+import factory
+
+from synchronizedobject import SynchronizedObject
+
+_factory = None
+
+def Factory():
+    global _factory
+
+    # One-time init
+    if _factory == None:
+        _factory = SynchronizedObject(factory.Factory())
+        
+    return _factory
+
+def registertype(mimetype,extensions,type,c):
+    f = Factory()
+    f.register(mimetype,extensions,type,c)    
+
+
+# Okay Regular imports and code follow
+
 import sys
 import os
-
 import mediainfo
-
 import audio.ogginfo
 import audio.pcminfo
 import video.riffinfo
@@ -23,14 +81,17 @@ try:
     import disc.datainfo
 except ImportError:
     pass
-import audio.eyed3info
-#import audio.mp3info
+#import audio.eyed3info
+import audio.mp3info
 import audio.webradioinfo
+
+
 
 try:
     import cache
 except ImportError:
     pass
+    
 
 
 object_cache    = None
@@ -80,7 +141,7 @@ def parse(filename, bypass_cache = 0):
             return object_cache.find(filename)
         except cache.FileNotFoundException:
             pass
-    info = mediainfo.get_singleton().create(filename)
+    info = Factory().create(filename)
     if info and object_cache and isinstance(info, disc.discinfo.DiscInfo):
         object_cache.cache_disc(info)
     return info

@@ -5,6 +5,14 @@
 # $Id$
 #
 # $Log$
+# Revision 1.17  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.16  2003/06/29 18:29:02  dischi
 # small fixes
 #
@@ -94,6 +102,7 @@ import stat
 import re
 
 import mediainfo
+import factory
 
 from disc import DiscID
 from disc.discinfo import cdrom_disc_status, cdrom_disc_id, DiscInfo
@@ -152,7 +161,7 @@ class Cache:
         """
         return the cachefile and the filelist for this directory
         """
-        if mediainfo.isurl(directory):
+        if factory.isurl(directory):
             split  = mediainfo.url_splitter(directory)
             # this is a complete cd caching
             if split[0] == 'cd':
@@ -203,7 +212,7 @@ class Cache:
 
         objects = {}
         for file in files:
-            if mediainfo.isurl(file):
+            if factory.isurl(file):
                 split = mediainfo.url_splitter(file)
                 if split[0] == 'cd':
                     device, mountpoint, filename, complete_filename = split[1:]
@@ -216,7 +225,7 @@ class Cache:
             try:
                 info = self.find(file)
             except FileNotFoundException:
-                info = mediainfo.get_singleton().create(file)
+                info = mediainfo.Factory().create(file)
 
             if info:
                 for k in uncachable_keys:
@@ -294,7 +303,7 @@ class Cache:
         the function raises a FileNotFoundException if the cache has
         no or out-dated informations.
         """
-        if mediainfo.isurl(file):
+        if factory.isurl(file):
             split  = mediainfo.url_splitter(file)
             # this is a complete cd caching
             if split[0] == 'cd':

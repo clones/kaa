@@ -429,6 +429,7 @@ class Tag:
    #
    # Converts all ID3v1 data into ID3v2 frames internally.
    # May throw IOError, or TagException if parsing fails.
+
    def link(self, f, v = ID3_ANY_VERSION):
       self.clear();
 

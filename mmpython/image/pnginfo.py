@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2003/06/30 13:17:20  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.8  2003/06/23 20:59:11  the_krow
 # PNG should now fill a correct table.
 #
@@ -50,6 +58,7 @@
 #endif
 
 from mmpython import mediainfo
+import mmpython
 import IPTC
 import EXIF
 import struct
@@ -93,7 +102,7 @@ class PNGInfo(mediainfo.ImageInfo):
           _print('latin-1 Text found.')
           (data, crc) = struct.unpack('>%isI' % length,file.read(length+4))
           (key, value) = data.split('\0')
-          meta[key] = value
+          self.meta[key] = value
           _print("%s -> %s" % (key,value))
         elif ( type == 'zTXt' ):
           _print('Compressed Text found.')
@@ -108,17 +117,17 @@ class PNGInfo(mediainfo.ImageInfo):
               _print("%s (Compressed %i) -> %s" % (key,compression,decompressed))
           else:
               _print("%s has unknown Compression %c" % (key,compression))
-          meta[key] = value
+          self.meta[key] = value
         elif ( type == 'iTXt' ):
           _print('International Text found.')
           (data,crc) = struct.unpack('>%isI' % length,file.read(length+4))
           (key, value) = data.split('\0')
-          meta[key] = value
+          self.meta[key] = value
           _print("%s -> %s" % (key,value))
         else:
           file.seek(length+4,1)
           _print("%s of length %d ignored." % (type, length))
         return 1
 
-factory = mediainfo.get_singleton()
-factory.register( 'image/png', ['png'], mediainfo.TYPE_IMAGE, PNGInfo )
+
+mmpython.registertype( 'image/png', ('png',), mediainfo.TYPE_IMAGE, PNGInfo )

@@ -5,6 +5,14 @@
 # $Id$
 #
 # $Log$
+# Revision 1.7  2003/06/30 13:17:20  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.6  2003/06/29 12:11:16  dischi
 # changed print to _print
 #
@@ -39,6 +47,7 @@
 
 
 from mmpython import mediainfo
+import mmpython
 import struct
 import re
 
@@ -191,5 +200,5 @@ class OgmInfo(mediainfo.AVInfo):
         return (len+4,header[4:4+len])
 
 
-factory = mediainfo.get_singleton()
-factory.register( 'application/ogm', ('ogm',), mediainfo.TYPE_AV, OgmInfo )
+
+mmpython.registertype( 'application/ogm', ('ogm',), mediainfo.TYPE_AV, OgmInfo )

@@ -566,7 +566,9 @@ class DateFrame(TextFrame):
                try:
                   self.date = time.strptime(d, fmt);
                except TypeError, ex:
-                  print str(ex);
+                  print str(ex)
+               except AttributeError, ex:
+                  print str(ex)
                self.date_str = d;
             break;
          except ValueError:

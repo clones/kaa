@@ -1,6 +1,14 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.16  2003/06/30 13:17:20  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.15  2003/06/29 18:30:56  dischi
 # length is broken, deactivated it until it is fixed
 #
@@ -74,7 +82,7 @@ import re
 import struct
 import string
 import fourcc
-
+import mmpython
 from mmpython import mediainfo
 
 class MovInfo(mediainfo.AVInfo):
@@ -173,5 +181,4 @@ class MovInfo(mediainfo.AVInfo):
                 return 0
         return 1 
         
-factory = mediainfo.get_singleton()  
-factory.register( 'video/quicktime', ('mov', 'qt'), mediainfo.TYPE_AV, MovInfo )
+mmpython.registertype( 'video/quicktime', ('mov', 'qt'), mediainfo.TYPE_AV, MovInfo )

@@ -5,6 +5,14 @@
 # $Id$
 #
 # $Log$
+# Revision 1.7  2003/06/30 13:17:19  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.6  2003/06/10 22:11:36  dischi
 # some fixes
 #
@@ -32,7 +40,7 @@
 # ----------------------------------------------------------------------- */
 #endif
 
-
+import mmpython
 from mmpython import mediainfo
 from discinfo import DiscInfo
 import cdrom
@@ -44,7 +52,8 @@ class VCDInfo(DiscInfo):
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'video/vcd'
-        self.type = 'vcd video'        
+        self.type = 'CD'        
+        self.subtype = 'video'
 
     def isDisc(self, device):
         type = None
@@ -98,5 +107,4 @@ class VCDInfo(DiscInfo):
         return 1
 
     
-factory = mediainfo.get_singleton()  
-factory.register( 'video/vcd', mediainfo.DEVICE, mediainfo.TYPE_AV, VCDInfo )
+mmpython.registertype( 'video/vcd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AV, VCDInfo )

@@ -27,6 +27,7 @@
 
 import ifoparser
 from mmpython import mediainfo
+import mmpython
 from discinfo import DiscInfo
 
 class DVDAudio(mediainfo.AudioInfo):
@@ -59,7 +60,8 @@ class DVDInfo(DiscInfo):
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'video/dvd'
-        self.type = 'dvd video'
+        self.type = 'DVD'
+        self.subtype = 'video'
 
     def isDisc(self, device):
         if DiscInfo.isDisc(self, device) != 2:
@@ -99,5 +101,4 @@ class DVDInfo(DiscInfo):
 
 
 
-factory = mediainfo.get_singleton()  
-factory.register( 'video/dvd', mediainfo.DEVICE, mediainfo.TYPE_AV, DVDInfo )
+mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AV, DVDInfo )

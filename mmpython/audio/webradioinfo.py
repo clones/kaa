@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.5  2003/06/24 14:37:17  dischi
 # small fix
 #
@@ -47,6 +55,7 @@ import string
 import urllib
 
 from mmpython import mediainfo
+import mmpython
 
 _print = mediainfo._debug
 
@@ -110,6 +119,5 @@ class WebRadioInfo(mediainfo.MusicInfo):
                 map(lambda x:self.setitem(x,self.tables[k],self.tag_map[k][x]), self.tag_map[k].keys())        
         self.bitrate = string.atoi(self.bitrate)*1000        
 
-factory = mediainfo.get_singleton()
-factory.register( 'text/plain', mediainfo.STREAM, mediainfo.TYPE_MUSIC, WebRadioInfo )
+mmpython.registertype( 'text/plain', mediainfo.EXTENSION_STREAM, mediainfo.TYPE_MUSIC, WebRadioInfo )
 

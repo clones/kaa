@@ -26,6 +26,7 @@
 
 
 from mmpython import mediainfo
+import mmpython
 import discinfo
 import DiscID
 import CDDB
@@ -33,14 +34,15 @@ import cdrom
 
 _debug = mediainfo._debug
 
-class AudioInfo(discinfo.DiscInfo):
+class AudioDiscInfo(discinfo.DiscInfo):
     def __init__(self,device):
         discinfo.DiscInfo.__init__(self)
         self.context = 'audio'
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'audio/cd'
-        self.type = 'audio cd'
+        self.type = 'CD'
+        self.subtype = 'audio'
         
 
     def isDisc(self, device):
@@ -125,5 +127,4 @@ class AudioInfo(discinfo.DiscInfo):
         return 1
     
         
-factory = mediainfo.get_singleton()  
-factory.register( 'audio/cd', mediainfo.DEVICE, mediainfo.TYPE_AUDIO, AudioInfo )
+mmpython.registertype( 'audio/cd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AUDIO, AudioDiscInfo )

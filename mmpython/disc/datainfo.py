@@ -26,6 +26,7 @@
 
 
 from mmpython import mediainfo
+import mmpython
 from discinfo import DiscInfo
 
 class DataDiscInfo(DiscInfo):
@@ -35,7 +36,8 @@ class DataDiscInfo(DiscInfo):
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'unknown/unknown'
-        self.type = 'data disc'
+        self.type = 'CD'
+        self.subtype = 'data'
 
     def isDisc(self, device):
         if DiscInfo.isDisc(self, device) != 2:
@@ -45,5 +47,4 @@ class DataDiscInfo(DiscInfo):
 
 
 
-factory = mediainfo.get_singleton()  
-factory.register( 'cd/unknown', mediainfo.DEVICE, mediainfo.TYPE_NONE, DataDiscInfo )
+mmpython.registertype( 'cd/unknown', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_NONE, DataDiscInfo )

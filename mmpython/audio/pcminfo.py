@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.7  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -46,6 +54,7 @@
 
 import sndhdr
 from mmpython import mediainfo
+import mmpython
 
 class PCMInfo(mediainfo.AudioInfo):
     def _what(self,f):
@@ -69,5 +78,4 @@ class PCMInfo(mediainfo.AudioInfo):
            return
        
 
-factory = mediainfo.get_singleton()
-factory.register( 'application/pcm', ['wav','aif','voc','au'], mediainfo.TYPE_AUDIO, PCMInfo )
+mmpython.registertype( 'application/pcm', ('wav','aif','voc','au'), mediainfo.TYPE_AUDIO, PCMInfo )

@@ -4,6 +4,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.26  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.25  2003/06/23 09:22:54  the_krow
 # Typo and Indentation fixes.
 #
@@ -39,7 +47,7 @@
 import sys
 sys.path = ['..'] + sys.path
 
-import mmpython
+from mmpython import *
 
 # Usage:
 # mediatest files
@@ -54,10 +62,10 @@ import mmpython
 USE_CACHE = 1
 
 if USE_CACHE:
-    mmpython.use_cache('./cache')
+    use_cache('./cache')
 
 for file in sys.argv[1:]:
-    medium = mmpython.parse(file)
+    medium = parse(file)
     print "filename : %s" % file
 
     if medium:

@@ -1,6 +1,14 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.21  2003/06/30 13:17:20  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.20  2003/06/23 20:48:11  the_krow
 # width + height fixes for OGM files
 #
@@ -69,8 +77,11 @@ import re
 import struct
 import string
 import fourcc
+import factory
 
+import mmpython
 from mmpython import mediainfo
+
 
 # List of tags
 # http://kibus1.narod.ru/frames_eng.htm?sof/abcavi/infotags.htm
@@ -362,15 +373,5 @@ class RiffInfo(mediainfo.AVInfo):
         file.write( "JUNK" + struct.pack('<I',self.junkSize-size-8) )
         
 
-factory = mediainfo.get_singleton()
-factory.register( 'video/avi', ('avi',), mediainfo.TYPE_AV, RiffInfo )
 
-
-if __name__ == '__main__':
-    import sys
-    f = open(sys.argv[1], 'rb')
-    o = RiffInfo(f)
-    f.close()
-    f = open(sys.argv[1], 'rb+')
-    o.setInfo(f, { 'INAM':'Hans Inam Test', 'IWRI': 'My Writer' } )
-    f.close()
+mmpython.registertype( 'video/avi', ('avi',), mediainfo.TYPE_AV, RiffInfo )

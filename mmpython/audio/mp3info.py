@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.11  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.10  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -62,6 +70,7 @@
 import struct
 import string
 from mmpython import mediainfo
+import mmpython
 import re
 
 def _from_synch_safe(synchsafe):
@@ -516,10 +525,4 @@ class MP3Info(mediainfo.MusicInfo):
                 self.encoder = id3.tags[tag]
 
 
-factory = mediainfo.get_singleton()
-factory.register( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, MP3Info )
-
-if __name__ == '__main__':
-    import sys
-    i = MP3Info(open(sys.argv[1], 'rb'))
-    print i.id3.tags
+mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, MP3Info )

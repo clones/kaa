@@ -1,6 +1,14 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.16  2003/06/30 13:17:20  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.15  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -73,6 +81,7 @@ import re
 import struct
 import string
 import fourcc
+import mmpython
 
 from mmpython import mediainfo
 
@@ -356,5 +365,4 @@ class AsfInfo(mediainfo.AVInfo):
                 print "unknown: %s [%d]" % (self._printguid(guid), objsize)
         return r
         
-factory = mediainfo.get_singleton()  
-factory.register( 'video/asf', ('asf','wmv','wma'), mediainfo.TYPE_AV, AsfInfo )
+mmpython.registertype( 'video/asf', ('asf','wmv','wma'), mediainfo.TYPE_AV, AsfInfo )

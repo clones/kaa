@@ -1,6 +1,14 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.5  2003/06/30 13:17:20  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.4  2003/06/29 11:59:35  dischi
 # make some debug silent
 #
@@ -43,6 +51,7 @@ import struct
 import string
 
 from mmpython import mediainfo
+import mmpython
 
 # http://www.pcisys.net/~melanson/codecs/rmff.htm
 # http://www.pcisys.net/~melanson/codecs/
@@ -111,5 +120,4 @@ class RealInfo(mediainfo.AVInfo):
             (comment_len,) = struct.unpack('>H', s[pos:pos+2])
             self.comment = s[pos+2:pos+comment_len+2]
 
-factory = mediainfo.get_singleton()  
-factory.register( 'video/real', ('rm', 'ra', 'ram'), mediainfo.TYPE_AV, RealInfo )
+mmpython.registertype( 'video/real', ('rm', 'ra', 'ram'), mediainfo.TYPE_AV, RealInfo )

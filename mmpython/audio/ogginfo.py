@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.14  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.13  2003/06/29 12:03:15  dischi
 # make some debug silent
 #
@@ -57,6 +65,7 @@ import re
 import struct
 
 from mmpython import mediainfo
+import mmpython
 
 VORBIS_PACKET_INFO = '\01vorbis'
 VORBIS_PACKET_HEADER = '\03vorbis'
@@ -147,7 +156,4 @@ class OggInfo(mediainfo.MusicInfo):
         # the last one is the one we are interested in
         return (granule_position / self.samplerate)
 
-
-
-factory = mediainfo.get_singleton()
-factory.register( 'application/ogg', ('ogg',), mediainfo.TYPE_MUSIC, OggInfo )
+mmpython.registertype( 'application/ogg', ('ogg',), mediainfo.TYPE_MUSIC, OggInfo )

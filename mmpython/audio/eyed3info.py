@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/06/30 13:17:18  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.5  2003/06/30 11:38:22  dischi
 # bugfix
 #
@@ -50,6 +58,7 @@
 
 
 from mmpython import mediainfo
+import mmpython
 
 from eyeD3 import tag as eyeD3_tag
 import os
@@ -91,7 +100,7 @@ class eyeD3Info(mediainfo.MusicInfo):
          id3 = eyeD3_tag.Mp3AudioFile(file.name)
       except eyeD3_tag.TagException:
          try:
-            id3 = eyeD3_tag.Mp3AudioFile(file.name, 1)
+            id3 = eyeD3_tag.Mp3AudioFile(file.name)
          except eyeD3_tag.InvalidAudioFormatException:
             # File is not an MP3
             self.valid = 0
@@ -132,5 +141,4 @@ class eyeD3Info(mediainfo.MusicInfo):
 
       
          
-factory = mediainfo.get_singleton()
-factory.register( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, eyeD3Info )
+mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, eyeD3Info )

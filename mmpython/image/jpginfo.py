@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.18  2003/06/30 13:17:19  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.17  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -77,6 +85,7 @@
 
 
 from mmpython import mediainfo
+import mmpython
 import IPTC
 import EXIF
 import struct
@@ -159,5 +168,4 @@ class JPGInfo(mediainfo.ImageInfo):
         return
        
 
-factory = mediainfo.get_singleton()
-factory.register( 'image/jpeg', ('jpg','jpeg'), mediainfo.TYPE_IMAGE, JPGInfo )
+mmpython.registertype( 'image/jpeg', ('jpg','jpeg'), mediainfo.TYPE_IMAGE, JPGInfo )

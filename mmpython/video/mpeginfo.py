@@ -1,6 +1,14 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.16  2003/06/30 13:17:20  the_krow
+# o Refactored mediainfo into factory, synchronizedobject
+# o Parsers now register directly at mmpython not at mmpython.mediainfo
+# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
+# o Bugfix in PNG parser
+# o Renamed disc.AudioInfo into disc.AudioDiscInfo
+# o Renamed disc.DataInfo into disc.DataDiscInfo
+#
 # Revision 1.15  2003/06/29 11:59:35  dischi
 # make some debug silent
 #
@@ -65,6 +73,7 @@ import string
 import fourcc
 
 from mmpython import mediainfo
+import mmpython
 
 ##------------------------------------------------------------------------
 ## START_CODE
@@ -240,5 +249,4 @@ class MpegInfo(mediainfo.AVInfo):
             return 1
         return 0
 
-factory = mediainfo.get_singleton()  
-factory.register( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_AV, MpegInfo )
+mmpython.registertype( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_AV, MpegInfo )
