@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.38  2003/12/30 22:30:04  dischi
+# more speed improvments
+#
 # Revision 1.37  2003/12/30 15:18:34  dischi
 # o don't calc the cachefile for every file when caching a directory
 # o use higher pickle for Python 2.3
@@ -178,6 +181,7 @@ class Cache:
             os.mkdir('%s/disc' % cachedir)
         self.current_objects    = {}
         self.current_cachefile  = None
+        self.current_cachedir   = None
         self.CACHE_VERSION      = 1
         self.DISC_CACHE_VERSION = 1
         self.md5_cachedir       = True
@@ -196,16 +200,17 @@ class Cache:
         """
         return the cache filename for that directory/device
         """
-        if not os.path.exists(file):
-            return None
-        if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
-            id = cdrom_disc_id(file)[1]
-            if not id:
+        if not os.path.isfile(file):
+            if not os.path.exists(file):
                 return None
-            if self.md5_cachedir:
-                return '%s/disc/%s' % (self.cachedir, id)
-            else:
-                return '%s/disc/%s.mmpython' % (self.cachedir, id)
+            if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
+                id = cdrom_disc_id(file)[1]
+                if not id:
+                    return None
+                if self.md5_cachedir:
+                    return '%s/disc/%s' % (self.cachedir, id)
+                else:
+                    return '%s/disc/%s.mmpython' % (self.cachedir, id)
 
         if not self.md5_cachedir:
             try:
@@ -419,13 +424,15 @@ class Cache:
             key = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
             
         elif not dirname:
-            file  = os.path.abspath(file)
+            if not file.startswith('/'):
+                file = os.path.abspath(file)
 
-            if not os.path.exists(file):
-                raise FileNotFoundException
+            if not os.path.isfile(file):
+                if not os.path.exists(file):
+                    raise FileNotFoundException
             
-            if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
-                return self.__find_disc__(file)
+                if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
+                    return self.__find_disc__(file)
 
             dirname = os.path.dirname(file)
             key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
@@ -433,27 +440,29 @@ class Cache:
         else:
             key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
 
-        if not cachefile:
-            cachefile = self.__get_filename__(dirname)
+        if dirname != self.current_cachedir:
+            if not cachefile:
+                cachefile = self.__get_filename__(dirname)
 
-        if not cachefile == self.current_cachefile:
-            self.current_cachefile = cachefile
-            self.current_objects   = {}
-            
-            if not (cachefile and os.path.isfile(cachefile)):
-                raise FileNotFoundException
+            if not cachefile == self.current_cachefile:
+                self.current_cachefile = cachefile
+                self.current_objects   = {}
+                self.current_cachedir  = dirname
 
-            f = open(cachefile, 'r')
-            try:
-                (version, objects) = pickle.load(f)
-            except:
+                if not (cachefile and os.path.isfile(cachefile)):
+                    raise FileNotFoundException
+
+                f = open(cachefile, 'r')
+                try:
+                    (version, objects) = pickle.load(f)
+                except:
+                    f.close()
+                    raise FileNotFoundException
                 f.close()
-                raise FileNotFoundException
-            f.close()
-            if not version == self.CACHE_VERSION:
-                raise FileNotFoundException
-            
-            self.current_objects = objects
+                if not version == self.CACHE_VERSION:
+                    raise FileNotFoundException
+
+                self.current_objects = objects
 
 
         if isinstance(self.current_objects, DiscInfo):
