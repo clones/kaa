@@ -1,6 +1,6 @@
 ################################################################################
 #
-#  Copyright (C) 2002-2003  Travis Shirk <travis@pobox.com>
+#  Copyright (C) 2002-2004  Travis Shirk <travis@pobox.com>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -196,8 +196,8 @@ class Header:
          self.emphasis = EMPHASIS_5015;
       elif emph == 2:
          self.emphasis = EMPHASIS_CCIT;
-      else:
-         raise Mp3Exception("Illegal mp3 emphasis value");
+      elif strictID3():
+         raise Mp3Exception("Illegal mp3 emphasis value: %d" % emph);
 
       # Channel mode.
       modeBits = (header >> 6) & 0x3;

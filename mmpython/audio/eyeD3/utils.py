@@ -1,5 +1,5 @@
 ################################################################################
-#  Copyright (C) 2003  Travis Shirk <travis@pobox.com>
+#  Copyright (C) 2003-2004  Travis Shirk <travis@pobox.com>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 #
 #  $Id$
 ################################################################################
-from mmpython.audio.eyeD3 import *;
+from mmpython.audio.eyeD3 import *
 
 def versionsToConstant(v):
    major = v[0];
@@ -78,3 +78,8 @@ prefix = "eyeD3 trace> ";
 def TRACE_MSG(msg):
    if TRACE:
       print prefix + msg;
+
+STRICT_ID3 = 0;
+def strictID3():
+   return STRICT_ID3;
+

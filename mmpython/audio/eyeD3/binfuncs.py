@@ -1,6 +1,6 @@
 ################################################################################
 #
-#  Copyright (C) 2002-2003  Travis Shirk <travis@pobox.com>
+#  Copyright (C) 2002-2004  Travis Shirk <travis@pobox.com>
 #  Copyright (C) 2001  Ryan Finne <ryan@finnie.org>
 #
 #  This program is free software; you can redistribute it and/or modify

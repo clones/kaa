@@ -1,6 +1,6 @@
 ################################################################################
 #
-#  Copyright (C) 2002-2003  Travis Shirk <travis@pobox.com>
+#  Copyright (C) 2002-2004  Travis Shirk <travis@pobox.com>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 #
 ################################################################################
 import re, os, string, stat, shutil, tempfile, binascii;
+import mimetypes;
 from stat import *;
 from mmpython.audio.eyeD3 import *;
 
@@ -128,7 +129,7 @@ class TagHeader:
       # Get all the version madness in sync.
       self.setVersion([major, minor, rev]);
 
-      # The first 3 bits of the next byte are flags.
+      # The first 4 bits of the next byte are flags.
       (self.unsync,
        self.extended,
        self.experimental,
@@ -368,7 +369,7 @@ class ExtendedTagHeader:
 # ID3 tag class.  The class is capable of reading v1 and v2 tags.  ID3 v1.x
 # are converted to v2 frames.
 class Tag:
-   # ISO-8859-1 is the default (0x00)
+   # Latin1 is the default (0x00)
    encoding = DEFAULT_ENCODING;
 
    # ID3v1 tags do not contain a header.  The only ID3v1 values stored
@@ -549,8 +550,9 @@ class Tag:
             retval |= 1;
 
       return retval;
-      
-         
+
+
+
    # Get artist.  There are a few frames that can contain this information,
    # and they are subtley different. 
    #   eyeD3.frames.ARTIST_FID - Lead performer(s)/Soloist(s)
@@ -575,16 +577,6 @@ class Tag:
          if f:
             return f[0].text;
       return ""; 
-
-   # Set the artist name.  Arguments equal to None or "" cause the frame to
-   # be removed. An optional second argument can be passed to select the
-   # actual artist frame that should be set.  By default, the main artist frame
-   # (TPE1) is the value set.
-   def setArtist(self, a, id = ARTIST_FID):
-      if not a:
-         self.frames.removeFramesByID(id);
-      else:
-         self.frames.setTextFrame(id, a, self.encoding);
  
    def getAlbum(self):
       f = self.frames[ALBUM_FID];
@@ -592,14 +584,6 @@ class Tag:
          return f[0].text;
       else:
          return "";
-
-   # Set the album name.  Arguments equal to None or "" cause the frame to
-   # be removed.
-   def setAlbum(self, a):
-      if not a:
-         self.frames.removeFramesByID(ALBUM_FID);
-      else:
-         self.frames.setTextFrame(ALBUM_FID, a, self.encoding);
 
    # Get the track title.  By default the main title is returned.  Optionally,
    # you can pass:
@@ -614,22 +598,103 @@ class Tag:
       else:
          return "";
 
-   # Set the track title.  Arguments equal to None or "" cause the frame to
-   # be removed.
-   def setTitle(self, t, titleID = TITLE_FID):
-      if not t:
-         self.frames.removeFramesByID(titleID);
+   def getDate(self, fid = None):
+       if not fid:
+           for fid in ["TDRL", "TDOR", "TDRC",
+                       OBSOLETE_YEAR_FID, OBSOLETE_DATE_FID]:
+               if self.frames[fid]:
+                   return self.frames[fid];
+           return None;
+       return self.frames[fid];
+
+   def getYear(self, fid = None):
+       dateFrame = self.getDate(fid);
+       if dateFrame:
+           return dateFrame[0].getYear();
+       else:
+           return None;
+            
+   # Throws GenreException when the tag contains an unrecognized genre format.
+   # Note this method returns a eyeD3.Genre object, not a raw string.
+   def getGenre(self):
+      f = self.frames[GENRE_FID];
+      if f and f[0].text:
+         g = Genre();
+         g.parse(f[0].text);
+         return g;
       else:
-         self.frames.setTextFrame(titleID, t, self.encoding);
+         return None;
 
-   def getDate(self):
-      return self.frames[DATE_FID];
+   # Returns a tuple with the first value containing the track number and the
+   # second the total number of tracks.  One or both of these values may be
+   # None depending on what is available in the tag. 
+   def getTrackNum(self):
+      f = self.frames[TRACKNUM_FID];
+      if f:
+         n = string.split(f[0].text, '/');
+         tn = self.toInt(n[0]);
+         tt = None;
+         if len(n) == 2:
+            tt = self.toInt(n[1]);
+         if tn != None and tt != None:
+            return (tn, tt);
+         elif tn != None:
+            return (tn, None);
+      return (None, None);
 
-   def setDate(self, year, month = None, dayOfMonth = None, hour = None,
-               minute = None, second = None):
-      if not year:
-         self.frames.removeFramesByID(DATE_FID);
-         return;
+   # Since multiple comment frames are allowed this returns a list with 0
+   # or more elements.  The elements are not the comment strings, they are
+   # eyeD3.frames.CommentFrame objects.
+   def getComments(self):
+      return self.frames[COMMENT_FID];
+
+   # Returns a list (possibly empty) of eyeD3.frames.ImageFrame objects.
+   def getImages(self):
+      return self.frames[IMAGE_FID];
+
+   # Returns a list (possibly empty) of eyeD3.frames.URLFrame objects.
+   # Both URLFrame and UserURLFrame objects are returned.  UserURLFrames
+   # add a description and encoding, and have a different frame ID.
+   def getURLs(self):
+      urls = list();
+      for fid in URL_FIDS:
+         urls.extend(self.frames[fid]);
+      urls.extend(self.frames[USERURL_FID]);
+      return urls;
+
+   def getUserTextFrames(self):
+      return self.frames[USERTEXT_FID];
+
+   def getCDID(self):
+      return self.frames[CDID_FID];
+
+   def getVersion(self):
+      return self.header.version;
+
+   def getVersionStr(self):
+      return versionToString(self.header.version);
+
+   # Set the artist name.  Arguments equal to None or "" cause the frame to
+   # be removed. An optional second argument can be passed to select the
+   # actual artist frame that should be set.  By default, the main artist frame
+   # (TPE1) is the value used.
+   def setArtist(self, a, id = ARTIST_FID):
+       self.setTextFrame(id, a);
+
+   def setAlbum(self, a):
+       self.setTextFrame(ALBUM_FID, a);
+
+   def setTitle(self, t, titleID = TITLE_FID):
+       self.setTextFrame(titleID, t);
+
+   def setDate(self, year, month = None, dayOfMonth = None,
+               hour = None, minute = None, second = None, fid = None):
+      if not year and not fid:
+          dateFrame = self.getDate;
+          self.frames.removeFramesByID(dateFrame.id);
+          return;
+      elif not year:
+          self.frames.removeFramesByID(fid);
 
       dateStr = str(year);
       if len(dateStr) != 4:
@@ -645,45 +710,19 @@ class Tag:
                   if second:
                      dateStr += ":" + self.__padDateField(second);
 
-      dateFrame = self.frames[DATE_FID];
+      if not fid:
+          fid = "TDRL";
+      dateFrame = self.frames[fid];
       try:
          if dateFrame:
             dateFrame[0].setDate(self.encoding + dateStr);
          else:
             header = FrameHeader(self.header);
-            header.id = DATE_FID;
+            header.id = fid;
             dateFrame = DateFrame(self.encoding + dateStr, header);
             self.frames.addFrame(dateFrame);
       except FrameException, ex:
          raise TagException(str(ex));
-
-   def __padDateField(self, f):
-      fStr = str(f);
-      if len(fStr) == 2:
-         pass;
-      elif len(fStr) == 1:
-         fStr = "0" + fStr;
-      else:
-         raise TagException("Invalid date field: " + fStr);
-      return fStr;
-
-   def getYear(self):
-      dateFrame = self.getDate();
-      if dateFrame:
-         return dateFrame[0].getYear();
-      else:
-         return None;
-            
-   # Throws GenreException when the tag contains an unrecognized genre format.
-   # Note this method returns a eyeD3.Genre object, not a raw string.
-   def getGenre(self):
-      f = self.frames[GENRE_FID];
-      if f and f[0].text:
-         g = Genre();
-         g.parse(f[0].text);
-         return g;
-      else:
-         return None;
 
    # Three types are accepted for the genre parameter.  A Genre object, an
    # acceptable (see Genre.parse) genre string, or an integer genre id.
@@ -706,23 +745,6 @@ class Tag:
       else:
          raise TagException("Invalid type passed to setGenre: %s" +
                             str(type(g)));
-
-   # Returns a tuple with the first value containing the track number and the
-   # second the total number of tracks.  One or both of these values may be
-   # None depending on what is available in the tag. 
-   def getTrackNum(self):
-      f = self.frames[TRACKNUM_FID];
-      if f:
-         n = string.split(f[0].text, '/');
-         tn = self.toInt(n[0]);
-         tt = None;
-         if len(n) == 2:
-            tt = self.toInt(n[1]);
-         if tn != None and tt != None:
-            return (tn, tt);
-         elif tn != None:
-            return (tn, None);
-      return (None, None);
 
    # Accepts a tuple with the first value containing the track number and the
    # second the total number of tracks.  One or both of these values may be
@@ -775,31 +797,12 @@ class Tag:
       else:
          self.frames.setCommentFrame(cmt, desc, lang, self.encoding);
 
-   # Since multiple comment frames are allowed this returns a list with 0
-   # or more elements.  The elements are not the comment strings, they are
-   # eyeD3.frames.CommentFrame objects.
-   def getComments(self):
-      return self.frames[COMMENT_FID];
+   def removeComments(self):
+       return self.frames.removeFramesByID(COMMENT_FID);
 
-   # Returns a list (possibly empty) of eyeD3.frames.ImageFrame objects.
-   def getImages(self):
-      return self.frames[IMAGE_FID];
-
-   # Returns a list (possibly empty) of eyeD3.frames.URLFrame objects.
-   # Both URLFrame and UserURLFrame objects are returned.  UserURLFrames
-   # add a description and encoding, and have a different frame ID.
-   def getURLs(self):
-      urls = list();
-      for fid in URL_FIDS:
-         urls.extend(self.frames[fid]);
-      urls.extend(self.frames[USERURL_FID]);
-      return urls;
-
-   def getUserTextFrames(self):
-      return self.frames[USERTEXT_FID];
-
-   def getCDID(self):
-      return self.frames[CDID_FID];
+   def addImage(self, type, image_file_path, desc = u""):
+       image_frame = ImageFrame.create(type, image_file_path, desc);
+       self.frames.addFrame(image_frame);
 
    # Test ID3 major version.
    def isV1(self):
@@ -816,22 +819,22 @@ class Tag:
       if v != ID3_CURRENT_VERSION:
          self.header.setVersion(v);
          self.frames.setTagHeader(self.header);
-
-   def getVersion(self):
-      return self.header.version;
-
-   def getVersionStr(self):
-      return versionToString(self.header.version);
+   
+   def setTextFrame(self, fid, txt):
+       if not txt:
+          self.frames.removeFramesByID(fid);
+       else:
+          self.frames.setTextFrame(fid, txt, self.encoding);
 
    def __saveV1Tag(self, version):
       assert(version & ID3_V1);
 
       # Build tag buffer.
       tag = "TAG";
-      tag += self.fixToWidth(self.getTitle(), 30);
-      tag += self.fixToWidth(self.getArtist(), 30);
-      tag += self.fixToWidth(self.getAlbum(), 30);
-      tag += self.fixToWidth(self.getYear(), 4);
+      tag += self.fixToWidth(self.getTitle().encode("latin_1"), 30);
+      tag += self.fixToWidth(self.getArtist().encode("latin_1"), 30);
+      tag += self.fixToWidth(self.getAlbum().encode("latin_1"), 30);
+      tag += self.fixToWidth(self.getYear().encode("latin_1"), 4);
 
       cmt = "";
       for c in self.getComments():
@@ -951,6 +954,7 @@ class Tag:
 
    def __saveV2Tag(self, version):
       assert(version & ID3_V2);
+      TRACE_MSG("Rendering tag version: " + versionToString(version));
 
       self.setVersion(version);
 
@@ -967,10 +971,24 @@ class Tag:
             currPadding = tmpTag.linkedFile.tagPadding;
             TRACE_MSG("Current tag padding: %d" % currPadding);
 
+      # Tag it!
+      if self.header.minorVersion == 4:
+          h = FrameHeader(self.header);
+          h.id = "TDTG";
+          dateFrame = DateFrame(self.encoding +\
+                                time.strftime("%Y-%m-%dT%H:%M:%S"), h);
+          self.frames.removeFramesByID("TDTG");
+          self.frames.addFrame(dateFrame);
+
       # Render all frames first so the data size is known for the tag header.
       frameData = "";
       for f in self.frames:
-         frameData += f.render();
+         TRACE_MSG("Rendering frame: " + f.header.id);
+         raw_frame = f.render();
+         TRACE_MSG("Rendered %d bytes" % len(raw_frame));
+         frameData += raw_frame;
+
+      TRACE_MSG("Rendered tag size: " + str(len(frameData)));
 
       rewriteFile = 0;
       paddingSize = 0;
@@ -1082,6 +1100,16 @@ class Tag:
       except TypeError:
          return None;
 
+   def __padDateField(self, f):
+      fStr = str(f);
+      if len(fStr) == 2:
+         pass;
+      elif len(fStr) == 1:
+         fStr = "0" + fStr;
+      else:
+         raise TagException("Invalid date field: " + fStr);
+      return fStr;
+
    # DEPRECATED
    # This method will return the first comment in the FrameSet
    # and not all of them.  Multiple COMM frames are common and useful.  Use
@@ -1192,15 +1220,16 @@ class Genre:
    #
    # Throws GenreException when an invalid string is passed.
    def parse(self, genreStr, verify = 1):
-      if not isinstance(genreStr, str):
-         raise TypeError("genreStr must be a string");
-
-      genreStr = genreStr.strip();
+      genreStr = str(genreStr.encode('utf-8')).strip();
       self.id = None;
       self.name = None;
 
       if not genreStr:
          return;
+
+      # XXX: Utf-16 conversions leave a null byte at the end of the string.
+      while genreStr[len(genreStr) - 1] == "\x00":
+         genreStr = genreStr[:len(genreStr) - 1];
 
       # ID3 v1 style.
       # Match 03, 34, 129.
@@ -1229,11 +1258,12 @@ class Genre:
 
       # Non standard, but witnessed.
       # Match genreName alone.  e.g. Rap, Rock, blues.
-      regex = re.compile(r"[A-Z 0-9+/\-&]+$", re.IGNORECASE);
+      regex = re.compile("^[A-Z 0-9+/\-&]+\00*$", re.IGNORECASE);
       if regex.match(genreStr):
          self.setName(genreStr, verify);
          return;
-
+      else:
+          print regex.pattern;
       raise GenreException("Genre string cannot be parsed: " + genreStr);
 
    def __str__(self):
@@ -1384,9 +1414,8 @@ class Mp3AudioFile:
 
 ################################################################################
 def isMp3File(fileName):
-   # XXX: This could be way more thorough....
-   mp3Match = re.compile(".*\.[Mm][Pp]3$");
-   return mp3Match.match(fileName) != None;
+    (type, enc) = mimetypes.guess_type(fileName);
+    return type == "audio/mpeg";
 
 ################################################################################
 class GenreMap(list):
@@ -1580,6 +1609,27 @@ class LinkedFile:
 
    def __init__(self, fileName):
       self.name = fileName;
+
+def tagToUserTune(tag):
+    audio_file = None;
+    if isinstance(tag, Mp3AudioFile):
+        audio_file = tag;
+        tag = audio_file.getTag();
+        
+    tune =  "<tune xmlns='http://jabber.org/protocol/tune'>\n";
+    if tag.getArtist():
+        tune += "  <artist>" + tag.getArtist() + "</artist>\n";
+    if tag.getTitle():
+        tune += "  <title>" + tag.getTitle() + "</title>\n";
+    if tag.getAlbum():
+        tune += "  <source>" + tag.getAlbum() + "</source>\n";
+    tune += "  <track>" + "file://" + os.path.abspath(tag.linkedFile.name) +\
+            "</track>\n";
+    if audio_file:
+        # XXX: This should be an xs:duration
+        tune += "  <length>" + audio_file.getPlayTimeString() + "</length>\n";
+    tune += "</tune>\n";
+    return tune;
 
 #
 # Module level globals.
