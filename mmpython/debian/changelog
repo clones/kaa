@@ -1,35 +1,44 @@
-python2.3-mmpython (0.0.1cvs20030731-freevo1) unstable; urgency=low
+mmpython (0.2.0cvs20030806-freevo2) unstable; urgency=low
+
+  * Using dh_python
+  * eyeD3 synced with upstream 0.5.1
+  * Python 2.3 fixes
+  * Post-release CVS snapshot
+
+ -- Aubin Paul <debian@outlyer.org>  Wed,  6 Aug 2003 09:40:22 -0400
+
+mmpython (0.0.1cvs20030731-freevo1) unstable; urgency=low
 
   * Added postinst script
 
  -- Aubin Paul <debian@outlyer.org>  Thu, 31 Jul 2003 12:15:24 -0400
 
-python2.3-mmpython (0.0.1cvs20030729-freevo1) unstable; urgency=low
+mmpython (0.0.1cvs20030729-freevo1) unstable; urgency=low
 
   * First revision for python 2.3
 
  -- Aubin Paul <debian@outlyer.org>  Tue, 29 Jul 2003 23:26:06 -0400
 
-python2.2-mmpython (0.0.1cvs20030710-freevo3) unstable; urgency=low
+mmpython (0.0.1cvs20030710-freevo3) unstable; urgency=low
 
   * New snapshot with Ogg fixes
 
  -- Aubin Paul <debian@outlyer.org>  Thu, 10 Jul 2003 08:52:28 -0400
 
-python2.2-mmpython (0.0.1cvs20030702-freevo2) unstable; urgency=low
+mmpython (0.0.1cvs20030702-freevo2) unstable; urgency=low
 
   * Oops, debug was left on.
 
  -- Aubin Paul <debian@outlyer.org>  Thu,  3 Jul 2003 00:30:03 -0400
 
-python2.2-mmpython (0.0.1cvs20030702-freevo1) unstable; urgency=low
+mmpython (0.0.1cvs20030702-freevo1) unstable; urgency=low
 
   * New snapshot, more stability work
   * Now snapshots are current since we're not going through anoncvs
 
  -- Aubin Paul <debian@outlyer.org>  Wed,  2 Jul 2003 21:23:25 -0400
 
-python2.2-mmpython (0.0.1cvs20030701-freevo1) unstable; urgency=low
+mmpython (0.0.1cvs20030701-freevo1) unstable; urgency=low
 
   * Another snapshot, more bugfixes
   * Changes made that aren't in mmpython CVS:
@@ -39,13 +48,13 @@ python2.2-mmpython (0.0.1cvs20030701-freevo1) unstable; urgency=low
 
  -- Aubin Paul <debian@outlyer.org>  Tue,  1 Jul 2003 23:17:46 -0400
 
-python2.2-mmpython (0.0.1cvs20030628-freevo1) unstable; urgency=low
+mmpython (0.0.1cvs20030628-freevo1) unstable; urgency=low
 
   * Another snapshot
 
  -- Aubin Paul <debian@outlyer.org>  Sat, 28 Jun 2003 22:15:34 -0400
 
-python2.2-mmpython (0.0.1cvs20030620-freevo1) unstable; urgency=low
+mmpython (0.0.1cvs20030620-freevo1) unstable; urgency=low
 
   * First snapshot from CVS
 
