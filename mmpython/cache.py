@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.29  2003/08/23 13:51:46  dischi
+# check for correct chars in cache name
+#
 # Revision 1.28  2003/08/05 17:22:40  dischi
 # delete correct table before caching, error handling
 #
@@ -151,9 +154,9 @@ class Cache:
             os.mkdir('%s/disc' % cachedir)
         self.current_objects    = None
         self.current_dir        = None
+        self.ID_RE = re.compile('[^a-zA-Z0-9()_-]')
         self.CACHE_VERSION      = 1
         self.DISC_CACHE_VERSION = 1
-
 
     def hexify(self, str):
         hexStr = string.hexdigits
@@ -174,7 +177,7 @@ class Cache:
             id = cdrom_disc_id(file)
             if not id:
                 return None
-            return '%s/disc/%s' % (self.cachedir, id)
+            return '%s/disc/%s' % (self.cachedir, self.ID_RE.sub('_', id))
         return '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
     
 
