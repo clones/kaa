@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.23  2003/09/14 13:50:42  dischi
+# make it possible to scan extention based only
+#
 # Revision 1.22  2003/09/10 18:41:44  dischi
 # add USE_NETWORK, maybe there is no network connection
 #
@@ -136,17 +139,17 @@ def check_cache(directory):
     return object_cache.check_cache(directory)
 
 
-def cache_dir(directory, uncachable_keys = uncachable_keys, callback=None):
+def cache_dir(directory, uncachable_keys = uncachable_keys, callback=None, ext_only = 0):
     """
     cache every file in the directory for future use
     """
     global object_cache
     if not object_cache:
         return {}
-    return object_cache.cache_dir(directory, uncachable_keys, callback)
+    return object_cache.cache_dir(directory, uncachable_keys, callback, ext_only)
 
 
-def parse(filename, bypass_cache = 0):
+def parse(filename, bypass_cache = 0, ext_only = 0):
     """
     parse the file
     """
@@ -157,7 +160,7 @@ def parse(filename, bypass_cache = 0):
             return object_cache.find(filename)
         except cache.FileNotFoundException:
             pass
-    info = Factory().create(filename)
+    info = Factory().create(filename, ext_only)
     if info and object_cache and isinstance(info, disc.discinfo.DiscInfo):
         object_cache.cache_disc(info)
     return info

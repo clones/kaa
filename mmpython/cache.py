@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.35  2003/09/14 13:50:42  dischi
+# make it possible to scan extention based only
+#
 # Revision 1.34  2003/09/14 13:33:40  dischi
 # fix cache handling for audio discs
 #
@@ -243,7 +246,7 @@ class Cache:
         return new
     
         
-    def cache_dir(self, directory, uncachable_keys, callback):
+    def cache_dir(self, directory, uncachable_keys, callback, ext_only):
         """
         cache every file in the directory for future use
         """
@@ -274,7 +277,7 @@ class Cache:
             try:
                 info = self.find(file)
             except FileNotFoundException:
-                info = mmpython.Factory().create(file)
+                info = mmpython.Factory().create(file, ext_only=ext_only)
                 if callback:
                     callback()
                     

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.12  2003/09/14 13:50:42  dischi
+# make it possible to scan extention based only
+#
 # Revision 1.11  2003/09/01 19:23:23  dischi
 # ignore case when searching the correct extention
 #
@@ -101,7 +104,7 @@ class Factory:
         self.device_types = []
         self.stream_types = []
         
-    def create_from_file(self,file):
+    def create_from_file(self, file, ext_only=0):
         """
         create based on the file stream 'file
         """
@@ -118,7 +121,13 @@ class Factory:
                     if DEBUG:
                         traceback.print_exc()
 
-        if DEBUG: print "No Type found by Extension. Trying all"
+        # no searching on all types
+        if ext_only:
+            return None
+
+        if DEBUG:
+            print "No Type found by Extension. Trying all"
+
         for e in self.types:
             if DEBUG: print "Trying %s" % e[0]
             try:
@@ -175,7 +184,7 @@ class Factory:
         pass
 
 
-    def create_from_filename(self,filename):
+    def create_from_filename(self, filename, ext_only=0):
         """
         Create information for the given filename
         """
@@ -183,7 +192,7 @@ class Factory:
             return None
         if os.path.isfile(filename):
             f = open(filename,'rb')
-            r = self.create_from_file(f)
+            r = self.create_from_file(f, ext_only)
             f.close()
             if r:
                 r.url = 'file://%s' % os.path.abspath(filename)
@@ -205,7 +214,7 @@ class Factory:
         return None
             
 
-    def create(self, name):
+    def create(self, name, ext_only=0):
         """
         Global 'create' function. This function calls the different
         'create_from_'-functions.
@@ -217,7 +226,7 @@ class Factory:
         if (os.uname()[0] == 'FreeBSD' and stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) \
                or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
             return self.create_from_device(name)
-        return self.create_from_filename(name)
+        return self.create_from_filename(name, ext_only)
 
         
     def register(self,mimetype,extensions,type,c):
