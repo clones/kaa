@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.25  2003/07/07 21:36:44  dischi
+# make fps a float and round it to two digest after the comma
+#
 # Revision 1.24  2003/07/05 19:36:37  the_krow
 # length fixed
 # fps introduced
@@ -242,7 +245,7 @@ class RiffInfo(mediainfo.AVInfo):
             vi.width = retval['biWidth']
             vi.height = retval['biHeight']            
             vi.bitrate = strh['dwRate']
-            vi.fps = strh['dwRate'] / strh['dwScale']
+            vi.fps = round(float(strh['dwRate'] * 100) / strh['dwScale']) / 100
             vi.length = strh['dwLength'] / vi.fps 
             self.video.append(vi)  
         return retval
