@@ -3,6 +3,12 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.12  2003/06/08 16:48:08  dischi
+# Changed self.exif to exif_info and the same for ipc. We should extract
+# everything we need to self.xxx and don't remember where the info came
+# from (it's bad for the cache, we cache everything twice).
+# Also added thumbnail to the list of things we want
+#
 # Revision 1.11  2003/06/08 13:44:57  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -82,7 +88,7 @@ class JPGInfo(mediainfo.ImageInfo):
 
     def __init__(self,file):
         mediainfo.ImageInfo.__init__(self)
-        self.iptc = None        
+        iptc_info = None        
         self.mime = 'image/jpeg'
         self.type = 'jpeg image'
         self.valid = 1
@@ -107,30 +113,30 @@ class JPGInfo(mediainfo.ImageInfo):
                 print "H/W: %i / %i" % (self.height, self.width) 
             elif segtype == 0xed:
                 app = file.read(seglen-2)
-                self.iptc = IPTC.flatten(IPTC.parseiptc(app))
+                iptc_info = IPTC.flatten(IPTC.parseiptc(app))
                 break
             else:
                 file.seek(seglen-2,1)
             app = file.read(4)
         file.seek(0)        
-        self.exif = EXIF.process_file(file)
-        if self.exif:
-            self.setitem( 'comment', self.exif, 'EXIF UserComment' )
-#            self.setitem( 'width', self.exif, 'EXIF ExifImageWidth'  )
-#            self.setitem( 'height', self.exif, 'EXIF ExifImageLength' )
-            self.setitem( 'date', self.exif, 'Image DateTime' )            
-            self.setitem( 'artist', self.exif, 'Image Artist' )
-            self.setitem( 'hardware', self.exif, 'Image Model' )
-            self.setitem( 'software', self.exif, 'Image Software' )
-#            self.setitem( 'thumbnail', self.exif, 'JPEGThumbnail' ) 
-        if self.iptc:
-            self.setitem( 'title', self.iptc, 517 ) 
-            self.setitem( 'date' , self.iptc, 567 )
-            self.setitem( 'comment', self.iptc, 617 )
-            self.setitem( 'keywords', self.iptc, 537 )
-            self.setitem( 'artist', self.iptc, 592 )
-            self.setitem( 'country', self.iptc, 612 ) 
-            self.setitem( 'caption', self.iptc, 632 )
+        exif_info = EXIF.process_file(file)
+        if exif_info:
+            self.setitem( 'comment', exif_info, 'EXIF UserComment' )
+            # self.setitem( 'width', exif_info, 'EXIF ExifImageWidth'  )
+            # self.setitem( 'height', exif_info, 'EXIF ExifImageLength' )
+            self.setitem( 'date', exif_info, 'Image DateTime' )            
+            self.setitem( 'artist', exif_info, 'Image Artist' )
+            self.setitem( 'hardware', exif_info, 'Image Model' )
+            self.setitem( 'software', exif_info, 'Image Software' )
+            self.setitem( 'thumbnail', exif_info, 'JPEGThumbnail' ) 
+        if iptc_info:
+            self.setitem( 'title', iptc_info, 517 ) 
+            self.setitem( 'date' , iptc_info, 567 )
+            self.setitem( 'comment', iptc_info, 617 )
+            self.setitem( 'keywords', iptc_info, 537 )
+            self.setitem( 'artist', iptc_info, 592 )
+            self.setitem( 'country', iptc_info, 612 ) 
+            self.setitem( 'caption', iptc_info, 632 )
         return
        
 
