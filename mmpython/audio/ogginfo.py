@@ -28,7 +28,7 @@ class OggInfo(mediainfo.AudioInfo):
         self.mime = 'application/ogg'
         self.header = {}
         info = file.read(23)
-        self.version, self.channels, self.samplerate, bitrate_max, self.audiobitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',info[:23])
+        self.version, self.audiochannels, self.samplerate, bitrate_max, self.audiobitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',info[:23])
         # INFO Header, read Oggs and skip 10 bytes
         h = file.read(4+10+13)        
         if h[:4] == 'OggS':
