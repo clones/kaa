@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.7  2003/07/02 22:04:26  dischi
+# just to be save
+#
 # Revision 1.6  2003/07/02 22:03:13  dischi
 # cache the disc id, it cannot change in 1 sec
 #
@@ -106,7 +109,7 @@ def cdrom_disc_id(device):
     """
     global id_cache
     try:
-        if id_cache[device][0] + 1 > time.time():
+        if id_cache[device][0] + 0.9 > time.time():
             return id_cache[device][1]
     except:
         pass
