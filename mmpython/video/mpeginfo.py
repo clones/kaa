@@ -1,62 +1,14 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.21  2004/06/21 20:37:34  dischi
+# basic support for mpeg-ts
+#
 # Revision 1.20  2004/03/13 23:41:59  dischi
 # add AudioInfo to mpeg for all streams
 #
 # Revision 1.19  2004/02/11 20:11:54  dischi
 # Updated length calculation for mpeg files. This may not work for all files.
-#
-# Revision 1.18  2003/08/30 12:16:01  dischi
-# turn off debug
-#
-# Revision 1.17  2003/07/07 21:38:09  dischi
-# make fps a float, name type MPEG1 or MPEG2 and add aspect to info list
-#
-# Revision 1.16  2003/06/30 13:17:20  the_krow
-# o Refactored mediainfo into factory, synchronizedobject
-# o Parsers now register directly at mmpython not at mmpython.mediainfo
-# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
-# o Bugfix in PNG parser
-# o Renamed disc.AudioInfo into disc.AudioDiscInfo
-# o Renamed disc.DataInfo into disc.DataDiscInfo
-#
-# Revision 1.15  2003/06/29 11:59:35  dischi
-# make some debug silent
-#
-# Revision 1.14  2003/06/20 19:17:22  dischi
-# remove filename again and use file.name
-#
-# Revision 1.13  2003/06/09 16:12:47  the_krow
-# MPEG Length computation added
-#
-# Revision 1.12  2003/06/09 14:31:57  the_krow
-# fixes on the mpeg parser
-# resolutions, fps and bitrate should be reported correctly now
-#
-# Revision 1.11  2003/06/08 20:28:29  dischi
-# bugfix/bugchange, I think it was an endless loop
-#
-# Revision 1.10  2003/06/08 19:53:21  dischi
-# also give the filename to init for additional data tests
-#
-# Revision 1.9  2003/06/08 13:44:58  dischi
-# Changed all imports to use the complete mmpython path for mediainfo
-#
-# Revision 1.8  2003/06/08 13:11:38  dischi
-# removed print at the end and moved it into register
-#
-# Revision 1.7  2003/06/07 22:54:29  the_krow
-# AVInfo stuff added.
-#
-# Revision 1.6  2003/06/07 22:30:21  the_krow
-# added new avinfo structure
-#
-# Revision 1.4  2003/05/13 17:49:42  the_krow
-# IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
-#
-# Revision 1.3  2003/05/13 12:31:43  the_krow
-# + Copyright Notice
 #
 #
 # MMPython - Media Metadata for Python
@@ -179,24 +131,37 @@ class MpegInfo(mediainfo.AVInfo):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        self.valid = self.isSystem(file) 
+
+        # try to find some basic info
+        self.valid = self.isTS(file) 
+        if not self.valid:
+            self.valid = self.isSystem(file) 
         if not self.valid:
             self.valid = self.isVideo(file) 
+
         if self.valid:       
             self.mime = 'video/mpeg'
-            vi = mediainfo.VideoInfo()
-            vi.width, vi.height = self.dxy(file)
-            vi.fps, vi.aspect = self.framerate_aspect(file)
-            vi.bitrate = self.bitrate(file)
-            vi.length = self.mpgsize(file) * 8 / (vi.bitrate)
-            self.video.append(vi)
+            if not self.video:
+                self.video.append(mediainfo.VideoInfo())
+
+            for vi in self.video:
+                vi.width, vi.height = self.dxy(file)
+                vi.fps, vi.aspect = self.framerate_aspect(file)
+                vi.bitrate = self.bitrate(file)
+                if self.length:
+                    vi.length = self.length
+                else:
+                    # wild (bad) guess
+                    vi.length = self.mpgsize(file) * 8 / (vi.bitrate)
+
             if not self.type:
-                if vi.width == 480:
+                if self.video[0].width == 480:
                     self.type = 'MPEG2 video' # SVCD spec
-                elif vi.width == 352:
+                elif self.video[0].width == 352:
                     self.type = 'MPEG1 video' # VCD spec
                 else:
                     self.type = 'MPEG video'
+
                 
     def dxy(self,file):  
         file.seek(self.offset+4,0)
@@ -411,4 +376,91 @@ class MpegInfo(mediainfo.AVInfo):
             return 1
         return 0
 
-mmpython.registertype( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_AV, MpegInfo )
+
+    def TSinfo(self, file):
+        PACKET_LENGTH = 188
+        SYNC          = 0x47
+
+        buffer = file.read(PACKET_LENGTH * 2)
+        c = 0
+
+        while c + PACKET_LENGTH < len(buffer):
+            if ord(buffer[c]) == ord(buffer[c+PACKET_LENGTH]) == SYNC:
+                break
+            c += 1
+        else:
+            return 0
+
+        buffer += file.read(1000000)
+        self.type = 'MPEG-TS'
+        while c + PACKET_LENGTH < len(buffer):
+            start = ord(buffer[c+1]) & 0x40
+            if not start:
+                c += PACKET_LENGTH
+                continue
+
+            tsid = ((ord(buffer[c+1]) & 0x3F) << 8) + ord(buffer[c+2])
+            adapt = (ord(buffer[c+3]) & 0x30) >> 4
+
+            offset = 4
+            if adapt & 0x02:
+                # meta info present, skip it for now
+                offset += ord(buffer[c+offset]) + 1
+
+            if adapt & 0x01 and ord(buffer[c+offset]) == ord(buffer[c+offset+1]) == 0 \
+                   and ord(buffer[c+offset+2]) == 1:
+                align         = ord(buffer[c+offset+6]) & 4
+                header_length = ord(buffer[c+offset+8])
+                dts           = ord(buffer[c+offset+7]) >> 6
+
+                # PES Payload (starting with 001)
+                if ord(buffer[c+offset+3]) & 0xE0 == 0xC0:
+                    id = ord(buffer[c+offset+3]) & 0x1F
+                    type = 'audio'
+                    for a in self.audio:
+                        if a.id == tsid:
+                            break
+                    else:
+                        self.audio.append(mediainfo.AudioInfo())
+                        self.audio[-1].id = tsid
+                        self.audio[-1].keys.append('id')
+
+                elif ord(buffer[c+offset+3]) & 0xE0 == 0xE0:
+                    id = ord(buffer[c+offset+3]) & 0xF
+                    type = 'video'
+                    for v in self.video:
+                        if v.id == tsid:
+                            break
+                    else:
+                        self.video.append(mediainfo.VideoInfo())
+                        self.video[-1].id = tsid
+                        self.video[-1].keys.append('id')
+
+                    # new mpeg starting
+                    if buffer[c+offset+header_length+9:c+offset+header_length+13] == \
+                           '\x00\x00\x01\xB3' and not self.offset:
+                        # yes, remember offset for later use
+                        self.offset = c+offset+header_length+9
+                else:
+                    # unknown content
+                    continue
+
+            elif adapt & 0x01:
+                # no PES, scan for something else here
+                pass
+            
+            c += PACKET_LENGTH
+
+        if self.offset:
+            return 1
+        return 0
+
+            
+    def isTS(self, file):
+        if mediainfo.DEBUG:
+            print 'trying mpeg-ts scan'
+        file.seek(0,0)
+        return self.TSinfo(file)
+
+    
+mmpython.registertype( 'video/mpeg', ('mpeg','mpg','mp4', 'ts'), mediainfo.TYPE_AV, MpegInfo )
