@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.8  2003/06/12 15:58:05  the_krow
+# QT parsing of i18n metadata
+#
 # Revision 1.7  2003/06/12 14:43:22  the_krow
 # Realmedia file parsing. Title, Artist, Copyright work. Couldn't find
 # many technical parameters to retrieve.
@@ -57,15 +60,53 @@ class MovInfo(mediainfo.AVInfo):
         self.valid = 0
         self.mime = 'video/quicktime'
         self.type = 'Quicktime Video'
-        h = file.read(8)
-        try:
-            (type1,type2) = struct.unpack('<II',h)
-        except struct.error:
+        h = file.read(8)                
+        (size,type) = struct.unpack('>I4s',h)
+        if type == 'moov':
+            self.valid = 1
+        elif type == 'wide':
+            self.valid = 1
+        # Extended size
+        if size == 1:
+            print "Extended Size"
+            size = struct.unpack('>Q', file.read(8))                  
+        while self._readatom(file):
             pass
+            
+                
+    def _readatom(self, file):
+        s = file.read(8)
+        if len(s) < 8:
+            return 0
+        atomsize,atomtype = struct.unpack('>I4s', s)
+        print "%s [%d]" % (atomtype,atomsize)        
+        if atomtype == 'udta':
+            # Userdata (Metadata)
+            pos = 0
+            tabl = {}
+            atomdata = file.read(atomsize-8)
+            while pos < atomsize-12:
+                (datasize,datatype) = struct.unpack('>I4s', atomdata[pos:pos+8])
+                if ord(datatype[0]) == 169:
+                    # i18n Metadata... 
+                    mypos = 8
+                    while mypos < datasize:
+                        # first 4 Bytes are i18n header
+                        (tlen,lang) = struct.unpack('>HH', atomdata[mypos:mypos+4])
+                        #print "%d %d/%d %s" % (lang,tlen,datasize,atomdata[mypos+4:mypos+tlen+4])
+                        tabl['%d_%s'%(lang,datatype)] = atomdata[mypos+4:mypos+tlen+4]
+                        mypos += tlen+4
+                elif datatype == 'WLOC':
+                    # Drop Window Location
+                    pass
+                else:
+                    tabl[datatype] = atomdata[pos+8:pos+datasize]
+                #print "%s: %s" % (datatype, tabl[datatype])
+                pos += datasize
+            self.appendtable('QTUDTA', tabl)
         else:
-            if ( type2 == 0x6d6f6f76 ) or ( type2 == 0x6d646174 ) or ( type2 == 0x706e6f74 ):
-                self.valid = 1
-
-
+            atomdata = file.seek(atomsize-8,1)
+        return 1 
+        
 factory = mediainfo.get_singleton()  
 factory.register( 'video/quicktime', ('mov', 'qt'), mediainfo.TYPE_AV, MovInfo )
