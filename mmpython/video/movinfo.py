@@ -1,6 +1,11 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.22  2004/05/11 15:18:59  dischi
+# o more stream infos (like codec)
+# o better error handling for bad i18n tables
+# o language detection
+#
 # Revision 1.21  2004/05/10 15:19:59  dischi
 # o better stream detection
 # o correct length calculation inside the track
@@ -106,6 +111,8 @@ from movlanguages import *
 
 # http://developer.apple.com/documentation/QuickTime/QTFF/index.html
 
+ATOM_DEBUG = 0
+
 class MovInfo(mediainfo.AVInfo):
     def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
@@ -147,7 +154,7 @@ class MovInfo(mediainfo.AVInfo):
             # stop at nonsense data
             return 0
 
-        if mediainfo.DEBUG:
+        if mediainfo.DEBUG or ATOM_DEBUG:
             print "%s [%X]" % (atomtype,atomsize)
 
         if atomtype == 'udta':
@@ -164,31 +171,31 @@ class MovInfo(mediainfo.AVInfo):
                     while mypos < datasize+pos:
                         # first 4 Bytes are i18n header
                         (tlen,lang) = struct.unpack('>HH', atomdata[mypos:mypos+4])
-                        #print "%d %d/%d %s" % (lang,tlen,datasize,atomdata[mypos+4:mypos+tlen+4])
                         i18ntabl[lang] = i18ntabl.get(lang, {})
                         i18ntabl[lang][datatype[1:]] = atomdata[mypos+4:mypos+tlen+4]
-                        #['%d_%s'%(lang,datatype[1:])] = atomdata[mypos+4:mypos+tlen+4]
                         mypos += tlen+4
                 elif datatype == 'WLOC':
                     # Drop Window Location
                     pass
                 else:
-                    tabl[datatype] = atomdata[pos+8:pos+datasize]
-#                print "%s: %s" % (datatype, tabl[datatype])
+                    if ord(atomdata[pos+8:pos+datasize][0]) > 1:
+                        tabl[datatype] = atomdata[pos+8:pos+datasize]
                 pos += datasize
             if len(i18ntabl.keys()) > 0:
                 for k in i18ntabl.keys():                
-                    self.appendtable('QTUDTA', i18ntabl[k], QTLANGUAGES[k])
-                    self.appendtable('QTUDTA', tabl, QTLANGUAGES[k])
+                    if QTLANGUAGES.has_key(k):
+                        self.appendtable('QTUDTA', i18ntabl[k], QTLANGUAGES[k])
+                        self.appendtable('QTUDTA', tabl, QTLANGUAGES[k])
             else:
                 #print "NO i18"
                 self.appendtable('QTUDTA', tabl)
              
         elif atomtype == 'trak':
             atomdata = file.read(atomsize-8)
-            pos = 0
-            vi  = None
-            ai  = None
+            pos   = 0
+            vi    = None
+            ai    = None
+            info  = None
             while pos < atomsize-8:
                 (datasize,datatype) = struct.unpack('>I4s', atomdata[pos:pos+8])
                 if datatype == 'tkhd':
@@ -216,10 +223,16 @@ class MovInfo(mediainfo.AVInfo):
                                 vi.length = mdhd[4] / mdhd[3]
                             if ai:
                                 ai.length = mdhd[4] / mdhd[3]
-                            # mdhd[5] == language [1]
+                                if mdhd[5] in QTLANGUAGES:
+                                    ai.language = QTLANGUAGES[mdhd[5]]
                             # mdhd[6] == quality 
                             self.length = max(self.length, mdhd[4] / mdhd[3])
                         elif mdia[1] == 'minf':
+                            # minf has only atoms inside
+                            pos -=      (mdia[0] - 8)
+                            datasize += (mdia[0] - 8)
+                        elif mdia[1] == 'stbl':
+                            # stbl has only atoms inside
                             pos -=      (mdia[0] - 8)
                             datasize += (mdia[0] - 8)
                         elif mdia[1] == 'hdlr':
@@ -227,13 +240,37 @@ class MovInfo(mediainfo.AVInfo):
                             if hdlr[1] == 'mhlr':
                                 if hdlr[2] == 'vide' and not vi in self.video:
                                     self.video.append(vi)
+                                    info = vi
                                 if hdlr[2] == 'soun' and not ai in self.audio:
                                     self.audio.append(ai)
-                        # else: print '  --> %s, %s' % mdia
+                                    info = ai
+                        elif mdia[1] == 'stsd':
+                            stsd = struct.unpack('>2I', atomdata[pos+8:pos+8+8])
+                            if stsd[1] > 0 and info:
+                                codec = struct.unpack('>I4s', atomdata[pos+16:pos+16+8])
+                                info.codec = codec[1]
+                                if info.codec == 'jpeg':
+                                    # jpeg is no video, remove it from the list
+                                    self.video.remove(vi)
+                                    info = None
+                                    
+                        elif ATOM_DEBUG:
+                            print '  --> %s, %s' % mdia
                         pos      += mdia[0]
                         datasize -= mdia[0]
-                # else: print "--> %s [%d]" % (datatype, datasize)
+
+                elif datatype == 'udta' and ATOM_DEBUG:
+                    print struct.unpack('>I4s', atomdata[:8])
+                elif ATOM_DEBUG:
+                    print "--> %s [%d]" % (datatype, datasize)
                 pos += datasize
+
+        elif atomtype == 'mvhd':
+            # movie header
+            mvhd = struct.unpack('>6I2h', file.read(28))
+            self.length = max(self.length, mvhd[4] / mvhd[3])
+            self.volume = mvhd[6]
+            file.seek(atomsize-8-28,1)
 
         elif atomtype == 'cmov':
             # compressed movie
@@ -271,10 +308,17 @@ class MovInfo(mediainfo.AVInfo):
                 pass
             
         elif atomtype == 'mdat':
+            pos = file.tell() + atomsize - 8
+            # maybe there is data inside the mdat
             while self._readatom(file):
                 pass
+            file.seek(pos, 0)
+            
         
         else:
+            if ATOM_DEBUG and not atomtype in ('wide', 'free'):
+                print 'unhandled base atom %s' % atomtype
+
             # Skip unknown atoms
             try:
                 file.seek(atomsize-8,1)
