@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.38  2003/06/20 19:04:34  dischi
+# search for VobSub subtitles
+#
 # Revision 1.37  2003/06/20 14:43:57  the_krow
 # Putting Metadata into MediaInfo from AVIInfo Table
 #
@@ -340,6 +343,17 @@ class AVInfo(MediaInfo):
         self.audio = []
         self.video = []
         self.subtitles = []
+
+    def find_subtitles(self, filename):
+        base = os.path.splitext(filename)[0]
+        if os.path.isfile(base+'.idx') and os.path.isfile(base+'.sub'):
+            file = open(base+'.idx')
+            if file.readline().find('VobSub index file') > 0:
+                line = file.readline()
+                while (line):
+                    if line.find('id') == 0:
+                        self.subtitles.append(line[4:6])
+                    line = file.readline()
         
     def __str__(self):
         result = "Attributes:"
