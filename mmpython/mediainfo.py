@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.67  2005/02/04 12:44:26  dischi
+# fix unicode bug
+#
 # Revision 1.66  2004/09/14 20:13:59  dischi
 # detect rar vobsub files
 #
@@ -200,7 +203,10 @@ class MediaInfo:
         """
         try:
             if self.__dict__.has_key(item):
-                self.__dict__[item] = dict[key]
+                if isinstance(dict[key], str):
+                    self.__dict__[item] = unicode(dict[key])
+                else:
+                    self.__dict__[item] = dict[key]
             else:
                 _debug("Unknown key: %s" % item)
         except:
