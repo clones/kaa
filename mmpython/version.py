@@ -5,5 +5,5 @@
 VERSION = '0.4.3'
 
 # latest major change (date as integer)
-CHANGED = 20040520
+CHANGED = 20040606
 
