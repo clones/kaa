@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.32  2004/04/18 09:11:36  dischi
+# improved lsdvd support
+#
 # Revision 1.31  2004/04/17 18:38:54  dischi
 # add lsdvd parser to avoid problems with our own
 #
@@ -116,14 +119,24 @@ import video.realinfo
 import video.ogminfo
 import video.mkvinfo
 
+# import some disc modules (may fail)
 try:
     import disc.discinfo
-    import disc.lsdvd
     import disc.vcdinfo
     import disc.audioinfo
-    import disc.dvdinfo
 except ImportError:
     pass
+
+# find the best working DVD module
+try:
+    import disc.lsdvd
+except ImportError:
+    try:
+        import disc.dvdinfo
+    except ImportError:
+        pass
+
+# use fallback disc module
 try:
     import disc.datainfo
 except ImportError:

@@ -45,6 +45,15 @@ class DVDAudio(mediainfo.AudioInfo):
         self.channels = data[13]
 
 
+class DVDVideo(mediainfo.VideoInfo):
+    def __init__(self, data):
+        mediainfo.VideoInfo.__init__(self)
+        self.width  = int(data[12])
+        self.height = int(data[14])
+        self.fps    = float(data[5])
+        self.aspect = data[10]
+
+
 class DVDTitle(mediainfo.AVInfo):
     def __init__(self, data):
         mediainfo.AVInfo.__init__(self)
@@ -95,7 +104,7 @@ class DVDInfo(DiscInfo):
         use lsdvd to get informations about this disc
         """
         import popen2
-        child = popen2.Popen3('%s -a -s "%s"' % (LSDVD_EXE, path), 1, 100)
+        child = popen2.Popen3('%s -v -n -a -s "%s"' % (LSDVD_EXE, path), 1, 100)
         for line in child.fromchild.readlines():
             data = line.replace(',', '').replace('\t', '').\
                    replace('\n', '').split(' ')
@@ -107,7 +116,13 @@ class DVDInfo(DiscInfo):
                     self.tracks[-1].audio.append(DVDAudio(data))
                 elif data[0] == 'Subtitle:':
                     self.tracks[-1].subtitles.append(data[3])
-
+                elif data[0] == 'VTS:':
+                    self.tracks[-1].video.append(DVDVideo(data))
+                    self.tracks[-1].video[-1].length = self.tracks[-1].length
+                elif data[:3] == ['Number', 'of', 'Angles:']:
+                    self.tracks[-1].angles = int(data[3])
+                    self.tracks[-1].keys.append('angles')
+                    
         child.wait()
         child.fromchild.close()
         child.childerr.close()
@@ -150,6 +165,16 @@ class DVDInfo(DiscInfo):
             return 0
 
         return self.lsdvd(device)
+
+
+for path in os.environ['PATH'].split(':'):
+    if os.path.isfile(os.path.join(path, 'lsdvd')):
+        LSDVD_EXE = os.path.join(path, 'lsdvd')
+        break
+else:
+    if mediainfo.DEBUG:
+        print 'ImportError: lsdvd not found'
+    raise ImportError
 
 
 mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AV, DVDInfo )
