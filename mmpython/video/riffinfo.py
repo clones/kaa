@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.24  2003/07/05 19:36:37  the_krow
+# length fixed
+# fps introduced
+#
 # Revision 1.23  2003/07/02 11:17:30  the_krow
 # language is now part of the table key
 #
@@ -193,9 +197,6 @@ class RiffInfo(mediainfo.AVInfo):
               retval['dwQuality'],
               retval['dwSampleSize'],
               retval['rcFrame'], ) = v
-            self.bitrate = retval['dwRate']
-            self.length = retval['dwLength']
-        # TODO: Add 'vids' parsing!!
         return retval
 
     def parseSTRF(self,t,strh):
@@ -213,6 +214,7 @@ class RiffInfo(mediainfo.AVInfo):
             ai.samplerate = retval['nSamplesPerSec']
             ai.channels = retval['nChannels']
             ai.samplebits = retval['nBitsPerSample']
+            ai.bitrate = retval['nAvgBytesPerSec'] * 8
             try:
                 ai.codec = fourcc.RIFFWAVE[retval['wFormatTag']]
             except:
@@ -239,7 +241,9 @@ class RiffInfo(mediainfo.AVInfo):
                 vi.codec = "Unknown"
             vi.width = retval['biWidth']
             vi.height = retval['biHeight']            
-            vi.length = strh['dwLength']
+            vi.bitrate = strh['dwRate']
+            vi.fps = strh['dwRate'] / strh['dwScale']
+            vi.length = strh['dwLength'] / vi.fps 
             self.video.append(vi)  
         return retval
         
