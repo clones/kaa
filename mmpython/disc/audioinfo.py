@@ -50,7 +50,11 @@ class AudioDiscInfo(discinfo.DiscInfo):
             return 0
         
         disc_id = DiscID.disc_id(device)
-        (query_stat, query_info) = CDDB.query(disc_id)
+        try:
+            (query_stat, query_info) = CDDB.query(disc_id)
+        except:
+            # Oops no connection
+            query_stat = 404
 
         if query_stat == 210 or query_stat == 211:
             # set this to success
@@ -66,7 +70,6 @@ class AudioDiscInfo(discinfo.DiscInfo):
             _debug("failure getting disc info, status %i" % query_stat)
 
 
-        
         if query_stat == 200:
             qi = query_info['title'].split('/')
             self.artist = qi[0].strip()
