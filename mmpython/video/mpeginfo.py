@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.33  2005/02/15 18:52:51  dischi
+# some strange bugfix (what is this doing?)
+#
 # Revision 1.32  2005/01/21 16:37:02  dischi
 # try to find bad timestamps
 #
@@ -676,7 +679,8 @@ class MpegInfo(mediainfo.AVInfo):
                 ackcount = 0
             else:
                 offset   += pos
-                ackcount += 1
+                if retpos != -1:
+                    ackcount += 1
             if ackcount > 10:
                 # looks ok to me
                 return retpos
