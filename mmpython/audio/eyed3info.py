@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.14  2004/07/21 18:54:36  outlyer
+# Big bugfix.
+#
+# If a mp3 lacks a genre, then nothing after the genre parsing works. This breaks
+# calculating the length, among other things because it's all in a try except, so
+# self.length takes on a random value. I was getting track lengths like 20000 seconds
+# until I made this change.
+#
 # Revision 1.13  2004/07/11 12:06:03  dischi
 # add genre parsing
 #
@@ -184,7 +192,10 @@ class eyeD3Info(mediainfo.MusicInfo):
                try:
                   genre = int(tcon)
                except:
-                  genre = int(tcon[1:tcon.find(')')])
+                  try:
+                      genre = int(tcon[1:tcon.find(')')])
+                  except ValueError:
+                      pass
                if genre is not None:
                   try:
                      self.genre = id3info.GENRE_LIST[genre]
@@ -192,8 +203,8 @@ class eyeD3Info(mediainfo.MusicInfo):
                      pass
             # and some tools store it as trackno/trackof in TRCK
             if not self['trackof'] and self['trackno'] and self['trackno'].find('/') > 0:
-               self['trackof'] = self['trackno'][self['trackno'].find('/')+1:]
-               self['trackno'] = self['trackno'][:self['trackno'].find('/')]
+                self['trackof'] = self['trackno'][self['trackno'].find('/')+1:]
+                self['trackno'] = self['trackno'][:self['trackno'].find('/')]
          if id3:
             self.length = id3.getPlayTime()
       except:
