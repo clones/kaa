@@ -60,6 +60,7 @@ class OggInfo(mediainfo.AudioInfo):
                 self.encoder = self.header['vendor']
             self.type = 'OGG Vorbis'
             self.subtype = ''
+            self.length = self._calculateTrackLength(file)
             
     def __getitem__(self,key):
         i = self.info[key]
@@ -70,6 +71,27 @@ class OggInfo(mediainfo.AudioInfo):
     def _extractHeaderString(self,f):
         len = struct.unpack( '<I', f.read(4) )[0]
         return f.read(len)
+    
+
+    def _calculateTrackLength(self,f):
+        # read the rest of the file into a buffer
+        h = f.read()
+        granule_position = 0
+        # search for each 'OggS' in h        
+        if len(h):
+            idx = h.rfind('OggS')
+            if idx < 0:
+                return 0
+            pageSize = 0
+            h = h[idx+4:]
+            (check, type, granule_position, absPos, serial, pageN, crc, segs) = struct.unpack( '<BBIIIIIB', h[:23] )            
+            if check != 0:
+                print h[:10]
+                return
+            print "granule = %d / %d" % (granule_position, absPos)
+        # the last one is the one we are interested in
+        return (granule_position / self.samplerate)
+
 
 
 factory = mediainfo.get_singleton()
