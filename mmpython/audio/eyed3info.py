@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.15  2004/09/09 02:45:58  outlyer
+# Add the TPOS tag for multiple disc sets.
+#
 # Revision 1.14  2004/07/21 18:54:36  outlyer
 # Big bugfix.
 #
@@ -111,7 +114,8 @@ MP3_INFO_TABLE = { "APIC": "picture",
                    "TMED": "media_type",
                    "TPE1": "artist",
                    "TPE2": "artist",
-                   "TRCK": "trackno" }
+                   "TRCK": "trackno",
+                   "TPOS": "discs"}
 
 class eyeD3Info(mediainfo.MusicInfo):
    
