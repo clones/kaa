@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.36  2003/11/05 21:17:37  dischi
+# do not cache directory on audio discs
+#
 # Revision 1.35  2003/09/14 13:50:42  dischi
 # make it possible to scan extention based only
 #
@@ -255,6 +258,9 @@ class Cache:
         cachefile, files = self.__get_cachefile_and_filelist__(directory)
 
         if not cachefile:
+            return {}
+
+        if len(cachefile[cachefile.rfind('/'):]) < 16:
             return {}
 
         objects = {}
