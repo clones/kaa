@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/05/13 18:28:17  the_krow
+# JPEG Resolution
+#
 # Revision 1.7  2003/05/13 17:49:41  the_krow
 # IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
 #
@@ -79,27 +82,31 @@ class JPGInfo(mediainfo.ImageInfo):
         if file.read(2) != '\xff\xd9':
             self.valid = 0
             return
-        file.seek(0)
+        file.seek(2)
         app = file.read(4)
-        while (app.find('\xff\xd9') < 0) and (len(app) > 4):
-            (seglen,segtype) = struct.unpack(">H2s", app)
-            print "%x, len=%d" % (ord(segtype[1]),seglen)          
-            if segtype == '\0xFF\0xD9':
+        while (len(app) == 4):
+            (ff,segtype,seglen) = struct.unpack(">BBH", app)
+            if ff != 0xff: break
+            print "SEGMENT: 0x%x%x, len=%d" % (ff,segtype,seglen)
+            if segtype == 0xd9:
                 break
-            elif segtype != '\xff\xed':
-                file.seek(seglen-2,1)
-                app = file.read(4)
-            else:
-                app = file.read(seglen)
+            elif SOF.has_key(segtype):
+                data = file.read(seglen-2)
+                (precision,self.height,self.width,num_comp) = struct.unpack('>BHHB', data[:6])
+                print "H/W: %i / %i" % (self.height, self.width) 
+            elif segtype == 0xed:
+                app = file.read(seglen-2)
                 self.iptc = IPTC.flatten(IPTC.parseiptc(app))
                 break
-
+            else:
+                file.seek(seglen-2,1)
+            app = file.read(4)
         file.seek(0)        
         self.exif = EXIF.process_file(file)
         if self.exif:
             self.setitem( 'comment', self.exif, 'EXIF UserComment' )
-            self.setitem( 'width', self.exif, 'EXIF ExifImageWidth'  )
-            self.setitem( 'height', self.exif, 'EXIF ExifImageLength' )
+#            self.setitem( 'width', self.exif, 'EXIF ExifImageWidth'  )
+#            self.setitem( 'height', self.exif, 'EXIF ExifImageLength' )
             self.setitem( 'date', self.exif, 'Image DateTime' )            
             self.setitem( 'artist', self.exif, 'Image Artist' )
             self.setitem( 'hardware', self.exif, 'Image Model' )
