@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.10  2003/06/12 00:27:25  the_krow
+# More asf parsing: Width, Height, Video Codec
+#
 # Revision 1.9  2003/06/11 20:51:00  the_krow
 # Title, Artist and some other data sucessfully parsed from wmv, asf, wma
 #
@@ -144,20 +147,7 @@ class AsfInfo(mediainfo.AVInfo):
         for i in range(0,objnum):
             h = self._getnextheader(header)
             header = header[h[1]:]
-        
-    def __str__(self):
-        result = ''
-        result += reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
-                         (a, b.__str__(), self[b].__str__()) or a, self.keys, "" )
-        try:
-            for i in self.tables.keys():
-                 result += self.tables[i].__str__()
-        except AttributeError:
-            pass
-        return result
-
-        
-    
+            
     def _printguid(self,guid):
         r = "%.8X-%.4X-%.4X-%.2X%.2X-%s" % guid
         return r 
@@ -168,13 +158,35 @@ class AsfInfo(mediainfo.AVInfo):
         guid = struct.unpack('>IHHBB6s', guidstr)
         if guid == GUIDS['ASF_File_Properties_Object']:
             print "File Properties Object"
+            val = struct.unpack('<16s6Q4I',s[24:24+80])
+            (fileid, size, date, packetcount, duration, \
+             senddur, preroll, flags, minpack, maxpack, maxbr) = \
+             val
             pass
         elif guid == GUIDS['ASF_Stream_Properties_Object']:
-            print "Stream Properties Object"
+            print "Stream Properties Object [%d]" % objsize
+            streamtype = struct.unpack('>IHHBB6s', s[24:40])
+            errortype = struct.unpack('>IHHBB6s', s[40:56])
+            offset, typelen, errorlen, flags = struct.unpack('>QIIH4x', s[56:78])
+            if streamtype == GUIDS['ASF_Video_Media']:
+                print "Is Video"
+                vi = mediainfo.VideoInfo()
+                #vi.width, vi.height, formatsize = struct.unpack('<IIxH', s[78:89])
+                vi.width, vi.height, depth, codec, = struct.unpack('<4xII2xH4s', s[89:89+20])
+                vi.codec = fourcc.RIFFCODEC[codec]
+                self.video.append(vi)  
+            elif streamtype == GUIDS['ASF_Audio_Media']:
+                print "Is Audio"
             pass
         elif guid == GUIDS['ASF_Header_Extension_Object']:
-            print "Extension Object"
-            pass
+            print "ASF_Header_Extension_Object %d" % objsize
+            size = struct.unpack('<I',s[42:46])[0]
+            data = s[46:46+size]
+            while len(data):
+                print "Sub:"
+                h = self._getnextheader(data)
+                data = data[h[1]:]
+            
         elif guid == GUIDS['ASF_Codec_List_Object']:
             print "List Object"
             pass
