@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.18  2003/11/07 09:43:40  dischi
+# make interface compatible to old one
+#
 # Revision 1.17  2003/11/05 20:58:26  dischi
 # detect mixed audio cds
 #
@@ -190,7 +193,7 @@ def cdrom_disc_status(device, handle_mix = 0):
 
 id_cache = {}
 
-def cdrom_disc_id(device):
+def cdrom_disc_id(device, handle_mix=0):
     """
     return the disc id of the device or None if no disc is there
     """
@@ -201,7 +204,7 @@ def cdrom_disc_id(device):
     except:
         pass
 
-    disc_type = cdrom_disc_status(device, handle_mix=1)
+    disc_type = cdrom_disc_status(device, handle_mix=handle_mix)
     if disc_type == 0 or disc_type == 3:
         return 0, None
         
@@ -241,7 +244,7 @@ def cdrom_disc_id(device):
 
 class DiscInfo(mediainfo.CollectionInfo):
     def isDisc(self, device):
-        (type, self.id) = cdrom_disc_id(device)
+        (type, self.id) = cdrom_disc_id(device, handle_mix=1)
         if type != 2:
             if type == 4:
                 self.keys.append('mixed')
