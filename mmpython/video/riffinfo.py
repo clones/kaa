@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.33  2005/03/15 17:50:45  dischi
+# check for corrupt avi
+#
 # Revision 1.32  2005/03/04 17:41:29  dischi
 # handle broken avi files
 #
@@ -155,7 +158,7 @@ class RiffInfo(mediainfo.AVInfo):
             return
         self.valid = 1
         self.mime = 'application/x-wave'
-        
+        self.has_idx = False
         self.header = {}
         self.junkStart = None
         self.infoStart = None
@@ -178,7 +181,11 @@ class RiffInfo(mediainfo.AVInfo):
         for k in self.tag_map.keys():
             map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),self.tag_map[k][x]),
                 self.tag_map[k].keys())
-        
+        if not self.has_idx:
+            _print('WARNING: avi has no index')
+            self.corrupt = 1
+            self.keys.append('corrupt')
+            
         
     def _extractHeaderString(self,h,offset,len):
         return h[offset:offset+len]
@@ -463,6 +470,7 @@ class RiffInfo(mediainfo.AVInfo):
             self.junkSize  = size
             file.seek(size, 1)
         elif name == 'idx1':
+            self.has_idx = True
             _print('idx1: %s bytes' % size)
             # no need to parse this
             t = file.seek(size,1)
