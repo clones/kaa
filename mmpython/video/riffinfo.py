@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.29  2004/05/24 16:17:09  dischi
+# Small changes for future updates
+#
 # Revision 1.28  2004/01/31 12:23:46  dischi
 # remove bad chars from table (e.g. char 0 is True)
 #
@@ -156,8 +159,8 @@ class RiffInfo(mediainfo.AVInfo):
             while not self.parseRIFFChunk(file):
                 pass
         except IOError:
-            if mediainfo.DEBUG: print 'error in file, stop parsing'
-            pass
+            if mediainfo.DEBUG:
+                print 'error in file, stop parsing'
 
         self.find_subtitles(file.name)
         
@@ -196,7 +199,7 @@ class RiffInfo(mediainfo.AVInfo):
     def parseSTRH(self,t):
         retval = {}
         retval['fccType'] = t[0:4]
-        _print("%s : %d bytes" % ( retval['fccType'], len(t)))
+        _print("parseSTRH(%s) : %d bytes" % ( retval['fccType'], len(t)))
         if retval['fccType'] != 'auds':
             retval['fccHandler'] = t[4:8]
             v = struct.unpack('<IHHIIIIIIIII',t[8:52])
@@ -250,6 +253,9 @@ class RiffInfo(mediainfo.AVInfo):
             ai.channels = retval['nChannels']
             ai.samplebits = retval['nBitsPerSample']
             ai.bitrate = retval['nAvgBytesPerSec'] * 8
+            # TODO: set code if possible
+            # http://www.stats.uwa.edu.au/Internal/Specs/DXALL/FileSpec/Languages
+            # ai.language = strh['wLanguage']
             try:
                 ai.codec = fourcc.RIFFWAVE[retval['wFormatTag']]
             except:
@@ -282,6 +288,7 @@ class RiffInfo(mediainfo.AVInfo):
             self.video.append(vi)  
         return retval
         
+
     def parseSTRL(self,t):
         retval = {}
         size = len(t)
@@ -290,38 +297,54 @@ class RiffInfo(mediainfo.AVInfo):
         sz = struct.unpack('<I',t[i+4:i+8])[0]
         i+=8
         value = t[i:]
+
         if key == 'strh':
             retval[key] = self.parseSTRH(value)
             i += sz
         else:
             _print("parseSTRL: Error")
-#        if ord(t[i]) == 0: i = i+1
         key = t[i:i+4]
         sz = struct.unpack('<I',t[i+4:i+8])[0]
         i+=8
         value = t[i:]
+
         if key == 'strf':
-            retval[key] = self.parseSTRF(value,retval['strh'])
+            retval[key] = self.parseSTRF(value, retval['strh'])
             i += sz
-        else:
-            _print("parseSTRL: Unknown Key %s" % key)
         return ( retval, i )
+
+            
+    def parseODML(self,t):
+        retval = {}
+        size = len(t)
+        i = 0
+        key = t[i:i+4]
+        sz = struct.unpack('<I',t[i+4:i+8])[0]
+        i += 8
+        value = t[i:]
+        if key == 'dmlh':
+            pass
+        else:
+            _print("parseODML: Error")
+
+        i += sz - 8
+        return ( retval, i )
+
             
     def parseLIST(self,t):
         retval = {}
         i = 0
         size = len(t)
-        _print("parseList of size %d" % size)
+
         while i < size-8:
             # skip zero
             if ord(t[i]) == 0: i += 1
             key = t[i:i+4]
             sz = 0
-            _print("parseList %s" % key)
+
             if key == 'LIST':
-                _print("->")
                 sz = struct.unpack('<I',t[i+4:i+8])[0]
-                _print("SUBLIST: len: %d, %d" % ( sz, i+4 ))
+                _print("-> SUBLIST: len: %d, %d" % ( sz, i+4 ))
                 i+=8
                 key = "LIST:"+t[i:i+4]
                 value = self.parseLIST(t[i:i+sz])
@@ -346,6 +369,15 @@ class RiffInfo(mediainfo.AVInfo):
                 key = value['strh']['fccType']
                 i += sz
                 retval[key] = value
+            elif key == 'odml':
+                i += 4
+                (value, sz) = self.parseODML(t[i:])
+                _print("ODML: len: %d" % sz)
+                i += sz
+            elif key == 'JUNK':
+                sz = struct.unpack('<I',t[i+4:i+8])[0]
+                i += sz + 8
+                _print("Skipping %d bytes of Junk" % sz)
             else:
                 sz = struct.unpack('<I',t[i+4:i+8])[0]
                 _print("Unknown Key: %s, len: %d" % (key,sz))
@@ -360,13 +392,16 @@ class RiffInfo(mediainfo.AVInfo):
 
     def parseRIFFChunk(self,file):
         h = file.read(8)
-        if len(h) < 4: return 1
+        if len(h) < 4:
+            return 1
         name = h[:4]
         size = struct.unpack('<I',h[4:8])[0]        
+
         if name == 'LIST' and size < 20000:
             pos = file.tell() - 8
             t = file.read(size)
             key = t[:4]
+            _print('parse RIFF LIST: %d bytes' % (size))
             value = self.parseLIST(t[4:])
             self.header[key] = value
             if key == 'INFO':
@@ -374,12 +409,22 @@ class RiffInfo(mediainfo.AVInfo):
                 self.appendtable( 'AVIINFO', value )
             elif key == 'MID ':
                 self.appendtable( 'AVIMID', value )
+            elif key in ('hdrl', ):
+                # no need to add this info to a table
+                pass
+            else:
+                _print('Skipping table info %s' % key)
+
         elif name == 'JUNK':
-                self.junkStart = file.tell() - 8
-                self.junkSize = size
+            self.junkStart = file.tell() - 8
+            self.junkSize  = size
+            file.seek(size, 1)
+        elif name in ('LIST', 'idx1'):
+            # no need to parse this
+            t = file.seek(size,1)
         else:
             t = file.seek(size,1)
-            #_print("Skipping %s [%i]" % (name,size))
+            _print("Skipping %s [%i]" % (name,size))
         return 0
 
     def buildTag(self,key,value):
