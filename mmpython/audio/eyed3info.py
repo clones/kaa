@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/07/02 20:15:42  dischi
+# return nothing, not 0
+#
 # Revision 1.6  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -93,7 +96,7 @@ class eyeD3Info(mediainfo.MusicInfo):
 
       if not eyeD3_tag.isMp3File(file.name):
          self.valid = 0
-         return 0
+         return
 
       id3 = None
       try:
@@ -104,7 +107,7 @@ class eyeD3Info(mediainfo.MusicInfo):
          except eyeD3_tag.InvalidAudioFormatException:
             # File is not an MP3
             self.valid = 0
-            return 0
+            return
          except:
             # The MP3 tag decoder crashed, assume the file is still
             # MP3 and try to play it anyway
@@ -119,7 +122,7 @@ class eyeD3Info(mediainfo.MusicInfo):
          traceback.print_exc()
 
       if not self.valid:
-         return 0
+         return
 
       if mediainfo.DEBUG > 1:
          print id3.tag.frames
