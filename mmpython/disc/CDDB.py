@@ -32,7 +32,7 @@ def query(track_info, server_url=default_server,
     disc_id = track_info[0]
     num_tracks = track_info[1]
 
-    query_str = (('%08lx %d ') % (disc_id, num_tracks))
+    query_str = (('%08lx %d ') % (long(disc_id), num_tracks))
 
     for i in track_info[2:]:
 	query_str = query_str + ('%d ' % i)

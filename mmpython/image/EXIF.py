@@ -67,6 +67,8 @@
 # To do:
 # * Better printing of ratios
 
+import sys
+
 # field type descriptions as (length, abbreviation, full name) tuples
 FIELD_TYPES=(
     (0, 'X',  'Proprietary'), # no such type
@@ -632,11 +634,23 @@ MAKERNOTE_CANON_TAG_0x004={
     19: ('SubjectDistance', )
     }
 
+# handle long as unsiged int
+# Note: this function was added by Dirk Meyer fix a future warning
+def unsiged(x):
+    if x > sys.maxint:
+        return int(~(-x % sys.maxint) - 1)
+    return int(x)
+
+# left shift wrapper to avoid future warnings
+# Note: this function was added by Dirk Meyer fix a future warning
+def lshift(x, y):
+    return unsiged(long(x) << y)
+
 # extract multibyte integer in Motorola format (little endian)
 def s2n_motorola(str):
     x=0
     for c in str:
-        x=(x << 8) | ord(c)
+        x=lshift(x, 8) | ord(c)
     return x
 
 # extract multibyte integer in Intel format (big endian)
@@ -644,7 +658,7 @@ def s2n_intel(str):
     x=0
     y=0L
     for c in str:
-        x=x | (ord(c) << y)
+        x=x | lshift(ord(c), y)
         y=y+8
     return x
 

@@ -15,6 +15,9 @@
 # changes for mmpython:
 #
 # $Log$
+# Revision 1.4  2004/11/14 19:26:38  dischi
+# fix future warning
+#
 # Revision 1.3  2003/06/23 19:26:16  dischi
 # Fixed bug in the cdrommodule that the file was not closed after usage.
 # The result was a drive you can't eject while the program (e.g. Freevo)
@@ -57,7 +60,7 @@ def disc_id(device):
 
     total_time = (track_frames[-1] / 75) - (track_frames[0] / 75)
 	       
-    discid = ((checksum % 0xff) << 24 | total_time << 8 | last)
+    discid = ((long(checksum) % 0xff) << 24 | total_time << 8 | last)
     cdrom.close(device)
     return [discid, last] + track_frames[:-1] + [ track_frames[-1] / 75 ]
 
