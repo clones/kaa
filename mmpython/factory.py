@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2003/08/26 21:22:53  outlyer
+# Whoops, left DEBUG enabled
+#
 # Revision 1.8  2003/08/26 18:01:26  outlyer
 # Patch from Lars Eggert for FreeBSD support
 #
@@ -62,7 +65,7 @@ import urlparse
 import traceback
 import urllib
 
-DEBUG = 1
+DEBUG = 0
 
 
 
