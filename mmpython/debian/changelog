@@ -1,0 +1,25 @@
+python2.2-mmpython (0.0.1cvs20030701-freevo1) unstable; urgency=low
+
+  * Another snapshot, more bugfixes
+  * Changes made that aren't in mmpython CVS:
+  *    Fixed missing traceback import
+  *    Disabled debug printout
+  *    Fixed swapped artist/album
+
+ -- Aubin Paul <debian@outlyer.org>  Tue,  1 Jul 2003 23:17:46 -0400
+
+python2.2-mmpython (0.0.1cvs20030628-freevo1) unstable; urgency=low
+
+  * Another snapshot
+
+ -- Aubin Paul <debian@outlyer.org>  Sat, 28 Jun 2003 22:15:34 -0400
+
+python2.2-mmpython (0.0.1cvs20030620-freevo1) unstable; urgency=low
+
+  * First snapshot from CVS
+
+ -- Aubin Paul <debian@outlyer.org>  Tue, 29 Jan 2003 00:22:29 -0500
+
+Local variables:
+mode: debian-changelog
+End:
