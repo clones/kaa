@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.22  2003/09/10 18:41:44  dischi
+# add USE_NETWORK, maybe there is no network connection
+#
 # Revision 1.21  2003/09/01 18:54:12  dischi
 # add callback for cache_dir
 #
@@ -106,7 +109,7 @@ except ImportError:
     pass
     
 
-
+USE_NETWORK     = 1
 object_cache    = None
 uncachable_keys = [ 'thumbnail', ]
 
