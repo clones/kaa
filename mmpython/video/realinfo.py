@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.2  2003/06/12 18:53:19  the_krow
+# OGM detection added.
+# .ram is a valid extension to real files
+#
 # Revision 1.1  2003/06/12 14:43:22  the_krow
 # Realmedia file parsing. Title, Artist, Copyright work. Couldn't find
 # many technical parameters to retrieve.
@@ -102,4 +106,4 @@ class RealInfo(mediainfo.AVInfo):
             self.comment = s[pos+2:pos+comment_len+2]
 
 factory = mediainfo.get_singleton()  
-factory.register( 'video/real', ('rm', 'ra'), mediainfo.TYPE_AV, RealInfo )
+factory.register( 'video/real', ('rm', 'ra', 'ram'), mediainfo.TYPE_AV, RealInfo )

@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.10  2003/06/12 18:53:18  the_krow
+# OGM detection added.
+# .ram is a valid extension to real files
+#
 # Revision 1.9  2003/06/12 16:56:53  the_krow
 # Some Quicktime should work.
 #
@@ -69,6 +73,8 @@ class MovInfo(mediainfo.AVInfo):
             self.valid = 1
         elif type == 'wide':
             self.valid = 1
+        else:
+            return
         # Extended size
         if size == 1:
             print "Extended Size"
@@ -82,7 +88,7 @@ class MovInfo(mediainfo.AVInfo):
         if len(s) < 8:
             return 0
         atomsize,atomtype = struct.unpack('>I4s', s)
-        print "%s [%d]" % (atomtype,atomsize)        
+        print "%s [%X]" % (atomtype,atomsize)
         if atomtype == 'udta':
             # Userdata (Metadata)
             pos = 0
@@ -124,9 +130,16 @@ class MovInfo(mediainfo.AVInfo):
                     self.video.append(vi)
                     print tkhd
                 pos += datasize
+        elif atomtype == 'mdat':
+            while self._readatom(file):
+                pass
+            #if atomsize == 0:
+            #    file.seek(0,2)
+            #else:
+            #    file.seek(atomsize-8,1)
         else:
             # Skip unknown atoms
-            atomdata = file.seek(atomsize-8,1)
+            file.seek(atomsize-8,1)
         return 1 
         
 factory = mediainfo.get_singleton()  
