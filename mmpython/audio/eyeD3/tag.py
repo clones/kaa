@@ -132,8 +132,7 @@ class TagHeader:
       (self.unsync,
        self.extended,
        self.experimental,
-       self.footer,
-       None, None, None, None) = bytes2bin(f.read(1));
+       self.footer) = bytes2bin(f.read(1))[0:4];
       TRACE_MSG("TagHeader [flags]: unsync(%d) extended(%d) "\
                 "experimental(%d) footer(%d)" % (self.unsync, self.extended,
                                                  self.experimental,
