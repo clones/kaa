@@ -17,11 +17,14 @@ setup (# Distribution meta-data
        package_dir = {'mmpython.video': 'video',
                       'mmpython.audio': 'audio',
                       'mmpython.image': 'image',
+                      'mmpython.disc' : 'disc',
                       'mmpython': ''},
 
-       packages = [ 'mmpython', 'mmpython.video', 'mmpython.audio', 'mmpython.image' ],
+       packages = [ 'mmpython', 'mmpython.video', 'mmpython.audio', 'mmpython.image',
+                    'mmpython.disc' ],
        
        # Description of the modules and packages in the distribution
-       ext_modules = [ Extension('mmpython/video/ifoinfo', ['video/ifomodule.c'],
-                                 libraries=[ 'dvdread' ]) ]
+       ext_modules = [ Extension('mmpython/disc/ifoparser', ['disc/ifomodule.c'],
+                                 libraries=[ 'dvdread' ]),
+                       Extension('mmpython/disc/cdrom', ['disc/cdrommodule.c']) ]
       )

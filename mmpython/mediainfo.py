@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.12  2003/06/08 10:24:07  dischi
+# Added subdir disc
+#
 # Revision 1.11  2003/06/07 23:10:49  the_krow
 # Changed mp3 into new format.
 #
@@ -63,6 +66,10 @@ import types
 import os
 import stat
 
+import re
+from fcntl import ioctl
+
+
 # Audiocore: TITLE, CAPTION, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
 #  + ID3 Tags
 #  + ID3V2 Tags
@@ -109,7 +116,7 @@ AVCORE = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product', 'ge
              'default audio stream', 'logo url', 'watermark url', 'info url', 'banner image', 'banner url', 
              'infotext']
 
-import table
+# import table
 
 DEVICE    = 'device'
 
@@ -178,6 +185,50 @@ class ImageInfo(MediaInfo):
             setattr(self,k,None)
             self.keys.append(k)
         
+
+CDROM_DRIVE_STATUS=0x5326
+CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
+CDROM_DISC_STATUS=0x5327
+CDS_AUDIO=100
+CDS_MIXED=105
+
+class DiscInfo(MediaInfo):
+    def isDisc(self, device):
+        try:
+            fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
+            s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
+        except:
+            # maybe we need to close the fd if ioctl fails, maybe
+            # open fails and there is no fd
+            try:
+                os.close(fd)
+            except:
+                pass
+            return 0
+
+        s = ioctl(fd, CDROM_DISC_STATUS)
+        os.close(fd)
+        if s == CDS_AUDIO or s == CDS_MIXED:
+            return 1
+        
+        f = open(device,'rb')
+
+        f.seek(0x0000832d)
+        self.id = f.read(16)
+        f.seek(32808, 0)
+        self.label = f.read(32)
+        f.close()
+        m = re.match("^(.*[^ ]) *$", self.label)
+        if m:
+            self.label = m.group(1)
+        else:
+            self.label = ''
+
+        self.keys.append('id')
+        self.keys.append('label')
+        return 2
+
+    
 class MetaDataFactory:
     def __init__(self):
         self.extmap = {}

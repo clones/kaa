@@ -11,7 +11,9 @@ import video.movinfo
 import image.jpginfo
 import image.pnginfo
 import image.tiffinfo
-import video.dvdinfo
+
+import disc.dvdinfo
+import disc.vcdinfo
 
 import sys
 
