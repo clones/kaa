@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.31  2005/01/08 12:06:45  dischi
+# make sure the buffer is big enough
+#
 # Revision 1.30  2005/01/02 14:57:27  dischi
 # detect ac3 in normal mpeg2
 #
@@ -489,7 +492,8 @@ class MpegInfo(mediainfo.AVInfo):
                 offset = new_offset
 
                 # skip padding 0 before a new header
-                while not ord(buffer[offset+2]):
+                while len(buffer) > offset + 10 and \
+                          not ord(buffer[offset+2]):
                     offset += 1
 
             else:
