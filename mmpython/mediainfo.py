@@ -3,6 +3,12 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.65  2004/09/14 14:38:11  outlyer
+# Fix the broken 'less than' comparison so it is at least consistent, but I'm
+# not sure why we need to add zeroes to numbers anyway. It looks ugly for
+# albums with less than 10 tracks, and it seems unecessary since the
+# sort functions in Freevo add the '0' as needed.
+#
 # Revision 1.64  2004/09/10 19:43:12  outlyer
 # Added discs to exported dict.
 #
@@ -264,7 +270,8 @@ class MusicInfo(AudioInfo):
         """
         if self['trackof']:
             try:
-                if int(self['trackno']) < 9:
+                # XXX Why is this needed anyway?
+                if int(self['trackno']) < 10:
                     self['trackno'] = '0%s' % int(self['trackno'])
             except:
                 pass
