@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.55  2004/02/03 20:41:18  dischi
+# add directory support
+#
 # Revision 1.54  2003/10/04 14:30:08  dischi
 # add audio delay for avi
 #
@@ -96,6 +99,7 @@ import table
 import mmpython
 
 EXTENSION_DEVICE    = 'device'
+EXTENSION_DIRECTORY = 'directory'
 EXTENSION_STREAM    = 'stream'
 
 DEBUG     = 0

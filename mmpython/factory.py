@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.16  2004/02/03 20:41:18  dischi
+# add directory support
+#
 # Revision 1.15  2004/01/31 12:25:20  dischi
 # better ext checking
 #
@@ -112,6 +115,7 @@ class Factory:
         self.mimemap = {}
         self.types = []
         self.device_types = []
+        self.directory_types = []
         self.stream_types = []
         
     def create_from_file(self, file, ext_only=0):
@@ -228,6 +232,18 @@ class Factory:
         return None
             
 
+    def create_from_directory(self, dirname):
+        """
+        Create information from the directory.
+        """
+        for e in self.directory_types:
+            if DEBUG: print 'Trying %s' % e[0]
+            t = e[3](dirname)
+            if t.valid:
+                return t
+        return None
+            
+
     def create(self, name, ext_only=0):
         """
         Global 'create' function. This function calls the different
@@ -245,6 +261,8 @@ class Factory:
                     return self.create_from_device(name)
             except AttributeError:
                 pass            
+            if os.path.isdir(name):
+                return self.create_from_directory(name)
             return self.create_from_filename(name, ext_only)
         except:
             print 'mmpython.create error:'
@@ -252,12 +270,21 @@ class Factory:
             print
             print 'Please report this bug to the Freevo mailing list'
             return None
+
+
         
     def register(self,mimetype,extensions,type,c):
-        if DEBUG > 0: print "%s registered" % mimetype
+        """
+        register the parser to mmpython
+        """
+        if DEBUG > 0:
+            print "%s registered" % mimetype
         tuple = (mimetype,extensions,type,c)
+
         if extensions == mediainfo.EXTENSION_DEVICE:
             self.device_types.append(tuple)
+        elif extensions == mediainfo.EXTENSION_DIRECTORY:
+            self.directory_types.append(tuple)
         elif extensions == mediainfo.EXTENSION_STREAM:
             self.stream_types.append(tuple)
         else:
