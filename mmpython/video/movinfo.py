@@ -1,6 +1,11 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.21  2004/05/10 15:19:59  dischi
+# o better stream detection
+# o correct length calculation inside the track
+# o support for compressed infos
+#
 # Revision 1.20  2004/03/07 10:27:58  dischi
 # Oops
 #
@@ -93,11 +98,13 @@
 import re
 import struct
 import string
+import zlib
 import fourcc
 import mmpython
 from mmpython import mediainfo
 from movlanguages import *
 
+# http://developer.apple.com/documentation/QuickTime/QTFF/index.html
 
 class MovInfo(mediainfo.AVInfo):
     def __init__(self,file):
@@ -127,18 +134,22 @@ class MovInfo(mediainfo.AVInfo):
             self.setitem('copyright', info, 'cpy')
         except:
             pass
-            
-                
+
+
     def _readatom(self, file):
+        
         s = file.read(8)
         if len(s) < 8:
             return 0
+
         atomsize,atomtype = struct.unpack('>I4s', s)
         if not str(atomtype).decode('latin1').isalnum():
             # stop at nonsense data
             return 0
 
-        if mediainfo.DEBUG: print "%s [%X]" % (atomtype,atomsize)
+        if mediainfo.DEBUG:
+            print "%s [%X]" % (atomtype,atomsize)
+
         if atomtype == 'udta':
             # Userdata (Metadata)
             pos = 0
@@ -176,37 +187,103 @@ class MovInfo(mediainfo.AVInfo):
         elif atomtype == 'trak':
             atomdata = file.read(atomsize-8)
             pos = 0
+            vi  = None
+            ai  = None
             while pos < atomsize-8:
                 (datasize,datatype) = struct.unpack('>I4s', atomdata[pos:pos+8])
-                #print "%s [%d]" % (datatype, datasize)
                 if datatype == 'tkhd':
                     tkhd = struct.unpack('>6I8x4H36xII', atomdata[pos+8:pos+datasize])
                     vi = mediainfo.VideoInfo()
                     vi.width = tkhd[10] >> 16
                     vi.height = tkhd[11] >> 16
                     vi.id = tkhd[3]
-                    # XXX length is broken, it report days (!) when you interpret
-                    # XXX the length as seconds
-                    #self.length = vi.length = tkhd[5]
-                                        
+
+                    ai = mediainfo.AudioInfo()
+                    ai.id = tkhd[3]
+                    
                     # XXX Date number of Seconds is since January 1st 1904!!!
                     self.date = tkhd[1]
-                    self.video.append(vi)
-                    #print tkhd
+
+                elif datatype == 'mdia':
+                    pos      += 8
+                    datasize -= 8
+                    while datasize:
+                        mdia = struct.unpack('>I4s', atomdata[pos:pos+8])
+                        if mdia[1] == 'mdhd':
+                            mdhd = struct.unpack('>IIIIIhh', atomdata[pos+8:pos+8+24])
+                            # duration / time scale
+                            if vi:
+                                vi.length = mdhd[4] / mdhd[3]
+                            if ai:
+                                ai.length = mdhd[4] / mdhd[3]
+                            # mdhd[5] == language [1]
+                            # mdhd[6] == quality 
+                            self.length = max(self.length, mdhd[4] / mdhd[3])
+                        elif mdia[1] == 'minf':
+                            pos -=      (mdia[0] - 8)
+                            datasize += (mdia[0] - 8)
+                        elif mdia[1] == 'hdlr':
+                            hdlr = struct.unpack('>I4s4s', atomdata[pos+8:pos+8+12])
+                            if hdlr[1] == 'mhlr':
+                                if hdlr[2] == 'vide' and not vi in self.video:
+                                    self.video.append(vi)
+                                if hdlr[2] == 'soun' and not ai in self.audio:
+                                    self.audio.append(ai)
+                        # else: print '  --> %s, %s' % mdia
+                        pos      += mdia[0]
+                        datasize -= mdia[0]
+                # else: print "--> %s [%d]" % (datatype, datasize)
                 pos += datasize
+
+        elif atomtype == 'cmov':
+            # compressed movie
+            datasize, atomtype = struct.unpack('>I4s', file.read(8))
+            if not atomtype == 'dcom':
+                return atomsize
+
+            method = struct.unpack('>4s', file.read(datasize-8))[0]
+
+            datasize, atomtype = struct.unpack('>I4s', file.read(8))
+            if not atomtype == 'cmvd':
+                return atomsize
+
+            if method == 'zlib':
+                data = file.read(datasize-8)
+                try:
+                    decompressed = zlib.decompress(data)
+                except Exception, e:
+                    try:
+                        decompressed = zlib.decompress(data[4:])
+                    except Exception, e:
+                        return atomsize
+                import StringIO
+                decompressedIO = StringIO.StringIO(decompressed)
+                while self._readatom(decompressedIO):
+                    pass
+                
+            else:
+                # unknown compression method
+                file.seek(datasize-8,1)
+        
+        elif atomtype == 'moov':
+            # decompressed movie info
+            while self._readatom(file):
+                pass
+            
         elif atomtype == 'mdat':
             while self._readatom(file):
                 pass
-            #if atomsize == 0:
-            #    file.seek(0,2)
-            #else:
-            #    file.seek(atomsize-8,1)
+        
         else:
             # Skip unknown atoms
             try:
                 file.seek(atomsize-8,1)
             except IOError:
                 return 0
-        return 1 
+
+        return atomsize
         
 mmpython.registertype( 'video/quicktime', ('mov', 'qt'), mediainfo.TYPE_AV, MovInfo )
+
+# doc links:
+# [1] http://developer.apple.com/documentation/QuickTime/QTFF/QTFFChap4/chapter_5_section_2.html#//apple_ref/doc/uid/TP40000939-CH206-BBCBIICE
