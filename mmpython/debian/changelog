@@ -1,3 +1,15 @@
+mmpython (0.4.6-freevo1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Aubin Paul <debian@outlyer.org>  Sun, 12 Sep 2004 12:51:10 -0400
+
+mmpython (0.4.5-freevo1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Aubin Paul <debian@outlyer.org>  Wed, 21 Jul 2004 08:16:16 -0400
+
 mmpython (0.4.4-freevo1) unstable; urgency=low
 
   * New upstream release
