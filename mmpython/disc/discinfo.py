@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.14  2003/09/14 13:32:12  dischi
+# set self.id for audio discs in discinfo.py to make it possible to use the cache for cddb
+#
 # Revision 1.13  2003/09/14 01:41:37  outlyer
 # FreeBSD support
 #
@@ -171,19 +174,17 @@ def cdrom_disc_id(device):
     global id_cache
     try:
         if id_cache[device][0] + 0.9 > time.time():
-            return id_cache[device][1]
+            return id_cache[device][1:]
     except:
         pass
 
     disc_type = cdrom_disc_status(device)
-    print disc_type
     if disc_type == 0:
-        id = None
+        return 0, None
         
     elif disc_type == 1:
         disc_id = DiscID.disc_id(device)
         id = '%08lx_%d' % (disc_id[0], disc_id[1])
-
     else:
         f = open(device,'rb')
 
@@ -210,22 +211,21 @@ def cdrom_disc_id(device):
             id = '%s%s' % (id, m.group(1))
         id = re.compile('[^a-zA-Z0-9()_-]').sub('_', id)
         
-    id_cache[device] = time.time(), id
+    id_cache[device] = time.time(), disc_type, id
     id = id.replace('/','_')
-    return id
+    return disc_type, id
 
 
 class DiscInfo(mediainfo.CollectionInfo):
     def isDisc(self, device):
-        type = cdrom_disc_status(device)
+        (type, self.id) = cdrom_disc_id(device)
         if type != 2:
             return type
         
-        self.id = cdrom_disc_id(device)
         if len(self.id) == 16:
             self.label = ''
         else:
             self.label = self.id[16:]
 
         self.keys.append('label')
-        return 2
+        return type

@@ -43,7 +43,6 @@ class AudioDiscInfo(discinfo.DiscInfo):
         self.mime = 'audio/cd'
         self.type = 'CD'
         self.subtype = 'audio'
-        
 
     def isDisc(self, device):
         if discinfo.DiscInfo.isDisc(self, device) != 1:
@@ -63,6 +62,7 @@ class AudioDiscInfo(discinfo.DiscInfo):
         if query_stat == 210 or query_stat == 211:
             # set this to success
             query_stat = 200
+
             for i in query_info:
                 if i['title'] != i['title'].upper():
                     query_info = i
@@ -73,15 +73,18 @@ class AudioDiscInfo(discinfo.DiscInfo):
         elif query_stat != 200:
             _debug("failure getting disc info, status %i" % query_stat)
 
-
         if query_stat == 200:
             qi = query_info['title'].split('/')
             self.artist = qi[0].strip()
             self.title = qi[1].strip()
+            for type in ('title', 'artist'):
+                if getattr(self, type) and getattr(self, type)[0] in ('"', '\'') \
+                       and getattr(self, type)[-1] in ('"', '\''):
+                    setattr(self, type, getattr(self, type)[1:-1])
             (read_stat, read_info) = CDDB.read(query_info['category'], 
                                                query_info['disc_id'])
             # id = disc_id + number of tracks
-            self.id = '%s_%s' % (query_info['disc_id'], disc_id[1])
+            #self.id = '%s_%s' % (query_info['disc_id'], disc_id[1])
 
             if read_stat == 210:
                 for i in range(0, disc_id[1]):
@@ -107,6 +110,7 @@ class AudioDiscInfo(discinfo.DiscInfo):
 
         if query_stat != 200:
             _debug("failure getting disc info, status %i" % query_stat)
+            self.no_caching = 1
             for i in range(0, disc_id[1]):
                 mi = mediainfo.MusicInfo()
                 mi.title = 'Track %s' % (i+1)
