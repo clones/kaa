@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.20  2003/06/23 20:48:11  the_krow
+# width + height fixes for OGM files
+#
 # Revision 1.19  2003/06/23 20:38:04  the_krow
 # Support for larger LIST chunks because some files did not work.
 #
@@ -43,7 +46,7 @@
 #
 #
 # MMPython - Media Metadata for Python
-# Copyright (C) 2003 Thomas Schueppel
+# Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

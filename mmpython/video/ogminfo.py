@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.5  2003/06/23 20:48:11  the_krow
+# width + height fixes for OGM files
+#
 # Revision 1.4  2003/06/23 13:20:51  the_krow
 # basic parsing should now work.
 #
@@ -133,18 +136,27 @@ class OgmInfo(mediainfo.AVInfo):
     def _parseHeader(self,header,granule):
         headerlen = len(header)
         flags = ord(header[0])
-        if headerlen >= 7 and header[1:7] == 'vorbis':
+        if headerlen >= 30 and header[1:7] == 'vorbis':
             print("Vorbis Audio Header")
             ai = mediainfo.AudioInfo()
             ai.version, ai.channels, ai.samplerate, bitrate_max, ai.bitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',header[7:7+23])
+            ai.codec = 'Vorbis'
             self.audio.append(ai)
             #self.samplerate = ai.samplerate
             pass
-        elif headerlen >= 7 and header[1:7] == 'theora':
+        elif headerlen >= 7 and header[1:7] == 'theora':            
             # Theora Header
+            # XXX Finish Me
+            vi = mediainfo.VideoInfo()
+            vi.codec = 'theora'
+            self.video.append(vi)
             pass
         elif headerlen >= 142 and header[1:36] == 'Direct Show Samples embedded in Ogg':
             # Old Directshow format
+            # XXX Finish Me
+            vi = mediainfo.VideoInfo()
+            vi.codec = 'dshow'
+            self.video.append(vi)            
             pass
         elif flags & PACKET_TYPE_BITS == PACKET_TYPE_HEADER and headerlen >= struct.calcsize(STREAM_HEADER_VIDEO)+1:
             # New Directshow Format
@@ -153,6 +165,9 @@ class OgmInfo(mediainfo.AVInfo):
                 streamheader = struct.unpack( STREAM_HEADER_VIDEO, header[9:struct.calcsize(STREAM_HEADER_VIDEO)+9] )
                 vi = mediainfo.VideoInfo()
                 (type, ssize, timeunit, vi.samplerate, vi.length, buffersize, vi.bitrate, vi.width, vi.height) = streamheader
+                vi.width /= 65536
+                vi.height /= 65536
+                # XXX samplerate, length, bitrate are very wrong
                 try:
                     vi.codec = fourcc.RIFFCODEC[type]
                 except:

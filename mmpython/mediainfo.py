@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.42  2003/06/23 20:48:11  the_krow
+# width + height fixes for OGM files
+#
 # Revision 1.41  2003/06/23 09:22:54  the_krow
 # Typo and Indentation fixes.
 #
@@ -172,7 +175,7 @@ from image import bins
 import re
 
 
-DEBUG = 1
+DEBUG = 2
 
 # Audiocore: TITLE, CAPTION, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
 #  + ID3 Tags
