@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.12  2003/09/09 19:57:08  dischi
+# bad hack to make length oggs work
+#
 # Revision 1.11  2003/09/09 19:32:26  dischi
 # bugfix for finding oggs
 #
@@ -64,6 +67,8 @@ from mmpython import mediainfo
 import mmpython
 import struct
 import re
+import stat
+import os
 
 PACKET_TYPE_HEADER =  0x01
 PACKED_TYPE_METADATA = 0x03
@@ -107,14 +112,21 @@ class OgmInfo(mediainfo.AVInfo):
             i += 1
                         
         if len(self.audio) == 1 and len(self.video) == 0:            
-            # XXX Hack to make the length of audio only files work at least
             samplerate = self.audio[0].samplerate
-            self.audio[0].length = self.length = lastgran / samplerate
+            #self.audio[0].length = self.length = lastgran / samplerate
+
+            # XXX Hack to make the length of audio only files work at least
+            fsize = (os.stat(file.name)[stat.ST_SIZE] * 8)
+            self.audio[0].length = self.length = fsize / self.audio[0].bitrate
+
         elif len(self.video) == 1:
             # Validate if this is the real length
             samplerate = self.video[0].fps
-            self.video[0].length = self.length = lastgran / samplerate
-        
+            # self.video[0].length = self.length = lastgran / samplerate
+
+            # XXX Hack because we don't parse the whole file
+            self.video[0].length = self.length = 0
+
         # Copy Metadata from tables into the main set of attributes        
         self.tag_map = { ('VORBISCOMMENT', 'en') : VORBISCOMMENT_tags }
         for k in self.tag_map.keys():
