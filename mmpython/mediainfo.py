@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.56  2004/02/04 19:14:11  dischi
+# add attributes to list of getable items
+#
 # Revision 1.55  2004/02/03 20:41:18  dischi
 # add directory support
 #
@@ -186,12 +189,13 @@ class MediaInfo:
         """
         get the value of 'key'
         """
-        try:
+        if self.__dict__.has_key(key):
             if isinstance(self.__dict__[key], str):
                 return self.__dict__[key].strip().rstrip().replace('\0', '')
             return self.__dict__[key]
-        except KeyError:
-            return None
+        elif hasattr(self, key):
+            return getattr(self, key)
+        return None
 
         
     def __setitem__(self, key, val):
@@ -205,7 +209,7 @@ class MediaInfo:
         """
         check if the object has a key 'key'
         """
-        return self.__dict__.has_key(key)
+        return self.__dict__.has_key(key) or hasattr(self, key)
 
 
     def __delitem__(self, key):
