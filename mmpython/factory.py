@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2003/07/01 08:24:09  the_krow
+# bugfixes
+#
 # Revision 1.1  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -35,7 +38,7 @@
 import mediainfo
 import stat
 import os
-
+import urlparse
 
 DEBUG = 1
 

@@ -69,7 +69,7 @@ class AudioDiscInfo(discinfo.DiscInfo):
         
         if query_stat == 200:
             qi = query_info['title'].split('/')
-            self.artist = qi1].strip()
+            self.artist = qi[1].strip()
             self.title = qi[0].strip()
             (read_stat, read_info) = CDDB.read(query_info['category'], 
                                                query_info['disc_id'])

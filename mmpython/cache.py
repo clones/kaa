@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.18  2003/07/01 08:24:09  the_krow
+# bugfixes
+#
 # Revision 1.17  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -162,7 +165,7 @@ class Cache:
         return the cachefile and the filelist for this directory
         """
         if factory.isurl(directory):
-            split  = mediainfo.url_splitter(directory)
+            split  = factory.url_splitter(directory)
             # this is a complete cd caching
             if split[0] == 'cd':
                 device, mountpoint, filename, complete_filename = split[1:]
@@ -213,7 +216,7 @@ class Cache:
         objects = {}
         for file in files:
             if factory.isurl(file):
-                split = mediainfo.url_splitter(file)
+                split = factory.url_splitter(file)
                 if split[0] == 'cd':
                     device, mountpoint, filename, complete_filename = split[1:]
                     key  = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
@@ -304,7 +307,7 @@ class Cache:
         no or out-dated informations.
         """
         if factory.isurl(file):
-            split  = mediainfo.url_splitter(file)
+            split  = factory.url_splitter(file)
             # this is a complete cd caching
             if split[0] == 'cd':
                 device, mountpoint, filename, complete_filename = split[1:]
