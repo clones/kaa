@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.16  2005/01/01 14:18:11  dischi
+# add samplerate, bitrate and mode
+#
 # Revision 1.15  2004/09/09 02:45:58  outlyer
 # Add the TPOS tag for multiple disc sets.
 #
@@ -97,6 +100,7 @@ from eyeD3 import tag as eyeD3_tag
 from eyeD3 import frames as eyeD3_frames
 
 import os
+import struct
 import traceback
 import id3 as id3info
 
@@ -116,6 +120,31 @@ MP3_INFO_TABLE = { "APIC": "picture",
                    "TPE2": "artist",
                    "TRCK": "trackno",
                    "TPOS": "discs"}
+
+_bitrates = [
+    [ # MPEG-2 & 2.5
+        [0,32,48,56, 64, 80, 96,112,128,144,160,176,192,224,256,None], # Layer 1
+        [0, 8,16,24, 32, 40, 48, 56, 64, 80, 96,112,128,144,160,None], # Layer 2
+        [0, 8,16,24, 32, 40, 48, 56, 64, 80, 96,112,128,144,160,None]  # Layer 3
+    ],
+
+    [ # MPEG-1
+        [0,32,64,96,128,160,192,224,256,288,320,352,384,416,448,None], # Layer 1
+        [0,32,48,56, 64, 80, 96,112,128,160,192,224,256,320,384,None], # Layer 2
+        [0,32,40,48, 56, 64, 80, 96,112,128,160,192,224,256,320,None]  # Layer 3
+    ]
+]
+
+_samplerates = [
+    [ 11025, 12000,  8000, None], # MPEG-2.5
+    [  None,  None,  None, None], # reserved
+    [ 22050, 24000, 16000, None], # MPEG-2
+    [ 44100, 48000, 32000, None], # MPEG-1
+]
+
+_modes = [ "stereo", "joint stereo", "dual channel", "mono" ]
+
+_MP3_HEADER_SEEK_LIMIT = 4096
 
 class eyeD3Info(mediainfo.MusicInfo):
    
@@ -214,6 +243,89 @@ class eyeD3Info(mediainfo.MusicInfo):
       except:
          if mediainfo.DEBUG:
             traceback.print_exc()
+      offset, header = self._find_header(file)
+      if offset == -1 or header is None:
+         return
+
+      self._parse_header(header)
       
+
+   def _find_header(self, file):
+      file.seek(0, 0)
+      amount_read = 0
+      
+      # see if we get lucky with the first four bytes
+      amt = 4
+      
+      while amount_read < _MP3_HEADER_SEEK_LIMIT:
+         header = file.read(amt)
+         if len(header) < amt:
+            # awfully short file. just give up.
+            return -1, None
+
+         amount_read = amount_read + len(header)
          
+         # on the next read, grab a lot more
+         amt = 500
+         
+         # look for the sync byte
+         offset = header.find(chr(255))
+         if offset == -1:
+            continue
+             
+         # looks good, make sure we have the next 3 bytes after this
+         # because the header is 4 bytes including sync
+         if offset + 4 > len(header):
+            more = file.read(4)
+            if len(more) < 4:
+               # end of file. can't find a header
+               return -1, None
+            amount_read = amount_read + 4
+            header = header + more
+
+         # the sync flag is also in the next byte, the first 3 bits
+         # must also be set
+         if ord(header[offset+1]) >> 5 != 7:
+            continue
+
+         # ok, that's it, looks like we have the header
+         return amount_read - len(header) + offset, header[offset:offset+4]
+
+      # couldn't find the header
+      return -1, None
+
+
+   def _parse_header(self, header):
+      # http://mpgedit.org/mpgedit/mpeg_format/MP3Format.html
+      bytes = struct.unpack('>i', header)[0]
+      mpeg_version =    (bytes >> 19) & 3
+      layer =           (bytes >> 17) & 3
+      bitrate =         (bytes >> 12) & 15
+      samplerate =      (bytes >> 10) & 3
+      mode =            (bytes >> 6)  & 3
+
+      if mpeg_version == 0:
+         self.version = 2.5
+      elif mpeg_version == 2:
+         self.version = 2
+      elif mpeg_version == 3:
+         self.version = 1
+      else:
+         return
+
+      if layer > 0:
+         layer = 4 - layer
+      else:
+         return
+
+      self.bitrate = _bitrates[mpeg_version & 1][layer - 1][bitrate]
+      self.samplerate = _samplerates[mpeg_version][samplerate]
+
+      if self.bitrate is None or self.samplerate is None:
+         return
+
+      self.mode = _modes[mode]
+      self.keys.append('mode')
+
+
 mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_MUSIC, eyeD3Info )
