@@ -11,6 +11,8 @@ export DH_COMPAT=3
 configure: configure-stamp
 configure-stamp:
 	dh_testdir
+	# patching
+	patch -p0 -E < debian/nodebug.diff
 	touch configure-stamp
 
 build: configure-stamp build-stamp
@@ -24,6 +26,7 @@ clean:
 	dh_testroot
 	rm -f build-stamp configure-stamp
 	-python2.2 setup.py clean
+	patch -p0 -E -R < debian/nodebug.diff
 	rm -f *.pyc
 	rm -fr build
 	rm -f Setup

@@ -1,3 +1,16 @@
+python2.2-mmpython (0.0.1cvs20030702-freevo2) unstable; urgency=low
+
+  * Oops, debug was left on.
+
+ -- Aubin Paul <debian@outlyer.org>  Thu,  3 Jul 2003 00:30:03 -0400
+
+python2.2-mmpython (0.0.1cvs20030702-freevo1) unstable; urgency=low
+
+  * New snapshot, more stability work
+  * Now snapshots are current since we're not going through anoncvs
+
+ -- Aubin Paul <debian@outlyer.org>  Wed,  2 Jul 2003 21:23:25 -0400
+
 python2.2-mmpython (0.0.1cvs20030701-freevo1) unstable; urgency=low
 
   * Another snapshot, more bugfixes

@@ -1,0 +1,16 @@
+Index: factory.py
+===================================================================
+RCS file: /cvsroot/mmpython/mmpython/factory.py,v
+retrieving revision 1.3
+diff -u -w -b -B -d -r1.3 factory.py
+--- factory.py	2 Jul 2003 09:32:16 -0000	1.3
++++ factory.py	3 Jul 2003 13:30:15 -0000
+@@ -45,7 +45,7 @@
+ import urlparse
+ import traceback
+ 
+-DEBUG = 1
++DEBUG = 0
+ 
+ 
+ 
