@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.14  2003/10/12 10:34:22  dischi
+# error handling
+#
 # Revision 1.13  2003/09/22 16:24:58  the_krow
 # o added flac
 # o try-except block around ioctl since it is not avaiable in all OS
@@ -195,7 +198,11 @@ class Factory:
         if os.path.isdir(filename):
             return None
         if os.path.isfile(filename):
-            f = open(filename,'rb')
+            try:
+                f = open(filename,'rb')
+            except IOError:
+                print 'IOError reading %s' % filename
+                return None
             r = self.create_from_file(f, ext_only)
             f.close()
             if r:
@@ -223,18 +230,25 @@ class Factory:
         Global 'create' function. This function calls the different
         'create_from_'-functions.
         """
-        if isurl(name):
-            return self.create_from_url(name)
-        if not os.path.exists(name):
-            return None
         try:
-            if (os.uname()[0] == 'FreeBSD' and stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) \
-                   or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
-                return self.create_from_device(name)
-        except AttributeError:
-            pass            
-        return self.create_from_filename(name, ext_only)
-
+            if isurl(name):
+                return self.create_from_url(name)
+            if not os.path.exists(name):
+                return None
+            try:
+                if (os.uname()[0] == 'FreeBSD' and \
+                    stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) \
+                    or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
+                    return self.create_from_device(name)
+            except AttributeError:
+                pass            
+            return self.create_from_filename(name, ext_only)
+        except:
+            print 'mmpython.create error:'
+            traceback.print_exc()
+            print
+            print 'Please report this bug to the Freevo mailing list'
+            return None
         
     def register(self,mimetype,extensions,type,c):
         if DEBUG > 0: print "%s registered" % mimetype
