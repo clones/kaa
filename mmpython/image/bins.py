@@ -6,6 +6,9 @@
 #
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2004/05/04 22:02:59  dischi
+# fix crash with empty exif tag
+#
 # Revision 1.1  2003/06/08 19:55:22  dischi
 # added bins metadata support
 #
@@ -105,8 +108,12 @@ class BinsDiscription(ContentHandler):
             self.desc[self.thisField] = normalize_text(self.desc[self.thisField])
             self.inField = 0
 	if name == 'exif':
-            self.exif[self.thisTag] = normalize_text(self.exif[self.thisTag])
-	    self.inExif = 0
+            try:
+                self.exif[self.thisTag] = normalize_text(self.exif[self.thisTag])
+            except:
+                pass
+            self.inExif = 0
+                
 	if name == 'tag':
 	    self.inTag = 0
 
