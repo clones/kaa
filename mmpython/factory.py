@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/07/20 16:37:57  dischi
+# fix, a device is no "file"
+#
 # Revision 1.6  2003/07/19 11:38:19  dischi
 # turn off debug as default, some exception handling
 #
@@ -195,7 +198,7 @@ class Factory:
         """
         if isurl(name):
             return self.create_from_url(name)
-        elif not os.path.isfile(name):
+        elif not os.path.exists(name):
             return None
         if stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
             return self.create_from_device(name)

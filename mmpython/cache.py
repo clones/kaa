@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.27  2003/07/20 16:37:57  dischi
+# fix, a device is no "file"
+#
 # Revision 1.26  2003/07/19 11:38:19  dischi
 # turn off debug as default, some exception handling
 #
@@ -356,7 +359,7 @@ class Cache:
         else:
             file  = os.path.abspath(file)
 
-            if not os.path.isfile(file):
+            if not os.path.exists(file):
                 raise FileNotFoundException
             
             if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
