@@ -2,10 +2,6 @@ import sys
 import os
 
 import mediainfo
-try:
-    import cache
-except ImportError:
-    pass
 
 import audio.ogginfo
 import audio.pcminfo
@@ -29,6 +25,11 @@ except ImportError:
     pass
 import audio.mp3info
 #import audio.eyed3info
+
+try:
+    import cache
+except ImportError:
+    pass
 
 
 object_cache    = None

@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.12  2003/06/21 15:41:10  dischi
+# correct an error that all discs are data discs
+#
 # Revision 1.11  2003/06/21 15:30:13  dischi
 # Special support for data discs. The cache file can be a normal disc
 # cache file or a directory cache. In the second case the cache returns
@@ -255,7 +258,7 @@ class Cache:
         if not os.path.isfile(cachefile):
             raise FileNotFoundException
         (version, object) = pickle.load(open(cachefile, 'r'))
-        if isinstance(object, dict):
+        if not isinstance(object, DiscInfo):
             # it's a data disc and it was cached as directory
             # build a DataDiscInfo with all files as tracks
             if not version == self.CACHE_VERSION:
