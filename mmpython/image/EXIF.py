@@ -4,7 +4,7 @@
 # <bousch@topo.math.u-psud.fr> and released into the public domain.
 #
 # Updated and turned into general-purpose library by Gene Cash
-# <gcash@cfl.rr.com>
+# <email gcash at cfl.rr.com>
 #
 # This copyright license is intended to be similar to the FreeBSD license. 
 #
@@ -57,16 +57,16 @@
 # 25-JAN-02 CEC Discovered JPEG thumbnail in Olympus TIFF MakerNote.
 # 26-JAN-02 CEC Added ability to extract TIFF thumbnails.
 #               Added Nikon, Fujifilm, Casio MakerNotes.
+# 30-NOV-03 CEC Fixed problem with canon_decode_tag() not creating an
+#               IFD_Tag() object.
+# 15-FEB-04 CEC Finally fixed bit shift warning by converting Y to 0L.
 #
 # To do:
-# * Finish Canon MakerNote format
 # * Better printing of ratios
-
-# http://www.exif.org/
 
 # field type descriptions as (length, abbreviation, full name) tuples
 FIELD_TYPES=(
-    (0, 'X',  'Dummy'), # no such type
+    (0, 'X',  'Proprietary'), # no such type
     (1, 'B',  'Byte'),
     (1, 'A',  'ASCII'),
     (2, 'S',  'Short'),
@@ -144,7 +144,8 @@ EXIF_TAGS={
     0x8825: ('GPSInfo', ),
     0x8827: ('ISOSpeedRatings', ),
     0x8828: ('OECF', ),
-    0x9000: ('ExifVersion', ),
+    # print as string
+    0x9000: ('ExifVersion', lambda x: ''.join(map(chr, x))),
     0x9003: ('DateTimeOriginal', ),
     0x9004: ('DateTimeDigitized', ),
     0x9101: ('ComponentsConfiguration',
@@ -196,11 +197,13 @@ EXIF_TAGS={
                        32: 'Not Available'}),
     0x920A: ('FocalLength', ),
     0x927C: ('MakerNote', ),
-    0x9286: ('UserComment', ),
+    # print as string
+    0x9286: ('UserComment', lambda x: ''.join(map(chr, x))),
     0x9290: ('SubSecTime', ),
     0x9291: ('SubSecTimeOriginal', ),
     0x9292: ('SubSecTimeDigitized', ),
-    0xA000: ('FlashPixVersion', ),
+    # print as string
+    0xA000: ('FlashPixVersion', lambda x: ''.join(map(chr, x))),
     0xA001: ('ColorSpace', ),
     0xA002: ('ExifImageWidth', ),
     0xA003: ('ExifImageLength', ),
@@ -636,7 +639,7 @@ def s2n_motorola(str):
 # extract multibyte integer in Intel format (big endian)
 def s2n_intel(str):
     x=0
-    y=0
+    y=0L
     for c in str:
         x=x | (ord(c) << y)
         y=y+8
@@ -671,11 +674,17 @@ class Ratio:
 class IFD_Tag:
     def __init__(self, printable, tag, field_type, values, field_offset,
                  field_length):
+        # printable version of data
         self.printable=printable
+        # tag ID number
         self.tag=tag
+        # field type as index into FIELD_TYPES
         self.field_type=field_type
+        # offset of start of field in bytes from beginning of IFD
         self.field_offset=field_offset
+        # length of data field in bytes
         self.field_length=field_length
+        # either a string or array of data items
         self.values=values
         
     def __str__(self):
@@ -706,9 +715,10 @@ class EXIF_header:
             val=s2n_motorola(slice)
         # Sign extension ?
         if signed:
-            msb=1 << (8*length-1)
-            if val & msb:
-                val=val-(msb << 1)
+            #msb=1 << (8*length-1)
+            #if val & msb:
+            #    val=val-(msb << 1)
+            pass
         return val
 
     # convert offset to string
@@ -747,7 +757,6 @@ class EXIF_header:
             entry=ifd+2+12*i
             tag=self.s2n(entry, 2)
             field_type=self.s2n(entry+2, 2)
-            if field_type == 513 and tag == 0x0f00: continue
             if not 0 < field_type < len(FIELD_TYPES):
                 # unknown field type
                 raise ValueError, \
@@ -769,25 +778,15 @@ class EXIF_header:
             else:
                 values=[]
                 signed=(field_type in [6, 8, 9, 10])
-                if count > 1000:
-                    # XXX change in mmpython. Ignore fields that are too long
-                    # XXX This is some special camera data we don't need
-                    # XXX anyway. This is a major speed enhancement for some
-                    # XXX images!
-                    if self.debug:
-                        print 'strip this field, too long'
-                    for j in range(count):
-                        offset=offset+(count * typelen)
-                else:
-                    for j in range(count):
-                        if field_type in (5, 10):
-                            # a ratio
-                            value_j=Ratio(self.s2n(offset,   4, signed),
-                                          self.s2n(offset+4, 4, signed))
-                        else:
-                            value_j=self.s2n(offset, typelen, signed)
-                        values.append(value_j)
-                        offset=offset+typelen
+                for j in range(count):
+                    if field_type in (5, 10):
+                        # a ratio
+                        value_j=Ratio(self.s2n(offset,   4, signed),
+                                      self.s2n(offset+4, 4, signed))
+                    else:
+                        value_j=self.s2n(offset, typelen, signed)
+                    values.append(value_j)
+                    offset=offset+typelen
             # now "values" is either a string or an array
             if count == 1 and field_type != 2:
                 printable=str(values[0])
@@ -876,8 +875,7 @@ class EXIF_header:
     # decode all the camera-specific MakerNote formats
     def decode_maker_note(self):
         note=self.tags['EXIF MakerNote']
-        try: make=self.tags['Image Make'].printable
-        except KeyError: make = 'Unknown'
+        make=self.tags['Image Make'].printable
         model=self.tags['Image Model'].printable
 
         # Nikon
@@ -942,7 +940,10 @@ class EXIF_header:
                 val=x[1].get(value[i], 'Unknown')
             else:
                 val=value[i]
-            self.tags['MakerNote '+name]=val
+            # it's not a real IFD Tag but we fake one to make everybody
+            # happy. this will have a "proprietary" type
+            self.tags['MakerNote '+name]=IFD_Tag(str(val), None, 0, None,
+                                                 None, None)
 
 # process an image file (expects an open file object)
 # this is the function that has to deal with all the arbitrary nasty bits
@@ -1007,7 +1008,7 @@ def process_file(file, debug=0):
                 hdr.dump_IFD(intr_off.values[0], 'EXIF Interoperability',
                              dict=INTR_TAGS)
         # GPS IFD
-        gps_off=hdr.tags.get(IFD_name+' GPSInfoOffset')
+        gps_off=hdr.tags.get(IFD_name+' GPSInfo')
         if gps_off:
             if debug:
                 print ' GPS SubIFD at offset %d:' % gps_off.values[0]
@@ -1038,7 +1039,6 @@ def process_file(file, debug=0):
             file.seek(offset+thumb_off.values[0])
             hdr.tags['JPEGThumbnail']=file.read(thumb_off.field_length)
             
-    file.close()
     return hdr.tags
 
 # library test/debug function (dump given files)
@@ -1058,7 +1058,7 @@ if __name__ == '__main__':
             continue
         print filename+':'
         # data=process_file(file, 1) # with debug info
-        data=process_file(file, 1)
+        data=process_file(file)
         if not data:
             print 'No EXIF information found'
             continue
@@ -1068,8 +1068,11 @@ if __name__ == '__main__':
         for i in x:
             if i in ('JPEGThumbnail', 'TIFFThumbnail'):
                 continue
-            print '   %s (%s): %s' % \
-                  (i, FIELD_TYPES[data[i].field_type][2], data[i].printable)
+            try:
+                print '   %s (%s): %s' % \
+                      (i, FIELD_TYPES[data[i].field_type][2], data[i].printable)
+            except:
+                print 'error', i, '"', data[i], '"'
         if data.has_key('JPEGThumbnail'):
             print 'File has JPEG thumbnail'
         print
