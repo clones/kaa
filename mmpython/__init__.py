@@ -24,6 +24,7 @@ try:
     import disc.dvdinfo
     import disc.vcdinfo
     import disc.audioinfo
+    import disc.datainfo
 except ImportError:
     pass
 import audio.mp3info
