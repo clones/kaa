@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.15  2004/05/20 08:49:29  dischi
+# more ogm fixes, better length calc (again)
+#
 # Revision 1.14  2004/05/18 21:55:52  dischi
 # o get correct length for ogm files
 # o set metadat for the different streams
@@ -78,11 +81,13 @@ import re
 import stat
 import os
 
-PACKET_TYPE_HEADER =  0x01
+import fourcc
+
+PACKET_TYPE_HEADER   = 0x01
 PACKED_TYPE_METADATA = 0x03
-PACKED_TYPE_SETUP = 0x05
-PACKET_TYPE_BITS =    0x07
-PACKET_IS_SYNCPOINT = 0x08
+PACKED_TYPE_SETUP    = 0x05
+PACKET_TYPE_BITS     = 0x07
+PACKET_IS_SYNCPOINT  = 0x08
 
 #VORBIS_VIDEO_PACKET_INFO = 'video'
 
@@ -116,9 +121,9 @@ class OgmInfo(mediainfo.AVInfo):
             granule = self._parseOGGS(file)
             if granule == None:
                 break
-            elif granule > 0:
-                # ok, file started
-                break
+#             elif granule > 0:
+#                 # ok, file started
+#                 break
 
         # seek to the end of the stream, to avoid scanning the whole file
         if (os.stat(file.name)[stat.ST_SIZE] > 20000):
@@ -136,10 +141,7 @@ class OgmInfo(mediainfo.AVInfo):
                 if granule > 0:
                     lastgran = granule
 
-        if lastgran and len(self.audio) > 0:
-            self.length = lastgran / self.audio[0].samplerate
-            
-        elif len(self.audio) == 1 and len(self.video) == 0:            
+        if not self.length and len(self.audio) == 1 and len(self.video) == 0:            
             samplerate = self.audio[0].samplerate
             #self.audio[0].length = self.length = lastgran / samplerate
 
@@ -147,7 +149,7 @@ class OgmInfo(mediainfo.AVInfo):
             fsize = (os.stat(file.name)[stat.ST_SIZE] * 8)
             self.audio[0].length = self.length = fsize / self.audio[0].bitrate
 
-        elif len(self.video) == 1:
+        elif not self.length and len(self.video) == 1:
             # Validate if this is the real length
             samplerate = self.video[0].fps
             # self.video[0].length = self.length = lastgran / samplerate
@@ -155,6 +157,12 @@ class OgmInfo(mediainfo.AVInfo):
             # XXX Hack because we don't parse the whole file
             self.video[0].length = self.length = 0
 
+        # length inside the streams is wrong (most of the time):
+        for s in self.video:
+            s.length = self.length
+        for s in self.audio:
+            s.length = 0
+            
         # Copy metadata to the streams
         if len(self.all_header) == len(self.all_streams):
             for i in range(len(self.all_header)):
@@ -219,6 +227,7 @@ class OgmInfo(mediainfo.AVInfo):
             return None
         head = struct.unpack('<BQIIIB', h[5:])
         headertype, granulepos, serial, pageseqno, checksum, pageSegCount = head
+
         self.valid = 1
         self.mime = 'application/ogm'
         self.type = 'OGG Media'
@@ -237,7 +246,15 @@ class OgmInfo(mediainfo.AVInfo):
                 self._parseMeta(h)
             else:
                 file.seek(nextlen-1,1)
+        if len(self.all_streams) > serial:
+            if hasattr(self.all_streams[serial], 'samplerate') and \
+                   self.all_streams[serial].samplerate:
+                self.length = granulepos / self.all_streams[serial].samplerate
+            elif hasattr(self.all_streams[serial], 'bitrate') and \
+                     self.all_streams[serial].bitrate:
+                self.length = granulepos / self.all_streams[serial].bitrate
         return granulepos
+
         
     def _parseMeta(self,h):
         flags = ord(h[0])
@@ -250,8 +267,9 @@ class OgmInfo(mediainfo.AVInfo):
             for i in range(numItems):
                 (nextlen, s) = self._extractHeaderString(h[start:])
                 start += nextlen
-                a = re.split('=',s)
-                header[(a[0]).upper()]=a[1]
+                if s:
+                    a = re.split('=',s)
+                    header[(a[0]).upper()]=a[1]
             # Put Header fields into info fields
             self.type = 'OGG Vorbis'
             self.subtype = ''
@@ -299,7 +317,9 @@ class OgmInfo(mediainfo.AVInfo):
             if htype[:5] == 'video':
                 streamheader = struct.unpack( STREAM_HEADER_VIDEO, header[9:struct.calcsize(STREAM_HEADER_VIDEO)+9] )
                 vi = mediainfo.VideoInfo()
-                (type, ssize, timeunit, samplerate, vi.length, buffersize, vi.bitrate, vi.width, vi.height) = streamheader
+                (type, ssize, timeunit, samplerate, vi.length, buffersize, \
+                 vi.bitrate, vi.width, vi.height) = streamheader
+
                 vi.width /= 65536
                 vi.height /= 65536
                 # XXX length, bitrate are very wrong
@@ -310,6 +330,7 @@ class OgmInfo(mediainfo.AVInfo):
                 vi.fps = 10000000 / timeunit
                 self.video.append(vi)
                 self.all_streams.append(vi)
+
             elif htype[:5] == 'audio':
                 streamheader = struct.unpack( STREAM_HEADER_AUDIO, header[9:struct.calcsize(STREAM_HEADER_AUDIO)+9] )
                 ai = mediainfo.AudioInfo()
@@ -324,8 +345,10 @@ class OgmInfo(mediainfo.AVInfo):
 
     def _extractHeaderString(self,header):
         len = struct.unpack( '<I', header[:4] )[0]
-        return (len+4,unicode(header[4:4+len], 'utf-8'))
-
+        try:
+            return (len+4,unicode(header[4:4+len], 'utf-8'))
+        except:
+            return (len+4,None)
 
 
 mmpython.registertype( 'application/ogg', ('ogm', 'ogg',), mediainfo.TYPE_AV, OgmInfo )
