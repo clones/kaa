@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.18  2003/08/30 12:16:01  dischi
+# turn off debug
+#
 # Revision 1.17  2003/07/07 21:38:09  dischi
 # make fps a float, name type MPEG1 or MPEG2 and add aspect to info list
 #
@@ -200,7 +203,8 @@ class MpegInfo(mediainfo.AVInfo):
         try:
             aspect = ASPECT_RATIO[v>>4]
         except IndexError:
-            print 'Index error: %s' % (v>>4)
+            if mediainfo.DEBUG:
+                print 'Index error: %s' % (v>>4)
             aspect = None
         return (fps, aspect)
         
