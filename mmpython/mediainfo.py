@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.26  2003/06/09 12:50:07  the_krow
+# mp3 now fills tables
+#
 # Revision 1.25  2003/06/09 12:28:10  dischi
 # build better id for disc-caching
 #
@@ -193,16 +196,14 @@ class MediaInfo:
             if k in keys:
                 keys.remove(k)
 
-        result = ""
         result = reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
                          (a, b.__str__(), self[b].__str__()) or a, keys, "" )
-        return result
-            
-    def append(self, table):
-        self.tables[table.name] = table
+        for i in self.tables.keys():
+            result += self.tables[i].__str__()
+        return result            
         
     def appendtable(self, name, hashmap):
-        self.tables[name] = table.Table(hashmap)
+        self.tables[name] = table.Table(hashmap, name)
     
     def setitem(self,item,dict,key):
         try:
@@ -232,8 +233,8 @@ class AudioInfo(MediaInfo):
 
 class MusicInfo(AudioInfo):
     def __init__(self):
-        self.keys = []
-        for k in MEDIACORE+AUDIOCORE+MUSICCORE:
+        MediaInfo.__init__(self)
+        for k in AUDIOCORE+MUSICCORE:
             setattr(self,k,None)
             self.keys.append(k)
 

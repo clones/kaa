@@ -6,7 +6,7 @@ $Id$
 
 Maintainer: Thomas Schueppel <stain@acm.org>
 
-Developer:
+Developers:
 o Thomas Schueppel <stain@acm.org>
 o Dirk Meyer <dmeyer@tzi.de>
 
@@ -21,3 +21,10 @@ This package also includes some code from the following projects:
   http://cddb-py.sourceforge.net/
 
 - bins support by John Cooper, made for the Freevo project
+
+- code from "exifdump.py" originally written by Thierry Bousch
+  <bousch@topo.math.u-psud.fr> and released into the public domain.
+  and code by Gene Cash <gcash@cfl.rr.com>
+
+- code out of Vivake Guptas mp3info which is to be found at
+  http://www.omniscia.org/~vivake/python/MP3Info.py 

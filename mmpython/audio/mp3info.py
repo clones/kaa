@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/06/09 12:50:08  the_krow
+# mp3 now fills tables
+#
 # Revision 1.6  2003/06/08 19:53:38  dischi
 # also give the filename to init for additional data tests
 #
@@ -458,10 +461,12 @@ class MP3Info(mediainfo.MusicInfo):
         id3 = ID3v1(file)
         if id3.valid:
             self.id3 = id3
+            self.appendtable('id3v1', id3.tags)
 
         id3 = ID3v2(file)
         if id3.valid:
             self.id3 = id3
+            self.appendtable('id3v2', id3.tags)
 
         if self.id3 is None:
             return

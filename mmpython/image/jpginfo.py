@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.14  2003/06/09 12:50:08  the_krow
+# mp3 now fills tables
+#
 # Revision 1.13  2003/06/08 19:55:22  dischi
 # added bins metadata support
 #
@@ -87,6 +90,8 @@ SOF = { 0xC0 : "Baseline",
         0xCF : "Differential lossless, arithmetic coding",
 }
 
+_debug = mediainfo._debug
+
 class JPGInfo(mediainfo.ImageInfo):
 
     def __init__(self,file,filename):
@@ -107,13 +112,13 @@ class JPGInfo(mediainfo.ImageInfo):
         while (len(app) == 4):
             (ff,segtype,seglen) = struct.unpack(">BBH", app)
             if ff != 0xff: break
-            print "SEGMENT: 0x%x%x, len=%d" % (ff,segtype,seglen)
+            _debug("SEGMENT: 0x%x%x, len=%d" % (ff,segtype,seglen))
             if segtype == 0xd9:
                 break
             elif SOF.has_key(segtype):
                 data = file.read(seglen-2)
                 (precision,self.height,self.width,num_comp) = struct.unpack('>BHHB', data[:6])
-                print "H/W: %i / %i" % (self.height, self.width) 
+                #_debug("H/W: %i / %i" % (self.height, self.width))
             elif segtype == 0xed:
                 app = file.read(seglen-2)
                 iptc_info = IPTC.flatten(IPTC.parseiptc(app))
@@ -124,14 +129,12 @@ class JPGInfo(mediainfo.ImageInfo):
         file.seek(0)        
         exif_info = EXIF.process_file(file)
         if exif_info:
-            self.setitem( 'comment', exif_info, 'EXIF UserComment' )
-            # self.setitem( 'width', exif_info, 'EXIF ExifImageWidth'  )
-            # self.setitem( 'height', exif_info, 'EXIF ExifImageLength' )
             self.setitem( 'date', exif_info, 'Image DateTime' )            
             self.setitem( 'artist', exif_info, 'Image Artist' )
             self.setitem( 'hardware', exif_info, 'Image Model' )
             self.setitem( 'software', exif_info, 'Image Software' )
-            self.setitem( 'thumbnail', exif_info, 'JPEGThumbnail' ) 
+            self.setitem( 'thumbnail', exif_info, 'JPEGThumbnail' )
+            self.appendtable( 'EXIF', exif_info )
         if iptc_info:
             self.setitem( 'title', iptc_info, 517 ) 
             self.setitem( 'date' , iptc_info, 567 )
@@ -140,7 +143,7 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'artist', iptc_info, 592 )
             self.setitem( 'country', iptc_info, 612 ) 
             self.setitem( 'caption', iptc_info, 632 )
-
+            self.appendtable( 'IPTC', iptc_info )            
         self.add_bins_data(filename)
         return
        

@@ -59,7 +59,7 @@ class DVDInfo(mediainfo.DiscInfo):
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'video/dvd'
-        self.type = 'dvd video'        
+        self.type = 'dvd video'
 
     def isDisc(self, device):
         if mediainfo.DiscInfo.isDisc(self, device) != 2:
