@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.25  2004/07/11 19:37:25  dischi
+# o read more bytes on ts scan
+# o support for AC3 in private streams
+#
 # Revision 1.24  2004/07/03 09:01:32  dischi
 # o fix PES start detection inside TS
 # o try to find out if the stream is progressive or interlaced
@@ -432,7 +436,7 @@ class MpegInfo(mediainfo.AVInfo):
         self.ReadHeader(buffer, offset)
 
         # store first timestamp
-        self.ts_start = self.get_time(buffer[offset+4:])
+        self.start = self.get_time(buffer[offset+4:])
 
         while len(buffer) > offset + 1000 and buffer[offset:offset+3] == '\x00\x00\x01':
             # read the mpeg header
@@ -499,7 +503,6 @@ class MpegInfo(mediainfo.AVInfo):
         # PES ID (starting with 001)
         if ord(buffer[3]) & 0xE0 == 0xC0:
             id = id or ord(buffer[3]) & 0x1F
-            type = 'audio'
             for a in self.audio:
                 if a.id == id:
                     break
@@ -510,7 +513,6 @@ class MpegInfo(mediainfo.AVInfo):
 
         elif ord(buffer[3]) & 0xF0 == 0xE0:
             id = id or ord(buffer[3]) & 0xF
-            type = 'video'
             for v in self.video:
                 if v.id == id:
                     break
@@ -524,6 +526,20 @@ class MpegInfo(mediainfo.AVInfo):
                    '\x00\x00\x01\xB3' and not self.sequence_header_offset:
                 # yes, remember offset for later use
                 self.sequence_header_offset = offset + header_length+9
+        elif ord(buffer[3]) == 189 or ord(buffer[3]) == 191:
+            # private stream. we don't know, but maybe we can guess later
+            id = id or ord(buffer[3]) & 0xF
+            if align and buffer[header_length+9:header_length+11] == '\x0b\x77':
+                # AC3 stream
+                for a in self.audio:
+                    if a.id == id:
+                        break
+                else:
+                    self.audio.append(mediainfo.AudioInfo())
+                    self.audio[-1].id = id
+                    self.audio[-1].codec = 'AC3'
+                    self.audio[-1].keys.append('id')
+
         else:
             # unknown content
             pass
@@ -556,10 +572,10 @@ class MpegInfo(mediainfo.AVInfo):
             pos, timestamp = self.ReadPESHeader(offset, buffer[offset:])
             if not pos:
                 return 0
-            if timestamp != -1 and not hasattr(self, 'ts_start'):
+            if timestamp != -1 and not hasattr(self, 'start'):
                 self.get_time = self.ReadPTS
-                self.ts_start = self.get_time(buffer[offset+timestamp:offset+timestamp+5])
-            if self.sequence_header_offset and hasattr(self, 'ts_start'):
+                self.start = self.get_time(buffer[offset+timestamp:offset+timestamp+5])
+            if self.sequence_header_offset and hasattr(self, 'start'):
                 # we have all informations we need
                 break
 
@@ -630,11 +646,16 @@ class MpegInfo(mediainfo.AVInfo):
         else:
             return 0
 
-        buffer += file.read(1000000)
+        buffer += file.read(10000)
         self.type = 'MPEG-TS'
-
+        
         while c + TS_PACKET_LENGTH < len(buffer):
             start = ord(buffer[c+1]) & 0x40
+            # maybe load more into the buffer
+            if c + 2 * TS_PACKET_LENGTH > len(buffer) and c < 500000:
+                buffer += file.read(10000)
+
+            # wait until the ts payload contains a payload header
             if not start:
                 c += TS_PACKET_LENGTH
                 continue
@@ -645,7 +666,8 @@ class MpegInfo(mediainfo.AVInfo):
             offset = 4
             if adapt & 0x02:
                 # meta info present, skip it for now
-                offset += ord(buffer[c+offset]) + 1
+                adapt_len = ord(buffer[c+offset])
+                offset += adapt_len + 1
 
             if not ord(buffer[c+1]) & 0x40:
                 # no new pes or psi in stream payload starting
@@ -653,20 +675,28 @@ class MpegInfo(mediainfo.AVInfo):
             elif adapt & 0x01:
                 # PES
                 timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:], tsid)[1]
-                if timestamp != -1 and not hasattr(self, 'ts_start'):
+                if timestamp != -1 and not hasattr(self, 'start'):
                     self.get_time = self.ReadPTS
                     timestamp     = c + offset + timestamp
-                    self.ts_start = self.get_time(buffer[timestamp:timestamp+5])
+                    self.start = self.get_time(buffer[timestamp:timestamp+5])
 
             elif adapt & 0x01:
                 # no PES, scan for something else here
                 pass
+
+            if hasattr(self, 'start') and self.start and \
+                   self.sequence_header_offset and self.video and self.audio:
+                break
             
             c += TS_PACKET_LENGTH
 
+                
         if not self.sequence_header_offset:
             return 0
 
+        if hasattr(self, 'start') and self.start:
+            self.keys.append('start')
+            
         # fill in values for support functions:
         self.__seek_size__   = 10000000  # 10 MB
         self.__sample_size__ = 100000    # 100 k scanning
@@ -716,7 +746,7 @@ class MpegInfo(mediainfo.AVInfo):
         """
         get the last timestamp of the mpeg, return -1 if this is not possible
         """
-        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+        if not hasattr(self, 'filename') or not hasattr(self, 'start'):
             return -1
 
         file = open(self.filename)
@@ -740,9 +770,9 @@ class MpegInfo(mediainfo.AVInfo):
         get the length in seconds, return -1 if this is not possible
         """
         end = self.get_endpos()
-        if end == -1 or self.ts_start > end:
+        if end == -1 or self.start > end:
             return -1
-        return end - self.ts_start
+        return end - self.start
     
 
     def seek(self, end_time):
@@ -750,7 +780,7 @@ class MpegInfo(mediainfo.AVInfo):
         Return the byte position in the file where the time position
         is 'pos' seconds. Return 0 if this is not possible
         """
-        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+        if not hasattr(self, 'filename') or not hasattr(self, 'start'):
             return 0
 
         file    = open(self.filename)
@@ -778,7 +808,7 @@ class MpegInfo(mediainfo.AVInfo):
         """
         scan file for timestamps (may take a long time)
         """
-        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+        if not hasattr(self, 'filename') or not hasattr(self, 'start'):
             return 0
         file = open(self.filename)
         print 'scanning file...'
