@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.16  2003/10/18 11:13:03  dischi
+# patch from Cyril Lacoux to detect blank discs
+#
 # Revision 1.15  2003/09/23 13:51:27  outlyer
 # More *BSD fixes from Lars; repairs a problem in his older patch.
 #
@@ -99,7 +102,7 @@ except:
 def cdrom_disc_status(device):
     """
     check the current disc in device
-    return: no disc (0), audio cd (1), data cd (2)
+    return: no disc (0), audio cd (1), data cd (2), blank cd (3)
     """
     CDROM_DRIVE_STATUS=0x5326
     CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
@@ -169,7 +172,15 @@ def cdrom_disc_status(device):
     os.close(fd)
     if s == CDS_AUDIO or s == CDS_MIXED:
         return 1
-    return 2
+    
+    fd = open(device, 'rb')
+    try :
+    	fd.seek(0x0000832d)
+    except IOError:
+	return 3
+    else :
+    	fd.close()
+    	return 2
     
 
 id_cache = {}
@@ -186,7 +197,7 @@ def cdrom_disc_id(device):
         pass
 
     disc_type = cdrom_disc_status(device)
-    if disc_type == 0:
+    if disc_type == 0 or disc_type == 3:
         return 0, None
         
     elif disc_type == 1:
