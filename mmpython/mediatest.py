@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-sys.path.append('..')
+sys.path = ['..'] + sys.path
 
 import mmpython
 
