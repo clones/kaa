@@ -39,7 +39,8 @@ class DVDAudio(mediainfo.AudioInfo):
     def __init__(self, data):
         mediainfo.AudioInfo.__init__(self)
         self.number   = int(data[1])
-        self.language = data[3]
+        if data[3] != 'xx':
+            self.language = data[3]
         self.codec    = data[7]
         self.samplerate = int(data[9])
         self.channels = data[13]
@@ -59,8 +60,8 @@ class DVDTitle(mediainfo.AVInfo):
         mediainfo.AVInfo.__init__(self)
         self.number = int(data[1])
 
-        self.keys.append('chapters')
         self.keys.append('subtitles')
+        self.keys.append('chapters')
         
         self.mime = 'video/mpeg'
 
@@ -107,7 +108,7 @@ class DVDInfo(DiscInfo):
         child = popen2.Popen3('%s -v -n -a -s "%s"' % (LSDVD_EXE, path), 1, 100)
         for line in child.fromchild.readlines():
             data = line.replace(',', '').replace('\t', '').\
-                   replace('\n', '').split(' ')
+                   replace('\n', '').replace('  ', ' ').split(' ')
             if len(data) > 2:
                 if data[0] == 'Title:':
                     ti = DVDTitle(data)
