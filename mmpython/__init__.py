@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.26  2003/11/24 20:29:26  dischi
+# resort to let dvd work again
+#
 # Revision 1.25  2003/11/07 13:58:52  dischi
 # extra check for dvd
 #
@@ -99,16 +102,13 @@ import image.tiffinfo
 import video.vcdinfo
 import video.realinfo
 import video.ogminfo
+
 try:
     import disc.discinfo
     import disc.vcdinfo
     import disc.audioinfo
-    import disc.datainfo
-except ImportError:
-    pass
-
-try:
     import disc.dvdinfo
+    import disc.datainfo
 except ImportError:
     pass
 
