@@ -26,7 +26,7 @@
 
 
 import ifoparser
-import mediainfo
+from mmpython import mediainfo
 
 
 class DVDAudio(mediainfo.AudioInfo):

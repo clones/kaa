@@ -25,7 +25,7 @@
 #endif
 
 
-import mediainfo
+from mmpython import mediainfo
 import DiscID
 import CDDB
 

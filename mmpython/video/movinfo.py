@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.4  2003/06/08 13:44:58  dischi
+# Changed all imports to use the complete mmpython path for mediainfo
+#
 # Revision 1.3  2003/06/08 13:11:38  dischi
 # removed print at the end and moved it into register
 #
@@ -30,10 +33,10 @@
 
 import re
 import struct
-import mediainfo
 import string
 import fourcc
 
+from mmpython import mediainfo
 
 class MovInfo(mediainfo.VideoInfo):
     def __init__(self,file):

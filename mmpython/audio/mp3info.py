@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/06/08 13:44:56  dischi
+# Changed all imports to use the complete mmpython path for mediainfo
+#
 # Revision 1.4  2003/06/08 13:11:25  dischi
 # removed print at the end and moved it into register
 #
@@ -41,7 +44,7 @@
 
 import struct
 import string
-import mediainfo
+from mmpython import mediainfo
 
 def _from_synch_safe(synchsafe):
     if isinstance(synchsafe, type(1)):

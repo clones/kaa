@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.12  2003/06/08 13:44:58  dischi
+# Changed all imports to use the complete mmpython path for mediainfo
+#
 # Revision 1.11  2003/06/08 13:11:38  dischi
 # removed print at the end and moved it into register
 #
@@ -40,9 +43,10 @@
 
 import re
 import struct
-import mediainfo
 import string
 import fourcc
+
+from mmpython import mediainfo
 
 # List of tags
 # http://kibus1.narod.ru/frames_eng.htm?sof/abcavi/infotags.htm
