@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.24  2004/07/03 09:01:32  dischi
+# o fix PES start detection inside TS
+# o try to find out if the stream is progressive or interlaced
+#
 # Revision 1.23  2004/06/23 19:44:10  dischi
 # better length detection, big cleanup
 #
@@ -162,6 +166,8 @@ class MpegInfo(mediainfo.AVInfo):
             if self.sequence_header_offset <= 0:
                 return
 
+            self.progressive(file)
+            
             for vi in self.video:
                 vi.width, vi.height = self.dxy(file)
                 vi.fps, vi.aspect = self.framerate_aspect(file)
@@ -182,6 +188,9 @@ class MpegInfo(mediainfo.AVInfo):
 
             
     def dxy(self,file):  
+        """
+        get width and height of the video
+        """
         file.seek(self.sequence_header_offset+4,0)
         v = file.read(4)
         x = struct.unpack('>H',v[:2])[0] >> 4
@@ -190,6 +199,9 @@ class MpegInfo(mediainfo.AVInfo):
 
         
     def framerate_aspect(self,file):
+        """
+        read framerate and aspect ratio
+        """
         file.seek(self.sequence_header_offset+7,0)
         v = struct.unpack( '>B', file.read(1) )[0] 
         try:
@@ -203,6 +215,44 @@ class MpegInfo(mediainfo.AVInfo):
                 print 'Index error: %s' % (v>>4)
             aspect = None
         return (fps, aspect)
+        
+
+    def progressive(self, file):
+        """
+        Try to find out with brute force if the mpeg is interlaced or not.
+        Search for the Sequence_Extension in the extension header (01B5)
+        """
+        file.seek(0)
+        buffer = ''
+        count  = 0
+        while 1:
+            if len(buffer) < 1000:
+                count += 1
+                if count > 1000:
+                    break
+                buffer += file.read(1024)
+            if len(buffer) < 1000:
+                break
+            pos = buffer.find('\x00\x00\x01\xb5')
+            if pos == -1:
+                buffer = buffer[-10:]
+                continue
+            ext = (ord(buffer[pos+4]) >> 4)
+            if ext == 8:
+                pass
+            elif ext == 1:
+                if (ord(buffer[pos+5]) >> 3) & 1:
+                    self.keys.append('progressive')
+                    self.progressive = 1
+                else:
+                    self.keys.append('interlaced')
+                    self.interlaced = 1
+                return True
+            else:
+                print 'ext', ext
+            buffer = buffer[pos+4:]
+        return False
+    
         
     ##------------------------------------------------------------------------
     ## bitrate()
@@ -244,6 +294,9 @@ class MpegInfo(mediainfo.AVInfo):
     ## Some parts in the code are based on mpgtx (mpgtx.sf.net)
     
     def bitrate(self,file):
+        """
+        read the bitrate (most of the time broken)
+        """
         file.seek(self.sequence_header_offset+8,0)
         t,b = struct.unpack( '>HB', file.read(3) )
         vrate = t << 2 | b >> 6
@@ -427,7 +480,7 @@ class MpegInfo(mediainfo.AVInfo):
     # PES ============================================================
 
 
-    def ReadPESHeader(self, offset, buffer):
+    def ReadPESHeader(self, offset, buffer, id=0):
         """
         Parse a PES header.
         Since it starts with 0x00 0x00 0x01 like 'normal' mpegs, this
@@ -445,7 +498,7 @@ class MpegInfo(mediainfo.AVInfo):
 
         # PES ID (starting with 001)
         if ord(buffer[3]) & 0xE0 == 0xC0:
-            id = ord(buffer[3]) & 0x1F
+            id = id or ord(buffer[3]) & 0x1F
             type = 'audio'
             for a in self.audio:
                 if a.id == id:
@@ -456,7 +509,7 @@ class MpegInfo(mediainfo.AVInfo):
                 self.audio[-1].keys.append('id')
 
         elif ord(buffer[3]) & 0xF0 == 0xE0:
-            id = ord(buffer[3]) & 0xF
+            id = id or ord(buffer[3]) & 0xF
             type = 'video'
             for v in self.video:
                 if v.id == id:
@@ -594,9 +647,12 @@ class MpegInfo(mediainfo.AVInfo):
                 # meta info present, skip it for now
                 offset += ord(buffer[c+offset]) + 1
 
-            if adapt & 0x01:
+            if not ord(buffer[c+1]) & 0x40:
+                # no new pes or psi in stream payload starting
+                pass
+            elif adapt & 0x01:
                 # PES
-                timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:])[1]
+                timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:], tsid)[1]
                 if timestamp != -1 and not hasattr(self, 'ts_start'):
                     self.get_time = self.ReadPTS
                     timestamp     = c + offset + timestamp
@@ -638,6 +694,7 @@ class MpegInfo(mediainfo.AVInfo):
                 c += TS_PACKET_LENGTH
                 continue
 
+            tsid = ((ord(buffer[c+1]) & 0x3F) << 8) + ord(buffer[c+2])
             adapt = (ord(buffer[c+3]) & 0x30) >> 4
 
             offset = 4
@@ -646,7 +703,7 @@ class MpegInfo(mediainfo.AVInfo):
                 offset += ord(buffer[c+offset]) + 1
 
             if adapt & 0x01:
-                timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:])[1]
+                timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:], tsid)[1]
                 return c + offset + timestamp
             c += TS_PACKET_LENGTH
         return -1
