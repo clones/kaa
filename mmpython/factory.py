@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.15  2004/01/31 12:25:20  dischi
+# better ext checking
+#
 # Revision 1.14  2003/10/12 10:34:22  dischi
 # error handling
 #
@@ -118,7 +121,7 @@ class Factory:
         # Check extension as a hint
         for e in self.extmap.keys():
             if DEBUG > 1: print "trying ext %s" % e
-            if file.name.lower().find(e.lower()) + len(e) == len(file.name):
+            if file.name.lower().endswith(e.lower()):
                 if DEBUG == 1: print "trying ext %s" % e
                 try:
                     file.seek(0,0)
