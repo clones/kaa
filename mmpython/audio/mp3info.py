@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/06/09 14:31:56  the_krow
+# fixes on the mpeg parser
+# resolutions, fps and bitrate should be reported correctly now
+#
 # Revision 1.7  2003/06/09 12:50:08  the_krow
 # mp3 now fills tables
 #
@@ -501,7 +505,7 @@ class MP3Info(mediainfo.MusicInfo):
 
 
 factory = mediainfo.get_singleton()
-factory.register( 'audio/mp3', ['mp3'], mediainfo.TYPE_AUDIO, MP3Info )
+factory.register( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, MP3Info )
 
 if __name__ == '__main__':
     import sys

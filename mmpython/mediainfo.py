@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.27  2003/06/09 14:31:56  the_krow
+# fixes on the mpeg parser
+# resolutions, fps and bitrate should be reported correctly now
+#
 # Revision 1.26  2003/06/09 12:50:07  the_krow
 # mp3 now fills tables
 #
@@ -160,7 +164,7 @@ MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype',
 AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits',
              'bitrate', 'language']
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
-             'width', 'height',]
+             'width', 'height', 'fps']
 IMAGECORE = ['description', 'people', 'location', 'event',
              'width','height','thumbnail','software','hardware']
 MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
@@ -198,8 +202,11 @@ class MediaInfo:
 
         result = reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
                          (a, b.__str__(), self[b].__str__()) or a, keys, "" )
-        for i in self.tables.keys():
-            result += self.tables[i].__str__()
+        try:
+            for i in self.tables.keys():
+                 result += self.tables[i].__str__()
+        except AttributeError:
+            pass
         return result            
         
     def appendtable(self, name, hashmap):

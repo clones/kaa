@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.15  2003/06/09 14:31:57  the_krow
+# fixes on the mpeg parser
+# resolutions, fps and bitrate should be reported correctly now
+#
 # Revision 1.14  2003/06/09 12:50:08  the_krow
 # mp3 now fills tables
 #
@@ -149,4 +153,4 @@ class JPGInfo(mediainfo.ImageInfo):
        
 
 factory = mediainfo.get_singleton()
-factory.register( 'image/jpeg', ['jpg','jpeg'], mediainfo.TYPE_IMAGE, JPGInfo )
+factory.register( 'image/jpeg', ('jpg','jpeg'), mediainfo.TYPE_IMAGE, JPGInfo )
