@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/07/02 09:09:41  the_krow
+# i18n stuff added to AVI
+# some debug outputs removed
+#
 # Revision 1.5  2003/06/23 09:22:54  the_krow
 # Typo and Indentation fixes.
 #
@@ -34,19 +38,43 @@
 # -----------------------------------------------------------------------
 #endif
 
+from gettext import GNUTranslations
+import os
+
+LOCALEDIR = 'i18n'
+
 class Table:
     def __init__(self, hashmap, name):
         self.dict = hashmap
         self.name = name
         self.language = 'en'
+        self.translations = {}
+        self.languages = []
+        self.i18ndir = os.path.join(LOCALEDIR, name.lower())
+        self.read_translations()
+    
+    def read_translations(self):
+        for filename in [x for x in os.listdir(self.i18ndir) if x.endswith('.mo')]:
+            lang = filename[:-3]
+            filename = os.path.join(self.i18ndir, filename)
+            f = open(filename, 'rb')
+            self.translations[lang] = GNUTranslations(f)
+            f.close()
+        self.languages = self.translations.keys()
+        
+    def gettext(self, message, language = None):
+        try:
+            return self.translations[language].gettext(message)
+        except KeyError:
+            return "%s (No Message in '%s')" % (message, en)
         
     def __setitem__(self,key,value):
         self.dict[key] = value
         
     def __getitem__(self,key):
-        if self.dict.has_key(key):
+        try:
             return self.dict[key]
-        else:
+        except KeyError:
             return None
          
     def getstr(self,key):
@@ -54,7 +82,7 @@ class Table:
         if s and len(s.__str__()) < 100: 
             return s
         else:
-            return "Not Displayable"       
+            return "Not Displayable"
          
     def has_key(self, key):
         return self.dict.has_key(key)    
@@ -62,7 +90,7 @@ class Table:
     def __str__(self):
         header = "\nTable %s:" % self.name 
         result = reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
-                         (a, b.__str__(), self.getstr(b)) or a, self.dict.keys(), header )
+                         (a, self.gettext(b.__str__(),'en'), self.getstr(b)) or a, self.dict.keys(), header )
         return result
 
     def accept(self,mi):

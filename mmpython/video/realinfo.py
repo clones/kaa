@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.6  2003/07/02 09:09:41  the_krow
+# i18n stuff added to AVI
+# some debug outputs removed
+#
 # Revision 1.5  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -56,6 +60,8 @@ import mmpython
 # http://www.pcisys.net/~melanson/codecs/rmff.htm
 # http://www.pcisys.net/~melanson/codecs/
 
+_print = mediainfo._debug
+
 class RealInfo(mediainfo.AVInfo):
     def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
@@ -70,20 +76,20 @@ class RealInfo(mediainfo.AVInfo):
         else:
             return
         file_version, num_headers = struct.unpack('>II', file.read(8))
-        print "size: %d, ver: %d, headers: %d" % (object_size, file_version,num_headers)
+        _print("size: %d, ver: %d, headers: %d" % (object_size, file_version,num_headers))
         for i in range(0,num_headers):            
             (object_id,object_size,object_version) = struct.unpack('>4sIH',file.read(10))
             self._read_header(object_id, file.read(object_size-10))
-            if mediainfo.DEBUG: print "%s [%d]" % (object_id,object_size-10)
+            _print("%s [%d]" % (object_id,object_size-10))
         # Read all the following headers
         
     def _read_header(self,object_id,s):
         if object_id == 'PROP':
             prop = struct.unpack('>9IHH', s)
-            if mediainfo.DEBUG: print prop
+            _print(prop)
         if object_id == 'MDPR':
             mdpr = struct.unpack('>H7I', s[:30])
-            if mediainfo.DEBUG: print mdpr
+            _print(mdpr)
             self.length = mdpr[7]/1000
             (stream_name_size,) = struct.unpack('>B', s[30:31])
             stream_name = s[31:31+stream_name_size]
@@ -105,7 +111,7 @@ class RealInfo(mediainfo.AVInfo):
                 vi.bitrate = mdpr[2]
                 self.video.append(vi)
             else:
-                print "Unknown: %s" % mime
+                _print("Unknown: %s" % mime)
         if object_id == 'CONT':
             pos = 0
             (title_len,) = struct.unpack('>H', s[pos:pos+2])
