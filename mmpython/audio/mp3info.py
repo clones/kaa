@@ -110,9 +110,10 @@ class ID3v2Frame:
             self.f_encryption              = flags >> 2 & 1 #m
             self.f_unsynchronization       = flags >> 1 & 1 #n
             self.f_data_length_indicator   = flags >> 0 & 1 #p
-
         self.size = _from_synch_safe(size)
-        self.data = _strip_zero(file.read(self.size))
+        # An ugly hack to obmit crashing for large data
+        if self.size < 65536:
+            self.data = _strip_zero(file.read(self.size))
 
 _genres = [
     "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk", "Grunge",
@@ -228,7 +229,7 @@ class ID3v2:
                 file.seek(self.header_size)
                 break
 
-            self.frames = self.frames + [frame]
+            self.frames.append(frame)
             self.tags[frame.name] = frame.data
 
 _bitrates = [
@@ -267,9 +268,9 @@ _MP3_HEADER_SEEK_LIMIT = 8192
 class MPEG:
     def __init__(self, file):
         self.valid = 0
+        self.filesize = file.tell()
 
         file.seek(0, 2)
-        self.filesize = file.tell()
         file.seek(0, 0)
 
         self.version = 0
