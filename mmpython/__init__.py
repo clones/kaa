@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.29  2004/01/27 20:27:52  dischi
+# remove cache, it does not belong in mmpython
+#
 # Revision 1.28  2004/01/03 17:44:04  dischi
 # catch OSError in case the file is removed file scanning
 #
@@ -25,9 +28,6 @@
 #
 # Revision 1.22  2003/09/10 18:41:44  dischi
 # add USE_NETWORK, maybe there is no network connection
-#
-# Revision 1.21  2003/09/01 18:54:12  dischi
-# add callback for cache_dir
 #
 # Revision 1.20  2003/08/26 13:16:41  outlyer
 # Enabled m4a support
@@ -128,62 +128,12 @@ import audio.flacinfo
 
 
 
-try:
-    import cache
-except ImportError:
-    pass
-    
-
 USE_NETWORK     = 1
-object_cache    = None
-uncachable_keys = [ 'thumbnail', ]
 
 
-def use_cache(directory):
-    """
-    use directory to search for cached results
-    """
-    global object_cache
-    if not os.path.isdir(directory):
-        print 'WARNING: cache directory %s doesn\'t exists, caching deactivated' % directory
-        return 0
-    object_cache = cache.Cache(directory)
-
-
-def check_cache(directory):
-    """
-    Return how many files in this directory are not in the cache. It's
-    possible to guess how much time the update will need.
-    """
-    global object_cache
-    if not object_cache:
-        return -1
-    return object_cache.check_cache(directory)
-
-
-def cache_dir(directory, uncachable_keys = uncachable_keys, callback=None, ext_only = 0):
-    """
-    cache every file in the directory for future use
-    """
-    global object_cache
-    if not object_cache:
-        return {}
-    return object_cache.cache_dir(directory, uncachable_keys, callback, ext_only)
-
-
-def parse(filename, bypass_cache = 0, ext_only = 0):
+def parse(filename, ext_only = 0):
     """
     parse the file
     """
-    global object_cache
-
-    if object_cache and not bypass_cache:
-        try:
-            return object_cache.find(filename)
-        except (cache.FileNotFoundException, OSError):
-            pass
-    info = Factory().create(filename, ext_only)
-    if info and object_cache and isinstance(info, disc.discinfo.DiscInfo):
-        object_cache.cache_disc(info)
-    return info
+    return Factory().create(filename, ext_only)
 

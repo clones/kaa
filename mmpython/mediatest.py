@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.28  2004/01/27 20:28:57  dischi
+# remove cache, it does not belong in mmpython
+#
 # Revision 1.27  2003/07/19 11:38:19  dischi
 # turn off debug as default, some exception handling
 #
@@ -17,9 +20,6 @@
 #
 # Revision 1.25  2003/06/23 09:22:54  the_krow
 # Typo and Indentation fixes.
-#
-# Revision 1.24  2003/06/21 14:53:00  dischi
-# autocache disc info
 #
 # Revision 1.23  2003/06/20 19:57:30  the_krow
 # GNU Header
@@ -59,17 +59,9 @@ from mmpython import *
 # cd://device:mountpoint:file, e.g. for bla.avi:
 # cd:///dev/cdrom:/mnt/cdrom:bla.avi
 
-# To use the cache, make sure /tmp/mmpython exists
-# DVD/VCD/AudioCDs are cached with this proram when USE_CACHE == 1
-
 # turn on debug
 mediainfo.DEBUG = 1
 factory.DEBUG   = 1
-
-USE_CACHE = 1
-
-if USE_CACHE:
-    use_cache('./cache')
 
 for file in sys.argv[1:]:
     medium = parse(file)
