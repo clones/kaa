@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/10/05 20:45:09  outlyer
+# Fix some minor python issues. It works from mediatest.py now, but Freevo
+# isn't using the tag information yet. I don't know why.
+#
 # Revision 1.5  2003/09/22 16:21:20  the_krow
 # o ogg parsing should basically work
 # o utf-8 for vorbis comments
@@ -51,6 +55,7 @@ from mmpython import mediainfo
 import mmpython.audio.ogginfo as ogginfo
 import mmpython
 import struct
+import re
 
 # See: http://flac.sourceforge.net/format.html
 
@@ -94,7 +99,7 @@ class FlacInfo(mediainfo.MusicInfo):
                 start = skip+4
                 header = {}
                 for i in range(num):
-                    (nextlen, s) = self._extractHeaderString(h[start:])
+                    (nextlen, s) = self._extractHeaderString(data[start:])
                     start += nextlen
                     a = re.split('=',s)
                     header[(a[0]).upper()]=a[1]
