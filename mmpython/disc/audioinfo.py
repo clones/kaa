@@ -139,6 +139,22 @@ class AudioDiscInfo(discinfo.DiscInfo):
             num += 1
             lmin, lsec = min, sec
         device.close()
+
+        # correct bad titles for the tracks, containing also the artist
+        for t in self.tracks:
+            if not self.artist or not t.title.startswith(self.artist):
+                break
+        else:
+            for t in self.tracks:
+                t.title = t.title[len(self.artist):].lstrip('/ \t-_')
+
+        # correct bad titles for the tracks, containing also the title
+        for t in self.tracks:
+            if not self.title or not t.title.startswith(self.title):
+                break
+        else:
+            for t in self.tracks:
+                t.title = t.title[len(self.title):].lstrip('/ \t-_')
         return 1
     
         
