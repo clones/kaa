@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.15  2003/09/23 13:51:27  outlyer
+# More *BSD fixes from Lars; repairs a problem in his older patch.
+#
 # Revision 1.14  2003/09/14 13:32:12  dischi
 # set self.id for audio discs in discinfo.py to make it possible to use the cache for cddb
 #
@@ -116,10 +119,14 @@ def cdrom_disc_status(device):
     try:
         fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
         if os.uname()[0] == 'FreeBSD':
-            cd_toc_entry = array.array('c', '\000'*4096)
-            (address, length) = cd_toc_entry.buffer_info()
-            buf = pack('BBHP', CD_MSF_FORMAT, 0, length, address)
-            s = ioctl(fd, CDIOREADTOCENTRYS, buf)
+            try:
+                cd_toc_entry = array.array('c', '\000'*4096)
+                (address, length) = cd_toc_entry.buffer_info()
+                buf = pack('BBHP', CD_MSF_FORMAT, 0, length, address)
+                s = ioctl(fd, CDIOREADTOCENTRYS, buf)
+                s = CDS_DISC_OK
+            except:
+                s = CDS_NO_DISC
         else:
             s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
     except:
