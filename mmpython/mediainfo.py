@@ -1,3 +1,31 @@
+#if 0
+# $Id$
+# $Log$
+# Revision 1.4  2003/05/13 12:31:43  the_krow
+# + Copyright Notice
+#
+#
+# MMPython - Media Metadata for Python
+# Copyright (C) 2003 Thomas Schueppel
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# 
+# -----------------------------------------------------------------------
+#endif
+
+
 TYPE_NONE = 0
 TYPE_AUDIO = 1
 TYPE_VIDEO = 2
@@ -18,11 +46,12 @@ import types
 #  + Freevo XML Info
 #  + Filename / Directory
 # Imagecore: TITLE, ARTIST (=PHOTOGRAPHER), TYPE, SUBTYPE, X, Y, COLORS, 
-#  + EXIF
-#  + IPTC
+#  + EXIF (in TIFF, JPG)
+#  + IPTC (in TIFF, JPG)
 #  + Filename
-#u = s.decode(whateverencoding)
+#  + PNG Metadata
 # Module variable that contains an initialized MetaDataFactory() object
+
 _singleton = None
 
 def get_singleton():
@@ -38,7 +67,7 @@ def get_singleton():
 MEDIACORE = ['title', 'comment', 'artist', 'size', 'type', 'subtype', 'date', 'keywords', 'country', 'language']
 AUDIOCORE = ['trackno', 'trackof', 'album', 'audiochannels', 'samplerate', 'length', 'encoder', 'audiocodec', 
              'samplebits', 'genre', 'audiobitrate']
-VIDEOCORE = ['length', 'encoder', 'audiochannels', 'bitrate', 'samplerate', 'audiocodec', 'videocodec', 'samplebits',
+VIDEOCORE = ['length', 'encoder', 'audiobitrate', 'audiochannels', 'bitrate', 'samplerate', 'audiocodec', 'videocodec', 'samplebits',
              'trackno', 'trackof', 'copyright', 'product', 'genre', 'secondary genre', 'subject', 'writer', 'producer', 
              'cinematographer', 'production designer', 'edited by', 'costume designer', 'music by', 'studio', 
              'distributed by', 'rating', 'starring', 'ripped by', 'digitizing date', 
@@ -63,6 +92,9 @@ class MediaInfo:
                 print "Unknown key: %s" % item
         except:
             pass
+
+    def __getitem__(self,key):
+        return self.__dict__[key]
 
     def expand_keywords(self):
         resultset = []

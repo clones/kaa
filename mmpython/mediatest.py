@@ -8,6 +8,7 @@ import video.asfinfo
 import video.mpeginfo
 import video.movinfo
 import image.jpginfo
+import image.pnginfo
 
 
 import sys
