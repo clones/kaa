@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.9  2003/06/12 16:56:53  the_krow
+# Some Quicktime should work.
+#
 # Revision 1.8  2003/06/12 15:58:05  the_krow
 # QT parsing of i18n metadata
 #
@@ -89,22 +92,40 @@ class MovInfo(mediainfo.AVInfo):
                 (datasize,datatype) = struct.unpack('>I4s', atomdata[pos:pos+8])
                 if ord(datatype[0]) == 169:
                     # i18n Metadata... 
-                    mypos = 8
-                    while mypos < datasize:
+                    mypos = 8+pos
+                    while mypos < datasize+pos:
                         # first 4 Bytes are i18n header
                         (tlen,lang) = struct.unpack('>HH', atomdata[mypos:mypos+4])
                         #print "%d %d/%d %s" % (lang,tlen,datasize,atomdata[mypos+4:mypos+tlen+4])
-                        tabl['%d_%s'%(lang,datatype)] = atomdata[mypos+4:mypos+tlen+4]
+                        tabl['%d_%s'%(lang,datatype[1:])] = atomdata[mypos+4:mypos+tlen+4]
                         mypos += tlen+4
                 elif datatype == 'WLOC':
                     # Drop Window Location
                     pass
                 else:
                     tabl[datatype] = atomdata[pos+8:pos+datasize]
-                #print "%s: %s" % (datatype, tabl[datatype])
+#                print "%s: %s" % (datatype, tabl[datatype])
                 pos += datasize
             self.appendtable('QTUDTA', tabl)
+        elif atomtype == 'trak':
+            atomdata = file.read(atomsize-8)
+            pos = 0
+            while pos < atomsize-8:
+                (datasize,datatype) = struct.unpack('>I4s', atomdata[pos:pos+8])
+                #print "%s [%d]" % (datatype, datasize)
+                if datatype == 'tkhd':
+                    tkhd = struct.unpack('>6I8x4H36xII', atomdata[pos+8:pos+datasize])
+                    vi = mediainfo.VideoInfo()
+                    vi.width = tkhd[10] >> 16
+                    vi.height = tkhd[11] >> 16
+                    vi.id = tkhd[3]
+                    self.length = vi.length = tkhd[5]
+                    self.date = tkhd[1]
+                    self.video.append(vi)
+                    print tkhd
+                pos += datasize
         else:
+            # Skip unknown atoms
             atomdata = file.seek(atomsize-8,1)
         return 1 
         
