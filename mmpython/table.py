@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/06/23 09:22:54  the_krow
+# Typo and Indentation fixes.
+#
 # Revision 1.4  2003/06/23 09:20:29  the_krow
 # Added Language to table Attributes
 #
@@ -12,7 +15,7 @@
 #
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
-# Copyright (C) 2003 Thomas Schueppel
+# Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,13 +35,10 @@
 #endif
 
 class Table:
-	"""
-	Table of Metadata. 
-	"""
     def __init__(self, hashmap, name):
         self.dict = hashmap
         self.name = name
-    		self.language = 'en'
+        self.language = 'en'
         
     def __setitem__(self,key,value):
         self.dict[key] = value

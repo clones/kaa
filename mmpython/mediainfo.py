@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.41  2003/06/23 09:22:54  the_krow
+# Typo and Indentation fixes.
+#
 # Revision 1.40  2003/06/21 15:27:42  dischi
 # some debug and added url (e.g. filename) to the key list
 #
@@ -129,7 +132,7 @@
 #
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
-# Copyright (C) 2003 Thomas Schueppel
+# Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

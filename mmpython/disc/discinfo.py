@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.4  2003/06/23 09:22:54  the_krow
+# Typo and Indentation fixes.
+#
 # Revision 1.3  2003/06/10 22:11:36  dischi
 # some fixes
 #
@@ -50,7 +53,7 @@ try:
     from fcntl import ioctl
     import DiscID
 except:
-    print 'WARNING: failed to import ioctl, discinfo won\' work'
+    print 'WARNING: failed to import ioctl, discinfo won\'t work'
 
 
 def cdrom_disc_status(device):

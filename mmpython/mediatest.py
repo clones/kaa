@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.25  2003/06/23 09:22:54  the_krow
+# Typo and Indentation fixes.
+#
 # Revision 1.24  2003/06/21 14:53:00  dischi
 # autocache disc info
 #
@@ -13,7 +16,7 @@
 #
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
-# Copyright (C) 2003 Thomas Schueppel
+# Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
