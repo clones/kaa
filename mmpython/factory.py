@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/07/04 15:34:45  outlyer
+# Allow 'cdda' as well as 'cd' since we get that sometimes, and make sure
+# we import urllib.
+#
 # Revision 1.3  2003/07/02 09:32:16  the_krow
 # More Keys
 # import traceback was missing in factory
@@ -44,6 +48,7 @@ import stat
 import os
 import urlparse
 import traceback
+import urllib
 
 DEBUG = 1
 
@@ -115,7 +120,7 @@ class Factory:
             (scheme, location, path, query, fragment) = split
             return self.create_from_filename(location+path)
 
-        elif scheme == 'cd':
+        elif scheme == 'cd' or scheme == 'cdda':
             r = self.create_from_filename(split[4])
             if r:
                 r.url = url
