@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.22  2003/06/08 19:59:53  dischi
+# make the code smaller
+#
 # Revision 1.21  2003/06/08 19:55:54  dischi
 # added bins metadata support
 #
@@ -263,21 +266,15 @@ class ImageInfo(MediaInfo):
             self.keys.append(k)
 
     def add_bins_data(self, filename):
-	binsdesc = {}
-	binsexif = {}
-
 	if os.path.isfile(filename + '.xml'):
             try:
                 binsinfo = bins.get_bins_desc(filename)
-                binsdesc = binsinfo['desc']
-                binsexif = binsinfo['exif']
+                for key in IMAGECORE + MEDIACORE:
+                    for bins_type in ('desc', 'exif'):
+                        if not self[key] and binsinfo[bins_type].has_key(key):
+                            self[key] = binsinfo[bins_type][key]
             except:
                 pass
-        for k in IMAGECORE + MEDIACORE:
-            if not self[k] and binsdesc.has_key(k):
-                self[k] = binsdesc[k]
-            if not self[k] and binsexif.has_key(k):
-                self[k] = binsexif[k]
 
 
 class CollectionInfo(MediaInfo):
