@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.3  2004/04/18 17:55:26  dischi
+# update, including subtitle support
+#
 # Revision 1.2  2004/03/21 08:57:31  dischi
 # major bugfix
 #
@@ -47,8 +50,9 @@ from string import *
 _print = mediainfo._debug
 
 # Main IDs for the Matroska streams
-MATROSKA_VIDEO_TRACK = 1
-MATROSKA_AUDIO_TRACK = 2
+MATROSKA_VIDEO_TRACK     = 0x01
+MATROSKA_AUDIO_TRACK     = 0x02
+MATROSKA_SUBTITLES_TRACK = 0x11
 
 MATROSKA_HEADER_ID  = 0x1A45DFA3
 MATROSKA_TRACKS_ID  = 0x1654AE6B
@@ -74,6 +78,8 @@ MATROSKA_VID_HEIGHT_ID        = 0xBA
 MATROSKA_AUDIO_SETTINGS_ID    = 0xE1
 MATROSKA_AUDIO_SAMPLERATE_ID  = 0xB5
 MATROSKA_AUDIO_CHANNELS_ID    = 0x9F
+MATROSKA_TRACK_UID_ID         = 0x73C5
+MATROSKA_TRACK_NUMBER_ID      = 0xD7
 
 # This is class that is responsible to handle one Ebml entity as described in the Matroska/Ebml spec
 class EbmlEntity:
@@ -243,6 +249,7 @@ class MkvInfo(mediainfo.AVInfo):
         indice = 0
         while indice < tracks.get_len():
             trackelem = EbmlEntity(tracksbuf[indice:])
+            _print ("ELEMENT %X found" % trackelem.get_id())
             self.process_one_track(trackelem)
             indice += trackelem.get_total_len() + trackelem.get_crc_len()
 
@@ -261,7 +268,9 @@ class MkvInfo(mediainfo.AVInfo):
         tabelem = self.process_one_level(track)
         # We have the dict of track eleme, now build the MMPYTHON information
         type = tabelem[MATROSKA_TRACK_TYPE_ID]
-        if (type.get_value() == MATROSKA_VIDEO_TRACK ):
+        mytype = type.get_value()
+        _print ("Track type found with UID %d" % mytype)
+        if (mytype == MATROSKA_VIDEO_TRACK ):
             _print("VIDEO TRACK found !!" )
             #VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
             #     'width', 'height', 'fps', 'aspect']
@@ -284,7 +293,7 @@ class MkvInfo(mediainfo.AVInfo):
             except:
                 _print("No other info about video track !!!")
             self.video.append(vi)
-        elif (type.get_value() == MATROSKA_AUDIO_TRACK ):
+        elif (mytype == MATROSKA_AUDIO_TRACK ):
             _print("AUDIO TRACK found !!" )
             #AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits',
             #     'bitrate', 'language']
@@ -292,13 +301,15 @@ class MkvInfo(mediainfo.AVInfo):
             try:
                 elem = tabelem[MATROSKA_TRACK_LANGUAGE_ID]
                 ai.language = elem.get_data()
+                ai['language'] = elem.get_data()
             except:
-                ai.language = 'Unknown'
+                ai.language = 'en'
+                ai['language'] = 'en'
             try:
                 elem = tabelem[MATROSKA_CODEC_ID]
                 ai.codec = elem.get_data()
             except:
-                ai.codec = 'Unknown'
+                ai.codec = "Unknown"
             try:
                 ainfo = tabelem[MATROSKA_AUDIO_SETTINGS_ID]
                 audtab = self.process_one_level(vinfo)
@@ -307,6 +318,14 @@ class MkvInfo(mediainfo.AVInfo):
             except:
                 _print("No other info about audio track !!!")
             self.audio.append(ai)
+        elif (mytype == MATROSKA_SUBTITLES_TRACK):
+            try:
+                elem = tabelem[MATROSKA_TRACK_LANGUAGE_ID]
+                language = elem.get_data()
+                _print ("Subtitle language found : %s" % elem.get_data() )
+            except:
+                language = "en" # By default
+            self.subtitles.append(language)
 
         #_print("Found %d elem for this track" % len(tabelem) )
 
