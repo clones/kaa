@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.33  2003/09/03 20:58:09  dischi
+# make sure we can write the cachefiles
+#
 # Revision 1.32  2003/09/01 18:54:12  dischi
 # add callback for cache_dir
 #
@@ -291,9 +294,14 @@ class Cache:
                 if mmpython.mediainfo.DEBUG:
                     print key
                 objects[key] = self.current_objects[key]
-        f = open(cachefile, 'w')
-        pickle.dump((self.CACHE_VERSION, objects), f, 1)
-        f.close()
+        try:
+            if os.path.isfile(cachefile):
+                os.unlink(cachefile)
+            f = open(cachefile, 'w')
+            pickle.dump((self.CACHE_VERSION, objects), f, 1)
+            f.close()
+        except IOError:
+            print 'unable to save to cachefile %s' % cachefile
         self.current_objects = objects
         return objects
     
@@ -307,9 +315,14 @@ class Cache:
             return 0
 
         cachefile = '%s/disc/%s' % (self.cachedir, info.id)
-        f = open(cachefile, 'w')
-        pickle.dump((self.DISC_CACHE_VERSION, info), f, 1)
-        f.close()
+        try:
+            if os.path.isfile(cachefile):
+                os.unlink(cachefile)
+            f = open(cachefile, 'w')
+            pickle.dump((self.DISC_CACHE_VERSION, info), f, 1)
+            f.close()
+        except IOError:
+            print 'unable to save to cachefile %s' % cachefile
         return 1
 
     
