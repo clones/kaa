@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/06/24 14:37:17  dischi
+# small fix
+#
 # Revision 1.4  2003/06/24 13:52:06  the_krow
 # 302 Handling is done by urllib so no further code for this is
 # needed. Thanks to den_RDC for setting up a server to test it.
@@ -74,7 +77,7 @@ class WebRadioInfo(mediainfo.MusicInfo):
             # assume it is okay since so many servers are badly configured
             statuslist = ["ICY", "200"]
                     
-        elif statuslist[1] != "200":
+        if statuslist[1] != "200":
             self.valid = 0
             if fi:
                 fi.close()
