@@ -5,10 +5,9 @@ import audio.ogginfo
 import audio.pcminfo
 import audio.mp3info
 import video.riffinfo
-#import video.mpeginfo
+import video.mpeginfo
 import video.asfinfo
 import video.movinfo
-import video.dvdinfo
 import image.jpginfo
 import image.pnginfo
 import image.tiffinfo
@@ -22,8 +21,16 @@ medium = m.create_from_filename(sys.argv[1])
 if medium:
     print "medium is: %s" % medium.type
     for k in medium.keys:
-        val = medium.__dict__[k]
-        if val: print "  %s: %s" % (k,val)
+        val = medium[k]
+        if val != None: print "  %s: %s" % (k,val)
+    for v in medium.video:
+        for k in v.keys:
+            val = v[k]
+            if val != None: print "  Video: %s: %s" % (k,val)
+    for v in medium.audio:
+        for k in v.keys:
+            val = v[k]
+            if val != None: print "  Audio: %s: %s" % (k,val)
 else:
     print "No Match found"
 

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.10  2003/06/07 22:54:28  the_krow
+# AVInfo stuff added.
+#
 # Revision 1.9  2003/06/07 21:41:05  the_krow
 # Changed MediaInfo Objects to new structure. AV is used for av streams and
 # consists of a list of video and audio information.
@@ -164,7 +167,7 @@ class AVInfo(MediaInfo):
             self.keys.append(k)
         self.audio = []
         self.video = []
-        self.subtitles = []    
+        self.subtitles = []
 
 class ImageInfo(MediaInfo):
     def __init__(self):
@@ -184,8 +187,9 @@ class MetaDataFactory:
         for e in self.extmap.keys():
             print "trying %s" % e
             if filename and filename.find(e) >= 0:
+                file.seek(0,0)
                 t = self.extmap[e][3](file)
-                #if t.valid: return t
+                if t.valid: return t
 
         print "No Type found by Extension. Trying all"
         for e in self.types:

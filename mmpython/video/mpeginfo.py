@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.7  2003/06/07 22:54:29  the_krow
+# AVInfo stuff added.
+#
 # Revision 1.6  2003/06/07 22:30:21  the_krow
 # added new avinfo structure
 #
@@ -93,19 +96,18 @@ class MpegInfo(mediainfo.AVInfo):
             self.mime = 'video/mpeg'
             self.type = 'mpeg video'
             self.dxy(file)
-            print "%d x %d" % ( self.width, self.height )
-        else:
-            return
 
     def dxy(self,file):  
-        print self.offset
+        #print self.offset
         file.seek(self.offset+4,0)
         v = file.read(4)
-        self.width = struct.unpack('>H',v[:2])[0] >> 4
-        self.height = struct.unpack('>H',v[1:3])[0] & 0x0FFF
-
+        vi = mediainfo.VideoInfo()
+        vi.width = struct.unpack('>H',v[:2])[0] >> 4
+        vi.height = struct.unpack('>H',v[1:3])[0] & 0x0FFF
+        self.video.append(vi)
+        
     def isVideo(self,file):
-        buffer = file.read(4000)
+        buffer = file.read(10000)
         self.offset = 0
         while ( self.offset <= len(buffer) - 4 ):
             a = ord(buffer[self.offset])
@@ -123,8 +125,7 @@ class MpegInfo(mediainfo.AVInfo):
             if ( d == SEQ_START_CODE ):
 	        return 1
 	    elif ( self.context == 'video' ) and ( d == SYS_PKT ):
-	        print "videocontext"
-	        return 0
+	        return 1
             self.offset += 1
         return 0
 
