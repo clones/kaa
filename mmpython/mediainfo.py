@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.40  2003/06/21 15:27:42  dischi
+# some debug and added url (e.g. filename) to the key list
+#
 # Revision 1.39  2003/06/20 19:17:21  dischi
 # remove filename again and use file.name
 #
@@ -202,7 +205,7 @@ def get_singleton():
 
 
 MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype',
-             'date', 'keywords', 'country', 'language']
+             'date', 'keywords', 'country', 'language', 'url']
 AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits',
              'bitrate', 'language']
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
@@ -434,8 +437,9 @@ class MetaDataFactory:
     def create_from_file(self,file):
         # Check extension as a hint
         for e in self.extmap.keys():
-            if DEBUG: print "trying %s" % e
-            if file.name.find(e) >= 0:
+            if DEBUG > 1: print "trying ext %s" % e
+            if file.name.find(e) + len(e) == len(file.name):
+                if DEBUG == 1: print "trying ext %s" % e
                 file.seek(0,0)
                 t = self.extmap[e][3](file)
                 if t.valid: return t
@@ -446,10 +450,13 @@ class MetaDataFactory:
             try:
                 file.seek(0,0)
                 t = e[3](file)
-                if t.valid: return t
+                if t.valid:
+                    if DEBUG: print 'found'
+                    return t
             except:
                 if DEBUG:
                     traceback.print_exc()
+        if DEBUG: print 'not found'
         return None
 
     def create_from_url(self,url):
@@ -459,7 +466,10 @@ class MetaDataFactory:
         if isurl(filename):
             type, data = url_splitter(filename)
             if type == 'cd':
+                url = filename
                 filename = data[3]
+        else:
+            url = 'file://%s' % os.path.abspath(filename)
 
         if stat.S_ISBLK(os.stat(filename)[stat.ST_MODE]):
             r = self.create_from_device(filename)
@@ -469,6 +479,8 @@ class MetaDataFactory:
             f.close()
         else:
             r = None
+        if r:
+            r.url = url
         return r
 
     def create_from_device(self,devicename):
