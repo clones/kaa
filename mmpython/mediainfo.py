@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.21  2003/06/08 19:55:54  dischi
+# added bins metadata support
+#
 # Revision 1.20  2003/06/08 16:49:48  dischi
 # Added a list for unprintable keys we don't want to see when converting
 # to string (right now only thumbnail, it's very ugly). Also added
@@ -93,6 +96,8 @@ import os
 import stat
 import table
 
+from image import bins
+
 import re
 from fcntl import ioctl
 
@@ -138,7 +143,8 @@ AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits
              'bitrate', 'language']
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
              'width', 'height',]
-IMAGECORE = ['width','height','thumbnail','software','hardware']
+IMAGECORE = ['description', 'people', 'location', 'event',
+             'width','height','thumbnail','software','hardware']
 MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
 AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
              'genre', 'secondary genre', 'subject', 'writer', 'producer', 
@@ -255,7 +261,24 @@ class ImageInfo(MediaInfo):
         for k in IMAGECORE:
             setattr(self,k,None)
             self.keys.append(k)
-        
+
+    def add_bins_data(self, filename):
+	binsdesc = {}
+	binsexif = {}
+
+	if os.path.isfile(filename + '.xml'):
+            try:
+                binsinfo = bins.get_bins_desc(filename)
+                binsdesc = binsinfo['desc']
+                binsexif = binsinfo['exif']
+            except:
+                pass
+        for k in IMAGECORE + MEDIACORE:
+            if not self[k] and binsdesc.has_key(k):
+                self[k] = binsdesc[k]
+            if not self[k] and binsexif.has_key(k):
+                self[k] = binsexif[k]
+
 
 class CollectionInfo(MediaInfo):
     def __init__(self):
@@ -326,19 +349,19 @@ class MetaDataFactory:
         self.types = []
         self.device_types = []
         
-    def create_from_file(self,file,filename=None):
+    def create_from_file(self,file,filename):
         # Check extension as a hint
         for e in self.extmap.keys():
             if DEBUG: print "trying %s" % e
             if filename and filename.find(e) >= 0:
                 file.seek(0,0)
-                t = self.extmap[e][3](file)
+                t = self.extmap[e][3](file, filename)
                 if t.valid: return t
 
         if DEBUG: print "No Type found by Extension. Trying all"
         for e in self.types:
             if DEBUG: print "Trying %s" % e[0]
-            t = e[3](file)
+            t = e[3](file, filename)
             if t.valid: return t
         return None
 

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.13  2003/06/08 19:55:22  dischi
+# added bins metadata support
+#
 # Revision 1.12  2003/06/08 16:48:08  dischi
 # Changed self.exif to exif_info and the same for ipc. We should extract
 # everything we need to self.xxx and don't remember where the info came
@@ -86,7 +89,7 @@ SOF = { 0xC0 : "Baseline",
 
 class JPGInfo(mediainfo.ImageInfo):
 
-    def __init__(self,file):
+    def __init__(self,file,filename):
         mediainfo.ImageInfo.__init__(self)
         iptc_info = None        
         self.mime = 'image/jpeg'
@@ -137,6 +140,8 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'artist', iptc_info, 592 )
             self.setitem( 'country', iptc_info, 612 ) 
             self.setitem( 'caption', iptc_info, 632 )
+
+        self.add_bins_data(filename)
         return
        
 

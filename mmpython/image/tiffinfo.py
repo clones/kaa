@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/06/08 19:55:22  dischi
+# added bins metadata support
+#
 # Revision 1.6  2003/06/08 13:44:58  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -55,7 +58,7 @@ INTELSIGNATURE = 'II\x2a\x00'
 
 class TIFFInfo(mediainfo.ImageInfo):
 
-    def __init__(self,file):
+    def __init__(self,file,filename):
         mediainfo.ImageInfo.__init__(self)
         self.iptc = None        
         self.mime = 'image/tiff'
@@ -128,6 +131,8 @@ class TIFFInfo(mediainfo.ImageInfo):
             self.setitem( 'country', self.iptc, 612 ) 
             self.setitem( 'caption', self.iptc, 632 )
 
+        self.add_bins_data(filename)
+        return
             
 
 factory = mediainfo.get_singleton()

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/06/08 19:55:22  dischi
+# added bins metadata support
+#
 # Revision 1.4  2003/06/08 13:44:58  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -52,7 +55,7 @@ PNGSIGNATURE = "\211PNG\r\n\032\n"
 
 class PNGInfo(mediainfo.ImageInfo):
 
-    def __init__(self,file):
+    def __init__(self,file,filename):
         mediainfo.ImageInfo.__init__(self)
         self.iptc = None        
         self.mime = 'image/png'
@@ -101,6 +104,8 @@ class PNGInfo(mediainfo.ImageInfo):
         else:
           file.seek(length+4,1)
           print "%s of length %d ignored." % (type, length)
+
+        self.add_bins_data(filename)
         return
 
 factory = mediainfo.get_singleton()
