@@ -9,9 +9,9 @@ import video.mpeginfo
 import video.asfinfo
 import video.movinfo
 import video.dvdinfo
-# import image.jpginfo
-# import image.pnginfo
-# import image.tiffinfo
+import image.jpginfo
+import image.pnginfo
+import image.tiffinfo
 
 import sys
 
