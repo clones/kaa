@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.16  2004/05/20 19:54:52  dischi
+# more ogm fixes
+#
 # Revision 1.15  2004/05/20 08:49:29  dischi
 # more ogm fixes, better length calc (again)
 #
@@ -115,57 +118,40 @@ class OgmInfo(mediainfo.AVInfo):
         self.samplerate  = 1
         self.all_streams = []           # used to add meta data to streams
         self.all_header  = []
-        lastgran = 0
 
         for i in range(MAXITERATIONS):
-            granule = self._parseOGGS(file)
+            granule, nextlen = self._parseOGGS(file)
             if granule == None:
                 break
-#             elif granule > 0:
-#                 # ok, file started
-#                 break
+            elif granule > 0:
+                # ok, file started
+                break
 
         # seek to the end of the stream, to avoid scanning the whole file
-        if (os.stat(file.name)[stat.ST_SIZE] > 20000):
-            file.seek(os.stat(file.name)[stat.ST_SIZE]-10000)
+        if (os.stat(file.name)[stat.ST_SIZE] > 50000):
+            file.seek(os.stat(file.name)[stat.ST_SIZE]-49000)
 
         # read the rest of the file into a buffer
         h = file.read()
 
         # find last OggS to get length info
-        if len(h):
-            idx = h.rfind('OggS')
-            if idx > 0:
-                file.seek(os.stat(file.name)[stat.ST_SIZE]-10000 + idx)
-                granule = self._parseOGGS(file)
-                if granule > 0:
-                    lastgran = granule
+        if len(h) > 200:
+            idx = h.find('OggS')
+            pos = -49000 + idx
+            if idx:
+                file.seek(os.stat(file.name)[stat.ST_SIZE] + pos)
+            while 1:
+                granule, nextlen = self._parseOGGS(file)
+                if not nextlen:
+                    break
 
-        if not self.length and len(self.audio) == 1 and len(self.video) == 0:            
-            samplerate = self.audio[0].samplerate
-            #self.audio[0].length = self.length = lastgran / samplerate
-
-            # XXX Hack to make the length of audio only files work at least
-            fsize = (os.stat(file.name)[stat.ST_SIZE] * 8)
-            self.audio[0].length = self.length = fsize / self.audio[0].bitrate
-
-        elif not self.length and len(self.video) == 1:
-            # Validate if this is the real length
-            samplerate = self.video[0].fps
-            # self.video[0].length = self.length = lastgran / samplerate
-
-            # XXX Hack because we don't parse the whole file
-            self.video[0].length = self.length = 0
-
-        # length inside the streams is wrong (most of the time):
-        for s in self.video:
-            s.length = self.length
-        for s in self.audio:
-            s.length = 0
-            
         # Copy metadata to the streams
         if len(self.all_header) == len(self.all_streams):
             for i in range(len(self.all_header)):
+                # set length
+                self.length = max(self.all_streams[i].length, self.length)
+
+                # get meta info
                 for key in self.all_streams[i].keys:
                     if self.all_header[i].has_key(key):
                         self.all_streams[i][key] = self.all_header[i][key]
@@ -173,6 +159,11 @@ class OgmInfo(mediainfo.AVInfo):
                     if self.all_header[i].has_key(key.upper()):
                         self.all_streams[i][key] = self.all_header[i][key.upper()]
                         del self.all_header[i][key.upper()]
+
+                # Extract subtitles:
+                if hasattr(self.all_streams[i], 'type') and \
+                   self.all_streams[i].type == 'subtitle':
+                    self.subtitles.append(self.all_streams[i].language)
 
                 # Chapter parser
                 if self.all_header[i].has_key('CHAPTER01') and not self.chapters:
@@ -197,6 +188,11 @@ class OgmInfo(mediainfo.AVInfo):
                             self.chapters.append(c)
                         else:
                             break
+
+        for stream in self.all_streams:
+            if not stream.length:
+                stream.length = self.length
+                
         # Copy Metadata from tables into the main set of attributes        
         for header in self.all_header:
             self.appendtable('VORBISCOMMENT', header)
@@ -212,19 +208,20 @@ class OgmInfo(mediainfo.AVInfo):
         h = file.read(27)
         if len(h) == 0:
             # Regular File end
-            return None        
+            return None, None
         elif len(h) < 27:
             _print("%d Bytes of Garbage found after End." % len(h))
-            return None
+            return None, None
         if h[:4] != "OggS":        
             self.valid = 0
             _print("Invalid Ogg")
-            return None
+            return None, None
+
         self.valid = 1
         version = ord(h[4])
         if version != 0:
             _print("Unsupported OGG/OGM Version %d." % version)
-            return None
+            return None, None
         head = struct.unpack('<BQIIIB', h[5:])
         headertype, granulepos, serial, pageseqno, checksum, pageSegCount = head
 
@@ -247,13 +244,15 @@ class OgmInfo(mediainfo.AVInfo):
             else:
                 file.seek(nextlen-1,1)
         if len(self.all_streams) > serial:
-            if hasattr(self.all_streams[serial], 'samplerate') and \
-                   self.all_streams[serial].samplerate:
-                self.length = granulepos / self.all_streams[serial].samplerate
-            elif hasattr(self.all_streams[serial], 'bitrate') and \
-                     self.all_streams[serial].bitrate:
-                self.length = granulepos / self.all_streams[serial].bitrate
-        return granulepos
+            stream = self.all_streams[serial]
+            if hasattr(stream, 'samplerate') and \
+                   stream.samplerate:
+                stream.length = granulepos / stream.samplerate
+            elif hasattr(stream, 'bitrate') and \
+                     stream.bitrate:
+                stream.length = granulepos / stream.bitrate
+
+        return granulepos, nextlen + 27 + pageSegCount
 
         
     def _parseMeta(self,h):
@@ -314,6 +313,7 @@ class OgmInfo(mediainfo.AVInfo):
             #print "New Directshow Format"
             # New Directshow Format
             htype = header[1:9]
+
             if htype[:5] == 'video':
                 streamheader = struct.unpack( STREAM_HEADER_VIDEO, header[9:struct.calcsize(STREAM_HEADER_VIDEO)+9] )
                 vi = mediainfo.VideoInfo()
@@ -339,6 +339,14 @@ class OgmInfo(mediainfo.AVInfo):
                 _print("Samplerate %d" % self.samplerate)
                 self.audio.append(ai)
                 self.all_streams.append(ai)
+
+            elif htype[:4] == 'text':
+                subtitle = mediainfo.MediaInfo()
+                subtitle.keys.append('language')
+                subtitle.type   = 'subtitle'
+                subtitle.length = 0
+                self.all_streams.append(subtitle)
+                
         else:
             _print("Unknown Header")
               
