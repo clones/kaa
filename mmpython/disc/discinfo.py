@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.11  2003/08/26 21:21:18  outlyer
+# Fix two more Python 2.3 warnings.
+#
 # Revision 1.10  2003/08/26 18:01:26  outlyer
 # Patch from Lars Eggert for FreeBSD support
 #
@@ -93,7 +96,7 @@ def cdrom_disc_status(device):
     CDS_MIXED=105
 
     # FreeBSD ioctls - there is no CDROM.py
-    CDIOREADTOCENTRYS = 0xc0086305
+    CDIOREADTOCENTRYS = 0xc0086305L
     CD_MSF_FORMAT = 2
         
     try:

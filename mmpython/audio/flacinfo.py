@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2003/08/26 21:21:18  outlyer
+# Fix two more Python 2.3 warnings.
+#
 # Revision 1.1  2003/08/18 13:39:52  the_krow
 # Initial Import. Started on frame parsing.
 #
@@ -62,7 +65,7 @@ class FlacInfo(mediainfo.MusicInfo):
                 # UNKNOWN TYPE
                 pass
             numbytes = blockheader & 0xFFFFFF
-            if blockheader & 0x80000000 == 0x80000000:
+            if blockheader & 0x80000000L == 0x80000000L:
                 break
                 
                 
