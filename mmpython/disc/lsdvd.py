@@ -1,10 +1,15 @@
-#if 0 /*
 # -----------------------------------------------------------------------
 # lsdvdinfo.py - parse dvd title structure
 # -----------------------------------------------------------------------
 # $Id$
 #
 # Use lsdvd to get dvd informations.
+#
+# -----------------------------------------------------------------------
+# $Log$
+# Revision 1.12  2004/08/27 17:27:44  dischi
+# do not import ifoparser
+#
 #
 # -----------------------------------------------------------------------
 # Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
@@ -24,11 +29,9 @@
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # ----------------------------------------------------------------------- */
-#endif
 
 
 import os
-import ifoparser
 from mmpython import mediainfo
 import mmpython
 from discinfo import DiscInfo
@@ -53,7 +56,8 @@ class DVDAudio(mediainfo.AudioInfo):
                 self.samplerate = int(data[9])
             except ValueError, e:
                 if data[9].lower().find('khz') > 0:
-                    self.samplerate = int(data[9][:data[9].lower().find('khz')]) * 1000
+                    pos = data[9].lower().find('khz')
+                    self.samplerate = int(data[9][:pos]) * 1000
                 else:
                     raise e
             self.channels = data[13]
@@ -65,7 +69,7 @@ class DVDAudio(mediainfo.AudioInfo):
                 self.samplerate = int(freq)
             except ValueError:
                 if freq.lower().find('khz') > 0:
-                    self.samplerate = int(freq[:freq.lower().find('khz')]) * 1000
+                    self.samplerate = int(freq[:freq.lower().find('khz')])*1000
             self.channels = int(data[data.index('Channels:') + 1])
 
 
@@ -134,7 +138,8 @@ class DVDInfo(DiscInfo):
         use lsdvd to get informations about this disc
         """
         import popen2
-        child = popen2.Popen3('%s -v -n -a -s "%s"' % (LSDVD_EXE, path), 1, 100)
+        child = popen2.Popen3('%s -v -n -a -s "%s"' % \
+                              (LSDVD_EXE, path), 1, 100)
         for line in child.fromchild.readlines():
             data = line.replace(',', '').replace('\t', '').\
                    replace('\n', '').lstrip(' ').split(' ')
@@ -169,7 +174,6 @@ class DVDInfo(DiscInfo):
     def isDVDdir(self, dirname):
         if not os.path.isdir(dirname+'/VIDEO_TS'):
             return 0
-
         return self.lsdvd(dirname)
 
     
@@ -190,7 +194,8 @@ class DVDInfo(DiscInfo):
         buffer += f.read(550000)
         f.close()
 
-        if buffer.find('VIDEO_TS') == -1 and buffer.find('VIDEO_TS.IFO') == -1 and \
+        if buffer.find('VIDEO_TS') == -1 and \
+               buffer.find('VIDEO_TS.IFO') == -1 and \
                buffer.find('OSTA UDF Compliant') == -1:
             return 0
 
@@ -214,6 +219,7 @@ else:
             print 'ImportError: lsdvd not found'
         raise ImportError
 
-mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AV, DVDInfo )
+mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE,
+                       mediainfo.TYPE_AV, DVDInfo )
 mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DIRECTORY,
                        mediainfo.TYPE_AV, DVDInfo )
