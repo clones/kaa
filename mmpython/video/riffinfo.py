@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.16  2003/06/20 15:29:42  the_krow
+# Metadata Mapping
+#
 # Revision 1.15  2003/06/20 14:43:57  the_krow
 # Putting Metadata into MediaInfo from AVIInfo Table
 #
@@ -64,6 +67,23 @@ from mmpython import mediainfo
 
 _print = mediainfo._debug
 
+AVIINFO_tags = { 'title': 'INAM',
+                 'artist': 'IART',
+                 'product': 'IPRD',
+                 'date': 'ICRD',
+                 'comment': 'ICMT',
+                 'language': 'ILNG',
+                 'keywords': 'IKEY',
+                 'trackno': 'IPRT',
+                 'trackof': 'IFRM',
+                 'producer': 'IPRO',
+                 'writer': 'IWRI',
+                 'genre': 'IGNR',
+                 'copyright': 'ICOP',
+               }
+
+
+
 class RiffInfo(mediainfo.AVInfo):
     def __init__(self,file,filename):
         mediainfo.AVInfo.__init__(self)
@@ -79,6 +99,7 @@ class RiffInfo(mediainfo.AVInfo):
         self.junkStart = None
         self.infoStart = None
         self.type = h[8:12]
+        self.tag_map = { 'AVIINFO' : AVIINFO_tags }
         if self.type == 'AVI ':
             self.mime = 'video/avi'
         elif self.type == 'WAVE':
@@ -89,28 +110,11 @@ class RiffInfo(mediainfo.AVInfo):
         except IOError:
             if mediainfo.DEBUG: print 'error in file, stop parsing'
             pass
-        
-        info = None
-        # Check if this has an AVIINFO table:        
-        if self.tables.has_key('AVIINFO'):
-            info = self.tables['AVIINFO']
-        elif self.tables.has_key('AVIMID'):
-            info = self.tables['AVIMID']
-        # Push the result into funky attributes of self
-        self.setitem('title', info,'INAM')
-        self.setitem('artist', info,'IART')
-        self.setitem('product', info,'IPRD')
-        self.setitem('date', info,'ICRD')
-        self.setitem('comment', info,'ICMT')
-        self.setitem('language', info,'ILNG')
-        self.setitem('keywords', info,'IKEY')
-        self.setitem('trackno', info,'IPRT')
-        self.setitem('trackof', info,'IFRM')
-        self.setitem('producer', info,'IPRO')
-        self.setitem('writer', info,'IWRI')
-        self.setitem('genre', info,'IGNR')
-        # TODO ... add all this: 
-        #    http://kibus1.narod.ru/frames_eng.htm?sof/abcavi/infotags.htm
+
+        # Copy Metadata from tables into the main set of attributes        
+        for k in self.tag_map.keys():
+            if self.tables.has_key(k):
+                map(lambda x:self.setitem(x,self.tables[k],self.tag_map[k][x]), self.tag_map[k].keys())        
         
         
     def _extractHeaderString(self,h,offset,len):
