@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.19  2004/01/24 18:40:44  dischi
+# add md5 as possible way to generate the id
+#
 # Revision 1.18  2003/11/07 09:43:40  dischi
 # make interface compatible to old one
 #
@@ -95,8 +98,10 @@ import os
 import re
 import time
 import array
+import md5
 from struct import *
 
+CREATE_MD5_ID = 0
 
 try:
     from fcntl import ioctl
@@ -182,7 +187,7 @@ def cdrom_disc_status(device, handle_mix = 0):
         return 1
     
     fd = open(device, 'rb')
-    try :
+    try:
     	fd.seek(0x0000832d)
     except IOError:
 	return 3
@@ -230,12 +235,19 @@ def cdrom_disc_id(device, handle_mix=0):
             id = id[813:829]
         else:
             label = f.read(32)
+
+        if CREATE_MD5_ID:
+            id_md5 = md5.new()
+            id_md5.update(f.read(51200))
+            id = id_md5.hexdigest()
+
         f.close()
             
         m = re.match("^(.*[^ ]) *$", label)
         if m:
             id = '%s%s' % (id, m.group(1))
         id = re.compile('[^a-zA-Z0-9()_-]').sub('_', id)
+            
         
     id_cache[device] = time.time(), disc_type, id
     id = id.replace('/','_')
@@ -252,10 +264,16 @@ class DiscInfo(mediainfo.CollectionInfo):
                 type = 1 
             return type
         
-        if len(self.id) == 16:
-            self.label = ''
+        if CREATE_MD5_ID:
+            if len(self.id) == 32:
+                self.label = ''
+            else:
+                self.label = self.id[32:]
         else:
-            self.label = self.id[16:]
+            if len(self.id) == 16:
+                self.label = ''
+            else:
+                self.label = self.id[16:]
 
         self.keys.append('label')
         return type
