@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.25  2003/06/09 12:28:10  dischi
+# build better id for disc-caching
+#
 # Revision 1.24  2003/06/09 11:46:16  the_krow
 # DVDInfo changes
 # Output changes
@@ -106,6 +109,7 @@ import types
 import os
 import stat
 import table
+import traceback
 
 from image import bins
 
@@ -342,10 +346,11 @@ class DiscInfo(CollectionInfo):
         m = re.match("^(.*[^ ]) *$", self.label)
         if m:
             self.label = m.group(1)
+            self.id    = '%s_%s' % (self.id, self.label)
         else:
             self.label = ''
+            self.id    = '%s_NO_LABEL' % self.id
 
-        self.keys.append('id')
         self.keys.append('label')
         return 2
 
@@ -368,14 +373,19 @@ class MetaDataFactory:
         if DEBUG: print "No Type found by Extension. Trying all"
         for e in self.types:
             if DEBUG: print "Trying %s" % e[0]
-            t = e[3](file, filename)
-            if t.valid: return t
+            try:
+                t = e[3](file, filename)
+                if t.valid: return t
+            except:
+                if DEBUG:
+                    traceback.print_exc()
         return None
 
     def create_from_url(self,url):
         pass
         
     def create_from_filename(self,filename):
+        print filename
         if stat.S_ISBLK(os.stat(filename)[stat.ST_MODE]):
             r = self.create_from_device(filename)
         elif os.path.isfile(filename):
