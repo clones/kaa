@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.20  2004/03/07 10:27:58  dischi
+# Oops
+#
 # Revision 1.19  2004/03/02 20:48:21  dischi
 # fix gettable
 #
@@ -122,7 +125,7 @@ class MovInfo(mediainfo.AVInfo):
             self.setitem('title', info, 'nam')
             self.setitem('artist', info, 'aut')
             self.setitem('copyright', info, 'cpy')
-        except OSError:
+        except:
             pass
             
                 
