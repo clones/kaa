@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.51  2003/07/07 21:35:47  dischi
+# added aspect to VIDEOCORE
+#
 # Revision 1.50  2003/07/02 11:17:29  the_krow
 # language is now part of the table key
 #
@@ -212,7 +215,7 @@ MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype',
 AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits',
              'bitrate', 'language']
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
-             'width', 'height', 'fps']
+             'width', 'height', 'fps', 'aspect']
 IMAGECORE = ['description', 'people', 'location', 'event',
              'width','height','thumbnail','software','hardware']
 MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
