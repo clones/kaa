@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.19  2003/07/10 11:17:35  the_krow
+# ogminfo is used to parse ogg files
+#
 # Revision 1.18  2003/07/01 21:07:42  dischi
 # switch back to eyed3info
 #
@@ -64,7 +67,7 @@ def registertype(mimetype,extensions,type,c):
 import sys
 import os
 import mediainfo
-import audio.ogginfo
+#import audio.ogginfo
 import audio.pcminfo
 import video.riffinfo
 import video.mpeginfo
