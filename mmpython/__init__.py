@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.31  2004/04/17 18:38:54  dischi
+# add lsdvd parser to avoid problems with our own
+#
 # Revision 1.30  2004/01/31 12:24:39  dischi
 # add basic matroska info
 #
@@ -115,6 +118,7 @@ import video.mkvinfo
 
 try:
     import disc.discinfo
+    import disc.lsdvd
     import disc.vcdinfo
     import disc.audioinfo
     import disc.dvdinfo
