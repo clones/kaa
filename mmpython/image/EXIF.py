@@ -769,15 +769,25 @@ class EXIF_header:
             else:
                 values=[]
                 signed=(field_type in [6, 8, 9, 10])
-                for j in range(count):
-                    if field_type in (5, 10):
-                        # a ratio
-                        value_j=Ratio(self.s2n(offset,   4, signed),
-                                      self.s2n(offset+4, 4, signed))
-                    else:
-                        value_j=self.s2n(offset, typelen, signed)
-                    values.append(value_j)
-                    offset=offset+typelen
+                if count > 10000:
+                    # XXX change in mmpython. Ignore fields that are too long
+                    # XXX This is some special camera data we don't need
+                    # XXX anyway. This is a major speed enhancement for some
+                    # XXX images!
+                    if self.debug:
+                        print 'strip this field, too long'
+                    for j in range(count):
+                        offset=offset+(count * typelen)
+                else:
+                    for j in range(count):
+                        if field_type in (5, 10):
+                            # a ratio
+                            value_j=Ratio(self.s2n(offset,   4, signed),
+                                          self.s2n(offset+4, 4, signed))
+                        else:
+                            value_j=self.s2n(offset, typelen, signed)
+                        values.append(value_j)
+                        offset=offset+typelen
             # now "values" is either a string or an array
             if count == 1 and field_type != 2:
                 printable=str(values[0])
