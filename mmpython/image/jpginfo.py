@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.16  2003/06/10 13:02:32  the_krow
+# Softened JPEG parser a little so it accepts jpegs that do not end in FFD9.
+#
 # Revision 1.15  2003/06/09 14:31:57  the_krow
 # fixes on the mpeg parser
 # resolutions, fps and bitrate should be reported correctly now
@@ -109,8 +112,9 @@ class JPGInfo(mediainfo.ImageInfo):
             return
         file.seek(-2,2)
         if file.read(2) != '\xff\xd9':
-            self.valid = 0
-            return
+            # Normally an JPEG should end in ffd9. This does not however
+            # we assume it's an jpeg for now
+            mediainfo._debug("Wrong encode found for jpeg")
         file.seek(2)
         app = file.read(4)
         while (len(app) == 4):
