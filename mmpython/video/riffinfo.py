@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.15  2003/06/20 14:43:57  the_krow
+# Putting Metadata into MediaInfo from AVIInfo Table
+#
 # Revision 1.14  2003/06/09 16:10:52  dischi
 # error handling
 #
@@ -71,7 +74,7 @@ class RiffInfo(mediainfo.AVInfo):
             return
         self.valid = 1
         self.mime = 'application/x-wave'
-        self.info = {}
+        
         self.header = {}
         self.junkStart = None
         self.infoStart = None
@@ -87,19 +90,25 @@ class RiffInfo(mediainfo.AVInfo):
             if mediainfo.DEBUG: print 'error in file, stop parsing'
             pass
         
+        info = None
+        # Check if this has an AVIINFO table:        
+        if self.tables.has_key('AVIINFO'):
+            info = self.tables['AVIINFO']
+        elif self.tables.has_key('AVIMID'):
+            info = self.tables['AVIMID']
         # Push the result into funky attributes of self
-        self.setitem('title',self.info,'INAM')
-        self.setitem('artist',self.info,'IART')
-        self.setitem('product',self.info,'IPRD')
-        self.setitem('date',self.info,'ICRD')
-        self.setitem('comment',self.info,'ICMT')
-        self.setitem('language',self.info,'ILNG')
-        self.setitem('keywords',self.info,'IKEY')
-        self.setitem('trackno',self.info,'IPRT')
-        self.setitem('trackof',self.info,'IFRM')
-        self.setitem('producer',self.info,'IPRO')
-        self.setitem('writer',self.info,'IWRI')
-        self.setitem('genre',self.info,'IGNR')
+        self.setitem('title', info,'INAM')
+        self.setitem('artist', info,'IART')
+        self.setitem('product', info,'IPRD')
+        self.setitem('date', info,'ICRD')
+        self.setitem('comment', info,'ICMT')
+        self.setitem('language', info,'ILNG')
+        self.setitem('keywords', info,'IKEY')
+        self.setitem('trackno', info,'IPRT')
+        self.setitem('trackof', info,'IFRM')
+        self.setitem('producer', info,'IPRO')
+        self.setitem('writer', info,'IWRI')
+        self.setitem('genre', info,'IGNR')
         # TODO ... add all this: 
         #    http://kibus1.narod.ru/frames_eng.htm?sof/abcavi/infotags.htm
         

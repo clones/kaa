@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.37  2003/06/20 14:43:57  the_krow
+# Putting Metadata into MediaInfo from AVIInfo Table
+#
 # Revision 1.36  2003/06/20 14:17:26  dischi
 # fix indent
 #
@@ -366,15 +369,16 @@ class ImageInfo(MediaInfo):
             self.keys.append(k)
 
     def add_bins_data(self, filename):
-      if os.path.isfile(filename + '.xml'):
-        try:
-            binsinfo = bins.get_bins_desc(filename)
-            for key in IMAGECORE + MEDIACORE:
-                for bins_type in ('desc', 'exif'):
-                    if not self[key] and binsinfo[bins_type].has_key(key):
-                        self[key] = binsinfo[bins_type][key]
-        except:
-            pass
+        if os.path.isfile(filename + '.xml'):
+            try:
+                binsinfo = bins.get_bins_desc(filename)
+                for key in IMAGECORE + MEDIACORE:
+                    for bins_type in ('desc', 'exif'):
+                        if not self[key] and binsinfo[bins_type].has_key(key):
+                            self[key] = binsinfo[bins_type][key]
+            except:
+                pass
+
 
 
 class CollectionInfo(MediaInfo):
