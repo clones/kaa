@@ -4,6 +4,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.24  2003/09/22 16:24:58  the_krow
+# o added flac
+# o try-except block around ioctl since it is not avaiable in all OS
+#
 # Revision 1.23  2003/09/14 13:50:42  dischi
 # make it possible to scan extention based only
 #
@@ -103,6 +107,7 @@ except ImportError:
 import audio.eyed3info
 #import audio.mp3info
 import audio.webradioinfo
+import audio.flacinfo
 
 
 

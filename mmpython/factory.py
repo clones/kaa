@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.13  2003/09/22 16:24:58  the_krow
+# o added flac
+# o try-except block around ioctl since it is not avaiable in all OS
+#
 # Revision 1.12  2003/09/14 13:50:42  dischi
 # make it possible to scan extention based only
 #
@@ -223,9 +227,12 @@ class Factory:
             return self.create_from_url(name)
         if not os.path.exists(name):
             return None
-        if (os.uname()[0] == 'FreeBSD' and stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) \
-               or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
-            return self.create_from_device(name)
+        try:
+            if (os.uname()[0] == 'FreeBSD' and stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) \
+                   or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
+                return self.create_from_device(name)
+        except AttributeError:
+            pass            
         return self.create_from_filename(name, ext_only)
 
         
