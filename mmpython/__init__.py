@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.30  2004/01/31 12:24:39  dischi
+# add basic matroska info
+#
 # Revision 1.29  2004/01/27 20:27:52  dischi
 # remove cache, it does not belong in mmpython
 #
@@ -108,6 +111,7 @@ import image.tiffinfo
 import video.vcdinfo
 import video.realinfo
 import video.ogminfo
+import video.mkvinfo
 
 try:
     import disc.discinfo
