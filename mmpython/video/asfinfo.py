@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.8  2003/06/11 19:07:57  the_krow
+# asf,wmv,wma now get the guids right...
+#
 # Revision 1.7  2003/06/11 16:11:08  the_krow
 # asf parsing... asf is really an ugly format.
 #
@@ -56,11 +59,12 @@ def _guid(input):
     x = ''
     for i in range(0,16):
         r+=chr(int(s[2*i:2*i+2],16))
-    return r
+    guid = struct.unpack('<IHHBB6s',r)
+    return guid
 
 GUIDS = {        
 'ASF_Header_Object' : _guid('75B22630-668E-11CF-A6D9-00AA0062CE6C'),
-'ASF_Header_Object2' : _guid('3026B275-8E66-CF11-A6D9-00AA0062CE6C'),
+#'ASF_Header_Object2' : _guid('3026B275-8E66-CF11-A6D9-00AA0062CE6C'),
 'ASF_Data_Object' : _guid('75B22636-668E-11CF-A6D9-00AA0062CE6C'),
 'ASF_Simple_Index_Object' : _guid('33000890-E5B1-11CF-89F4-00A0C90349CB'),
 'ASF_Index_Object' : _guid('D6E229D3-35DA-11D1-9034-00A0C90349BE'),
@@ -122,9 +126,10 @@ class AsfInfo(mediainfo.VideoInfo):
         h = file.read(30)
         if len(h) < 30:
             return
-        self.valid = 1
-        (guid,objsize,objnum,reserved1,reserved2) = struct.unpack('<16sQIBB',h)
-        if (guid != GUIDS['ASF_Header_Object']) and (guid != GUIDS['ASF_Header_Object2']):
+        self.valid = 1        
+        (guidstr,objsize,objnum,reserved1,reserved2) = struct.unpack('<16sQIBB',h)                
+        guid = struct.unpack('>IHHBB6s', guidstr)
+        if (guid != GUIDS['ASF_Header_Object']):
             self.valid = 0
             return
         if reserved1 != 0x01 or reserved2 != 0x02:
@@ -135,33 +140,34 @@ class AsfInfo(mediainfo.VideoInfo):
             h = self._getnextheader(header)
             header = header[h[1]:]
     
-    def _printguid(self,s):
-        if len(s) != 16:
-            return 'Invalid'
-        r = ''
-        for i in range(0,16):
-            r += '%.2X'%ord(s[i])
+    def _printguid(self,guid):
+        r = "%.8X-%.4X-%.4X-%.2X%.2X-%s" % guid
         return r 
         
     def _getnextheader(self,s):
         r = struct.unpack('<16sQ',s[:24])
-        (guid,objsize) = r
+        (guidstr,objsize) = r
+        guid = struct.unpack('>IHHBB6s', guidstr)
         if guid == GUIDS['ASF_File_Properties_Object']:
             print "file properties"
             pass
         elif guid == GUIDS['ASF_Stream_Properties_Object']:
-            print "stream properties"
+            print "stream properties Object"
             pass
         elif guid == GUIDS['ASF_Header_Extension_Object']:
-            print "extension"
+            print "Extension Object"
             pass
         elif guid == GUIDS['ASF_Codec_List_Object']:
+            print "List Object"
+            pass
+        elif guid == GUIDS['ASF_Error_Correction_Object']:
+            print "Error Correction"
+            pass
+        elif guid == GUIDS['ASF_Content_Description_Object']:
+            print "Content Description Object"
             pass
         else:
             print "unknown: %s %d" % (self._printguid(guid), objsize)
-            print "%s" % (self._printguid(s[24:40]))
-            print "%s" % (self._printguid(s[24+16:40+16]))
-            print "%s" % (self._printguid(s[24+32:40+32]))
         return r
         
 factory = mediainfo.get_singleton()  
