@@ -21,6 +21,8 @@ class RiffInfo(mediainfo.VideoInfo):
         self.mime = 'application/x-wave'
         self.info = {}
         self.header = {}
+        self.junkStart = None
+        self.infoStart = None
         self.type = h[8:12]
         if self.type == 'AVI ':
             self.mime = 'video/avi'
@@ -193,7 +195,7 @@ class RiffInfo(mediainfo.VideoInfo):
                 retval[key] = value
             else:
                 sz = struct.unpack('<I',t[i+4:i+8])[0]
-                print "Unknown Key: %s, len: %d" % (key,sz)
+                # print "Unknown Key: %s, len: %d" % (key,sz)
                 i+=8
                 value = self._extractHeaderString(t,i,sz)
                 retval[key] = value
@@ -206,19 +208,59 @@ class RiffInfo(mediainfo.VideoInfo):
         if len(h) < 4: return 1
         name = h[:4]
         size = struct.unpack('<I',h[4:8])[0]        
-        if name == 'LIST' and size < 30000:
+        if name == 'LIST' and size < 10000:
+            pos = file.tell() - 8
             t = file.read(size)
             key = t[:4]
             value = self.parseLIST(t[4:])
             self.header[key] = value
             if key == 'INFO':
+                self.infoStart = pos
                 self.info = value
             elif key == 'MID ':
-                self.mid = value        
+                self.mid = value
+        elif name == 'JUNK':
+            self.junkStart = file.tell() - 8
+            self.junkSize = size
         else:        
             t = file.seek(size,1)
-            print "Ignoring %s" % name
+#            print "Skipping %s" % name
         return 0
+
+    def buildTag(self,key,value):
+        l = len(value)
+        return struct.pack('<4sI%ds'%l, key[:4], l, value[:l])
+
+
+    def setInfo(self,file,hash):
+        if self.junkStart == None:
+            raise "junkstart missing"
+        tags = []
+        size = 4 # Length of 'INFO'
+        # Build String List and compute req. size
+        for key in hash.keys():
+            tag = self.buildTag( key, hash[key] )
+            tags.append(tag)
+            size += len(tag)
+            print tag
+        if self.infoStart != None:
+            print "Infostart found. %i" % (self.infoStart)
+            # Read current info size
+            file.seek(self.infoStart,0)
+            s = file.read(12)
+            (list, info, size) = struct.unpack('<4s4sI',s)
+            self.junkSize += size + 8
+        else:
+            self.infoStart = self.junkStart
+            print "Infostart computed. %i" % (self.infoStart)
+        file.seek(self.infoStart,0)
+        if ( size > self.junkSize - 8 ):
+            raise "Too large"
+        file.write( "LIST" + struct.pack('<I',size) + "INFO" )
+        for tag in tags:
+            file.write( tag )
+        print "Junksize %i" % (self.junkSize-size-8)
+        file.write( "JUNK" + struct.pack('<I',self.junkSize-size-8) )
         
 
 factory = mediainfo.get_singleton()
@@ -228,12 +270,9 @@ print "riff type registered"
 
 if __name__ == '__main__':
     import sys
-    o = RiffInfo(open(sys.argv[1], 'rb'))
-    print "INFO:"
-    print o.info
-    print "MID:"
-    print o.mid
-    print "HEADER:"
-    print o.header
-    print "WIDTH: %d" % o.width
-    print "HEIGT: %d" % o.height
+    f = open(sys.argv[1], 'rb')
+    o = RiffInfo(f)
+    f.close()
+    f = open(sys.argv[1], 'rb+')
+    o.setInfo(f, { 'INAM':'Hans Inam Test', 'IPOK': 'Ipok Test2' } )
+    f.close()
