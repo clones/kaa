@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.13  2004/07/11 12:06:03  dischi
+# add genre parsing
+#
 # Revision 1.12  2004/07/07 09:35:50  dischi
 # remove guessing of tracknum in TCON
 #
@@ -81,8 +84,10 @@ import mmpython
 
 from eyeD3 import tag as eyeD3_tag
 from eyeD3 import frames as eyeD3_frames
+
 import os
 import traceback
+import id3 as id3info
 
 MP3_INFO_TABLE = { "APIC": "picture",
                    "LINK": "link",
@@ -173,6 +178,18 @@ class eyeD3Info(mediainfo.MusicInfo):
                    print f.__class__
             self.appendtable('id3v2', tab, 'en')
 
+            if id3.tag.frames['TCON']:
+               genre = None
+               tcon = id3.tag.frames['TCON'][0].text
+               try:
+                  genre = int(tcon)
+               except:
+                  genre = int(tcon[1:tcon.find(')')])
+               if genre is not None:
+                  try:
+                     self.genre = id3info.GENRE_LIST[genre]
+                  except:
+                     pass
             # and some tools store it as trackno/trackof in TRCK
             if not self['trackof'] and self['trackno'] and self['trackno'].find('/') > 0:
                self['trackof'] = self['trackno'][self['trackno'].find('/')+1:]
