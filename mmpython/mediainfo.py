@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.19  2003/06/08 15:42:00  dischi
+# cosmetic stuff
+#
 # Revision 1.18  2003/06/08 13:44:22  dischi
 # import table again, sorry
 #
@@ -111,8 +114,7 @@ DEBUG = 1
 _singleton = None
 
 def _debug(text):
-    pass
-    #print text
+    if DEBUG > 1: print text
 
 def get_singleton():
     global _singleton
@@ -120,7 +122,7 @@ def get_singleton():
     # One-time init
     if _singleton == None:
         _singleton = SynchronizedObject(MetaDataFactory())
-        print _singleton
+        if DEBUG: print _singleton
         
     return _singleton
 
@@ -156,7 +158,8 @@ class MediaInfo:
             self.keys.append(k)
 
     def __str__(self):
-        result = reduce( lambda a,b: self[b] and "%s\r\n   %s: %s" % (a.__str__(), b.__str__(), self[b].__str__()) or a, self.keys, "" )
+        result = reduce( lambda a,b: self[b] and "%s\r\n   %s: %s" % \
+                         (a.__str__(), b.__str__(), self[b].__str__()) or a, self.keys, "" )
         return result
             
     def append(self, table):
@@ -217,10 +220,14 @@ class AVInfo(MediaInfo):
         result = "Attributes:"
         result += MediaInfo.__str__(self)
         result += "\n Stream list:"
-        result += reduce( lambda a,b: a + "  \n Video Stream:" + b.__str__(), self.video, "" )
-        result += reduce( lambda a,b: a + "  \n Audio Stream:" + b.__str__(), self.audio, "" )
-        result += reduce( lambda a,b: a + "  \n Subtitle Stream:" + b.__str__(), self.subtitles, "" )
+        result += reduce( lambda a,b: a + "  \n Video Stream:" + b.__str__(),
+                          self.video, "" )
+        result += reduce( lambda a,b: a + "  \n Audio Stream:" + b.__str__(),
+                          self.audio, "" )
+        result += reduce( lambda a,b: a + "  \n Subtitle Stream:" + b.__str__(),
+                          self.subtitles, "" )
         return result
+
         
 class ImageInfo(MediaInfo):
     def __init__(self):
@@ -238,9 +245,10 @@ class CollectionInfo(MediaInfo):
 
     def __str__(self):
         result = "Track list:"
-        #result += reduce( lambda a,b: a + " \nTrack %d:\n %s" % (++counter, b.__str__()), self.tracks, "" )
+        #result += reduce( lambda a,b: a + " \nTrack %d:\n %s" %
+        #(++counter, b.__str__()), self.tracks, "" )
         for counter in range(0,len(self.tracks)):
-             result += " \nTrack %d:\n%s" % (counter, self.tracks[counter])
+             result += " \nTrack %d:\n%s" % (counter+1, self.tracks[counter])
         return result
     
     def appendtrack(self, track):
