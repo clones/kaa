@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/06/30 11:38:22  dischi
+# bugfix
+#
 # Revision 1.4  2003/06/29 18:30:14  dischi
 # many many fixes
 #
@@ -48,7 +51,7 @@
 
 from mmpython import mediainfo
 
-from audio.eyeD3 import tag as eyeD3_tag
+from eyeD3 import tag as eyeD3_tag
 import os
 import traceback
 
