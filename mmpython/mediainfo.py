@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2003/06/07 21:41:05  the_krow
+# Changed MediaInfo Objects to new structure. AV is used for av streams and
+# consists of a list of video and audio information.
+#
 # Revision 1.8  2003/06/07 16:02:48  dischi
 # Added dvd support and make a correct package from mmpython
 #
@@ -44,6 +48,8 @@ TYPE_NONE = 0
 TYPE_AUDIO = 1
 TYPE_VIDEO = 2
 TYPE_IMAGE = 4
+TYPE_AV = 5
+TYPE_MUSIC = 6
 TYPE_HYPERTEXT = 8
 
 import string
@@ -70,6 +76,9 @@ import stat
 
 _singleton = None
 
+def _debug(text):
+    print text
+
 def get_singleton():
     global _singleton
 
@@ -81,17 +90,21 @@ def get_singleton():
     return _singleton
 
 MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype', 'date', 'keywords', 'country', 'language']
-AUDIOCORE = ['trackno', 'trackof', 'album', 'audiochannels', 'samplerate', 'length', 'encoder', 'audiocodec', 
-             'samplebits', 'genre', 'audiobitrate']
-VIDEOCORE = ['length', 'encoder', 'audiobitrate', 'audiochannels', 'bitrate', 'samplerate', 'audiocodec', 'videocodec', 'samplebits',
-             'trackno', 'trackof', 'copyright', 'product', 'genre', 'secondary genre', 'subject', 'writer', 'producer', 
+AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits', 'bitrate']
+VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
+             'width', 'height',]
+IMAGECORE = ['width','height','thumbnail','software','hardware']
+
+MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
+AVCORE = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product', 'genre', 'secondary genre', 'subject', 'writer', 'producer', 
              'cinematographer', 'production designer', 'edited by', 'costume designer', 'music by', 'studio', 
              'distributed by', 'rating', 'starring', 'ripped by', 'digitizing date', 
              'internet address', 'source form', 'medium', 'source', 'archival location', 'commisioned by',
              'engineer', 'cropped', 'sharpness', 'dimensions', 'lightness', 'dots per inch', 'palette setting',
              'default audio stream', 'logo url', 'watermark url', 'info url', 'banner image', 'banner url', 
-             'infotext', 'width', 'height',]
-IMAGECORE = ['width','height','thumbnail','software','hardware']
+             'infotext']
+
+import table
 
 DEVICE    = 'device'
 
@@ -99,10 +112,17 @@ DEVICE    = 'device'
 class MediaInfo:
     def __init__(self):
         self.keys = []
+        self.tables = {}
         for k in MEDIACORE:
             setattr(self,k,None)
             self.keys.append(k)
-
+            
+    def append(self, table):
+        self.tables[table.name] = table
+        
+    def appendtable(self, name, hashmap):
+        self.tables[name] = table.Table(hashmap)
+    
     def setitem(self,item,dict,key):
         try:
             if self.__dict__.has_key(item):
@@ -115,29 +135,17 @@ class MediaInfo:
     def __getitem__(self,key):
         return self.__dict__[key]
 
-    def expand_keywords(self):
-        resultset = []
-        keywords = ()
-        if isinstance(self.__dict__['keywords'],types.TupleType):
-            print("tuple")
-            keywords = self.__dict__['keywords']
-        else:
-            keywords = (self.__dict__['keywords'],)
-        for i in keywords:
-            if i:
-                print("append: %s" % i)
-                k = string.split( i, ',' ) 
-                for it in k:
-                    s = string.strip( it )
-                    resultset.append( s )
-        self.__dict__['keywords'] = tuple( resultset )
-        
-            
-
 class AudioInfo(MediaInfo):
     def __init__(self):
         MediaInfo.__init__(self)
         for k in AUDIOCORE:
+            setattr(self,k,None)
+            self.keys.append(k)
+
+class MusicInfo(AudioInfo):
+    def __init__(self):
+        AudioInfo.__init__(self)
+        for k in MUSICCORE:
             setattr(self,k,None)
             self.keys.append(k)
 
@@ -147,11 +155,20 @@ class VideoInfo(MediaInfo):
         for k in VIDEOCORE:
             setattr(self,k,None)
             self.keys.append(k)
-        self.languages = []
+
+class AVInfo(MediaInfo):
+    def __init__(self):
+        MediaInfo.__init__(self)
+        for k in AVCORE:
+            setattr(self,k,None)
+            self.keys.append(k)
+        self.audio = []
+        self.video = []
+        self.subtitles = []    
 
 class ImageInfo(MediaInfo):
     def __init__(self):
-        MediaInfo.__init__(self)
+        MediaInfo.__init__(self)        
         for k in IMAGECORE:
             setattr(self,k,None)
             self.keys.append(k)
@@ -165,13 +182,14 @@ class MetaDataFactory:
     def create_from_file(self,file,filename=None):
         # Check extension as a hint
         for e in self.extmap.keys():
+            print "trying %s" % e
             if filename and filename.find(e) >= 0:
                 t = self.extmap[e][3](file)
                 #if t.valid: return t
 
         print "No Type found by Extension. Trying all"
         for e in self.types:
-            print "Trying %s" % e[1]
+            print "Trying %s" % e[0]
             t = e[3](file)
             if t.valid: return t
         return None
