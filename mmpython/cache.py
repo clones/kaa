@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.34  2003/09/14 13:33:40  dischi
+# fix cache handling for audio discs
+#
 # Revision 1.33  2003/09/03 20:58:09  dischi
 # make sure we can write the cachefiles
 #
@@ -146,7 +149,6 @@ import re
 import mmpython
 import factory
 
-from disc import DiscID
 from disc.discinfo import cdrom_disc_status, cdrom_disc_id, DiscInfo
 from disc.datainfo import DataDiscInfo
 
@@ -185,7 +187,7 @@ class Cache:
         if not os.path.exists(file):
             return None
         if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
-            id = cdrom_disc_id(file)
+            id = cdrom_disc_id(file)[1]
             if not id:
                 return None
             return '%s/disc/%s' % (self.cachedir, id)
@@ -314,6 +316,9 @@ class Cache:
         if not isinstance(info, DiscInfo):
             return 0
 
+        if hasattr(info, 'no_caching'):
+            return 0
+        
         cachefile = '%s/disc/%s' % (self.cachedir, info.id)
         try:
             if os.path.isfile(cachefile):
@@ -331,17 +336,11 @@ class Cache:
         """
         Search the cache for informations about the disc. Called from find()
         """
-        disc_type = cdrom_disc_status(device)
+        disc_type, id = cdrom_disc_id(device)
+
         if disc_type == 0:
             return None
         
-        elif disc_type == 1:
-            disc_id = DiscID.disc_id(device)
-            id = '%08lx_%d' % (disc_id[0], disc_id[1])
-
-        else:
-            id = cdrom_disc_id(device)
-            
         cachefile = '%s/disc/%s' % (self.cachedir, id)
         if not os.path.isfile(cachefile):
             raise FileNotFoundException
