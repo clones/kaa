@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.11  2004/05/29 12:31:36  dischi
+# try to find trackof in TCON or trackno
+#
 # Revision 1.10  2004/02/08 17:42:56  dischi
 # reduce debug
 #
@@ -144,8 +147,7 @@ class eyeD3Info(mediainfo.MusicInfo):
             for k in MP3_INFO_TABLE:
                if id3.tag.frames[k]:
                   if k == 'APIC':
-                     pass
-                     #setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].imageData)
+                     pass 
                   else:
                      setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].text)
             if id3.tag.getYear():
@@ -167,12 +169,30 @@ class eyeD3Info(mediainfo.MusicInfo):
                 elif mediainfo.DEBUG:
                    print f.__class__
             self.appendtable('id3v2', tab, 'en')
+
+
+            # since mp3 id tags have no trackof, some tools store it
+            # in the comment as number or (number)
+            if id3.tag.frames['TCON']:
+               comment = id3.tag.frames['TCON'][0].text
+               try:
+                  self.trackof = int(comment)
+               except:
+                  if comment[0] == '(' and comment[-1] == ')':
+                     try:
+                        self['trackof'] = int(comment[1:-1])
+                     except:
+                        pass
+
+            # and some tools store it as trackno/trackof in TRCK
+            if not self['trackof'] and self['trackno'] and self['trackno'].find('/') > 0:
+               self['trackof'] = self['trackno'][self['trackno'].find('/')+1:]
+               self['trackno'] = self['trackno'][:self['trackno'].find('/')]
          if id3:
             self.length = id3.getPlayTime()
       except:
          if mediainfo.DEBUG:
             traceback.print_exc()
-
       
          
 mmpython.registertype( 'audio/mp3', ('mp3',), mediainfo.TYPE_MUSIC, eyeD3Info )
