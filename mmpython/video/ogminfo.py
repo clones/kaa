@@ -5,6 +5,10 @@
 # $Id$
 #
 # $Log$
+# Revision 1.10  2003/08/04 08:44:51  the_krow
+# Maximum iterations field added as suggested by Magnus in the
+# freevo list.
+#
 # Revision 1.9  2003/07/13 15:20:53  dischi
 # make the module quiet
 #
@@ -82,18 +86,22 @@ VORBISCOMMENT_tags = { 'title': 'TITLE',
                        'genre': 'GENRE',
                      }
 
+MAXITERATIONS = 4
+
 class OgmInfo(mediainfo.AVInfo):
     def __init__(self, file):
         mediainfo.AVInfo.__init__(self)
         self.lastgran = 0
         self.samplerate = 1
         lastgran = -1
-        while (1):
+        i = 0
+        while (i != MAXITERATIONS):
             granule = self._parseOGGS(file)
             if granule == None:
                 break
             else:
                 lastgran = granule
+            i += 1
                         
         if len(self.audio) == 1 and len(self.video) == 0:            
             # XXX Hack to make the length of audio only files work at least
@@ -196,7 +204,7 @@ class OgmInfo(mediainfo.AVInfo):
             # XXX Finish Me
             vi = mediainfo.VideoInfo()
             vi.codec = 'dshow'
-            self.video.append(vi)            
+            self.video.append(vi)
             pass
         elif flags & PACKET_TYPE_BITS == PACKET_TYPE_HEADER and headerlen >= struct.calcsize(STREAM_HEADER_VIDEO)+1:
             #print "New Directshow Format"
