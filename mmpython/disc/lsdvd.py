@@ -41,9 +41,32 @@ class DVDAudio(mediainfo.AudioInfo):
         self.number   = int(data[1])
         if data[3] != 'xx':
             self.language = data[3]
-        self.codec    = data[7]
-        self.samplerate = int(data[9])
-        self.channels = data[13]
+            try:
+                # some DVDs have a very bad language setting
+                self.language.encode()
+            except UnicodeError:
+                self.language = ''
+
+        try:
+            self.codec = data[7]
+            try:
+                self.samplerate = int(data[9])
+            except ValueError, e:
+                if data[9].lower().find('khz') > 0:
+                    self.samplerate = int(data[9][:data[9].lower().find('khz')]) * 1000
+                else:
+                    raise e
+            self.channels = data[13]
+        except Exception, e:
+            # WTF, strange DVD, now try to find the bug (may not work)
+            self.codec = data[data.index('Format:') + 1]
+            try:
+                freq = data[data.index('Frequency:') + 1]
+                self.samplerate = int(freq)
+            except ValueError:
+                if freq.lower().find('khz') > 0:
+                    self.samplerate = int(freq[:freq.lower().find('khz')]) * 1000
+            self.channels = int(data[data.index('Channels:') + 1])
 
 
 class DVDVideo(mediainfo.VideoInfo):
