@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.6  2003/06/09 12:28:30  dischi
+# improved disc cache
+#
 # Revision 1.5  2003/06/08 20:13:03  dischi
 # added check_cache to get an idea how long the update will take
 #
@@ -71,6 +74,8 @@ class Cache:
     def __init__(self, cachedir):
         self.cachedir = cachedir
 
+        if os.path.isdir(cachedir) and not os.path.isdir('%s/disc' % cachedir):
+            os.mkdir('%s/disc' % cachedir)
         self.current_objects    = None
         self.current_dir        = None
         self.CACHE_VERSION      = 1
@@ -145,30 +150,61 @@ class Cache:
 
         if not isinstance(info, mediainfo.DiscInfo):
             return 0
-        
-        if hasattr(info, 'id') and hasattr(info, 'label'):
-            key = '%s_%s' % (info.id, info.label)
-        elif hasattr(info, 'disc_id'):
-            key = '%s %d ' % (info.disc_id, len(info.tracks))
-        else:
-            print 'error: item can\'t be cached'
-            return 0
 
-        cachefile = '%s/disc' % self.cachedir
-        if not self.current_dir == 'disc':
-            if os.path.isfile(cachefile):
-                (version, objects) = pickle.load(open(cachefile, 'r'))
-                if not version == self.DISC_CACHE_VERSION:
-                    print 'WARNING: disc cache changed, clearing cache'
-                    self.current_objects = {}
-                else:
-                    self.current_objects = objects
-            else:
-                self.current_objects = {}
-
-        self.current_objects[key] = info
-        pickle.dump((self.DISC_CACHE_VERSION, self.current_objects), open(cachefile, 'w'))
+        cachefile = '%s/disc/%s' % (self.cachedir, info.id)
+        pickle.dump((self.DISC_CACHE_VERSION, info), open(cachefile, 'w'))
         return 1
+
+    
+
+    def __find_disc__(self, device):
+        """
+        Search the cache for informations about the disc. Called from find()
+        """
+        CDROM_DRIVE_STATUS=0x5326
+        CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
+        CDROM_DISC_STATUS=0x5327
+        CDS_AUDIO=100
+        CDS_MIXED=105
+
+        try:
+            fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
+            s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
+        except:
+            try:
+                os.close(fd)
+            except:
+                pass
+            raise FileNotFoundException
+        
+        s = ioctl(fd, CDROM_DISC_STATUS)
+        os.close(fd)
+        if s == CDS_AUDIO or s == CDS_MIXED:
+            disc_id = DiscID.disc_id(DiscID.open(device))
+            id = '%08lx_%d' % (disc_id[0], disc_id[1])
+
+        else:
+            f = open(device,'rb')
+
+            f.seek(0x0000832d)
+            id = f.read(16)
+            f.seek(32808, 0)
+            label = f.read(32)
+            f.close()
+            
+            m = re.match("^(.*[^ ]) *$", label)
+            if m:
+                id    = '%s_%s' % (id, m.group(1))
+            else:
+                id    = '%s_NO_LABEL' % id
+            
+        cachefile = '%s/disc/%s' % (self.cachedir, id)
+        if not os.path.isfile(cachefile):
+            raise FileNotFoundException
+        (version, object) = pickle.load(open(cachefile, 'r'))
+        if not version == self.DISC_CACHE_VERSION:
+            raise FileNotFoundException
+        return object
 
     
     def find(self, file):
@@ -181,52 +217,11 @@ class Cache:
         file  = os.path.abspath(file)
 
         if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
-            dname = 'disc'
-            cachefile = '%s/disc' % self.cachedir
+            return self.__find_disc__(file)
 
-            CDROM_DRIVE_STATUS=0x5326
-            CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
-            CDROM_DISC_STATUS=0x5327
-            CDS_AUDIO=100
-            CDS_MIXED=105
-
-            try:
-                fd = os.open(file, os.O_RDONLY | os.O_NONBLOCK)
-                s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
-            except:
-                try:
-                    os.close(fd)
-                except:
-                    pass
-                raise FileNotFoundException
-
-            s = ioctl(fd, CDROM_DISC_STATUS)
-            os.close(fd)
-            if s == CDS_AUDIO or s == CDS_MIXED:
-                id = DiscID.disc_id(DiscID.open(file))
-                key = '%08lx %d ' % (id[0], id[1])
-
-            else:
-                f = open(file,'rb')
-
-                f.seek(0x0000832d)
-                id = f.read(16)
-                f.seek(32808, 0)
-                label = f.read(32)
-                f.close()
-                
-                m = re.match("^(.*[^ ]) *$", label)
-                if m:
-                    label = m.group(1)
-                else:
-                    label = ''
-                
-                key = '%s_%s' % (id, label)
-            
-        else:
-            dname = os.path.dirname(file)
-            key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
-            cachefile = self.__get_filename__(dname)
+        dname = os.path.dirname(file)
+        key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+        cachefile = self.__get_filename__(dname)
 
         if not dname == self.current_dir:
             if not (cachefile and os.path.isfile(cachefile)):
