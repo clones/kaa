@@ -1,3 +1,9 @@
+mmpython (0.2.0cvs20030806-freevo3) unstable; urgency=low
+
+  * Fixed Python 2.3 dependency (python >2.3 package doesn't exist)
+
+ -- Aubin Paul <debian@outlyer.org>  Thu,  7 Aug 2003 11:02:58 -0400
+
 mmpython (0.2.0cvs20030806-freevo2) unstable; urgency=low
 
   * Using dh_python
