@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.11  2003/06/12 00:36:30  the_krow
+# ASF Audio parsing
+#
 # Revision 1.10  2003/06/12 00:27:25  the_krow
 # More asf parsing: Width, Height, Video Codec
 #
@@ -177,6 +180,11 @@ class AsfInfo(mediainfo.AVInfo):
                 self.video.append(vi)  
             elif streamtype == GUIDS['ASF_Audio_Media']:
                 print "Is Audio"
+                ai = mediainfo.AudioInfo()
+                twocc, ai.channels, ai.samplerate, bitrate, block, ai.samplebits, = struct.unpack('<HHIIHH', s[78:78+16])
+                ai.bitrate = 8*bitrate  # XXX Is this right?
+                ai.codec = fourcc.RIFFWAVE[twocc]
+                self.video.append(ai)  
             pass
         elif guid == GUIDS['ASF_Header_Extension_Object']:
             print "ASF_Header_Extension_Object %d" % objsize
