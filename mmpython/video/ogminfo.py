@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.13  2003/09/22 16:21:54  the_krow
+# utf-8 comment parsing
+#
 # Revision 1.12  2003/09/09 19:57:08  dischi
 # bad hack to make length oggs work
 #
@@ -251,7 +254,7 @@ class OgmInfo(mediainfo.AVInfo):
 
     def _extractHeaderString(self,header):
         len = struct.unpack( '<I', header[:4] )[0]
-        return (len+4,header[4:4+len])
+        return (len+4,unicode(header[4:4+len], 'utf-8'))
 
 
 
