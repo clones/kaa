@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/05/13 17:49:41  the_krow
+# IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
+#
 # Revision 1.6  2003/05/13 15:52:41  the_krow
 # Caption added
 #
@@ -238,6 +241,6 @@ class SynchronizedObject:
 
 
 if __name__ == '__main__':
-    import OggInfo
+    import ogginfo
     t = _singleton.create_from_filename('7.ogg')
     print t

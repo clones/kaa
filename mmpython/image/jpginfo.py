@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/05/13 17:49:41  the_krow
+# IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
+#
 # Revision 1.6  2003/05/13 15:52:42  the_krow
 # Caption added
 #
@@ -41,10 +44,25 @@
 import mediainfo
 import IPTC
 import EXIF
+import struct
 
 # interesting file format info:
 # http://www.dcs.ed.ac.uk/home/mxr/gfx/2d-hi.html
 
+SOF = { 0xC0 : "Baseline",   
+        0xC1 : "Extended sequential",   
+        0xC2 : "Progressive",   
+        0xC3 : "Lossless",   
+        0xC5 : "Differential sequential",   
+        0xC6 : "Differential progressive",   
+        0xC7 : "Differential lossless",   
+        0xC9 : "Extended sequential, arithmetic coding",   
+        0xCA : "Progressive, arithmetic coding",   
+        0xCB : "Lossless, arithmetic coding",   
+        0xCD : "Differential sequential, arithmetic coding",   
+        0xCE : "Differential progressive, arithmetic coding",   
+        0xCF : "Differential lossless, arithmetic coding",
+}
 
 class JPGInfo(mediainfo.ImageInfo):
 
@@ -57,19 +75,36 @@ class JPGInfo(mediainfo.ImageInfo):
         if file.read(2) != '\xff\xd8':
             self.valid = 0
             return
+        file.seek(-2,2)
+        if file.read(2) != '\xff\xd9':
+            self.valid = 0
+            return
         file.seek(0)
-        self.iptc = IPTC.getiptcinfo(file)
+        app = file.read(4)
+        while (app.find('\xff\xd9') < 0) and (len(app) > 4):
+            (seglen,segtype) = struct.unpack(">H2s", app)
+            print "%x, len=%d" % (ord(segtype[1]),seglen)          
+            if segtype == '\0xFF\0xD9':
+                break
+            elif segtype != '\xff\xed':
+                file.seek(seglen-2,1)
+                app = file.read(4)
+            else:
+                app = file.read(seglen)
+                self.iptc = IPTC.flatten(IPTC.parseiptc(app))
+                break
+
         file.seek(0)        
         self.exif = EXIF.process_file(file)
         if self.exif:
             self.setitem( 'comment', self.exif, 'EXIF UserComment' )
             self.setitem( 'width', self.exif, 'EXIF ExifImageWidth'  )
-            self.setitem( 'height', self.exif, 'EXIF ExifImageHeight' )
+            self.setitem( 'height', self.exif, 'EXIF ExifImageLength' )
             self.setitem( 'date', self.exif, 'Image DateTime' )            
             self.setitem( 'artist', self.exif, 'Image Artist' )
             self.setitem( 'hardware', self.exif, 'Image Model' )
             self.setitem( 'software', self.exif, 'Image Software' )
-            self.setitem( 'thumbnail', self.exif, 'JPEGThumbnail' ) 
+#            self.setitem( 'thumbnail', self.exif, 'JPEGThumbnail' ) 
         if self.iptc:
             self.setitem( 'title', self.iptc, 517 ) 
             self.setitem( 'date' , self.iptc, 567 )

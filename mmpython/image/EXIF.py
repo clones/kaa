@@ -62,6 +62,8 @@
 # * Finish Canon MakerNote format
 # * Better printing of ratios
 
+# http://www.exif.org/
+
 # field type descriptions as (length, abbreviation, full name) tuples
 FIELD_TYPES=(
     (0, 'X',  'Dummy'), # no such type

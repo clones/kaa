@@ -1,11 +1,12 @@
+#!/usr/bin/python
 
 import mediainfo
 import audio.ogginfo
 import audio.pcminfo
 import audio.mp3info
 import video.riffinfo
-import video.asfinfo
 import video.mpeginfo
+import video.asfinfo
 import video.movinfo
 import image.jpginfo
 import image.pnginfo

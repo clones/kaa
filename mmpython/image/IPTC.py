@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/05/13 17:49:41  the_krow
+# IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
+#
 # Revision 1.5  2003/05/13 15:23:59  the_krow
 # IPTC
 #
@@ -38,27 +41,6 @@
 
 from struct import unpack
 
-# todo: Intend correctly
-
-class IPTC:
-    def __init__(self,hash):
-        self.hash = hash
-    
-    def __getitem__(self,key):
-        if self.hash and self.hash.has_key(key):
-            item = self.hash[key]
-            if len(item) == 0: return None
-            elif len(item) == 1: return item[0]
-            else: return tuple(item)
-        else:
-            return None
-       
-    def keys(self):
-        if self.hash:
-            return self.hash.keys()
-        else:
-            return []
-
 def flatten(list):
     try:
         for i in list.keys():
@@ -72,7 +54,6 @@ def flatten(list):
 
 def parseiptc(app):
     iptc = {}
-#    print app[:14]
     if app[:14] == "Photoshop 3.0\x00":
        app = app[14:]
     if 1:
@@ -119,57 +100,4 @@ def parseiptc(app):
            offset += len + 5
     return iptc
     
-def getiptcinfo(file):
-   app = file.read(4)
-   if app[:4] == 'MM\x00\x2a':
-      (offset,) = unpack(">I", file.read(4))
-      file.seek(offset)
-      (len,) = unpack(">H", file.read(2))
-      print "tiff motorola, len=%d" % len
-      app = file.read(len*12)
-      for i in range(len):
-          (tag, type, length, value, offset) = unpack('>HHIHH', app[i*12:i*12+12])
-          print "tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (tag,type,len,value,offset)
-          if tag == 0x8649:
-              file.seek(offset)
-              return flatten(parseiptc(file.read(1000)))
-   elif app[:4] == 'II\x2a\x00':
-      return None
-      (offset,) = unpack("<I", file.read(4))
-      file.seek(offset)
-      (len,) = unpack("<H", file.read(2))
-      print "tiff intel, len=%d" % len
-      app = file.read(len*12)
-      for i in range(len):
-          (tag, type, length, offset, value) = unpack('<HHIHH', app[i*12:i*12+12])
-          print "tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (tag,type,len,value,offset)
-          if tag == 0x8649:
-              file.seek(offset)
-              return flatten(parseiptc(file.read(1000)))
-      return IPTC(None)
-   elif app[:2] == '\xff\xd8':
-      app = app[2:] + file.read(2)
-      while 1:
-          segtype = app[:2]
-          (seglen,) = unpack(">H", app[2:])
-#          print "%x, len=%d" % (ord(segtype[1]),seglen)          
-          if segtype == '\0xFF\0xD9':
-              return None
-          elif segtype != '\xff\xed':
-              file.seek(seglen-2,1)
-              app = file.read(4)
-          else:
-              app = file.read(seglen)
-              return flatten(parseiptc(app))
-      return None
-   else: return None
-    
-
-
-if __name__ == '__main__':
-    import sys
-    o = getiptcinfo(open(sys.argv[1], 'rb'))
-    print "IPTC: "
-    for k in o.keys():
-        print "%d -> %s" % (k,o[k])
     

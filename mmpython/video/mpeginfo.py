@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.4  2003/05/13 17:49:42  the_krow
+# IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
+#
 # Revision 1.3  2003/05/13 12:31:43  the_krow
 # + Copyright Notice
 #
@@ -82,33 +85,42 @@ class MpegInfo(mediainfo.VideoInfo):
     def __init__(self,file):
         mediainfo.VideoInfo.__init__(self)
         self.context = 'video'
+        self.offset = 0
         self.valid = self.isVideo(file)
         self.mime = 'video/mpeg'
         self.type = 'mpeg video'
+        self.dxy(file)
+        print "%d x %d" % ( self.width, self.height )
+
+    def dxy(self,file):  
+        print self.offset
+        file.seek(self.offset+4,0)
+        v = file.read(4)
+        self.width = struct.unpack('>H',v[:2])[0] >> 4
+        self.height = struct.unpack('>H',v[1:3])[0] & 0x0FFF
 
     def isVideo(self,file):
-        buffer = file.read(4)
-        offset = 0
-        while ( offset <= len(buffer) - 4 ):
-            a = ord(buffer[offset])
-            offset+=1
+        buffer = file.read(1000)
+        self.offset = 0
+        while ( self.offset <= len(buffer) - 4 ):
+            a = ord(buffer[self.offset])
             if a != 0:
+                self.offset += 1
                 continue
-            b = ord(buffer[offset])
+            b = ord(buffer[self.offset+1])
             if b != 0:
+                self.offset += 2
                 continue
-            c = ord(buffer[offset+1])
+            c = ord(buffer[self.offset+2])
             if c != 1:
                 continue
-            d = ord(buffer[offset+2])
+            d = ord(buffer[self.offset+3])
             if ( d == SEQ_START_CODE ):
-                print "right seq start code"
 	        return 1
 	    elif ( self.context == 'video' ) and ( d == SYS_PKT ):
-	        print "SC: 0x%x Returning because video context\n" % d 
 	        return 0
+            self.offset += 1
         return 1
-
 
 factory = mediainfo.get_singleton()  
 mpginfo = MpegInfo
