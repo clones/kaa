@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.53  2003/08/05 17:22:58  dischi
+# add doc and __delitem__
+#
 # Revision 1.52  2003/07/19 11:38:19  dischi
 # turn off debug as default, some exception handling
 #
@@ -118,6 +121,7 @@ class MediaInfo:
             setattr(self,k,None)
             self.keys.append(k)
 
+
     def __str__(self):
         import copy
         keys = copy.copy(self.keys)
@@ -136,6 +140,7 @@ class MediaInfo:
             pass
         return result
         
+
     def appendtable(self, name, hashmap, language='en'):
         """
         Appends a tables of additional metadata to the Object. 
@@ -149,13 +154,18 @@ class MediaInfo:
             for k in hashmap.keys():
                 self._tables[(name, language)][k] = hashmap[k]
     
+
     def gettable(self, name, language='en'):
         """
         returns a table of the given name and language        
         """
         return self._tables.get((name, language), {})
     
+
     def setitem(self,item,dict,key):
+        """
+        set item to a specific value for the dict
+        """
         try:
             if self.__dict__.has_key(item):
                 self.__dict__[item] = dict[key]
@@ -164,20 +174,45 @@ class MediaInfo:
         except:
             pass
 
+
     def __getitem__(self,key):
+        """
+        get the value of 'key'
+        """
         try:
             if isinstance(self.__dict__[key], str):
                 return self.__dict__[key].strip().rstrip().replace('\0', '')
             return self.__dict__[key]
         except KeyError:
             return None
+
         
     def __setitem__(self, key, val):
+        """
+        set the value of 'key' to 'val'
+        """
         self.__dict__[key] = val
 
+
     def has_key(self, key):
+        """
+        check if the object has a key 'key'
+        """
         return self.__dict__.has_key(key)
 
+
+    def __delitem__(self, key):
+        """
+        delete informations about 'key'
+        """
+        try:
+            del self.__dict__[key]
+        except:
+            pass
+        if hasattr(self, key):
+            setattr(self, key, None)
+
+        
 class AudioInfo(MediaInfo):
     """
     Audio Tracks in a Multiplexed Container.
@@ -188,6 +223,7 @@ class AudioInfo(MediaInfo):
             setattr(self,k,None)
             self.keys.append(k)
 
+
 class MusicInfo(AudioInfo):
     """
     Digital Music.
@@ -197,6 +233,7 @@ class MusicInfo(AudioInfo):
         for k in AUDIOCORE+MUSICCORE:
             setattr(self,k,None)
             self.keys.append(k)
+
 
 class VideoInfo(MediaInfo):
     """
