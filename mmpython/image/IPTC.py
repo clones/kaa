@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/06/09 16:11:57  the_krow
+# TIFF parser changed to new tables structure
+# debug statements removed / changed to _debug
+#
 # Revision 1.7  2003/06/07 21:48:47  the_krow
 # Added Copying info
 # started changing riffinfo to new AV stuff
@@ -81,7 +85,6 @@ def parseiptc(app):
           size = unpack("<L", app[offset:offset+4])[0]
           offset = offset + 4
           if code == 0x0404:
-              print "iptc found."
               # 0x0404 contains IPTC/NAA data
               data = app[offset:offset+size]
               break
@@ -98,7 +101,6 @@ def parseiptc(app):
                return iptc
            (key,len) = unpack('>HH',data[offset+1:offset+5])
            val = data[offset+5:offset+len+5]
-           print "0x%x (%d) %s" % (key, len, val)
            if iptc.has_key(key):
                iptc[key].append(val)
            else:

@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/06/09 16:11:57  the_krow
+# TIFF parser changed to new tables structure
+# debug statements removed / changed to _debug
+#
 # Revision 1.7  2003/06/08 19:55:22  dischi
 # added bins metadata support
 #
@@ -56,6 +60,8 @@ INTELSIGNATURE = 'II\x2a\x00'
 
 # http://partners.adobe.com/asn/developer/pdfs/tn/TIFF6.pdf
 
+_debug = mediainfo._debug
+
 class TIFFInfo(mediainfo.ImageInfo):
 
     def __init__(self,file,filename):
@@ -65,23 +71,21 @@ class TIFFInfo(mediainfo.ImageInfo):
         self.type = 'TIFF image'
         self.intel = 0
         self.valid = 0
+        iptc = {}
         header = file.read(8)
         if header[:4] == MOTOROLASIGNATURE:
-#            print "motorola"
             self.valid = 1
             self.intel = 0
             (offset,) = struct.unpack(">I", header[4:8])
-#            print "offset: %i" % offset
             file.seek(offset)
             (len,) = struct.unpack(">H", file.read(2))
-#            print "tiff motorola, len=%d" % len
             app = file.read(len*12)
             for i in range(len):
                 (tag, type, length, value, offset) = struct.unpack('>HHIHH', app[i*12:i*12+12])
-                print "[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset)
+                _debug("[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset))
                 if tag == 0x8649:
                     file.seek(offset,0)
-                    self.iptc = IPTC.flatten(IPTC.parseiptc(file.read(1000)))
+                    iptc = IPTC.flatten(IPTC.parseiptc(file.read(1000)))
                 elif tag == 0x0100:
                     if value != 0:
                         self.width = value
@@ -94,21 +98,18 @@ class TIFFInfo(mediainfo.ImageInfo):
                         self.height = offset
 
         elif header[:4] == INTELSIGNATURE:
-            print "intel"
             self.valid = 1
             self.intel = 1
             (offset,) = struct.unpack("<I", header[4:8])
-#            print "offset: %i" % offset
             file.seek(offset,0)
             (len,) = struct.unpack("<H", file.read(2))
-#            print "tiff intel, len=%d" % len
             app = file.read(len*12)
             for i in range(len):
                 (tag, type, length, offset, value) = struct.unpack('<HHIHH', app[i*12:i*12+12])
-                print "[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset)
+                _debug("[%i/%i] tag: 0x%.4x, type 0x%.4x, len %d, value %d, offset %d)" % (i,len,tag,type,length,value,offset))
                 if tag == 0x8649:
                     file.seek(offset)
-                    self.iptc = IPTC.flatten(IPTC.parseiptc(file.read(1000)))
+                    iptc = IPTC.flatten(IPTC.parseiptc(file.read(1000)))
                 elif tag == 0x0100:
                     if value != 0:
                         self.width = value
@@ -122,18 +123,19 @@ class TIFFInfo(mediainfo.ImageInfo):
         else:
             return
             
-        if self.iptc:
-            self.setitem( 'title', self.iptc, 517 ) 
-            self.setitem( 'date' , self.iptc, 567 )
-            self.setitem( 'comment', self.iptc, 617 )
-            self.setitem( 'keywords', self.iptc, 537 )
-            self.setitem( 'artist', self.iptc, 592 )
-            self.setitem( 'country', self.iptc, 612 ) 
-            self.setitem( 'caption', self.iptc, 632 )
+        if iptc:
+            self.setitem( 'title', iptc, 517 ) 
+            self.setitem( 'date' , iptc, 567 )
+            self.setitem( 'comment', iptc, 617 )
+            self.setitem( 'keywords', iptc, 537 )
+            self.setitem( 'artist', iptc, 592 )
+            self.setitem( 'country', iptc, 612 ) 
+            self.setitem( 'caption', iptc, 632 )
+            self.appendtable('IPTC', iptc)
 
         self.add_bins_data(filename)
         return
             
 
 factory = mediainfo.get_singleton()
-factory.register( 'image/tiff', ['tif','tiff'], mediainfo.TYPE_IMAGE, TIFFInfo )
+factory.register( 'image/tiff', ('tif','tiff'), mediainfo.TYPE_IMAGE, TIFFInfo )
