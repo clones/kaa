@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2004/05/24 10:50:48  dischi
+# bugfix
+#
 # Revision 1.1  2004/05/20 15:55:09  dischi
 # add xml file detection
 #
@@ -32,6 +35,8 @@ import os
 import mmpython
 from mmpython import mediainfo
 
+DEBUG = mediainfo.DEBUG
+
 try:
     # XML support
     from xml.utils import qp_xml
@@ -39,8 +44,6 @@ except:
     if DEBUG:
         print 'Python XML not found'
 
-
-DEBUG = mediainfo.DEBUG
 
 XML_TAG_INFO = {
     'image':  'Bins Image Description',
