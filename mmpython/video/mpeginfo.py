@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.32  2005/01/21 16:37:02  dischi
+# try to find bad timestamps
+#
 # Revision 1.31  2005/01/08 12:06:45  dischi
 # make sure the buffer is big enough
 #
@@ -589,7 +592,14 @@ class MpegInfo(mediainfo.AVInfo):
         ptsdts = ord(buffer[7]) >> 6
 
         if ptsdts and ptsdts == ord(buffer[9]) >> 4:
+            if ord(buffer[9]) >> 4 != ptsdts:
+                print 'WARNING: bad PTS/DTS, please contact us'
+                return packet_length, -1
+                
             # timestamp = self.ReadPTS(buffer[9:14])
+            high = ((ord(buffer[9]) & 0xF) >> 1)
+            med  = (ord(buffer[10]) << 7) + (ord(buffer[11]) >> 1)
+            low  = (ord(buffer[12]) << 7) + (ord(buffer[13]) >> 1)
             return packet_length, 9
             
         return packet_length, -1
@@ -717,15 +727,23 @@ class MpegInfo(mediainfo.AVInfo):
             elif adapt & 0x01:
                 # PES
                 timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:], tsid)[1]
-                if timestamp != -1 and not hasattr(self, 'start'):
-                    self.get_time = self.ReadPTS
-                    timestamp     = c + offset + timestamp
-                    self.start = self.get_time(buffer[timestamp:timestamp+5])
-
-            elif adapt & 0x01:
-                # no PES, scan for something else here
-                pass
-
+                if timestamp != -1:
+                    if not hasattr(self, 'start'):
+                        self.get_time = self.ReadPTS
+                        timestamp = c + offset + timestamp
+                        self.start = self.get_time(buffer[timestamp:timestamp+5])
+                    elif not hasattr(self, 'audio_ok'):
+                        timestamp = c + offset + timestamp
+                        start = self.get_time(buffer[timestamp:timestamp+5])
+                        if abs(start - self.start) < 10:
+                            # looks ok
+                            self.audio_ok = True
+                        else:
+                            # timestamp broken
+                            del self.start
+                            if mediainfo.DEBUG:
+                                print 'Timestamp error, correcting'
+                            
             if hasattr(self, 'start') and self.start and \
                    self.sequence_header_offset and self.video and self.audio:
                 break
@@ -812,8 +830,10 @@ class MpegInfo(mediainfo.AVInfo):
         get the length in seconds, return -1 if this is not possible
         """
         end = self.get_endpos()
-        if end == -1 or self.start > end:
+        if end == -1:
             return -1
+        if self.start > end:
+            return int(((long(1) << 33) - 1 ) / 90000) - self.start + end
         return end - self.start
     
 
