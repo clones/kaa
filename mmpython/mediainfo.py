@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.57  2004/05/12 18:41:42  dischi
+# include all tags in desc from bins
+#
 # Revision 1.56  2004/02/04 19:14:11  dischi
 # add attributes to list of getable items
 #
@@ -319,10 +322,16 @@ class ImageInfo(MediaInfo):
         if os.path.isfile(filename + '.xml'):
             try:
                 binsinfo = bins.get_bins_desc(filename)
+                # get needed keys from exif infos
                 for key in IMAGECORE + MEDIACORE:
-                    for bins_type in ('desc', 'exif'):
-                        if not self[key] and binsinfo[bins_type].has_key(key):
-                            self[key] = binsinfo[bins_type][key]
+                    if not self[key] and binsinfo['exif'].has_key(key):
+                        self[key] = binsinfo['exif'][key]
+                # get _all_ infos from description
+                for key in binsinfo['desc']:
+                    self[key] = binsinfo['desc'][key]
+                    if not key in IMAGECORE + MEDIACORE:
+                        # if it's in desc it must be important
+                        self.keys.append(key)
             except:
                 pass
 
