@@ -46,12 +46,17 @@ class DVDTitle(mediainfo.AVInfo):
         self.number = number
         self.chapters, self.angles, self.length, audio_num, \
                        subtitles_num = ifoparser.title(number)
+
+        self.keys.append('chapters')
+        self.keys.append('subtitles')
+        
         self.mime = 'video/mpeg'
         for a in range(1, audio_num+1):
             self.audio.append(DVDAudio(number, a))
             
         for s in range(1, subtitles_num+1):
             self.subtitles.append(ifoparser.subtitle(number, s)[0])
+
             
 class DVDInfo(DiscInfo):
     def __init__(self, device):
@@ -62,8 +67,23 @@ class DVDInfo(DiscInfo):
             self.valid = self.isDVDdir(device)
         else:
             self.valid = self.isDisc(device)
-        self.mime = 'video/dvd'
-        self.type = 'DVD'
+
+        if self.valid and self.tracks:
+            self.keys.append('length')
+            self.length = 0
+            first       = 0
+
+            for t in self.tracks:
+                self.length += t.length
+                if not first:
+                    first = t.length
+            
+            if self.length/len(self.tracks) == first:
+                # badly mastered dvd
+                self.length = first
+
+        self.mime    = 'video/dvd'
+        self.type    = 'DVD'
         self.subtype = 'video'
 
 
@@ -118,7 +138,7 @@ class DVDInfo(DiscInfo):
             ti.trackno = title
             ti.trackof = title_num
             self.appendtrack(ti)
-
+        
         ifoparser.close()
         return 1
 
