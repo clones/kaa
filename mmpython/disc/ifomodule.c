@@ -78,16 +78,19 @@ static PyObject *ifoinfo_read_title(PyObject *self, PyObject *args) {
   long playtime;
 
   if (!PyArg_ParseTuple(args, "i", &i))
-    return Py_BuildValue("i", 0);
+    return Py_BuildValue("(iiiii)", 0, 0, 0, 0, 0);
 
   i--;
   
   tt_srpt = ifofile->tt_srpt;
-  vtsnum = tt_srpt->title[i].title_set_nr;
-  ttnnum = tt_srpt->title[i].vts_ttn;
+  vtsnum  = tt_srpt->title[i].title_set_nr;
+  ttnnum  = tt_srpt->title[i].vts_ttn;
      
   vtsfile = ifoOpen(dvd, vtsnum);
     
+  if (!vtsfile)
+    return Py_BuildValue("(iiiii)", 0, 0, 0, 0, 0);
+
   playtime = 0;
   
   if (vtsfile->vts_pgcit) {
