@@ -2,29 +2,26 @@ import ifoinfo
 import mediainfo
 
 
-
-class DVDAudio:
+class DVDAudio(mediainfo.AudioInfo):
     def __init__(self, title, number):
         self.number = number
         self.title  = title
-        self.id, self.lang, self.format, self.channels, self.freq = \
+        self.id, self.language, self.codec, self.channels, self.samplerate = \
                  ifoinfo.audio(title, number)
 
-
-class DVDTitle:
+class DVDTitle(mediainfo.AVInfo):
     def __init__(self, number):
+        mediainfo.AVInfo.__init__(self)
         self.number = number
-        self.chapters, self.angles, self.playback_time, audio_num, \
+        self.chapters, self.angles, self.length, audio_num, \
                        subtitles_num = ifoinfo.title(number)
 
-        self.audio = []
+        self.mime = 'video/mpeg'
         for a in range(1, audio_num+1):
             self.audio.append(DVDAudio(number, a))
             
-        self.subtitles = []
         for s in range(1, subtitles_num+1):
             self.subtitles.append(ifoinfo.subtitle(number, s)[0])
-
 
 
 class DVDInfo(mediainfo.VideoInfo):
@@ -53,5 +50,5 @@ class DVDInfo(mediainfo.VideoInfo):
 
 factory = mediainfo.get_singleton()  
 dvdinfo = DVDInfo
-factory.register( 'video/dvd', mediainfo.DEVICE, mediainfo.TYPE_VIDEO, dvdinfo )
+factory.register( 'video/dvd', mediainfo.DEVICE, mediainfo.TYPE_AV, dvdinfo )
 print "dvd video type registered"
