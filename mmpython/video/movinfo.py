@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.19  2004/03/02 20:48:21  dischi
+# fix gettable
+#
 # Revision 1.18  2003/08/30 09:36:22  dischi
 # turn off some debug based on DEBUG
 #
@@ -115,11 +118,11 @@ class MovInfo(mediainfo.AVInfo):
         while self._readatom(file):
             pass
         try:
-            info = self.gettable[('QTUDTA', 'en')]       
+            info = self.gettable('QTUDTA', 'en')
             self.setitem('title', info, 'nam')
             self.setitem('artist', info, 'aut')
             self.setitem('copyright', info, 'cpy')
-        except:
+        except OSError:
             pass
             
                 
