@@ -130,22 +130,22 @@ msgid "ISRF"
 msgstr "Source Form"
 
 msgid "IMED"
-msgstr "Medium IMED Medium"
+msgstr "Medium"
 
 msgid "ISRC"
-msgstr "Source ISRC Source"
+msgstr "Source"
 
 msgid "IARL"
-msgstr "Archival Location IARL Archival Location"
+msgstr "Archival Location"
 
 msgid "ICMS"
-msgstr "Commissioned by ICMS Commissioned by"
+msgstr "Commissioned by"
 
 msgid "IENG"
-msgstr "Engineer IENG Engineer"
+msgstr "Engineerr"
 
 msgid "ICRP"
-msgstr "Cropped ICRP Cropped"
+msgstr "Cropped"
 
 msgid "ISHP"
 msgstr "Sha"
