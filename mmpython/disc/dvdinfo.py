@@ -152,7 +152,6 @@ class DVDInfo(DiscInfo):
         buffer = f.read(50000)
 
         if buffer.find('UDF') == -1:
-            f.close()
             return 0
 
         # seems to be a DVD, read a little bit more
