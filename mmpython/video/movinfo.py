@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.23  2004/05/24 12:54:35  dischi
+# debug update
+#
 # Revision 1.22  2004/05/11 15:18:59  dischi
 # o more stream infos (like codec)
 # o better error handling for bad i18n tables
@@ -113,6 +116,9 @@ from movlanguages import *
 
 ATOM_DEBUG = 0
 
+if mediainfo.DEBUG > 1:
+    ATOM_DEBUG = 1
+    
 class MovInfo(mediainfo.AVInfo):
     def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
@@ -214,6 +220,9 @@ class MovInfo(mediainfo.AVInfo):
                 elif datatype == 'mdia':
                     pos      += 8
                     datasize -= 8
+                    if ATOM_DEBUG:
+                        print '--> mdia information'
+
                     while datasize:
                         mdia = struct.unpack('>I4s', atomdata[pos:pos+8])
                         if mdia[1] == 'mdhd':
@@ -292,6 +301,8 @@ class MovInfo(mediainfo.AVInfo):
                     try:
                         decompressed = zlib.decompress(data[4:])
                     except Exception, e:
+                        if mediainfo.DEBUG:
+                            print 'unable to decompress atom'
                         return atomsize
                 import StringIO
                 decompressedIO = StringIO.StringIO(decompressed)
@@ -299,6 +310,8 @@ class MovInfo(mediainfo.AVInfo):
                     pass
                 
             else:
+                if mediainfo.DEBUG:
+                    print 'unknown compression %s' % method
                 # unknown compression method
                 file.seek(datasize-8,1)
         
