@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.18  2004/01/31 12:37:25  dischi
+# remove bad chars
+#
 # Revision 1.17  2003/08/30 09:36:22  dischi
 # turn off some debug based on DEBUG
 #
@@ -307,7 +310,7 @@ class AsfInfo(mediainfo.AVInfo):
             pos = 34
             strings = []
             for i in val:
-                strings.append(s[pos:pos+i])
+                strings.append(s[pos:pos+i].replace('\0', '').lstrip().rstrip())
                 pos+=i
             (self.title, self.artist, self.copyright, self.caption, rating) = tuple(strings)
         elif guid == GUIDS['ASF_Extended_Content_Description_Object']:
