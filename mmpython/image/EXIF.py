@@ -644,7 +644,7 @@ def s2n_intel(str):
     x=0
     y=0L
     for c in str:
-        x=x | (long(ord(c)), y)
+        x=x | (long(ord(c)) << y)
         y=y+8
     return x
 
