@@ -4,6 +4,11 @@
 # -----------------------------------------------------------------------
 # $Id$
 #
+# $Log$
+# Revision 1.5  2003/06/09 12:47:53  dischi
+# more track info
+#
+#
 # -----------------------------------------------------------------------
 # Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
 #
@@ -38,6 +43,7 @@ class VCDInfo(mediainfo.DiscInfo):
         self.type = 'vcd video'        
 
     def isDisc(self, device):
+        type = None
         if mediainfo.DiscInfo.isDisc(self, device) != 2:
             return 0
         
@@ -49,13 +55,13 @@ class VCDInfo(mediainfo.DiscInfo):
 
         if buffer.find('SVCD') > 0 and buffer.find('TRACKS.SVD') > 0 and \
                buffer.find('ENTRIES.SVD') > 0:
-            print 'This is a SVCD'
+            type = 'SVCD'
 
         elif buffer.find('INFO.VCD') > 0 and buffer.find('ENTRIES.VCD') > 0:
-            print 'This is a VCD'
+            type = 'VCD'
 
         else:
-            return None
+            return 0
 
         # read the tracks to generate the title list
         device = open(device)
@@ -71,7 +77,17 @@ class VCDInfo(mediainfo.DiscInfo):
             else:
                 min, sec, frames = cdrom.toc_entry(device, i)
             if num:
-                self.tracks.append(min-lmin)
+                vi = mediainfo.VideoInfo()
+                # XXX add more static information here, it's also possible
+                # XXX to scan for more informations like fps
+                # XXX Settings to MPEG1/2 is a wild guess, maybe the track
+                # XXX isn't playable at all (e.g. the menu)
+                if type == 'VCD':
+                    vi.codec = 'MPEG1'
+                else:
+                    vi.codec = 'MPEG2'
+                vi.length = (min-lmin) * 60 + (sec-lsec)
+                self.tracks.append(vi)
             num += 1
             lmin, lsec = min, sec
         device.close()
