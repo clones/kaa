@@ -41,8 +41,6 @@ class AudioInfo(mediainfo.DiscInfo):
                 self.keys.append(key)
 
         if read_stat == 210:
-            self.tracks = []
-            self.keys.append('tracks')
             for i in range(0, disc_id[1]):
                 self.tracks.append(read_info['TTITLE' + `i`])
         else:
