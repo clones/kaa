@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.12  2003/09/10 18:50:31  dischi
+# error handling
+#
 # Revision 1.11  2003/08/26 21:21:18  outlyer
 # Fix two more Python 2.3 warnings.
 #
@@ -94,7 +97,8 @@ def cdrom_disc_status(device):
     CDROM_DISC_STATUS=0x5327
     CDS_AUDIO=100
     CDS_MIXED=105
-
+    CDS_DISC_OK=4
+    
     # FreeBSD ioctls - there is no CDROM.py
     CDIOREADTOCENTRYS = 0xc0086305L
     CD_MSF_FORMAT = 2
@@ -109,6 +113,9 @@ def cdrom_disc_status(device):
         else:
             s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
     except:
+        print 'ERROR: no permission to read %s' % device
+        print 'Media detection not possible, set drive to \'empty\''
+        
         # maybe we need to close the fd if ioctl fails, maybe
         # open fails and there is no fd, maye we aren't running
         # linux and don't have ioctl
@@ -118,6 +125,10 @@ def cdrom_disc_status(device):
             pass
         return 0
 
+    if not s == CDS_DISC_OK:
+        # no disc, error, whatever
+        return 0
+    
     if os.uname()[0] == 'FreeBSD':
         s = 0
         # We already have the TOC from above
@@ -158,6 +169,7 @@ def cdrom_disc_id(device):
         pass
 
     disc_type = cdrom_disc_status(device)
+    print disc_type
     if disc_type == 0:
         id = None
         
