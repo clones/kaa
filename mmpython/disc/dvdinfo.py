@@ -178,11 +178,11 @@ class DVDInfo(DiscInfo):
         return 1
 
 
-if mmpython.gettype('video/dvd', mediainfo.EXTENSION_DEVICE):
+if not mmpython.gettype('video/dvd', mediainfo.EXTENSION_DEVICE):
     mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE,
                            mediainfo.TYPE_AV, DVDInfo )
 
-if mmpython.gettype('video/dvd', mediainfo.EXTENSION_DIRECTORY):
+if not mmpython.gettype('video/dvd', mediainfo.EXTENSION_DIRECTORY):
     mmpython.registertype('video/dvd', mediainfo.EXTENSION_DIRECTORY,
                           mediainfo.TYPE_AV, DVDInfo)
 
