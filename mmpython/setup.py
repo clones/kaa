@@ -35,10 +35,11 @@ setup (# Distribution meta-data
                       'mmpython.audio.eyeD3': 'audio/eyeD3',
                       'mmpython.image': 'image',
                       'mmpython.disc' : 'disc',
+                      'mmpython.misc' : 'misc',
                       'mmpython': ''},
 
        packages = [ 'mmpython', 'mmpython.video', 'mmpython.audio', 'mmpython.audio.eyeD3',
-                    'mmpython.image', 'mmpython.disc' ],
+                    'mmpython.image', 'mmpython.disc', 'mmpython.misc' ],
        
        # Description of the modules and packages in the distribution
        ext_modules = extensions

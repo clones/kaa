@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.34  2004/05/20 15:55:08  dischi
+# add xml file detection
+#
 # Revision 1.33  2004/05/02 08:28:20  dischi
 # dvd iso support
 #
@@ -121,10 +124,12 @@ import video.movinfo
 import image.jpginfo
 import image.pnginfo
 import image.tiffinfo
+import image.ImageInfo
 import video.vcdinfo
 import video.realinfo
 import video.ogminfo
 import video.mkvinfo
+import misc.xmlinfo
 
 # import some disc modules (may fail)
 try:

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.60  2004/05/20 15:55:08  dischi
+# add xml file detection
+#
 # Revision 1.59  2004/05/18 21:54:49  dischi
 # add chapter support
 #
@@ -70,14 +73,12 @@ TYPE_IMAGE = 4
 TYPE_AV = 5
 TYPE_MUSIC = 6
 TYPE_HYPERTEXT = 8
+TYPE_MISC = 10
 
 import string
 import types
 import table
 import traceback
-
-from image import bins
-
 
 import re
 import urllib
@@ -91,7 +92,7 @@ AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
              'width', 'height', 'fps', 'aspect']
 IMAGECORE = ['description', 'people', 'location', 'event',
-             'width','height','thumbnail','software','hardware']
+             'width','height','thumbnail','software','hardware', 'dpi']
 MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
 AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
              'genre', 'secondary genre', 'subject', 'writer', 'producer', 
@@ -347,24 +348,6 @@ class ImageInfo(MediaInfo):
         for k in IMAGECORE:
             setattr(self,k,None)
             self.keys.append(k)
-
-    def add_bins_data(self, filename):
-        if os.path.isfile(filename + '.xml'):
-            try:
-                binsinfo = bins.get_bins_desc(filename)
-                # get needed keys from exif infos
-                for key in IMAGECORE + MEDIACORE:
-                    if not self[key] and binsinfo['exif'].has_key(key):
-                        self[key] = binsinfo['exif'][key]
-                # get _all_ infos from description
-                for key in binsinfo['desc']:
-                    self[key] = binsinfo['desc'][key]
-                    if not key in IMAGECORE + MEDIACORE:
-                        # if it's in desc it must be important
-                        self.keys.append(key)
-            except:
-                pass
-
 
 
 class CollectionInfo(MediaInfo):
