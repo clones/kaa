@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.13  2003/09/14 01:41:37  outlyer
+# FreeBSD support
+#
 # Revision 1.12  2003/09/10 18:50:31  dischi
 # error handling
 #
@@ -100,8 +103,12 @@ def cdrom_disc_status(device):
     CDS_DISC_OK=4
     
     # FreeBSD ioctls - there is no CDROM.py
-    CDIOREADTOCENTRYS = 0xc0086305L
-    CD_MSF_FORMAT = 2
+    # XXX 0xc0086305 below creates a warning, but 0xc0086305L
+    # doesn't work. Suppress that warning for Linux users,
+    # until a better solution can be found.
+    if os.uname()[0] == 'FreeBSD':
+        CDIOREADTOCENTRYS = 0xc0086305
+        CD_MSF_FORMAT = 2
         
     try:
         fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
