@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.20  2004/03/13 23:41:59  dischi
+# add AudioInfo to mpeg for all streams
+#
 # Revision 1.19  2004/02/11 20:11:54  dischi
 # Updated length calculation for mpeg files. This may not work for all files.
 #
@@ -285,6 +288,11 @@ class MpegInfo(mediainfo.AVInfo):
             self.has_video = 1
         if num_a:
             self.has_audio = 1
+            for i in range(num_a):
+                ai = mediainfo.AudioInfo()
+                ai.id = i
+                # FIXME: more infos please
+                self.audio.append(ai)
         return 1
 
 
