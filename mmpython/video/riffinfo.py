@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.31  2004/12/13 10:19:07  dischi
+# more debug, support LIST > 20000 (new max is 80000)
+#
 # Revision 1.30  2004/08/25 16:18:14  dischi
 # detect aspect ratio
 #
@@ -113,6 +116,7 @@ from mmpython import mediainfo
 
 # List of tags
 # http://kibus1.narod.ru/frames_eng.htm?sof/abcavi/infotags.htm
+# http://www.divx-digest.com/software/avitags_dll.html
 # File Format
 # http://www.taenam.co.kr/pds/documents/odmlff2.pdf
 
@@ -159,7 +163,7 @@ class RiffInfo(mediainfo.AVInfo):
         elif self.type == 'WAVE':
             self.mime = 'application/x-wave'
         try:
-            while not self.parseRIFFChunk(file):
+            while self.parseRIFFChunk(file):
                 pass
         except IOError:
             if mediainfo.DEBUG:
@@ -429,11 +433,11 @@ class RiffInfo(mediainfo.AVInfo):
     def parseRIFFChunk(self,file):
         h = file.read(8)
         if len(h) < 4:
-            return 1
+            return False
         name = h[:4]
         size = struct.unpack('<I',h[4:8])[0]        
 
-        if name == 'LIST' and size < 20000:
+        if name == 'LIST' and size < 80000:
             pos = file.tell() - 8
             t = file.read(size)
             key = t[:4]
@@ -455,13 +459,26 @@ class RiffInfo(mediainfo.AVInfo):
             self.junkStart = file.tell() - 8
             self.junkSize  = size
             file.seek(size, 1)
-        elif name in ('LIST', 'idx1'):
+        elif name == 'idx1':
+            _print('idx1: %s bytes' % size)
             # no need to parse this
             t = file.seek(size,1)
+        elif name == 'LIST':
+            _print('RIFF LIST to long to parse: %s bytes' % size)
+            # no need to parse this
+            t = file.seek(size,1)
+        elif name == 'RIFF':
+            _print("New RIFF chunk, extended avi [%i]" % size)
+            type = file.read(4)
+            if type != 'AVIX':
+                _print("Second RIFF chunk is %s, not AVIX, skipping", type)
+                file.seek(size-4, 1)
+            # that's it, no new informations should be in AVIX
+            return False
         else:
             t = file.seek(size,1)
             _print("Skipping %s [%i]" % (name,size))
-        return 0
+        return True
 
     def buildTag(self,key,value):
         text = value + '\0'
