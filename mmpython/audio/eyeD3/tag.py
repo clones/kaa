@@ -1266,8 +1266,8 @@ class Mp3AudioFile:
       self.playTime = None;
       self.fileName = fileName;
 
-      if not isMp3File(fileName):
-         raise self.invalidFileExc;
+#      if not isMp3File(fileName):
+#         raise self.invalidFileExc;
 
       # Parse ID3 tag.
       f = file(fileName, "rb");
