@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.27  2003/11/24 20:30:17  dischi
+# fix again, dvd may fail, but datadir may not
+#
 # Revision 1.26  2003/11/24 20:29:26  dischi
 # resort to let dvd work again
 #
@@ -108,6 +111,9 @@ try:
     import disc.vcdinfo
     import disc.audioinfo
     import disc.dvdinfo
+except ImportError:
+    pass
+try:
     import disc.datainfo
 except ImportError:
     pass
