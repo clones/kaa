@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/07/02 11:17:29  the_krow
+# language is now part of the table key
+#
 # Revision 1.7  2003/07/02 09:16:42  the_krow
 # bugfix if no language file was found
 #
@@ -47,10 +50,10 @@ import os
 LOCALEDIR = 'i18n'
 
 class Table:
-    def __init__(self, hashmap, name):
+    def __init__(self, hashmap, name, language='en'):
         self.dict = hashmap
         self.name = name
-        self.language = 'en'
+        self.language = language
         self.translations = {}
         self.languages = []
         self.i18ndir = os.path.join(LOCALEDIR, name.lower())
@@ -70,9 +73,9 @@ class Table:
         
     def gettext(self, message, language = None):
         try:
-            return self.translations[language].gettext(message)
+            return self.translations[language].gettext(message.__str__())
         except KeyError:
-            return "%s (No Message in '%s')" % (message, language)
+            return "%s" % (message.__str__())
         
     def __setitem__(self,key,value):
         self.dict[key] = value
@@ -93,10 +96,13 @@ class Table:
     def has_key(self, key):
         return self.dict.has_key(key)    
     
+    def getEntry(self, key, language = 'en'):
+        pair = (self.gettext(key), self.dict[key].__str__())
+    
     def __str__(self):
-        header = "\nTable %s:" % self.name 
+        header = "\nTable %s (%s):" % (self.name, self.language)
         result = reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
-                         (a, self.gettext(b.__str__(),'en'), self.getstr(b)) or a, self.dict.keys(), header )
+                         (a, self.gettext(b,'en'), self.getstr(b)) or a, self.dict.keys(), header )
         return result
 
     def accept(self,mi):

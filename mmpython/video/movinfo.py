@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.17  2003/07/02 11:17:30  the_krow
+# language is now part of the table key
+#
 # Revision 1.16  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -84,6 +87,8 @@ import string
 import fourcc
 import mmpython
 from mmpython import mediainfo
+from movlanguages import *
+
 
 class MovInfo(mediainfo.AVInfo):
     def __init__(self,file):
@@ -106,11 +111,13 @@ class MovInfo(mediainfo.AVInfo):
             size = struct.unpack('>Q', file.read(8))                  
         while self._readatom(file):
             pass
-        if self.tables.has_key('QTUDTA'):
-            info = self.tables['QTUDTA']
-            self.setitem('title', info, '0_nam')
-            self.setitem('artist', info, '0_aut')
-            self.setitem('copyright', info, '0_cpy')
+        try:
+            info = self.gettable[('QTUDTA', 'en')]       
+            self.setitem('title', info, 'nam')
+            self.setitem('artist', info, 'aut')
+            self.setitem('copyright', info, 'cpy')
+        except:
+            pass
             
                 
     def _readatom(self, file):
@@ -127,6 +134,7 @@ class MovInfo(mediainfo.AVInfo):
             # Userdata (Metadata)
             pos = 0
             tabl = {}
+            i18ntabl = {}
             atomdata = file.read(atomsize-8)
             while pos < atomsize-12:
                 (datasize,datatype) = struct.unpack('>I4s', atomdata[pos:pos+8])
@@ -137,7 +145,9 @@ class MovInfo(mediainfo.AVInfo):
                         # first 4 Bytes are i18n header
                         (tlen,lang) = struct.unpack('>HH', atomdata[mypos:mypos+4])
                         #print "%d %d/%d %s" % (lang,tlen,datasize,atomdata[mypos+4:mypos+tlen+4])
-                        tabl['%d_%s'%(lang,datatype[1:])] = atomdata[mypos+4:mypos+tlen+4]
+                        i18ntabl[lang] = i18ntabl.get(lang, {})
+                        i18ntabl[lang][datatype[1:]] = atomdata[mypos+4:mypos+tlen+4]
+                        #['%d_%s'%(lang,datatype[1:])] = atomdata[mypos+4:mypos+tlen+4]
                         mypos += tlen+4
                 elif datatype == 'WLOC':
                     # Drop Window Location
@@ -146,7 +156,14 @@ class MovInfo(mediainfo.AVInfo):
                     tabl[datatype] = atomdata[pos+8:pos+datasize]
 #                print "%s: %s" % (datatype, tabl[datatype])
                 pos += datasize
-            self.appendtable('QTUDTA', tabl)
+            if len(i18ntabl.keys()) > 0:
+                for k in i18ntabl.keys():                
+                    self.appendtable('QTUDTA', i18ntabl[k], QTLANGUAGES[k])
+                    self.appendtable('QTUDTA', tabl, QTLANGUAGES[k])
+            else:
+                print "NO i18"
+                self.appendtable('QTUDTA', tabl)
+             
         elif atomtype == 'trak':
             atomdata = file.read(atomsize-8)
             pos = 0
@@ -162,6 +179,8 @@ class MovInfo(mediainfo.AVInfo):
                     # XXX length is broken, it report days (!) when you interpret
                     # XXX the length as seconds
                     #self.length = vi.length = tkhd[5]
+                                        
+                    # XXX Date number of Seconds is since January 1st 1904!!!
                     self.date = tkhd[1]
                     self.video.append(vi)
                     #print tkhd

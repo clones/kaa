@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.23  2003/07/02 11:17:30  the_krow
+# language is now part of the table key
+#
 # Revision 1.22  2003/07/01 21:06:50  dischi
 # no need to import factory (and when, use "from mmpython import factory"
 #
@@ -125,7 +128,7 @@ class RiffInfo(mediainfo.AVInfo):
         self.junkStart = None
         self.infoStart = None
         self.type = h[8:12]
-        self.tag_map = { 'AVIINFO' : AVIINFO_tags }
+        self.tag_map = { ('AVIINFO', 'en') : AVIINFO_tags }
         if self.type == 'AVI ':
             self.mime = 'video/avi'
         elif self.type == 'WAVE':
@@ -141,8 +144,8 @@ class RiffInfo(mediainfo.AVInfo):
         
         # Copy Metadata from tables into the main set of attributes        
         for k in self.tag_map.keys():
-            if self.tables.has_key(k):
-                map(lambda x:self.setitem(x,self.tables[k],self.tag_map[k][x]), self.tag_map[k].keys())        
+            map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),self.tag_map[k][x]), self.tag_map[k].keys())
+                
         
         
     def _extractHeaderString(self,h,offset,len):

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.50  2003/07/02 11:17:29  the_krow
+# language is now part of the table key
+#
 # Revision 1.49  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -254,7 +257,7 @@ class MediaInfo:
     """
     def __init__(self):
         self.keys = []
-        self.tables = {}
+        self._tables = {}
         for k in MEDIACORE:
             setattr(self,k,None)
             self.keys.append(k)
@@ -271,17 +274,30 @@ class MediaInfo:
         result += reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
                          (a, b.__str__(), self[b].__str__()) or a, keys, "" )
         try:
-            for i in self.tables.keys():
-                 result += self.tables[i].__str__()
+            for i in self._tables.keys():
+                 result += self._tables[i].__str__()
         except AttributeError:
             pass
         return result
         
-    def appendtable(self, name, hashmap):
+    def appendtable(self, name, hashmap, language='en'):
         """
         Appends a tables of additional metadata to the Object. 
+        If such a table already exists, the given tables items are
+        added to the existing one.
         """
-        self.tables[name] = table.Table(hashmap, name)
+        if not self._tables.has_key((name, language)):
+            self._tables[(name, language)] = table.Table(hashmap, name, language)
+        else:
+            # Append to the already existing table
+            for k in hashmap.keys():
+                self._tables[(name, language)][k] = hashmap[k]
+    
+    def gettable(self, name, language='en'):
+        """
+        returns a table of the given name and language        
+        """
+        return self._tables.get((name, language), {})
     
     def setitem(self,item,dict,key):
         try:

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/07/02 11:17:29  the_krow
+# language is now part of the table key
+#
 # Revision 1.6  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -112,11 +115,10 @@ class WebRadioInfo(mediainfo.MusicInfo):
         if fi:
             fi.close()
         self.appendtable('ICY', tab)
-        self.tag_map = { 'ICY' : ICY_tags }
+        self.tag_map = { ('ICY', 'en') : ICY_tags }
         # Copy Metadata from tables into the main set of attributes        
         for k in self.tag_map.keys():
-            if self.tables.has_key(k):
-                map(lambda x:self.setitem(x,self.tables[k],self.tag_map[k][x]), self.tag_map[k].keys())        
+            map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),self.tag_map[k][x]), self.tag_map[k].keys())
         self.bitrate = string.atoi(self.bitrate)*1000        
 
 mmpython.registertype( 'text/plain', mediainfo.EXTENSION_STREAM, mediainfo.TYPE_MUSIC, WebRadioInfo )
