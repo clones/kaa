@@ -3,6 +3,16 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.3  2003/08/27 02:53:48  outlyer
+# Still doesn't do anything, but at least compiles now; problem is I don't
+# know how to conver the endian "headers" in to the types we expect, and I'm
+# hardly an expert on binary data.
+#
+# But I flushed out the header types from the FLAC documentation and
+# hopefully Thomas will know what to do...
+#
+# I can provide a FLAC file if necessary...
+#
 # Revision 1.2  2003/08/26 21:21:18  outlyer
 # Fix two more Python 2.3 warnings.
 #
@@ -31,6 +41,7 @@
 #endif
 
 from mmpython import mediainfo
+import mmpython.audio.ogginfo as ogginfo
 import mmpython
 
 
@@ -41,24 +52,28 @@ class FlacInfo(mediainfo.MusicInfo):
             self.valid = 0
             return
         while 1:
-            blockheader = file.read(4)
+            import struct
+            (blockheader,) = struct.unpack('>i',file.read(4))
             type = blockheader >> 24 & 0x7F
+            print type
+
             if type == 0:
                 # STREAMINFO
                 pass
             elif type == 1:
                 # PADDING
                 pass            
-            elif type == 1:
+            elif type == 2:
                 # APPLICATION 
                 pass            
-            elif type == 1:
+            elif type == 3:
                 # SEEKTABLE 
                 pass            
-            elif type == 1:
+            elif type == 4:
                 # VORBIS_COMMENT 
+                print "Found comment"
                 pass            
-            elif type == 1:
+            elif type == 5:
                 # CUESHEET 
                 pass
             else:
