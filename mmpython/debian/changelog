@@ -1,3 +1,9 @@
+mmpython (0.3.0-freevo1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Aubin Paul <debian@outlyer.org>  Mon, 27 Oct 2003 23:50:40 -0500
+
 mmpython (0.2.0cvs20031012-freevo1) unstable; urgency=low
 
   * New snapshot
