@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.32  2003/06/10 22:16:07  dischi
+# support for cd://-URLs added
+#
 # Revision 1.31  2003/06/10 16:04:17  the_krow
 # reference to DiscItem in cache was still pointing to mediainfo
 # visuals
@@ -202,6 +205,22 @@ UNPRINTABLE_KEYS = [ 'thumbnail', ]
 
 import table
 
+def isurl(url):
+    return url.find('://') > 0
+    
+def url_splitter(url):
+    if url.find('cd:///') == 0:
+        device     = url[5:url[4:].find(':')+4]
+        filename   = url[url[6:].find(':')+7:]
+        mountpoint = filename[:filename.find(':')]
+        filename   = filename[len(mountpoint)+1:]
+        data = ('cd', (device, mountpoint, filename, os.path.join(mountpoint, filename)))
+        return data
+    else:
+        print 'unknown url type: %s' % url
+        return (None, None)
+
+    
 class MediaInfo:
     def __init__(self):
         self.keys = []
@@ -366,7 +385,11 @@ class MetaDataFactory:
         pass
         
     def create_from_filename(self,filename):
-        print filename
+        if isurl(filename):
+            type, data = url_splitter(filename)
+            if type == 'cd':
+                filename = data[3]
+
         if stat.S_ISBLK(os.stat(filename)[stat.ST_MODE]):
             r = self.create_from_device(filename)
         elif os.path.isfile(filename):
