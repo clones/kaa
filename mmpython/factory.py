@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.10  2003/08/30 12:16:24  dischi
+# special handling for directories
+#
 # Revision 1.9  2003/08/26 21:22:53  outlyer
 # Whoops, left DEBUG enabled
 #
@@ -173,6 +176,8 @@ class Factory:
         """
         Create information for the given filename
         """
+        if os.path.isdir(filename):
+            return None
         if os.path.isfile(filename):
             f = open(filename,'rb')
             r = self.create_from_file(f)
@@ -204,9 +209,10 @@ class Factory:
         """
         if isurl(name):
             return self.create_from_url(name)
-        elif not os.path.exists(name):
+        if not os.path.exists(name):
             return None
-        if (os.uname()[0] == 'FreeBSD' and stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
+        if (os.uname()[0] == 'FreeBSD' and stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) \
+               or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
             return self.create_from_device(name)
         return self.create_from_filename(name)
 
