@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.8  2003/07/04 15:32:52  outlyer
+# Fix the label so we don't try to cache into a directory instead of a file.
+#
 # Revision 1.7  2003/07/02 22:04:26  dischi
 # just to be save
 #
@@ -136,6 +139,7 @@ def cdrom_disc_id(device):
             id = '%s%s' % (id, m.group(1))
             
     id_cache[device] = time.time(), id
+    id = id.replace('/','_')
     return id
 
 
