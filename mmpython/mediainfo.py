@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.59  2004/05/18 21:54:49  dischi
+# add chapter support
+#
 # Revision 1.58  2004/05/17 19:10:57  dischi
 # better DEBUG handling
 #
@@ -272,6 +275,16 @@ class VideoInfo(MediaInfo):
             self.keys.append(k)
            
 
+class ChapterInfo(MediaInfo):
+    """
+    Chapter in a Multiplexed Container.
+    """
+    def __init__(self, name, pos):
+        self.keys = ['name', 'pos']
+        setattr(self,'name', name)
+        setattr(self,'pos', pos)
+           
+
 class AVInfo(MediaInfo):
     """
     Container for Audio and Video streams. This is the Container Type for
@@ -285,7 +298,7 @@ class AVInfo(MediaInfo):
         self.audio = []
         self.video = []
         self.subtitles = []
-
+        self.chapters  = []
 
     def find_subtitles(self, filename):
         """
@@ -317,6 +330,11 @@ class AVInfo(MediaInfo):
             if len(self.subtitles):
                 result += reduce( lambda a,b: a + "  \n   Subtitle Stream:" + b.__str__(),
                                   self.subtitles, "" )
+        if len(self.chapters) > 0:
+            result += '\n Chapter list:'
+            for i in range(len(self.chapters)):
+                result += '\n   %2s: "%s" %s' % (i+1, self.chapters[i]['name'],
+                                                 self.chapters[i]['pos'])
         return result
 
         
