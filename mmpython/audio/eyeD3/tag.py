@@ -1029,6 +1029,7 @@ class Tag:
 
          # Move tmp to orig.
          shutil.copyfile(tmpName, self.linkedFile.name);
+         os.unlink(tmpName)
 
       # Update our state.
       TRACE_MSG("Tag write complete.  Updating state.");
