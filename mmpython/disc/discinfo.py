@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.3  2003/06/10 22:11:36  dischi
+# some fixes
+#
 # Revision 1.2  2003/06/10 11:50:52  dischi
 # Moved all ioctl calls for discs to discinfo.cdrom_disc_status. This function
 # uses try catch around ioctl so it will return 0 (== no disc) for systems
@@ -40,9 +43,12 @@
 #endif
 
 from mmpython import mediainfo
+import os
+import re
 
 try:
     from fcntl import ioctl
+    import DiscID
 except:
     print 'WARNING: failed to import ioctl, discinfo won\' work'
 
@@ -78,26 +84,44 @@ def cdrom_disc_status(device):
     return 2
     
 
+def cdrom_disc_id(device):
+    """
+    return the disc id of the device or None if no disc is there
+    """
+    disc_type = cdrom_disc_status(device)
+    if disc_type == 0:
+        return None
+        
+    elif disc_type == 1:
+        disc_id = DiscID.disc_id(DiscID.open(device))
+        return '%08lx_%d' % (disc_id[0], disc_id[1])
+
+    else:
+        f = open(device,'rb')
+
+        f.seek(0x0000832d)
+        id = f.read(16)
+        f.seek(32808, 0)
+        label = f.read(32)
+        f.close()
+            
+        m = re.match("^(.*[^ ]) *$", label)
+        if m:
+            return '%s%s' % (id, m.group(1))
+        return id
+
+
 class DiscInfo(mediainfo.CollectionInfo):
     def isDisc(self, device):
         type = cdrom_disc_status(device)
         if type != 2:
             return type
         
-        f = open(device,'rb')
-
-        f.seek(0x0000832d)
-        self.id = f.read(16)
-        f.seek(32808, 0)
-        self.label = f.read(32)
-        f.close()
-
-        m = re.match("^(.*[^ ]) *$", self.label)
-        if m:
-            self.label = m.group(1)
-            self.id    = '%s%s' % (self.id, self.label)
-        else:
+        self.id = cdrom_disc_id(device)
+        if len(self.id) == 16:
             self.label = ''
+        else:
+            self.label = self.id[16:]
 
         self.keys.append('label')
         return 2

@@ -35,7 +35,7 @@ _debug = mediainfo._debug
 
 class AudioInfo(discinfo.DiscInfo):
     def __init__(self,device):
-        mediainfo.DiscInfo.__init__(self)
+        discinfo.DiscInfo.__init__(self)
         self.context = 'audio'
         self.offset = 0
         self.valid = self.isDisc(device)

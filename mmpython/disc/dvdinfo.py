@@ -27,7 +27,7 @@
 
 import ifoparser
 from mmpython import mediainfo
-
+from discinfo import DiscInfo
 
 class DVDAudio(mediainfo.AudioInfo):
     def __init__(self, title, number):
@@ -52,9 +52,9 @@ class DVDTitle(mediainfo.AVInfo):
         for s in range(1, subtitles_num+1):
             self.subtitles.append(ifoparser.subtitle(number, s)[0])
             
-class DVDInfo(mediainfo.DiscInfo):
+class DVDInfo(DiscInfo):
     def __init__(self,device):
-        mediainfo.DiscInfo.__init__(self)
+        DiscInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
         self.valid = self.isDisc(device)
@@ -62,7 +62,7 @@ class DVDInfo(mediainfo.DiscInfo):
         self.type = 'dvd video'
 
     def isDisc(self, device):
-        if mediainfo.DiscInfo.isDisc(self, device) != 2:
+        if DiscInfo.isDisc(self, device) != 2:
             return 0
 
         # brute force reading of the device to find out if it is a DVD

@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.6  2003/06/10 22:11:36  dischi
+# some fixes
+#
 # Revision 1.5  2003/06/09 12:47:53  dischi
 # more track info
 #
@@ -31,11 +34,12 @@
 
 
 from mmpython import mediainfo
+from discinfo import DiscInfo
 import cdrom
 
-class VCDInfo(mediainfo.DiscInfo):
+class VCDInfo(DiscInfo):
     def __init__(self,device):
-        mediainfo.DiscInfo.__init__(self)
+        DiscInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
         self.valid = self.isDisc(device)
@@ -44,7 +48,7 @@ class VCDInfo(mediainfo.DiscInfo):
 
     def isDisc(self, device):
         type = None
-        if mediainfo.DiscInfo.isDisc(self, device) != 2:
+        if DiscInfo.isDisc(self, device) != 2:
             return 0
         
         # brute force reading of the device to find out if it is a VCD
