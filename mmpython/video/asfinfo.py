@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.13  2003/06/12 10:42:47  the_krow
+# Added Bitrate, Extended Info
+# Still need to identify streams by their streamid
+#
 # Revision 1.12  2003/06/12 09:38:24  the_krow
 # ASF Header parser completed. I need test files or a way to generate
 # them.
@@ -72,7 +76,7 @@ def _guid(input):
     x = ''
     for i in range(0,16):
         r+=chr(int(s[2*i:2*i+2],16))
-    guid = struct.unpack('<IHHBB6s',r)
+    guid = struct.unpack('>IHHBB6s',r)
     return guid
 
 GUIDS = {        
@@ -143,7 +147,7 @@ class AsfInfo(mediainfo.AVInfo):
             return
         self.valid = 1
         (guidstr,objsize,objnum,reserved1,reserved2) = struct.unpack('<16sQIBB',h)                
-        guid = struct.unpack('>IHHBB6s', guidstr)
+        guid = self._parseguid(guidstr)
         if (guid != GUIDS['ASF_Header_Object']):
             self.valid = 0
             return
@@ -159,10 +163,80 @@ class AsfInfo(mediainfo.AVInfo):
         r = "%.8X-%.4X-%.4X-%.2X%.2X-%s" % guid
         return r 
         
+    def _parseguid(self,string):
+        return struct.unpack('<IHHBB6s', string[:16])
+        
+    def _parsekv(self,s):
+        pos = 0    
+        (descriptorlen,) = struct.unpack('<H', s[pos:pos+2])
+        pos += 2
+        descriptorname = s[pos:pos+descriptorlen]
+        pos += descriptorlen
+        descriptortype, valuelen = struct.unpack('<HH', s[pos:pos+4])
+        pos += 4
+        descriptorvalue = s[pos:pos+valuelen]
+        pos += valuelen
+        value = None
+        if descriptortype == 0x0000:
+            # Unicode string
+            value = descriptorvalue
+        elif descriptortype == 0x0001:
+            # Byte Array
+            value = descriptorvalue
+        elif descriptortype == 0x0002:
+            # Bool (?)
+            value = struct.unpack('<I', descriptorvalue)[0] != 0
+        elif descriptortype == 0x0003:
+            # DWORD
+            value = struct.unpack('<I', descriptorvalue)[0]
+        elif descriptortype == 0x0004:
+            # QWORD
+            value = struct.unpack('<Q', descriptorvalue)[0]
+        elif descriptortype == 0x0005:
+            # WORD
+            value = struct.unpack('<H', descriptorvalue)[0]
+        else:
+            _print("Unknown Descriptor Type %d" % descriptortype)
+        return (pos,descriptorname,value)
+
+    def _parsekv2(self,s):
+        pos = 0    
+        (strno,descriptorlen,descriptortype,valuelen) = struct.unpack('<2xHHHI', s[pos:pos+12])
+        pos += 12
+        descriptorname = s[pos:pos+descriptorlen]
+        pos += descriptorlen
+        descriptorvalue = s[pos:pos+valuelen]
+        pos += valuelen
+        value = None
+        #print "%d %s [%d]" % (strno, descriptorname, valuelen)
+        if descriptortype == 0x0000:
+            # Unicode string
+            value = descriptorvalue
+        elif descriptortype == 0x0001:
+            # Byte Array
+            value = descriptorvalue
+        elif descriptortype == 0x0002:
+            # Bool
+            value = struct.unpack('<H', descriptorvalue)[0] != 0
+            pass
+        elif descriptortype == 0x0003:
+            # DWORD
+            value = struct.unpack('<I', descriptorvalue)[0]
+        elif descriptortype == 0x0004:
+            # QWORD
+            value = struct.unpack('<Q', descriptorvalue)[0]
+        elif descriptortype == 0x0005:
+            # WORD
+            value = struct.unpack('<H', descriptorvalue)[0]
+        else:
+            _print("Unknown Descriptor Type %d" % descriptortype)
+        return (pos,descriptorname,value,strno)
+
+        
     def _getnextheader(self,s):
         r = struct.unpack('<16sQ',s[:24])
         (guidstr,objsize) = r
-        guid = struct.unpack('>IHHBB6s', guidstr)
+        guid = self._parseguid(guidstr)
         if guid == GUIDS['ASF_File_Properties_Object']:
             _print("File Properties Object")
             val = struct.unpack('<16s6Q4I',s[24:24+80])
@@ -170,23 +244,26 @@ class AsfInfo(mediainfo.AVInfo):
              senddur, preroll, flags, minpack, maxpack, maxbr) = \
              val
             self.length = duration/10000000
-            pass
         elif guid == GUIDS['ASF_Stream_Properties_Object']:
-            _print("Stream Properties Object [%d]" % objsize)
-            streamtype = struct.unpack('>IHHBB6s', s[24:40])
-            errortype = struct.unpack('>IHHBB6s', s[40:56])
+            _print("Stream Properties Object [%d]" % objsize)                        
+            streamtype = self._parseguid(s[24:40])
+            errortype = self._parseguid(s[40:56])
             offset, typelen, errorlen, flags = struct.unpack('>QIIH4x', s[56:78])
+            strno = flags & 63
+            encrypted = flags >> 15
             if streamtype == GUIDS['ASF_Video_Media']:
                 vi = mediainfo.VideoInfo()
                 #vi.width, vi.height, formatsize = struct.unpack('<IIxH', s[78:89])
                 vi.width, vi.height, depth, codec, = struct.unpack('<4xII2xH4s', s[89:89+20])
                 vi.codec = fourcc.RIFFCODEC[codec]
+                vi.id = strno
                 self.video.append(vi)  
             elif streamtype == GUIDS['ASF_Audio_Media']:
                 ai = mediainfo.AudioInfo()
                 twocc, ai.channels, ai.samplerate, bitrate, block, ai.samplebits, = struct.unpack('<HHIIHH', s[78:78+16])
                 ai.bitrate = 8*bitrate  # XXX Is this right?
                 ai.codec = fourcc.RIFFWAVE[twocc]
+                ai.id = strno
                 self.audio.append(ai)  
             pass
         elif guid == GUIDS['ASF_Header_Extension_Object']:
@@ -213,42 +290,62 @@ class AsfInfo(mediainfo.AVInfo):
                 strings.append(s[pos:pos+i])
                 pos+=i
             (self.title, self.artist, self.copyright, self.caption, rating) = tuple(strings)
-        elif guid == GUIDS['ASF_Extended_Content_Encryption_Object']:
+        elif guid == GUIDS['ASF_Extended_Content_Description_Object']:
             (count,) = struct.unpack('<H', s[24:26])
             pos = 26
             descriptor = {}
-            for i in range(0,count):
+            for i in range(0, count):
                 # Read additional content descriptors
-                (descriptorlen,) = struct.unpack('<H', s[pos:pos+2])
-                pos += 2
-                descriptorname = s[pos:pos+descriptorlen]
-                pos += descriptorlen
-                descriptortype, valuelen = struct.unpack('<HH', s[pos:pos+4])
-                pos += 4
-                descriptorvalue = s[pos:pos+valuelen]
-                if descriptortype == 0x0000:
-                    # Unicode string
-                    descriptor[descriptorname] = descriptorvalue
-                elif descriptortype == 0x0001:
-                    # Byte Array
-                    descriptor[descriptorname] = descriptorvalue
-                elif descriptortype == 0x0002:
-                    # Bool (?)
-                    (descriptor[descriptorname],) = struct.unpack('<I', 'descriptorvalue')
-                elif descriptortype == 0x0003:
-                    # DWORD
-                    (descriptor[descriptorname],) = struct.unpack('<I', 'descriptorvalue')
-                elif descriptortype == 0x0004:
-                    # QWORD
-                    (descriptor[descriptorname],) = struct.unpack('<Q', 'descriptorvalue')
-                elif descriptortype == 0x0005:
-                    # WORD
-                    (descriptor[descriptorname],) = struct.unpack('<H', 'descriptorvalue')
-                else:
-                    _print("Unknown Descriptor Type %d" % descriptortype)
-            self.appendtable('ASFDESCRIPTOR', descriptor)                
+                d = self._parsekv(s[pos:])
+                pos += d[0]
+                descriptor[d[1]] = d[2]
+            self.appendtable('ASFDESCRIPTOR', descriptor)
+        elif guid == GUIDS['ASF_Metadata_Object']:
+            (count,) = struct.unpack('<H', s[24:26])
+            pos = 26
+            descriptor = {}
+            for i in range(0, count):
+                # Read additional content descriptors
+                d = self._parsekv2(s[pos:])
+                pos += d[0]
+                descriptor[d[1]] = d[2]
+            # TODO: Find the stream in self.audio and self.video and
+            #       append it there instead of here
+            self.appendtable('ASFMETADATA%d'%d[3], descriptor)
+        elif guid == GUIDS['ASF_Language_List_Object']:
+            count = struct.unpack('<H', s[24:26])[0]
+            pos = 26
+            lang = []
+            for i in range(0, count):
+                idlen = struct.unpack('<B', s[pos:pos+1])[0]
+                idstring = s[pos+1:pos+1+idlen]
+                _print("Language: %d/%d: %s" % (i+1, count, idstring))
+                lang.append(idstring)
+                pos += 1+idlen
+            if len(lang) == 1:
+                self.language = lang[0]
+            else:
+                self.language = tuple(lang)
+            # TODO: Find the stream in self.audio and self.video and
+            #       set it there instead of here
+        elif guid == GUIDS['ASF_Stream_Bitrate_Properties_Object']:
+            (count,) = struct.unpack('<H', s[24:26])
+            pos = 26
+            for i in range(0,count):
+                strno, avbitrate = struct.unpack('<HI', s[pos:pos+6])
+                strno &= 63
+                _print("Stream %d Bitrate: %d" % (strno, avbitrate))
+            # TODO: Find the stream in self.audio and self.video and
+            #       set it there instead of here
         else:
-            print "unknown: %s %d" % (self._printguid(guid), objsize)
+            # Just print the type:
+            bfail = 1
+            for h in GUIDS.keys():
+                if GUIDS[h] == guid:
+                    print "Unparsed %s [%d]" % (h,objsize)
+                    bfail = 0
+            if bfail:
+                print "unknown: %s [%d]" % (self._printguid(guid), objsize)
         return r
         
 factory = mediainfo.get_singleton()  
