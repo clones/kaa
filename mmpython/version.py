@@ -2,8 +2,8 @@
 # for the program using this lib if it's an up-to-date version
 
 # "offical" version of mmpython
-VERSION = '0.4.1'
+VERSION = '0.4.2'
 
 # latest major change (date as integer)
-CHANGED = 20040507
+CHANGED = 20040511
 
