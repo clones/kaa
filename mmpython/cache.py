@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.21  2003/07/02 22:01:56  dischi
+# some fixes for rom drives
+#
 # Revision 1.20  2003/07/02 20:14:48  dischi
 # some fixes with abspath
 #
@@ -196,7 +199,8 @@ class Cache:
         Return how many files in this directory are not in the cache. It's
         possible to guess how much time the update will need.
         """
-        directory = os.path.abspath(directory)
+        if not factory.isurl(directory):
+            directory = os.path.abspath(directory)
         cachefile, files = self.__get_cachefile_and_filelist__(directory)
 
         if not cachefile:
@@ -215,7 +219,8 @@ class Cache:
         """
         cache every file in the directory for future use
         """
-        directory = os.path.abspath(directory)
+        if not factory.isurl(directory):
+            directory = os.path.abspath(directory)
         cachefile, files = self.__get_cachefile_and_filelist__(directory)
 
         if not cachefile:
@@ -357,6 +362,8 @@ class Cache:
             
             self.current_dir     = dname
             self.current_objects = objects
+        if isinstance(self.current_objects, DiscInfo):
+            raise FileNotFoundException
         try:
             return self.current_objects[key]
         except:
