@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2003/06/08 13:11:51  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.4  2003/05/13 15:52:43  the_krow
 # Caption added
 #
@@ -125,6 +128,4 @@ class TIFFInfo(mediainfo.ImageInfo):
             
 
 factory = mediainfo.get_singleton()
-tiffinfo = TIFFInfo
-factory.register( 'image/tiff', ['tif','tiff'], mediainfo.TYPE_IMAGE, tiffinfo )
-print "tiff type registered"
+factory.register( 'image/tiff', ['tif','tiff'], mediainfo.TYPE_IMAGE, TIFFInfo )

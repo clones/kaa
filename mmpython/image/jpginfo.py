@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.10  2003/06/08 13:11:51  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.9  2003/06/07 21:48:47  the_krow
 # Added Copying info
 # started changing riffinfo to new AV stuff
@@ -129,6 +132,4 @@ class JPGInfo(mediainfo.ImageInfo):
        
 
 factory = mediainfo.get_singleton()
-jpginfo = JPGInfo
-factory.register( 'image/jpeg', ['jpg','jpeg'], mediainfo.TYPE_IMAGE, jpginfo )
-print "jpeg type registered"
+factory.register( 'image/jpeg', ['jpg','jpeg'], mediainfo.TYPE_IMAGE, JPGInfo )

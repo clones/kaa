@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/06/08 13:11:25  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.3  2003/06/07 23:10:50  the_krow
 # Changed mp3 into new format.
 #
@@ -487,9 +490,7 @@ class MP3Info(mediainfo.MusicInfo):
         
 
 factory = mediainfo.get_singleton()
-mp3info = MP3Info
-factory.register( 'audio/mp3', ['mp3'], mediainfo.TYPE_AUDIO, mp3info )
-print "mpegaudio type registered"
+factory.register( 'audio/mp3', ['mp3'], mediainfo.TYPE_AUDIO, MP3Info )
 
 if __name__ == '__main__':
     import sys

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/06/08 13:11:25  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.7  2003/06/07 23:32:11  the_krow
 # changed names to new format
 # debug messages
@@ -133,9 +136,7 @@ class OggInfo(mediainfo.AudioInfo):
 
 
 factory = mediainfo.get_singleton()
-ogginfo = OggInfo
-factory.register( 'application/ogg', ['ogg'], mediainfo.TYPE_AUDIO, ogginfo )
-print "ogg type registered"
+factory.register( 'application/ogg', ['ogg'], mediainfo.TYPE_AUDIO, OggInfo )
 
 if __name__ == '__main__':
     import sys

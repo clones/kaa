@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.11  2003/06/08 13:11:38  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.10  2003/06/07 23:10:50  the_krow
 # Changed mp3 into new format.
 #
@@ -318,9 +321,8 @@ class RiffInfo(mediainfo.AVInfo):
         
 
 factory = mediainfo.get_singleton()
-aviinfo = RiffInfo
-factory.register( 'video/avi', ('avi',), mediainfo.TYPE_AV, aviinfo )
-print("riff type registered")
+factory.register( 'video/avi', ('avi',), mediainfo.TYPE_AV, RiffInfo )
+
 
 if __name__ == '__main__':
     import sys

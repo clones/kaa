@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.8  2003/06/08 13:11:38  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.7  2003/06/07 22:54:29  the_krow
 # AVInfo stuff added.
 #
@@ -130,6 +133,4 @@ class MpegInfo(mediainfo.AVInfo):
         return 0
 
 factory = mediainfo.get_singleton()  
-mpginfo = MpegInfo
-factory.register( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_AV, mpginfo )
-print "mpeg video type registered"
+factory.register( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_AV, MpegInfo )

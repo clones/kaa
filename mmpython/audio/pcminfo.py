@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/06/08 13:11:25  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.3  2003/05/13 15:23:59  the_krow
 # IPTC
 #
@@ -58,6 +61,4 @@ class PCMInfo(mediainfo.AudioInfo):
        
 
 factory = mediainfo.get_singleton()
-pcminfo = PCMInfo
-factory.register( 'application/pcm', ['wav','aif','voc','au'], mediainfo.TYPE_AUDIO, pcminfo )
-print "pcm types registered"
+factory.register( 'application/pcm', ['wav','aif','voc','au'], mediainfo.TYPE_AUDIO, PCMInfo )

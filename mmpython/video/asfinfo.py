@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.3  2003/06/08 13:11:38  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.2  2003/05/13 12:31:43  the_krow
 # + Copyright Notice
 #
@@ -46,6 +49,4 @@ class AsfInfo(mediainfo.VideoInfo):
 
 
 factory = mediainfo.get_singleton()  
-asfinfo = AsfInfo
-factory.register( 'video/asf', ['asf'], mediainfo.TYPE_VIDEO, asfinfo )
-print "asf video type registered"
+factory.register( 'video/asf', ['asf'], mediainfo.TYPE_VIDEO, AsfInfo )

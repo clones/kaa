@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.3  2003/06/08 13:11:51  dischi
+# removed print at the end and moved it into register
+#
 # Revision 1.2  2003/05/13 15:00:23  the_krow
 # Tiff parsing
 #
@@ -98,6 +101,4 @@ class PNGInfo(mediainfo.ImageInfo):
         return
 
 factory = mediainfo.get_singleton()
-pnginfo = PNGInfo
-factory.register( 'image/png', ['png'], mediainfo.TYPE_IMAGE, pnginfo )
-print "png type registered"
+factory.register( 'image/png', ['png'], mediainfo.TYPE_IMAGE, PNGInfo )
