@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.30  2005/01/02 14:57:27  dischi
+# detect ac3 in normal mpeg2
+#
 # Revision 1.29  2004/11/27 14:42:12  dischi
 # remove future warning
 #
@@ -99,13 +102,14 @@ EXT_START = 0xB5
 SEQ_END   = 0xB7
 GOP       = 0xB8
 
-SEQ_START_CODE = 0xB3
-PACK_PKT       = 0xBA
-SYS_PKT        = 0xBB
-PADDING_PKT    = 0xBE
-AUDIO_PKT      = 0xC0
-VIDEO_PKT      = 0xE0
-PRIVATE_STREAM = 0xBD
+SEQ_START_CODE  = 0xB3
+PACK_PKT        = 0xBA
+SYS_PKT         = 0xBB
+PADDING_PKT     = 0xBE
+AUDIO_PKT       = 0xC0
+VIDEO_PKT       = 0xE0
+PRIVATE_STREAM1 = 0xBD
+PRIVATE_STREAM2 = 0xBf
 
 TS_PACKET_LENGTH = 188
 TS_SYNC          = 0x47
@@ -417,21 +421,29 @@ class MpegInfo(mediainfo.AVInfo):
             self.sequence_header_offset = offset
             return 0
 
-        if id == PRIVATE_STREAM:
+        if id in (PRIVATE_STREAM1, PRIVATE_STREAM2):
             # private stream. we don't know, but maybe we can guess later
             add = ord(buffer[offset+8])
-            if (ord(buffer[offset+6]) & 4):
-                id = ord(buffer[offset+10+add])
-                if buffer[offset+11+add:offset+15+add].find('\x0b\x77') != -1:
-                    # AC3 stream
-                    for a in self.audio:
-                        if a.id == id:
-                            break
-                    else:
-                        self.audio.append(mediainfo.AudioInfo())
-                        self.audio[-1].id = id
-                        self.audio[-1].codec = 'AC3'
-                        self.audio[-1].keys.append('id')
+            # if (ord(buffer[offset+6]) & 4) or 1:
+            # id = ord(buffer[offset+10+add])
+            if buffer[offset+11+add:offset+15+add].find('\x0b\x77') != -1:
+                # AC3 stream
+                for a in self.audio:
+                    if a.id == id:
+                        break
+                else:
+                    self.audio.append(mediainfo.AudioInfo())
+                    self.audio[-1].id = id
+                    self.audio[-1].codec = 'AC3'
+                    self.audio[-1].keys.append('id')
+            return 0
+
+        if id == SYS_PKT:
+            return 0
+        
+        if id == EXT_START:
+            return 0
+        
         return 0
 
 
