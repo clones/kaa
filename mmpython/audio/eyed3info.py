@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/06/29 18:30:14  dischi
+# many many fixes
+#
 # Revision 1.3  2003/06/29 12:03:41  dischi
 # fixed it to be _real_ eyed3 info
 #
@@ -50,7 +53,6 @@ import os
 import traceback
 
 MP3_INFO_TABLE = { "APIC": "picture",
-                   "COMM": "comments",
                    "LINK": "link",
                    "TALB": "album",
                    "TCOM": "composer",
@@ -62,6 +64,7 @@ MP3_INFO_TABLE = { "APIC": "picture",
                    "TLAN": "language",
                    "TLEN": "length",
                    "TMED": "media_type",
+                   "TPE1": "artist",
                    "TPE2": "artist",
                    "TRCK": "trackno" }
 
@@ -106,14 +109,25 @@ class eyeD3Info(mediainfo.MusicInfo):
       if not self.valid:
          return 0
 
-      for k in MP3_INFO_TABLE:
-         if id3.tag.frames[k]:
-            if k == 'APIC':
-               setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].imageData)
-            else:
-               setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].text)
-      
+      if mediainfo.DEBUG > 1:
+         print id3.tag.frames
+      try:
+         if id3 and id3.tag:
+            for k in MP3_INFO_TABLE:
+               if id3.tag.frames[k]:
+                  if k == 'APIC':
+                     pass
+                     #setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].imageData)
+                  else:
+                     setattr(self, MP3_INFO_TABLE[k], id3.tag.frames[k][0].text)
+            if id3.tag.getYear():
+               self.date = id3.tag.getYear()
+         if id3:
+            self.length = id3.getPlayTime()
+      except:
+         traceback.print_exc()
 
+      
          
 factory = mediainfo.get_singleton()
 factory.register( 'audio/mp3', ('mp3',), mediainfo.TYPE_AUDIO, eyeD3Info )
