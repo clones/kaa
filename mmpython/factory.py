@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.19  2004/05/28 19:32:31  dischi
+# remove old stuff
+#
 # Revision 1.18  2004/05/17 19:10:57  dischi
 # better DEBUG handling
 #
@@ -84,17 +87,6 @@ except:
 
 
 
-def url_splitter(url):
-    split = urlparse.urlsplit(url)
-    if split[0] != 'cd':
-        return split
-    path       = split[2]
-    device     = path[2:path[2:].find(':')+2]
-    filename   = path[path.rfind(':')+1:]
-    mountpoint = path[len(device)+3:len(path)-len(filename)-1]
-    return (split[0], device, mountpoint, filename, '%s/%s' % (mountpoint, filename))
-
-
 def isurl(url):
     return url.find('://') > 0
 
@@ -154,14 +146,14 @@ class Factory:
         """
         Create information for urls. This includes file:// and cd://
         """
-        split  = url_splitter(url)
+        split  = urlparse.urlsplit(url)
         scheme = split[0]
 
         if scheme == 'file':
             (scheme, location, path, query, fragment) = split
             return self.create_from_filename(location+path)
 
-        elif scheme == 'cd' or scheme == 'cdda':
+        elif scheme == 'cdda':
             r = self.create_from_filename(split[4])
             if r:
                 r.url = url
