@@ -547,7 +547,12 @@ class DateFrame(TextFrame):
       if self.header.id != DATE_FID:
          raise FrameException("Invalid frame id for DateFrame: " + \
                               self.header.id);
-      self.setDate(data);
+      try:
+         self.setDate(data);
+      except FrameException, ex:
+         # This will very probably happen for MSWindows every time
+         # so we should just ignore it and be happy without a date
+         pass
    
    def setDate(self, d):
       for fmt in timeStampFormats:
@@ -564,6 +569,7 @@ class DateFrame(TextFrame):
                      strippedDate += c;
                d = strippedDate;
                try:
+                  # XXX strptime is not avaiable on all systems!
                   self.date = time.strptime(d, fmt);
                except TypeError, ex:
                   print str(ex)
