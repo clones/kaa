@@ -5,6 +5,11 @@
 # $Id$
 #
 # $Log$
+# Revision 1.2  2003/06/10 11:50:52  dischi
+# Moved all ioctl calls for discs to discinfo.cdrom_disc_status. This function
+# uses try catch around ioctl so it will return 0 (== no disc) for systems
+# without ioctl (e.g. Windows)
+#
 # Revision 1.1  2003/06/10 10:56:54  the_krow
 # - Build try-except blocks around disc imports to make it run on platforms
 #   not compiling / running the C extensions.
@@ -34,35 +39,50 @@
 # ----------------------------------------------------------------------- */
 #endif
 
-from fcntl import ioctl
 from mmpython import mediainfo
 
+try:
+    from fcntl import ioctl
+except:
+    print 'WARNING: failed to import ioctl, discinfo won\' work'
 
-class DiscInfo(CollectionInfo):
-    def isDisc(self, device):
 
-        CDROM_DRIVE_STATUS=0x5326
-        CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
-        CDROM_DISC_STATUS=0x5327
-        CDS_AUDIO=100
-        CDS_MIXED=105
-
+def cdrom_disc_status(device):
+    """
+    check the current disc in device
+    return: no disc (0), audio cd (1), data cd (2)
+    """
+    CDROM_DRIVE_STATUS=0x5326
+    CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
+    CDROM_DISC_STATUS=0x5327
+    CDS_AUDIO=100
+    CDS_MIXED=105
+    
+    try:
+        fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
+        s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
+    except:
+        # maybe we need to close the fd if ioctl fails, maybe
+        # open fails and there is no fd, maye we aren't running
+        # linux and don't have ioctl
         try:
-            fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
-            s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
+            os.close(fd)
         except:
-            # maybe we need to close the fd if ioctl fails, maybe
-            # open fails and there is no fd
-            try:
-                os.close(fd)
-            except:
-                pass
-            return 0
+            pass
+        return 0
 
-        s = ioctl(fd, CDROM_DISC_STATUS)
-        os.close(fd)
-        if s == CDS_AUDIO or s == CDS_MIXED:
-            return 1
+    s = ioctl(fd, CDROM_DISC_STATUS)
+    os.close(fd)
+    if s == CDS_AUDIO or s == CDS_MIXED:
+        return 1
+    return 2
+    
+
+class DiscInfo(mediainfo.CollectionInfo):
+    def isDisc(self, device):
+        type = cdrom_disc_status(device)
+        if type != 2:
+            return type
         
         f = open(device,'rb')
 

@@ -5,6 +5,11 @@
 # $Id$
 #
 # $Log$
+# Revision 1.8  2003/06/10 11:50:51  dischi
+# Moved all ioctl calls for discs to discinfo.cdrom_disc_status. This function
+# uses try catch around ioctl so it will return 0 (== no disc) for systems
+# without ioctl (e.g. Windows)
+#
 # Revision 1.7  2003/06/09 16:12:30  dischi
 # make the disc ids like the one from Freevo
 #
@@ -62,7 +67,7 @@ import re
 import mediainfo
 
 from disc import DiscID
-from fcntl import ioctl
+from disc.discinfo import cdrom_disc_status
 
 
 
@@ -164,25 +169,11 @@ class Cache:
         """
         Search the cache for informations about the disc. Called from find()
         """
-        CDROM_DRIVE_STATUS=0x5326
-        CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
-        CDROM_DISC_STATUS=0x5327
-        CDS_AUDIO=100
-        CDS_MIXED=105
-
-        try:
-            fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
-            s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
-        except:
-            try:
-                os.close(fd)
-            except:
-                pass
-            raise FileNotFoundException
+        disc_type = cdrom_disc_status(device)
+        if disc_type == 0:
+            return None
         
-        s = ioctl(fd, CDROM_DISC_STATUS)
-        os.close(fd)
-        if s == CDS_AUDIO or s == CDS_MIXED:
+        elif disc_type == 1:
             disc_id = DiscID.disc_id(DiscID.open(device))
             id = '%08lx_%d' % (disc_id[0], disc_id[1])
 
