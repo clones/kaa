@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.17  2003/06/20 19:05:56  dischi
+# scan for subtitles
+#
 # Revision 1.16  2003/06/20 15:29:42  the_krow
 # Metadata Mapping
 #
@@ -111,6 +114,8 @@ class RiffInfo(mediainfo.AVInfo):
             if mediainfo.DEBUG: print 'error in file, stop parsing'
             pass
 
+        self.find_subtitles(filename)
+        
         # Copy Metadata from tables into the main set of attributes        
         for k in self.tag_map.keys():
             if self.tables.has_key(k):
