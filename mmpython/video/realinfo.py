@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.4  2003/06/29 11:59:35  dischi
+# make some debug silent
+#
 # Revision 1.3  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -62,16 +65,16 @@ class RealInfo(mediainfo.AVInfo):
         for i in range(0,num_headers):            
             (object_id,object_size,object_version) = struct.unpack('>4sIH',file.read(10))
             self._read_header(object_id, file.read(object_size-10))
-            print "%s [%d]" % (object_id,object_size-10)
+            if mediainfo.DEBUG: print "%s [%d]" % (object_id,object_size-10)
         # Read all the following headers
         
     def _read_header(self,object_id,s):
         if object_id == 'PROP':
             prop = struct.unpack('>9IHH', s)
-            print prop
+            if mediainfo.DEBUG: print prop
         if object_id == 'MDPR':
             mdpr = struct.unpack('>H7I', s[:30])
-            print mdpr
+            if mediainfo.DEBUG: print mdpr
             self.length = mdpr[7]/1000
             (stream_name_size,) = struct.unpack('>B', s[30:31])
             stream_name = s[31:31+stream_name_size]

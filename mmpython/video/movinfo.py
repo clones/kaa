@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.14  2003/06/29 11:59:35  dischi
+# make some debug silent
+#
 # Revision 1.13  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -108,7 +111,7 @@ class MovInfo(mediainfo.AVInfo):
             # stop at nonsense data
             return 0
 
-        print "%s [%X]" % (atomtype,atomsize)
+        if mediainfo.DEBUG: print "%s [%X]" % (atomtype,atomsize)
         if atomtype == 'udta':
             # Userdata (Metadata)
             pos = 0

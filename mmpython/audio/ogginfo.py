@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.13  2003/06/29 12:03:15  dischi
+# make some debug silent
+#
 # Revision 1.12  2003/06/20 19:17:22  dischi
 # remove filename again and use file.name
 #
@@ -138,7 +141,7 @@ class OggInfo(mediainfo.MusicInfo):
             h = h[idx+4:]
             (check, type, granule_position, absPos, serial, pageN, crc, segs) = struct.unpack( '<BBIIIIIB', h[:23] )            
             if check != 0:
-                print h[:10]
+                _print(h[:10])
                 return
             _print("granule = %d / %d" % (granule_position, absPos))
         # the last one is the one we are interested in
