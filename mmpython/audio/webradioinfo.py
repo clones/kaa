@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.3  2003/06/24 13:06:46  the_krow
+# stream is being closed in fail-cases.
+#
 # Revision 1.2  2003/06/24 12:59:33  the_krow
 # Added Webradio.
 # Added Stream Type to mediainfo
@@ -57,8 +60,7 @@ class WebRadioInfo(mediainfo.MusicInfo):
             self.valid = 0
             return
         # Open an URL Connection
-        fi = urllib.urlopen(url)
-        
+        fi = urllib.urlopen(url)        
 
         # grab the statusline
         self.statusline = fi.readline()
@@ -74,14 +76,19 @@ class WebRadioInfo(mediainfo.MusicInfo):
                 line = fi.readline()
                 if not line:
                     self.valid = 0
+                    if fi:
+                        fi.close()
                     return
             if string.find(line, "Location") == 0:
                 location = line[10:]              
                 # strip leading and trailing whitespace
                 location = string.strip(self.location)
-    
+                # XXX Todo: Reget with the new location
+                
         elif statuslist[1] != "200":
             self.valid = 0
+            if fi:
+                fi.close()
             return
 
         self.valid = 1
@@ -91,14 +98,13 @@ class WebRadioInfo(mediainfo.MusicInfo):
         linecnt = 0
         tab = {}
         lines = fi.readlines(512)        
-        while linecnt < 10:
+        for linecnt in range(0,11):
             icyline = lines[linecnt]
             icyline = icyline.rstrip('\r\n')
-            linecnt += 1
             if len(icyline) < 4:
                 break
             cidx = icyline.find(':')
-            if cidx != -1:                
+            if cidx != -1:
                 # break on short line (ie. really should be a blank line)
                 # strip leading and trailing whitespace                
                 tab[icyline[:cidx].strip()] = icyline[cidx+2:].strip()
