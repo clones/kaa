@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.44  2003/06/23 22:35:08  the_krow
+# Started working on create_from_url
+#
 # Revision 1.43  2003/06/23 20:59:11  the_krow
 # PNG should now fill a correct table.
 #
@@ -176,26 +179,10 @@ import traceback
 from image import bins
 
 import re
-
+import urllib
+import urlparse
 
 DEBUG = 1
-
-# Audiocore: TITLE, CAPTION, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
-#  + ID3 Tags
-#  + ID3V2 Tags
-#  + Ogg Vorbis Headers
-#  + CDDB
-#  + Filename / Directory
-# Videocore: TITLE, LENGTH, ENCODER, CHANNELS, TYPE, SUBTYPE, DATE
-#  + IMDB
-#  + Freevo XML Info
-#  + Filename / Directory
-# Imagecore: TITLE, ARTIST (=PHOTOGRAPHER), TYPE, SUBTYPE, X, Y, COLORS, 
-#  + EXIF (in TIFF, JPG)
-#  + IPTC (in TIFF, JPG)
-#  + Filename
-#  + PNG Metadata
-# Module variable that contains an initialized MetaDataFactory() object
 
 _singleton = None
 
@@ -240,7 +227,7 @@ import table
 
 def isurl(url):
     return url.find('://') > 0
-    
+
 def url_splitter(url):
     if url.find('cd:///') == 0:
         device     = url[5:url[4:].find(':')+4]
@@ -440,6 +427,7 @@ class CollectionInfo(MediaInfo):
 class MetaDataFactory:
     def __init__(self):
         self.extmap = {}
+        self.mimemap = {}
         self.types = []
         self.device_types = []
         
@@ -469,6 +457,24 @@ class MetaDataFactory:
         return None
 
     def create_from_url(self,url):
+        split = urlparse.urlsplit(url)
+        (scheme, location, path, query, fragment) = split
+        if scheme == 'file':
+            self.create_from_filename(location+path)
+        elif scheme == 'cd':
+            # XXX FIXME
+            # CDs do not fit into the url naming scheme :(
+            # Either parse manually or change to format
+            pass
+            # cd://device:mountpoint:file, e.g. for bla.avi:
+            # cd:///dev/cdrom:/mnt/cdrom:bla.avi
+        else:
+            uhandle = urllib.urlopen(url)
+            mime = uhandle.info().gettype()
+            if self.mimemap.has_key(mime):
+                t = self.mimemap[mime][3](file)
+                if t.valid: return t
+            # XXX Todo: Try other types
         pass
         
     def create_from_filename(self,filename):
@@ -508,7 +514,7 @@ class MetaDataFactory:
             self.types.append(tuple)
             for e in extensions:
                 self.extmap[e] = tuple
-        
+            self.mimemap[mimetype] = tuple
 
 #
 # synchronized objects and methods.
