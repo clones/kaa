@@ -5,6 +5,13 @@
 # $Id$
 #
 # $Log$
+# Revision 1.22  2003/07/04 15:09:44  outlyer
+# CD disk labels can have '/' in them, but cachefile tries to create
+# the cachefile and crashes because it's a directory.
+#
+# I don't know if this is the nicest solution, so I apologize if you have
+# to revert this.
+#
 # Revision 1.21  2003/07/02 22:01:56  dischi
 # some fixes for rom drives
 #
@@ -179,6 +186,7 @@ class Cache:
             if split[0] == 'cd':
                 device, mountpoint, filename, complete_filename = split[1:]
                 cachefile = self.__get_filename__(device)
+                cachefile = cachefile.replace('/','_')
                 files = []
                 os.path.walk(mountpoint, self.__walk_helper__,
                              (files, 'cd://%s:' % device, mountpoint))
@@ -268,6 +276,7 @@ class Cache:
         if not isinstance(info, DiscInfo):
             return 0
 
+        info.id = info.id.replace('/','_')
         cachefile = '%s/disc/%s' % (self.cachedir, info.id)
         f = open(cachefile, 'w')
         pickle.dump((self.DISC_CACHE_VERSION, info), f, 1)
@@ -300,7 +309,8 @@ class Cache:
             m = re.match("^(.*[^ ]) *$", label)
             if m:
                 id    = '%s%s' % (id, m.group(1))
-            
+           
+        id = id.replace('/','_')
         cachefile = '%s/disc/%s' % (self.cachedir, id)
         if not os.path.isfile(cachefile):
             raise FileNotFoundException
