@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/06/08 19:53:38  dischi
+# also give the filename to init for additional data tests
+#
 # Revision 1.5  2003/06/08 13:44:56  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -51,7 +54,7 @@ class PCMInfo(mediainfo.AudioInfo):
                 return res
         return None
 
-    def __init__(self,file):
+    def __init__(self,file,filename):
        mediainfo.AudioInfo.__init__(self)
        t = self._what(file)
        if t:

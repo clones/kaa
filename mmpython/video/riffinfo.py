@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.13  2003/06/08 19:53:21  dischi
+# also give the filename to init for additional data tests
+#
 # Revision 1.12  2003/06/08 13:44:58  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -56,7 +59,7 @@ from mmpython import mediainfo
 _print = mediainfo._debug
 
 class RiffInfo(mediainfo.AVInfo):
-    def __init__(self,file):
+    def __init__(self,file,filename):
         mediainfo.AVInfo.__init__(self)
         # read the header
         h = file.read(12)

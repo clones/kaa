@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.10  2003/06/08 19:53:21  dischi
+# also give the filename to init for additional data tests
+#
 # Revision 1.9  2003/06/08 13:44:58  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -94,7 +97,7 @@ VIDEO_PKT      = 0xE0
 
 
 class MpegInfo(mediainfo.AVInfo):
-    def __init__(self,file):
+    def __init__(self,file,filename):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.offset = 0

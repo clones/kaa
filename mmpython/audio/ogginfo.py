@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.10  2003/06/08 19:53:38  dischi
+# also give the filename to init for additional data tests
+#
 # Revision 1.9  2003/06/08 13:44:56  dischi
 # Changed all imports to use the complete mmpython path for mediainfo
 #
@@ -52,7 +55,7 @@ VORBIS_PACKET_SETUP = '\05vorbis'
 _print = mediainfo._debug
 
 class OggInfo(mediainfo.AudioInfo):
-    def __init__(self,file):
+    def __init__(self,file,filename):
         mediainfo.AudioInfo.__init__(self)
         h = file.read(4+1+1+20+1)
         if h[:5] != "OggS\00":

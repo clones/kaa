@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.6  2003/06/08 19:53:21  dischi
+# also give the filename to init for additional data tests
+#
 # Revision 1.5  2003/06/08 15:40:26  dischi
 # catch exception, raised for small text files
 #
@@ -42,7 +45,7 @@ import fourcc
 from mmpython import mediainfo
 
 class MovInfo(mediainfo.VideoInfo):
-    def __init__(self,file):
+    def __init__(self,file,filename):
         mediainfo.VideoInfo.__init__(self)
         self.context = 'video'
         self.valid = 0
