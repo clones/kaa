@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.29  2004/11/27 14:42:12  dischi
+# remove future warning
+#
 # Revision 1.28  2004/11/15 21:43:36  dischi
 # remove bad debugging stuff
 #
@@ -342,7 +345,7 @@ class MpegInfo(mediainfo.AVInfo):
         """
 	highbit = (ord(buffer[0]) >> 3) & 0x01
 
-	low4Bytes = ((ord(buffer[0]) >> 1) & 0x03) << 30
+	low4Bytes = ((long(ord(buffer[0])) >> 1) & 0x03) << 30
 	low4Bytes |= ord(buffer[1]) << 22;
 	low4Bytes |= (ord(buffer[2]) >> 1) << 15;
 	low4Bytes |= ord(buffer[3]) << 7;
