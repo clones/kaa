@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.36  2003/06/20 14:17:26  dischi
+# fix indent
+#
 # Revision 1.35  2003/06/20 09:24:17  the_krow
 # Documentation
 #
@@ -363,7 +366,7 @@ class ImageInfo(MediaInfo):
             self.keys.append(k)
 
     def add_bins_data(self, filename):
-	  if os.path.isfile(filename + '.xml'):
+      if os.path.isfile(filename + '.xml'):
         try:
             binsinfo = bins.get_bins_desc(filename)
             for key in IMAGECORE + MEDIACORE:
