@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.17  2003/11/05 20:58:26  dischi
+# detect mixed audio cds
+#
 # Revision 1.16  2003/10/18 11:13:03  dischi
 # patch from Cyril Lacoux to detect blank discs
 #
@@ -99,7 +102,7 @@ except:
     print 'WARNING: failed to import ioctl, discinfo won\'t work'
 
 
-def cdrom_disc_status(device):
+def cdrom_disc_status(device, handle_mix = 0):
     """
     check the current disc in device
     return: no disc (0), audio cd (1), data cd (2), blank cd (3)
@@ -170,6 +173,8 @@ def cdrom_disc_status(device):
     else:
         s = ioctl(fd, CDROM_DISC_STATUS)
     os.close(fd)
+    if s == CDS_MIXED and handle_mix:
+        return 4
     if s == CDS_AUDIO or s == CDS_MIXED:
         return 1
     
@@ -196,11 +201,11 @@ def cdrom_disc_id(device):
     except:
         pass
 
-    disc_type = cdrom_disc_status(device)
+    disc_type = cdrom_disc_status(device, handle_mix=1)
     if disc_type == 0 or disc_type == 3:
         return 0, None
         
-    elif disc_type == 1:
+    elif disc_type == 1 or disc_type == 4:
         disc_id = DiscID.disc_id(device)
         id = '%08lx_%d' % (disc_id[0], disc_id[1])
     else:
@@ -238,6 +243,10 @@ class DiscInfo(mediainfo.CollectionInfo):
     def isDisc(self, device):
         (type, self.id) = cdrom_disc_id(device)
         if type != 2:
+            if type == 4:
+                self.keys.append('mixed')
+                self.mixed = 1
+                type = 1 
             return type
         
         if len(self.id) == 16:
