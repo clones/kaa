@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.11  2003/09/01 19:23:23  dischi
+# ignore case when searching the correct extention
+#
 # Revision 1.10  2003/08/30 12:16:24  dischi
 # special handling for directories
 #
@@ -105,7 +108,7 @@ class Factory:
         # Check extension as a hint
         for e in self.extmap.keys():
             if DEBUG > 1: print "trying ext %s" % e
-            if file.name.find(e) + len(e) == len(file.name):
+            if file.name.lower().find(e.lower()) + len(e) == len(file.name):
                 if DEBUG == 1: print "trying ext %s" % e
                 try:
                     file.seek(0,0)
