@@ -3,6 +3,14 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.30  2003/06/10 10:56:53  the_krow
+# - Build try-except blocks around disc imports to make it run on platforms
+#   not compiling / running the C extensions.
+# - moved DiscInfo class to disc module
+# - changed video.VcdInfo to be derived from CollectionInfo instead of
+#   DiskInfo so it can be used without the cdrom extensions which are
+#   hopefully not needed for bin-files.
+#
 # Revision 1.29  2003/06/09 23:13:06  the_krow
 # bugfix: unknown files are now resetted before trying if they are valid
 # first rudimentary eyed3 mp3 parser added
@@ -128,7 +136,6 @@ import traceback
 from image import bins
 
 import re
-from fcntl import ioctl
 
 
 DEBUG = 1
@@ -322,51 +329,6 @@ class CollectionInfo(MediaInfo):
     
     def appendtrack(self, track):
         self.tracks.append(track)
-
-
-class DiscInfo(CollectionInfo):
-    def isDisc(self, device):
-
-        CDROM_DRIVE_STATUS=0x5326
-        CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
-        CDROM_DISC_STATUS=0x5327
-        CDS_AUDIO=100
-        CDS_MIXED=105
-
-        try:
-            fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
-            s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
-        except:
-            # maybe we need to close the fd if ioctl fails, maybe
-            # open fails and there is no fd
-            try:
-                os.close(fd)
-            except:
-                pass
-            return 0
-
-        s = ioctl(fd, CDROM_DISC_STATUS)
-        os.close(fd)
-        if s == CDS_AUDIO or s == CDS_MIXED:
-            return 1
-        
-        f = open(device,'rb')
-
-        f.seek(0x0000832d)
-        self.id = f.read(16)
-        f.seek(32808, 0)
-        self.label = f.read(32)
-        f.close()
-
-        m = re.match("^(.*[^ ]) *$", self.label)
-        if m:
-            self.label = m.group(1)
-            self.id    = '%s%s' % (self.id, self.label)
-        else:
-            self.label = ''
-
-        self.keys.append('label')
-        return 2
 
     
 class MetaDataFactory:

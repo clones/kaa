@@ -5,6 +5,14 @@
 # $Id$
 #
 # $Log$
+# Revision 1.2  2003/06/10 10:56:54  the_krow
+# - Build try-except blocks around disc imports to make it run on platforms
+#   not compiling / running the C extensions.
+# - moved DiscInfo class to disc module
+# - changed video.VcdInfo to be derived from CollectionInfo instead of
+#   DiskInfo so it can be used without the cdrom extensions which are
+#   hopefully not needed for bin-files.
+#
 # Revision 1.1  2003/06/09 16:09:18  dischi
 # first version of a cue/bin vcd parser
 #
@@ -33,7 +41,7 @@
 from mmpython import mediainfo
 import os
 
-class VCDInfo(mediainfo.DiscInfo):
+class VCDInfo(mediainfo.CollectionInfo):
     def __init__(self, file, filename):
         mediainfo.DiscInfo.__init__(self)
         self.context = 'video'

@@ -26,13 +26,14 @@
 
 
 from mmpython import mediainfo
+import discinfo
 import DiscID
 import CDDB
 import cdrom
 
 _debug = mediainfo._debug
 
-class AudioInfo(mediainfo.DiscInfo):
+class AudioInfo(discinfo.DiscInfo):
     def __init__(self,device):
         mediainfo.DiscInfo.__init__(self)
         self.context = 'audio'
@@ -43,7 +44,7 @@ class AudioInfo(mediainfo.DiscInfo):
         
 
     def isDisc(self, device):
-        if mediainfo.DiscInfo.isDisc(self, device) != 1:
+        if discinfo.DiscInfo.isDisc(self, device) != 1:
             return 0
         
         disc_id = DiscID.disc_id(DiscID.open(device))

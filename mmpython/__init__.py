@@ -1,7 +1,10 @@
 import sys
 
 import mediainfo
-import cache
+try:
+    import cache
+except ImportError:
+    pass
 
 import audio.ogginfo
 import audio.pcminfo
@@ -9,14 +12,16 @@ import video.riffinfo
 import video.mpeginfo
 import video.asfinfo
 import video.movinfo
-import video.vcdinfo
 import image.jpginfo
 import image.pnginfo
 import image.tiffinfo
-
-import disc.dvdinfo
-import disc.vcdinfo
-import disc.audioinfo
+import video.vcdinfo
+try:
+    import disc.dvdinfo
+    import disc.vcdinfo
+    import disc.audioinfo
+except ImportError:
+    pass
 import audio.mp3info
 #import audio.eyed3info
 

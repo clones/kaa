@@ -12,7 +12,13 @@
 # Release version 1.3
 # CVS ID: $Id$
 
-import cdrom, sys
+try:
+    import cdrom, sys
+except ImportError:
+    # Seems cdrom has either not been compiler or is not supported
+    # on this System
+    pass
+    
 
 def cddb_sum(n):
     ret = 0

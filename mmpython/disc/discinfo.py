@@ -1,0 +1,83 @@
+# -----------------------------------------------------------------------
+# discinfo.py - basic class for any discs containing collections of
+# media.
+# -----------------------------------------------------------------------
+# $Id$
+#
+# $Log$
+# Revision 1.1  2003/06/10 10:56:54  the_krow
+# - Build try-except blocks around disc imports to make it run on platforms
+#   not compiling / running the C extensions.
+# - moved DiscInfo class to disc module
+# - changed video.VcdInfo to be derived from CollectionInfo instead of
+#   DiskInfo so it can be used without the cdrom extensions which are
+#   hopefully not needed for bin-files.
+#
+#
+# -----------------------------------------------------------------------
+# Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# ----------------------------------------------------------------------- */
+#endif
+
+from fcntl import ioctl
+from mmpython import mediainfo
+
+
+class DiscInfo(CollectionInfo):
+    def isDisc(self, device):
+
+        CDROM_DRIVE_STATUS=0x5326
+        CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
+        CDROM_DISC_STATUS=0x5327
+        CDS_AUDIO=100
+        CDS_MIXED=105
+
+        try:
+            fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
+            s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
+        except:
+            # maybe we need to close the fd if ioctl fails, maybe
+            # open fails and there is no fd
+            try:
+                os.close(fd)
+            except:
+                pass
+            return 0
+
+        s = ioctl(fd, CDROM_DISC_STATUS)
+        os.close(fd)
+        if s == CDS_AUDIO or s == CDS_MIXED:
+            return 1
+        
+        f = open(device,'rb')
+
+        f.seek(0x0000832d)
+        self.id = f.read(16)
+        f.seek(32808, 0)
+        self.label = f.read(32)
+        f.close()
+
+        m = re.match("^(.*[^ ]) *$", self.label)
+        if m:
+            self.label = m.group(1)
+            self.id    = '%s%s' % (self.id, self.label)
+        else:
+            self.label = ''
+
+        self.keys.append('label')
+        return 2
