@@ -79,7 +79,6 @@ def parse(filename, bypass_cache = 0):
             pass
     info = mediainfo.get_singleton().create_from_filename(filename)
     if info and object_cache and isinstance(info, disc.discinfo.DiscInfo):
-        print 'cache'
         object_cache.cache_disc(info)
     return info
 
