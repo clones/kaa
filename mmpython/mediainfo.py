@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.28  2003/06/09 16:12:30  dischi
+# make the disc ids like the one from Freevo
+#
 # Revision 1.27  2003/06/09 14:31:56  the_krow
 # fixes on the mpeg parser
 # resolutions, fps and bitrate should be reported correctly now
@@ -354,10 +357,9 @@ class DiscInfo(CollectionInfo):
         m = re.match("^(.*[^ ]) *$", self.label)
         if m:
             self.label = m.group(1)
-            self.id    = '%s_%s' % (self.id, self.label)
+            self.id    = '%s%s' % (self.id, self.label)
         else:
             self.label = ''
-            self.id    = '%s_NO_LABEL' % self.id
 
         self.keys.append('label')
         return 2

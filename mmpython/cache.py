@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.7  2003/06/09 16:12:30  dischi
+# make the disc ids like the one from Freevo
+#
 # Revision 1.6  2003/06/09 12:28:30  dischi
 # improved disc cache
 #
@@ -194,9 +197,7 @@ class Cache:
             
             m = re.match("^(.*[^ ]) *$", label)
             if m:
-                id    = '%s_%s' % (id, m.group(1))
-            else:
-                id    = '%s_NO_LABEL' % id
+                id    = '%s%s' % (id, m.group(1))
             
         cachefile = '%s/disc/%s' % (self.cachedir, id)
         if not os.path.isfile(cachefile):
