@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+# Automatically added by dh_python
+PYTHON=python2.3
+if which $PYTHON >/dev/null 2>&1; then
+	DIRLIST="/usr/lib/python2.3/site-packages/mmpython"
+        echo "Compiling python modules in $DIRLIST ..."
+	for i in $DIRLIST ; do
+                echo "Compiling optimized python modules in $DIRLIST ..."
+		$PYTHON -OO /usr/lib/$PYTHON/compileall.py -q $i
+                echo "Compiling python modules in $DIRLIST ..."
+		$PYTHON /usr/lib/$PYTHON/compileall.py -q $i
+	done
+fi
+# End automatically added section

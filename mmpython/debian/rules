@@ -16,14 +16,14 @@ configure-stamp:
 build: configure-stamp build-stamp
 build-stamp:
 	dh_testdir
-	python2.2 setup.py build
+	python2.3 setup.py build
 	touch build-stamp
 
 clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp configure-stamp
-	-python2.2 setup.py clean
+	-python2.3 setup.py clean
 	rm -f *.pyc
 	rm -fr build
 	rm -f Setup
@@ -34,7 +34,7 @@ install: build
 	dh_testroot
 	dh_clean -k
 	dh_installdirs
-	python2.2 setup.py install --no-compile --root=`pwd`/debian/python2.2-mmpython
+	python2.3 setup.py install --no-compile --root=`pwd`/debian/python2.3-mmpython
 
 # Build architecture-independent files here.
 binary-indep: build install

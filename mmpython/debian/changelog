@@ -1,3 +1,15 @@
+python2.3-mmpython (0.0.1cvs20030731-freevo1) unstable; urgency=low
+
+  * Added postinst script
+
+ -- Aubin Paul <debian@outlyer.org>  Thu, 31 Jul 2003 12:15:24 -0400
+
+python2.3-mmpython (0.0.1cvs20030729-freevo1) unstable; urgency=low
+
+  * First revision for python 2.3
+
+ -- Aubin Paul <debian@outlyer.org>  Tue, 29 Jul 2003 23:26:06 -0400
+
 python2.2-mmpython (0.0.1cvs20030710-freevo3) unstable; urgency=low
 
   * New snapshot with Ogg fixes

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+# Automatically added by dh_python
+if [ "$1" = remove ]; then
+	dpkg -L python2.3-mmpython |
+		awk '$0~/\.py$/ {print $0"c\n" $0"o"}' |
+		xargs rm -f >&2
+fi
+# End automatically added section
