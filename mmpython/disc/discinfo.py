@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.9  2003/08/23 17:54:14  dischi
+# move id translation of bad chars directly after parsing
+#
 # Revision 1.8  2003/07/04 15:32:52  outlyer
 # Fix the label so we don't try to cache into a directory instead of a file.
 #
@@ -137,7 +140,8 @@ def cdrom_disc_id(device):
         m = re.match("^(.*[^ ]) *$", label)
         if m:
             id = '%s%s' % (id, m.group(1))
-            
+        id = re.compile('[^a-zA-Z0-9()_-]').sub('_', id)
+        
     id_cache[device] = time.time(), id
     id = id.replace('/','_')
     return id

@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.30  2003/08/23 17:54:14  dischi
+# move id translation of bad chars directly after parsing
+#
 # Revision 1.29  2003/08/23 13:51:46  dischi
 # check for correct chars in cache name
 #
@@ -154,7 +157,6 @@ class Cache:
             os.mkdir('%s/disc' % cachedir)
         self.current_objects    = None
         self.current_dir        = None
-        self.ID_RE = re.compile('[^a-zA-Z0-9()_-]')
         self.CACHE_VERSION      = 1
         self.DISC_CACHE_VERSION = 1
 
@@ -177,7 +179,7 @@ class Cache:
             id = cdrom_disc_id(file)
             if not id:
                 return None
-            return '%s/disc/%s' % (self.cachedir, self.ID_RE.sub('_', id))
+            return '%s/disc/%s' % (self.cachedir, id)
         return '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
     
 
@@ -317,17 +319,7 @@ class Cache:
             id = '%08lx_%d' % (disc_id[0], disc_id[1])
 
         else:
-            f = open(device,'rb')
-
-            f.seek(0x0000832d)
-            id = f.read(16)
-            f.seek(32808, 0)
-            label = f.read(32)
-            f.close()
-            
-            m = re.match("^(.*[^ ]) *$", label)
-            if m:
-                id    = '%s%s' % (id, m.group(1))
+            id = cdrom_disc_id(device)
             
         cachefile = '%s/disc/%s' % (self.cachedir, id)
         if not os.path.isfile(cachefile):
