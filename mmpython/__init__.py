@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.18  2003/07/01 21:07:42  dischi
+# switch back to eyed3info
+#
 # Revision 1.17  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -81,8 +84,8 @@ try:
     import disc.datainfo
 except ImportError:
     pass
-#import audio.eyed3info
-import audio.mp3info
+import audio.eyed3info
+#import audio.mp3info
 import audio.webradioinfo
 
 
