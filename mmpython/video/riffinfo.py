@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.32  2005/03/04 17:41:29  dischi
+# handle broken avi files
+#
 # Revision 1.31  2004/12/13 10:19:07  dischi
 # more debug, support LIST > 20000 (new max is 80000)
 #
@@ -475,9 +478,15 @@ class RiffInfo(mediainfo.AVInfo):
                 file.seek(size-4, 1)
             # that's it, no new informations should be in AVIX
             return False
-        else:
+        elif not name.strip(string.printable + string.whitespace):
+            # check if name is something usefull at all, maybe it is no
+            # avi or broken
             t = file.seek(size,1)
             _print("Skipping %s [%i]" % (name,size))
+        else:
+            # bad avi
+            _print("Bad or broken avi")
+            return False
         return True
 
     def buildTag(self,key,value):
