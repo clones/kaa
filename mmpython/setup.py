@@ -9,7 +9,6 @@ import popen2
 import version
 
 extensions = [ Extension('mmpython/disc/cdrom', ['disc/cdrommodule.c']) ]
-
 # check for libdvdread (bad hack!)
 # Windows does not have Popen4, so catch exception here
 try:
@@ -25,6 +24,10 @@ try:
 except AttributeError, e:
     print "No Popen4 found. This seems to be Windows."
     print "Installing without libdvdread support."
+    # Hack: disable extensions for Windows. 
+    # This would better be done by a clean detect of windows. But how?
+    extensions = []
+    
     
 
 setup (# Distribution meta-data
