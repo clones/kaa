@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.16  2003/06/29 18:29:02  dischi
+# small fixes
+#
 # Revision 1.15  2003/06/24 12:59:33  the_krow
 # Added Webradio.
 # Added Stream Type to mediainfo
@@ -213,7 +216,7 @@ class Cache:
             try:
                 info = self.find(file)
             except FileNotFoundException:
-                info = mediainfo.get_singleton().create_from_filename(file)
+                info = mediainfo.get_singleton().create(file)
 
             if info:
                 for k in uncachable_keys:

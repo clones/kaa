@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.47  2003/06/29 18:29:02  dischi
+# small fixes
+#
 # Revision 1.46  2003/06/24 12:59:33  the_krow
 # Added Webradio.
 # Added Stream Type to mediainfo
@@ -300,6 +303,8 @@ class MediaInfo:
             pass
 
     def __getitem__(self,key):
+        if isinstance(self.__dict__[key], str):
+            return self.__dict__[key].strip().rstrip().replace('\0', '')
         return self.__dict__[key]
 
     def __setitem__(self, key, val):
@@ -483,7 +488,8 @@ class MetaDataFactory:
             r = self.create_from_filename(split[4])
             if r:
                 r.url = url
-
+            return r
+        
         elif scheme == 'http':
             # Quick Hack for webradio support
             # We will need some more soffisticated and generic construction
