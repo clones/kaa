@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.8  2003/06/09 16:11:57  the_krow
 # TIFF parser changed to new tables structure
 # debug statements removed / changed to _debug
@@ -64,7 +67,7 @@ _debug = mediainfo._debug
 
 class TIFFInfo(mediainfo.ImageInfo):
 
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.ImageInfo.__init__(self)
         self.iptc = None        
         self.mime = 'image/tiff'
@@ -133,7 +136,7 @@ class TIFFInfo(mediainfo.ImageInfo):
             self.setitem( 'caption', iptc, 632 )
             self.appendtable('IPTC', iptc)
 
-        self.add_bins_data(filename)
+        self.add_bins_data(file.name)
         return
             
 

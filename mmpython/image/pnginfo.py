@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.6  2003/06/08 20:27:42  dischi
 # small fix for broken files and fixed a wrong bins_data call
 #
@@ -58,7 +61,7 @@ PNGSIGNATURE = "\211PNG\r\n\032\n"
 
 class PNGInfo(mediainfo.ImageInfo):
 
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.ImageInfo.__init__(self)
         self.iptc = None        
         self.mime = 'image/png'
@@ -77,7 +80,7 @@ class PNGInfo(mediainfo.ImageInfo):
         self._readChunk(file)
         self._readChunk(file)
         self._readChunk(file)
-        self.add_bins_data(filename)
+        self.add_bins_data(file.name)
         return       
         
     def _readChunk(self,file):

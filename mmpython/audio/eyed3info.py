@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.1  2003/06/09 23:13:21  the_krow
 # bugfix: unknown files are now resetted before trying if they are valid
 # first rudimentary eyed3 mp3 parser added
@@ -62,13 +65,13 @@ class eyeD3Info(mediainfo.MusicInfo):
    invalidFileExc = InvalidAudioFormatException("File is not mp3");
    # Number of seconds required to play the audio file.
 
-   def __init__(self, file, fileName, tagVersion = eyeD3_tag.ID3_ANY_VERSION):
+   def __init__(self, file, tagVersion = eyeD3_tag.ID3_ANY_VERSION):
       mediainfo.MusicInfo.__init__(self)
-      self.fileName = fileName;
+      self.fileName = file.name;
       self.valid = 1
       self.mime = 'audio/mp3'
 
-      if not eyeD3_tag.isMp3File(fileName):
+      if not eyeD3_tag.isMp3File(file.name):
          raise self.invalidFileExc;
 
       # Parse ID3 tag.

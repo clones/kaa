@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.3  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.2  2003/06/12 18:53:19  the_krow
 # OGM detection added.
 # .ram is a valid extension to real files
@@ -42,7 +45,7 @@ from mmpython import mediainfo
 # http://www.pcisys.net/~melanson/codecs/
 
 class RealInfo(mediainfo.AVInfo):
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.valid = 0

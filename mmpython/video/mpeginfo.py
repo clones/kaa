@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.14  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.13  2003/06/09 16:12:47  the_krow
 # MPEG Length computation added
 #
@@ -146,7 +149,7 @@ ASPECT_RATIO = [ 'Forbidden',
  
 
 class MpegInfo(mediainfo.AVInfo):
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.offset = 0

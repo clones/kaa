@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.18  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.17  2003/06/20 19:05:56  dischi
 # scan for subtitles
 #
@@ -88,7 +91,7 @@ AVIINFO_tags = { 'title': 'INAM',
 
 
 class RiffInfo(mediainfo.AVInfo):
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
         # read the header
         h = file.read(12)
@@ -114,7 +117,7 @@ class RiffInfo(mediainfo.AVInfo):
             if mediainfo.DEBUG: print 'error in file, stop parsing'
             pass
 
-        self.find_subtitles(filename)
+        self.find_subtitles(file.name)
         
         # Copy Metadata from tables into the main set of attributes        
         for k in self.tag_map.keys():

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.12  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.11  2003/06/10 11:17:39  the_krow
 # - OGG Fixes
 # - changed one DiscInfo reference in vcdinfo I missed before
@@ -59,7 +62,7 @@ VORBIS_PACKET_SETUP = '\05vorbis'
 _print = mediainfo._debug
 
 class OggInfo(mediainfo.MusicInfo):
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.MusicInfo.__init__(self)
         h = file.read(4+1+1+20+1)
         if h[:5] != "OggS\00":

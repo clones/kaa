@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.10  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.9  2003/06/09 22:59:37  the_krow
 # hopefully mp3 files are not detected everytime an mp3 stream is inside a
 # container any longer.
@@ -452,7 +455,7 @@ class MPEG:
                     self.bitrate = ((bytes * 8.0 / self.length) / 1000)
 
 class MP3Info(mediainfo.MusicInfo):
-    def __init__(self, file, filename):
+    def __init__(self, file):
         mediainfo.MusicInfo.__init__(self)
         self.valid = 0
         mpeg = MPEG(file)

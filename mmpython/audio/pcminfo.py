@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.6  2003/06/08 19:53:38  dischi
 # also give the filename to init for additional data tests
 #
@@ -54,7 +57,7 @@ class PCMInfo(mediainfo.AudioInfo):
                 return res
         return None
 
-    def __init__(self,file,filename):
+    def __init__(self,file):
        mediainfo.AudioInfo.__init__(self)
        t = self._what(file)
        if t:

@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.4  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.3  2003/06/10 11:17:39  the_krow
 # - OGG Fixes
 # - changed one DiscInfo reference in vcdinfo I missed before
@@ -46,15 +49,15 @@ from mmpython import mediainfo
 import os
 
 class VCDInfo(mediainfo.CollectionInfo):
-    def __init__(self, file, filename):
+    def __init__(self, file):
         mediainfo.CollectionInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        self.valid = self.isVCD(file, filename)
+        self.valid = self.isVCD(file, file.name)
         self.mime = 'video/vcd'
         self.type = 'vcd video'        
 
-    def isVCD(self, file, filename):
+    def isVCD(self, file):
         type = None
 
         buffer = file.readline()
@@ -62,7 +65,7 @@ class VCDInfo(mediainfo.CollectionInfo):
         if not buffer[:6] == 'FILE "':
             return 0
 
-        bin = os.path.join(os.path.dirname(filename), buffer[6:buffer[6:].find('"')+6])
+        bin = os.path.join(os.path.dirname(file.name), buffer[6:buffer[6:].find('"')+6])
         if not os.path.isfile(bin):
             return 0
 

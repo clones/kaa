@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.15  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.14  2003/06/12 14:43:21  the_krow
 # Realmedia file parsing. Title, Artist, Copyright work. Couldn't find
 # many technical parameters to retrieve.
@@ -141,7 +144,7 @@ GUIDS = {
 _print = mediainfo._debug
 
 class AsfInfo(mediainfo.AVInfo):
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.valid = 0

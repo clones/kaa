@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.39  2003/06/20 19:17:21  dischi
+# remove filename again and use file.name
+#
 # Revision 1.38  2003/06/20 19:04:34  dischi
 # search for VobSub subtitles
 #
@@ -344,7 +347,11 @@ class AVInfo(MediaInfo):
         self.video = []
         self.subtitles = []
 
+
     def find_subtitles(self, filename):
+        """
+        Search for subtitle files. Right now only VobSub is supported
+        """
         base = os.path.splitext(filename)[0]
         if os.path.isfile(base+'.idx') and os.path.isfile(base+'.sub'):
             file = open(base+'.idx')
@@ -354,7 +361,9 @@ class AVInfo(MediaInfo):
                     if line.find('id') == 0:
                         self.subtitles.append(line[4:6])
                     line = file.readline()
-        
+            file.close()
+
+            
     def __str__(self):
         result = "Attributes:"
         result += MediaInfo.__str__(self)
@@ -422,13 +431,13 @@ class MetaDataFactory:
         self.types = []
         self.device_types = []
         
-    def create_from_file(self,file,filename):
+    def create_from_file(self,file):
         # Check extension as a hint
         for e in self.extmap.keys():
             if DEBUG: print "trying %s" % e
-            if filename and filename.find(e) >= 0:
+            if file.name.find(e) >= 0:
                 file.seek(0,0)
-                t = self.extmap[e][3](file, filename)
+                t = self.extmap[e][3](file)
                 if t.valid: return t
 
         if DEBUG: print "No Type found by Extension. Trying all"
@@ -436,7 +445,7 @@ class MetaDataFactory:
             if DEBUG: print "Trying %s" % e[0]
             try:
                 file.seek(0,0)
-                t = e[3](file, filename)
+                t = e[3](file)
                 if t.valid: return t
             except:
                 if DEBUG:
@@ -456,7 +465,7 @@ class MetaDataFactory:
             r = self.create_from_device(filename)
         elif os.path.isfile(filename):
             f = open(filename,'rb')
-            r = self.create_from_file(f,filename)
+            r = self.create_from_file(f)
             f.close()
         else:
             r = None

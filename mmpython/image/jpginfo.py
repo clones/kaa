@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.17  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.16  2003/06/10 13:02:32  the_krow
 # Softened JPEG parser a little so it accepts jpegs that do not end in FFD9.
 #
@@ -101,7 +104,7 @@ _debug = mediainfo._debug
 
 class JPGInfo(mediainfo.ImageInfo):
 
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.ImageInfo.__init__(self)
         iptc_info = None        
         self.mime = 'image/jpeg'
@@ -152,7 +155,7 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'country', iptc_info, 612 ) 
             self.setitem( 'caption', iptc_info, 632 )
             self.appendtable( 'IPTC', iptc_info )            
-        self.add_bins_data(filename)
+        self.add_bins_data(file.name)
         return
        
 

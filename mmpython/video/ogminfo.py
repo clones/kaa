@@ -14,7 +14,7 @@ VORBIS_VIDEO_PACKET_INFO = 'video'
 _print = mediainfo._debug
 
 class OgmInfo(mediainfo.AVInfo):
-    def __init__(self, file, filename):
+    def __init__(self, file):
         mediainfo.AVInfo.__init__(self)
         # 26 Bytes Header
         h = file.read(27)

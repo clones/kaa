@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.13  2003/06/20 19:17:22  dischi
+# remove filename again and use file.name
+#
 # Revision 1.12  2003/06/20 14:53:05  the_krow
 # Metadata are copied from Quicktime Userdata to MediaInfo fields. This
 #  may be broken since it assumes the Quicktime Comment language to be
@@ -69,7 +72,7 @@ import fourcc
 from mmpython import mediainfo
 
 class MovInfo(mediainfo.AVInfo):
-    def __init__(self,file,filename):
+    def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.valid = 0
