@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.23  2004/06/23 19:44:10  dischi
+# better length detection, big cleanup
+#
 # Revision 1.22  2004/06/22 21:37:34  dischi
 # o PES support
 # o basic length detection for TS and PES
@@ -83,6 +86,10 @@ PADDING_PKT    = 0xBE
 AUDIO_PKT      = 0xC0
 VIDEO_PKT      = 0xE0
 
+
+TS_PACKET_LENGTH = 188
+TS_SYNC          = 0x47
+
 ##------------------------------------------------------------------------
 ## FRAME_RATE
 ##
@@ -123,32 +130,28 @@ FRAME_RATE = [
 ## technically considered non-compliant.
 ##------------------------------------------------------------------------ 
 ASPECT_RATIO = [ 'Forbidden',
-		      '1/1 (VGA)',
-		      '4/3 (TV)',
-		      '16/9 (Large TV)',
-		      '2.21/1 (Cinema)',
-	       ]
+                 '1/1 (VGA)',
+                 '4/3 (TV)',
+                 '16/9 (Large TV)',
+                 '2.21/1 (Cinema)',
+               ]
  
 
 class MpegInfo(mediainfo.AVInfo):
     def __init__(self,file):
         mediainfo.AVInfo.__init__(self)
         self.context = 'video'
-        self.offset = 0
+        self.sequence_header_offset = 0
 
         # detect TS (fast scan)
         self.valid = self.isTS(file) 
 
         if not self.valid:
             # detect system mpeg (many infos)
-            self.valid = self.isSystem(file) 
+            self.valid = self.isMPEG(file) 
 
         if not self.valid:
-            # detect unknown mpeg, poor support
-            self.valid = self.isVideo(file) 
-
-        if not self.valid:
-            # detect PES, very poor support
+            # detect PES
             self.valid = self.isPES(file) 
             
         if self.valid:       
@@ -156,7 +159,7 @@ class MpegInfo(mediainfo.AVInfo):
             if not self.video:
                 self.video.append(mediainfo.VideoInfo())
 
-            if self.offset <= 0:
+            if self.sequence_header_offset <= 0:
                 return
 
             for vi in self.video:
@@ -165,9 +168,6 @@ class MpegInfo(mediainfo.AVInfo):
                 vi.bitrate = self.bitrate(file)
                 if self.length:
                     vi.length = self.length
-                else:
-                    # wild (bad) guess
-                    vi.length = self.mpgsize(file) * 8 / (vi.bitrate)
 
             if not self.type:
                 if self.video[0].width == 480:
@@ -177,16 +177,20 @@ class MpegInfo(mediainfo.AVInfo):
                 else:
                     self.type = 'MPEG video'
 
-                
+            if mediainfo.DEBUG > 2:
+                self.__scan__()
+
+            
     def dxy(self,file):  
-        file.seek(self.offset+4,0)
+        file.seek(self.sequence_header_offset+4,0)
         v = file.read(4)
         x = struct.unpack('>H',v[:2])[0] >> 4
         y = struct.unpack('>H',v[1:3])[0] & 0x0FFF
         return (x,y)
+
         
     def framerate_aspect(self,file):
-        file.seek(self.offset+7,0)
+        file.seek(self.sequence_header_offset+7,0)
         v = struct.unpack( '>B', file.read(1) )[0] 
         try:
             fps = FRAME_RATE[v&0xf]
@@ -240,43 +244,16 @@ class MpegInfo(mediainfo.AVInfo):
     ## Some parts in the code are based on mpgtx (mpgtx.sf.net)
     
     def bitrate(self,file):
-        file.seek(self.offset+8,0)
+        file.seek(self.sequence_header_offset+8,0)
         t,b = struct.unpack( '>HB', file.read(3) )
         vrate = t << 2 | b >> 6
         return vrate * 400
         
-    def mpgsize(self,file):
-        file.seek(0,2)
-        return file.tell()
 
-
-    def ParseSystemPacket(self, buffer):
-        size = (ord(buffer[4]) * 256 + ord(buffer[5])) - 6
-        if size % 3:
-            return 0
-        if mediainfo.DEBUG:
-            print '%s Streams in MPEG' % (size / 3)
-        num_v = 0
-        num_a = 0
-        for i in range(size/3):
-            code = ord(buffer[12+i*3])
-            if (code&0xF0)==0xC0:
-                num_a += 1
-            elif (code&0xF0)==0xE0 or (code & 0xF0)==0xD0:
-                num_v += 1
-        if num_v:
-            self.has_video = 1
-        if num_a:
-            self.has_audio = 1
-            for i in range(num_a):
-                ai = mediainfo.AudioInfo()
-                ai.id = i
-                # FIXME: more infos please
-                self.audio.append(ai)
-        return 1
-
-
-    def ReadTSMpeg2(self, buffer):
+    def ReadSCRMpeg2(self, buffer):
+        """
+        read SCR (timestamp) for MPEG2 at the buffer beginning (6 Bytes)
+        """
 	highbit = (ord(buffer[0])&0x20)>>5
 
 	low4Bytes= ((ord(buffer[0]) & 0x18) >> 3) << 30
@@ -293,7 +270,10 @@ class MpegInfo(mediainfo.AVInfo):
  	return (long(highbit * (1<<16) * (1<<16)) + low4Bytes) / 90000
 
 
-    def ReadTSMpeg1(self, buffer):
+    def ReadSCRMpeg1(self, buffer):
+        """
+        read SCR (timestamp) for MPEG1 at the buffer beginning (5 Bytes)
+        """
 	highbit = (ord(buffer[0]) >> 3) & 0x01
 
 	low4Bytes = ((ord(buffer[0]) >> 1) & 0x03) << 30
@@ -305,107 +285,167 @@ class MpegInfo(mediainfo.AVInfo):
 	return (long(highbit) * (1<<16) * (1<<16) + low4Bytes) / 90000;
 
 
-    def isSystem(self, file):
+    def ReadPTS(self, buffer):
+        """
+        read PTS (PES timestamp) at the buffer beginning (5 Bytes)
+        """
+        high = ((ord(buffer[0]) & 0xF) >> 1)
+        med  = (ord(buffer[1]) << 7) + (ord(buffer[2]) >> 1)
+        low  = (ord(buffer[3]) << 7) + (ord(buffer[4]) >> 1)
+        return ((long(high) << 30 ) + (med << 15) + low) / 90000
+
+
+    def ReadHeader(self, buffer, offset):
+        """
+        Handle MPEG header in buffer on position offset
+        Return -1 on error, new offset or 0 if the new offset can't be scanned
+        """
+        if buffer[offset:offset+3] != '\x00\x00\x01':
+            return -1
+
+        id = ord(buffer[offset+3])
+
+        if id == PADDING_PKT:
+            return offset + (ord(buffer[offset+4]) << 8) + ord(buffer[offset+5]) + 6
+
+        if id == PACK_PKT:
+            if ord(buffer[offset+4]) & 0xF0 == 0x20:
+                self.type     = 'MPEG1 video'
+                self.get_time = self.ReadSCRMpeg1
+                return offset + 12
+            elif (ord(buffer[offset+4]) & 0xC0) == 0x40:
+                self.type     = 'MPEG2 video'
+                self.get_time = self.ReadSCRMpeg2
+                return offset + (ord(buffer[offset+13]) & 0x07) + 14
+            else:
+                # WTF? Very strange
+                return -1
+
+        if 0xC0 <= id <= 0xDF:
+            # code for audio stream
+            for a in self.audio:
+                if a.id == id:
+                    break
+            else:
+                self.audio.append(mediainfo.AudioInfo())
+                self.audio[-1].id = id
+                self.audio[-1].keys.append('id')
+            return 0
+
+        if 0xE0 <= id <= 0xEF:
+            # code for video stream
+            for v in self.video:
+                if v.id == id:
+                    break
+            else:
+                self.video.append(mediainfo.VideoInfo())
+                self.video[-1].id = id
+                self.video[-1].keys.append('id')
+            return 0
+
+        if id == SEQ_HEAD:
+            # sequence header, remember that position for later use
+            self.sequence_header_offset = offset
+            return 0
+
+        return 0
+
+
+    # Normal MPEG (VCD, SVCD) ========================================
+        
+    def isMPEG(self, file):
+        """
+        This MPEG starts with a sequence of 0x00 followed by a PACK Header
+        http://dvd.sourceforge.net/dvdinfo/packhdr.html
+        """
         file.seek(0,0)
         buffer = file.read(10000)
         offset = 0
+
+        # seek until the 0 byte stop
         while buffer[offset] == '\0':
             offset += 1
         offset -= 2
 
-        if buffer[offset:offset+4] == '\x00\x00\x01%s' % chr(PACK_PKT):
-            offset += 4
-
-            if ord(buffer[4]) & 0xF0 == 0x20:
-                self.type = 'MPEG1 video'
-                PACKlength = 12
-                self.ReadTS = self.ReadTSMpeg1
-            elif (ord(buffer[4]) & 0xC0) == 0x40:
-                self.type = 'MPEG2 video'
-                PACKlength = 14 + (ord(buffer[13]) & 0x07)
-                self.ReadTS = self.ReadTSMpeg2
-            else:
-                return 0
-
-            if not self.ParseSystemPacket(buffer[PACKlength:]):
-                return 0
-
-            type = ord(buffer[0])
-            if ord(buffer[15+PACKlength]) in (VIDEO_PKT, AUDIO_PKT):
-                type = VIDEO_PKT
-            if type != VIDEO_PKT:
-                if mediainfo.DEBUG:
-                    print 'unknown packet type %s, this may cause problems' % type
-
-            if not self.isVideo(file):
-                return 0
-
-            self.ts_start = self.ReadTS(buffer[4:])
-            self.filename = file.name
-            self.length   = self.get_length()
-            if mediainfo.DEBUG:
-                print 'detected ts format'
-            return 1
-        return 0
-
-
-    def get_length(self):
-        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
-            return -1
-        file = open(self.filename)
-        file.seek(os.stat(self.filename)[stat.ST_SIZE]-10000)
-        buffer = file.read(10000)
-        pos    = buffer.rfind('\x00\x00\x01%s' % chr(PACK_PKT))
-        length = self.ReadTS(buffer[pos+4:]) - self.ts_start
-        file.close()
-        return length
-    
-
-    def seek(self, pos):
-        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+        # test for mpeg header 0x00 0x00 0x01
+        if not buffer[offset:offset+4] == '\x00\x00\x01%s' % chr(PACK_PKT):
             return 0
-        file    = open(self.filename)
-        seek_to = 0
-        while 1:
-            file.seek(1000000, 1)
-            buffer = file.read(10000)
-            if len(buffer) < 10000:
-                break
-            pack_pos = buffer.find('\x00\x00\x01%s' % chr(PACK_PKT))
-            if pack_pos == -1:
-                continue
-            if self.ReadTS(buffer[pack_pos+4:]) - self.ts_start >= pos:
-                break
-            buffer  = buffer[pack_pos+50:]
-            seek_to = file.tell()
 
-        file.close()
-        return seek_to
+        # scan the 100000 bytes of data
+        buffer += file.read(100000)
 
-    
-    def isVideo(self,file):
-        file.seek(0,0)
-        buffer = file.read(10000)
-        self.offset = buffer.find( '\x00\x00\x01\xB3' )
-        if self.offset >= 0:
-            return 1
-        return 0
+        # scan first header, to get basic info about
+        # how to read a timestamp
+        self.ReadHeader(buffer, offset)
+
+        # store first timestamp
+        self.ts_start = self.get_time(buffer[offset+4:])
+
+        while len(buffer) > offset + 1000 and buffer[offset:offset+3] == '\x00\x00\x01':
+            # read the mpeg header
+            new_offset = self.ReadHeader(buffer, offset)
+
+            # header scanning detected error, this is no mpeg
+            if new_offset == -1:
+                return 0
+
+            if new_offset:
+                # we have a new offset
+                offset = new_offset
+
+                # skip padding 0 before a new header
+                while not ord(buffer[offset+2]):
+                    offset += 1
+
+            else:
+                # seek to new header by brute force
+                offset += buffer[offset+4:].find('\x00\x00\x01') + 4
+
+        # fill in values for support functions:
+        self.__seek_size__   = 1000000
+        self.__sample_size__ = 10000
+        self.__search__      = self._find_timer_
+        self.filename        = file.name
+
+        # get length of the file
+        self.length = self.get_length()
+        return 1
+
+
+    def _find_timer_(self, buffer):
+        """
+        Return position of timer in buffer or -1 if not found.
+        This function is valid for 'normal' mpeg files
+        """
+        pos = buffer.find('\x00\x00\x01%s' % chr(PACK_PKT))
+        if pos == -1:
+            return -1
+        return pos + 4
+        
 
 
     # PES ============================================================
 
 
-    def PESinfo(self, offset, buffer, id=0, length_check=False):
+    def ReadPESHeader(self, offset, buffer):
+        """
+        Parse a PES header.
+        Since it starts with 0x00 0x00 0x01 like 'normal' mpegs, this
+        function will return (0, -1) when it is no PES header or
+        (packet length, timestamp position (maybe -1))
+        
+        http://dvd.sourceforge.net/dvdinfo/pes-hdr.html
+        """
         if not buffer[0:3] == '\x00\x00\x01':
-            return 0
+            return 0, -1
 
         packet_length = (ord(buffer[4]) << 8) + ord(buffer[5]) + 6
         align         = ord(buffer[6]) & 4
         header_length = ord(buffer[8])
 
-        # PES Payload (starting with 001)
+        # PES ID (starting with 001)
         if ord(buffer[3]) & 0xE0 == 0xC0:
-            id = id or ord(buffer[3]) & 0x1F
+            id = ord(buffer[3]) & 0x1F
             type = 'audio'
             for a in self.audio:
                 if a.id == id:
@@ -416,7 +456,7 @@ class MpegInfo(mediainfo.AVInfo):
                 self.audio[-1].keys.append('id')
 
         elif ord(buffer[3]) & 0xF0 == 0xE0:
-            id = id or ord(buffer[3]) & 0xF
+            id = ord(buffer[3]) & 0xF
             type = 'video'
             for v in self.video:
                 if v.id == id:
@@ -428,24 +468,20 @@ class MpegInfo(mediainfo.AVInfo):
 
             # new mpeg starting
             if buffer[header_length+9:header_length+13] == \
-                   '\x00\x00\x01\xB3' and not self.offset:
+                   '\x00\x00\x01\xB3' and not self.sequence_header_offset:
                 # yes, remember offset for later use
-                self.offset = offset + header_length+9
+                self.sequence_header_offset = offset + header_length+9
         else:
             # unknown content
             pass
 
-        ptsdts        = ord(buffer[7]) >> 6
+        ptsdts = ord(buffer[7]) >> 6
 
         if ptsdts and ptsdts == ord(buffer[9]) >> 4:
-            # we have a timestamp
-            pts1 = ((ord(buffer[9]) & 0xF) >> 1)
-            pts2 = (ord(buffer[10]) << 7) + ord(buffer[11]) >> 1
-            pts3 = (ord(buffer[12]) << 7) + ord(buffer[13]) >> 1
-            if not hasattr(self, 'pts') or length_check:
-                self.pts = ((long(pts1) << 30 ) + (pts2 << 15) + pts3) / 90000
-
-        return packet_length
+            # timestamp = self.ReadPTS(buffer[9:14])
+            return packet_length, 9
+            
+        return packet_length, -1
     
 
 
@@ -459,19 +495,22 @@ class MpegInfo(mediainfo.AVInfo):
         if not buffer == '\x00\x00\x01':
             return 0
 
-        self.offset = 0
+        self.sequence_header_offset = 0
         buffer += file.read(10000)
 
         offset = 0
         while offset + 1000 < len(buffer):
-            pos = self.PESinfo(offset, buffer[offset:])
+            pos, timestamp = self.ReadPESHeader(offset, buffer[offset:])
             if not pos:
                 return 0
-            if self.offset:
-                # we have good informations here
+            if timestamp != -1 and not hasattr(self, 'ts_start'):
+                self.get_time = self.ReadPTS
+                self.ts_start = self.get_time(buffer[offset+timestamp:offset+timestamp+5])
+            if self.sequence_header_offset and hasattr(self, 'ts_start'):
+                # we have all informations we need
                 break
-            offset += pos
 
+            offset += pos
             if offset + 1000 < len(buffer) and len(buffer) < 1000000 or 1:
                 # looks like a pes, read more
                 buffer += file.read(10000)
@@ -482,37 +521,57 @@ class MpegInfo(mediainfo.AVInfo):
 
         self.type = 'MPEG-PES'
 
-        # get length:
-        file.seek(os.stat(file.name)[stat.ST_SIZE]-100000)
-        buffer = file.read(1000000)
-        offset = buffer.find('\x00\x00\x01')
+        # fill in values for support functions:
+        self.__seek_size__   = 10000000  # 10 MB
+        self.__sample_size__ = 500000    # 500 k scanning
+        self.__search__      = self._find_timer_PES_
+        self.filename        = file.name
 
-        start = self.pts
+        # get length of the file
+        self.length = self.get_length()
+        return 1
+
+
+    def _find_timer_PES_(self, buffer):
+        """
+        Return position of timer in buffer or -1 if not found.
+        This function is valid for PES files
+        """
+        pos    = buffer.find('\x00\x00\x01')
+        offset = 0
+        if pos == -1 or offset + 1000 >= len(buffer):
+            return -1
         
+        retpos   = -1
+        ackcount = 0
         while offset + 1000 < len(buffer):
-            pos = self.PESinfo(offset, buffer[offset:], length_check=True)
+            pos, timestamp = self.ReadPESHeader(offset, buffer[offset:])
+            if timestamp != -1 and retpos == -1:
+                retpos = offset + timestamp
             if pos == 0:
                 # Oops, that was a mpeg header, no PES header
-                offset += buffer[offset:].find('\x00\x00\x01')
+                offset  += buffer[offset:].find('\x00\x00\x01')
+                retpos   = -1
+                ackcount = 0
             else:
-                offset += pos
-
-        if self.pts > start:
-            self.length = self.pts - start
-        return 1
+                offset   += pos
+                ackcount += 1
+            if ackcount > 10:
+                # looks ok to me
+                return retpos
+        return -1
             
 
     # Transport Stream ===============================================
     
-    def TSinfo(self, file, length_check=False):
-        PACKET_LENGTH = 188
-        SYNC          = 0x47
+    def isTS(self, file):
+        file.seek(0,0)
 
-        buffer = file.read(PACKET_LENGTH * 2)
+        buffer = file.read(TS_PACKET_LENGTH * 2)
         c = 0
 
-        while c + PACKET_LENGTH < len(buffer):
-            if ord(buffer[c]) == ord(buffer[c+PACKET_LENGTH]) == SYNC:
+        while c + TS_PACKET_LENGTH < len(buffer):
+            if ord(buffer[c]) == ord(buffer[c+TS_PACKET_LENGTH]) == TS_SYNC:
                 break
             c += 1
         else:
@@ -520,10 +579,11 @@ class MpegInfo(mediainfo.AVInfo):
 
         buffer += file.read(1000000)
         self.type = 'MPEG-TS'
-        while c + PACKET_LENGTH < len(buffer):
+
+        while c + TS_PACKET_LENGTH < len(buffer):
             start = ord(buffer[c+1]) & 0x40
             if not start:
-                c += PACKET_LENGTH
+                c += TS_PACKET_LENGTH
                 continue
 
             tsid = ((ord(buffer[c+1]) & 0x3F) << 8) + ord(buffer[c+2])
@@ -534,38 +594,151 @@ class MpegInfo(mediainfo.AVInfo):
                 # meta info present, skip it for now
                 offset += ord(buffer[c+offset]) + 1
 
-            if adapt & 0x01 and self.PESinfo(c+offset, buffer[c+offset:], tsid, length_check):
+            if adapt & 0x01:
                 # PES
-                pass
+                timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:])[1]
+                if timestamp != -1 and not hasattr(self, 'ts_start'):
+                    self.get_time = self.ReadPTS
+                    timestamp     = c + offset + timestamp
+                    self.ts_start = self.get_time(buffer[timestamp:timestamp+5])
+
             elif adapt & 0x01:
                 # no PES, scan for something else here
                 pass
             
-            c += PACKET_LENGTH
+            c += TS_PACKET_LENGTH
 
-        if self.offset:
-            return 1
-        return 0
-
-            
-    def isTS(self, file):
-        if mediainfo.DEBUG:
-            print 'trying mpeg-ts scan'
-        file.seek(0,0)
-        valid = self.TSinfo(file)
-        if not valid:
+        if not self.sequence_header_offset:
             return 0
 
-        start = self.pts
+        # fill in values for support functions:
+        self.__seek_size__   = 10000000  # 10 MB
+        self.__sample_size__ = 100000    # 100 k scanning
+        self.__search__      = self._find_timer_TS_
+        self.filename        = file.name
 
-        # get length:
-        file.seek(os.stat(file.name)[stat.ST_SIZE]-100000)
-        self.TSinfo(file, True)
-        
-        if self.pts > start:
-            self.length = self.pts - start
+        # get length of the file
+        self.length = self.get_length()
         return 1
 
 
+    def _find_timer_TS_(self, buffer):
+        c = 0
+
+        while c + TS_PACKET_LENGTH < len(buffer):
+            if ord(buffer[c]) == ord(buffer[c+TS_PACKET_LENGTH]) == TS_SYNC:
+                break
+            c += 1
+        else:
+            return -1
+        
+        while c + TS_PACKET_LENGTH < len(buffer):
+            start = ord(buffer[c+1]) & 0x40
+            if not start:
+                c += TS_PACKET_LENGTH
+                continue
+
+            adapt = (ord(buffer[c+3]) & 0x30) >> 4
+
+            offset = 4
+            if adapt & 0x02:
+                # meta info present, skip it for now
+                offset += ord(buffer[c+offset]) + 1
+
+            if adapt & 0x01:
+                timestamp = self.ReadPESHeader(c+offset, buffer[c+offset:])[1]
+                return c + offset + timestamp
+            c += TS_PACKET_LENGTH
+        return -1
+
+
+
+    # Support functions ==============================================
+
+    def get_endpos(self):
+        """
+        get the last timestamp of the mpeg, return -1 if this is not possible
+        """
+        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+            return -1
+
+        file = open(self.filename)
+        file.seek(os.stat(self.filename)[stat.ST_SIZE]-self.__sample_size__)
+        buffer = file.read(self.__sample_size__)
+
+        end = -1
+        while 1:
+            pos = self.__search__(buffer)
+            if pos == -1:
+                break
+            end    = self.get_time(buffer[pos:])
+            buffer = buffer[pos+100:]
+            
+        file.close()
+        return end
+    
+
+    def get_length(self):
+        """
+        get the length in seconds, return -1 if this is not possible
+        """
+        end = self.get_endpos()
+        if end == -1 or self.ts_start > end:
+            return -1
+        return end - self.ts_start
+    
+
+    def seek(self, end_time):
+        """
+        Return the byte position in the file where the time position
+        is 'pos' seconds. Return 0 if this is not possible
+        """
+        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+            return 0
+
+        file    = open(self.filename)
+        seek_to = 0
+        
+        while 1:
+            file.seek(self.__seek_size__, 1)
+            buffer = file.read(self.__sample_size__)
+            if len(buffer) < 10000:
+                break
+            pos = self.__search__(buffer)
+            if pos != -1:
+                # found something
+                if self.get_time(buffer[pos:]) >= end_time:
+                    # too much, break
+                    break
+            # that wasn't enough
+            seek_to = file.tell()
+
+        file.close()
+        return seek_to
+
+
+    def __scan__(self):
+        """
+        scan file for timestamps (may take a long time)
+        """
+        if not hasattr(self, 'filename') or not hasattr(self, 'ts_start'):
+            return 0
+        file = open(self.filename)
+        print 'scanning file...'
+        while 1:
+            file.seek(self.__seek_size__ * 10, 1)
+            buffer = file.read(self.__sample_size__)
+            if len(buffer) < 10000:
+                break
+            pos = self.__search__(buffer)
+            if pos == -1:
+                continue
+            print self.get_time(buffer[pos:])
+
+        file.close()
+        print 'done'
+        print
+
+    
     
 mmpython.registertype( 'video/mpeg', ('mpeg','mpg','mp4', 'ts'), mediainfo.TYPE_AV, MpegInfo )
