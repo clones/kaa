@@ -5,6 +5,11 @@
 # $Id$
 #
 # $Log$
+# Revision 1.11  2003/06/21 15:30:13  dischi
+# Special support for data discs. The cache file can be a normal disc
+# cache file or a directory cache. In the second case the cache returns
+# a DataDiscInfo with all files as tracks.
+#
 # Revision 1.10  2003/06/10 22:16:42  dischi
 # added cd:// URL caching
 #
@@ -75,7 +80,7 @@ import mediainfo
 
 from disc import DiscID
 from disc.discinfo import cdrom_disc_status, cdrom_disc_id, DiscInfo
-
+from disc.datainfo import DataDiscInfo
 
 
 class FileNotFoundException(Exception):
@@ -250,8 +255,18 @@ class Cache:
         if not os.path.isfile(cachefile):
             raise FileNotFoundException
         (version, object) = pickle.load(open(cachefile, 'r'))
-        if not version == self.DISC_CACHE_VERSION:
-            raise FileNotFoundException
+        if isinstance(object, dict):
+            # it's a data disc and it was cached as directory
+            # build a DataDiscInfo with all files as tracks
+            if not version == self.CACHE_VERSION:
+                raise FileNotFoundException
+            info = DataDiscInfo(device)
+            for k in object:
+                info.tracks.append(object[k])
+            return info
+        else:
+            if not version == self.DISC_CACHE_VERSION:
+                raise FileNotFoundException
         return object
 
         
