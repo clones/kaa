@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.25  2003/07/13 15:20:28  dischi
+# exception handling when cache file is bad
+#
 # Revision 1.24  2003/07/04 15:31:27  outlyer
 # Revert my changes. Sorry. It should be happening in cd_disc_info
 #
@@ -308,7 +311,11 @@ class Cache:
         if not os.path.isfile(cachefile):
             raise FileNotFoundException
         f = open(cachefile, 'r')
-        (version, object) = pickle.load(f)
+        try:
+            (version, object) = pickle.load(f)
+        except:
+            f.close()
+            raise FileNotFoundException
         f.close()
         if not isinstance(object, DiscInfo):
             # it's a data disc and it was cached as directory
@@ -358,7 +365,11 @@ class Cache:
                 raise FileNotFoundException
 
             f = open(cachefile, 'r')
-            (version, objects) = pickle.load(f)
+            try:
+                (version, objects) = pickle.load(f)
+            except:
+                f.close()
+                raise FileNotFoundException
             f.close()
             if not version == self.CACHE_VERSION:
                 raise FileNotFoundException
