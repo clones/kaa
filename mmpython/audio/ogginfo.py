@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.16  2004/05/18 21:56:18  dischi
+# do not pare the whole file to get the length
+#
 # Revision 1.15  2003/09/22 16:21:20  the_krow
 # o ogg parsing should basically work
 # o utf-8 for vorbis comments
@@ -66,6 +69,7 @@
 #endif
 
 import re
+import os, stat
 import struct
 
 from mmpython import mediainfo
@@ -142,6 +146,10 @@ class OggInfo(mediainfo.MusicInfo):
     
 
     def _calculateTrackLength(self,f):
+        # seek to the end of the stream, to avoid scanning the whole file
+        if (os.stat(f.name)[stat.ST_SIZE] > 20000):
+            f.seek(os.stat(f.name)[stat.ST_SIZE]-10000)
+
         # read the rest of the file into a buffer
         h = f.read()
         granule_position = 0
