@@ -5,6 +5,11 @@
 # $Id$
 #
 # $Log$
+# Revision 1.14  2004/05/18 21:55:52  dischi
+# o get correct length for ogm files
+# o set metadat for the different streams
+# o chapter support
+#
 # Revision 1.13  2003/09/22 16:21:54  the_krow
 # utf-8 comment parsing
 #
@@ -97,24 +102,44 @@ VORBISCOMMENT_tags = { 'title': 'TITLE',
                        'genre': 'GENRE',
                      }
 
-MAXITERATIONS = 4
+MAXITERATIONS = 10
 
 class OgmInfo(mediainfo.AVInfo):
     def __init__(self, file):
         mediainfo.AVInfo.__init__(self)
-        self.lastgran = 0
-        self.samplerate = 1
-        lastgran = -1
-        i = 0
-        while (i != MAXITERATIONS):
+        self.samplerate  = 1
+        self.all_streams = []           # used to add meta data to streams
+        self.all_header  = []
+        lastgran = 0
+
+        for i in range(MAXITERATIONS):
             granule = self._parseOGGS(file)
             if granule == None:
                 break
-            else:
-                lastgran = granule
-            i += 1
-                        
-        if len(self.audio) == 1 and len(self.video) == 0:            
+            elif granule > 0:
+                # ok, file started
+                break
+
+        # seek to the end of the stream, to avoid scanning the whole file
+        if (os.stat(file.name)[stat.ST_SIZE] > 20000):
+            file.seek(os.stat(file.name)[stat.ST_SIZE]-10000)
+
+        # read the rest of the file into a buffer
+        h = file.read()
+
+        # find last OggS to get length info
+        if len(h):
+            idx = h.rfind('OggS')
+            if idx > 0:
+                file.seek(os.stat(file.name)[stat.ST_SIZE]-10000 + idx)
+                granule = self._parseOGGS(file)
+                if granule > 0:
+                    lastgran = granule
+
+        if lastgran and len(self.audio) > 0:
+            self.length = lastgran / self.audio[0].samplerate
+            
+        elif len(self.audio) == 1 and len(self.video) == 0:            
             samplerate = self.audio[0].samplerate
             #self.audio[0].length = self.length = lastgran / samplerate
 
@@ -130,12 +155,50 @@ class OgmInfo(mediainfo.AVInfo):
             # XXX Hack because we don't parse the whole file
             self.video[0].length = self.length = 0
 
+        # Copy metadata to the streams
+        if len(self.all_header) == len(self.all_streams):
+            for i in range(len(self.all_header)):
+                for key in self.all_streams[i].keys:
+                    if self.all_header[i].has_key(key):
+                        self.all_streams[i][key] = self.all_header[i][key]
+                        del self.all_header[i][key]
+                    if self.all_header[i].has_key(key.upper()):
+                        self.all_streams[i][key] = self.all_header[i][key.upper()]
+                        del self.all_header[i][key.upper()]
+
+                # Chapter parser
+                if self.all_header[i].has_key('CHAPTER01') and not self.chapters:
+                    while 1:
+                        s = 'CHAPTER0%s' % (len(self.chapters) + 1)
+                        if len(s) < 9:
+                            s = '0' + s
+                        if self.all_header[i].has_key(s) and \
+                               self.all_header[i].has_key(s + 'NAME'):
+                            pos = self.all_header[i][s]
+                            try:
+                                pos = int(pos)
+                            except ValueError:
+                                new_pos = 0
+                                for v in pos.split(':'):
+                                    new_pos = new_pos * 60 + float(v)
+                                pos = int(new_pos)
+                                
+                            c = mediainfo.ChapterInfo(self.all_header[i][s + 'NAME'], pos)
+                            del self.all_header[i][s + 'NAME']
+                            del self.all_header[i][s]
+                            self.chapters.append(c)
+                        else:
+                            break
         # Copy Metadata from tables into the main set of attributes        
+        for header in self.all_header:
+            self.appendtable('VORBISCOMMENT', header)
+
         self.tag_map = { ('VORBISCOMMENT', 'en') : VORBISCOMMENT_tags }
         for k in self.tag_map.keys():
             _print(k)
-            map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),self.tag_map[k][x]), self.tag_map[k].keys())        
-        # Chapter parser
+            map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),
+                                      self.tag_map[k][x]), self.tag_map[k].keys())
+
         
     def _parseOGGS(self,file):
         h = file.read(27)
@@ -192,22 +255,25 @@ class OgmInfo(mediainfo.AVInfo):
             # Put Header fields into info fields
             self.type = 'OGG Vorbis'
             self.subtype = ''
-            self.appendtable('VORBISCOMMENT', header)
-            pass
+            self.all_header.append(header)
 
-
+            
     def _parseHeader(self,header,granule):
         headerlen = len(header)
         flags = ord(header[0])
+
         if headerlen >= 30 and header[1:7] == 'vorbis':
             #print("Vorbis Audio Header")
             ai = mediainfo.AudioInfo()
-            ai.version, ai.channels, ai.samplerate, bitrate_max, ai.bitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',header[7:7+23])
+            ai.version, ai.channels, ai.samplerate, bitrate_max, ai.bitrate, \
+                        bitrate_min, blocksize, framing = \
+                        struct.unpack('<IBIiiiBB',header[7:7+23])
             ai.codec = 'Vorbis'
-            ai.granule = granule
-            ai.length = granule / ai.samplerate
+            #ai.granule = granule
+            #ai.length = granule / ai.samplerate
             self.audio.append(ai)
-            pass
+            self.all_streams.append(ai)
+            
         elif headerlen >= 7 and header[1:7] == 'theora':
             #print "Theora Header"
             # Theora Header
@@ -215,7 +281,8 @@ class OgmInfo(mediainfo.AVInfo):
             vi = mediainfo.VideoInfo()
             vi.codec = 'theora'
             self.video.append(vi)
-            pass
+            self.all_streams.append(vi)
+
         elif headerlen >= 142 and header[1:36] == 'Direct Show Samples embedded in Ogg':
             #print 'Direct Show Samples embedded in Ogg'
             # Old Directshow format
@@ -223,7 +290,8 @@ class OgmInfo(mediainfo.AVInfo):
             vi = mediainfo.VideoInfo()
             vi.codec = 'dshow'
             self.video.append(vi)
-            pass
+            self.all_streams.append(vi)
+
         elif flags & PACKET_TYPE_BITS == PACKET_TYPE_HEADER and headerlen >= struct.calcsize(STREAM_HEADER_VIDEO)+1:
             #print "New Directshow Format"
             # New Directshow Format
@@ -241,6 +309,7 @@ class OgmInfo(mediainfo.AVInfo):
                     vi.codec = 'Unknown (%s)' % type
                 vi.fps = 10000000 / timeunit
                 self.video.append(vi)
+                self.all_streams.append(vi)
             elif htype[:5] == 'audio':
                 streamheader = struct.unpack( STREAM_HEADER_AUDIO, header[9:struct.calcsize(STREAM_HEADER_AUDIO)+9] )
                 ai = mediainfo.AudioInfo()
@@ -248,6 +317,7 @@ class OgmInfo(mediainfo.AVInfo):
                 self.samplerate = ai.samplerate
                 _print("Samplerate %d" % self.samplerate)
                 self.audio.append(ai)
+                self.all_streams.append(ai)
         else:
             _print("Unknown Header")
               
