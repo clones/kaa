@@ -1,6 +1,12 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.14  2003/06/12 14:43:21  the_krow
+# Realmedia file parsing. Title, Artist, Copyright work. Couldn't find
+# many technical parameters to retrieve.
+# Some initial QT parsing
+# added Real to __init__.py
+#
 # Revision 1.13  2003/06/12 10:42:47  the_krow
 # Added Bitrate, Extended Info
 # Still need to identify streams by their streamid
@@ -81,7 +87,6 @@ def _guid(input):
 
 GUIDS = {        
 'ASF_Header_Object' : _guid('75B22630-668E-11CF-A6D9-00AA0062CE6C'),
-#'ASF_Header_Object2' : _guid('3026B275-8E66-CF11-A6D9-00AA0062CE6C'),
 'ASF_Data_Object' : _guid('75B22636-668E-11CF-A6D9-00AA0062CE6C'),
 'ASF_Simple_Index_Object' : _guid('33000890-E5B1-11CF-89F4-00A0C90349CB'),
 'ASF_Index_Object' : _guid('D6E229D3-35DA-11D1-9034-00A0C90349BE'),

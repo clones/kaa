@@ -1,6 +1,12 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.7  2003/06/12 14:43:22  the_krow
+# Realmedia file parsing. Title, Artist, Copyright work. Couldn't find
+# many technical parameters to retrieve.
+# Some initial QT parsing
+# added Real to __init__.py
+#
 # Revision 1.6  2003/06/08 19:53:21  dischi
 # also give the filename to init for additional data tests
 #
@@ -44,9 +50,9 @@ import fourcc
 
 from mmpython import mediainfo
 
-class MovInfo(mediainfo.VideoInfo):
+class MovInfo(mediainfo.AVInfo):
     def __init__(self,file,filename):
-        mediainfo.VideoInfo.__init__(self)
+        mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.valid = 0
         self.mime = 'video/quicktime'
@@ -62,4 +68,4 @@ class MovInfo(mediainfo.VideoInfo):
 
 
 factory = mediainfo.get_singleton()  
-factory.register( 'video/quicktime', ['mov', 'qt'], mediainfo.TYPE_VIDEO, MovInfo )
+factory.register( 'video/quicktime', ('mov', 'qt'), mediainfo.TYPE_AV, MovInfo )

@@ -16,6 +16,7 @@ import image.jpginfo
 import image.pnginfo
 import image.tiffinfo
 import video.vcdinfo
+import video.realinfo
 try:
     import disc.dvdinfo
     import disc.vcdinfo
