@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.28  2004/01/31 12:23:46  dischi
+# remove bad chars from table (e.g. char 0 is True)
+#
 # Revision 1.27  2003/10/04 14:30:08  dischi
 # add audio delay for avi
 #
@@ -160,8 +163,8 @@ class RiffInfo(mediainfo.AVInfo):
         
         # Copy Metadata from tables into the main set of attributes        
         for k in self.tag_map.keys():
-            map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),self.tag_map[k][x]), self.tag_map[k].keys())
-                
+            map(lambda x:self.setitem(x,self.gettable(k[0],k[1]),self.tag_map[k][x]),
+                self.tag_map[k].keys())
         
         
     def _extractHeaderString(self,h,offset,len):
@@ -348,7 +351,9 @@ class RiffInfo(mediainfo.AVInfo):
                 _print("Unknown Key: %s, len: %d" % (key,sz))
                 i+=8
                 value = self._extractHeaderString(t,i,sz)
-                retval[key] = value
+                value = value.replace('\0', '').lstrip().rstrip()
+                if value:
+                    retval[key] = value
                 i+=sz
         return retval
         
@@ -374,7 +379,7 @@ class RiffInfo(mediainfo.AVInfo):
                 self.junkSize = size
         else:
             t = file.seek(size,1)
-            _print("Skipping %s [%i]" % (name,size))
+            #_print("Skipping %s [%i]" % (name,size))
         return 0
 
     def buildTag(self,key,value):
