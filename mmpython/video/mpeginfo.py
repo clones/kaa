@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.27  2004/11/12 18:10:45  dischi
+# add ac3 support in mpeg streams
+#
 # Revision 1.26  2004/10/04 18:06:54  dischi
 # test length of remaining buffer
 #
@@ -96,7 +99,7 @@ SYS_PKT        = 0xBB
 PADDING_PKT    = 0xBE
 AUDIO_PKT      = 0xC0
 VIDEO_PKT      = 0xE0
-
+PRIVATE_STREAM = 0xBD
 
 TS_PACKET_LENGTH = 188
 TS_SYNC          = 0x47
@@ -316,7 +319,7 @@ class MpegInfo(mediainfo.AVInfo):
         """
 	highbit = (ord(buffer[0])&0x20)>>5
 
-	low4Bytes= ((ord(buffer[0]) & 0x18) >> 3) << 30
+	low4Bytes= ((long(ord(buffer[0])) & 0x18) >> 3) << 30
 	low4Bytes |= (ord(buffer[0]) & 0x03) << 28
 	low4Bytes |= ord(buffer[1]) << 20
 	low4Bytes |= (ord(buffer[2]) & 0xF8) << 12
@@ -408,6 +411,21 @@ class MpegInfo(mediainfo.AVInfo):
             self.sequence_header_offset = offset
             return 0
 
+        if id == PRIVATE_STREAM:
+            # private stream. we don't know, but maybe we can guess later
+            add = ord(buffer[offset+8])
+            if (ord(buffer[offset+6]) & 4):
+                id = ord(buffer[offset+10+add])
+                if buffer[offset+11+add:offset+15+add].find('\x0b\x77') != -1:
+                    # AC3 stream
+                    for a in self.audio:
+                        if a.id == id:
+                            break
+                    else:
+                        self.audio.append(mediainfo.AudioInfo())
+                        self.audio[-1].id = id
+                        self.audio[-1].codec = 'AC3'
+                        self.audio[-1].keys.append('id')
         return 0
 
 
@@ -440,7 +458,6 @@ class MpegInfo(mediainfo.AVInfo):
 
         # store first timestamp
         self.start = self.get_time(buffer[offset+4:])
-
         while len(buffer) > offset + 1000 and buffer[offset:offset+3] == '\x00\x00\x01':
             # read the mpeg header
             new_offset = self.ReadHeader(buffer, offset)
@@ -477,8 +494,10 @@ class MpegInfo(mediainfo.AVInfo):
         Return position of timer in buffer or -1 if not found.
         This function is valid for 'normal' mpeg files
         """
+        print 'search', len(buffer)
         pos = buffer.find('\x00\x00\x01%s' % chr(PACK_PKT))
         if pos == -1:
+            print 'no'
             return -1
         return pos + 4
         
@@ -754,7 +773,8 @@ class MpegInfo(mediainfo.AVInfo):
 
         file = open(self.filename)
         file.seek(os.stat(self.filename)[stat.ST_SIZE]-self.__sample_size__)
-        buffer = file.read(self.__sample_size__)
+        file.seek(100000)
+        buffer = file.read(self.__sample_size__*10000)
 
         end = -1
         while 1:
