@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.11  2003/06/10 11:17:39  the_krow
+# - OGG Fixes
+# - changed one DiscInfo reference in vcdinfo I missed before
+#
 # Revision 1.10  2003/06/08 19:53:38  dischi
 # also give the filename to init for additional data tests
 #
@@ -54,9 +58,9 @@ VORBIS_PACKET_SETUP = '\05vorbis'
 
 _print = mediainfo._debug
 
-class OggInfo(mediainfo.AudioInfo):
+class OggInfo(mediainfo.MusicInfo):
     def __init__(self,file,filename):
-        mediainfo.AudioInfo.__init__(self)
+        mediainfo.MusicInfo.__init__(self)
         h = file.read(4+1+1+20+1)
         if h[:5] != "OggS\00":
             _print("Invalid header")
@@ -74,7 +78,7 @@ class OggInfo(mediainfo.AudioInfo):
             return
         self.valid = 1
         self.mime = 'application/ogg'
-        self.header = {}
+        header = {}
         info = file.read(23)
         self.version, self.channels, self.samplerate, bitrate_max, self.bitrate, bitrate_min, blocksize, framing = struct.unpack('<IBIiiiBB',info[:23])
         # INFO Header, read Oggs and skip 10 bytes
@@ -87,35 +91,32 @@ class OggInfo(mediainfo.AudioInfo):
             if h != VORBIS_PACKET_HEADER:
                 # Not a corrent info header
                 return                        
-            self.header['vendor'] = self._extractHeaderString(file)
+            self.encoder = self._extractHeaderString(file)
             numItems = struct.unpack('<I',file.read(4))[0]
             for i in range(numItems):
                 s = self._extractHeaderString(file)
                 a = re.split('=',s)
-                self.header[a[0]]=a[1]
+                header[(a[0]).upper()]=a[1]
             # Put Header fields into info fields
-            if self.header.has_key('TITLE'):
-                self.title = self.header['TITLE']
-            if self.header.has_key('ALBUM'):
-                self.album = self.header['ALBUM']
-            if self.header.has_key('ARTIST'):
-                self.artist = self.header['ARTIST']            
-            if self.header.has_key('COMMENT'):
-                self.comment = self.header['COMMENT']
-            if self.header.has_key('DATE'):
-                self.date = self.header['DATE']
-            if self.header.has_key('vendor'):
-                self.encoder = self.header['vendor']
+            if header.has_key('TITLE'):
+                self.title = header['TITLE']
+            if header.has_key('ALBUM'):
+                self.album = header['ALBUM']
+            if header.has_key('ARTIST'):
+                self.artist = header['ARTIST']            
+            if header.has_key('COMMENT'):
+                self.comment = header['COMMENT']
+            if header.has_key('DATE'):
+                self.date = header['DATE']
+            if header.has_key('ENCODER'):
+                self.encoder = header['ENCODER']
+            if header.has_key('TRACKNUMBER'):
+                self.trackno = header['TRACKNUMBER']
             self.type = 'OGG Vorbis'
             self.subtype = ''
             self.length = self._calculateTrackLength(file)
-            
-    def __getitem__(self,key):
-        i = self.info[key]
-        if i: return i
-        else: return self.header[key]
-            
-                    
+            self.appendtable('VORBISCOMMENT',header)
+                                            
     def _extractHeaderString(self,f):
         len = struct.unpack( '<I', f.read(4) )[0]
         return f.read(len)
@@ -143,12 +144,4 @@ class OggInfo(mediainfo.AudioInfo):
 
 
 factory = mediainfo.get_singleton()
-factory.register( 'application/ogg', ['ogg'], mediainfo.TYPE_AUDIO, OggInfo )
-
-if __name__ == '__main__':
-    import sys
-    o = OggInfo(open(sys.argv[1], 'rb'))
-    print "INFO:"
-    print o.info
-    print "HEADER:"
-    print o.header
+factory.register( 'application/ogg', ('ogg',), mediainfo.TYPE_MUSIC, OggInfo )

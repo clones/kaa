@@ -5,6 +5,10 @@
 # $Id$
 #
 # $Log$
+# Revision 1.3  2003/06/10 11:17:39  the_krow
+# - OGG Fixes
+# - changed one DiscInfo reference in vcdinfo I missed before
+#
 # Revision 1.2  2003/06/10 10:56:54  the_krow
 # - Build try-except blocks around disc imports to make it run on platforms
 #   not compiling / running the C extensions.
@@ -43,7 +47,7 @@ import os
 
 class VCDInfo(mediainfo.CollectionInfo):
     def __init__(self, file, filename):
-        mediainfo.DiscInfo.__init__(self)
+        mediainfo.CollectionInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
         self.valid = self.isVCD(file, filename)
@@ -98,4 +102,4 @@ class VCDInfo(mediainfo.CollectionInfo):
 
 
 factory = mediainfo.get_singleton()  
-factory.register( 'video/vcd', ['cue'], mediainfo.TYPE_AV, VCDInfo )
+factory.register( 'video/vcd', ('cue',), mediainfo.TYPE_AV, VCDInfo )
