@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.41  2004/01/17 12:41:26  dischi
+# use mtime to check if new files are in dir
+#
 # Revision 1.40  2004/01/03 17:44:04  dischi
 # catch OSError in case the file is removed file scanning
 #
@@ -163,6 +166,9 @@ class Cache:
         if not cachefile:
             return -1
 
+        if os.stat(cachefile)[stat.ST_MTIME] > os.stat(directory)[stat.ST_MTIME]:
+            return 0
+        
         new = 0
         for file in files:
             try:
