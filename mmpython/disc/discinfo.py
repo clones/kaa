@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.10  2003/08/26 18:01:26  outlyer
+# Patch from Lars Eggert for FreeBSD support
+#
 # Revision 1.9  2003/08/23 17:54:14  dischi
 # move id translation of bad chars directly after parsing
 #
@@ -67,6 +70,8 @@ from mmpython import mediainfo
 import os
 import re
 import time
+import array
+from struct import *
 
 
 try:
@@ -86,10 +91,20 @@ def cdrom_disc_status(device):
     CDROM_DISC_STATUS=0x5327
     CDS_AUDIO=100
     CDS_MIXED=105
-    
+
+    # FreeBSD ioctls - there is no CDROM.py
+    CDIOREADTOCENTRYS = 0xc0086305
+    CD_MSF_FORMAT = 2
+        
     try:
         fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
-        s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
+        if os.uname()[0] == 'FreeBSD':
+            cd_toc_entry = array.array('c', '\000'*4096)
+            (address, length) = cd_toc_entry.buffer_info()
+            buf = pack('BBHP', CD_MSF_FORMAT, 0, length, address)
+            s = ioctl(fd, CDIOREADTOCENTRYS, buf)
+        else:
+            s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
     except:
         # maybe we need to close the fd if ioctl fails, maybe
         # open fails and there is no fd, maye we aren't running
@@ -100,7 +115,26 @@ def cdrom_disc_status(device):
             pass
         return 0
 
-    s = ioctl(fd, CDROM_DISC_STATUS)
+    if os.uname()[0] == 'FreeBSD':
+        s = 0
+        # We already have the TOC from above
+        for i in range(0, 4096, 8):
+            control = unpack('B', cd_toc_entry[i+1])[0] & 4
+            track = unpack('B', cd_toc_entry[i+2])[0]
+            if track == 0:
+                break
+            if control == 0 and s != CDS_MIXED:
+                s = CDS_AUDIO
+            elif control != 0:
+                if s == CDS_AUDIO:
+                    s = CDS_MIXED
+                else:
+                    s = 100 + control # ugly, but encodes Linux ioctl returns
+            elif control == 5:
+                s = CDS_MIXED
+
+    else:
+        s = ioctl(fd, CDROM_DISC_STATUS)
     os.close(fd)
     if s == CDS_AUDIO or s == CDS_MIXED:
         return 1
@@ -132,9 +166,21 @@ def cdrom_disc_id(device):
         f = open(device,'rb')
 
         f.seek(0x0000832d)
-        id = f.read(16)
+        if os.uname()[0] == 'FreeBSD':
+            # why doesn't seeking to 0x0000832d+40 and reading 32 work?
+            # no idea, do it this way
+            label = f.read(72);
+            label = label[40:72]
+        else:    
+            id = f.read(16)
         f.seek(32808, 0)
-        label = f.read(32)
+        if os.uname()[0] == 'FreeBSD':
+            # why doesn't seeking to 32808 + 829 and reading 16 work?
+            # no idea, do it this way
+            id = f.read(829);
+            id = id[813:829]
+        else:
+            label = f.read(32)
         f.close()
             
         m = re.match("^(.*[^ ]) *$", label)

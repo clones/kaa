@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/08/26 18:01:26  outlyer
+# Patch from Lars Eggert for FreeBSD support
+#
 # Revision 1.7  2003/07/20 16:37:57  dischi
 # fix, a device is no "file"
 #
@@ -59,7 +62,7 @@ import urlparse
 import traceback
 import urllib
 
-DEBUG = 0
+DEBUG = 1
 
 
 
@@ -200,7 +203,7 @@ class Factory:
             return self.create_from_url(name)
         elif not os.path.exists(name):
             return None
-        if stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
+        if (os.uname()[0] == 'FreeBSD' and stat.S_ISCHR(os.stat(name)[stat.ST_MODE])) or stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
             return self.create_from_device(name)
         return self.create_from_filename(name)
 

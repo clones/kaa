@@ -26,7 +26,9 @@ setup (# Distribution meta-data
        
        # Description of the modules and packages in the distribution
        ext_modules = [ Extension('mmpython/disc/ifoparser', ['disc/ifomodule.c'],
-                                 libraries=[ 'dvdread' ]),
+                                 libraries=[ 'dvdread' ], 
+                                 library_dirs=['/usr/local/lib'],
+                                 include_dirs=['/usr/local/include']),
                        Extension('mmpython/disc/cdrom', ['disc/cdrommodule.c']) ]
       )
 
