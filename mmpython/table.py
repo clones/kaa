@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/06/23 09:20:29  the_krow
+# Added Language to table Attributes
+#
 # Revision 1.3  2003/06/20 19:57:30  the_krow
 # GNU Header
 #
@@ -35,7 +38,7 @@ class Table:
     def __init__(self, hashmap, name):
         self.dict = hashmap
         self.name = name
-		self.language = 'en'
+    		self.language = 'en'
         
     def __setitem__(self,key,value):
         self.dict[key] = value
