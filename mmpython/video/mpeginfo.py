@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.26  2004/10/04 18:06:54  dischi
+# test length of remaining buffer
+#
 # Revision 1.25  2004/07/11 19:37:25  dischi
 # o read more bytes on ts scan
 # o support for AC3 in private streams
@@ -238,7 +241,7 @@ class MpegInfo(mediainfo.AVInfo):
             if len(buffer) < 1000:
                 break
             pos = buffer.find('\x00\x00\x01\xb5')
-            if pos == -1:
+            if pos == -1 or len(buffer) - pos < 5:
                 buffer = buffer[-10:]
                 continue
             ext = (ord(buffer[pos+4]) >> 4)
