@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2003/06/07 16:02:48  dischi
+# Added dvd support and make a correct package from mmpython
+#
 # Revision 1.7  2003/05/13 17:49:41  the_krow
 # IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
 #
@@ -45,6 +48,8 @@ TYPE_HYPERTEXT = 8
 
 import string
 import types
+import os
+import stat
 
 # Audiocore: TITLE, CAPTION, ARTIST, TRACKNO, TRACKOF, ALBUM, CHANNELS, SAMPLERATE, TYPE, SUBTYPE, LENGTH, ENCODER
 #  + ID3 Tags
@@ -87,6 +92,9 @@ VIDEOCORE = ['length', 'encoder', 'audiobitrate', 'audiochannels', 'bitrate', 's
              'default audio stream', 'logo url', 'watermark url', 'info url', 'banner image', 'banner url', 
              'infotext', 'width', 'height',]
 IMAGECORE = ['width','height','thumbnail','software','hardware']
+
+DEVICE    = 'device'
+
 
 class MediaInfo:
     def __init__(self):
@@ -152,13 +160,15 @@ class MetaDataFactory:
     def __init__(self):
         self.extmap = {}
         self.types = []
+        self.device_types = []
         
     def create_from_file(self,file,filename=None):
         # Check extension as a hint
         for e in self.extmap.keys():
             if filename and filename.find(e) >= 0:
                 t = self.extmap[e][3](file)
-                if t.valid: return t
+                #if t.valid: return t
+
         print "No Type found by Extension. Trying all"
         for e in self.types:
             print "Trying %s" % e[1]
@@ -170,19 +180,29 @@ class MetaDataFactory:
         pass
         
     def create_from_filename(self,filename):
-        f = open(filename,'rb')
-        r = self.create_from_file(f,filename)
-        f.close()
+        if stat.S_ISBLK(os.stat(filename)[stat.ST_MODE]):
+            r = self.create_from_device(filename)
+        else:
+            f = open(filename,'rb')
+            r = self.create_from_file(f,filename)
+            f.close()
         return r
         
     def create_from_device(self,devicename):
-        raise "Not yet Implemented"
-    
+        for e in self.device_types:
+            print 'Trying %s' % e[0]
+            t = e[3](devicename)
+            if t.valid: return t
+        return None
+            
     def register(self,mimetype,extensions,type,c):
         tuple = (mimetype,extensions,type,c)
-        self.types.append(tuple)
-        for e in extensions:
-            self.extmap[e] = tuple
+        if extensions == DEVICE:
+            self.device_types.append(tuple)
+        else:
+            self.types.append(tuple)
+            for e in extensions:
+                self.extmap[e] = tuple
         
 
 #
