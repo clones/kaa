@@ -1,3 +1,35 @@
+#if 0
+# -----------------------------------------------------------------------
+# $Id$
+# -----------------------------------------------------------------------
+# $Log$
+# Revision 1.3  2003/05/13 15:00:23  the_krow
+# Tiff parsing
+#
+#
+# -----------------------------------------------------------------------
+# MMPython - Media Metadata for Python
+# Copyright (C) 2003 Thomas Schueppel
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# 
+# -----------------------------------------------------------------------
+#endif
+
+# http://www.ap.org/apserver/userguide/codes.htm
+
 from struct import unpack
 
 # todo: Intend correctly
@@ -22,21 +54,25 @@ class IPTC:
             return []
 
 def flatten(list):
-    for i in list.keys():
-        val = list[i]
-        if len(val) == 0: list[i] = None
-        elif len(val) == 1: list[i] = val[0]
-        else: list[i] = tuple(val)
-    return list
+    try:
+        for i in list.keys():
+            val = list[i]
+            if len(val) == 0: list[i] = None
+            elif len(val) == 1: list[i] = val[0]
+            else: list[i] = tuple(val)
+        return list
+    except:
+        return []
 
 def parseiptc(app):
     iptc = {}
-    print app[:14]
+#    print app[:14]
     if app[:14] == "Photoshop 3.0\x00":
        app = app[14:]
     if 1:
        # parse the image resource block
        offset = 0
+       data = None
        while app[offset:offset+4] == "8BIM":
           offset = offset + 4
           # resource code
@@ -60,17 +96,16 @@ def parseiptc(app):
           if offset & 1:
               offset = offset + 1
        if not data:
-          None
+          return None
        offset = 0
        iptc = {}
        while 1:
            intro = ord(data[offset])
            if intro != 0x1c:
                return iptc
-           key = unpack('>H',data[offset+1:offset+3])[0]
-           len = unpack('>H',data[offset+3:offset+5])[0]
+           (key,len) = unpack('>HH',data[offset+1:offset+5])
            val = data[offset+5:offset+len+5]
-           #print "0x%x (%d) %s" % (key, len, val)
+#           print "0x%x (%d) %s" % (key, len, val)
            if iptc.has_key(key):
                iptc[key].append(val)
            else:
@@ -92,8 +127,8 @@ def getiptcinfo(file):
           if tag == 0x8649:
               file.seek(offset)
               return flatten(parseiptc(file.read(1000)))
-      return None
    elif app[:4] == 'II\x2a\x00':
+      return None
       (offset,) = unpack("<I", file.read(4))
       file.seek(offset)
       (len,) = unpack("<H", file.read(2))
