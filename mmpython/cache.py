@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.28  2003/08/05 17:22:40  dischi
+# delete correct table before caching, error handling
+#
 # Revision 1.27  2003/07/20 16:37:57  dischi
 # fix, a device is no "file"
 #
@@ -165,6 +168,8 @@ class Cache:
         """
         return the cache filename for that directory/device
         """
+        if not os.path.exists(file):
+            return None
         if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
             id = cdrom_disc_id(file)
             if not id:
@@ -198,6 +203,9 @@ class Cache:
                 return (None, None)
                 
         else:
+            if not os.path.exists(directory):
+                return (None, None)
+
             # normal directory
             cachefile = self.__get_filename__(directory)
             files = [ os.path.join(directory, dname) for dname in os.listdir(directory) ]
@@ -240,6 +248,8 @@ class Cache:
 
         objects = {}
         for file in files:
+            if mmpython.mediainfo.DEBUG:
+                print file
             if factory.isurl(file):
                 split = factory.url_splitter(file)
                 if split[0] == 'cd':
@@ -248,6 +258,9 @@ class Cache:
                 else:
                     continue
             else:
+                if not os.path.exists(file):
+                    continue
+
                 key  = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
 
             try:
@@ -258,9 +271,9 @@ class Cache:
             if info:
                 for k in uncachable_keys:
                     if info.has_key(k):
-                        info[k] = None
+                        del info[k]
                 try:
-                    del info.tables
+                    del info._tables
                 except:
                     pass
             objects[key] = info
