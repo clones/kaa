@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.17  2003/07/07 21:38:09  dischi
+# make fps a float, name type MPEG1 or MPEG2 and add aspect to info list
+#
 # Revision 1.16  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -134,14 +137,14 @@ VIDEO_PKT      = 0xE0
 ##------------------------------------------------------------------------ 
 FRAME_RATE = [ 
       0, 
-      24000/1001, ## 3-2 pulldown NTSC                    (CPB/Main Level)
-      24,         ## Film                                 (CPB/Main Level)
-      25,         ## PAL/SECAM or 625/60 video
-      30000/1001, ## NTSC                                 (CPB/Main Level)
-      30,         ## drop-frame NTSC or component 525/60  (CPB/Main Level)
-      50,         ## double-rate PAL
-      60000/1001, ## double-rate NTSC
-      60,         ## double-rate, drop-frame NTSC/component 525/60 video
+      round(24000.0/1001*100)/100, ## 3-2 pulldown NTSC (CPB/Main Level)
+      24,           ## Film (CPB/Main Level)
+      25,           ## PAL/SECAM or 625/60 video
+      round(30000.0/1001*100)/100, ## NTSC (CPB/Main Level)
+      30,           ## drop-frame NTSC or component 525/60  (CPB/Main Level)
+      50,           ## double-rate PAL
+      round(60000.0/1001*100)/100, ## double-rate NTSC
+      60,           ## double-rate, drop-frame NTSC/component 525/60 video
       ]
 
 ##------------------------------------------------------------------------
@@ -168,14 +171,18 @@ class MpegInfo(mediainfo.AVInfo):
         self.valid = self.isVideo(file) 
         if self.valid:       
             self.mime = 'video/mpeg'
-            self.type = 'mpeg video'
+            self.type = 'MPEG video'
             vi = mediainfo.VideoInfo()
             vi.width, vi.height = self.dxy(file)
-            vi.fps, aspect = self.framerate_aspect(file)
+            vi.fps, vi.aspect = self.framerate_aspect(file)
             vi.bitrate = self.bitrate(file)
             vi.length = self.mpgsize(file) * 8 / vi.bitrate
             self.video.append(vi)
-
+            if vi.width == 480:
+                self.type = 'MPEG2 video' # SVCD spec
+            if vi.width == 352:
+                self.type = 'MPEG1 video' # VCD spec
+                
     def dxy(self,file):  
         file.seek(self.offset+4,0)
         v = file.read(4)
