@@ -1,3 +1,27 @@
+mmpython (0.2.0cvs20031012-freevo1) unstable; urgency=low
+
+  * New snapshot
+
+ -- Aubin Paul <debian@outlyer.org>  Sun, 12 Oct 2003 13:14:27 -0400
+
+mmpython (0.2.0cvs20031007-freevo1) unstable; urgency=low
+
+  * New snapshot
+
+ -- Aubin Paul <debian@outlyer.org>  Tue,  7 Oct 2003 23:41:12 -0400
+
+mmpython (0.2.0cvs20031005-freevo3) unstable; urgency=low
+
+  * Fixed FLAC/Vorbis tag support
+
+ -- Aubin Paul <debian@outlyer.org>  Sun,  5 Oct 2003 19:09:00 -0400
+
+mmpython (0.2.0cvs20031005-freevo2) unstable; urgency=low
+
+  * New snapshot
+
+ -- Aubin Paul <debian@outlyer.org>  Sun,  5 Oct 2003 13:49:28 -0400
+
 mmpython (0.2.0cvs20030901-freevo1) unstable; urgency=low
 
   * New snapshot
