@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.14  2003/06/08 11:30:22  the_krow
+# *** empty log message ***
+#
 # Revision 1.13  2003/06/08 11:23:06  the_krow
 # added Collection Type for Media Collection like Audio CDS, DVDs, VCDs
 #
@@ -181,6 +184,7 @@ class AVInfo(MediaInfo):
         self.audio = []
         self.video = []
         self.subtitles = []
+        self.keys.append( ['audio', 'video', 'subtitles'] )
 
 class ImageInfo(MediaInfo):
     def __init__(self):
@@ -194,6 +198,7 @@ class CollectionInfo(MediaInfo):
     def __init__(self):
         MediaInfo.__init__(self)
         self.tracks = []
+        self.keys.append( 'tracks' )
     
     def appendtrack(self, track):
         self.tracks.append(track)

@@ -8,10 +8,7 @@ class VCDInfo(mediainfo.DiscInfo):
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'video/vcd'
-        self.type = 'vcd video'
-
-        self.keys.append('title_list')
-        
+        self.type = 'vcd video'        
 
     def isDisc(self, device):
         if mediainfo.DiscInfo.isDisc(self, device) != 2:
@@ -41,14 +38,13 @@ class VCDInfo(mediainfo.DiscInfo):
         lsec = 0
 
         num = 0
-        self.title_list = []
         for i in range(first, last + 2):
             if i == last + 1:
                 min, sec, frames = cdrom.leadout(device)
             else:
                 min, sec, frames = cdrom.toc_entry(device, i)
             if num:
-                self.title_list.append(min-lmin)
+                self.tracks.append(min-lmin)
             num += 1
             lmin, lsec = min, sec
         device.close()
@@ -57,5 +53,5 @@ class VCDInfo(mediainfo.DiscInfo):
     
 factory = mediainfo.get_singleton()  
 vcdinfo = VCDInfo
-factory.register( 'video/vcd', mediainfo.DEVICE, mediainfo.TYPE_VIDEO, vcdinfo )
+factory.register( 'video/vcd', mediainfo.DEVICE, mediainfo.TYPE_AV, vcdinfo )
 print "vcd video type registered"
