@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.10  2003/06/10 22:16:42  dischi
+# added cd:// URL caching
+#
 # Revision 1.9  2003/06/10 16:04:17  the_krow
 # reference to DiscItem in cache was still pointing to mediainfo
 # visuals
@@ -71,7 +74,7 @@ import re
 import mediainfo
 
 from disc import DiscID
-from disc.discinfo import cdrom_disc_status, DiscInfo
+from disc.discinfo import cdrom_disc_status, cdrom_disc_id, DiscInfo
 
 
 
@@ -103,24 +106,63 @@ class Cache:
         return r
 
 
-    def __get_filename__(self, directory):
+    def __get_filename__(self, file):
         """
-        return the cache filename for that directory
+        return the cache filename for that directory/device
         """
-        return '%s/%s' % (self.cachedir, self.hexify(md5.new(directory).digest()))
+        if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
+            id = cdrom_disc_id(file)
+            if not id:
+                return None
+            return '%s/disc/%s' % (self.cachedir, id)
+        return '%s/%s' % (self.cachedir, self.hexify(md5.new(file).digest()))
     
 
+    def __walk_helper__(self, (result, prefix, mountpoint), dirname, names):
+        for name in names:
+            fullpath = os.path.join(dirname, name)[len(mountpoint)+1:]
+            fullpath = '%s%s:%s' % (prefix, mountpoint, fullpath)
+            result.append(fullpath)
+        return result
+
+
+    def __get_cachefile_and_filelist__(self, directory):
+        """
+        return the cachefile and the filelist for this directory
+        """
+        if mediainfo.isurl(directory):
+            # this is a complete cd caching
+            type, data = mediainfo.url_splitter(directory)
+            if type == 'cd':
+                device, mountpoint, filename, complete_filename = data
+                cachefile = self.__get_filename__(device)
+                files = []
+                os.path.walk(mountpoint, self.__walk_helper__,
+                             (files, 'cd://%s:' % device, mountpoint))
+            else:
+                return (None, None)
+                
+        else:
+            # normal directory
+            cachefile = self.__get_filename__(directory)
+            files = [ os.path.join(directory, dname) for dname in os.listdir(directory) ]
+            mountpoint = '/'
+            
+        return (cachefile, files)
+
+    
     def check_cache(self, directory):
         """
         Return how many files in this directory are not in the cache. It's
         possible to guess how much time the update will need.
         """
-        cachefile = self.__get_filename__(directory)
+        cachefile, files = self.__get_cachefile_and_filelist__(directory)
+
         if not cachefile:
             return -1
 
         new = 0
-        for file in [ os.path.join(directory, dname) for dname in os.listdir(directory) ]:
+        for file in files:
             try:
                 info = self.find(file)
             except FileNotFoundException:
@@ -132,13 +174,23 @@ class Cache:
         """
         cache every file in the directory for future use
         """
-        cachefile = self.__get_filename__(directory)
+        cachefile, files = self.__get_cachefile_and_filelist__(directory)
+
         if not cachefile:
             return {}
 
         objects = {}
-        for file in [ os.path.join(directory, dname) for dname in os.listdir(directory) ]:
-            key  = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+        for file in files:
+            if mediainfo.isurl(file):
+                type, data = mediainfo.url_splitter(file)
+                if type == 'cd':
+                    device, mountpoint, filename, complete_filename = data
+                    key  = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
+                else:
+                    continue
+            else:
+                key  = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+
             try:
                 info = self.find(file)
             except FileNotFoundException:
@@ -202,7 +254,7 @@ class Cache:
             raise FileNotFoundException
         return object
 
-    
+        
     def find(self, file):
         """
         Search the cache for informations about that file. The functions
@@ -210,13 +262,25 @@ class Cache:
         the function raises a FileNotFoundException if the cache has
         no or out-dated informations.
         """
-        file  = os.path.abspath(file)
+        if mediainfo.isurl(file):
+            type, data = mediainfo.url_splitter(file)
+            if type == 'cd':
+                device, mountpoint, filename, complete_filename = data
+            else:
+                raise FileNotFoundException
 
-        if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
-            return self.__find_disc__(file)
+            dname = device
+            key = '%s__%s' % (os.stat(complete_filename)[stat.ST_MTIME], filename)
+            
+        else:
+            file  = os.path.abspath(file)
 
-        dname = os.path.dirname(file)
-        key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+            if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
+                return self.__find_disc__(file)
+
+            dname = os.path.dirname(file)
+            key = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+
         cachefile = self.__get_filename__(dname)
 
         if not dname == self.current_dir:
@@ -231,6 +295,8 @@ class Cache:
             self.current_objects = objects
 
         if self.current_objects.has_key(key):
+            if mediainfo.DEBUG > 1:
+                print 'found item in cache'
             return self.current_objects[key]
 
         raise FileNotFoundException
