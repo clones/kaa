@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.63  2004/05/29 12:30:36  dischi
+# add function to correct data from the different mime modules
+#
 # Revision 1.62  2004/05/28 12:26:24  dischi
 # Replace __str__ with unicode to avoid bad transformations. Everything
 # inside mmpython should be handled as unicode object.
@@ -165,6 +168,13 @@ class MediaInfo:
                 self._tables[(name, language)][k] = hashmap[k]
     
 
+    def correct_data(self):
+        """
+        Correct same data based on specific rules
+        """
+        pass
+
+    
     def gettable(self, name, language='en'):
         """
         returns a table of the given name and language        
@@ -245,7 +255,18 @@ class MusicInfo(AudioInfo):
             setattr(self,k,None)
             self.keys.append(k)
 
+    def correct_data(self):
+        """
+        correct trackof to be two digest
+        """
+        if self['trackof']:
+            try:
+                if int(self['trackno']) < 9:
+                    self['trackno'] = '0%s' % int(self['trackno'])
+            except:
+                pass
 
+            
 class VideoInfo(MediaInfo):
     """
     Video Tracks in a Multiplexed Container.
@@ -283,6 +304,17 @@ class AVInfo(MediaInfo):
         self.chapters  = []
 
 
+    def correct_data(self):
+        """
+        correct length to be an int
+        """
+        if not self['length'] and len(self.video) and self.video[0]['length']:
+            self['length'] = self.video[0]['length']
+        for container in [ self ] + self.video + self.audio:
+            if container['length']:
+                container['length'] = int(container['length'])
+            
+                                 
     def find_subtitles(self, filename):
         """
         Search for subtitle files. Right now only VobSub is supported

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.20  2004/05/29 12:30:36  dischi
+# add function to correct data from the different mime modules
+#
 # Revision 1.19  2004/05/28 19:32:31  dischi
 # remove old stuff
 #
@@ -199,6 +202,7 @@ class Factory:
             f.close()
             if r:
                 r.url = 'file://%s' % os.path.abspath(filename)
+                r.correct_data()
                 return r
         return None
     
