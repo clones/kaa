@@ -167,15 +167,18 @@ class DVDInfo(DiscInfo):
         return self.lsdvd(device)
 
 
-for path in os.environ['PATH'].split(':'):
-    if os.path.isfile(os.path.join(path, 'lsdvd')):
-        LSDVD_EXE = os.path.join(path, 'lsdvd')
-        break
+if os.environ.has_key('LSDVD') and os.environ['LSDVD']:
+    LSDVD_EXE = os.environ['LSDVD']
+    print 'x'
 else:
-    if mediainfo.DEBUG:
-        print 'ImportError: lsdvd not found'
-    raise ImportError
-
+    for path in os.environ['PATH'].split(':'):
+        if os.path.isfile(os.path.join(path, 'lsdvd')):
+            LSDVD_EXE = os.path.join(path, 'lsdvd')
+            break
+    else:
+        if mediainfo.DEBUG:
+            print 'ImportError: lsdvd not found'
+        raise ImportError
 
 mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AV, DVDInfo )
 mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DIRECTORY,
