@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.28  2004/01/03 17:44:04  dischi
+# catch OSError in case the file is removed file scanning
+#
 # Revision 1.27  2003/11/24 20:30:17  dischi
 # fix again, dvd may fail, but datadir may not
 #
@@ -177,7 +180,7 @@ def parse(filename, bypass_cache = 0, ext_only = 0):
     if object_cache and not bypass_cache:
         try:
             return object_cache.find(filename)
-        except cache.FileNotFoundException:
+        except (cache.FileNotFoundException, OSError):
             pass
     info = Factory().create(filename, ext_only)
     if info and object_cache and isinstance(info, disc.discinfo.DiscInfo):

@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.40  2004/01/03 17:44:04  dischi
+# catch OSError in case the file is removed file scanning
+#
 # Revision 1.39  2003/12/31 16:37:56  dischi
 # again: faster, but all cachefiles have to be rebuild
 #
@@ -22,112 +25,6 @@
 #
 # Revision 1.35  2003/09/14 13:50:42  dischi
 # make it possible to scan extention based only
-#
-# Revision 1.34  2003/09/14 13:33:40  dischi
-# fix cache handling for audio discs
-#
-# Revision 1.33  2003/09/03 20:58:09  dischi
-# make sure we can write the cachefiles
-#
-# Revision 1.32  2003/09/01 18:54:12  dischi
-# add callback for cache_dir
-#
-# Revision 1.31  2003/08/30 12:17:32  dischi
-# cache for cd:// only needed directories
-#
-# Revision 1.30  2003/08/23 17:54:14  dischi
-# move id translation of bad chars directly after parsing
-#
-# Revision 1.29  2003/08/23 13:51:46  dischi
-# check for correct chars in cache name
-#
-# Revision 1.28  2003/08/05 17:22:40  dischi
-# delete correct table before caching, error handling
-#
-# Revision 1.27  2003/07/20 16:37:57  dischi
-# fix, a device is no "file"
-#
-# Revision 1.26  2003/07/19 11:38:19  dischi
-# turn off debug as default, some exception handling
-#
-# Revision 1.25  2003/07/13 15:20:28  dischi
-# exception handling when cache file is bad
-#
-# Revision 1.24  2003/07/04 15:31:27  outlyer
-# Revert my changes. Sorry. It should be happening in cd_disc_info
-#
-# Revision 1.21  2003/07/02 22:01:56  dischi
-# some fixes for rom drives
-#
-# Revision 1.20  2003/07/02 20:14:48  dischi
-# some fixes with abspath
-#
-# Revision 1.19  2003/07/01 21:04:07  dischi
-# some fixes
-#
-# Revision 1.18  2003/07/01 08:24:09  the_krow
-# bugfixes
-#
-# Revision 1.17  2003/06/30 13:17:18  the_krow
-# o Refactored mediainfo into factory, synchronizedobject
-# o Parsers now register directly at mmpython not at mmpython.mediainfo
-# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
-# o Bugfix in PNG parser
-# o Renamed disc.AudioInfo into disc.AudioDiscInfo
-# o Renamed disc.DataInfo into disc.DataDiscInfo
-#
-# Revision 1.16  2003/06/29 18:29:02  dischi
-# small fixes
-#
-# Revision 1.15  2003/06/24 12:59:33  the_krow
-# Added Webradio.
-# Added Stream Type to mediainfo
-#
-# Revision 1.14  2003/06/24 10:09:51  dischi
-# o improved URL parsing to support cd: scheme
-# o added function create to mediainfo who calls the needed create_from
-#
-# Revision 1.13  2003/06/23 19:27:05  dischi
-# use new (fixed) DiscID interface
-#
-# Revision 1.12  2003/06/21 15:41:10  dischi
-# correct an error that all discs are data discs
-#
-# Revision 1.11  2003/06/21 15:30:13  dischi
-# Special support for data discs. The cache file can be a normal disc
-# cache file or a directory cache. In the second case the cache returns
-# a DataDiscInfo with all files as tracks.
-#
-# Revision 1.10  2003/06/10 22:16:42  dischi
-# added cd:// URL caching
-#
-# Revision 1.9  2003/06/10 16:04:17  the_krow
-# reference to DiscItem in cache was still pointing to mediainfo
-# visuals
-#
-# Revision 1.8  2003/06/10 11:50:51  dischi
-# Moved all ioctl calls for discs to discinfo.cdrom_disc_status. This function
-# uses try catch around ioctl so it will return 0 (== no disc) for systems
-# without ioctl (e.g. Windows)
-#
-# Revision 1.7  2003/06/09 16:12:30  dischi
-# make the disc ids like the one from Freevo
-#
-# Revision 1.6  2003/06/09 12:28:30  dischi
-# improved disc cache
-#
-# Revision 1.5  2003/06/08 20:13:03  dischi
-# added check_cache to get an idea how long the update will take
-#
-# Revision 1.4  2003/06/08 17:06:25  dischi
-# cache_dir now uses the prev cache to write the cache and returns the
-# list of all objects.
-#
-# Revision 1.3  2003/06/08 16:52:29  dischi
-# Better handling for cache_disc if you don't provide a disc. Also added
-# uncachable_keys to cache_dir. Caching a directory of photos all with
-# exif thumbnail will slow everything down (cache filesize is 10 MB for my
-# testdir, now 200 KB). Use the bypass cache option if you want all infos.
 #
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
@@ -270,7 +167,7 @@ class Cache:
         for file in files:
             try:
                 info = self.find(file, cachefile=cachefile, dirname=directory)
-            except FileNotFoundException:
+            except (FileNotFoundException, OSError):
                 new += 1
         return new
     
@@ -308,7 +205,7 @@ class Cache:
 
             try:
                 info = self.find(file)
-            except FileNotFoundException:
+            except (FileNotFoundException, OSError):
                 info = mmpython.Factory().create(file, ext_only=ext_only)
                 if callback:
                     callback()
