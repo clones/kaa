@@ -50,11 +50,15 @@ class AudioDiscInfo(discinfo.DiscInfo):
             return 0
         
         disc_id = DiscID.disc_id(device)
-        try:
-            (query_stat, query_info) = CDDB.query(disc_id)
-        except:
-            # Oops no connection
+        if mmpython.USE_NETWORK:
+            try:
+                (query_stat, query_info) = CDDB.query(disc_id)
+            except:
+                # Oops no connection
+                query_stat = 404
+        else:
             query_stat = 404
+
 
         if query_stat == 210 or query_stat == 211:
             # set this to success
@@ -91,6 +95,10 @@ class AudioDiscInfo(discinfo.DiscInfo):
                     mi.trackno = i+1
                     mi.trackof = disc_id[1]
                     self.tracks.append(mi)
+                    for type in ('title', 'album', 'artist', 'genre'):
+                        if getattr(mi, type) and getattr(mi, type)[0] in ('"', '\'') \
+                           and getattr(mi, type)[-1] in ('"', '\''):
+                            setattr(mi, type, getattr(mi, type)[1:-1])
             else:
                 _debug("failure getting track info, status: %i" % read_stat)
                 # set query_stat to somthing != 200
@@ -130,4 +138,5 @@ class AudioDiscInfo(discinfo.DiscInfo):
         return 1
     
         
-mmpython.registertype( 'audio/cd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AUDIO, AudioDiscInfo )
+mmpython.registertype( 'audio/cd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AUDIO,
+                       AudioDiscInfo )
