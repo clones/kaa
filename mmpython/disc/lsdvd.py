@@ -194,7 +194,12 @@ class DVDInfo(DiscInfo):
                buffer.find('OSTA UDF Compliant') == -1:
             return 0
 
-        return self.lsdvd(device)
+        ret = self.lsdvd(device)
+        if not ret:
+            # we are very sure this is a DVD, maybe the drive was not
+            # ready, let's try again
+            return self.lsdvd(device)
+        return 1
 
 
 if os.environ.has_key('LSDVD') and os.environ['LSDVD']:
