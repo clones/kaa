@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.9  2004/05/04 22:03:17  dischi
+# handle bad jpeg
+#
 # Revision 1.8  2003/06/09 16:11:57  the_krow
 # TIFF parser changed to new tables structure
 # debug statements removed / changed to _debug
@@ -96,7 +99,10 @@ def parseiptc(app):
        offset = 0
        iptc = {}
        while 1:
-           intro = ord(data[offset])
+           try:
+               intro = ord(data[offset])
+           except IndexError:
+               return ''
            if intro != 0x1c:
                return iptc
            (key,len) = unpack('>HH',data[offset+1:offset+5])
