@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.4  2003/06/24 13:52:06  the_krow
+# 302 Handling is done by urllib so no further code for this is
+# needed. Thanks to den_RDC for setting up a server to test it.
+#
 # Revision 1.3  2003/06/24 13:06:46  the_krow
 # stream is being closed in fail-cases.
 #
@@ -69,22 +73,7 @@ class WebRadioInfo(mediainfo.MusicInfo):
         except ValueError:
             # assume it is okay since so many servers are badly configured
             statuslist = ["ICY", "200"]
-    
-        if statuslist[1] == "302":
-            # moved temporarily status, look for location header
-            while 1:
-                line = fi.readline()
-                if not line:
-                    self.valid = 0
-                    if fi:
-                        fi.close()
-                    return
-            if string.find(line, "Location") == 0:
-                location = line[10:]              
-                # strip leading and trailing whitespace
-                location = string.strip(self.location)
-                # XXX Todo: Reget with the new location
-                
+                    
         elif statuslist[1] != "200":
             self.valid = 0
             if fi:
