@@ -9,28 +9,30 @@ import struct
 VORBIS_PACKET_INFO = '\01vorbis'
 VORBIS_PACKET_HEADER = '\03vorbis'
 VORBIS_PACKET_SETUP = '\05vorbis'
-VORBIS_VIDEO_PACKET_INFO = '\01video'
+VORBIS_VIDEO_PACKET_INFO = 'video'
 
 _print = mediainfo._debug
 
 class OgmInfo(mediainfo.AVInfo):
     def __init__(self, file, filename):
         mediainfo.AVInfo.__init__(self)
+        # 26 Bytes Header
         h = file.read(27)
         if h[:5] != "OggS\00":
             self.valid = 0
-            return
-        if ord(h[5]) != 2:
+            return        
+        headertype, granulepos, serial, pageseqno, checksum, pageSegCount  = struct.unpack('<BQIIIB', h[5:])
+        if headertype != 2:
             print("Invalid header type flag (trying to go ahead anyway)")
-        self.pageSegCount = ord(h[-1])
         self.valid = 1
         self.mime = 'application/ogm'
         self.type = 'OGG Media'
+        data = file.read(pageSegCount)
         # Skip the PageSegCount
-        file.seek(self.pageSegCount,1)
+        file.seek(pageSegCount,1)
         h = file.read(9+8)
-        if h[:6] != VORBIS_VIDEO_PACKET_INFO:
-            print("Wrong vorbis header type, giving up.")
+        if h[:5] != VORBIS_VIDEO_PACKET_INFO:
+            print("Wrong vorbis header type %s, giving up." %  h[:6])
             self.valid = 0
             return
         return
