@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.27  2003/07/19 11:38:19  dischi
+# turn off debug as default, some exception handling
+#
 # Revision 1.26  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -58,6 +61,10 @@ from mmpython import *
 
 # To use the cache, make sure /tmp/mmpython exists
 # DVD/VCD/AudioCDs are cached with this proram when USE_CACHE == 1
+
+# turn on debug
+mediainfo.DEBUG = 1
+factory.DEBUG   = 1
 
 USE_CACHE = 1
 

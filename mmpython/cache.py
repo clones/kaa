@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.26  2003/07/19 11:38:19  dischi
+# turn off debug as default, some exception handling
+#
 # Revision 1.25  2003/07/13 15:20:28  dischi
 # exception handling when cache file is bad
 #
@@ -353,6 +356,9 @@ class Cache:
         else:
             file  = os.path.abspath(file)
 
+            if not os.path.isfile(file):
+                raise FileNotFoundException
+            
             if stat.S_ISBLK(os.stat(file)[stat.ST_MODE]):
                 return self.__find_disc__(file)
 

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.52  2003/07/19 11:38:19  dischi
+# turn off debug as default, some exception handling
+#
 # Revision 1.51  2003/07/07 21:35:47  dischi
 # added aspect to VIDEOCORE
 #
@@ -16,156 +19,6 @@
 # o Bugfix in PNG parser
 # o Renamed disc.AudioInfo into disc.AudioDiscInfo
 # o Renamed disc.DataInfo into disc.DataDiscInfo
-#
-# Revision 1.48  2003/06/30 11:38:00  dischi
-# catch exception
-#
-# Revision 1.47  2003/06/29 18:29:02  dischi
-# small fixes
-#
-# Revision 1.46  2003/06/24 12:59:33  the_krow
-# Added Webradio.
-# Added Stream Type to mediainfo
-#
-# Revision 1.45  2003/06/24 10:09:51  dischi
-# o improved URL parsing to support cd: scheme
-# o added function create to mediainfo who calls the needed create_from
-#
-# Revision 1.44  2003/06/23 22:35:08  the_krow
-# Started working on create_from_url
-#
-# Revision 1.43  2003/06/23 20:59:11  the_krow
-# PNG should now fill a correct table.
-#
-# Revision 1.42  2003/06/23 20:48:11  the_krow
-# width + height fixes for OGM files
-#
-# Revision 1.41  2003/06/23 09:22:54  the_krow
-# Typo and Indentation fixes.
-#
-# Revision 1.40  2003/06/21 15:27:42  dischi
-# some debug and added url (e.g. filename) to the key list
-#
-# Revision 1.39  2003/06/20 19:17:21  dischi
-# remove filename again and use file.name
-#
-# Revision 1.38  2003/06/20 19:04:34  dischi
-# search for VobSub subtitles
-#
-# Revision 1.37  2003/06/20 14:43:57  the_krow
-# Putting Metadata into MediaInfo from AVIInfo Table
-#
-# Revision 1.36  2003/06/20 14:17:26  dischi
-# fix indent
-#
-# Revision 1.35  2003/06/20 09:24:17  the_krow
-# Documentation
-#
-# Revision 1.34  2003/06/19 17:30:07  dischi
-# small bugfix, always return results
-#
-# Revision 1.33  2003/06/11 20:50:59  the_krow
-# Title, Artist and some other data sucessfully parsed from wmv, asf, wma
-#
-# Revision 1.32  2003/06/10 22:16:07  dischi
-# support for cd://-URLs added
-#
-# Revision 1.31  2003/06/10 16:04:17  the_krow
-# reference to DiscItem in cache was still pointing to mediainfo
-# visuals
-#
-# Revision 1.30  2003/06/10 10:56:53  the_krow
-# - Build try-except blocks around disc imports to make it run on platforms
-#   not compiling / running the C extensions.
-# - moved DiscInfo class to disc module
-# - changed video.VcdInfo to be derived from CollectionInfo instead of
-#   DiskInfo so it can be used without the cdrom extensions which are
-#   hopefully not needed for bin-files.
-#
-# Revision 1.29  2003/06/09 23:13:06  the_krow
-# bugfix: unknown files are now resetted before trying if they are valid
-# first rudimentary eyed3 mp3 parser added
-#
-# Revision 1.28  2003/06/09 16:12:30  dischi
-# make the disc ids like the one from Freevo
-#
-# Revision 1.27  2003/06/09 14:31:56  the_krow
-# fixes on the mpeg parser
-# resolutions, fps and bitrate should be reported correctly now
-#
-# Revision 1.26  2003/06/09 12:50:07  the_krow
-# mp3 now fills tables
-#
-# Revision 1.25  2003/06/09 12:28:10  dischi
-# build better id for disc-caching
-#
-# Revision 1.24  2003/06/09 11:46:16  the_krow
-# DVDInfo changes
-# Output changes
-#
-# Revision 1.23  2003/06/09 11:19:27  the_krow
-# Bugfixes concerning CollectionInfo
-# Audio CD infos added
-#
-# Revision 1.22  2003/06/08 19:59:53  dischi
-# make the code smaller
-#
-# Revision 1.21  2003/06/08 19:55:54  dischi
-# added bins metadata support
-#
-# Revision 1.20  2003/06/08 16:49:48  dischi
-# Added a list for unprintable keys we don't want to see when converting
-# to string (right now only thumbnail, it's very ugly). Also added
-# __setitem__ and has_key for better access as dict.
-#
-# Revision 1.19  2003/06/08 15:42:00  dischi
-# cosmetic stuff
-#
-# Revision 1.18  2003/06/08 13:44:22  dischi
-# import table again, sorry
-#
-# Revision 1.17  2003/06/08 13:40:09  the_krow
-# table added
-#
-# Revision 1.16  2003/06/08 13:17:44  dischi
-# some cleanup
-#
-# Revision 1.15  2003/06/08 13:14:14  dischi
-# added DEBUG flag and moved the register print to the register function
-#
-# Revision 1.14  2003/06/08 11:30:22  the_krow
-# *** empty log message ***
-#
-# Revision 1.13  2003/06/08 11:23:06  the_krow
-# added Collection Type for Media Collection like Audio CDS, DVDs, VCDs
-#
-# Revision 1.12  2003/06/08 10:24:07  dischi
-# Added subdir disc
-#
-# Revision 1.11  2003/06/07 23:10:49  the_krow
-# Changed mp3 into new format.
-#
-# Revision 1.10  2003/06/07 22:54:28  the_krow
-# AVInfo stuff added.
-#
-# Revision 1.9  2003/06/07 21:41:05  the_krow
-# Changed MediaInfo Objects to new structure. AV is used for av streams and
-# consists of a list of video and audio information.
-#
-# Revision 1.8  2003/06/07 16:02:48  dischi
-# Added dvd support and make a correct package from mmpython
-#
-# Revision 1.7  2003/05/13 17:49:41  the_krow
-# IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
-#
-# Revision 1.6  2003/05/13 15:52:41  the_krow
-# Caption added
-#
-# Revision 1.5  2003/05/13 15:23:59  the_krow
-# IPTC
-#
-# Revision 1.4  2003/05/13 12:31:43  the_krow
-# + Copyright Notice
 #
 # -----------------------------------------------------------------------
 # MMPython - Media Metadata for Python
@@ -239,7 +92,7 @@ import mmpython
 EXTENSION_DEVICE    = 'device'
 EXTENSION_STREAM    = 'stream'
 
-DEBUG     = 1
+DEBUG     = 0
 
 def _debug(text):
     """

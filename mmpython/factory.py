@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2003/07/19 11:38:19  dischi
+# turn off debug as default, some exception handling
+#
 # Revision 1.5  2003/07/05 16:03:05  dischi
 # catch exception
 #
@@ -53,7 +56,7 @@ import urlparse
 import traceback
 import urllib
 
-DEBUG = 1
+DEBUG = 0
 
 
 
@@ -192,6 +195,8 @@ class Factory:
         """
         if isurl(name):
             return self.create_from_url(name)
+        elif not os.path.isfile(name):
+            return None
         if stat.S_ISBLK(os.stat(name)[stat.ST_MODE]):
             return self.create_from_device(name)
         return self.create_from_filename(name)
@@ -209,6 +214,3 @@ class Factory:
             for e in extensions:
                 self.extmap[e] = tuple
             self.mimemap[mimetype] = tuple
-
-
-
