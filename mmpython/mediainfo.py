@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.64  2004/09/10 19:43:12  outlyer
+# Added discs to exported dict.
+#
 # Revision 1.63  2004/05/29 12:30:36  dischi
 # add function to correct data from the different mime modules
 #
@@ -72,7 +75,7 @@ VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits'
 IMAGECORE = ['description', 'people', 'location', 'event',
              'width','height','thumbnail','software','hardware', 'dpi']
 
-MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
+MUSICCORE = ['trackno', 'trackof', 'album', 'genre','discs']
 
 AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
              'genre', 'secondary genre', 'subject', 'writer', 'producer', 
