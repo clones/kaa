@@ -1061,8 +1061,11 @@ class Tag:
          padding = self.frames.parse(fp, self.header);
          TRACE_MSG("Tag contains %d bytes of padding." % padding);
       except FrameException, ex:
-         fp.close();
-         raise TagException(str(ex));
+         #fp.close();
+         #raise TagException(str(ex));
+         # Technically, it's not a well-formed MP3, but we can still get data out of it.
+         # it's better than crashing....
+         pass
       except TagException:
          fp.close();
          raise;
