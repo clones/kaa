@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.66  2004/09/14 20:13:59  dischi
+# detect rar vobsub files
+#
 # Revision 1.65  2004/09/14 14:38:11  outlyer
 # Fix the broken 'less than' comparison so it is at least consistent, but I'm
 # not sure why we need to add zeroes to numbers anyway. It looks ugly for
@@ -330,7 +333,8 @@ class AVInfo(MediaInfo):
         Search for subtitle files. Right now only VobSub is supported
         """
         base = os.path.splitext(filename)[0]
-        if os.path.isfile(base+'.idx') and os.path.isfile(base+'.sub'):
+        if os.path.isfile(base+'.idx') and \
+               (os.path.isfile(base+'.sub') or os.path.isfile(base+'.rar')):
             file = open(base+'.idx')
             if file.readline().find('VobSub index file') > 0:
                 line = file.readline()
