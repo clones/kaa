@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.23  2003/07/04 15:12:41  outlyer
+# Wrong place for this, it escapes the entire cache file. Doh.
+#
 # Revision 1.22  2003/07/04 15:09:44  outlyer
 # CD disk labels can have '/' in them, but cachefile tries to create
 # the cachefile and crashes because it's a directory.
@@ -186,7 +189,7 @@ class Cache:
             if split[0] == 'cd':
                 device, mountpoint, filename, complete_filename = split[1:]
                 cachefile = self.__get_filename__(device)
-                cachefile = cachefile.replace('/','_')
+                #cachefile = cachefile.replace('/','_')
                 files = []
                 os.path.walk(mountpoint, self.__walk_helper__,
                              (files, 'cd://%s:' % device, mountpoint))
