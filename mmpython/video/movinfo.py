@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.11  2003/06/19 17:31:12  dischi
+# error handling (and nonsense data)
+#
 # Revision 1.10  2003/06/12 18:53:18  the_krow
 # OGM detection added.
 # .ram is a valid extension to real files
@@ -88,6 +91,10 @@ class MovInfo(mediainfo.AVInfo):
         if len(s) < 8:
             return 0
         atomsize,atomtype = struct.unpack('>I4s', s)
+        if not str(atomtype).decode('latin1').isalnum():
+            # stop at nonsense data
+            return 0
+
         print "%s [%X]" % (atomtype,atomsize)
         if atomtype == 'udta':
             # Userdata (Metadata)
@@ -128,7 +135,7 @@ class MovInfo(mediainfo.AVInfo):
                     self.length = vi.length = tkhd[5]
                     self.date = tkhd[1]
                     self.video.append(vi)
-                    print tkhd
+                    #print tkhd
                 pos += datasize
         elif atomtype == 'mdat':
             while self._readatom(file):
@@ -139,7 +146,10 @@ class MovInfo(mediainfo.AVInfo):
             #    file.seek(atomsize-8,1)
         else:
             # Skip unknown atoms
-            file.seek(atomsize-8,1)
+            try:
+                file.seek(atomsize-8,1)
+            except IOError:
+                return 0
         return 1 
         
 factory = mediainfo.get_singleton()  
