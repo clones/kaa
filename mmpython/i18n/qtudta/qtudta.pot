@@ -9,8 +9,13 @@
 
 msgid "cpy"
 msgstr "Copyright statement"
-                                 
-# 
+
+msgid "aut"
+msgstr "Author"
+
+msgid "nam"
+msgstr "Title"
+
 msgid "day"
 msgstr "Date the movie content was created"
 
