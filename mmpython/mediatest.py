@@ -18,7 +18,7 @@ import mmpython
 USE_CACHE = 0
 
 if USE_CACHE:
-    mmpython.use_cache('/tmp/mmpython')
+    mmpython.use_cache('./cache')
 
 for file in sys.argv[1:]:
     medium = mmpython.parse(file)

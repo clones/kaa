@@ -1,6 +1,10 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.12  2003/06/12 09:38:24  the_krow
+# ASF Header parser completed. I need test files or a way to generate
+# them.
+#
 # Revision 1.11  2003/06/12 00:36:30  the_krow
 # ASF Audio parsing
 #
@@ -145,7 +149,7 @@ class AsfInfo(mediainfo.AVInfo):
             return
         if reserved1 != 0x01 or reserved2 != 0x02:
             self.valid = 0
-        print "asf header size: %d / %d objects" % (objsize,objnum)
+        _print("asf header size: %d / %d objects" % (objsize,objnum))
         header = file.read(objsize-30)
         for i in range(0,objnum):
             h = self._getnextheader(header)
@@ -160,34 +164,33 @@ class AsfInfo(mediainfo.AVInfo):
         (guidstr,objsize) = r
         guid = struct.unpack('>IHHBB6s', guidstr)
         if guid == GUIDS['ASF_File_Properties_Object']:
-            print "File Properties Object"
+            _print("File Properties Object")
             val = struct.unpack('<16s6Q4I',s[24:24+80])
             (fileid, size, date, packetcount, duration, \
              senddur, preroll, flags, minpack, maxpack, maxbr) = \
              val
+            self.length = duration/10000000
             pass
         elif guid == GUIDS['ASF_Stream_Properties_Object']:
-            print "Stream Properties Object [%d]" % objsize
+            _print("Stream Properties Object [%d]" % objsize)
             streamtype = struct.unpack('>IHHBB6s', s[24:40])
             errortype = struct.unpack('>IHHBB6s', s[40:56])
             offset, typelen, errorlen, flags = struct.unpack('>QIIH4x', s[56:78])
             if streamtype == GUIDS['ASF_Video_Media']:
-                print "Is Video"
                 vi = mediainfo.VideoInfo()
                 #vi.width, vi.height, formatsize = struct.unpack('<IIxH', s[78:89])
                 vi.width, vi.height, depth, codec, = struct.unpack('<4xII2xH4s', s[89:89+20])
                 vi.codec = fourcc.RIFFCODEC[codec]
                 self.video.append(vi)  
             elif streamtype == GUIDS['ASF_Audio_Media']:
-                print "Is Audio"
                 ai = mediainfo.AudioInfo()
                 twocc, ai.channels, ai.samplerate, bitrate, block, ai.samplebits, = struct.unpack('<HHIIHH', s[78:78+16])
                 ai.bitrate = 8*bitrate  # XXX Is this right?
                 ai.codec = fourcc.RIFFWAVE[twocc]
-                self.video.append(ai)  
+                self.audio.append(ai)  
             pass
         elif guid == GUIDS['ASF_Header_Extension_Object']:
-            print "ASF_Header_Extension_Object %d" % objsize
+            _print("ASF_Header_Extension_Object %d" % objsize)
             size = struct.unpack('<I',s[42:46])[0]
             data = s[46:46+size]
             while len(data):
@@ -196,21 +199,54 @@ class AsfInfo(mediainfo.AVInfo):
                 data = data[h[1]:]
             
         elif guid == GUIDS['ASF_Codec_List_Object']:
-            print "List Object"
+            _print("List Object")
             pass
         elif guid == GUIDS['ASF_Error_Correction_Object']:
-            print "Error Correction"
+            _print("Error Correction")
             pass
         elif guid == GUIDS['ASF_Content_Description_Object']:
-            print "Content Description Object"
+            _print("Content Description Object")
             val = struct.unpack('<5H', s[24:24+10])
             pos = 34
             strings = []
             for i in val:
                 strings.append(s[pos:pos+i])
                 pos+=i
-            #(title, artist, copyright, caption, rating) = tuple(strings)
             (self.title, self.artist, self.copyright, self.caption, rating) = tuple(strings)
+        elif guid == GUIDS['ASF_Extended_Content_Encryption_Object']:
+            (count,) = struct.unpack('<H', s[24:26])
+            pos = 26
+            descriptor = {}
+            for i in range(0,count):
+                # Read additional content descriptors
+                (descriptorlen,) = struct.unpack('<H', s[pos:pos+2])
+                pos += 2
+                descriptorname = s[pos:pos+descriptorlen]
+                pos += descriptorlen
+                descriptortype, valuelen = struct.unpack('<HH', s[pos:pos+4])
+                pos += 4
+                descriptorvalue = s[pos:pos+valuelen]
+                if descriptortype == 0x0000:
+                    # Unicode string
+                    descriptor[descriptorname] = descriptorvalue
+                elif descriptortype == 0x0001:
+                    # Byte Array
+                    descriptor[descriptorname] = descriptorvalue
+                elif descriptortype == 0x0002:
+                    # Bool (?)
+                    (descriptor[descriptorname],) = struct.unpack('<I', 'descriptorvalue')
+                elif descriptortype == 0x0003:
+                    # DWORD
+                    (descriptor[descriptorname],) = struct.unpack('<I', 'descriptorvalue')
+                elif descriptortype == 0x0004:
+                    # QWORD
+                    (descriptor[descriptorname],) = struct.unpack('<Q', 'descriptorvalue')
+                elif descriptortype == 0x0005:
+                    # WORD
+                    (descriptor[descriptorname],) = struct.unpack('<H', 'descriptorvalue')
+                else:
+                    _print("Unknown Descriptor Type %d" % descriptortype)
+            self.appendtable('ASFDESCRIPTOR', descriptor)                
         else:
             print "unknown: %s %d" % (self._printguid(guid), objsize)
         return r
