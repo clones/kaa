@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.24  2003/06/09 11:46:16  the_krow
+# DVDInfo changes
+# Output changes
+#
 # Revision 1.23  2003/06/09 11:19:27  the_krow
 # Bugfixes concerning CollectionInfo
 # Audio CD infos added
@@ -186,7 +190,7 @@ class MediaInfo:
                 keys.remove(k)
 
         result = ""
-        result = reduce( lambda a,b: self[b] and "%s\n   %s: %s" % \
+        result = reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
                          (a, b.__str__(), self[b].__str__()) or a, keys, "" )
         return result
             
@@ -246,21 +250,22 @@ class AVInfo(MediaInfo):
         self.audio = []
         self.video = []
         self.subtitles = []
-        self.keys.append('audio')
-        self.keys.append('video')
-        self.keys.append('subtitles')
         
     def __str__(self):
         result = "Attributes:"
         result += MediaInfo.__str__(self)
-        result += "\n Stream list:"
-        result += reduce( lambda a,b: a + "  \n Video Stream:" + b.__str__(),
-                          self.video, "" )
-        result += reduce( lambda a,b: a + "  \n Audio Stream:" + b.__str__(),
-                          self.audio, "" )
-        result += reduce( lambda a,b: a + "  \n Subtitle Stream:" + b.__str__(),
-                          self.subtitles, "" )
-        return result
+        if len(self.video) + len(self.audio) + len(self.subtitles) > 0:
+            result += "\n Stream list:"
+            if len(self.video):
+                result += reduce( lambda a,b: a + "  \n   Video Stream:" + b.__str__(),
+                                  self.video, "" )
+            if len(self.audio):
+                result += reduce( lambda a,b: a + "  \n   Audio Stream:" + b.__str__(),
+                                  self.audio, "" )
+            if len(self.subtitles):
+                result += reduce( lambda a,b: a + "  \n   Subtitle Stream:" + b.__str__(),
+                                  self.subtitles, "" )
+            return result
 
         
 class ImageInfo(MediaInfo):
@@ -286,7 +291,8 @@ class CollectionInfo(MediaInfo):
     def __init__(self):
         MediaInfo.__init__(self)
         self.tracks = []
-        #self.keys.append( 'tracks' )
+        self.keys.append('id')
+        self.id = None
 
     def __str__(self):
         result = MediaInfo.__str__(self)

@@ -62,22 +62,26 @@ class AudioInfo(mediainfo.DiscInfo):
             _debug("failure getting disc info, status %i" % query_stat)
             return 1
 
-        self.title = query_info['title']
+        qi = query_info['title'].split('/')
+        self.artist = qi[0].strip()
+        self.title = qi[1].strip()
         (read_stat, read_info) = CDDB.read(query_info['category'], 
                                            query_info['disc_id'])
-        for key in query_info:
-            setattr(self, key, query_info[key])
-            if not key in self.keys:
-                self.keys.append(key)
+#        for key in query_info:
+#            setattr(self, key, query_info[key])
+#            if not key in self.keys:
+#                self.keys.append(key)
+        self.id = query_info['disc_id']
 
         if read_stat == 210:
             for i in range(0, disc_id[1]):
                 mi = mediainfo.MusicInfo()
                 mi.title = read_info['TTITLE' + `i`]
-                mi.album = query_info['title']
+                mi.album = self.title
+                mi.artist = self.artist
                 mi.genre = query_info['category']
                 mi.codec = 'PCM'
-                mi.samplerate = 44100
+                mi.samplerate = 44.1
                 mi.trackno = i+1
                 mi.trackof = disc_id[1]
                 self.tracks.append(mi)
