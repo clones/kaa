@@ -169,7 +169,6 @@ class DVDInfo(DiscInfo):
 
 if os.environ.has_key('LSDVD') and os.environ['LSDVD']:
     LSDVD_EXE = os.environ['LSDVD']
-    print 'x'
 else:
     for path in os.environ['PATH'].split(':'):
         if os.path.isfile(os.path.join(path, 'lsdvd')):
