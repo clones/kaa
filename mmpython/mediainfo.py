@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.16  2003/06/08 13:17:44  dischi
+# some cleanup
+#
 # Revision 1.15  2003/06/08 13:14:14  dischi
 # added DEBUG flag and moved the register print to the register function
 #
@@ -113,21 +116,24 @@ def get_singleton():
         
     return _singleton
 
-MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype', 'date', 'keywords', 'country', 'language']
-AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits', 'bitrate', 'language']
+
+MEDIACORE = ['title', 'caption', 'comment', 'artist', 'size', 'type', 'subtype',
+             'date', 'keywords', 'country', 'language']
+AUDIOCORE = ['channels', 'samplerate', 'length', 'encoder', 'codec', 'samplebits',
+             'bitrate', 'language']
 VIDEOCORE = ['length', 'encoder', 'bitrate', 'samplerate', 'codec', 'samplebits',
              'width', 'height',]
 IMAGECORE = ['width','height','thumbnail','software','hardware']
 MUSICCORE = ['trackno', 'trackof', 'album', 'genre']
-AVCORE = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product', 'genre', 'secondary genre', 'subject', 'writer', 'producer', 
-             'cinematographer', 'production designer', 'edited by', 'costume designer', 'music by', 'studio', 
-             'distributed by', 'rating', 'starring', 'ripped by', 'digitizing date', 
-             'internet address', 'source form', 'medium', 'source', 'archival location', 'commisioned by',
-             'engineer', 'cropped', 'sharpness', 'dimensions', 'lightness', 'dots per inch', 'palette setting',
-             'default audio stream', 'logo url', 'watermark url', 'info url', 'banner image', 'banner url', 
-             'infotext']
-
-# import table
+AVCORE    = ['length', 'encoder', 'trackno', 'trackof', 'copyright', 'product',
+             'genre', 'secondary genre', 'subject', 'writer', 'producer', 
+             'cinematographer', 'production designer', 'edited by', 'costume designer',
+             'music by', 'studio', 'distributed by', 'rating', 'starring', 'ripped by',
+             'digitizing date', 'internet address', 'source form', 'medium', 'source',
+             'archival location', 'commisioned by', 'engineer', 'cropped', 'sharpness',
+             'dimensions', 'lightness', 'dots per inch', 'palette setting',
+             'default audio stream', 'logo url', 'watermark url', 'info url',
+             'banner image', 'banner url', 'infotext']
 
 DEVICE    = 'device'
 
@@ -208,14 +214,16 @@ class CollectionInfo(MediaInfo):
     def appendtrack(self, track):
         self.tracks.append(track)
 
-CDROM_DRIVE_STATUS=0x5326
-CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
-CDROM_DISC_STATUS=0x5327
-CDS_AUDIO=100
-CDS_MIXED=105
 
 class DiscInfo(CollectionInfo):
     def isDisc(self, device):
+
+        CDROM_DRIVE_STATUS=0x5326
+        CDSL_CURRENT=( (int ) ( ~ 0 >> 1 ) )
+        CDROM_DISC_STATUS=0x5327
+        CDS_AUDIO=100
+        CDS_MIXED=105
+
         try:
             fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
             s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
@@ -240,6 +248,7 @@ class DiscInfo(CollectionInfo):
         f.seek(32808, 0)
         self.label = f.read(32)
         f.close()
+
         m = re.match("^(.*[^ ]) *$", self.label)
         if m:
             self.label = m.group(1)
