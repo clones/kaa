@@ -3,6 +3,13 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2003/10/05 21:06:24  outlyer
+# Cram the VORBIS_COMMENT fields into our standard artist/album/etc. fields
+# so they work in Freevo.
+#
+# The only thing missing from having perfect FLAC support is a way to
+# calculate the song length.
+#
 # Revision 1.6  2003/10/05 20:45:09  outlyer
 # Fix some minor python issues. It works from mediatest.py now, but Freevo
 # isn't using the tag information yet. I don't know why.
@@ -103,6 +110,21 @@ class FlacInfo(mediainfo.MusicInfo):
                     start += nextlen
                     a = re.split('=',s)
                     header[(a[0]).upper()]=a[1]
+                if header.has_key('TITLE'):
+                    self.title = header['TITLE']
+                if header.has_key('ALBUM'):
+                    self.album = header['ALBUM']
+                if header.has_key('ARTIST'):
+                    self.artist = header['ARTIST']            
+                if header.has_key('COMMENT'):
+                    self.comment = header['COMMENT']
+                if header.has_key('DATE'):
+                    self.date = header['DATE']
+                if header.has_key('ENCODER'):
+                    self.encoder = header['ENCODER']
+                if header.has_key('TRACKNUMBER'):
+                    self.trackno = header['TRACKNUMBER']
+ 
                 self.appendtable('VORBISCOMMENT', header)
             elif type == 5:
                 # CUESHEET 
