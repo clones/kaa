@@ -45,13 +45,12 @@ class RiffInfo(mediainfo.VideoInfo):
         #    http://kibus1.narod.ru/frames_eng.htm?sof/abcavi/infotags.htm
         
         
-    def _extractHeaderString(self,h,offset):
-        return h[offset+4:offset+4+struct.unpack('<I',h[offset:offset+4])[0]]
+    def _extractHeaderString(self,h,offset,len):
+        return h[offset:offset+len]
 
     def parseAVIH(self,t):
         retval = {}
-        retval['dwMicroSecPerFrame'] = struct.unpack('<I',t[:4])[0]
-        v = struct.unpack('<IIIIIIIIIIIIII',t[4:60])
+        v = struct.unpack('<IIIIIIIIIIIIII',t[0:56])
         ( retval['dwMicroSecPerFrame'],
           retval['dwMaxBytesPerSec'],           
           retval['dwPaddingGranularity'], 
@@ -133,54 +132,72 @@ class RiffInfo(mediainfo.VideoInfo):
         retval = {}
         size = len(t)
         i = 0
-        while i < size-8:
-            key = t[i:i+4]
-            sz = struct.unpack('<I',t[i+4:i+8])[0]
-            value = t[i+8:i+sz+8]
-            if key == 'strh':
-                retval[key] = self.parseSTRH(value)
-            elif key == 'strf':
-                retval[key] = self.parseSTRF(value,retval['strh']['fccType'])
-            else:
-                #print "parseSTRL: Unknown Key %s" % key
-                retval[key] = value
-            i += 8+sz
-        
-        return retval
+        key = t[i:i+4]
+        sz = struct.unpack('<I',t[i+4:i+8])[0]
+        i+=8
+        value = t[i:]
+        if key == 'strh':
+            retval[key] = self.parseSTRH(value)
+            i += sz
+        else:
+            print "Error"
+        key = t[i:i+4]
+        sz = struct.unpack('<I',t[i+4:i+8])[0]
+        i+=8
+        value = t[i:]
+        if key == 'strf':
+            retval[key] = self.parseSTRF(value,retval['strh']['fccType'])
+            i += sz
+        else:
+            print "parseSTRL: Unknown Key %s" % key        
+        return ( retval, i )
             
-
     def parseLIST(self,t):
-        # check INFO tags but skip long ones
         retval = {}
         i = 0
         size = len(t)
+        print "parseList of size %d" % size
         while i < size:
             # skip zero
             while ord(t[i]) == 0: i += 1
             key = t[i:i+4]
-            sz = struct.unpack('<I',t[i+4:i+8])[0]
-            # print "parseList %s" % key
+            sz = 0
+            print "parseList %s" % key
             if key == 'LIST':
-                key = t[i+8:i+12]
-                #print "parseList %s" % key
-                value = self.parseLIST(t[i+8:i+12+sz])
+                print "->"
+                sz = struct.unpack('<I',t[i+4:i+8])[0]
+                print "SUBLIST: len: %d, %d" % ( sz, i+4 )
+                i+=8
+                key = "LIST:"+t[i:i+4]
+                value = self.parseLIST(t[i:i+sz])
+                print "<-"
                 if key == 'strl':
                     for k in value.keys():
                         retval[k] = value[k]
                 else:
                     retval[key] = value
+                i+=sz
             elif key == 'avih':
-                value = self.parseAVIH(t[i+4:i+8+sz])
+                print "SUBAVIH"
+                sz = struct.unpack('<I',t[i+4:i+8])[0]
+                i += 8
+                value = self.parseAVIH(t[i:i+sz])
+                i += sz
                 retval[key] = value
             elif key == 'strl':
-                value = self.parseSTRL(t[i+4:i+8+sz])
+                i += 4
+                (value, sz) = self.parseSTRL(t[i:])
+                print "SUBSTRL: len: %d" % sz
                 key = value['strh']['fccType']
-                # print "adding %s" % (key)
+                i += sz
                 retval[key] = value
             else:
-                value = self._extractHeaderString(t,i+4)
+                sz = struct.unpack('<I',t[i+4:i+8])[0]
+                print "Unknown Key: %s, len: %d" % (key,sz)
+                i+=8
+                value = self._extractHeaderString(t,i,sz)
                 retval[key] = value
-            i += sz + 8
+                i+=sz
         return retval
         
 
@@ -189,7 +206,7 @@ class RiffInfo(mediainfo.VideoInfo):
         if len(h) < 4: return 1
         name = h[:4]
         size = struct.unpack('<I',h[4:8])[0]        
-        if name == 'LIST' and size < 13000:
+        if name == 'LIST' and size < 30000:
             t = file.read(size)
             key = t[:4]
             value = self.parseLIST(t[4:])
@@ -197,10 +214,10 @@ class RiffInfo(mediainfo.VideoInfo):
             if key == 'INFO':
                 self.info = value
             elif key == 'MID ':
-                self.mid = value
-        else:
+                self.mid = value        
+        else:        
             t = file.seek(size,1)
-            #print "Ignoring %s" % name
+            print "Ignoring %s" % name
         return 0
         
 

@@ -73,11 +73,12 @@ class MediaInfo:
         else:
             keywords = (self.__dict__['keywords'],)
         for i in keywords:
-            print("append: %s" % i)
-            k = string.split( i, ',' ) 
-            for it in k:
-                s = string.strip( it )
-                resultset.append( s )
+            if i:
+                print("append: %s" % i)
+                k = string.split( i, ',' ) 
+                for it in k:
+                    s = string.strip( it )
+                    resultset.append( s )
         self.__dict__['keywords'] = tuple( resultset )
         
             

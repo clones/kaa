@@ -10,6 +10,7 @@ import sys
 
 m = mediainfo.get_singleton()
 medium = m.create_from_filename(sys.argv[1])
+medium.expand_keywords()
 if medium:
     print "medium is: %s" % medium.type
     for k in medium.keys:
