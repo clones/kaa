@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.22  2003/07/01 21:06:50  dischi
+# no need to import factory (and when, use "from mmpython import factory"
+#
 # Revision 1.21  2003/06/30 13:17:20  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
 # o Parsers now register directly at mmpython not at mmpython.mediainfo
@@ -77,7 +80,7 @@ import re
 import struct
 import string
 import fourcc
-import factory
+# import factory
 
 import mmpython
 from mmpython import mediainfo
