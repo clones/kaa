@@ -99,6 +99,9 @@ class DVDInfo(DiscInfo):
         DiscInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
+        if mediainfo.DEBUG > 1:
+            print 'trying lsdvd for scanning the disc'
+
         if os.path.isdir(device):
             self.valid = self.isDVDdir(device)
         else:
@@ -118,6 +121,9 @@ class DVDInfo(DiscInfo):
                 # badly mastered dvd
                 self.length = first
 
+        if mediainfo.DEBUG > 1:
+            print 'lsdvd detection ok'
+            
         self.mime    = 'video/dvd'
         self.type    = 'DVD'
         self.subtype = 'video'

@@ -64,6 +64,9 @@ class DVDInfo(DiscInfo):
         self.context = 'video'
         self.offset = 0
 
+        if mediainfo.DEBUG > 1:
+            print 'trying buggy dvd detection'
+
         if isinstance(device, file):
             self.valid = self.isDVDiso(device)
         elif os.path.isdir(device):
