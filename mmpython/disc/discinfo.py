@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.20  2004/02/08 17:44:05  dischi
+# close fd
+#
 # Revision 1.19  2004/01/24 18:40:44  dischi
 # add md5 as possible way to generate the id
 #
@@ -190,6 +193,7 @@ def cdrom_disc_status(device, handle_mix = 0):
     try:
     	fd.seek(0x0000832d)
     except IOError:
+    	fd.close()
 	return 3
     else :
     	fd.close()
