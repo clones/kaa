@@ -11,15 +11,21 @@ import version
 extensions = [ Extension('mmpython/disc/cdrom', ['disc/cdrommodule.c']) ]
 
 # check for libdvdread (bad hack!)
-child = popen2.Popen4('gcc -ldvdread')
-if child.fromchild.readline().find('cannot find') == -1:
-    # gcc failed, but not with 'cannot find', so libdvd must be
-    # somewhere (I hope)
-    extensions.append(Extension('mmpython/disc/ifoparser', ['disc/ifomodule.c'],
-                                libraries=[ 'dvdread' ], 
-                                library_dirs=['/usr/local/lib'],
-                                include_dirs=['/usr/local/include']))
-child.wait()
+# Windows does not have Popen4, so catch exception here
+try:
+    child = popen2.Popen4('gcc -ldvdread')
+    if child.fromchild.readline().find('cannot find') == -1:
+        # gcc failed, but not with 'cannot find', so libdvd must be
+        # somewhere (I hope)
+        extensions.append(Extension('mmpython/disc/ifoparser', ['disc/ifomodule.c'],
+                                    libraries=[ 'dvdread' ], 
+                                    library_dirs=['/usr/local/lib'],
+                                    include_dirs=['/usr/local/include']))
+    child.wait()
+except AttributeError, e:
+    print "No Popen4 found. This seems to be Windows."
+    print "Installing without libdvdread support."
+    
 
 setup (# Distribution meta-data
        name = "mmpython",
