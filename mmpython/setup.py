@@ -16,12 +16,13 @@ setup (# Distribution meta-data
 
        package_dir = {'mmpython.video': 'video',
                       'mmpython.audio': 'audio',
+                      'mmpython.audio.eyeD3': 'audio/eyeD3',
                       'mmpython.image': 'image',
                       'mmpython.disc' : 'disc',
                       'mmpython': ''},
 
-       packages = [ 'mmpython', 'mmpython.video', 'mmpython.audio', 'mmpython.image',
-                    'mmpython.disc' ],
+       packages = [ 'mmpython', 'mmpython.video', 'mmpython.audio', 'mmpython.audio.eyeD3',
+                    'mmpython.image', 'mmpython.disc' ],
        
        # Description of the modules and packages in the distribution
        ext_modules = [ Extension('mmpython/disc/ifoparser', ['disc/ifomodule.c'],
