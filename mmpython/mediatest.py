@@ -15,7 +15,7 @@ import mmpython
 # To use the cache, make sure /tmp/mmpython exists
 # DVD/VCD/AudioCDs are cached with this proram when USE_CACHE == 1
 
-USE_CACHE = 1
+USE_CACHE = 0
 
 if USE_CACHE:
     mmpython.use_cache('/tmp/mmpython')

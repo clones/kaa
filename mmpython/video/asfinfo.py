@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.9  2003/06/11 20:51:00  the_krow
+# Title, Artist and some other data sucessfully parsed from wmv, asf, wma
+#
 # Revision 1.8  2003/06/11 19:07:57  the_krow
 # asf,wmv,wma now get the guids right...
 #
@@ -116,9 +119,11 @@ GUIDS = {
 'ASF_Audio_Spread' : _guid('BFC3CD50-618F-11CF-8BB2-00AA00B4E220'),
 }
 
-class AsfInfo(mediainfo.VideoInfo):
+_print = mediainfo._debug
+
+class AsfInfo(mediainfo.AVInfo):
     def __init__(self,file,filename):
-        mediainfo.VideoInfo.__init__(self)
+        mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.valid = 0
         self.mime = 'video/asf'
@@ -126,7 +131,7 @@ class AsfInfo(mediainfo.VideoInfo):
         h = file.read(30)
         if len(h) < 30:
             return
-        self.valid = 1        
+        self.valid = 1
         (guidstr,objsize,objnum,reserved1,reserved2) = struct.unpack('<16sQIBB',h)                
         guid = struct.unpack('>IHHBB6s', guidstr)
         if (guid != GUIDS['ASF_Header_Object']):
@@ -139,6 +144,19 @@ class AsfInfo(mediainfo.VideoInfo):
         for i in range(0,objnum):
             h = self._getnextheader(header)
             header = header[h[1]:]
+        
+    def __str__(self):
+        result = ''
+        result += reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
+                         (a, b.__str__(), self[b].__str__()) or a, self.keys, "" )
+        try:
+            for i in self.tables.keys():
+                 result += self.tables[i].__str__()
+        except AttributeError:
+            pass
+        return result
+
+        
     
     def _printguid(self,guid):
         r = "%.8X-%.4X-%.4X-%.2X%.2X-%s" % guid
@@ -149,10 +167,10 @@ class AsfInfo(mediainfo.VideoInfo):
         (guidstr,objsize) = r
         guid = struct.unpack('>IHHBB6s', guidstr)
         if guid == GUIDS['ASF_File_Properties_Object']:
-            print "file properties"
+            print "File Properties Object"
             pass
         elif guid == GUIDS['ASF_Stream_Properties_Object']:
-            print "stream properties Object"
+            print "Stream Properties Object"
             pass
         elif guid == GUIDS['ASF_Header_Extension_Object']:
             print "Extension Object"
@@ -165,10 +183,17 @@ class AsfInfo(mediainfo.VideoInfo):
             pass
         elif guid == GUIDS['ASF_Content_Description_Object']:
             print "Content Description Object"
-            pass
+            val = struct.unpack('<5H', s[24:24+10])
+            pos = 34
+            strings = []
+            for i in val:
+                strings.append(s[pos:pos+i])
+                pos+=i
+            #(title, artist, copyright, caption, rating) = tuple(strings)
+            (self.title, self.artist, self.copyright, self.caption, rating) = tuple(strings)
         else:
             print "unknown: %s %d" % (self._printguid(guid), objsize)
         return r
         
 factory = mediainfo.get_singleton()  
-factory.register( 'video/asf', ('asf','wmv','wma'), mediainfo.TYPE_VIDEO, AsfInfo )
+factory.register( 'video/asf', ('asf','wmv','wma'), mediainfo.TYPE_AV, AsfInfo )

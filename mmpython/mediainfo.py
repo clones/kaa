@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.33  2003/06/11 20:50:59  the_krow
+# Title, Artist and some other data sucessfully parsed from wmv, asf, wma
+#
 # Revision 1.32  2003/06/10 22:16:07  dischi
 # support for cd://-URLs added
 #
@@ -237,14 +240,15 @@ class MediaInfo:
             if k in keys:
                 keys.remove(k)
 
-        result = reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
+        result = ''
+        result += reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
                          (a, b.__str__(), self[b].__str__()) or a, keys, "" )
         try:
             for i in self.tables.keys():
                  result += self.tables[i].__str__()
         except AttributeError:
             pass
-        return result            
+        return result
         
     def appendtable(self, name, hashmap):
         self.tables[name] = table.Table(hashmap, name)
