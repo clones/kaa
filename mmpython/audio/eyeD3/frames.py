@@ -365,7 +365,8 @@ class FrameHeader:
 
 
    def isFrameIdValid(self, id):
-      return re.compile(r"^[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]$").match(id);
+      return re.compile(r"^[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]$").match(id) or \
+             id == 'MP3e';
 
    def clearFlags(self):
       flags = [0] * 16;
