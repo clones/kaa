@@ -10,6 +10,7 @@ import video.riffinfo
 import video.mpeginfo
 import video.asfinfo
 import video.movinfo
+import video.vcdinfo
 import image.jpginfo
 import image.pnginfo
 import image.tiffinfo
