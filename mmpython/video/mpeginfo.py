@@ -1,9 +1,8 @@
 #if 0
 # $Id$
 # $Log$
-# Revision 1.5  2003/06/07 21:48:47  the_krow
-# Added Copying info
-# started changing riffinfo to new AV stuff
+# Revision 1.6  2003/06/07 22:30:21  the_krow
+# added new avinfo structure
 #
 # Revision 1.4  2003/05/13 17:49:42  the_krow
 # IPTC restructured\nEXIF Height read correctly\nJPEG Endmarker read
@@ -84,16 +83,19 @@ VIDEO_PKT      = 0xE0
 
 
 
-class MpegInfo(mediainfo.VideoInfo):
+class MpegInfo(mediainfo.AVInfo):
     def __init__(self,file):
-        mediainfo.VideoInfo.__init__(self)
+        mediainfo.AVInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        self.valid = self.isVideo(file)        
-        self.mime = 'video/mpeg'
-        self.type = 'mpeg video'
-        self.dxy(file)
-        print "%d x %d" % ( self.width, self.height )
+        self.valid = self.isVideo(file) 
+        if self.valid:       
+            self.mime = 'video/mpeg'
+            self.type = 'mpeg video'
+            self.dxy(file)
+            print "%d x %d" % ( self.width, self.height )
+        else:
+            return
 
     def dxy(self,file):  
         print self.offset
@@ -128,5 +130,5 @@ class MpegInfo(mediainfo.VideoInfo):
 
 factory = mediainfo.get_singleton()  
 mpginfo = MpegInfo
-factory.register( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_VIDEO, mpginfo )
+factory.register( 'video/mpeg', ('mpeg','mpg','mp4'), mediainfo.TYPE_AV, mpginfo )
 print "mpeg video type registered"

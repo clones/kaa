@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.9  2003/06/07 22:30:22  the_krow
+# added new avinfo structure
+#
 # Revision 1.8  2003/06/07 21:48:47  the_krow
 # Added Copying info
 # started changing riffinfo to new AV stuff
@@ -104,7 +107,6 @@ class RiffInfo(mediainfo.AVInfo):
             _print("ERROR: Corrupt AVI")
             self.valid = 0
             return {}
-
         return retval
         
     def parseSTRH(self,t):
@@ -128,9 +130,10 @@ class RiffInfo(mediainfo.AVInfo):
               retval['rcFrame'], ) = v
             self.bitrate = retval['dwRate']
             self.length = retval['dwLength']
-        return retval      
+        return retval
 
-    def parseSTRF(self,t,fccType):
+    def parseSTRF(self,t,strh):
+        fccType = strh['fccType']
         retval = {}
         if fccType == 'auds':
             ( retval['wFormatTag'],
@@ -140,15 +143,15 @@ class RiffInfo(mediainfo.AVInfo):
               retval['nBlockAlign'],
               retval['nBitsPerSample'],
             ) = struct.unpack('<HHHHHH',t[0:12])
-            vi = mediainfo.VideoInfo()
-            vi.samplerate = retval['nSamplesPerSec']
-            vi.channels = retval['nChannels']
-            vi.samplebits = retval['nBitsPerSample']
+            ai = mediainfo.AudioInfo()
+            ai.samplerate = retval['nSamplesPerSec']
+            ai.channels = retval['nChannels']
+            ai.samplebits = retval['nBitsPerSample']
             try:
-                vi.codec = fourcc.RIFFWAVE[retval['wFormatTag']]
+                ai.codec = fourcc.RIFFWAVE[retval['wFormatTag']]
             except:
-                vi.codec = "Unknown"            
-            self.video.append(vi)  
+                ai.codec = "Unknown"            
+            self.audio.append(ai)  
         elif fccType == 'vids':
             v = struct.unpack('<IIIHH',t[0:16])
             ( retval['biSize'],
@@ -163,12 +166,15 @@ class RiffInfo(mediainfo.AVInfo):
               retval['biYPelsPerMeter'],
               retval['biClrUsed'],
               retval['biClrImportant'], ) = v
-            self.height = retval['biHeight']
-            self.width = retval['biWidth']
+            vi = mediainfo.VideoInfo()
             try:
-                self.videocodec = fourcc.RIFFCODEC[t[16:20]]
+                vi.codec = fourcc.RIFFCODEC[t[16:20]]
             except:
-                self.videocodec = "Unknown"
+                vi.codec = "Unknown"
+            vi.width = retval['biWidth']
+            vi.height = retval['biHeight']            
+            vi.length = strh['dwLength']
+            self.video.append(vi)  
         return retval
         
     def parseSTRL(self,t):
@@ -190,7 +196,7 @@ class RiffInfo(mediainfo.AVInfo):
         i+=8
         value = t[i:]
         if key == 'strf':
-            retval[key] = self.parseSTRF(value,retval['strh']['fccType'])
+            retval[key] = self.parseSTRF(value,retval['strh'])
             i += sz
         else:
             _print("parseSTRL: Unknown Key %s" % key)
@@ -309,7 +315,7 @@ class RiffInfo(mediainfo.AVInfo):
 
 factory = mediainfo.get_singleton()
 aviinfo = RiffInfo
-factory.register( 'video/avi', ['avi'], mediainfo.TYPE_VIDEO, aviinfo )
+factory.register( 'video/avi', ('avi',), mediainfo.TYPE_AV, aviinfo )
 print("riff type registered")
 
 if __name__ == '__main__':
