@@ -29,6 +29,7 @@ setup (# Distribution meta-data
        author_email = "freevo-devel@lists.sourceforge.net",
        url = "http://mmpython.sf.net",
 
+       scripts     = [ 'mminfo' ],
        package_dir = {'mmpython.video': 'video',
                       'mmpython.audio': 'audio',
                       'mmpython.audio.eyeD3': 'audio/eyeD3',

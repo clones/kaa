@@ -4,25 +4,8 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
-# Revision 1.28  2004/01/27 20:28:57  dischi
-# remove cache, it does not belong in mmpython
-#
-# Revision 1.27  2003/07/19 11:38:19  dischi
-# turn off debug as default, some exception handling
-#
-# Revision 1.26  2003/06/30 13:17:18  the_krow
-# o Refactored mediainfo into factory, synchronizedobject
-# o Parsers now register directly at mmpython not at mmpython.mediainfo
-# o use mmpython.Factory() instead of mmpython.mediainfo.get_singleton()
-# o Bugfix in PNG parser
-# o Renamed disc.AudioInfo into disc.AudioDiscInfo
-# o Renamed disc.DataInfo into disc.DataDiscInfo
-#
-# Revision 1.25  2003/06/23 09:22:54  the_krow
-# Typo and Indentation fixes.
-#
-# Revision 1.23  2003/06/20 19:57:30  the_krow
-# GNU Header
+# Revision 1.1  2004/05/17 19:00:58  dischi
+# rename mediatest.py to mminfo and install it as script to bin
 #
 #
 # -----------------------------------------------------------------------
@@ -48,27 +31,42 @@
 
 
 import sys
+
+# add .. for source usage
 sys.path = ['..'] + sys.path
 
 from mmpython import *
 
-# Usage:
-# mediatest files
 
-# files can be a normal file, a device for VCD/VCD/AudioCD or a cd-url
-# cd://device:mountpoint:file, e.g. for bla.avi:
-# cd:///dev/cdrom:/mnt/cdrom:bla.avi
+print 'mmpython media info'
+
+if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
+    print
+    print 'usage: mminfo [options] files'
+    print
+    print 'options:'
+    print '  -d   turn on debug information'
+    print
+    print 'A file can be a normal file, a device for VCD/VCD/AudioCD'
+    print
+    print 'Examples:'
+    print '  mminfo foo.avi bar.mpg'
+    print '  mminfo /dev/dvd'
+    print
+    sys.exit(0)
 
 # turn on debug
-mediainfo.DEBUG = 1
-factory.DEBUG   = 1
-
+if sys.argv[1] == '-d':
+    mediainfo.DEBUG = 1
+    factory.DEBUG   = 1
+    sys.argv = sys.argv[1:]
+    
 for file in sys.argv[1:]:
     medium = parse(file)
+    print
     print "filename : %s" % file
 
     if medium:
-        print "medium is: %s" % medium.type
         print medium
         print
         print
