@@ -22,11 +22,11 @@ child.wait()
 
 setup (# Distribution meta-data
        name = "mmpython",
-       version = "0.1",
+       version = "0.3",
        description = "Module for retrieving information about media files",
        author = "Thomas Schueppel, Dirk Meyer",
-       author_email = "",
-       url = "",
+       author_email = "freevo-devel@lists.sourceforge.net",
+       url = "http://mmpython.sf.net",
 
        package_dir = {'mmpython.video': 'video',
                       'mmpython.audio': 'audio',
