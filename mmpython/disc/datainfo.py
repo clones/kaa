@@ -32,7 +32,7 @@ from discinfo import DiscInfo
 class DataDiscInfo(DiscInfo):
     def __init__(self,device):
         DiscInfo.__init__(self)
-        self.context = 'unknwon'
+        self.context = 'unknown'
         self.offset = 0
         self.valid = self.isDisc(device)
         self.mime = 'unknown/unknown'
