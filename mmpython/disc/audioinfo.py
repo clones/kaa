@@ -71,7 +71,8 @@ class AudioInfo(mediainfo.DiscInfo):
             self.title = qi[1].strip()
             (read_stat, read_info) = CDDB.read(query_info['category'], 
                                                query_info['disc_id'])
-            self.id = query_info['disc_id']
+            # id = disc_id + number of tracks
+            self.id = '%s_%s' % (query_info['disc_id'], disc_id[1])
 
             if read_stat == 210:
                 for i in range(0, disc_id[1]):
