@@ -5,6 +5,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.6  2003/06/29 12:11:16  dischi
+# changed print to _print
+#
 # Revision 1.5  2003/06/23 20:48:11  the_krow
 # width + height fixes for OGM files
 #
@@ -59,7 +62,7 @@ class OgmInfo(mediainfo.AVInfo):
         self.samplerate = 1
         while self._parseOGGS(file):
             pass
-        print "%d / %d" % (self.lastgran, self.samplerate)
+        _print("%d / %d" % (self.lastgran, self.samplerate))
         self.length = self.lastgran / self.samplerate
         
     def _parseOGGS(self,file):
