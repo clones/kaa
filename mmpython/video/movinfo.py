@@ -1,6 +1,11 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.12  2003/06/20 14:53:05  the_krow
+# Metadata are copied from Quicktime Userdata to MediaInfo fields. This
+#  may be broken since it assumes the Quicktime Comment language to be
+#  set to 0.
+#
 # Revision 1.11  2003/06/19 17:31:12  dischi
 # error handling (and nonsense data)
 #
@@ -80,10 +85,15 @@ class MovInfo(mediainfo.AVInfo):
             return
         # Extended size
         if size == 1:
-            print "Extended Size"
+            #print "Extended Size"
             size = struct.unpack('>Q', file.read(8))                  
         while self._readatom(file):
             pass
+        if self.tables.has_key('QTUDTA'):
+            info = self.tables['QTUDTA']
+            self.setitem('title', info, '0_nam')
+            self.setitem('artist', info, '0_aut')
+            self.setitem('copyright', info, '0_cpy')
             
                 
     def _readatom(self, file):
