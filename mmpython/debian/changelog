@@ -1,3 +1,16 @@
+mmpython (0.2.0cvs20030901-freevo1) unstable; urgency=low
+
+  * New snapshot
+  * Fixed dependency and adding missing 'dvdread' dependency
+
+ -- Aubin Paul <debian@outlyer.org>  Mon,  1 Sep 2003 18:21:23 -0400
+
+mmpython (0.2.0cvs20030830-freevo1) unstable; urgency=low
+
+  * New snapshot; fixes some reported issues
+
+ -- Aubin Paul <debian@outlyer.org>  Sat, 30 Aug 2003 09:35:44 -0400
+
 mmpython (0.2.0cvs20030826-freevo1) unstable; urgency=low
 
   * New snapshot, includes preliminary m4a support
