@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.3  2003/07/02 09:32:16  the_krow
+# More Keys
+# import traceback was missing in factory
+#
 # Revision 1.2  2003/07/01 08:24:09  the_krow
 # bugfixes
 #
@@ -39,6 +43,7 @@ import mediainfo
 import stat
 import os
 import urlparse
+import traceback
 
 DEBUG = 1
 
