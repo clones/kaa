@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.58  2004/05/17 19:10:57  dischi
+# better DEBUG handling
+#
 # Revision 1.57  2004/05/12 18:41:42  dischi
 # include all tags in desc from bins
 #
@@ -108,7 +111,12 @@ EXTENSION_DEVICE    = 'device'
 EXTENSION_DIRECTORY = 'directory'
 EXTENSION_STREAM    = 'stream'
 
-DEBUG     = 0
+DEBUG = 0
+
+try:
+    DEBUG = int(os.environ['MMPYTHON_DEBUG'])
+except:
+    pass
 
 def _debug(text):
     """
@@ -144,13 +152,17 @@ class MediaInfo:
                 keys.remove(k)
 
         result = ''
-        result += reduce( lambda a,b: self[b] and "%s\n        %s: %s" % \
+        result += reduce( lambda a,b: self[b] and b != 'url' and "%s\n        %s: %s" % \
                          (a, b.__str__(), self[b].__str__()) or a, keys, "" )
-        try:
-            for i in self._tables.keys():
-                 result += self._tables[i].__str__()
-        except AttributeError:
-            pass
+        if DEBUG:
+            try:
+                for i in self._tables.keys():
+                    try:
+                        result += self._tables[i].__str__()
+                    except AttributeError:
+                        pass
+            except AttributeError:
+                pass
         return result
         
 

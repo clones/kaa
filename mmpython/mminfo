@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2004/05/17 19:10:57  dischi
+# better DEBUG handling
+#
 # Revision 1.1  2004/05/17 19:00:58  dischi
 # rename mediatest.py to mminfo and install it as script to bin
 #
@@ -31,11 +34,10 @@
 
 
 import sys
+import os
 
 # add .. for source usage
 sys.path = ['..'] + sys.path
-
-from mmpython import *
 
 
 print 'mmpython media info'
@@ -57,15 +59,18 @@ if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
 
 # turn on debug
 if sys.argv[1] == '-d':
-    mediainfo.DEBUG = 1
-    factory.DEBUG   = 1
+    os.environ['MMPYTHON_DEBUG'] = '1'
     sys.argv = sys.argv[1:]
     
+from mmpython import *
+
 for file in sys.argv[1:]:
     medium = parse(file)
     print
-    print "filename : %s" % file
-
+    if len(file) > 70:
+        print "filename : %s[...]%s" % (file[:30], file[len(file)-30:])
+    else:
+        print "filename : %s" % file
     if medium:
         print medium
         print

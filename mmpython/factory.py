@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.18  2004/05/17 19:10:57  dischi
+# better DEBUG handling
+#
 # Revision 1.17  2004/05/02 08:28:20  dischi
 # dvd iso support
 #
@@ -11,9 +14,6 @@
 #
 # Revision 1.15  2004/01/31 12:25:20  dischi
 # better ext checking
-#
-# Revision 1.14  2003/10/12 10:34:22  dischi
-# error handling
 #
 # Revision 1.13  2003/09/22 16:24:58  the_krow
 # o added flac
@@ -28,20 +28,8 @@
 # Revision 1.10  2003/08/30 12:16:24  dischi
 # special handling for directories
 #
-# Revision 1.9  2003/08/26 21:22:53  outlyer
-# Whoops, left DEBUG enabled
-#
 # Revision 1.8  2003/08/26 18:01:26  outlyer
 # Patch from Lars Eggert for FreeBSD support
-#
-# Revision 1.7  2003/07/20 16:37:57  dischi
-# fix, a device is no "file"
-#
-# Revision 1.6  2003/07/19 11:38:19  dischi
-# turn off debug as default, some exception handling
-#
-# Revision 1.5  2003/07/05 16:03:05  dischi
-# catch exception
 #
 # Revision 1.4  2003/07/04 15:34:45  outlyer
 # Allow 'cdda' as well as 'cd' since we get that sometimes, and make sure
@@ -50,9 +38,6 @@
 # Revision 1.3  2003/07/02 09:32:16  the_krow
 # More Keys
 # import traceback was missing in factory
-#
-# Revision 1.2  2003/07/01 08:24:09  the_krow
-# bugfixes
 #
 # Revision 1.1  2003/06/30 13:17:18  the_krow
 # o Refactored mediainfo into factory, synchronizedobject
@@ -91,6 +76,11 @@ import traceback
 import urllib
 
 DEBUG = 0
+
+try:
+    DEBUG = int(os.environ['MMPYTHON_DEBUG'])
+except:
+    pass
 
 
 
