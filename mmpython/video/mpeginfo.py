@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.11  2003/06/08 20:28:29  dischi
+# bugfix/bugchange, I think it was an endless loop
+#
 # Revision 1.10  2003/06/08 19:53:21  dischi
 # also give the filename to init for additional data tests
 #
@@ -130,7 +133,10 @@ class MpegInfo(mediainfo.AVInfo):
                 continue
             c = ord(buffer[self.offset+2])
             if c != 1:
-                continue
+                # XXX Thomas, you had here 'continue', but this is an
+                # endless loop (or am I missing something?)
+                return 0
+            
             d = ord(buffer[self.offset+3])
             if ( d == SEQ_START_CODE ):
 	        return 1
