@@ -5,6 +5,10 @@
 # $Id$
 #
 # $Log$
+# Revision 1.9  2003/06/10 16:04:17  the_krow
+# reference to DiscItem in cache was still pointing to mediainfo
+# visuals
+#
 # Revision 1.8  2003/06/10 11:50:51  dischi
 # Moved all ioctl calls for discs to discinfo.cdrom_disc_status. This function
 # uses try catch around ioctl so it will return 0 (== no disc) for systems
@@ -67,7 +71,7 @@ import re
 import mediainfo
 
 from disc import DiscID
-from disc.discinfo import cdrom_disc_status
+from disc.discinfo import cdrom_disc_status, DiscInfo
 
 
 
@@ -156,7 +160,7 @@ class Cache:
         Adds the information 'info' about a disc into a special disc database
         """
 
-        if not isinstance(info, mediainfo.DiscInfo):
+        if not isinstance(info, DiscInfo):
             return 0
 
         cachefile = '%s/disc/%s' % (self.cachedir, info.id)

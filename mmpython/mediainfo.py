@@ -3,6 +3,10 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.31  2003/06/10 16:04:17  the_krow
+# reference to DiscItem in cache was still pointing to mediainfo
+# visuals
+#
 # Revision 1.30  2003/06/10 10:56:53  the_krow
 # - Build try-except blocks around disc imports to make it run on platforms
 #   not compiling / running the C extensions.
@@ -445,8 +449,3 @@ class SynchronizedObject:
         except KeyError:
             return getattr(self.__obj, name)
 
-
-if __name__ == '__main__':
-    import ogginfo
-    t = _singleton.create_from_filename('7.ogg')
-    print t
