@@ -63,7 +63,10 @@ class DVDInfo(DiscInfo):
         DiscInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        if os.path.isdir(device):
+
+        if isinstance(device, file):
+            self.valid = self.isDVDiso(device)
+        elif os.path.isdir(device):
             self.valid = self.isDVDdir(device)
         else:
             self.valid = self.isDisc(device)
@@ -143,7 +146,44 @@ class DVDInfo(DiscInfo):
         return 1
 
 
+    def isDVDiso(self, f):
+        # brute force reading of the device to find out if it is a DVD
+        f.seek(32808, 0)
+        buffer = f.read(50000)
 
-mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE, mediainfo.TYPE_AV, DVDInfo )
-mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DIRECTORY,
-                       mediainfo.TYPE_AV, DVDInfo )
+        if buffer.find('UDF') == -1:
+            f.close()
+            return 0
+
+        # seems to be a DVD, read a little bit more
+        buffer += f.read(550000)
+
+        if buffer.find('VIDEO_TS') == -1 and buffer.find('VIDEO_TS.IFO') == -1 and \
+               buffer.find('OSTA UDF Compliant') == -1:
+            return 0
+
+        # OK, try libdvdread
+        title_num = ifoparser.open(f.name)
+
+        if not title_num:
+            return 0
+
+        for title in range(1, title_num+1):
+            ti = DVDTitle(title)
+            ti.trackno = title
+            ti.trackof = title_num
+            self.appendtrack(ti)
+        
+        ifoparser.close()
+        return 1
+
+
+if mmpython.gettype('video/dvd', mediainfo.EXTENSION_DEVICE):
+    mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE,
+                           mediainfo.TYPE_AV, DVDInfo )
+
+if mmpython.gettype('video/dvd', mediainfo.EXTENSION_DIRECTORY):
+    mmpython.registertype('video/dvd', mediainfo.EXTENSION_DIRECTORY,
+                          mediainfo.TYPE_AV, DVDInfo)
+
+mmpython.registertype('video/dvd', ['iso'], mediainfo.TYPE_AV, DVDInfo)

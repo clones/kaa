@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.17  2004/05/02 08:28:20  dischi
+# dvd iso support
+#
 # Revision 1.16  2004/02/03 20:41:18  dischi
 # add directory support
 #
@@ -292,3 +295,23 @@ class Factory:
             for e in extensions:
                 self.extmap[e] = tuple
             self.mimemap[mimetype] = tuple
+
+
+    def get(self, mimetype, extensions):
+        """
+        return the object for mimetype/extensions or None
+        """
+        if extensions == mediainfo.EXTENSION_DEVICE:
+            l = self.device_types
+        elif extensions == mediainfo.EXTENSION_DIRECTORY:
+            l = self.directory_types
+        elif extensions == mediainfo.EXTENSION_STREAM:
+            l = self.stream_types
+        else:
+            l = self.types
+
+        for info in l:
+            if info[0] == mimetype and info[1] == extensions:
+                return info[3]
+
+        return None

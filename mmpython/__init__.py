@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.33  2004/05/02 08:28:20  dischi
+# dvd iso support
+#
 # Revision 1.32  2004/04/18 09:11:36  dischi
 # improved lsdvd support
 #
@@ -98,6 +101,10 @@ def registertype(mimetype,extensions,type,c):
     f = Factory()
     f.register(mimetype,extensions,type,c)    
 
+def gettype(mimetype,extensions):
+    f = Factory()
+    return f.get(mimetype,extensions)    
+    
 
 # Okay Regular imports and code follow
 
@@ -131,10 +138,12 @@ except ImportError:
 try:
     import disc.lsdvd
 except ImportError:
-    try:
-        import disc.dvdinfo
-    except ImportError:
-        pass
+    pass
+
+try:
+    import disc.dvdinfo
+except ImportError:
+    pass
 
 # use fallback disc module
 try:
