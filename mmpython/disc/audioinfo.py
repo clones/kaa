@@ -47,8 +47,7 @@ class AudioInfo(discinfo.DiscInfo):
         if discinfo.DiscInfo.isDisc(self, device) != 1:
             return 0
         
-        disc_id = DiscID.disc_id(DiscID.open(device))
-        
+        disc_id = DiscID.disc_id(device)
         (query_stat, query_info) = CDDB.query(disc_id)
 
         if query_stat == 210 or query_stat == 211:

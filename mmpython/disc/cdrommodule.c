@@ -17,6 +17,19 @@
  * on the <sys/cdio.h> include file to make this work on Solaris!
  *
  * Release version 1.2
+ *
+ *
+ *
+ * changes for mmpython:
+ *
+ * $Log$
+ * Revision 1.2  2003/06/23 19:26:16  dischi
+ * Fixed bug in the cdrommodule that the file was not closed after usage.
+ * The result was a drive you can't eject while the program (e.g. Freevo)
+ * is running. Added cvs log for DiscID and cdrommodule to keep track of
+ * all changes we did for mmpython.
+ *
+ *
  * CVS ID: $Id$
  */
 
@@ -185,7 +198,24 @@ static PyObject *cdrom_leadout(PyObject *self, PyObject *args)
 
 int cdrom_close(FILE *cdrom_file) 
 {
-    return fclose(cdrom_file);
+  return 0;
+}
+
+static PyObject *cdrom_really_close(PyObject *self, PyObject *args)
+{
+    PyObject *cdrom_fileobj;
+    int cdrom_fd;
+
+#if defined(__OpenBSD__)
+    struct cd_toc_entry data;
+#endif
+
+    if (!PyArg_ParseTuple(args, "O!", &PyFile_Type, &cdrom_fileobj))
+	return  NULL;
+
+    cdrom_fd = fileno(PyFile_AsFile(cdrom_fileobj));
+    close(cdrom_fd);
+    return Py_BuildValue("b", 1);
 }
 
 static PyObject* cdrom_open(PyObject *self, PyObject *args)
@@ -230,6 +260,7 @@ static PyMethodDef cdrom_methods[] = {
     { "toc_entry", cdrom_toc_entry, METH_VARARGS },
     { "leadout", cdrom_leadout, METH_VARARGS},
     { "open", cdrom_open, METH_VARARGS},
+    { "close", cdrom_really_close, METH_VARARGS},
     { NULL, NULL }
 };
 

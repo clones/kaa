@@ -5,6 +5,12 @@
 # $Id$
 #
 # $Log$
+# Revision 1.5  2003/06/23 19:26:16  dischi
+# Fixed bug in the cdrommodule that the file was not closed after usage.
+# The result was a drive you can't eject while the program (e.g. Freevo)
+# is running. Added cvs log for DiscID and cdrommodule to keep track of
+# all changes we did for mmpython.
+#
 # Revision 1.4  2003/06/23 09:22:54  the_krow
 # Typo and Indentation fixes.
 #
@@ -96,7 +102,7 @@ def cdrom_disc_id(device):
         return None
         
     elif disc_type == 1:
-        disc_id = DiscID.disc_id(DiscID.open(device))
+        disc_id = DiscID.disc_id(device)
         return '%08lx_%d' % (disc_id[0], disc_id[1])
 
     else:
