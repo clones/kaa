@@ -5,6 +5,12 @@
 # $Id$
 #
 # $Log$
+# Revision 1.3  2003/06/08 16:52:29  dischi
+# Better handling for cache_disc if you don't provide a disc. Also added
+# uncachable_keys to cache_dir. Caching a directory of photos all with
+# exif thumbnail will slow everything down (cache filesize is 10 MB for my
+# testdir, now 200 KB). Use the bypass cache option if you want all infos.
+#
 # Revision 1.2  2003/06/08 15:48:07  dischi
 # removed some debug
 #
@@ -59,7 +65,7 @@ class Cache:
         self.current_dir        = None
         self.CACHE_VERSION      = 1
         self.DISC_CACHE_VERSION = 1
-        
+
 
     def hexify(self, str):
         hexStr = string.hexdigits
@@ -77,7 +83,7 @@ class Cache:
         return '%s/%s' % (self.cachedir, self.hexify(md5.new(directory).digest()))
     
     
-    def cache_dir(self, directory):
+    def cache_dir(self, directory, uncachable_keys):
         """
         cache every file in the directory for future use
         """
@@ -87,8 +93,14 @@ class Cache:
 
         objects = {}
         for file in [ os.path.join(directory, dname) for dname in os.listdir(directory) ]:
-            objects['%s__%s' % (os.stat(file)[stat.ST_MTIME], file)] = \
-                             mediainfo.get_singleton().create_from_filename(file)
+            key  = '%s__%s' % (os.stat(file)[stat.ST_MTIME], file)
+            info = mediainfo.get_singleton().create_from_filename(file)
+
+            if info:
+                for k in uncachable_keys:
+                    if info.has_key(k):
+                        info[k] = None
+            objects[key] = info
 
         pickle.dump((self.CACHE_VERSION, objects), open(cachefile, 'w'))
         return 1
@@ -98,6 +110,18 @@ class Cache:
         """
         Adds the information 'info' about a disc into a special disc database
         """
+
+        if not isinstance(info, mediainfo.DiscInfo):
+            return 0
+        
+        if hasattr(info, 'id') and hasattr(info, 'label'):
+            key = '%s_%s' % (info.id, info.label)
+        elif hasattr(info, 'disc_id'):
+            key = '%s %d ' % (info.disc_id, len(info.tracks))
+        else:
+            print 'error: item can\'t be cached'
+            return 0
+
         cachefile = '%s/disc' % self.cachedir
         if not self.current_dir == 'disc':
             if os.path.isfile(cachefile):
@@ -109,13 +133,6 @@ class Cache:
                     self.current_objects = objects
             else:
                 self.current_objects = {}
-
-        if hasattr(info, 'id') and hasattr(info, 'label'):
-            key = '%s_%s' % (info.id, info.label)
-        elif hasattr(info, 'disc_id'):
-            key = '%s %d ' % (info.disc_id, len(info.tracks))
-        else:
-            return 0
 
         self.current_objects[key] = info
         pickle.dump((self.DISC_CACHE_VERSION, self.current_objects), open(cachefile, 'w'))
