@@ -1,7 +1,21 @@
 # Library to extract EXIF information in digital camera image files
-# Source: http://home.cfl.rr.com/genecash/digital_camera
-# Contains bad hack to speed up reading the MakerNote field
-# This hack is around the function s2nlist and it's usage.
+#
+# To use this library call with:
+#    f=open(path_name, 'rb')
+#    tags=EXIF.process_file(f)
+# tags will now be a dictionary mapping names of EXIF tags to their
+# values in the file named by path_name.  You can process the tags
+# as you wish.  In particular, you can iterate through all the tags with:
+#     for tag in tags.keys():
+#         if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename',
+#                        'EXIF MakerNote'):
+#             print "Key: %s, value %s" % (tag, tags[tag])
+# (This code uses the if statement to avoid printing out a few of the
+# tags that tend to be long or boring.)
+#
+# The tags dictionary will include keys for all of the usual EXIF
+# tags, and will also include keys for Makernotes used by some
+# cameras, for which we have a good specification.
 #
 # Contains code from "exifdump.py" originally written by Thierry Bousch
 # <bousch@topo.math.u-psud.fr> and released into the public domain.
@@ -9,9 +23,9 @@
 # Updated and turned into general-purpose library by Gene Cash
 # <email gcash at cfl.rr.com>
 #
-# This copyright license is intended to be similar to the FreeBSD license. 
+# This copyright license is intended to be similar to the FreeBSD license.
 #
-# Copyright 2002 Gene Cash All rights reserved. 
+# Copyright 2002 Gene Cash All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -39,6 +53,16 @@
 # This means you may do anything you want with this code, except claim you
 # wrote it. Also, if it breaks you get to keep both pieces.
 #
+# Patch Contributors:
+# * Simon J. Gerraty <sjg@crufty.net>
+#   s2n fix & orientation decode
+# * John T. Riedl <riedl@cs.umn.edu>
+#   Added support for newer Nikon type 3 Makernote format for D70 and some
+#   other Nikon cameras.
+# * Joerg Schaefer <schaeferj@gmx.net>
+#   Fixed subtle bug when faking an EXIF header, which affected maker notes
+#   using relative offsets, and a fix for Nikon D100.
+#
 # 21-AUG-99 TB  Last update by Thierry Bousch to his code.
 # 17-JAN-02 CEC Discovered code on web.
 #               Commented everything.
@@ -64,8 +88,6 @@
 #               IFD_Tag() object.
 # 15-FEB-04 CEC Finally fixed bit shift warning by converting Y to 0L.
 #
-# To do:
-# * Better printing of ratios
 
 # field type descriptions as (length, abbreviation, full name) tuples
 FIELD_TYPES=(
@@ -99,7 +121,15 @@ EXIF_TAGS={
     0x010F: ('Make', ),
     0x0110: ('Model', ),
     0x0111: ('StripOffsets', ),
-    0x0112: ('Orientation', ),
+    0x0112: ('Orientation',
+             {1: 'Horizontal (normal)',
+              2: 'Mirrored horizontal',
+              3: 'Rotated 180',
+              4: 'Mirrored vertical',
+              5: 'Mirrored horizontal then rotated 90 CCW',
+              6: 'Rotated 90 CW',
+              7: 'Mirrored horizontal then rotated 90 CW',
+              8: 'Rotated 90 CCW'}),
     0x0115: ('SamplesPerPixel', ),
     0x0116: ('RowsPerStrip', ),
     0x0117: ('StripByteCounts', ),
@@ -223,6 +253,7 @@ EXIF_TAGS={
              {3: 'Digital Camera'}),
     0xA301: ('SceneType',
              {1: 'Directly Photographed'}),
+    0xA302: ('CVAPattern',),
     }
 
 # interoperability tags
@@ -275,9 +306,20 @@ MAKERNOTE_NIKON_NEWER_TAGS={
     0x0006: ('ImageSharpening', ),
     0x0007: ('FocusMode', ),
     0x0008: ('FlashSetting', ),
+    0x0009: ('AutoFlashMode', ),
+    0x000B: ('WhiteBalanceBias', ),
+    0x000C: ('WhiteBalanceRBCoeff', ),
     0x000F: ('ISOSelection', ),
+    0x0012: ('FlashCompensation', ),
+    0x0013: ('ISOSpeedRequested', ),
+    0x0016: ('PhotoCornerCoordinates', ),
+    0x0018: ('FlashBracketCompensationApplied', ),
+    0x0019: ('AEBracketCompensationApplied', ),
     0x0080: ('ImageAdjustment', ),
+    0x0081: ('ToneCompensation', ),
     0x0082: ('AuxiliaryLens', ),
+    0x0083: ('LensType', ),
+    0x0084: ('LensMinMaxFocalMaxAperture', ),
     0x0085: ('ManualFocusDistance', ),
     0x0086: ('DigitalZoomFactor', ),
     0x0088: ('AFFocusPosition',
@@ -286,6 +328,20 @@ MAKERNOTE_NIKON_NEWER_TAGS={
               0x0200: 'Bottom',
               0x0300: 'Left',
               0x0400: 'Right'}),
+    0x0089: ('BracketingMode',
+             {0x00: 'Single frame, no bracketing',
+              0x01: 'Continuous, no bracketing',
+              0x02: 'Timer, no bracketing',
+              0x10: 'Single frame, exposure bracketing',
+              0x11: 'Continuous, exposure bracketing',
+              0x12: 'Timer, exposure bracketing',
+              0x40: 'Single frame, white balance bracketing',
+              0x41: 'Continuous, white balance bracketing',
+              0x42: 'Timer, white balance bracketing'}),
+    0x008D: ('ColorMode', ),
+    0x008F: ('SceneMode?', ),
+    0x0090: ('LightingType', ),
+    0x0092: ('HueAdjustment', ),
     0x0094: ('Saturation',
              {-3: 'B&W',
               -2: '-2',
@@ -294,6 +350,10 @@ MAKERNOTE_NIKON_NEWER_TAGS={
               1:  '1',
               2:  '2'}),
     0x0095: ('NoiseReduction', ),
+    0x00A7: ('TotalShutterReleases', ),
+    0x00A9: ('ImageOptimization', ),
+    0x00AA: ('Saturation', ),
+    0x00AB: ('DigitalVariProgram', ),
     0x0010: ('DataDump', )
     }
 
@@ -360,7 +420,7 @@ MAKERNOTE_OLYMPUS_TAGS={
     0x0207: ('SoftwareRelease',  ),
     0x0208: ('PictureInfo',  ),
     # print as string
-    0x0209: ('CameraID', lambda x: ''.join(map(chr, x))), 
+    0x0209: ('CameraID', lambda x: ''.join(map(chr, x))),
     0x0F00: ('DataDump',  )
     }
 
@@ -628,7 +688,7 @@ MAKERNOTE_CANON_TAG_0x004={
          0X002C: '1.33 EV',
          0X0030: '1.50 EV',
          0X0034: '1.67 EV',
-         0X0040: '2 EV'}), 
+         0X0040: '2 EV'}),
     19: ('SubjectDistance', )
     }
 
@@ -636,7 +696,7 @@ MAKERNOTE_CANON_TAG_0x004={
 def s2n_motorola(str):
     x=0
     for c in str:
-        x=(long(x) << 8) | ord(c)
+        x=(x << 8) | ord(c)
     return x
 
 # extract multibyte integer in Intel format (big endian)
@@ -644,7 +704,7 @@ def s2n_intel(str):
     x=0
     y=0L
     for c in str:
-        x=x | (long(ord(c)) << y)
+        x=x | (ord(c) << y)
         y=y+8
     return x
 
@@ -701,14 +761,18 @@ class IFD_Tag:
 
 # class that handles an EXIF header
 class EXIF_header:
-    def __init__(self, file, endian, offset, debug=0):
+    def __init__(self, file, endian, offset, fake_exif, debug=0):
         self.file=file
         self.endian=endian
         self.offset=offset
+        self.fake_exif=fake_exif
         self.debug=debug
         self.tags={}
         
     # convert slice to integer, based on sign and endian flags
+    # usually this offset is assumed to be relative to the beginning of the
+    # start of the EXIF information.  For some cameras that use relative tags,
+    # this offset may be relative to some other starting point.
     def s2n(self, offset, length, signed=0):
         self.file.seek(self.offset+offset)
         slice=self.file.read(length)
@@ -718,29 +782,10 @@ class EXIF_header:
             val=s2n_motorola(slice)
         # Sign extension ?
         if signed:
-            #msb=1 << (8*length-1)
-            #if val & msb:
-            #    val=val-(msb << 1)
-            pass
+            msb=1L << (8*length-1)
+            if val & msb:
+                val=val-(msb << 1)
         return val
-
-    # convert slice to integer, based on sign and endian flags
-    # Note: this function was added by Dirk Meyer to improve
-    # speed when reading the MakerNote. The old function seeked
-    # and read every 'typelen' bits in one session. Reading once
-    # for big data (MakerNote > 3000), this is a huge speedup
-    def s2nlist(self, offset, typelen, count, signed=0):
-        ret = []
-        self.file.seek(self.offset+offset)
-        buffer = self.file.read((count+1) * typelen)
-        if self.endian == 'I':
-            s2n = s2n_intel
-        else:
-            s2n = s2n_motorola
-        for j in range(count):
-            ret.append(s2n(buffer[count*typelen:(count+1)*typelen]))
-        return ret
-    
 
     # convert offset to string
     def n2s(self, offset, length):
@@ -772,11 +817,18 @@ class EXIF_header:
         return a
 
     # return list of entries in this IFD
-    def dump_IFD(self, ifd, ifd_name, dict=EXIF_TAGS):
+    def dump_IFD(self, ifd, ifd_name, dict=EXIF_TAGS, relative=0):
         entries=self.s2n(ifd, 2)
         for i in range(entries):
+            # entry is index of start of this IFD in the file
             entry=ifd+2+12*i
             tag=self.s2n(entry, 2)
+            # get tag name.  We do it early to make debugging easier
+            tag_entry=dict.get(tag)
+            if tag_entry:
+                tag_name=tag_entry[0]
+            else:
+                tag_name='Tag 0x%04X' % tag
             field_type=self.s2n(entry+2, 2)
             if not 0 < field_type < len(FIELD_TYPES):
                 # unknown field type
@@ -786,38 +838,47 @@ class EXIF_header:
             count=self.s2n(entry+4, 4)
             offset=entry+8
             if count*typelen > 4:
-                # not the value, it's a pointer to the value
-                offset=self.s2n(offset, 4)
+                # offset is not the value; it's a pointer to the value
+                # if relative we set things up so s2n will seek to the right
+                # place when it adds self.offset.  Note that this 'relative'
+                # is for the Nikon type 3 makernote.  Other cameras may use
+                # other relative offsets, which would have to be computed here
+                # slightly differently.
+                if relative:
+                    tmp_offset=self.s2n(offset, 4)
+                    offset=tmp_offset+ifd-self.offset+4
+                    if self.fake_exif:
+                        offset=offset+18
+                else:
+                    offset=self.s2n(offset, 4)
             field_offset=offset
             if field_type == 2:
                 # special case: null-terminated ASCII string
                 if count != 0:
                     self.file.seek(self.offset+offset)
-                    values=self.file.read(count).strip().replace('\x00','')
+                    values=self.file.read(count)
+                    values=values.strip().replace('\x00','')
                 else:
                     values=''
             else:
                 values=[]
                 signed=(field_type in [6, 8, 9, 10])
-                if field_type in (5, 10):
-                    for j in range(count):
+                for j in range(count):
+                    if field_type in (5, 10):
                         # a ratio
                         value_j=Ratio(self.s2n(offset,   4, signed),
                                       self.s2n(offset+4, 4, signed))
-                        values.append(value_j)
-                        offset=offset+typelen
-                else:
-                    values += self.s2nlist(offset, typelen, count, signed)
-                    offset=offset+count*typelen
+                    else:
+                        value_j=self.s2n(offset, typelen, signed)
+                    values.append(value_j)
+                    offset=offset+typelen
             # now "values" is either a string or an array
             if count == 1 and field_type != 2:
                 printable=str(values[0])
             else:
                 printable=str(values)
-            # figure out tag name
-            tag_entry=dict.get(tag)
+            # compute printable version of values
             if tag_entry:
-                tag_name=tag_entry[0]
                 if len(tag_entry) != 1:
                     # optional 2nd tag element is present
                     if callable(tag_entry[1]):
@@ -826,17 +887,15 @@ class EXIF_header:
                     else:
                         printable=''
                         for i in values:
-                            # use LUT for this tag
+                            # use lookup table for this tag
                             printable+=tag_entry[1].get(i, repr(i))
-            else:
-                tag_name='Tag 0x%04X' % tag
             self.tags[ifd_name+' '+tag_name]=IFD_Tag(printable, tag,
                                                      field_type,
                                                      values, field_offset,
                                                      count*typelen)
             if self.debug:
-                print '    %s: %s' % (tag_name,
-                                      repr(self.tags[ifd_name+' '+tag_name]))
+                print ' debug:   %s: %s' % (tag_name,
+                                            repr(self.tags[ifd_name+' '+tag_name]))
 
     # extract uncompressed TIFF thumbnail (like pulling teeth)
     # we take advantage of the pre-existing layout in the thumbnail IFD as
@@ -895,19 +954,52 @@ class EXIF_header:
         self.tags['TIFFThumbnail']=tiff
         
     # decode all the camera-specific MakerNote formats
+
+    # Note is the data that comprises this MakerNote.  The MakerNote will
+    # likely have pointers in it that point to other parts of the file.  We'll
+    # use self.offset as the starting point for most of those pointers, since
+    # they are relative to the beginning of the file.
+    #
+    # If the MakerNote is in a newer format, it may use relative addressing
+    # within the MakerNote.  In that case we'll use relative addresses for the
+    # pointers.
+    #
+    # As an aside: it's not just to be annoying that the manufacturers use
+    # relative offsets.  It's so that if the makernote has to be moved by the
+    # picture software all of the offsets don't have to be adjusted.  Overall,
+    # this is probably the right strategy for makernotes, though the spec is
+    # ambiguous.  (The spec does not appear to imagine that makernotes would
+    # follow EXIF format internally.  Once they did, it's ambiguous whether
+    # the offsets should be from the header at the start of all the EXIF info,
+    # or from the header at the start of the makernote.)
     def decode_maker_note(self):
         note=self.tags['EXIF MakerNote']
         make=self.tags['Image Make'].printable
         model=self.tags['Image Model'].printable
 
         # Nikon
-        if make == 'NIKON':
-            if note.values[0:5] == [78, 105, 107, 111, 110]: # "Nikon"
-                # older model
+        # The maker note usually starts with the word Nikon, followed by the
+        # type of the makernote (1 or 2, as a short).  If the word Nikon is
+        # not at the start of the makernote, it's probably type 2, since some
+        # cameras work that way.
+        if make in ('NIKON', 'NIKON CORPORATION'):
+            if note.values[0:7] == [78, 105, 107, 111, 110, 00, 01]:
+                if self.debug:
+                    print "Looks like a type 1 Nikon MakerNote."
                 self.dump_IFD(note.field_offset+8, 'MakerNote',
                               dict=MAKERNOTE_NIKON_OLDER_TAGS)
+            elif note.values[0:7] == [78, 105, 107, 111, 110, 00, 02]:
+                if self.debug:
+                    print "Looks like a labeled type 2 Nikon MakerNote"
+                if note.values[12:14] != [0, 42] and note.values[12:14] != [42L, 0L]:
+                    raise ValueError, "Missing marker tag '42' in MakerNote."
+                # skip the Makernote label and the TIFF header
+                self.dump_IFD(note.field_offset+10+8, 'MakerNote',
+                              dict=MAKERNOTE_NIKON_NEWER_TAGS, relative=1)
             else:
-                # newer model (E99x or D1)
+                # E99x or D1
+                if self.debug:
+                    print "Looks like an unlabeled type 2 Nikon MakerNote"
                 self.dump_IFD(note.field_offset, 'MakerNote',
                               dict=MAKERNOTE_NIKON_NEWER_TAGS)
             return
@@ -927,7 +1019,7 @@ class EXIF_header:
         # Fujifilm
         if make == 'FUJIFILM':
             # bug: everything else is "Motorola" endian, but the MakerNote
-            # is "Intel" endian 
+            # is "Intel" endian
             endian=self.endian
             self.endian='I'
             # bug: IFD offsets are from beginning of MakerNote, not
@@ -982,11 +1074,13 @@ def process_file(file, debug=0):
     elif data[0:2] == '\xFF\xD8':
         # it's a JPEG file
         # skip JFIF style header(s)
+        fake_exif=0
         while data[2] == '\xFF' and data[6:10] in ('JFIF', 'JFXX', 'OLYM'):
             length=ord(data[4])*256+ord(data[5])
             file.read(length-8)
             # fake an EXIF beginning of file
             data='\xFF\x00'+file.read(10)
+            fake_exif=1
         if data[2] == '\xFF' and data[6:10] == 'Exif':
             # detected EXIF header
             offset=file.tell()
@@ -1001,7 +1095,7 @@ def process_file(file, debug=0):
     # deal with the EXIF info we found
     if debug:
         print {'I': 'Intel', 'M': 'Motorola'}[endian], 'format'
-    hdr=EXIF_header(file, endian, offset, debug)
+    hdr=EXIF_header(file, endian, offset, fake_exif, debug)
     ifd_list=hdr.list_IFDs()
     ctr=0
     for i in ifd_list:
