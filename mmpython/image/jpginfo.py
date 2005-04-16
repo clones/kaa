@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.20  2005/04/16 15:01:15  dischi
+# convert exif tags to str
+#
 # Revision 1.19  2004/05/20 15:56:31  dischi
 # use Python Imaging for more info and gif/bmp support
 #
@@ -154,20 +157,20 @@ class JPGInfo(mediainfo.ImageInfo):
         file.seek(0)        
         exif_info = EXIF.process_file(file)
         if exif_info:
-            self.setitem( 'date', exif_info, 'Image DateTime' )            
-            self.setitem( 'artist', exif_info, 'Image Artist' )
-            self.setitem( 'hardware', exif_info, 'Image Model' )
-            self.setitem( 'software', exif_info, 'Image Software' )
-            self.setitem( 'thumbnail', exif_info, 'JPEGThumbnail' )
+            self.setitem( 'date', exif_info, 'Image DateTime', True )            
+            self.setitem( 'artist', exif_info, 'Image Artist', True )
+            self.setitem( 'hardware', exif_info, 'Image Model', True )
+            self.setitem( 'software', exif_info, 'Image Software', True )
+            self.setitem( 'thumbnail', exif_info, 'JPEGThumbnail', True )
             self.appendtable( 'EXIF', exif_info )
         if iptc_info:
-            self.setitem( 'title', iptc_info, 517 ) 
-            self.setitem( 'date' , iptc_info, 567 )
-            self.setitem( 'comment', iptc_info, 617 )
-            self.setitem( 'keywords', iptc_info, 537 )
-            self.setitem( 'artist', iptc_info, 592 )
-            self.setitem( 'country', iptc_info, 612 ) 
-            self.setitem( 'caption', iptc_info, 632 )
+            self.setitem( 'title', iptc_info, 517, True ) 
+            self.setitem( 'date' , iptc_info, 567, True )
+            self.setitem( 'comment', iptc_info, 617, True )
+            self.setitem( 'keywords', iptc_info, 537, True )
+            self.setitem( 'artist', iptc_info, 592, True )
+            self.setitem( 'country', iptc_info, 612, True ) 
+            self.setitem( 'caption', iptc_info, 632, True )
             self.appendtable( 'IPTC', iptc_info )            
         ImageInfo.add(file.name, self)
         return

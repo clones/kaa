@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.68  2005/04/16 15:01:15  dischi
+# convert exif tags to str
+#
 # Revision 1.67  2005/02/04 12:44:26  dischi
 # fix unicode bug
 #
@@ -197,13 +200,15 @@ class MediaInfo:
         return self._tables.get((name, language), {})
     
 
-    def setitem(self,item,dict,key):
+    def setitem(self, item, dict, key, convert_to_str=False):
         """
         set item to a specific value for the dict
         """
         try:
             if self.__dict__.has_key(item):
                 if isinstance(dict[key], str):
+                    self.__dict__[item] = unicode(dict[key])
+                elif convert_to_str:
                     self.__dict__[item] = unicode(dict[key])
                 else:
                     self.__dict__[item] = dict[key]
