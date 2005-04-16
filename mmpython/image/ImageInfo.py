@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.2  2005/04/16 15:01:53  dischi
+# read gthumb comment files
+#
 # Revision 1.1  2004/05/20 15:56:31  dischi
 # use Python Imaging for more info and gif/bmp support
 #
@@ -32,6 +35,8 @@ import mmpython
 from mmpython import mediainfo
 
 import os
+import gzip
+from xml.utils import qp_xml
 
 DEBUG = mediainfo.DEBUG
 
@@ -62,6 +67,22 @@ def add(filename, object):
                 print e
             pass
 
+    comment_file = os.path.join(os.path.dirname(filename),
+                                '.comments',
+                                os.path.basename(filename) + '.xml')
+    if os.path.isfile(comment_file):
+        try:
+            f = gzip.open(comment_file)
+            p = qp_xml.Parser()
+            tree = p.parse(f)
+            f.close()
+            for c in tree.children:
+                if c.name == 'Place':
+                    object.location = c.textof()
+                if c.name == 'Note':
+                    object.description = c.textof()
+        except:
+            pass
     try:
         i = Image.open(filename)
     except:
