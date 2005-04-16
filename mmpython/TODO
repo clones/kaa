@@ -1,0 +1,16 @@
+Here a small list of items for 0.5
+
+o Move verything in a subdir mmpython except mminfo. This would make
+  it possible to start mminfo without any hacks.
+o Cleanup: 
+  - create smaller header (see freevo)
+  - use freevo coding style
+  - use python logging module
+  - remove the valid variable and replace it by an exception on error
+o Move base objects into the different subdirs
+o Dynamic loading without importing everything from __init__
+o Update dvdinfo.py and the internal C module to get rid of using
+  lsdvd internaly
+o Make everything faster :)
+o Add more types and information
+
