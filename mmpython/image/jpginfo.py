@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.21  2005/04/16 17:08:40  dischi
+# read metadata from epeg
+#
 # Revision 1.20  2005/04/16 15:01:15  dischi
 # convert exif tags to str
 #
@@ -137,6 +140,7 @@ class JPGInfo(mediainfo.ImageInfo):
             mediainfo._debug("Wrong encode found for jpeg")
         file.seek(2)
         app = file.read(4)
+        self.meta = {}
         while (len(app) == 4):
             (ff,segtype,seglen) = struct.unpack(">BBH", app)
             if ff != 0xff: break
@@ -151,10 +155,16 @@ class JPGInfo(mediainfo.ImageInfo):
                 app = file.read(seglen-2)
                 iptc_info = IPTC.flatten(IPTC.parseiptc(app))
                 break
+            elif segtype == 0xe7:
+                # information created by libs like epeg
+                data = file.read(seglen-2)
+                if data.count('\n') == 1:
+                    key, value = data.split('\n')
+                    self.meta[key] = value
             else:
                 file.seek(seglen-2,1)
             app = file.read(4)
-        file.seek(0)        
+        file.seek(0)
         exif_info = EXIF.process_file(file)
         if exif_info:
             self.setitem( 'date', exif_info, 'Image DateTime', True )            
@@ -172,6 +182,15 @@ class JPGInfo(mediainfo.ImageInfo):
             self.setitem( 'country', iptc_info, 612, True ) 
             self.setitem( 'caption', iptc_info, 632, True )
             self.appendtable( 'IPTC', iptc_info )            
+
+        if len(self.meta.keys()):
+            self.appendtable( 'JPGMETA', self.meta )
+        for key, value in self.meta.items():
+            if key.startswith('Thumb:') or key == 'Software':
+                setattr(self, key, value)
+                if not key in self.keys:
+                    self.keys.append(key)
+
         ImageInfo.add(file.name, self)
         return
        
