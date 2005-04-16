@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.11  2005/04/16 17:09:12  dischi
+# add thumbnail data to internal vars
+#
 # Revision 1.10  2004/05/20 15:56:31  dischi
 # use Python Imaging for more info and gif/bmp support
 #
@@ -93,6 +96,11 @@ class PNGInfo(mediainfo.ImageInfo):
             pass
         if len(self.meta.keys()):
             self.appendtable( 'PNGMETA', self.meta )
+        for key, value in self.meta.items():
+            if key.startswith('Thumb:') or key == 'Software':
+                setattr(self, key, value)
+                if not key in self.keys:
+                    self.keys.append(key)
         ImageInfo.add(file.name, self)
         return       
         
