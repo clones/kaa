@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.21  2005/05/06 16:47:46  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.20  2004/05/29 12:30:36  dischi
 # add function to correct data from the different mime modules
 #
@@ -80,14 +83,11 @@ import os
 import urlparse
 import traceback
 import urllib
+import mmpython
+import logging
 
-DEBUG = 0
-
-try:
-    DEBUG = int(os.environ['MMPYTHON_DEBUG'])
-except:
-    pass
-
+# get logging object
+log = logging.getLogger('mmpython')
 
 
 def isurl(url):
@@ -112,36 +112,34 @@ class Factory:
         """
         # Check extension as a hint
         for e in self.extmap.keys():
-            if DEBUG > 1: print "trying ext %s" % e
+            log.debug("trying ext %s" % e)
             if file.name.lower().endswith(e.lower()):
-                if DEBUG == 1: print "trying ext %s" % e
+                log.debug("trying ext %s" % e)
                 try:
                     file.seek(0,0)
                     t = self.extmap[e][3](file)
                     if t.valid: return t
                 except:
-                    if DEBUG:
-                        traceback.print_exc()
+                    log.exception('There was a problem seeking through file.')
+                      
 
         # no searching on all types
         if ext_only:
             return None
 
-        if DEBUG:
-            print "No Type found by Extension. Trying all"
+        log.info('No Type found by Extension. Trying all')
 
         for e in self.types:
-            if DEBUG: print "Trying %s" % e[0]
+            log.debug('Trying %s' % e[0])
             try:
                 file.seek(0,0)
                 t = e[3](file)
                 if t.valid:
-                    if DEBUG: print 'found'
+                    log.debug('found')
                     return t
             except:
-                if DEBUG:
-                    traceback.print_exc()
-        if DEBUG: print 'not found'
+                log.exception('There was a problem seeking through the file')
+        log.debug('not found')
         return None
 
 
@@ -168,7 +166,7 @@ class Factory:
             # method for this. Perhaps move file.open stuff into __init__
             # instead of doing it here...
             for e in self.stream_types:
-                if DEBUG: print 'Trying %s' % e[0]
+                log.debug('Trying %s' % e[0])
                 t = e[3](url)
                 if t.valid:
                     t.url = url
@@ -178,7 +176,7 @@ class Factory:
             (scheme, location, path, query, fragment) = split
             uhandle = urllib.urlopen(url)
             mime = uhandle.info().gettype()
-            print "Trying %s" % mime
+            log.debug("Trying %s" % mime)
             if self.mimemap.has_key(mime):
                 t = self.mimemap[mime][3](file)
                 if t.valid: return t
@@ -213,7 +211,7 @@ class Factory:
         are supported.
         """
         for e in self.device_types:
-            if DEBUG: print 'Trying %s' % e[0]
+            log.debug('Trying %s' % e[0])
             t = e[3](devicename)
             if t.valid:
                 t.url = 'file://%s' % os.path.abspath(devicename)
@@ -226,7 +224,7 @@ class Factory:
         Create information from the directory.
         """
         for e in self.directory_types:
-            if DEBUG: print 'Trying %s' % e[0]
+            log.debug('Trying %s' % e[0])
             t = e[3](dirname)
             if t.valid:
                 return t
@@ -266,8 +264,7 @@ class Factory:
         """
         register the parser to mmpython
         """
-        if DEBUG > 0:
-            print "%s registered" % mimetype
+        log.debug('%s registered' % mimetype)
         tuple = (mimetype,extensions,type,c)
 
         if extensions == mediainfo.EXTENSION_DEVICE:

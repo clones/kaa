@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.3  2005/05/06 16:47:47  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.2  2005/04/16 15:01:53  dischi
 # read gthumb comment files
 #
@@ -36,15 +39,16 @@ from mmpython import mediainfo
 
 import os
 import gzip
+import logging
 from xml.utils import qp_xml
 
-DEBUG = mediainfo.DEBUG
+# get logging object
+log = logging.getLogger('mmpython')
 
 try:
     import Image
 except:
-    if DEBUG:
-        print 'Python Imaging not found'
+    log.warning('Python Imaging not found')
 
 import bins
 
@@ -63,8 +67,7 @@ def add(filename, object):
                     # if it's in desc it must be important
                     object.keys.append(key)
         except Exception, e:
-            if DEBUG:
-                print e
+            log.exception('There was a problem reading the image information')
             pass
 
     comment_file = os.path.join(os.path.dirname(filename),
@@ -96,10 +99,9 @@ def add(filename, object):
     if i.info.has_key('dpi'):
         object['dpi'] = '%sx%s' % i.info['dpi']
 
-    if DEBUG:
-        for info in i.info:
-            if not info == 'exif':
-                print '%s: %s' % (info, i.info[info])
+    for info in i.info:
+        if not info == 'exif':
+            log.debug('%s: %s' % (info, i.info[info]))
 
     object.mode = i.mode
     if not object.height:

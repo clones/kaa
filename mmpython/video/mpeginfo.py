@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.34  2005/05/06 16:47:49  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.33  2005/02/15 18:52:51  dischi
 # some strange bugfix (what is this doing?)
 #
@@ -70,6 +73,7 @@
 # -----------------------------------------------------------------------
 #endif
 
+import logging
 import re
 import os
 import struct
@@ -79,6 +83,9 @@ import fourcc
 from mmpython import mediainfo
 import mmpython
 import stat
+
+# get logging object
+log = logging.getLogger('mmpython')
 
 ##------------------------------------------------------------------------
 ## START_CODE
@@ -212,8 +219,7 @@ class MpegInfo(mediainfo.AVInfo):
                 else:
                     self.type = 'MPEG video'
 
-            if mediainfo.DEBUG > 2:
-                self.__scan__()
+            log.debug(self.__scan__())
 
             
     def dxy(self,file):  
@@ -240,8 +246,7 @@ class MpegInfo(mediainfo.AVInfo):
         try:
             aspect = ASPECT_RATIO[v>>4]
         except IndexError:
-            if mediainfo.DEBUG:
-                print 'Index error: %s' % (v>>4)
+            log.exception('Index error: %s' % (v>>4))
             aspect = None
         return (fps, aspect)
         
@@ -610,8 +615,7 @@ class MpegInfo(mediainfo.AVInfo):
 
 
     def isPES(self, file):
-        if mediainfo.DEBUG:
-            print 'trying mpeg-pes scan'
+        log.info('trying mpeg-pes scan')
         file.seek(0,0)
         buffer = file.read(3)
 
@@ -745,8 +749,7 @@ class MpegInfo(mediainfo.AVInfo):
                         else:
                             # timestamp broken
                             del self.start
-                            if mediainfo.DEBUG:
-                                print 'Timestamp error, correcting'
+                            log.warning('Timestamp error, correcting')
                             
             if hasattr(self, 'start') and self.start and \
                    self.sequence_header_offset and self.video and self.audio:
@@ -876,8 +879,9 @@ class MpegInfo(mediainfo.AVInfo):
         """
         if not hasattr(self, 'filename') or not hasattr(self, 'start'):
             return 0
+
         file = open(self.filename)
-        print 'scanning file...'
+        log.debug('scanning file...')
         while 1:
             file.seek(self.__seek_size__ * 10, 1)
             buffer = file.read(self.__sample_size__)
@@ -886,12 +890,10 @@ class MpegInfo(mediainfo.AVInfo):
             pos = self.__search__(buffer)
             if pos == -1:
                 continue
-            print self.get_time(buffer[pos:])
+            log.debug('buffer position: %s' % self.get_time(buffer[pos:]))
 
         file.close()
-        print 'done'
-        print
-
+        log.debug('done scanning file')
     
     
 mmpython.registertype( 'video/mpeg', ('mpeg','mpg','mp4', 'ts'), mediainfo.TYPE_AV, MpegInfo )

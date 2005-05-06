@@ -6,10 +6,12 @@
 #
 
 import struct
+import logging
 from mmpython import mediainfo
 import mmpython
 
-#_print = mediainfo._debug
+# get logging object
+log = logging.getLogger('mmpython')
 
 class Mpeg4(mediainfo.MusicInfo):
     def __init__(self, file):
@@ -25,12 +27,8 @@ class Mpeg4(mediainfo.MusicInfo):
                 self.readNextTag(file)
             except ValueError:
                 returnval = 1
-        if mediainfo.DEBUG and self.valid:
-            print self.title
-            print self.artist
-            print self.album
-            print self.year
-            print self.encoder
+        log.debug('title: %s\nartist: %s\nalbum: %s\nyear: %s\nencoder: %s\n' % \
+                  (self.title, self.artist, self.album, self.year, self.encoder))
 
     def readNextTag(self, file):
         length, name = self.readInt(file), self.read(4, file)

@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.17  2005/05/06 16:47:47  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.16  2005/01/01 14:18:11  dischi
 # add samplerate, bitrate and mode
 #
@@ -100,9 +103,13 @@ from eyeD3 import tag as eyeD3_tag
 from eyeD3 import frames as eyeD3_frames
 
 import os
+import logging
 import struct
 import traceback
 import id3 as id3info
+
+# get logging object
+log = logging.getLogger('mmpython')
 
 MP3_INFO_TABLE = { "APIC": "picture",
                    "LINK": "link",
@@ -174,23 +181,16 @@ class eyeD3Info(mediainfo.MusicInfo):
          except:
             # The MP3 tag decoder crashed, assume the file is still
             # MP3 and try to play it anyway
-            if mediainfo.DEBUG:
-               print 'music: oops, mp3 tag parsing failed!'
-               print 'music: filename = "%s"' % file.name
-               traceback.print_exc()
+            log.exception('music: oops, mp3 tag parsing %s failed!' % file.name)
       except:
          # The MP3 tag decoder crashed, assume the file is still
          # MP3 and try to play it anyway
-         if mediainfo.DEBUG:
-            print 'music: oops, mp3 tag parsing failed!'
-            print 'music: filename = "%s"' % file.name
-            traceback.print_exc()
+         log.exception('music: oops, mp3 tag parsing %s failed!' % file.name)
 
       if not self.valid:
          return
 
-      if mediainfo.DEBUG > 1:
-         print id3.tag.frames
+      log.debug(id3.tag.frames)
       try:
          if id3 and id3.tag:
             for k in MP3_INFO_TABLE:
@@ -215,8 +215,8 @@ class eyeD3Info(mediainfo.MusicInfo):
                     tab[f.header.id] = f.url
                 elif f.__class__ is eyeD3_frames.UserURLFrame:
                     tab[f.header.id] = f.url
-                elif mediainfo.DEBUG:
-                   print f.__class__
+                else:
+                   log.debug(f.__class__)
             self.appendtable('id3v2', tab, 'en')
 
             if id3.tag.frames['TCON']:
@@ -241,8 +241,7 @@ class eyeD3Info(mediainfo.MusicInfo):
          if id3:
             self.length = id3.getPlayTime()
       except:
-         if mediainfo.DEBUG:
-            traceback.print_exc()
+         log.debug(traceback.print_exc())
       offset, header = self._find_header(file)
       if offset == -1 or header is None:
          return

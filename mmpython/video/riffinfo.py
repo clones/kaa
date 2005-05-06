@@ -1,6 +1,9 @@
 #if 0
 # $Id$
 # $Log$
+# Revision 1.34  2005/05/06 16:47:49  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.33  2005/03/15 17:50:45  dischi
 # check for corrupt avi
 #
@@ -110,11 +113,15 @@
 # -----------------------------------------------------------------------
 #endif
 
+import logging
 import re
 import struct
 import string
 import fourcc
 # import factory
+
+# get logging object
+log = logging.getLogger('mmpython')
 
 import mmpython
 from mmpython import mediainfo
@@ -172,8 +179,7 @@ class RiffInfo(mediainfo.AVInfo):
             while self.parseRIFFChunk(file):
                 pass
         except IOError:
-            if mediainfo.DEBUG:
-                print 'error in file, stop parsing'
+            log.exception('error in file, stop parsing')
 
         self.find_subtitles(file.name)
         

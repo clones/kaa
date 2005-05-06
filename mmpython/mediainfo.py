@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.69  2005/05/06 16:47:46  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.68  2005/04/16 15:01:15  dischi
 # convert exif tags to str
 #
@@ -112,22 +115,19 @@ EXTENSION_DEVICE    = 'device'
 EXTENSION_DIRECTORY = 'directory'
 EXTENSION_STREAM    = 'stream'
 
-DEBUG = 0
+import logging
 
-try:
-    DEBUG = int(os.environ['MMPYTHON_DEBUG'])
-except:
-    pass
+# get logging object
+log = logging.getLogger('mmpython')
 
 def _debug(text):
     """
     Function for debug prints of MediaItem implementations.
     """
-    if DEBUG > 1:
-        try:
-            print text
-        except:
-            print text.encode('latin-1', 'replace')
+    try:
+        log.debug(text)
+    except:
+        log.debug(text.encode('latin-1', 'replace'))
     
 
 class MediaInfo:
@@ -160,15 +160,17 @@ class MediaInfo:
         result = u''
         result += reduce( lambda a,b: self[b] and b != u'url' and u'%s\n        %s: %s' % \
                          (a, unicode(b), unicode(self[b])) or a, keys, u'' )
-        if DEBUG:
-            try:
-                for i in self._tables.keys():
-                    try:
-                        result += unicode(self._tables[i])
-                    except AttributeError:
-                        pass
-            except AttributeError:
-                pass
+        # I am not sure what this piece of code does...
+        # So, I am commenting it out in the interim
+        #if DEBUG:
+        #    try:
+        #        for i in self._tables.keys():
+        #            try:
+        #                result += unicode(self._tables[i])
+        #            except AttributeError:
+        #                pass
+        #    except AttributeError:
+        #        pass
         return result
         
 

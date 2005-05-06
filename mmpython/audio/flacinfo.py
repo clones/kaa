@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.8  2005/05/06 16:47:47  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.7  2003/10/05 21:06:24  outlyer
 # Cram the VORBIS_COMMENT fields into our standard artist/album/etc. fields
 # so they work in Freevo.
@@ -63,6 +66,10 @@ import mmpython.audio.ogginfo as ogginfo
 import mmpython
 import struct
 import re
+import logging
+
+# get logging object
+log = logging.getLogger('mmpython')
 
 # See: http://flac.sourceforge.net/format.html
 
@@ -79,8 +86,8 @@ class FlacInfo(mediainfo.MusicInfo):
             lastblock = (blockheader >> 31) & 1
             type = (blockheader >> 24) & 0x7F
             numbytes = blockheader & 0xFFFFFF
-            if mmpython.mediainfo.DEBUG:
-                print "Last?: %d, NumBytes: %d, Type: %d" % (lastblock, numbytes, type)                                
+            log.debug("Last?: %d, NumBytes: %d, Type: %d" % \
+                      (lastblock, numbytes, type))
             # Read this blocks the data
             data = file.read(numbytes)
             if type == 0:

@@ -7,6 +7,9 @@
 #
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.14  2005/05/06 16:47:47  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.13  2005/01/13 20:19:34  dischi
 # detect video_ts in lower case
 #
@@ -35,9 +38,13 @@
 
 
 import os
+import logging
 from mmpython import mediainfo
 import mmpython
 from discinfo import DiscInfo
+
+# get logging object
+log = logging.getLogger('mmpython')
 
 LSDVD_EXE='lsdvd'
 
@@ -106,8 +113,8 @@ class DVDInfo(DiscInfo):
         DiscInfo.__init__(self)
         self.context = 'video'
         self.offset = 0
-        if mediainfo.DEBUG > 1:
-            print 'trying lsdvd for scanning the disc'
+
+        log.info('trying lsdvd for scanning the disc')
 
         if os.path.isdir(device):
             self.valid = self.isDVDdir(device)
@@ -128,8 +135,7 @@ class DVDInfo(DiscInfo):
                 # badly mastered dvd
                 self.length = first
 
-            if mediainfo.DEBUG > 1:
-                print 'lsdvd detection ok'
+            log.info('lsdvd detection ok')
             
         self.mime    = 'video/dvd'
         self.type    = 'DVD'
@@ -220,8 +226,7 @@ else:
             LSDVD_EXE = os.path.join(path, 'lsdvd')
             break
     else:
-        if mediainfo.DEBUG:
-            print 'ImportError: lsdvd not found'
+        log.error('ImportError: lsdvd not found')
         raise ImportError
 
 mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE,

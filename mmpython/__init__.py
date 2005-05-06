@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.36  2005/05/06 16:47:46  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.35  2004/10/15 09:02:11  dischi
 # add ac3 parser
 #
@@ -165,8 +168,6 @@ import audio.eyed3info
 import audio.webradioinfo
 import audio.flacinfo
 
-
-
 USE_NETWORK     = 1
 
 
@@ -176,3 +177,11 @@ def parse(filename, ext_only = 0):
     """
     return Factory().create(filename, ext_only)
 
+
+# logging support
+
+import logging
+logger = logging.getLogger('mmpython')
+if not logger.level:
+    # level not set for mmpython, set it to WARNING
+    logger.setLevel(logging.WARNING)

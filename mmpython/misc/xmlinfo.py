@@ -3,6 +3,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.3  2005/05/06 16:47:48  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.2  2004/05/24 10:50:48  dischi
 # bugfix
 #
@@ -35,14 +38,16 @@ import os
 import mmpython
 from mmpython import mediainfo
 
-DEBUG = mediainfo.DEBUG
+import logging
+
+# get logging object
+log = logging.getLogger('mmpython')
 
 try:
     # XML support
     from xml.utils import qp_xml
 except:
-    if DEBUG:
-        print 'Python XML not found'
+    log.warning('Python XML not found')
 
 
 XML_TAG_INFO = {

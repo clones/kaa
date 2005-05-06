@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.5  2005/05/06 16:47:46  dischi
+# switch to logging support, may need level adjustments
+#
 # Revision 1.4  2004/05/28 12:26:24  dischi
 # Replace __str__ with unicode to avoid bad transformations. Everything
 # inside mmpython should be handled as unicode object.
@@ -46,10 +49,13 @@ import os
 # add .. for source usage
 sys.path = ['..'] + sys.path
 
-
 print 'mmpython media info'
 
-if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
+import version
+import logging
+import getopt
+
+def usage():
     print
     print 'usage: mminfo [options] files'
     print
@@ -63,21 +69,46 @@ if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
     print '  mminfo /dev/dvd'
     print
     sys.exit(0)
-
-# turn on debug
-if sys.argv[1] == '-d':
-    try:
-        int(sys.argv[2])
-        os.environ['MMPYTHON_DEBUG'] = sys.argv[2]
-        sys.argv = sys.argv[2:]
-    except:
-        os.environ['MMPYTHON_DEBUG'] = '1'
-        sys.argv = sys.argv[1:]
     
-from mmpython import *
+# create and setup the root logger object.
+# using logging.getLogger() gives the root logger, calling
+# logging.getLogger('foo') returns a new logger with the same default
+# settings.
+logger = logging.getLogger()
 
-for file in sys.argv[1:]:
-    medium = parse(file)
+# set stdout logging
+formatter = logging.Formatter('%(levelname)s %(module)s'+\
+                              '(%(lineno)s): %(message)s')
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# set log level
+logger.setLevel(logging.WARNING)
+
+logger = logging.getLogger('mmpython')
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'd:', [])
+except getopt.GetoptError:
+    usage()
+
+DEBUG_LEVEL = [ logging.WARNING, logging.INFO, logging.DEBUG ]
+
+for o, a in opts:
+    if o == '-d':
+        a = max(0, min(int(a), 2))
+        print 'setting to log level %s' % a
+        logger.setLevel(DEBUG_LEVEL[a])
+
+hdlr = logging.StreamHandler()
+hdlr.setFormatter(formatter)
+logger.addHandler(hdlr)
+
+import mmpython
+
+for file in args:
+    medium = mmpython.parse(file)
     print
     if len(file) > 70:
         print "filename : %s[...]%s" % (file[:30], file[len(file)-30:])

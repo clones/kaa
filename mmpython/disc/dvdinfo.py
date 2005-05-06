@@ -26,10 +26,14 @@
 
 
 import os
+import logging
 import ifoparser
 from mmpython import mediainfo
 import mmpython
 from discinfo import DiscInfo
+
+# get logging object
+log = logging.getLogger('mmpython')
 
 class DVDAudio(mediainfo.AudioInfo):
     def __init__(self, title, number):
@@ -64,8 +68,7 @@ class DVDInfo(DiscInfo):
         self.context = 'video'
         self.offset = 0
 
-        if mediainfo.DEBUG > 1:
-            print 'trying buggy dvd detection'
+        log.info('trying buggy dvd detection')
 
         if isinstance(device, file):
             self.valid = self.isDVDiso(device)
