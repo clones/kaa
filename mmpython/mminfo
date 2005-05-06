@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.6  2005/05/06 18:43:41  dischi
+# remove duplicate logger
+#
 # Revision 1.5  2005/05/06 16:47:46  dischi
 # switch to logging support, may need level adjustments
 #
@@ -100,10 +103,6 @@ for o, a in opts:
         a = max(0, min(int(a), 2))
         print 'setting to log level %s' % a
         logger.setLevel(DEBUG_LEVEL[a])
-
-hdlr = logging.StreamHandler()
-hdlr.setFormatter(formatter)
-logger.addHandler(hdlr)
 
 import mmpython
 
