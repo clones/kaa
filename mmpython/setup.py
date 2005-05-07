@@ -9,7 +9,9 @@ import popen2
 
 from mmpython import version
 
-extensions = [ Extension('mmpython/disc/cdrom', ['disc/cdrommodule.c']) ]
+extensions = [ Extension('mmpython/disc/cdrom',
+                         ['mmpython/disc/cdrommodule.c']) ]
+
 # check for libdvdread (bad hack!)
 # Windows does not have Popen4, so catch exception here
 try:
@@ -18,7 +20,7 @@ try:
         # gcc failed, but not with 'cannot find', so libdvd must be
         # somewhere (I hope)
         extensions.append(Extension('mmpython/disc/ifoparser',
-                                    ['disc/ifomodule.c'],
+                                    ['mmpython/disc/ifomodule.c'],
                                     libraries=[ 'dvdread' ],
                                     library_dirs=['/usr/local/lib'],
                                     include_dirs=['/usr/local/include']))
