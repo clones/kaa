@@ -4,6 +4,9 @@
 # $Id$
 # -----------------------------------------------------------------------
 # $Log$
+# Revision 1.7  2005/05/07 11:49:34  dischi
+# adjust to new codebase
+#
 # Revision 1.6  2005/05/06 18:43:41  dischi
 # remove duplicate logger
 #
@@ -49,12 +52,10 @@
 import sys
 import os
 
-# add .. for source usage
-sys.path = ['..'] + sys.path
-
 print 'mmpython media info'
 
-import version
+import mmpython
+import mmpython.version as version
 import logging
 import getopt
 
@@ -104,7 +105,6 @@ for o, a in opts:
         print 'setting to log level %s' % a
         logger.setLevel(DEBUG_LEVEL[a])
 
-import mmpython
 
 for file in args:
     medium = mmpython.parse(file)
@@ -115,7 +115,6 @@ for file in args:
         print "filename : %s" % file
     if medium:
         print unicode(medium).encode('latin-1', 'replace')
-        print
         print
     else:
         print "No Match found"
