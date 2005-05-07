@@ -58,7 +58,7 @@ class ImageInfo(mediainfo.MediaInfo):
     Digital Images, Photos, Pictures.
     """
     def __init__(self):
-        MediaInfo.__init__(self)
+        mediainfo.MediaInfo.__init__(self)
         for k in ATTRIBUTES:
             setattr(self,k,None)
             self.keys.append(k)
