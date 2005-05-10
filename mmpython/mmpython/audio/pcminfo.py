@@ -42,6 +42,9 @@ class PCMInfo(mediainfo.AudioInfo):
            raise mediainfo.MMPythonParseError()
        (self.type, self.samplerate, self.channels, self.bitrate, \
         self.samplebits) = t
+       if self.bitrate == -1:
+           # doesn't look right
+           raise mediainfo.MMPythonParseError()
        self.mime = "audio/%s" % self.type
        
     def _what(self,f):
