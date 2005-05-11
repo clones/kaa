@@ -178,6 +178,7 @@ class DVDInfo(DiscInfo):
                os.path.isdir(dirname+'/video_ts') or \
                os.path.isdir(dirname+'/Video_ts'):
             self.lsdvd(dirname)
+            return
         raise mediainfo.MMPythonParseError()
 
 
