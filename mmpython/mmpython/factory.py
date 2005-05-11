@@ -227,7 +227,7 @@ class _Factory:
             try:
                 f = open(filename,'rb')
             except IOError:
-                print 'IOError reading %s' % filename
+                log.error('IOError reading %s' % filename)
                 return None
             r = self.create_from_file(f)
             f.close()
