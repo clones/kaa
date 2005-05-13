@@ -1,35 +1,16 @@
 #!/usr/bin/python
-#if 0
-# -----------------------------------------------------------------------
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# mminfo - sample application for mmpython
+# -----------------------------------------------------------------------------
 # $Id$
-# -----------------------------------------------------------------------
-# $Log$
-# Revision 1.7  2005/05/07 11:49:34  dischi
-# adjust to new codebase
 #
-# Revision 1.6  2005/05/06 18:43:41  dischi
-# remove duplicate logger
-#
-# Revision 1.5  2005/05/06 16:47:46  dischi
-# switch to logging support, may need level adjustments
-#
-# Revision 1.4  2004/05/28 12:26:24  dischi
-# Replace __str__ with unicode to avoid bad transformations. Everything
-# inside mmpython should be handled as unicode object.
-#
-# Revision 1.3  2004/05/24 12:54:35  dischi
-# debug update
-#
-# Revision 1.2  2004/05/17 19:10:57  dischi
-# better DEBUG handling
-#
-# Revision 1.1  2004/05/17 19:00:58  dischi
-# rename mediatest.py to mminfo and install it as script to bin
-#
-#
-# -----------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # MMPython - Media Metadata for Python
-# Copyright (C) 2003 Thomas Schueppel, Dirk Meyer
+# Copyright (C) 2003-2005 Thomas Schueppel, Dirk Meyer
+#
+# First Edition: Thomas Schueppel <stain@acm.org>
+# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,20 +25,18 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-# 
-# -----------------------------------------------------------------------
-#endif
+#
+# -----------------------------------------------------------------------------
 
-
+# python imports
 import sys
 import os
+import getopt
+import logging
 
-print 'mmpython media info'
-
+# mmpython imports
 import mmpython
 import mmpython.version as version
-import logging
-import getopt
 
 def usage():
     print
@@ -73,11 +52,11 @@ def usage():
     print '  mminfo /dev/dvd'
     print
     sys.exit(0)
-    
+
+
+print 'mmpython media info'
+
 # create and setup the root logger object.
-# using logging.getLogger() gives the root logger, calling
-# logging.getLogger('foo') returns a new logger with the same default
-# settings.
 logger = logging.getLogger()
 
 # set stdout logging
