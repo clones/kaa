@@ -44,7 +44,7 @@ log = logging.getLogger('mmpython')
 try:
     import Image as PIL
 except:
-    log.warning('Python Imaging not found')
+    log.info('Python Imaging not found')
     PIL = None
 
 

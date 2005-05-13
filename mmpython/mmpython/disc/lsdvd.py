@@ -220,7 +220,7 @@ else:
             LSDVD_EXE = os.path.join(path, 'lsdvd')
             break
     else:
-        log.error('ImportError: lsdvd not found')
+        log.info('ImportError: lsdvd not found')
         raise ImportError
 
 mmpython.registertype( 'video/dvd', mediainfo.EXTENSION_DEVICE,
