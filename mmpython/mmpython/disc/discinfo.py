@@ -99,6 +99,10 @@ def cdrom_disc_status(device, handle_mix = 0):
 
     if not s == CDS_DISC_OK:
         # no disc, error, whatever
+        try:
+            os.close(fd)
+        except:
+            pass
         return 0
 
     if os.uname()[0] == 'FreeBSD':
@@ -122,6 +126,7 @@ def cdrom_disc_status(device, handle_mix = 0):
     else:
         s = ioctl(fd, CDROM_DISC_STATUS)
     os.close(fd)
+
     if s == CDS_MIXED and handle_mix:
         return 4
     if s == CDS_AUDIO or s == CDS_MIXED:
@@ -139,10 +144,10 @@ def cdrom_disc_status(device, handle_mix = 0):
         # not readable
     	fd.close()
 	return 3
-    else:
-        # disc ok
-    	fd.close()
-    	return 2
+
+    # disc ok
+    fd.close()
+    return 2
 
 
 id_cache = {}
