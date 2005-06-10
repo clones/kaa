@@ -137,31 +137,32 @@ class eyeD3Info(mediainfo.MusicInfo):
       try:
          if id3 and id3.tag:
             log.debug(id3.tag.frames)
-            for k in MP3_INFO_TABLE:
+            for k, var in MP3_INFO_TABLE.items():
                if id3.tag.frames[k]:
                   if k == 'APIC':
-                     pass
+                     setattr(self, var, id3.tag.frames[k][0])
                   else:
-                     setattr(self, MP3_INFO_TABLE[k],
-                             id3.tag.frames[k][0].text)
+                     setattr(self, var, id3.tag.frames[k][0].text)
             if id3.tag.getYear():
                self.date = id3.tag.getYear()
             tab = {}
             for f in id3.tag.frames:
-                if f.__class__ is eyeD3_frames.TextFrame:
-                    tab[f.header.id] = f.text
-                elif f.__class__ is eyeD3_frames.UserTextFrame:
-                    tab[f.header.id] = f.text
-                elif f.__class__ is eyeD3_frames.DateFrame:
-                    tab[f.header.id] = f.date_str
-                elif f.__class__ is eyeD3_frames.CommentFrame:
-                    tab[f.header.id] = f.comment
-                elif f.__class__ is eyeD3_frames.URLFrame:
-                    tab[f.header.id] = f.url
-                elif f.__class__ is eyeD3_frames.UserURLFrame:
-                    tab[f.header.id] = f.url
-                else:
-                   log.debug(f.__class__)
+               if f.__class__ is eyeD3_frames.TextFrame:
+                  tab[f.header.id] = f.text
+               elif f.__class__ is eyeD3_frames.UserTextFrame:
+                  tab[f.header.id] = f.text
+               elif f.__class__ is eyeD3_frames.DateFrame:
+                  tab[f.header.id] = f.date_str
+               elif f.__class__ is eyeD3_frames.CommentFrame:
+                  tab[f.header.id] = f.comment
+               elif f.__class__ is eyeD3_frames.URLFrame:
+                  tab[f.header.id] = f.url
+               elif f.__class__ is eyeD3_frames.UserURLFrame:
+                  tab[f.header.id] = f.url
+               elif f.__class__ is eyeD3_frames.ImageFrame:
+                  tab[f.header.id] = f
+               else:
+                  log.debug(f.__class__)
             self.appendtable('id3v2', tab, 'en')
 
             if id3.tag.frames['TCON']:
@@ -173,12 +174,12 @@ class eyeD3Info(mediainfo.MusicInfo):
                   try:
                       genre = int(tcon[1:tcon.find(')')])
                   except ValueError:
-                      pass
+                     genre = tcon
                if genre is not None:
                   try:
                      self.genre = id3info.GENRE_LIST[genre]
                   except:
-                     pass
+                     self.genre = genre
             # and some tools store it as trackno/trackof in TRCK
             if not self['trackof'] and self['trackno'] and \
                    self['trackno'].find('/') > 0:
