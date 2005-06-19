@@ -116,6 +116,7 @@ class _Factory:
         import video.ogminfo
         import video.mkvinfo
         import misc.xmlinfo
+        import misc.dirinfo
         
         # import some disc modules (may fail)
         try:
