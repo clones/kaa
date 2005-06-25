@@ -1,0 +1,9 @@
+include doc/AUTHORS
+recursive-include src *.py
+recursive-include src *.c
+recursive-include src *.h
+
+include setup.py MANIFEST
+
+
+
