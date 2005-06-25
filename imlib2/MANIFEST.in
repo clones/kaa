@@ -1,0 +1,6 @@
+include doc/AUTHORS
+include kaa-imlib2.spec
+include src/display.h
+include src/font.h
+include src/image.h
+include src/rawformats.h
