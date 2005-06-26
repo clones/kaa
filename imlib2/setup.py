@@ -104,6 +104,8 @@ else:
 
 config_h.close()
 
+# create fake kaa.__init__.py
+open('src/__init__.py', 'w').close()
 
 setup(name="kaa-imlib2", version="0.1",
     ext_modules=[
@@ -116,6 +118,9 @@ setup(name="kaa-imlib2", version="0.1",
     py_modules=["kaa.Imlib2"],
     package_dir = {"kaa": "src" }
 )
+
+# delete fake kaa.__init__.py
+os.unlink('src/__init__.py')
 
 # delete src/config.h
 os.unlink('src/config.h')
