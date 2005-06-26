@@ -7,7 +7,7 @@ for a in sys.argv:
         distutils.core.setup(name="kaa", version="0.1")
         sys.exit(0)
 
-for submodule in [ 'imlib2', 'thumb' ]:
+for submodule in [ 'imlib2', 'thumb', 'epg' ]:
     print '[setup] Entering kaa submodule', submodule
     os.chdir(submodule)
     execfile('setup.py')
