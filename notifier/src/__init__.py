@@ -30,10 +30,11 @@
 # -----------------------------------------------------------------------------
 
 # python imports
-import notifier
+import sys
+import logging
 
 # the real notifier module
-import logging
+import notifier
 
 # kaa.notifier imports
 from signals import *
@@ -65,6 +66,17 @@ def init(type = notifier.GENERIC):
             globals()[var] = getattr(notifier, var)
 
 
+def shutdown():
+    """
+    Shutdown notifier and kill all background processes.
+    """
+    kill_processes()
+    if running:
+        # notifier loop still running, send system exit
+        log.info('Stop notifier loop')
+        sys.exit(0)
+
+    
 def loop():
     """
     Notifier main loop function. It will loop until an exception
