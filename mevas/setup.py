@@ -37,11 +37,12 @@ open('__init__.py', 'w').close()
 distutils.core.setup(
     name        = 'kaa-mevas',
     version     = '0.1',
-    package_dir = {'kaa': ".", 'kaa.mevas': 'src',
-                   'kaa.mevas.imagelib': "src/imagelib",
-                   'kaa.mevas.displays': 'src/displays' },
-    packages    = ['kaa', 'kaa.mevas', 'kaa.mevas.imagelib',
-                   'kaa.mevas.displays'],
+    package_dir = { 'kaa': ".", 'kaa.mevas': 'src',
+                    'kaa.mevas.imagelib': "src/imagelib",
+                    'kaa.mevas.displays': 'src/displays' },
+    py_modules  = [ 'kaa.__init__' ],
+    packages    = [ 'kaa', 'kaa.mevas', 'kaa.mevas.imagelib',
+                    'kaa.mevas.displays'],
     )
 
 # delete fake kaa.__init__.py

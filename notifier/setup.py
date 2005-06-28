@@ -41,6 +41,7 @@ distutils.core.setup(
     version     = '0.1',
     package_dir = {'kaa': '.', 'kaa.notifier': 'src' },
     packages    = ['kaa', 'kaa.notifier'],
+    py_modules  = [ 'kaa.__init__' ],
     )
 
 # delete fake kaa.__init__.py
