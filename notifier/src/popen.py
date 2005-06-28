@@ -58,7 +58,7 @@ import logging
 import notifier
 
 # get logging object
-log = logging.getLogger('popen')
+log = logging.getLogger('notifier')
 
 
 class Process(object):

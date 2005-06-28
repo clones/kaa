@@ -58,7 +58,7 @@ import notifier
 import logging
 
 # get logging object
-log = logging.getLogger('fthread')
+log = logging.getLogger('notifier')
 
 # internal list of callbacks that needs to be called from the main loop
 _callbacks = []
