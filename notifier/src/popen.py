@@ -125,12 +125,11 @@ class Process(object):
         return not self.__dead
 
 
-    def stop( self, cmd = '', wait = True ):
+    def stop( self, cmd = '' ):
         """
         Stop the child. If 'cmd' is given, this stop command will send to
         the app to stop itself. If this is not working, kill -15 and kill -9
-        will be used to kill the app. If wait is True, this function will
-        call notifier.step until the child is dead.
+        will be used to kill the app.
         """
         if self.stopping:
             return
@@ -146,9 +145,6 @@ class Process(object):
             else:
                 cb = notifier.Callback( self.__kill, 15 )
                 self.__kill_timer = notifier.addTimer( 0, cb )
-
-            while wait and not self.__dead:
-                notifier.step()
 
 
     def __kill( self, signal ):
