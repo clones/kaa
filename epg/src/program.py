@@ -10,7 +10,7 @@
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
-#                Rob Shortt <rob@infointeractive.com>
+#                Rob Shortt <rob@tvcentric.com>
 #
 # Please see the file doc/AUTHORS for a complete list of authors.
 #

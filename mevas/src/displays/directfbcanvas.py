@@ -8,8 +8,8 @@
 # kaa-mevas - MeBox Canvas System
 # Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
 #
-# First Edition: Rob Shortt <rob@infointeractive.com>
-# Maintainer:    Rob Shortt <rob@infointeractive.com>
+# First Edition: Rob Shortt <rob@tvcentric.com>
+# Maintainer:    Rob Shortt <rob@tvcentric.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

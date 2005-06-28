@@ -8,8 +8,8 @@
 # kaa-epg - Python EPG module
 # Copyright (C) 2002-2005 Dirk Meyer, Rob Shortt, et al.
 #
-# First Edition: Rob Shortt <rob@infointeractive.com>
-# Maintainer:    Rob Shortt <rob@infointeractive.com>
+# First Edition: Rob Shortt <rob@tvcentric.com>
+# Maintainer:    Rob Shortt <rob@tvcentric.com>
 #
 # Please see the file doc/AUTHORS for a complete list of authors.
 #
