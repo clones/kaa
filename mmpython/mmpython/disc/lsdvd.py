@@ -33,6 +33,7 @@
 import os
 import popen2
 import logging
+import re
 
 # mmpython imports
 from mmpython import mediainfo
@@ -98,7 +99,7 @@ class DVDTitle(mediainfo.AVInfo):
 
         self.mime = 'video/mpeg'
 
-        l = data[3].split(':')
+        l = re.split('[:.]', data[3])
         self.length   = (int(l[0])*60+int(l[1]))*60+int(l[2])
         self.trackno  = int(data[1])
         self.chapters = int(data[5])
