@@ -386,7 +386,7 @@ class Watcher(object):
     def killall( self ):
         # stop all childs without waiting
         for p in self.__processes:
-            p.stop(wait=False)
+            p.stop()
 
         # now wait until all childs are dead
         while self.__processes:
