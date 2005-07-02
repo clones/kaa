@@ -2,7 +2,8 @@ import os
 import sys
 import distutils.core
 
-submodules = [ 'imlib2', 'display', 'mevas', 'thumb', 'epg', 'notifier' ]
+submodules = [ 'imlib2', 'display', 'mevas', 'thumb', 'epg', 'notifier',
+               'metadata' ]
 
 for a in sys.argv:
     if a.startswith('--help'):
