@@ -29,4 +29,4 @@
 #
 # -----------------------------------------------------------------------------
 
-from interface import create, check
+from interface import create, check, NORMAL, LARGE, FAILED, MISSING
