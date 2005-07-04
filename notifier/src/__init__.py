@@ -66,16 +66,38 @@ def init(type = notifier.GENERIC):
             globals()[var] = getattr(notifier, var)
 
 
+_shutdown_cb = []
+
+def addShutdown(function):
+    """
+    Add a function to be called on shutdown.
+    """
+    if not function in _shutdown_cb:
+        _shutdown_cb.append(function)
+    return function
+
+
+def removeShutdown(self, function):
+    """
+    Remove a function from the list that will be called on shutdown.
+    """
+    while function in _shutdown_cb:
+        _shutdown_cb.remove(function)
+
+        
 def shutdown():
     """
     Shutdown notifier and kill all background processes.
     """
-    kill_processes()
     if running:
         # notifier loop still running, send system exit
         log.info('Stop notifier loop')
         sys.exit(0)
-
+    kill_processes()
+    while _shutdown_cb:
+        # call all shutdown functions
+        _shutdown_cb.pop()()
+        
     
 def loop():
     """
@@ -87,7 +109,7 @@ def loop():
     while 1:
         try:
             notifier.loop()
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             break
         except Exception, e:
             if has_signal():
@@ -96,7 +118,8 @@ def loop():
                 running = False
                 raise e
     running = False
-
+    shutdown()
+    
 
 def step(*args, **kwargs):
     """
@@ -104,7 +127,7 @@ def step(*args, **kwargs):
     """
     try:
         notifier.step(*args, **kwargs)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     except Exception, e:
         if has_signal():
