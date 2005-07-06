@@ -54,8 +54,14 @@ __all__ = [ 'Thread', 'call_from_main' ]
 # python imports
 import copy
 import threading
-import notifier
 import logging
+
+try:
+    # try to import pyNotifier
+    import notifier
+except ImportError:
+    # use a copy of nf_generic
+    import nf_generic as notifier
 
 # get logging object
 log = logging.getLogger('notifier')

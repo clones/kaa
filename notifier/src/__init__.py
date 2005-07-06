@@ -33,9 +33,17 @@
 import sys
 import logging
 
-# the real notifier module
-import notifier
-
+try:
+    # try to import pyNotifier and wrap everything in it
+    import notifier
+    # init pyNotifier with the generic notifier
+    notifier.init(notifier.GENERIC)
+    use_pynotifier = True
+except ImportError:
+    # use a copy of nf_generic since pyNotifier isn't installed
+    import nf_generic as notifier
+    use_pynotifier = False
+    
 # kaa.notifier imports
 from signals import *
 from signals import register as signal
@@ -50,16 +58,17 @@ log = logging.getLogger('notifier')
 # variable to check if the notifier is running
 running = False
 
-# variable to check if the notifier is initialized
-initialized = False
 
-
-def init(type = notifier.GENERIC):
+def init(type):
     """
-    Init the notifier module.
+    Init the notifier module. This only needs to be called when pyNotifier
+    is used and not the notifier should be something else than the generic
+    one.
     """
-    global initialized
-    initialized = True
+    if not use_pynotifier:
+        raise AttributeError('pyNotifier not installed')
+    if type == notifier.GENERIC:
+        raise AttributeError('generic notifier already running')
     notifier.init(type)
     for var in globals():
         if var in _notifier_vars:
@@ -171,8 +180,7 @@ def timer(interval, function, *args, **kwargs):
 # module. Mark them in _notifier_vars to be overwritten later in init.
 _notifier_vars = []
 for var in dir(notifier):
-    if getattr(notifier, var) == None and not var in globals():
+    if (var == var.upper() or var.startswith('add') or \
+        var.startswith('remove')) and not var in globals():
         _notifier_vars.append(var)
-        exec('%s = notifier.%s' % (var, var))
-    if var == var.upper() and not var in _notifier_vars:
         exec('%s = notifier.%s' % (var, var))

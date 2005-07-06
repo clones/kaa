@@ -31,8 +31,12 @@
 
 __all__ = [ 'Callback', 'Function', 'CallbackObject' ]
 
-# import pyNotifier
-import notifier
+try:
+    # try to import pyNotifier
+    import notifier
+except ImportError:
+    # use a copy of nf_generic
+    import nf_generic as notifier
 
 class Callback(object):
     """
