@@ -41,20 +41,6 @@ imlib2so = Extension('kaa.imlib2._Imlib2module', files,
                      libraries = ['png', 'rt'],
                      config='src/config.h')
 
-def check_link(code, args):
-    outfile = "/tmp/a.out.%d" % os.getpid()
-    f = os.popen("cc -x c - -o %s %s &>/dev/null" % (outfile, args), "w")
-    if not f:
-        return False
-
-    f.write(code)
-    result = f.close()
-
-    if os.path.exists(outfile):
-        os.unlink(outfile)
-
-    return result == None
-
 
 if not imlib2so.check_library('imlib2', '1.1.1'):
     print 'Imlib2 >= 1.1.1 not found'
