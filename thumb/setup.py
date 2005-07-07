@@ -46,6 +46,13 @@ if not thumbnailer.check_library('imlib2', '1.1.1'):
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
+if not thumbnailer.check_cc([], '', '-lpng'):
+    print 'Error: libpng is missing.'
+    sys.exit(1)
+
+if not thumbnailer.check_cc(['<png.h>'], '', '-lpng'):
+    print 'Error: libpng header file is missing.'
+    sys.exit(1)
 
 if thumbnailer.check_library('epeg', '0.9'):
     print 'epeg extention enabled'
