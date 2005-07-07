@@ -26,44 +26,20 @@
 #
 # -----------------------------------------------------------------------------
 
-from distutils.core import setup, Extension
-import os
+# python imports
 import sys
 
-files = ["src/imlib2.c", "src/image.c", "src/font.c", "src/rawformats.c" ]
-
-include_dirs = []
-library_dirs = []
-libraries    = ['png', "rt"]
-
-def check_config(name, minver):
-    """
-    Check dependencies add add the flags to include_dirs, library_dirs and
-    libraries. The basic logic is taken from pygame.
-    """
-    command = name + '-config --version --cflags --libs 2>/dev/null'
-    try:
-        config = os.popen(command).readlines()
-        if len(config) == 0:
-            raise ValueError, 'command not found'
-        flags  = (' '.join(config[1:]) + ' ').split()
-        ver = config[0].strip()
-        if minver and ver < minver:
-            err= 'requires %s version %s (%s found)' % \
-                 (name, minver, ver)
-            raise ValueError, err
-        for f in flags:
-            if f[:2] == '-I':
-                include_dirs.append(f[2:])
-            if f[:2] == '-L':
-                library_dirs.append(f[2:])
-            if f[:2] == '-l':
-                libraries.append(f[2:])
-        return True
-    except Exception, e:
-        print 'WARNING: "%s-config" failed: %s' % (name, e)
-        return False
-
+try:
+    # kaa base imports
+    from kaa.base.distribution import Extension, setup
+except ImportError:
+    print 'kaa.base not installed'
+    sys.exit(1)
+    
+files = [ 'src/imlib2.c', 'src/image.c', 'src/font.c', 'src/rawformats.c' ]
+imlib2so = Extension('kaa.imlib2._Imlib2module', files,
+                     libraries = ['png', 'rt'],
+                     config='src/config.h')
 
 def check_link(code, args):
     outfile = "/tmp/a.out.%d" % os.getpid()
@@ -80,47 +56,26 @@ def check_link(code, args):
     return result == None
 
 
-if not check_config('imlib2', '1.1.1'):
+if not imlib2so.check_library('imlib2', '1.1.1'):
     print 'Imlib2 >= 1.1.1 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
 
-# create config file
-config_h = open('src/config.h', 'w')
-
-if 'X11' in libraries:
+if 'X11' in imlib2so.libraries:
     files.append('src/display.c')
-    config_h.write('#define USE_IMLIB2_DISPLAY\n')
+    imlib2so.config('#define USE_IMLIB2_DISPLAY')
 else:
     print 'Imlib2 compiled without X11, not building kaa-imlib2 display'
 
-if check_link("#include <fcntl.h>\nvoid main() {shm_open(\"foobar\");}",
-              "-lrt"):
-    config_h.write('#define HAVE_POSIX_SHMEM\n')
+if imlib2so.check_cc(['<fcntl.h>'], 'shm_open("foobar");', '-lrt'):
+    imlib2so.config('#define HAVE_POSIX_SHMEM')
     print "POSIX shared memory enabled"
 else:
     print "POSIX shared memory disabled"
 
-config_h.close()
 
-# create fake kaa.__init__.py
-open('src/__init__.py', 'w').close()
-
-setup(name="kaa-imlib2", version="0.1",
-    ext_modules=[
-        Extension("kaa._Imlib2module",
-            files,
-            library_dirs=library_dirs,
-            include_dirs=include_dirs,
-            libraries=libraries)
-    ],
-    py_modules=["kaa.Imlib2"],
-    package_dir = {"kaa": "src" }
+setup(module      = 'imlib2',
+      version     = '0.1',
+      ext_modules = [ imlib2so ]
 )
-
-# delete fake kaa.__init__.py
-os.unlink('src/__init__.py')
-
-# delete src/config.h
-os.unlink('src/config.h')
