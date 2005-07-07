@@ -11,11 +11,11 @@ PyMethodDef Imlib2_methods[] = {
     { NULL }
 };
 
-void init_display()
+void init_Display()
 {
     PyObject *m, *pyimlib2_module, *c_api;
     void **api_ptrs;
-    m = Py_InitModule("_display", Imlib2_methods);
+    m = Py_InitModule("_Display", Imlib2_methods);
 
     pyimlib2_module = PyImport_ImportModule("kaa.imlib2._Imlib2");
     if (pyimlib2_module == NULL)

@@ -27,23 +27,14 @@
 #
 # -----------------------------------------------------------------------------
 
-import os
-import distutils.core
+# python imports
+import sys
 
-# create fake kaa.__init__.py
-open('__init__.py', 'w').close()
-
-# call setup
-distutils.core.setup(
-    name        = 'kaa-mevas',
-    version     = '0.1',
-    package_dir = { 'kaa': ".", 'kaa.mevas': 'src',
-                    'kaa.mevas.imagelib': "src/imagelib",
-                    'kaa.mevas.displays': 'src/displays' },
-    py_modules  = [ 'kaa.__init__' ],
-    packages    = [ 'kaa', 'kaa.mevas', 'kaa.mevas.imagelib',
-                    'kaa.mevas.displays'],
-    )
-
-# delete fake kaa.__init__.py
-os.unlink('__init__.py')
+try:
+    # kaa base imports
+    from kaa.base.distribution import setup
+except ImportError:
+    print 'kaa.base not installed'
+    sys.exit(1)
+    
+setup(module = 'mevas', version = '0.1')

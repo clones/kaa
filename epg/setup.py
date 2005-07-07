@@ -1,27 +1,46 @@
-#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# setup.py - setup script for kaa.epg
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa-epg - Python EPG module
+# Copyright (C) 2002-2005 Dirk Meyer, Rob Shortt, et al.
+#
+# First Edition: Dirk Meyer <dmeyer@tzi.de>
+# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+#
+# Please see the file docs/CREDITS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
 
-"""Setup script for the kaa.epg distribution."""
+# python imports
+import sys
 
-__revision__ = "$Id$"
-
-import os
-import distutils.core
-
-# create fake kaa.__init__.py
-open('__init__.py', 'w').close()
-
-distutils.core.setup (
-    name         = "kaa-epg",
-    version      = 0.1,
-    description  = "Python EPG module",
-    author       = "Freevo Project",
-    author_email = "freevo-devel@lists.sourceforge.net",
-    url          = "http://freevo.sf.net/kaa",
+try:
+    # kaa base imports
+    from kaa.base.distribution import Extension, setup
+except ImportError:
+    print 'kaa.base not installed'
+    sys.exit(1)
     
-    package_dir  = {"kaa": ".", "kaa.epg": "src" },
-    packages     = [ 'kaa.epg' ],
-    py_modules   = [ 'kaa.__init__' ],
-    )
 
-# delete fake kaa.__init__.py
-os.unlink('__init__.py')
+setup(module       = 'epg',
+      version      = '0.1',
+      description  = "Python EPG module",
+      )
