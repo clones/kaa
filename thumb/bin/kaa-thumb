@@ -4,8 +4,8 @@ import sys
 import kaa.thumb
 
 for file in sys.argv[1:]:
-    thumbnail = kaa.thumb.check(file)
-    if thumbnail:
+    type, thumbnail = kaa.thumb.check(file)
+    if type != kaa.thumb.MISSING:
         print '%s: %s' % (file, thumbnail)
     else:
         print 'thumbnailing %s' % file
