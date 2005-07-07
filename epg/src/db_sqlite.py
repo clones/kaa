@@ -34,11 +34,8 @@
 import os
 import logging
 
-# notifier
-try:
-    import notifier
-except ImportError:
-    notifier = None
+# kaa imports
+import kaa.notifier
 
 # sqlite
 import sqlite
@@ -83,9 +80,8 @@ class Database(object):
                                          timeout=10)
                 break
             except sqlite.OperationalError, e:
-                if notifier:
-                    # keep main loop alive
-                    notifier.step(False, False)
+                # keep main loop alive
+                kaa.notifier.step(False, False)
 
         self.cursor = self.db.cursor()
         if not dbmissing:
@@ -132,9 +128,8 @@ class Database(object):
                 self.cursor.execute(query)
                 return self.cursor.fetchall()
             except sqlite.OperationalError, e:
-                if notifier:
-                    # keep main loop alive
-                    notifier.step(False, False)
+                # keep main loop alive
+                kaa.notifier.step(False, False)
 
 
     def get_version(self):

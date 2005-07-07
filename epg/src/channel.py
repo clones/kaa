@@ -5,7 +5,7 @@
 # $Id$
 #
 # This file defines a channel class for usage inside the guide. The channel
-# has support for pynotifier and will call the step function on longer
+# has support for kaa-notifier and will call the step function on longer
 # operations.
 #
 # The channel has the following attributes:
@@ -53,14 +53,7 @@ import time
 import logging
 import random
 
-# Try to import the notifier or set the variable notifier to None. If
-# 'notifier' is not None and 'notifier.step' is not None, call the step
-# function to keep the notifier alive
-
-try:
-    import notifier
-except ImportError:
-    notifier = None
+import kaa.notifier
 
 # kaa.epg imports
 from program import Program
@@ -118,15 +111,15 @@ class Channel(object):
         log.debug('import for id=%s, %s-%s' % (self.id, start, stop))
         new_progs = []
         dummy_progs = []
-        # keep the notifier alive
+        # keep the main loop alive
         notifier_counter = 0
         for p in self.__epg.sql_get_programs(self.id, start, stop):
             i = Program(p.id, p.title, p.start, p.stop, p.episode, p.subtitle,
                         p['description'], channel=self)
             new_progs.append(i)
             notifier_counter = (notifier_counter + 1) % 500
-            if not notifier_counter and notifier and notifier.step:
-                notifier.step(False, False)
+            if not notifier_counter:
+                kaa.notifier.step(False, False)
             # TODO: add information about program being recorded which
             #       comes from another DB table - same with categories,
             #       ratings and advisories.
@@ -152,8 +145,8 @@ class Channel(object):
 
             for p in new_progs:
                 notifier_counter = (notifier_counter + 1) % 500
-                if not notifier_counter and notifier and notifier.step:
-                    notifier.step(False, False)
+                if not notifier_counter:
+                    kaa.notifier.step(False, False)
                 if p == p0 and p.start > start:
                     # gap at the beginning, find first program before this
                     # item and fill the space with a dummy
