@@ -40,79 +40,50 @@ import md5
 
 import _thumbnailer
 
-# thumbnail image dir for normal images
-_normal_dir = os.path.join(os.environ['HOME'], '.thumbnails/normal/')
-if not os.path.isdir(_normal_dir):
-    # create the 'normal' dir. Set permissions to user only. All files
-    # inside should also be user only, but who cares when the dir is save?
-    # Yes, I know, it's ugly :)
-    os.makedirs(_normal_dir, 0700)
+# default .thumbnail dir
+DOT_THUMBNAIL = os.path.join(os.environ['HOME'], '.thumbnails')
 
-# thumbnail image dir for large images
-_large_dir = os.path.join(os.environ['HOME'], '.thumbnails/large/')
-if not os.path.isdir(_large_dir):
-    # create the 'large' dir. Set permissions to user only. All files
-    # inside should also be user only, but who cares when the dir is save?
-    # Yes, I know, it's ugly :)
-    os.makedirs(_large_dir, 0700)
-
-# dir for failed thumbnails
-_failed_dir = os.path.join(os.environ['HOME'], '.thumbnails/fail/kaa/')
-if not os.path.isdir(_failed_dir):
-    # create the 'fail' dir. Set permissions to user only. All files
-    # inside should also be user only, but who cares when the dir is save?
-    # Yes, I know, it's ugly :)
-    os.makedirs(_failed_dir, 0700)
-    
-
-def create(src, size = NORMAL, thumbnail_dir = ''):
+def create(src, size = NORMAL, destdir = DOT_THUMBNAIL, url = None):
     """
     Create a freedesktop.org thumbnail.
     """
-    src = os.path.normpath(src)
+    if not url:
+        # create url to be placed in the thumbnail
+        url = 'file://' + os.path.normpath(src)
 
-    if thumbnail_dir:
-        if size == NORMAL:
-            dst = thumbnail_dir + '/normal/'
-            size = (128, 128)
-        else:
-            dst = thumbnail_dir + '/large/'
-            size = (256, 256)
-        if not os.path.isdir(dst):
-            os.makedirs(dst, 0700)
-        dst = dst + md5.md5('file://' + src).hexdigest() + '.'
+    # create digest for filename
+    hexdigest = md5.md5(url).hexdigest()
+
+    if size == NORMAL:
+        dest = destdir + '/normal/'
+        size = (128, 128)
     else:
-        if size == NORMAL:
-            dst = _normal_dir + md5.md5('file://' + src).hexdigest() + '.'
-            size = (128, 128)
-        else:
-            dst = _large_dir + md5.md5('file://' + src).hexdigest() + '.'
-            size = (256, 256)
+        dest = destdir + '/large/'
+        size = (256, 256)
+        
+    if not os.path.isdir(dest):
+        os.makedirs(dest, 0700)
 
     if src.lower().endswith('jpg'):
         try:
-            _thumbnailer.epeg_thumbnail(src, dst + 'jpg', size)
-            return dst + 'jpg'
+            _thumbnailer.epeg_thumbnail(src, dest + hexdigest + '.jpg', size)
+            return dest + hexdigest + '.jpg'
         except IOError:
             pass
     try:
-        _thumbnailer.png_thumbnail(src, dst + 'png', size)
-        return dst + 'png'
+        _thumbnailer.png_thumbnail(src, dest + hexdigest + '.png', size)
+        return dest + hexdigest + '.png'
     except:
         # image is broken
-        if thumbnail_dir:
-            dst = thumbnail_dir + '/failed/kaa/'
-            if not os.path.isdir(dst):
-                os.makedirs(dst, 0700)
-            dst = dst + md5.md5('file://' + src).hexdigest() + '.png'
-        else:
-            dst = _failed_dir + md5.md5('file://' + src).hexdigest() + '.png'
-        _thumbnailer.fail_thumbnail(src, dst)
-        return dst
+        dest = destdir + '/failed/kaa/'
+        if not os.path.isdir(dest):
+            os.makedirs(dest, 0700)
+        _thumbnailer.fail_thumbnail(src, dest + hexdigest + '.png')
+        return dest + hexdigest + '.png'
 
 
 
-def check(file, size = NORMAL, thumbnail_dir = ''):
+def check(file, size = NORMAL, destdir = DOT_THUMBNAIL, url = None):
     """
     Check if a freedesktop.org thumbnail exists. Return is either the filename,
     False when the thumbnail can't be created or None is no information is
@@ -121,42 +92,41 @@ def check(file, size = NORMAL, thumbnail_dir = ''):
     try:
         file_stat = os.stat(file)
     except (OSError, IOError):
+        # file not found
         return FAILED, ''
     
     if file_stat[stat.ST_SIZE] < 30000:
         # do not create thumbnails of small files
         return size, file
 
-    file = os.path.normpath(file)
+    if not url:
+        # create url to be placed in the thumbnail
+        url = 'file://' + os.path.normpath(file)
 
-    if thumbnail_dir:
-        check_list = [ (thumbnail_dir + '/normal/', NORMAL),
-                       ( thumbnail_dir + '/large/', LARGE ) ]
-    else:
-        check_list = [ (_normal_dir, NORMAL), ( _large_dir, LARGE ) ]
+    # create digest for filename
+    hexdigest = md5.md5(url).hexdigest()
+
+    # directories to check
+    check_list = [ ( destdir + '/normal/', NORMAL),
+                   ( destdir + '/large/', LARGE ) ]
 
     if size == LARGE:
         check_list.reverse()
 
-    for dir, size in check_list:
-        dst = dir + md5.md5('file://' + file).hexdigest() + '.'
+    for dest, size in check_list:
+        dest = dest + hexdigest + '.'
         for ext in ('jpg', 'png'):
             try:
-                if os.stat(dst + ext)[stat.ST_MTIME] < \
+                if os.stat(dest + ext)[stat.ST_MTIME] < \
                        file_stat[stat.ST_MTIME]:
-                    os.unlink(dst + ext)
+                    os.unlink(dest + ext)
                 else:
-                    return size, dst + ext
+                    return size, dest + ext
             except (OSError, IOError):
                 pass
 
-    if thumbnail_dir:
-        dst = thumbnail_dir + '/failed/kaa/'
-        dst = dst + md5.md5('file://' + file).hexdigest() + '.'
-    else:
-        dst = _failed_dir + md5.md5('file://' + file).hexdigest() + '.png'
-
-    if os.path.isfile(dst):
-        return FAILED, ''
+    if os.path.isfile(destdir + '/failed/kaa/' + hexdigest + '.png'):
+        # failed before
+        return FAILED, destdir + '/failed/kaa/' + hexdigest + '.png'
 
     return MISSING, ''
