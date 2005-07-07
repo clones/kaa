@@ -29,7 +29,7 @@
 
 
 # imlib2
-from kaa import Imlib2
+from kaa import imlib2
 
 # mevas imports
 from kaa import mevas
@@ -43,7 +43,7 @@ class Imlib2Canvas(BitmapCanvas):
 
     def __init__(self, size, dither = True, blend = False):
         super(Imlib2Canvas, self).__init__(size, preserve_alpha = blend)
-        self._display = Imlib2.Display(size, dither, blend)
+        self._display = imlib2.Display(size, dither, blend)
         self._display.set_cursor_hide_timeout(1)
 
     def _blit(self, img, r):
@@ -70,5 +70,5 @@ class Imlib2Canvas(BitmapCanvas):
                 img = imagelib.crop(img, pos, size)
 
             data = img.get_raw_data("RGB")
-            img = Imlib2.new( size, data, "RGB" )
+            img = imlib2.new( size, data, "RGB" )
             self._display.render(img, pos)

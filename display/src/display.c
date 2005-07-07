@@ -17,7 +17,7 @@ void init_display()
     void **api_ptrs;
     m = Py_InitModule("_display", Imlib2_methods);
 
-    pyimlib2_module = PyImport_ImportModule("kaa._Imlib2");
+    pyimlib2_module = PyImport_ImportModule("kaa.imlib2._Imlib2");
     if (pyimlib2_module == NULL)
        return;
 

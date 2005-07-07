@@ -21,7 +21,7 @@ def get_backend(name):
 # Set default backend
 try:
     set_backend("imlib2")
-except ImportError:
+except ImportError, e:
     pass
 
 if _backend == None:

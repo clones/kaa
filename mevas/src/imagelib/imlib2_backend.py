@@ -29,7 +29,7 @@
 
 import copy
 import types
-from kaa import Imlib2
+from kaa import imlib2
 import base
 
 _capabilities =  {
@@ -52,10 +52,10 @@ class Image(base.Image):
     def __init__(self, image_or_filename):
         if isinstance(image_or_filename, Image):
             self._image = image_or_filename._image
-        elif isinstance(image_or_filename, Imlib2.Image):
+        elif isinstance(image_or_filename, imlib2.Image):
             self._image = image_or_filename
         elif type(image_or_filename) in types.StringTypes:
-            self._image = Imlib2.Image(image_or_filename)
+            self._image = imlib2.Image(image_or_filename)
         else:
             raise ValueError, "Unsupported image type: %s" % \
                   type(image_or_filename)
@@ -168,7 +168,7 @@ class Image(base.Image):
 
 class Font(base.Font):
     def __init__(self, fontdesc, color = (255, 255, 255, 255)):
-        self._font = Imlib2.Font(fontdesc, color)
+        self._font = imlib2.Font(fontdesc, color)
 
 
     def get_text_size(self, text):
@@ -197,17 +197,17 @@ def open(file):
 def new(size, rawdata = None, from_format = "BGRA"):
     if from_format not in _capabilities["from-raw-formats"]:
         raise ValueError, "Unsupported raw format: %s" % from_format
-    return Image( Imlib2.new(size, rawdata, from_format) )
+    return Image( imlib2.new(size, rawdata, from_format) )
 
 
 
 
 def add_font_path(path):
-    return Imlib2.add_font_path(path)
+    return imlib2.add_font_path(path)
 
 
 def load_font(font, size):
-    return Imlib2.load_font(font, size)
+    return imlib2.load_font(font, size)
 
 
 
@@ -237,5 +237,5 @@ def scale_preserve_aspect(image, size):
 
 
 def thumbnail(src, dst, size):
-    return Image( Imlib2.thumbnail(src, dst, size) )
+    return Image( imlib2.thumbnail(src, dst, size) )
 
