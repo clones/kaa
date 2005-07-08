@@ -109,6 +109,25 @@ class CanvasContainer(CanvasObject):
         self.queue_paint()
 
 
+    def get_childs_at(self, point):
+        """
+        Return all childs (and childs of childs) at the given point.
+        Only return canvas objects that are no conatiner.
+        """
+        children = []
+        for child in self.children:
+            r = (child.get_pos(), child.get_size())
+            if not rect.point_in_rect(point, r):
+                continue
+            if isinstance(child, CanvasContainer):
+                new_point = point[0] + child.get_pos()[0], \
+                            point[1] + child.get_pos()[1]
+                children.extend(child.get_childs_at(new_point))
+            else:
+                children.append(child)
+        return children
+    
+            
     def draw_image(self, image, dst_pos = (0, 0), dst_size = (-1, -1),
                src_pos = (0, 0), src_size = (-1, -1),
                visible = True, alpha = 255, zindex = 0):
