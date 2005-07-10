@@ -94,7 +94,7 @@ PyObject *render_imlib2_image(PyObject *self, PyObject *args)
 
 PyObject *render_imlib2_image(PyObject *self, PyObject *args)
 {
-    PyErr_Format(PyExc_SystemError, "kaa-display compiled without imlib2");
+    PyErr_Format(PyExc_SystemError, "kaa-display compiled without imlib2 display support.");
     return NULL;
 }
 

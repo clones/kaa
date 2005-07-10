@@ -133,13 +133,6 @@ X11Window_PyObject__hide(X11Window_PyObject * self, PyObject * args)
 }
 
 PyObject *
-X11Window_PyObject__sync(X11Window_PyObject * self, PyObject * args)
-{
-    XSync(self->display, False);
-    return Py_INCREF(Py_None), Py_None;
-}
-
-PyObject *
 X11Window_PyObject__set_geometry(X11Window_PyObject * self, PyObject * args)
 {
     int x, y;
@@ -186,7 +179,6 @@ X11Window_PyObject__get_geometry(X11Window_PyObject * self, PyObject * args)
 PyMethodDef X11Window_PyObject_methods[] = {
     { "show", ( PyCFunction ) X11Window_PyObject__show, METH_VARARGS },
     { "hide", ( PyCFunction ) X11Window_PyObject__hide, METH_VARARGS },
-    { "sync", ( PyCFunction ) X11Window_PyObject__sync, METH_VARARGS },
     { "set_geometry", ( PyCFunction ) X11Window_PyObject__set_geometry,
       METH_VARARGS },
     { "get_geometry", ( PyCFunction ) X11Window_PyObject__get_geometry,

@@ -121,10 +121,19 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     return events;
 }
 
+PyObject *
+X11Display_PyObject__sync(X11Display_PyObject * self, PyObject * args)
+{
+    XSync(self->display, False);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+
 
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events,
       METH_VARARGS },
+    { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
     { NULL, NULL }
 };
 

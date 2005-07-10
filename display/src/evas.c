@@ -160,6 +160,6 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
 }
 #endif
 
-#endif  // defined(ENABLE_ENGINE_GL_X11) ||
-        // defined (ENABLE_ENGINE_SOFTWARE_X11)
+#endif  /* defined(ENABLE_ENGINE_GL_X11) ||
+           defined (ENABLE_ENGINE_SOFTWARE_X11) */
 #endif  // USE_EVAS

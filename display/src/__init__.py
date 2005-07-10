@@ -88,6 +88,10 @@ class X11Display(object):
 
         return getattr(super(X11Display, self), attr)
 
+    def sync(self):
+        return self._display.sync()
+
+
 def _get_display(display):
     if not display:
         global _default_x11_display
@@ -114,6 +118,7 @@ class X11Window(object):
         display._windows[self._window.ptr] = weakref.ref(self)
         self._last_mousemove_time = 0
         self._cursor_hide_timeout = -1
+        self._cursor_hide_timer_id = -1
 
         # FIXME: Use Signal class for callbacks eventually.  This is temporary.
         self.input_callback = None
@@ -136,23 +141,32 @@ class X11Window(object):
     def handle_events(self, events):
         for event, args in events:
             if event == X11Display.XEVENT_MOTION_NOTIFY:
-                self._last_mousemove_time = time.time()
+                # Mouse moved, so show cursor.
                 if self._cursor_hide_timeout != 0:
                     self.set_cursor_visible(True)
+                # Remove any pending timer
+                if self._cursor_hide_timer_id != -1:
+                    kaa.notifier.removeTimer(self._cursor_hide_timer_id)
+                    self._cursor_hide_timer_id = -1
+                # Add a new timer to hide the cursor at the current interval.
+                if self._cursor_hide_timeout > 0:
+                    interval = self._cursor_hide_timeout * 1000
+                    id = kaa.notifier.addTimer(interval, self._cursor_hide_cb)
+                    self._cursor_hide_timer_id = id
+
             elif event == X11Display.XEVENT_KEY_PRESS and self.input_callback:
                 self.input_callback(args[0])
-            elif event == X11Display.XEVENT_EXPOSE:
+
+            elif event == X11Display.XEVENT_EXPOSE and self.expose_callback:
                 self.expose_callback(args)
                 
-        # FIXME: this needs to go on a timer -- need to hook into notifier or
-        # something?
-        if self._last_mousemove_time and \
-               time.time() - self._last_mousemove_time > \
-               self._cursor_hide_timeout:
-            self._last_mousemove_time = 0
-            if self._cursor_hide_timeout >= 0:
-                self.set_cursor_visible(False)
 
+    def _cursor_hide_cb(self):
+        self.set_cursor_visible(False)
+        self._cursor_hide_timer_id = -1
+        print "HIDE CURSOR"
+        self.get_display().sync()
+        return False
 
     def move(self, pos):
         self._window.set_geometry(pos, (-1, -1))
