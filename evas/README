@@ -1,0 +1,39 @@
+kaa-evas - python module for Evas
+=================================
+
+About
+-----
+
+kaa-evas is a python module for Evas, a canvas library written for the
+Enlightenment project.  This module is not complete. 
+
+kaa-evas requires CVS evas:
+
+   http://www.enlightenment.org/Enlightenment/Get_Enlightenment/index.html
+
+You can also use 0.9.9.011, if it's released:
+
+   http://enlightenment.freedesktop.org/ 
+
+To use kaa-evas with X11, you will need kaa-display.  The only Evas engine
+kaa-evas supports natively is the buffer engine (and it is required for
+building kaa-evas).
+
+kaa-evas requires kaa-base.
+
+
+Installation
+------------
+
+    python setup.py install
+
+
+License
+-------
+
+This code is released under the GNU GPL version 2.  Read it here:
+                                                                                                                                   
+        http://www.gnu.org/licenses/gpl.html
+
+
+   - Jason Tackaberry <tack@sault.org>
