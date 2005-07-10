@@ -38,6 +38,7 @@ import _Display
 
 # kaa notifier for the socket callback
 import kaa.notifier
+from kaa.notifier import Signal
 
 # pygame interface (only one function)
 image_to_surface = _Display.image_to_surface
@@ -120,9 +121,10 @@ class X11Window(object):
         self._cursor_hide_timeout = -1
         self._cursor_hide_timer_id = -1
 
-        # FIXME: Use Signal class for callbacks eventually.  This is temporary.
-        self.input_callback = None
-        self.expose_callback = None
+        self.signals = {
+            "key_press_event": Signal(),
+            "expose_event": Signal()
+        }
         
     def get_display(self):
         return self._display
@@ -139,6 +141,7 @@ class X11Window(object):
                                             src_pos, size, dither, blend)
 
     def handle_events(self, events):
+        expose_regions = []
         for event, args in events:
             if event == X11Display.XEVENT_MOTION_NOTIFY:
                 # Mouse moved, so show cursor.
@@ -154,17 +157,20 @@ class X11Window(object):
                     id = kaa.notifier.addTimer(interval, self._cursor_hide_cb)
                     self._cursor_hide_timer_id = id
 
-            elif event == X11Display.XEVENT_KEY_PRESS and self.input_callback:
-                self.input_callback(args[0])
+            elif event == X11Display.XEVENT_KEY_PRESS:
+                self.signals["key_press_event"].emit(args[0])
 
-            elif event == X11Display.XEVENT_EXPOSE and self.expose_callback:
-                self.expose_callback(args)
+            elif event == X11Display.XEVENT_EXPOSE:
+                # Queue expose regions so we only need to emit one signal.
+                expose_regions.append(args)
+
+        if len(expose_regions) > 0:
+            self.signals["expose_event"].emit(expose_regions)
                 
 
     def _cursor_hide_cb(self):
         self.set_cursor_visible(False)
         self._cursor_hide_timer_id = -1
-        print "HIDE CURSOR"
         self.get_display().sync()
         return False
 

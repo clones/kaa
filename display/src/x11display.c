@@ -86,6 +86,7 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     PyObject *events = PyList_New(0), *o;
     XEvent ev;
 
+    XSync(self->display, False);
     while (XPending(self->display)) {
         XNextEvent(self->display, &ev);
         if (ev.type == Expose) {
