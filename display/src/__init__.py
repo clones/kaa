@@ -131,9 +131,11 @@ class X11Window(object):
 
     def show(self):
         self._window.show()
+        self._display.handle_events()
 
     def hide(self):
         self._window.hide()
+        self._display.handle_events()
 
     def render_imlib2_image(self, i, dst_pos = (0, 0), src_pos = (0, 0),
                             size = (-1, -1), dither = True, blend = False):
@@ -171,23 +173,25 @@ class X11Window(object):
     def _cursor_hide_cb(self):
         self.set_cursor_visible(False)
         self._cursor_hide_timer_id = -1
-        self.get_display().sync()
+        self._display.handle_events()
         return False
 
     def move(self, pos):
-        self._window.set_geometry(pos, (-1, -1))
+        self.set_geometry(pos, (-1, -1))
 
     def resize(self, size):
-        self._window.set_geometry((-1, -1), size)
+        self.set_geometry((-1, -1), size)
 
     def set_geometry(self, pos, size):
         self._window.set_geometry(pos, size)
+        self._display.handle_events()
 
     def get_geometry(self):
         return self._window.get_geometry()
 
     def set_cursor_visible(self, visible):
         self._window.set_cursor_visible(visible)
+        self._display.handle_events()
 
     def set_cursor_hide_timeout(self, timeout):
         self._cursor_hide_timeout = timeout
@@ -232,6 +236,7 @@ class EvasWindow(X11Window):
 
         if needs_render:
             self._evas.render()
+            self._display.handle_events()
 
 
     def get_evas(self):

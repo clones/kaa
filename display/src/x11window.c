@@ -120,6 +120,7 @@ PyObject *
 X11Window_PyObject__show(X11Window_PyObject * self, PyObject * args)
 {
     XMapWindow(self->display, self->window);
+    XRaiseWindow(self->display, self->window);
     XSync(self->display, False);
     return Py_INCREF(Py_None), Py_None;
 }
