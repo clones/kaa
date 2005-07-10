@@ -1,5 +1,5 @@
 Summary: Python wrapper for Imlib2
-Name: pyimlib2
+Name: kaa-imlib2
 Version: 0.0.7
 Release: 1
 License: LGPL
@@ -13,7 +13,9 @@ BuildRequires: imlib2-devel >= 1.1.1
 BuildRequires: python >= 2.2
 
 %description
-pyimlib2 is small python module partially wrapping Imlib2. 
+Kaa is an umbrella project housing a set of Python modules related to
+media.  kaa-imlib2 is small python module partially wrapping Imlib2 and
+part of the Kaa project.
 
 Imlib2 is an advanced replacement library for libraries like libXpm that
 provides many more features with much greater flexibility and speed than
@@ -29,9 +31,9 @@ python setup.py build
 %install
 %{__rm} -rf %{buildroot}
 python setup.py install --root=%{buildroot} --record=INSTALLED_FILES
-
 cat >>INSTALLED_FILES << EOF
-%doc README
+%doc doc/README
+%doc doc/AUTHORS
 EOF
 
 %clean

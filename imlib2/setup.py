@@ -48,12 +48,6 @@ if not imlib2so.check_library('imlib2', '1.1.1'):
     sys.exit(1)
 
 
-if 'X11' in imlib2so.libraries:
-    files.append('src/display.c')
-    imlib2so.config('#define USE_IMLIB2_DISPLAY')
-else:
-    print 'Imlib2 compiled without X11, not building kaa-imlib2 display'
-
 if imlib2so.check_cc(['<fcntl.h>'], 'shm_open("foobar");', '-lrt'):
     imlib2so.config('#define HAVE_POSIX_SHMEM')
     print "POSIX shared memory enabled"

@@ -30,27 +30,7 @@ import types
 
 # imlib2 wrapper
 import _Imlib2
-
-def utf8(text):
-    """
-    Returns a UTF-8 string, converting from latin-1 if necessary.  This does a
-    pretty good job Doing the Right Thing, converting only when it's really
-    latin-1.  Of course it's not foolproof, but it works reasonably in
-    practice.
-    """
-    if type(text) == types.UnicodeType:
-        return text.encode("utf-8")
-
-    try:
-        text.decode("utf-8")
-    except:
-        try:
-            text = text.decode("latin-1").encode("utf-8")
-        except:
-            pass
-
-    return text
-
+from kaa.base.utils import utf8
 
 class Font(object):
     def __init__(self, fontdesc, color=(255,255,255,255)):

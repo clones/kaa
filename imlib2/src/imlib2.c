@@ -43,10 +43,6 @@
 #include "rawformats.h"
 #include "font.h"
 
-#ifdef USE_IMLIB2_DISPLAY
-#include "display.h"
-#endif
-
 PyObject *imlib2_create(PyObject *self, PyObject *args)
 {
     int w, h, num_bytes;
@@ -219,30 +215,12 @@ PyObject *imlib2_load_font(PyObject *self, PyObject *args)
 } 
 
 
-PyObject *imlib2_new_display(PyObject *self, PyObject *args)
-{
-#ifdef USE_IMLIB2_DISPLAY
-    int w, h;
-
-    if (!PyArg_ParseTuple(args, "ii", &w, &h))
-        return NULL;
-    return display_new(w, h);
-#else
-    PyErr_SetString(PyExc_ValueError, "X11 support missing");
-    return NULL;
-#endif
-} 
-
-
 PyMethodDef Imlib2_methods[] = {
     { "add_font_path", imlib2_add_font_path, METH_VARARGS }, 
     { "load_font", imlib2_load_font, METH_VARARGS }, 
     { "create", imlib2_create, METH_VARARGS }, 
     { "open", imlib2_open, METH_VARARGS }, 
     { "open_from_memory", imlib2_open_from_memory, METH_VARARGS }, 
-
-    // These functions are PyImlib2 extensions that are not part of Imlib2.
-    { "new_display", imlib2_new_display, METH_VARARGS }, 
     { NULL }
 };
 
