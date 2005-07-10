@@ -2,6 +2,7 @@
 #define _IMLIB2_H_
 
 #include "config.h"
+#include "display.h"
 
 #ifndef USE_IMLIB2_DISPLAY
     #define X_DISPLAY_MISSING
@@ -10,7 +11,6 @@
 #endif
 
 #include <Imlib2.h>
-extern PyTypeObject *Image_PyObject_Type;
 extern Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
 
 #endif

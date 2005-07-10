@@ -7,7 +7,6 @@
 #include "x11display.h"
 #include "x11window.h"
 
-PyTypeObject *Evas_PyObject_Type;
 Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
 
 #if defined(ENABLE_ENGINE_GL_X11) || defined (ENABLE_ENGINE_SOFTWARE_X11)

@@ -1,5 +1,6 @@
 #include <Python.h>
 #include "config.h"
+#include "display.h"
 #include "x11display.h"
 #include "x11window.h"
 #include "imlib2.h"
@@ -9,12 +10,16 @@
 PyMethodDef display_methods[] = {
     { "image_to_surface", image_to_surface, METH_VARARGS }, 
     { "render_imlib2_image", render_imlib2_image, METH_VARARGS }, 
+#ifdef USE_EVAS
     { "new_evas_software_x11", new_evas_software_x11, METH_VARARGS | METH_KEYWORDS }, 
 #ifdef ENABLE_ENGINE_GL_X11
     { "new_evas_gl_x11", new_evas_gl_x11, METH_VARARGS | METH_KEYWORDS }, 
 #endif
+#endif
     { NULL }
 };
+
+PyTypeObject *Evas_PyObject_Type;
 
 void **get_module_api(char *module)
 {
