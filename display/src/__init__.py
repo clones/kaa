@@ -203,25 +203,23 @@ class X11Window(object):
 
 
 
-class EvasWindow(X11Window):
-    def __init__(self, engine, display = None, size = (640, 480),
+class EvasX11Window(X11Window):
+    def __init__(self, gl = False, display = None, size = (640, 480), 
                  title = "Evas", **kwargs):
         import kaa.evas
 
-        if engine == "software_x11":
+        if not gl:
             f = _Display.new_evas_software_x11
-        elif engine == "gl_x11" and hasattr(_Display, "new_evas_gl_x11"):
-            f = _Display.new_evas_gl_x11
         else:
-            raise ValueError, "Unsupported engine: " + engine
+            f = _Display.new_evas_gl_x11
 
         display = _get_display(display)
-        self._evas = kaa.evas.new()
+        self._evas = kaa.evas.Evas()
         window = f(self._evas._evas, display._display, size = size,
                    title = title)
         self._evas.output_size_set(size)
         self._evas.viewport_set((0, 0), size)
-        super(EvasWindow, self).__init__(display, window)
+        super(EvasX11Window, self).__init__(display, window)
 
 
     def handle_events(self, events):
@@ -237,7 +235,7 @@ class EvasWindow(X11Window):
                     self._evas.viewport_set((0, 0), args[1])
                     needs_render = True
 
-        super(EvasWindow, self).handle_events(events)
+        super(EvasX11Window, self).handle_events(events)
 
         if needs_render:
             self._evas.render()
