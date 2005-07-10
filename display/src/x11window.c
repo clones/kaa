@@ -163,6 +163,7 @@ X11Window_PyObject__wrap(PyObject *display, Window window)
     o = (X11Window_PyObject *)X11Window_PyObject__new(&X11Window_PyObject_Type, NULL, NULL);
 
     o->display_pyobject = display;
+    Py_INCREF(display);
     o->display = ((X11Display_PyObject *)display)->display;
     o->window = window;
     o->ptr = PyInt_FromLong(window);

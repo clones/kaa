@@ -40,7 +40,6 @@ void
 X11Display_PyObject__dealloc(X11Display_PyObject * self)
 {
     if (self->display) {
-        printf("Closing display\n");
         XCloseDisplay(self->display);
     }
     Py_XDECREF(self->socket);

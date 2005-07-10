@@ -106,7 +106,7 @@ class X11Window(object):
     def set_geometry(self, pos, size):
         self._window.set_geometry(pos, size)
 
-    def get_geomtery(self):
+    def get_geometry(self):
         return self._window.get_geometry()
 
     def set_cursor_visible(self, visible):
