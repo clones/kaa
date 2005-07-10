@@ -1,0 +1,236 @@
+#include <Python.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include "x11window.h"
+#include "x11display.h"
+#include "structmember.h"
+
+void _make_invisible_cursor(X11Window_PyObject *win);
+
+static int
+X11Window_PyObject__clear(X11Window_PyObject *self)
+{
+    PyObject *tmp;
+    if (self->display_pyobject) {
+        tmp = self->display_pyobject;
+        self->display_pyobject = 0;
+        Py_DECREF(tmp);
+    }
+    return 0;
+}
+
+
+static int
+X11Window_PyObject__traverse(X11Window_PyObject *self, visitproc visit, void *arg)
+{
+    int ret;
+    if (self->display_pyobject) {
+        ret = visit(self->display_pyobject, arg);
+        if (ret != 0)
+            return ret;
+    }
+    return 0;
+}
+
+PyObject *
+X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
+{
+    X11Window_PyObject *self;
+    X11Display_PyObject *display;
+    int w, h;
+    char *window_title;
+
+    self = (X11Window_PyObject *)type->tp_alloc(type, 0);
+    if (!args)
+        // args is NULL it means we're being called from __wrap()
+        return (PyObject *)self;
+
+    if (!PyArg_ParseTuple(args, "O!(ii)s", &X11Display_PyObject_Type, &display, &w, &h, &window_title))
+        return NULL;
+
+    self->display_pyobject = (PyObject *)display;
+    Py_INCREF(display);
+    self->display = display->display;
+    self->window = XCreateSimpleWindow(self->display, 
+            DefaultRootWindow(self->display), 0, 0, w, h, 0, 0, 0);
+    XStoreName(self->display, self->window, window_title);
+    XSelectInput(self->display, self->window, ExposureMask | KeyPressMask | PointerMotionMask);
+    self->ptr = PyInt_FromLong(self->window);
+    _make_invisible_cursor(self);
+    return (PyObject *)self;
+}
+
+static int
+X11Window_PyObject__init(X11Window_PyObject *self, PyObject *args, PyObject *kwds)
+{
+    return 0;
+}
+
+void
+X11Window_PyObject__dealloc(X11Window_PyObject * self)
+{
+    if (self->window) {
+        XDestroyWindow(self->display, self->window);
+        Py_XDECREF(self->ptr);
+        XFreeCursor(self->display, self->invisible_cursor);
+    }
+    Py_XDECREF(self->display_pyobject);
+    X11Window_PyObject__clear(self);
+    self->ob_type->tp_free((PyObject*)self);
+}
+
+
+PyObject *
+X11Window_PyObject__show(X11Window_PyObject * self, PyObject * args)
+{
+    XMapWindow(self->display, self->window);
+    XSync(self->display, False);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+X11Window_PyObject__hide(X11Window_PyObject * self, PyObject * args)
+{
+    XUnmapWindow(self->display, self->window);
+    XSync(self->display, False);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+X11Window_PyObject__sync(X11Window_PyObject * self, PyObject * args)
+{
+    XSync(self->display, False);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+X11Window_PyObject__set_geometry(X11Window_PyObject * self, PyObject * args)
+{
+    int x, y;
+    unsigned int w, h;
+    if (!PyArg_ParseTuple(args, "(ii)(ii)", &x, &y, &w, &h))
+        return NULL;
+
+    if (x != -1 && w != -1)
+        XMoveResizeWindow(self->display, self->window, x, y, w, h);
+    else if (x != -1)
+        XMoveWindow(self->display, self->window, x, y);
+    else if (w != -1)
+        XResizeWindow(self->display, self->window, w, h);
+
+    XSync(self->display, False);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+X11Window_PyObject__set_cursor_visible(X11Window_PyObject * self, PyObject * args)
+{
+    int visible;
+    if (!PyArg_ParseTuple(args, "i", &visible))
+        return NULL;
+
+    if (!visible)
+        XDefineCursor(self->display, self->window, self->invisible_cursor);
+    else
+        XUndefineCursor(self->display, self->window);
+
+    return Py_INCREF(Py_None), Py_None;
+}
+PyObject *
+X11Window_PyObject__get_geometry(X11Window_PyObject * self, PyObject * args)
+{
+    XWindowAttributes attrs;
+    XGetWindowAttributes(self->display, self->window, &attrs);
+    return Py_BuildValue("((ii)(ii))", attrs.x, attrs.y, attrs.width, attrs.height);
+}
+
+PyMethodDef X11Window_PyObject_methods[] = {
+    { "show", ( PyCFunction ) X11Window_PyObject__show, METH_VARARGS },
+    { "hide", ( PyCFunction ) X11Window_PyObject__hide, METH_VARARGS },
+    { "sync", ( PyCFunction ) X11Window_PyObject__sync, METH_VARARGS },
+    { "set_geometry", ( PyCFunction ) X11Window_PyObject__set_geometry, METH_VARARGS },
+    { "get_geometry", ( PyCFunction ) X11Window_PyObject__get_geometry, METH_VARARGS },
+    { "set_cursor_visible", ( PyCFunction ) X11Window_PyObject__set_cursor_visible, METH_VARARGS },
+    { NULL, NULL }
+};
+
+
+X11Window_PyObject *
+X11Window_PyObject__wrap(PyObject *display, Window window)
+{
+    X11Window_PyObject *o;
+
+    o = (X11Window_PyObject *)X11Window_PyObject__new(&X11Window_PyObject_Type, NULL, NULL);
+
+    o->display_pyobject = display;
+    o->display = ((X11Display_PyObject *)display)->display;
+    o->window = window;
+    o->ptr = PyInt_FromLong(window);
+    _make_invisible_cursor(o);
+    return o;
+}
+
+void
+_make_invisible_cursor(X11Window_PyObject *win)
+{
+    Pixmap pix;
+    static char bits[] = {0, 0, 0, 0, 0, 0, 0};
+    XColor cfg;
+
+    // Construct an invisible cursor for mouse hiding.
+    cfg.red = cfg.green = cfg.blue = 0;
+    pix = XCreateBitmapFromData(win->display, win->window, bits, 1, 1);
+    // Memory leak in Xlib: https://bugs.freedesktop.org/show_bug.cgi?id=3568
+    win->invisible_cursor = XCreatePixmapCursor(win->display, pix, pix, &cfg, &cfg, 0, 0);
+    XFreePixmap(win->display, pix);
+}
+
+static PyMemberDef X11Window_PyObject_members[] = {
+    {"ptr", T_OBJECT_EX, offsetof(X11Window_PyObject, ptr), 0, ""},
+    {NULL}  /* Sentinel */
+};
+
+
+PyTypeObject X11Window_PyObject_Type = {
+    PyObject_HEAD_INIT(NULL)
+    0,                         /*ob_size*/
+    "X11Window",              /*tp_name*/
+    sizeof(X11Window_PyObject),  /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    (destructor)X11Window_PyObject__dealloc, /* tp_dealloc */
+    0,                         /*tp_print*/
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    PyObject_GenericGetAttr,   /*tp_getattro*/
+    PyObject_GenericSetAttr,   /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /*tp_flags*/
+    "X11 Window Object",      /* tp_doc */
+    (traverseproc)X11Window_PyObject__traverse,   /* tp_traverse */
+    (inquiry)X11Window_PyObject__clear,           /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    X11Window_PyObject_methods,             /* tp_methods */
+    X11Window_PyObject_members,             /* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)X11Window_PyObject__init,      /* tp_init */
+    0,                         /* tp_alloc */
+    X11Window_PyObject__new,   /* tp_new */
+};
+
+

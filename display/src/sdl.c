@@ -1,19 +1,13 @@
-#include <Python.h>
-#define X_DISPLAY_MISSING
-#include <Imlib2.h>
 #include "config.h"
+#include <Python.h>
 
-#ifdef USE_PYGAME
+#if defined(USE_PYGAME) && defined(USE_IMLIB2)
+#include "imlib2.h"
 #include <pygame.h>
-#endif
-
-PyTypeObject *Image_PyObject_Type;
-Imlib_Image (*imlib_image_from_pyobject)(PyObject *pyimg);
 
 PyObject *image_to_surface(PyObject *self, PyObject *args)
 {
 
-#ifdef USE_PYGAME
     PyObject *pyimg;
     Imlib_Image *img;
     PySurfaceObject *pysurf;
@@ -38,10 +32,12 @@ PyObject *image_to_surface(PyObject *self, PyObject *args)
     
     Py_INCREF(Py_None);
     return Py_None;
-
-#else
-    PyErr_Format(PyExc_SystemError, "kaa-display compiled without pygame");
-    return NULL;
-#endif
-
 }
+#else
+
+PyObject *image_to_surface(PyObject *self, PyObject *args)
+{
+    PyErr_Format(PyExc_SystemError, "kaa-display compiled without pygame and/or imlib2");
+    return NULL;
+}
+#endif
