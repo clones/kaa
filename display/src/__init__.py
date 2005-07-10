@@ -1,7 +1,47 @@
-import _Display, weakref, time
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# display - Interface to the display code
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa-display - X11/SDL Display module
+# Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+#
+# First Edition: Dirk Meyer <dmeyer@tzi.de>
+# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+#
+# Please see the file doc/CREDITS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
 
+# python imports
+import weakref
+import time
+
+# the display module
+import _Display
+
+# pygame interface (only one function)
 image_to_surface = _Display.image_to_surface
+
+# default X11 display
 _default_x11_display = None
+
 
 class X11Display(object):
     XEVENT_MOTION_NOTIFY = 6
@@ -31,7 +71,7 @@ class X11Display(object):
             assert(wid in self._windows)
             window = self._windows[wid]()
             window.handle_events(events)
-                
+
 
     def __getattr__(self, attr):
         if attr in ("socket,"):
@@ -58,7 +98,8 @@ class X11Window(object):
             self._window = window
         else:
             assert("size" in kwargs and "title" in kwargs)
-            self._window = _Display.X11Window(display._display, kwargs["size"], kwargs["title"])
+            self._window = _Display.X11Window(display._display,
+                                              kwargs["size"], kwargs["title"])
 
         self._display = display
         display._windows[self._window.ptr] = weakref.ref(self)
@@ -77,9 +118,10 @@ class X11Window(object):
     def hide(self):
         self._window.hide()
 
-    def render_imlib2_image(self, i, dst_pos = (0, 0), src_pos = (0, 0), 
+    def render_imlib2_image(self, i, dst_pos = (0, 0), src_pos = (0, 0),
                             size = (-1, -1), dither = True, blend = False):
-        return _Display.render_imlib2_image(self._window, i._image, dst_pos, src_pos, size, dither, blend)
+        return _Display.render_imlib2_image(self._window, i._image, dst_pos, \
+                                            src_pos, size, dither, blend)
 
     def handle_events(self, events):
         for event, args in events:
@@ -90,8 +132,11 @@ class X11Window(object):
             elif event == X11Display.XEVENT_KEY_PRESS and self.input_callback:
                 self.input_callback(args[0])
 
-        # FIXME: this needs to go on a timer -- need to hook into notifier or something?
-        if self._last_mousemove_time and time.time()-self._last_mousemove_time > self._cursor_hide_timeout:
+        # FIXME: this needs to go on a timer -- need to hook into notifier or
+        # something?
+        if self._last_mousemove_time and \
+               time.time() - self._last_mousemove_time > \
+               self._cursor_hide_timeout:
             self._last_mousemove_time = 0
             if self._cursor_hide_timeout >= 0:
                 self.set_cursor_visible(False)
@@ -118,7 +163,8 @@ class X11Window(object):
 
 
 class EvasWindow(X11Window):
-    def __init__(self, engine, display = None, size = (640, 480), title = "Evas", **kwargs):
+    def __init__(self, engine, display = None, size = (640, 480),
+                 title = "Evas", **kwargs):
         import kaa.evas
 
         if engine == "software_x11":
@@ -130,10 +176,12 @@ class EvasWindow(X11Window):
 
         display = _get_display(display)
         self._evas = kaa.evas.new()
-        window = f(self._evas._evas, display._display, size = size, title = title)
+        window = f(self._evas._evas, display._display, size = size,
+                   title = title)
         self._evas.output_size_set(size)
         self._evas.viewport_set((0, 0), size)
         super(EvasWindow, self).__init__(display, window)
+
 
     def handle_events(self, events):
         needs_render = False
@@ -152,6 +200,7 @@ class EvasWindow(X11Window):
 
         if needs_render:
             self._evas.render()
+
 
     def get_evas(self):
         return self._evas

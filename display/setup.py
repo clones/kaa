@@ -5,10 +5,13 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
+# kaa-display - X11/SDL Display module
 # Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+#
+# Please see the file doc/CREDITS for a complete list of authors.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,11 +29,9 @@
 #
 # -----------------------------------------------------------------------------
 
+# python imports
 import re
 import os
-import sys
-
-# python imports
 import sys
 
 try:
@@ -39,9 +40,11 @@ try:
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
-    
+
+# the display so module
 display = Extension('kaa.display._Displaymodule',
-                    [ 'src/display.c', 'src/sdl.c', 'src/x11display.c', 'src/x11window.c', 'src/imlib2.c', 'src/evas.c' ],
+                    [ 'src/display.c', 'src/sdl.c', 'src/x11display.c',
+                      'src/x11window.c', 'src/imlib2.c', 'src/evas.c' ],
                     libraries = ['png', 'rt'],
                     config='src/config.h')
 
@@ -85,7 +88,7 @@ if display.check_library('evas', '0.9.9.010'):
     os.popen(cmd + " &>/dev/null", "w").write('''
         #include <Evas.h>
         #include <stdio.h>
-    
+
         int main(int argc, char **argv) {
             Evas_List *p = evas_render_method_list();
             for (;p; p = p->next) printf("%s\\n", (char *)p->data);
