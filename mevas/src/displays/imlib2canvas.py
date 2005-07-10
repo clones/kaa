@@ -33,10 +33,10 @@ from kaa import imlib2
 
 # mevas imports
 from kaa import mevas
+from kaa.mevas.rect import optimize_for_rendering
 
-# displays imports
+# kaa imports
 from kaa import display
-
 from bitmapcanvas import *
 
 
@@ -49,6 +49,16 @@ class Imlib2Canvas(BitmapCanvas):
         self._window = display.X11Window(size = size, title = "Mevas")
         self._window.set_cursor_hide_timeout(1)
         self._window.show()
+        self._window.expose_callback = self.__expose
+        self.__render = self._window.render_imlib2_image
+
+
+    def __expose( self, ( pos, size ) ):
+        """
+        Callback for expose events from X11
+        """
+        self.__render( self._backing_store._image, pos, pos, size )
+
 
     def _blit(self, img, r):
         pos, size = r
@@ -64,17 +74,19 @@ class Imlib2Canvas(BitmapCanvas):
             else:
                 bs = self._backing_store
 
-            # We can only use the canvas backing store image if it's an
+            # We can only use the canvas backing store image if it is an
             # Imlib2 image.
             if isinstance(bs, mevas.imagelib.get_backend("imlib2").Image):
                 self._display.set_backing_store(self._backing_store._image)
         '''
         if isinstance(img, mevas.imagelib.get_backend("imlib2").Image):
-            self._window.render_imlib2_image(img._image, pos, pos, size, self._dither, self._blend)
+            self.__render(img._image, pos, pos, size, self._dither,
+                          self._blend)
         else:
             if img.size != size:
                 img = imagelib.crop(img, pos, size)
 
             data = img.get_raw_data("RGB")
             img = imlib2.new( size, data, "RGB" )
-            self._window.render_imlib2_image(img._image, pos, dither = self._dither, blend = self._blend)
+            self.__render(img._image, pos, dither = self._dither,
+                          blend = self._blend)
