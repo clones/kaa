@@ -117,7 +117,6 @@ class X11Window(object):
 
         self._display = display
         display._windows[self._window.ptr] = weakref.ref(self)
-        self._last_mousemove_time = 0
         self._cursor_hide_timeout = -1
         self._cursor_hide_timer_id = -1
 
@@ -153,11 +152,7 @@ class X11Window(object):
                 if self._cursor_hide_timer_id != -1:
                     kaa.notifier.removeTimer(self._cursor_hide_timer_id)
                     self._cursor_hide_timer_id = -1
-                # Add a new timer to hide the cursor at the current interval.
-                if self._cursor_hide_timeout > 0:
-                    interval = self._cursor_hide_timeout * 1000
-                    id = kaa.notifier.addTimer(interval, self._cursor_hide_cb)
-                    self._cursor_hide_timer_id = id
+                self._cursor_hide_add_timer()
 
             elif event == X11Display.XEVENT_KEY_PRESS:
                 self.signals["key_press_event"].emit(args[0])
@@ -169,6 +164,15 @@ class X11Window(object):
         if len(expose_regions) > 0:
             self.signals["expose_event"].emit(expose_regions)
                 
+
+    def _cursor_hide_add_timer(self):
+        # Add a new timer to hide the cursor at the current interval.
+        if self._cursor_hide_timeout > 0:
+            interval = self._cursor_hide_timeout * 1000
+            id = kaa.notifier.addTimer(interval, self._cursor_hide_cb)
+            self._cursor_hide_timer_id = id
+        elif self._cursor_hide_timeout == 0:
+            self._cursor_hide_cb()
 
     def _cursor_hide_cb(self):
         self.set_cursor_visible(False)
@@ -195,6 +199,7 @@ class X11Window(object):
 
     def set_cursor_hide_timeout(self, timeout):
         self._cursor_hide_timeout = timeout
+        self._cursor_hide_add_timer()
 
 
 
