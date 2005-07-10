@@ -1,3 +1,35 @@
+/*
+ * ----------------------------------------------------------------------------
+ * x11display.c
+ * ----------------------------------------------------------------------------
+ * $Id$
+ *
+ * ----------------------------------------------------------------------------
+ * kaa-display - X11/SDL Display module
+ * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+ *
+ * First Edition: Jason Tackaberry <tack@sault.org>
+ * Maintainer:    Jason Tackaberry <tack@sault.org>
+ *
+ * Please see the file doc/CREDITS for a complete list of authors.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+ * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+ * Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ * ----------------------------------------------------------------------------
+ */
+
 #include <Python.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -7,7 +39,8 @@
 extern PyTypeObject X11Display_PyObject_Type;
 
 PyObject *
-X11Display_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
+X11Display_PyObject__new(PyTypeObject *type, PyObject * args,
+			 PyObject * kwargs)
 {
     X11Display_PyObject *self;
     Display *display;
@@ -22,14 +55,15 @@ X11Display_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
         PyErr_Format(PyExc_SystemError, "Unable to open X11 display.");
         return NULL;
     }
-    
+
     self = (X11Display_PyObject *)type->tp_alloc(type, 0);
     self->display = display;
     return (PyObject *)self;
 }
 
 static int
-X11Display_PyObject__init(X11Display_PyObject *self, PyObject *args, PyObject *kwargs)
+X11Display_PyObject__init(X11Display_PyObject *self, PyObject *args,
+			  PyObject *kwargs)
 {
     self->socket = PyInt_FromLong( ConnectionNumber(self->display) );
     return 0;
@@ -55,25 +89,29 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     while (XPending(self->display)) {
         XNextEvent(self->display, &ev);
         if (ev.type == Expose) {
-            o = Py_BuildValue("(i(i(ii)(ii)))", Expose, ev.xexpose.window, ev.xexpose.x,
-                    ev.xexpose.y, ev.xexpose.width, ev.xexpose.height);
+            o = Py_BuildValue("(i(i(ii)(ii)))", Expose, ev.xexpose.window,
+			      ev.xexpose.x, ev.xexpose.y, ev.xexpose.width,
+			      ev.xexpose.height);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == KeyPress) {
-            o = Py_BuildValue("(i(ii))", KeyPress, ev.xkey.window, ev.xkey.keycode);
+            o = Py_BuildValue("(i(ii))", KeyPress, ev.xkey.window,
+			      ev.xkey.keycode);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == MotionNotify) {
-            o = Py_BuildValue("(i(i(ii)(ii)))", MotionNotify, ev.xmotion.window,
+            o = Py_BuildValue("(i(i(ii)(ii)))", MotionNotify,
+			      ev.xmotion.window,
                     ev.xmotion.x, ev.xmotion.y,
                     ev.xmotion.x_root, ev.xmotion.y_root);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == ConfigureNotify) {
-            o = Py_BuildValue("(i(i(ii)(ii)))", ConfigureNotify, ev.xconfigure.window,
+            o = Py_BuildValue("(i(i(ii)(ii)))", ConfigureNotify,
+			      ev.xconfigure.window,
                     ev.xconfigure.x, ev.xconfigure.y,
                     ev.xconfigure.width, ev.xconfigure.height);
             PyList_Append(events, o);
@@ -85,7 +123,8 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
 
 
 PyMethodDef X11Display_PyObject_methods[] = {
-    { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
+    { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events,
+      METH_VARARGS },
     { NULL, NULL }
 };
 
@@ -137,5 +176,3 @@ PyTypeObject X11Display_PyObject_Type = {
     0,                         /* tp_alloc */
     X11Display_PyObject__new,   /* tp_new */
 };
-
-
