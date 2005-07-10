@@ -36,6 +36,9 @@ import time
 # the display module
 import _Display
 
+# kaa notifier for the socket callback
+import kaa.notifier
+
 # pygame interface (only one function)
 image_to_surface = _Display.image_to_surface
 
@@ -48,14 +51,17 @@ class X11Display(object):
     XEVENT_EXPOSE = 12
     XEVENT_BUTTON_PRESS = 4
     XEVENT_KEY_PRESS = 2
+    XEVENT_EXPOSE = 12
     XEVENT_CONFIGURE_NOTIFY = 22
-
+    
     XEVENT_WINDOW_EVENTS = (6, 12, 4, 2, 22)
 
     def __init__(self, dispname = ""):
         self._display = _Display.X11Display(dispname)
         self._windows = {}
-
+        cb = kaa.notifier.Function(self.handle_events)
+        kaa.notifier.addSocket(self.socket, cb)
+        
     def handle_events(self):
         window_events = {}
         for event, args in self._display.handle_events():
@@ -72,6 +78,9 @@ class X11Display(object):
             window = self._windows[wid]()
             window.handle_events(events)
 
+        # call the socket again
+        return True
+    
 
     def __getattr__(self, attr):
         if attr in ("socket,"):
@@ -108,7 +117,8 @@ class X11Window(object):
 
         # FIXME: Use Signal class for callbacks eventually.  This is temporary.
         self.input_callback = None
-
+        self.expose_callback = None
+        
     def get_display(self):
         return self._display
 
@@ -131,7 +141,9 @@ class X11Window(object):
                     self.set_cursor_visible(True)
             elif event == X11Display.XEVENT_KEY_PRESS and self.input_callback:
                 self.input_callback(args[0])
-
+            elif event == X11Display.XEVENT_EXPOSE:
+                self.expose_callback(args)
+                
         # FIXME: this needs to go on a timer -- need to hook into notifier or
         # something?
         if self._last_mousemove_time and \
