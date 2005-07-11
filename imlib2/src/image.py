@@ -33,6 +33,7 @@ import os
 # imlib2 wrapper
 import _Imlib2
 from kaa.base.utils import utf8
+from kaa.notifier import Signal
 from font import Font
 
 class Image(object):
@@ -62,6 +63,9 @@ class Image(object):
 		  type(image_or_filename)
 
         self.font = None
+        self.signals = {
+            "changed": Signal()
+        }
 
 
     def __getattr__(self, attr):
@@ -98,6 +102,9 @@ class Image(object):
         self._image = _Imlib2.create(state[0], state[1])
 
 
+    def _changed(self):
+        self.signals["changed"].emit()
+
     def get_raw_data(self, format = "BGRA", write = False):
         """
         Returns raw image data for read only access.
@@ -123,6 +130,7 @@ class Image(object):
         Puts back the writable buffer that was obtained with get_raw_data().
         """
         self._image.put_back_raw_data(data)
+        self._changed()
 
 
     def scale(self, (w, h), src_pos = (0, 0), src_size = (-1, -1)):
@@ -191,6 +199,7 @@ class Image(object):
         Returns: None
         """
         self._image.orientate(orientation)
+        self._changed()
 
 
     def flip_horizontal(self):
@@ -200,6 +209,7 @@ class Image(object):
         Returns: None.
         """
         self._image.flip(True, False, False)
+        self._changed()
 
 
     def flip_vertical(self):
@@ -209,6 +219,7 @@ class Image(object):
         Returns: None.
         """
         self._image.flip(False, True, False)
+        self._changed()
 
 
     def flip_diagonal(self):
@@ -218,6 +229,7 @@ class Image(object):
         Returns: None.
         """
         self._image.flip(False, False, True)
+        self._changed()
 
 
     def scale_preserve_aspect(self, (w, h)):
@@ -253,6 +265,7 @@ class Image(object):
             return
 
         self._image = self.scale_preserve_aspect( (w, h) )._image
+        self._changed()
 
 
     def copy_rect(self, src_pos, size, dst_pos):
@@ -269,7 +282,8 @@ class Image(object):
                    where the region will be moved to.
         Returns: None
         """
-        return self._image.copy_rect(src_pos, size, dst_pos)
+        self._image.copy_rect(src_pos, size, dst_pos)
+        self._changed()
 
 
     def blend(self, src, src_pos = (0, 0), src_size = (-1, -1),
@@ -305,8 +319,9 @@ class Image(object):
         if src_size[1] == -1: src_size = src_size[0], src.height
         if dst_size[0] == -1: dst_size = src_size[0], dst_size[1]
         if dst_size[1] == -1: dst_size = dst_size[0], src_size[1]
-        return self._image.blend(src._image, src_pos, src_size,
+        self._image.blend(src._image, src_pos, src_size,
                      dst_pos, dst_size, int(alpha), merge_alpha)
+        self._changed()
 
 
     def clear(self, (x, y) = (0, 0), (w, h) = (-1, -1)):
@@ -329,6 +344,7 @@ class Image(object):
         w = min(w, self.width-x)
         h = min(h, self.height-y)
         self._image.clear(x, y, w, h)
+        self._changed()
 
 
     def draw_mask(self, maskimg, (x, y)):
@@ -345,7 +361,8 @@ class Image(object):
         Returns: None
         """
 
-        return self._image.draw_mask(maskimg._image, int(x), int(y))
+        self._image.draw_mask(maskimg._image, int(x), int(y))
+        self._changed()
 
 
     def copy(self):
@@ -423,8 +440,10 @@ class Image(object):
         if len(color) == 3:
             color = tuple(color) + (255,)
 
-        return self._image.draw_text(font._font, int(x), int(y),
-                         utf8(text), color)
+        metrics = self._image.draw_text(font._font, int(x), int(y),
+                                        utf8(text), color)
+        self._changed()
+        return metrics
 
 
     def draw_rectangle(self, (x, y), (w, h), color, fill = True):
@@ -444,8 +463,9 @@ class Image(object):
         """
         if len(color) == 3:
             color = tuple(color) + (255,)
-        return self._image.draw_rectangle(int(x), int(y), int(w), int(h),
-                          color, fill)
+        self._image.draw_rectangle(int(x), int(y), int(w), int(h),
+                                   color, fill)
+        self._changed()
 
     def draw_ellipse(self, (xc, yc), (a, b), color, fill = True):
         """
@@ -464,8 +484,9 @@ class Image(object):
         """
         if len(color) == 3:
             color = tuple(color) + (255,)
-        return self._image.draw_ellipse(int(xc), int(yc), int(a), int(b),
-					color, fill)
+        self._image.draw_ellipse(int(xc), int(yc), int(a), int(b),
+					             color, fill)
+        self._changed()
 
 
     def get_pixel(self, (x, y)):
@@ -494,6 +515,7 @@ class Image(object):
             self._image.set_alpha(1)
         else:
             self._image.set_alpha(0)
+        self._changed()
 
 
     def save(self, filename, format = None):
