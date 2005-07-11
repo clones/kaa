@@ -40,7 +40,7 @@ extern PyTypeObject X11Display_PyObject_Type;
 
 PyObject *
 X11Display_PyObject__new(PyTypeObject *type, PyObject * args,
-			 PyObject * kwargs)
+                         PyObject * kwargs)
 {
     X11Display_PyObject *self;
     Display *display;
@@ -63,7 +63,7 @@ X11Display_PyObject__new(PyTypeObject *type, PyObject * args,
 
 static int
 X11Display_PyObject__init(X11Display_PyObject *self, PyObject *args,
-			  PyObject *kwargs)
+                          PyObject *kwargs)
 {
     self->socket = PyInt_FromLong( ConnectionNumber(self->display) );
     return 0;
@@ -91,20 +91,20 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
         XNextEvent(self->display, &ev);
         if (ev.type == Expose) {
             o = Py_BuildValue("(i(i(ii)(ii)))", Expose, ev.xexpose.window,
-			      ev.xexpose.x, ev.xexpose.y, ev.xexpose.width,
-			      ev.xexpose.height);
+                              ev.xexpose.x, ev.xexpose.y, ev.xexpose.width,
+                              ev.xexpose.height);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == KeyPress) {
             o = Py_BuildValue("(i(ii))", KeyPress, ev.xkey.window,
-			      ev.xkey.keycode);
+                              ev.xkey.keycode);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == MotionNotify) {
             o = Py_BuildValue("(i(i(ii)(ii)))", MotionNotify,
-			      ev.xmotion.window,
+                              ev.xmotion.window,
                     ev.xmotion.x, ev.xmotion.y,
                     ev.xmotion.x_root, ev.xmotion.y_root);
             PyList_Append(events, o);
@@ -112,7 +112,7 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
         }
         else if (ev.type == ConfigureNotify) {
             o = Py_BuildValue("(i(i(ii)(ii)))", ConfigureNotify,
-			      ev.xconfigure.window,
+                              ev.xconfigure.window,
                     ev.xconfigure.x, ev.xconfigure.y,
                     ev.xconfigure.width, ev.xconfigure.height);
             PyList_Append(events, o);

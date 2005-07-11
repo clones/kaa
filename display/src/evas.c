@@ -55,7 +55,7 @@ Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
 
 X11Window_PyObject *
 engine_common_x11_setup(Evas *evas, PyObject *kwargs,
-			X11Display_PyObject *disp,
+                        X11Display_PyObject *disp,
     Visual *(*best_visual_get)(Display *, int),
     Colormap (*best_colormap_get)(Display *, int),
     int (*best_depth_get)(Display *, int),
@@ -89,7 +89,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
     *ei_depth = best_depth_get(disp->display, screen);
 
     win = XCreateWindow(disp->display, DefaultRootWindow(disp->display), 0, 0,
-			w, h, 0, *ei_depth, InputOutput, *ei_visual,
+                        w, h, 0, *ei_depth, InputOutput, *ei_visual,
                         CWBackingStore | CWColormap | CWBackPixmap |
                         CWBitGravity | CWEventMask, &attr);
 
@@ -104,7 +104,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
     engine_common_x11_setup(evas, kwargs, display, \
         func.best_visual_get, func.best_colormap_get, func.best_depth_get, \
         &info.display, &info.drawable, &info.visual, &info.colormap, \
-	&info.depth);
+        &info.depth);
 
 
 X11Window_PyObject *
@@ -125,7 +125,7 @@ new_evas_software_x11(PyObject *self, PyObject *args, PyObject *kwargs)
     einfo = (Evas_Engine_Info_Software_X11 *)evas_engine_info_get(evas);
 
     x11 = ENGINE_COMMON_X11_SETUP(evas, kwargs, display, einfo->func,
-				  einfo->info);
+                                  einfo->info);
 
     einfo->info.rotation = 0;
     einfo->info.debug = 0;
@@ -154,7 +154,7 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
     einfo = (Evas_Engine_Info_GL_X11 *)evas_engine_info_get(evas);
 
     x11 = ENGINE_COMMON_X11_SETUP(evas, kwargs, display, einfo->func,
-				  einfo->info);
+                                  einfo->info);
     evas_engine_info_set(evas, (Evas_Engine_Info *) einfo);
     return x11;
 }

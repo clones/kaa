@@ -54,7 +54,7 @@ X11Window_PyObject__clear(X11Window_PyObject *self)
 
 static int
 X11Window_PyObject__traverse(X11Window_PyObject *self, visitproc visit,
-			     void *arg)
+                             void *arg)
 {
     int ret;
     if (self->display_pyobject) {
@@ -79,7 +79,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
         return (PyObject *)self;
 
     if (!PyArg_ParseTuple(args, "O!(ii)s", &X11Display_PyObject_Type, &display,
-			  &w, &h, &window_title))
+                          &w, &h, &window_title))
         return NULL;
 
     self->display_pyobject = (PyObject *)display;
@@ -89,7 +89,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
             DefaultRootWindow(self->display), 0, 0, w, h, 0, 0, 0);
     XStoreName(self->display, self->window, window_title);
     XSelectInput(self->display, self->window, ExposureMask | KeyPressMask |
-		 PointerMotionMask);
+                 PointerMotionMask);
     self->ptr = PyInt_FromLong(self->window);
     _make_invisible_cursor(self);
     return (PyObject *)self;
@@ -97,7 +97,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
 
 static int
 X11Window_PyObject__init(X11Window_PyObject *self, PyObject *args,
-			 PyObject *kwds)
+                         PyObject *kwds)
 {
     return 0;
 }
@@ -154,7 +154,7 @@ X11Window_PyObject__set_geometry(X11Window_PyObject * self, PyObject * args)
 
 PyObject *
 X11Window_PyObject__set_cursor_visible(X11Window_PyObject * self,
-				       PyObject * args)
+                                       PyObject * args)
 {
     int visible;
     if (!PyArg_ParseTuple(args, "i", &visible))
@@ -174,7 +174,7 @@ X11Window_PyObject__get_geometry(X11Window_PyObject * self, PyObject * args)
     XWindowAttributes attrs;
     XGetWindowAttributes(self->display, self->window, &attrs);
     return Py_BuildValue("((ii)(ii))", attrs.x, attrs.y, attrs.width,
-			 attrs.height);
+                         attrs.height);
 }
 
 PyMethodDef X11Window_PyObject_methods[] = {
@@ -196,7 +196,7 @@ X11Window_PyObject__wrap(PyObject *display, Window window)
     X11Window_PyObject *o;
 
     o = (X11Window_PyObject *)X11Window_PyObject__new(&X11Window_PyObject_Type,
-						      NULL, NULL);
+                                                      NULL, NULL);
 
     o->display_pyobject = display;
     Py_INCREF(display);
@@ -219,7 +219,7 @@ _make_invisible_cursor(X11Window_PyObject *win)
     pix = XCreateBitmapFromData(win->display, win->window, bits, 1, 1);
     // Memory leak in Xlib: https://bugs.freedesktop.org/show_bug.cgi?id=3568
     win->invisible_cursor = XCreatePixmapCursor(win->display, pix, pix, &cfg,
-						&cfg, 0, 0);
+                                                &cfg, 0, 0);
     XFreePixmap(win->display, pix);
 }
 

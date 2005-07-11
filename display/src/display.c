@@ -64,7 +64,7 @@ void **get_module_api(char *module)
        return;
     c_api = PyObject_GetAttrString(m, "_C_API");
     if (c_api == NULL || !PyCObject_Check(c_api))
-	   return;
+        return;
     ptrs = (void **)PyCObject_AsVoidPtr(c_api);
     Py_DECREF(c_api);
     return ptrs;
@@ -95,7 +95,7 @@ void init_Display()
     // Import kaa-imlib2's C api
     imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");
     if (imlib2_api_ptrs == NULL)
-	   return;
+        return;
     imlib_image_from_pyobject = imlib2_api_ptrs[0];
     Image_PyObject_Type = imlib2_api_ptrs[1];
 #else
@@ -106,7 +106,7 @@ void init_Display()
     // Import kaa-evas's C api
     evas_api_ptrs = get_module_api("kaa.evas._evas");
     if (evas_api_ptrs == NULL)
-	   return;
+        return;
     evas_object_from_pyobject = evas_api_ptrs[0];
     Evas_PyObject_Type = evas_api_ptrs[1];
 #else

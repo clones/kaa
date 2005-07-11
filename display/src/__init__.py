@@ -213,6 +213,7 @@ class EvasX11Window(X11Window):
         else:
             f = _Display.new_evas_gl_x11
 
+        assert(type(size) == tuple)
         display = _get_display(display)
         self._evas = kaa.evas.Evas()
         window = f(self._evas._evas, display._display, size = size,
