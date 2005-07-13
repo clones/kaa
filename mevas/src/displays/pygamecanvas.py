@@ -34,8 +34,7 @@ from pygame.locals import *
 # mevas imports
 from kaa import mevas
 import kaa.mevas.rect as rect
-
-from kaa.display import image_to_surface
+import kaa.display.sdl
 
 # displays import
 from bitmapcanvas import *
@@ -44,32 +43,14 @@ class PygameCanvas(BitmapCanvas):
 
     def __init__(self, size):
         super(PygameCanvas, self).__init__(size, preserve_alpha = False)
-
-        # Initialize the PyGame modules.
-        if not pygame.display.get_init():
-            pygame.display.init()
-            pygame.font.init()
-
-        self._screen  = pygame.display.set_mode(size, 0, 32)
-        if self._screen.get_bitsize() != 32:
-            # if the bitsize is not 32 as requested, we need
-            # a tmp surface to convert from imlib2 to pygame
-            # because imlib2 uses 32 bit and with a different
-            # value memcpy will do nasty things
-            self._surface = pygame.Surface(size, 0, 32)
+        self._window = kaa.display.sdl.PygameDisplay(size)
         self._rect = []
 
 
     def _update_end(self, object = None):
         if not self._rect:
             return
-        if hasattr(self, '_surface'):
-            image_to_surface(self._backing_store._image._image, self._surface)
-            for pos, size in self._rect:
-                self._screen.blit(self._surface, pos, pos + size)
-        else:
-            image_to_surface(self._backing_store._image._image, self._screen)
-        pygame.display.update(self._rect)
+        self._window.render_imlib2_image(self._backing_store._image._image, self._rect)
         self._rect = []
 
 
