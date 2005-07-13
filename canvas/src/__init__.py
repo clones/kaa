@@ -1,0 +1,2 @@
+from canvasobject import *
+
