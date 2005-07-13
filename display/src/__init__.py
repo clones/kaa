@@ -40,9 +40,6 @@ import _Display
 import kaa.notifier
 from kaa.notifier import Signal
 
-# pygame interface (only one function)
-image_to_surface = _Display.image_to_surface
-
 # default X11 display
 _default_x11_display = None
 
