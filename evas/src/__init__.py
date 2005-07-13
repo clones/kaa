@@ -100,6 +100,12 @@ class Object(object):
     def visible_get(self):
         return self._object.visible_get()
 
+    def visible_set(self, visible):
+        if visible:
+            self.show()
+        else:
+            self.hide()
+
     def color_get(self):
         return self._object.color_get()
 
@@ -111,7 +117,13 @@ class Object(object):
             (r, g, b, a) = map(f, (r, g, b, a), self.color_get())
         (r, g, b, a) =  map(lambda x: min(255, max(0, x)), (r, g, b, a))
         return self._object.color_set(r, g, b, a)
+     
+     
+    def name_set(self, name):
+        self._object.name_set(name)
         
+    def name_get(self):
+        return self._object.name_get()
 
 
 class Rectangle(Object):
@@ -278,6 +290,8 @@ class Evas(object):
             self._evas.__dict__[key] = value
 
     def __getattr__(self, key):
+        if key == "_dependencies":
+            return self._evas.dependencies
         if key in self.__dict__:
             return self.__dict__[key]
         if key in self._evas.__dict__:
@@ -330,7 +344,20 @@ class Evas(object):
 
     def damage_rectangle_add(self, ((x, y), (w, h))):
         self._evas.damage_rectangle_add(x, y, w, h)
-        
+
+    def object_name_find(self, name):
+        obj = self._evas.object_name_find(name)
+        if not obj:
+            return None
+
+        obj_type = obj.type_get()
+        if obj_type == "image":
+            return Image(obj)
+        elif obj_type == "Rectangle":
+            return Rectangle(obj)
+        elif obj_type == "Text":
+            return Text(obj)
+
 
 class EvasBuffer(Evas):
 
@@ -344,7 +371,7 @@ class EvasBuffer(Evas):
             kwargs["stride"] = size[0] * bpp
         if "buffer" not in kwargs:
             kwargs["buffer"] = array.array('c', '\0'*size[0]*size[1]*bpp)
-        self._buffer = kwargs["buffer"]
+        #self._buffer = kwargs["buffer"]
         kwargs["size"] = size
         assert type(kwargs["buffer"]) in (array.array, buffer, int)
 

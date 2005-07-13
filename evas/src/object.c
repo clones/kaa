@@ -34,13 +34,13 @@ Evas_Object_PyObject_free_attr(Evas_Hash * attrs, const char *key, void *data,
     foreach_func_data *d = (foreach_func_data *)fdata;
     if (!data)
         return 0;
-    printf("Attr foreach: %s (visit=%d)\n", key, d->type);
+    //printf("Attr foreach: %s (visit=%d)\n", key, d->type);
     if (d->type == 0) {
         Py_DECREF((PyObject *)data);
         return 1;
     } else {
         d->ret = d->visit(data, d->arg);
-        return d->ret == 0;
+        return d->ret != 0;
     }
 }
 
@@ -49,6 +49,14 @@ Evas_Object_PyObject__clear(Evas_Object_PyObject *self)
 {
     Evas_PyObject *evas;
     Evas_Hash *attrs;
+    int ref;
+
+    ref = (int)evas_object_data_get(self->object, "ref") - 1;
+    evas_object_data_set(self->object, "ref", (void *)ref);
+
+    //printf("Object refcount: %d\n", ref);
+    if (ref) 
+        return 0;
 
     evas = evas_object_data_get(self->object, "evas_pyobject");
     attrs = evas_object_data_get(self->object, "pyattrs");
@@ -76,7 +84,10 @@ Evas_Object_PyObject__traverse(Evas_Object_PyObject *self, visitproc visit, void
 {
     Evas_PyObject *evas;
     Evas_Hash *attrs;
-    int ret;
+    int ret, ref;
+
+    if (evas_object_data_get(self->object, "ref"))
+        return 0;
 
     attrs = evas_object_data_get(self->object, "pyattrs");
     //fprintf(stderr, "Evas Object TRAVERSE: %x %x\n", attrs, evas);
@@ -102,7 +113,7 @@ Evas_Object_PyObject__traverse(Evas_Object_PyObject *self, visitproc visit, void
 void
 Evas_Object_PyObject__dealloc(Evas_Object_PyObject * self)
 {
-    //printf("Evas_Object_PyObject dealloc\n");
+    //printf("Evas object dealloc\n");
     Evas_Object_PyObject__clear(self);
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -111,12 +122,18 @@ Evas_Object_PyObject *
 wrap_evas_object(Evas_Object * evas_object, Evas_PyObject * evas)
 {
     Evas_Object_PyObject *o;
+    int ref;
 
     o = (Evas_Object_PyObject *)Evas_Object_PyObject__new(&Evas_Object_PyObject_Type, NULL, NULL);
-    if (evas) {
+    if (evas && !evas_object_data_get(evas_object, "evas_pyobject")) {
         Py_INCREF(evas);
         evas_object_data_set(evas_object, "evas_pyobject", evas);
     }
+
+    // It's possible for multiple Evas_Object_PyObjects to wrap one
+    // Evas_Object, so we maintain a refcount.
+    ref = (int)evas_object_data_get(evas_object, "ref");
+    evas_object_data_set(evas_object, "ref", (void *)ref+1);
     o->object = evas_object;
     return o;
 }
@@ -126,7 +143,7 @@ wrap_evas_object(Evas_Object * evas_object, Evas_PyObject * evas)
 PyObject *
 Evas_Object_PyObject_type_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    return Py_INCREF(Py_None), Py_None;
+    return Py_BuildValue("s", evas_object_type_get(self->object));
 }
 
 PyObject *
@@ -238,6 +255,23 @@ Evas_Object_PyObject_color_get(Evas_Object_PyObject * self, PyObject * args)
 }
 
 
+PyObject *
+Evas_Object_PyObject_name_set(Evas_Object_PyObject * self, PyObject * args)
+{
+    char *name;
+
+    if (!PyArg_ParseTuple(args, "s", &name))
+        return NULL;
+
+    evas_object_name_set(self->object, name);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_name_get(Evas_Object_PyObject * self, PyObject * args)
+{
+    return Py_BuildValue("s", evas_object_name_get(self->object));
+}
 
 /**************************************************************************
  * IMAGE objects
@@ -256,6 +290,8 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"visible_get", (PyCFunction) Evas_Object_PyObject_visible_get, METH_VARARGS},
     {"color_set", (PyCFunction) Evas_Object_PyObject_color_set, METH_VARARGS},
     {"color_get", (PyCFunction) Evas_Object_PyObject_color_get, METH_VARARGS},
+    {"name_set", (PyCFunction) Evas_Object_PyObject_name_set, METH_VARARGS},
+    {"name_get", (PyCFunction) Evas_Object_PyObject_name_get, METH_VARARGS},
 
 /* TODO:
 	raise / lower
@@ -337,10 +373,6 @@ Evas_Object_PyObject__setattro(Evas_Object_PyObject * self, PyObject *name,
     orig = attrs = evas_object_data_get(self->object, "pyattrs");
 
     old_value = evas_hash_find(attrs, sname);
-    if (old_value) {
-        Py_DECREF(old_value);
-    }
-
     if (value == 0)
         attrs = evas_hash_del(attrs, sname, old_value);
     else {
@@ -349,6 +381,8 @@ Evas_Object_PyObject__setattro(Evas_Object_PyObject * self, PyObject *name,
         if (!orig)
             evas_object_data_set(self->object, "pyattrs", attrs);
     }
+    if (old_value)
+        Py_DECREF(old_value);
 
     return 0;
 }

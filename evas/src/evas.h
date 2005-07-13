@@ -12,7 +12,7 @@ extern PyObject *evas_error;
 typedef struct {
     PyObject_HEAD
     Evas *evas;
-    PyObject *dict;
+    PyObject *dict, *dependencies;
 } Evas_PyObject;
 
 extern PyTypeObject Evas_PyObject_Type;

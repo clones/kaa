@@ -28,6 +28,7 @@ check_evas(Evas *evas)
 static int
 Evas_PyObject__clear(Evas_PyObject *self)
 {
+    //printf("Evas CLEAR\n");
     if (self->dict) {
         PyObject *tmp = self->dict;
         self->dict = 0;
@@ -40,12 +41,19 @@ Evas_PyObject__clear(Evas_PyObject *self)
 static int
 Evas_PyObject__traverse(Evas_PyObject *self, visitproc visit, void *arg)
 {
+    //printf("Evas traverse\n");
     if (self->dict) {
         int ret = visit(self->dict, arg);
         if (ret != 0)
             return ret;
 
     }
+    if (self->dependencies) {
+        int ret = visit(self->dependencies, arg);
+        if (ret != 0)
+            return ret;
+    }
+
     return 0;
 }
 
@@ -69,11 +77,13 @@ Evas_PyObject__init(Evas_PyObject *self, PyObject *args, PyObject *kwds)
     }
     self->evas = evas;
     self->dict = PyDict_New();
+    self->dependencies = PyList_New(0);
     return 0;
 }
 
 static PyMemberDef Evas_PyObject_members[] = {
     {"__dict__", T_OBJECT_EX, offsetof(Evas_PyObject, dict), 0, "Attribute dictionary"},
+    {"dependencies", T_OBJECT_EX, offsetof(Evas_PyObject, dependencies), 0, "Dependencies"},
     {NULL}
 };
 
@@ -81,10 +91,12 @@ static PyMemberDef Evas_PyObject_members[] = {
 void
 Evas_PyObject__dealloc(Evas_PyObject * self)
 {
+    printf("Evas dealloc\n");
     if (self->evas) {
         evas_free(self->evas);
     }
     Evas_PyObject__clear(self);
+    Py_DECREF(self->dependencies);
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -243,6 +255,22 @@ Evas_PyObject_object_text_add(Evas_PyObject * self, PyObject * args)
 }
 
 PyObject *
+Evas_PyObject_object_name_find(Evas_PyObject * self, PyObject * args)
+{
+    char *name;
+    Evas_Object *obj;
+    if (!PyArg_ParseTuple(args, "s", &name))
+        return NULL;
+
+    obj = evas_object_name_find(self->evas, name);
+    if (obj)
+        return (PyObject *) wrap_evas_object(obj, self);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+PyObject *
 Evas_PyObject_font_path_set(Evas_PyObject * self, PyObject * args)
 {
     PyObject *list;
@@ -277,6 +305,7 @@ Evas_PyObject_damage_rectangle_add(Evas_PyObject * self, PyObject * args)
 
 // *INDENT-OFF*
 PyMethodDef Evas_PyObject_methods[] = {
+    {"object_name_find", (PyCFunction) Evas_PyObject_object_name_find, METH_VARARGS},
     {"output_set", (PyCFunction) Evas_PyObject_output_set, METH_VARARGS | METH_KEYWORDS},
     {"font_path_set", (PyCFunction) Evas_PyObject_font_path_set, METH_VARARGS},
     {"damage_rectangle_add", (PyCFunction) Evas_PyObject_damage_rectangle_add, METH_VARARGS},
