@@ -106,6 +106,7 @@ void
 X11Window_PyObject__dealloc(X11Window_PyObject * self)
 {
     if (self->window) {
+        //printf("X11Window destroy\n");
         XDestroyWindow(self->display, self->window);
         Py_XDECREF(self->ptr);
         XFreeCursor(self->display, self->invisible_cursor);

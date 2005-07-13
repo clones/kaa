@@ -73,6 +73,7 @@ X11Display_PyObject__init(X11Display_PyObject *self, PyObject *args,
 void
 X11Display_PyObject__dealloc(X11Display_PyObject * self)
 {
+    //printf("X11Display dealloc\n");
     if (self->display) {
         XCloseDisplay(self->display);
     }

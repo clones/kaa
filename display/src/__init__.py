@@ -60,8 +60,8 @@ class X11Display(object):
     def __init__(self, dispname = ""):
         self._display = _Display.X11Display(dispname)
         self._windows = {}
-        cb = kaa.notifier.Function(self.handle_events)
-        kaa.notifier.addSocket(self.socket, cb)
+        dispatcher = kaa.notifier.SocketDispatcher(self.handle_events)
+        dispatcher.register(self.socket)
         
     def handle_events(self):
         window_events = {}
@@ -77,7 +77,11 @@ class X11Display(object):
         for wid, events in window_events.items():
             assert(wid in self._windows)
             window = self._windows[wid]()
-            window.handle_events(events)
+            if not window:
+                # Window no longer exists.
+                del self._windows[wid]
+            else:
+                window.handle_events(events)
 
         # call the socket again
         return True
@@ -118,7 +122,8 @@ class X11Window(object):
         self._display = display
         display._windows[self._window.ptr] = weakref.ref(self)
         self._cursor_hide_timeout = -1
-        self._cursor_hide_timer_id = -1
+        self._cursor_hide_timer = kaa.notifier.WeakOneShotTimer(lambda o: o.set_cursor_visible(False), self)
+        self._cursor_visible = True
 
         self.signals = {
             "key_press_event": Signal(),
@@ -146,13 +151,10 @@ class X11Window(object):
         for event, args in events:
             if event == X11Display.XEVENT_MOTION_NOTIFY:
                 # Mouse moved, so show cursor.
-                if self._cursor_hide_timeout != 0:
+                if self._cursor_hide_timeout != 0 and not self._cursor_visible:
                     self.set_cursor_visible(True)
-                # Remove any pending timer
-                if self._cursor_hide_timer_id != -1:
-                    kaa.notifier.removeTimer(self._cursor_hide_timer_id)
-                    self._cursor_hide_timer_id = -1
-                self._cursor_hide_add_timer()
+
+                self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
             elif event == X11Display.XEVENT_KEY_PRESS:
                 self.signals["key_press_event"].emit(args[0])
@@ -164,21 +166,6 @@ class X11Window(object):
         if len(expose_regions) > 0:
             self.signals["expose_event"].emit(expose_regions)
                 
-
-    def _cursor_hide_add_timer(self):
-        # Add a new timer to hide the cursor at the current interval.
-        if self._cursor_hide_timeout > 0:
-            interval = self._cursor_hide_timeout * 1000
-            id = kaa.notifier.addTimer(interval, self._cursor_hide_cb)
-            self._cursor_hide_timer_id = id
-        elif self._cursor_hide_timeout == 0:
-            self._cursor_hide_cb()
-
-    def _cursor_hide_cb(self):
-        self.set_cursor_visible(False)
-        self._cursor_hide_timer_id = -1
-        self._display.handle_events()
-        return False
 
     def move(self, pos):
         self.set_geometry(pos, (-1, -1))
@@ -195,11 +182,12 @@ class X11Window(object):
 
     def set_cursor_visible(self, visible):
         self._window.set_cursor_visible(visible)
+        self._cursor_visible = visible
         self._display.handle_events()
 
     def set_cursor_hide_timeout(self, timeout):
-        self._cursor_hide_timeout = timeout
-        self._cursor_hide_add_timer()
+        self._cursor_hide_timeout = timeout * 1000
+        self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
 
 
@@ -220,6 +208,9 @@ class EvasX11Window(X11Window):
                    title = title)
         self._evas.output_size_set(size)
         self._evas.viewport_set((0, 0), size)
+        # Ensures the display remains alive until after Evas gets deallocated
+        # during garbage collection.
+        self._evas._dependencies.append(display._display)
         super(EvasX11Window, self).__init__(display, window)
 
 

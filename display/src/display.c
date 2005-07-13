@@ -40,13 +40,12 @@
 #include "sdl.h"
 
 PyMethodDef display_methods[] = {
-    { "image_to_surface", image_to_surface, METH_VARARGS },
-    { "render_imlib2_image", render_imlib2_image, METH_VARARGS },
+    { "image_to_surface", (PyCFunction) image_to_surface, METH_VARARGS },
+    { "render_imlib2_image", (PyCFunction) render_imlib2_image, METH_VARARGS },
 #ifdef USE_EVAS
-    { "new_evas_software_x11", new_evas_software_x11, METH_VARARGS |
-      METH_KEYWORDS },
+    { "new_evas_software_x11", (PyCFunction) new_evas_software_x11, METH_VARARGS | METH_KEYWORDS },
 #ifdef ENABLE_ENGINE_GL_X11
-    { "new_evas_gl_x11", new_evas_gl_x11, METH_VARARGS | METH_KEYWORDS },
+    { "new_evas_gl_x11", (PyCFunction) new_evas_gl_x11, METH_VARARGS | METH_KEYWORDS },
 #endif
 #endif
     { NULL }
