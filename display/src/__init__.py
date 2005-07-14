@@ -119,7 +119,7 @@ class X11Window(object):
         self._display = display
         display._windows[self._window.ptr] = weakref.ref(self)
         self._cursor_hide_timeout = -1
-        self._cursor_hide_timer = kaa.notifier.WeakOneShotTimer(lambda o: o.set_cursor_visible(False), self)
+        self._cursor_hide_timer = kaa.notifier.WeakOneShotTimer(self._cursor_hide_cb)
         self._cursor_visible = True
 
         self.signals = {
@@ -181,6 +181,9 @@ class X11Window(object):
         self._window.set_cursor_visible(visible)
         self._cursor_visible = visible
         self._display.handle_events()
+
+    def _cursor_hide_cb(self):
+        self.set_cursor_visible(False)
 
     def set_cursor_hide_timeout(self, timeout):
         self._cursor_hide_timeout = timeout * 1000
