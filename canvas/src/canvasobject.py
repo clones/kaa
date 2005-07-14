@@ -23,7 +23,7 @@ class CanvasError(Exception):
 class CanvasObject(object):
 
     def __init__(self):
-        self._supported_properties = ["pos", "visible", "layer", "color", "size"]
+        self._supported_properties = ["pos", "visible", "layer", "color", "size", "name"]
         self._properties = {}
         self._changed_since_sync = {}
         self._properties_serial = 0
@@ -57,7 +57,8 @@ class CanvasObject(object):
             getattr(self, "_set_property_" + key)(value)
         else:
             self._set_property_generic(key, value)
-        self._inc_properties_serial()
+        if key in ("pos", "visible", "color", "layer"):
+            self._inc_properties_serial()
 
     def _inc_properties_serial(self):
         self._properties_serial += 1
@@ -164,7 +165,7 @@ class CanvasObject(object):
         # Prevents reentry.
         self._changed_since_sync = None
 
-        #print "SYNC PROPERTIES", self, changed
+        print "SYNC PROPERTIES", self, changed
 
         for prop in self._supported_properties:
             if prop not in changed:
@@ -194,6 +195,10 @@ class CanvasObject(object):
 
         self._o.resize(self._get_computed_size(self["size"]))
 
+    def _sync_property_name(self):
+        self._canvas._register_object_name(self["name"], self)
+
+
     def _get_computed_size(self, (w, h)):
         orig_w, orig_h = self.get_size()
         aspect = orig_w / float(orig_h)
@@ -204,6 +209,7 @@ class CanvasObject(object):
             h = w / aspect
 
         return int(w), int(h)
+
 
     def _reset(self):
         # TODO
@@ -227,8 +233,17 @@ class CanvasObject(object):
         assert(type(x) == int and type(y) == int)
         self["pos"] = (x, y)
 
+    def set_pos(self, pos):
+        self.move(pos)
+
+    def get_pos(self):
+        return self["pos"]
+
     def set_color(self, r = None, g = None, b = None, a = None):
         self["color"] = (r, g, b, a)
+
+    def get_color(self):
+        return self["color"]
 
     def show(self):
         self.set_visible(True)
@@ -239,30 +254,36 @@ class CanvasObject(object):
     def set_visible(self, visible):
         self["visible"] = visible
 
+    def get_visible(self):
+        return self["visible"]
+
     def set_layer(self, layer):
         self["layer"] = layer
+
+    def get_layer(self):
+        return self["layer"]
 
     def resize(self, size):
         self["size"] = size
 
-
-    def clip(self, pos = (0, 0), size = (-1, -1), color = None):
-        assert( pos != (0, 0) and -1 not in size )
-        # TODO: implement me (needs support in kaa-evas first).
-
+    def set_size(self, size):
+        self.resize(size)
 
     def get_size(self):
         if isinstance(self._o, evas.Object):
             return self._o.geometry_get()[1]
         return self["size"]
 
+    def clip(self, pos = (0, 0), size = (-1, -1), color = None):
+        assert( pos != (0, 0) and -1 not in size )
+        # TODO: implement me (needs support in kaa-evas first).
+
+
     def get_name(self):
         return self["name"]
 
     def set_name(self, name):
         self["name"] = name
-        if self._canvas:
-            self._canvas._register_object_name(name, self)
 
 
 class CanvasContainer(CanvasObject):
@@ -280,6 +301,18 @@ class CanvasContainer(CanvasObject):
         super(CanvasContainer, self)._uncanvased()
         for child in self._children:
             child._uncanvased()
+
+    def _set_property_generic(self, key, value):
+        if key not in ("name",):
+            self._queue_children_sync_property(key)
+        super(CanvasContainer, self)._set_property_generic(key, value)
+
+    def _queue_children_sync_property(self, prop):
+        for child in self._children:
+            if type(child) == CanvasContainer:
+                child._queue_children_sync_property(prop)
+            else:
+                child._changed_since_sync[prop] = True
 
     def _inc_properties_serial(self):
         super(CanvasContainer, self)._inc_properties_serial()
