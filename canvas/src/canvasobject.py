@@ -23,7 +23,9 @@ class CanvasError(Exception):
 class CanvasObject(object):
 
     def __init__(self):
+        self._supported_properties = ["pos", "visible", "layer", "color", "size"]
         self._properties = {}
+        self._changed_since_sync = {}
         self._properties_serial = 0
         self._relative_values_cache = { "serial": -1 }
         self._o = self._canvas = self._parent = None
@@ -55,10 +57,17 @@ class CanvasObject(object):
             getattr(self, "_set_property_" + key)(value)
         else:
             self._set_property_generic(key, value)
+        self._inc_properties_serial()
+
+    def _inc_properties_serial(self):
         self._properties_serial += 1
 
     def _set_property_generic(self, key, value):
         self._properties[key] = value
+        if self._changed_since_sync != None:
+            self._changed_since_sync[key] = True
+            if self._o:
+                self._sync_properties()
         self._queue_render()
 
     def __delitem__(self, key):
@@ -71,6 +80,7 @@ class CanvasObject(object):
             return
 
         self._o._canvas_object = weakref(self)
+        self._sync_properties()
         self._queue_render()
 
 
@@ -111,9 +121,17 @@ class CanvasObject(object):
 
         parent = self._parent
         while parent:
-            pos = map(lambda x,y: x+y, pos, parent["pos"])
-            layer += parent["layer"]
-            visible = visible and parent["visible"]
+            # We're not interested in most properties of the canvas itself,
+            # because it usually maps to a physical window.  For example,
+            # the window may be positioned at (50, 50) on the screen, so
+            # we obviously don't want all objects on the canvas relative to
+            # that ...
+            if parent != self._canvas:
+                pos = map(lambda x,y: x+y, pos, parent["pos"])
+                visible = visible and parent["visible"]
+                layer += parent["layer"]
+
+            # ... except for color, which is a special case.
             color = map(_blend_pixel, color, parent["color"])
 
             if container and parent == container:
@@ -139,23 +157,42 @@ class CanvasObject(object):
 
 
     def _sync_properties(self):
-        if not isinstance(self._o, evas.Object):
+        if len(self._changed_since_sync) == 0:
+            return False
+
+        changed = self._changed_since_sync
+        # Prevents reentry.
+        self._changed_since_sync = None
+
+        #print "SYNC PROPERTIES", self, changed
+
+        for prop in self._supported_properties:
+            if prop not in changed:
+                continue
+            getattr(self, "_sync_property_" + prop)()
+            del changed[prop]
+
+        self._changed_since_sync = changed
+        return True
+
+
+    def _sync_property_pos(self):
+        self._o.move(self._get_relative_values()["pos"])
+
+    def _sync_property_visible(self):
+        self._o.visible_set(self._get_relative_values()["visible"])
+    
+    def _sync_property_layer(self):
+        self._o.layer_set(self._get_relative_values()["layer"])
+
+    def _sync_property_color(self):
+        self._o.color_set(*self._get_relative_values()["color"])
+
+    def _sync_property_size(self):
+        if self["size"] == (-1, -1):
             return
 
-        props = self._get_relative_values()
-        cur_pos, cur_size = self._o.geometry_get()
-
-        if props["pos"] != cur_pos:
-            self._o.move(props["pos"])
-        if props["visible"] != self._o.visible_get():
-            self._o.visible_set(props["visible"])
-        if props["layer"] != self._o.layer_get():
-            self._o.layer_set(props["layer"])
-        if props["color"] != self._o.color_get():
-            self._o.color_set(*props["color"])
-        if self["size"] != (-1, -1) and self["size"] != cur_size:
-            self._o.resize(self._get_computed_size(self["size"]))
-
+        self._o.resize(self._get_computed_size(self["size"]))
 
     def _get_computed_size(self, (w, h)):
         orig_w, orig_h = self.get_size()
@@ -224,14 +261,15 @@ class CanvasContainer(CanvasObject):
             child._canvased(canvas)
 
     def _uncanvased(self):
+        super(CanvasContainer, self)._uncanvased()
         for child in self._children:
             child._uncanvased()
 
-    def __setitem__(self, key, value):
-        super(CanvasContainer, self).__setitem__(key, value)
+    def _inc_properties_serial(self):
+        super(CanvasContainer, self)._inc_properties_serial()
         for child in self._children:
             child._properties_serial += 1
-    
+   
 
     def _sync_properties(self):
         for child in self._children:
@@ -264,54 +302,118 @@ class CanvasContainer(CanvasObject):
 
     # Convenience functions for object creation.
 
-    def add_container(self, pos = (0, 0), visible = True, color = (255, 255, 255, 255), layer = 0, name = None):
-        c = CanvasContainer()
-        c.move(pos)
-        c.set_layer(layer)
-        c.set_color(*color)
-        c.set_visible(visible)
-        c.set_name(name)
-        self.add_child(c)
-        return c
+    def _add_common(self, o, kwargs):
+        if "pos" in kwargs:     o.move(kwargs["pos"])
+        if "visible" in kwargs: o.set_visible(kwargs["visible"])
+        if "color" in kwargs:   o.set_color(*kwargs["color"])
+        if "name" in kwargs:    o.set_name(kwargs["name"])
+        if "layer" in kwargs:   o.set_layer(kwargs["layer"])
+        self.add_child(o)
+        return o
 
-    def add_image(self, image, dst_pos = (0, 0), dst_size = (-1, -1),
-                  src_pos = (0, 0), src_size = (-1, -1), visible = True,
-                  color = (255, 255, 255, 255), layer = 0, name = None):
+
+    def add_container(self, **kwargs):
+        return self._add_common(CanvasContainer(), kwargs)
+
+    def add_image(self, image, **kwargs):
         img = CanvasImage(image)
-        img.move(dst_pos)
-        img.resize(dst_size)
-        # Do src_pos/size via crop
-        img.set_layer(layer)
-        img.set_color(*color)
-        img.set_visible(visible)
-        img.set_name(name)
-        self.add_child(img)
-        return img
+        if "dst_size" in kwargs:
+            img.resize(kwargs["dst_size"])
+        # TODO: Do src_pos/size via crop
+        if "dst_pos" in kwargs: 
+            kwargs["pos"] = kwargs["dst_pos"]
+        return self._add_common(img, kwargs)
+
+    def add_text(self, text = None, **kwargs):
+        return self._add_common(CanvasText(text), kwargs)
+
+
+class CanvasText(CanvasObject):
+
+    def __init__(self, text = None, font = "arial", size = 24, color = None):
+        super(CanvasText, self).__init__()
+
+        self._supported_properties += [ "text", "font" ]
+
+        self.set_font(font, size)
+        if text != None:
+            self.set_text(text)
+        if color != None:
+            self.set_color(color)
+
+    def _canvased(self, canvas):
+        super(CanvasText, self)._canvased(canvas)
+
+        if self._o:
+            o = self._o
+        else:
+            o = canvas.get_evas().object_text_add()
+
+        self._wrap(o)
+
+
+    def set_font(self, font, size):
+        self["font"] = (font, size)
+
+
+    def get_font(self):
+        if isinstance(self._o, evas.Object):
+            return self._o.font_get()
+        return self["font"]
+
+
+    def set_text(self, text, color = None):
+        self["text"] = text
+        if color:
+            self.set_color(color)
+
+
+    def get_text(self):
+        if isinstance(self._o, evas.Object):
+            return self._o.text_get()
+        return self["text"]
+
+
+    def _sync_property_font(self):
+        self._o.font_set(*self["font"])
+
+    def _sync_property_text(self):
+        self._o.text_set(self["text"])
 
 
 
 
 class CanvasImage(CanvasObject):
 
+    PIXEL_FORMAT_NONE = 0
+    PIXEL_FORMAT_ARGB32 = 1
+    PIXEL_FORMAT_YUV420P_601 = 2
+
     def __init__(self, image_or_file = None):
         super(CanvasImage, self).__init__()
-        self["loaded"] = False
+
+        self._supported_properties += ["image", "filename", "pixels", "dirty", "size", "has_alpha"]
+
+        self._loaded = False
         self["has_alpha"] = True
+
         if image_or_file:
             self.set_image(image_or_file)
 
 
     def set_image(self, image_or_file):
-        del self["filename"], self["image"]
+        del self["filename"], self["image"], self["pixels"]
         if type(image_or_file) in types.StringTypes:
             self["filename"] = image_or_file
         elif imlib2 and type(image_or_file) == imlib2.Image:
             self["image"] = image_or_file
+            # Use weakref connection because we already hold a ref to the
+            # image: avoids cycle.
             self["image"].signals["changed"].connect_weak(self.set_dirty)
         else:
             raise ValueError, "Unsupported argument to set_image: " + repr(type(image_or_file))
 
-        self["loaded"] = False
+        self._loaded = False
 
 
     def _canvased(self, canvas):
@@ -322,13 +424,11 @@ class CanvasImage(CanvasObject):
         else:
             o = canvas.get_evas().object_image_add()
 
-        o.alpha_set(True)
         self._wrap(o)
 
 
     def _set_property_filename(self, filename):
-        if self._o:
-            self._o.load(filename)
+        assert(type(filename) == str)
         self._set_property_generic("filename", filename)
 
 
@@ -337,42 +437,62 @@ class CanvasImage(CanvasObject):
         self._set_property_generic("image", image)
 
 
-    def _sync_properties(self):
-        super(CanvasImage, self)._sync_properties()
+    def _sync_property_image(self):
+        if self._loaded:
+            return
+        size = self["image"].size
+        self._o.size_set(size)
+        self._o.resize(size)
+        self._o.fill_set((0, 0), size)
+        self._o.data_set(self["image"].get_raw_data(), copy = False)
+        self._loaded = True
 
-        if not self["loaded"]:
-            if "image" in self:
-                size = self["image"].size
-                print "Importing imlib2 image"
-                self._o.size_set(size)
-                self._o.resize(size)
-                self._o.fill_set((0, 0), size)
-                self._o.data_set(self["image"].get_raw_data(), copy = False)
-            elif "filename" in self:
-                self._o.load(self["filename"])
+    def _sync_property_filename(self):
+        if self._loaded:
+            return
+        self._o.load(self["filename"])
+        self._loaded = True
 
-            self["loaded"] = True
+    def _sync_property_pixels(self):
+        if self._loaded:
+            return
+        data, w, h, format = self["pixels"]
+        self._o.size_set((w, h))
+        self._o.resize((w,h))
+        self._o.fill_set((0, 0), (w,h))
+        self._o.pixels_import(data, w, h, format)
+        self._o.pixels_dirty_set()
+        self._loaded = True
 
-        if self["size"] != (-1, -1) and ((0,0), self.get_size()) != self._o.fill_get():
-            print "SET FILL"
-            self._o.fill_set((0, 0), self.get_size())
 
-        if self["has_alpha"] and self._o.alpha_get() != self["has_alpha"]:
-            self._o.alpha_set(self["has_alpha"])
+    def _sync_property_size(self):
+        super(CanvasImage, self)._sync_property_size()
+        self._o.fill_set((0, 0), self.get_size())
+    
+    def _sync_property_has_alpha(self):
+        self._o.alpha_set(self["has_alpha"])
+    
+    def _sync_property_dirty(self):
+        if not self["dirty"]:
+            return
 
-        if self["dirty"]:
-            self._o.pixels_dirty_set()
-            if self["image"]:
-                # Even though we're sharing the memory between the evas image buffer
-                # and the Imlib2 image's buffer, we need to call this function
-                # for canvas backends where this data gets copied again (like GL
-                # textures).
-                self._o.data_set(self["image"].get_raw_data(), copy = False)
-            self["dirty"] = False
+        self._o.pixels_dirty_set()
+        if self["image"]:
+            # Even though we're sharing the memory between the evas image buffer
+            # and the Imlib2 image's buffer, we need to call this function
+            # for canvas backends where this data gets copied again (like GL
+            # textures).
+            self._o.data_set(self["image"].get_raw_data(), copy = False)
+        self["dirty"] = False
 
 
     def set_dirty(self, dirty = True):
         self["dirty"] = dirty
+
+    def import_pixels(self, data, w, h, format):
+        del self["filename"], self["image"], self["pixels"]
+        self["pixels"] = (data, w, h, format)
+        self._loaded = False
 
 
     def as_image(self):
@@ -381,18 +501,21 @@ class CanvasImage(CanvasObject):
 
         if not self["image"]:
             # No existing Imlib2 image, so we need to make one.
-            if self["loaded"]:
+            if self._loaded:
                 # The evas object already exists, so create an Imlib2 image
                 # from evas data and use the Imlib2 image as the buffer for
                 # thee evas object.
                 size = self._o.size_get()
                 self["image"] = imlib2.new(size, self._o.data_get())
                 self._o.data_set(self["image"].get_raw_data(), copy = False)
-                print "MAKING IMAGE FROM EVAS OBJECT"
 
             elif self["filename"]:
                 # Evas object not created yet, 
                 self["image"] = imlib2.open(self["filename"])
+
+            elif self["pixels"]:
+                raise CanvasError, "Can't convert not-yet-imported pixels to image."
+
             self["image"].signals["changed"].connect_weak(self.set_dirty)
 
         return self["image"]
@@ -405,7 +528,6 @@ class CanvasImage(CanvasObject):
     def set_has_alpha(self, has_alpha = True):
         self["has_alpha"] = has_alpha
 
-            
     
 
 
@@ -423,14 +545,26 @@ class Canvas(CanvasContainer):
 
         super(Canvas, self).__init__()
 
+    def __getattr__(self, attr):
+        if attr == "fontpath":
+            return self.get_evas().fontpath
+        return CanvasContainer.__getattr__(self, attr)
+
+    def __setattr__(self, attr, value):
+        if attr == "fontpath":
+            self.get_evas().fontpath = value
+        else:
+            CanvasContainer.__setattr__(self, attr, value)
+
     def _register_object_name(self, name, object):
+        # FIXME: handle cleanup
         self._names[name] = weakref(object)
 
     def _unregister_object_name(self, name):
         if name in self._names:
             del self._names[name]
 
-    def find_object_by_name(self, name):
+    def find_object(self, name):
         if name in self._names:
             object = self._names[name]
             if object:
@@ -481,7 +615,7 @@ class X11Canvas(Canvas):
         self._window.set_cursor_hide_timeout(1)
 
 
-    def _sync_properties(self):
+    def _sync_property_visible(self):
         self._visibility_on_next_render = self["visible"]
 
 
@@ -508,6 +642,7 @@ class X11Canvas(Canvas):
         vis = self._visibility_on_next_render
         if vis == False:
             self._window.hide()
+        print "Render canvas right now"
         self._o.render()
         if vis == True:
             self._window.show()
