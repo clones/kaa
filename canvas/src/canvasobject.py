@@ -53,15 +53,19 @@ class CanvasObject(object):
         #print "Set property '%s', oldval=%s  newval=%s" % (key, repr(self[key]), repr(value))
         if self[key] == value:
             return False
+
+        if key in ("pos", "visible", "color", "layer"):
+            self._inc_properties_serial()
+
         if hasattr(self, "_set_property_" + key):
             getattr(self, "_set_property_" + key)(value)
         else:
             self._set_property_generic(key, value)
-        if key in ("pos", "visible", "color", "layer"):
-            self._inc_properties_serial()
+
 
     def _inc_properties_serial(self):
         self._properties_serial += 1
+
 
     def _set_property_generic(self, key, value):
         self._properties[key] = value
@@ -292,20 +296,25 @@ class CanvasContainer(CanvasObject):
         self._children = []
         super(CanvasContainer, self).__init__()
 
+
     def _canvased(self, canvas):
         super(CanvasContainer, self)._canvased(canvas)
         for child in self._children:
             child._canvased(canvas)
+
 
     def _uncanvased(self):
         super(CanvasContainer, self)._uncanvased()
         for child in self._children:
             child._uncanvased()
 
+
     def _set_property_generic(self, key, value):
+        super(CanvasContainer, self)._set_property_generic(key, value)
+
         if key not in ("name",):
             self._queue_children_sync_property(key)
-        super(CanvasContainer, self)._set_property_generic(key, value)
+
 
     def _queue_children_sync_property(self, prop):
         for child in self._children:
@@ -313,6 +322,7 @@ class CanvasContainer(CanvasObject):
                 child._queue_children_sync_property(prop)
             else:
                 child._changed_since_sync[prop] = True
+
 
     def _inc_properties_serial(self):
         super(CanvasContainer, self)._inc_properties_serial()
