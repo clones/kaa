@@ -205,12 +205,23 @@ class CanvasObject(object):
 
         return int(w), int(h)
 
+    def _reset(self):
+        # TODO
+        pass
 
+    def _assert_canvased(self):
+        if not self._o:
+            raise CanvasError, "Object must be canvased to call this function."
 
+    #
     # Public API
+    #
 
     def get_parent(self):
         return self._parent
+
+    def get_canvas(self):
+        return self._canvas
 
     def move(self, (x, y)):
         assert(type(x) == int and type(y) == int)
@@ -233,6 +244,11 @@ class CanvasObject(object):
 
     def resize(self, size):
         self["size"] = size
+
+
+    def clip(self, pos = (0, 0), size = (-1, -1), color = None):
+        assert( pos != (0, 0) and -1 not in size )
+        # TODO: implement me (needs support in kaa-evas first).
 
 
     def get_size(self):
@@ -274,6 +290,11 @@ class CanvasContainer(CanvasObject):
     def _sync_properties(self):
         for child in self._children:
             child._sync_properties()
+
+
+    #
+    # Public API
+    #
 
     def add_child(self, child):
         if child._parent:
@@ -327,6 +348,11 @@ class CanvasContainer(CanvasObject):
     def add_text(self, text = None, **kwargs):
         return self._add_common(CanvasText(text), kwargs)
 
+    def add_rectangle(self, **kwargs):
+        o = self._add_common(CanvasRectangle(), kwargs)
+        if "size" in kwargs:
+            o.resize(kwargs["size"])
+
 
 class CanvasText(CanvasObject):
 
@@ -339,39 +365,14 @@ class CanvasText(CanvasObject):
         if text != None:
             self.set_text(text)
         if color != None:
-            self.set_color(color)
+            self.set_color(*color)
 
     def _canvased(self, canvas):
         super(CanvasText, self)._canvased(canvas)
 
-        if self._o:
-            o = self._o
-        else:
+        if not self._o:
             o = canvas.get_evas().object_text_add()
-
-        self._wrap(o)
-
-
-    def set_font(self, font, size):
-        self["font"] = (font, size)
-
-
-    def get_font(self):
-        if isinstance(self._o, evas.Object):
-            return self._o.font_get()
-        return self["font"]
-
-
-    def set_text(self, text, color = None):
-        self["text"] = text
-        if color:
-            self.set_color(color)
-
-
-    def get_text(self):
-        if isinstance(self._o, evas.Object):
-            return self._o.text_get()
-        return self["text"]
+            self._wrap(o)
 
 
     def _sync_property_font(self):
@@ -380,6 +381,53 @@ class CanvasText(CanvasObject):
     def _sync_property_text(self):
         self._o.text_set(self["text"])
 
+
+    #
+    # Public API
+    #
+
+    def set_font(self, font, size):
+        self["font"] = (font, size)
+
+
+    def get_font(self):
+        if self._o:
+            return self._o.font_get()
+        return self["font"]
+
+
+    def set_text(self, text, color = None):
+        self["text"] = text
+        if color:
+            self.set_color(*color)
+
+
+    def get_text(self):
+        if self._o:
+            return self._o.text_get()
+        return self["text"]
+
+    def get_metric(self, metric):
+        self._assert_canvased()
+        if metric == "ascent":
+            return self._o.ascent_get()
+        elif metric == "descent":
+            return self._o.descent_get()
+        elif metric == "max_ascent":
+            return self._o.max_ascent_get()
+        elif metric == "max_descent":
+            return self._o.max_descent_get()
+        elif metric == "horiz_advance":
+            return self._o.horiz_advance_get()
+        elif metric == "vert_advance":
+            return self._o.vert_advance_get()
+        elif metric == "insert":
+            return self._o.inset_get()
+
+    def get_metrics(self):
+        self._assert_canvased()
+        return self._o.metrics_get()
+    
 
 
 
@@ -419,12 +467,9 @@ class CanvasImage(CanvasObject):
     def _canvased(self, canvas):
         super(CanvasImage, self)._canvased(canvas)
 
-        if self._o:
-            o = self._o
-        else:
+        if not self._o:
             o = canvas.get_evas().object_image_add()
-
-        self._wrap(o)
+            self._wrap(o)
 
 
     def _set_property_filename(self, filename):
@@ -486,6 +531,10 @@ class CanvasImage(CanvasObject):
         self["dirty"] = False
 
 
+    #
+    # Public API
+    #
+
     def set_dirty(self, dirty = True):
         self["dirty"] = dirty
 
@@ -522,13 +571,32 @@ class CanvasImage(CanvasObject):
 
 
     def get_image_size(self):
+        if self["image"]:
+            return self["image"].size
+        self._assert_canvased()
         return self._o.size_get()
 
 
     def set_has_alpha(self, has_alpha = True):
         self["has_alpha"] = has_alpha
 
-    
+ 
+ 
+class CanvasRectangle(CanvasObject):
+
+    def __init__(self, size = None, color = None):
+        super(CanvasRectangle, self).__init__()
+
+        if size:
+            self.resize(size)
+        if color:
+            self.set_color(*color)
+   
+    def _canvased(self, canvas):
+        super(CanvasRectangle, self)._canvased(canvas)
+        if not self._o:
+            o = canvas.get_evas().object_rectangle_add()
+            self._wrap(o)
 
 
 class Canvas(CanvasContainer):
@@ -564,14 +632,6 @@ class Canvas(CanvasContainer):
         if name in self._names:
             del self._names[name]
 
-    def find_object(self, name):
-        if name in self._names:
-            object = self._names[name]
-            if object:
-                return object._ref()
-            # Dead weakref, remove it.
-            del self._names[name]
-
 
     def _get_property_pos(self):
         return 0, 0
@@ -595,6 +655,10 @@ class Canvas(CanvasContainer):
         self.render()
 
 
+    #
+    # Public API
+    #
+
     def render(self):
         self._check_render_queued()
         self._o.render()
@@ -602,6 +666,16 @@ class Canvas(CanvasContainer):
 
     def get_evas(self):
         return self._o
+
+
+    def find_object(self, name):
+        if name in self._names:
+            object = self._names[name]
+            if object:
+                return object._ref()
+            # Dead weakref, remove it.
+            del self._names[name]
+
 
 
 class X11Canvas(Canvas):
