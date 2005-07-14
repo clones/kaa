@@ -113,8 +113,9 @@ Evas_Object_PyObject__traverse(Evas_Object_PyObject *self, visitproc visit, void
 void
 Evas_Object_PyObject__dealloc(Evas_Object_PyObject * self)
 {
-    //printf("Evas object dealloc\n");
+    printf("Evas object dealloc: %s\n", evas_object_type_get(self->object));
     Evas_Object_PyObject__clear(self);
+    evas_object_del(self->object);
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -273,6 +274,61 @@ Evas_Object_PyObject_name_get(Evas_Object_PyObject * self, PyObject * args)
     return Py_BuildValue("s", evas_object_name_get(self->object));
 }
 
+PyObject *
+Evas_Object_PyObject_clip_set(Evas_Object_PyObject * self, PyObject * args)
+{
+    Evas_Object_PyObject *clip_object;
+
+    if (!PyArg_ParseTuple(args, "O!", &Evas_Object_PyObject_Type, &clip_object))
+        return NULL;
+
+    printf("Setting clip for object: %x\n", clip_object);
+    evas_object_clip_set(self->object, clip_object->object);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_clip_get(Evas_Object_PyObject * self, PyObject * args)
+{
+    Evas_PyObject *evas;
+    Evas_Object *clip_object;
+    
+    clip_object  = evas_object_clip_get(self->object);
+    if (!clip_object) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    evas = evas_object_data_get(self->object, "evas_pyobject");
+    return (PyObject *)wrap_evas_object(clip_object, evas);
+}
+
+
+PyObject *
+Evas_Object_PyObject_clip_unset(Evas_Object_PyObject * self, PyObject * args)
+{
+    evas_object_clip_unset(self->object);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+
+PyObject *
+Evas_Object_PyObject_clipees_get(Evas_Object_PyObject * self, PyObject * args)
+{
+    const Evas_List *clipees, *p;
+    Evas_PyObject *evas;
+    PyObject *list = PyList_New(0);
+
+    evas = evas_object_data_get(self->object, "evas_pyobject");
+    clipees = evas_object_clipees_get(self->object);
+
+    for (p = clipees; p; p = p->next) {
+        Evas_Object *o = (Evas_Object *)p->data;
+        PyList_Append(list, (PyObject *)wrap_evas_object(o, evas));
+    }
+    return list;
+}
+
 /**************************************************************************
  * IMAGE objects
  **************************************************************************/
@@ -292,7 +348,10 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"color_get", (PyCFunction) Evas_Object_PyObject_color_get, METH_VARARGS},
     {"name_set", (PyCFunction) Evas_Object_PyObject_name_set, METH_VARARGS},
     {"name_get", (PyCFunction) Evas_Object_PyObject_name_get, METH_VARARGS},
-
+    {"clip_set", (PyCFunction) Evas_Object_PyObject_clip_set, METH_VARARGS},
+    {"clip_get", (PyCFunction) Evas_Object_PyObject_clip_get, METH_VARARGS},
+    {"clip_unset", (PyCFunction) Evas_Object_PyObject_clip_unset, METH_VARARGS},
+    {"clipees_get", (PyCFunction) Evas_Object_PyObject_clipees_get, METH_VARARGS},
 /* TODO:
 	raise / lower
 	stack_*

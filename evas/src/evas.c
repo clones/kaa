@@ -321,7 +321,6 @@ PyMethodDef Evas_PyObject_methods[] = {
     {"image_cache_set", (PyCFunction) Evas_PyObject_image_cache_set, METH_VARARGS},
     {"image_cache_get", (PyCFunction) Evas_PyObject_image_cache_get, METH_VARARGS},
 
-
     {"object_rectangle_add", (PyCFunction) Evas_PyObject_object_rectangle_add, METH_VARARGS},
     {"object_image_add", (PyCFunction) Evas_PyObject_object_image_add, METH_VARARGS},
     {"object_text_add", (PyCFunction) Evas_PyObject_object_text_add, METH_VARARGS},

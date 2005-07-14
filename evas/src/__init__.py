@@ -43,6 +43,21 @@ for f in ("__setitem__", "__delitem__", "append", "__add__", "__delslice__",
     setattr(TriggerList, f, tmp)
 
 
+def _wrap_evas_object(obj):
+    if obj == None:
+        return None
+
+    obj_type = obj.type_get()
+    if obj_type == "image":
+        return Image(obj)
+    elif obj_type == "rectangle":
+        return Rectangle(obj)
+    elif obj_type == "text":
+        return Text(obj)
+    else:
+        raise ValueError, "Unable to wrap unknown object type (%s)" % obj_type
+
+
 class Object(object):
 
     def __init__(self, evas_object):
@@ -125,6 +140,21 @@ class Object(object):
     def name_get(self):
         return self._object.name_get()
 
+    def clip_set(self, clip_object):
+        self._object.clip_set(clip_object._object)
+
+    def clip_get(self):
+        o = self._object.clip_get()
+        return _wrap_evas_object(o)
+
+    def clip_unset(self):
+        self._object.clip_unset()
+
+    def clipees_get(self):
+        list = []
+        for o in self._object.clipees_get():
+            list.append(_wrap_evas_object(o))
+        return list
 
 class Rectangle(Object):
     def __init__(self, evas_object):
@@ -347,16 +377,7 @@ class Evas(object):
 
     def object_name_find(self, name):
         obj = self._evas.object_name_find(name)
-        if not obj:
-            return None
-
-        obj_type = obj.type_get()
-        if obj_type == "image":
-            return Image(obj)
-        elif obj_type == "Rectangle":
-            return Rectangle(obj)
-        elif obj_type == "Text":
-            return Text(obj)
+        return _wrap_evas_object(obj)
 
 
 class EvasBuffer(Evas):
