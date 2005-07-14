@@ -23,18 +23,21 @@ class CanvasError(Exception):
 class CanvasObject(object):
 
     def __init__(self):
-        self._supported_properties = ["pos", "visible", "layer", "color", "size", "name"]
+        self._supported_sync_properties = ["pos", "visible", "layer", "color", "size", "name", "clip"]
         self._properties = {}
         self._changed_since_sync = {}
         self._properties_serial = 0
         self._relative_values_cache = { "serial": -1 }
+
         self._o = self._canvas = self._parent = None
+        self._clip_object = None
 
         self["pos"] = (0, 0)
         self["size"] = (-1, -1)
         self["color"] = (255, 255, 255, 255)
         self["visible"] = True
         self["layer"] = 0
+        self["clip"] = None
 
 
 
@@ -71,7 +74,7 @@ class CanvasObject(object):
         self._properties[key] = value
         if self._changed_since_sync != None:
             self._changed_since_sync[key] = True
-            if self._o:
+            if self.get_evas():
                 self._sync_properties()
         self._queue_render()
 
@@ -86,6 +89,7 @@ class CanvasObject(object):
 
         self._o._canvas_object = weakref(self)
         self._sync_properties()
+        self._apply_parent_clip()
         self._queue_render()
 
 
@@ -169,9 +173,9 @@ class CanvasObject(object):
         # Prevents reentry.
         self._changed_since_sync = None
 
-        print "SYNC PROPERTIES", self, changed
+        #print "SYNC PROPERTIES", self, changed
 
-        for prop in self._supported_properties:
+        for prop in self._supported_sync_properties:
             if prop not in changed:
                 continue
             getattr(self, "_sync_property_" + prop)()
@@ -182,26 +186,74 @@ class CanvasObject(object):
 
 
     def _sync_property_pos(self):
-        self._o.move(self._get_relative_values()["pos"])
+        abs_pos = self._get_relative_values()["pos"]
+        if isinstance(self._o, evas.Object):
+            self._o.move(abs_pos)
+        if self._clip_object:
+            clip_pos = map(lambda x,y: x+y, self["clip"][0], abs_pos)
+            self._clip_object.move(clip_pos)
 
     def _sync_property_visible(self):
-        self._o.visible_set(self._get_relative_values()["visible"])
+        if isinstance(self._o, evas.Object):
+            self._o.visible_set(self._get_relative_values()["visible"])
     
     def _sync_property_layer(self):
-        self._o.layer_set(self._get_relative_values()["layer"])
+        if isinstance(self._o, evas.Object):
+            self._o.layer_set(self._get_relative_values()["layer"])
 
     def _sync_property_color(self):
-        self._o.color_set(*self._get_relative_values()["color"])
+        if isinstance(self._o, evas.Object):
+            self._o.color_set(*self._get_relative_values()["color"])
 
     def _sync_property_size(self):
         if self["size"] == (-1, -1):
             return
 
-        self._o.resize(self._get_computed_size(self["size"]))
+        if isinstance(self._o, evas.Object):
+            self._o.resize(self._get_computed_size(self["size"]))
 
     def _sync_property_name(self):
         self._canvas._register_object_name(self["name"], self)
 
+    def _sync_property_clip(self):
+        if self["clip"] == None:
+            if self._clip_object:
+                if isinstance(self._o, evas.Object):
+                    self._o.clip_unset()
+                self._clip_object = None
+                self._apply_parent_clip()
+            return
+
+        if not self._clip_object:
+            self._clip_object = self.get_evas().object_rectangle_add()
+            self._clip_object.show()
+            self._apply_parent_clip()
+            if isinstance(self._o, evas.Object):
+                self._o.clip_set(self._clip_object)
+
+        clip_pos, clip_size = self["clip"]
+        clip_pos = map(lambda x,y: x+y, clip_pos, self._get_relative_values()["pos"])
+
+        self._clip_object.move(clip_pos)
+        self._clip_object.resize(clip_size)
+
+
+    def _apply_parent_clip(self):
+        if not self._o and not self._clip_object:
+            return
+
+        parent = self._parent
+        while parent:
+            if parent._clip_object:
+                if self._clip_object:
+                    self._clip_object.clip_set(parent._clip_object)
+                elif isinstance(self._o, evas.Object):
+                    self._o.clip_set(parent._clip_object)
+                break
+            parent = parent._parent
+        else:
+            if self._clip_object: 
+                self._clip_object.clip_unset()
 
     def _get_computed_size(self, (w, h)):
         orig_w, orig_h = self.get_size()
@@ -232,6 +284,10 @@ class CanvasObject(object):
 
     def get_canvas(self):
         return self._canvas
+
+    def get_evas(self):
+        if self._canvas:
+            return self._canvas.get_evas()
 
     def move(self, (x, y)):
         assert(type(x) == int and type(y) == int)
@@ -278,9 +334,12 @@ class CanvasObject(object):
             return self._o.geometry_get()[1]
         return self["size"]
 
-    def clip(self, pos = (0, 0), size = (-1, -1), color = None):
-        assert( pos != (0, 0) and -1 not in size )
-        # TODO: implement me (needs support in kaa-evas first).
+    def clip(self, pos = (0, 0), size = (-1, -1)):
+        assert( -1 not in size )
+        self["clip"] = (pos, size)
+
+    def unclip(self):
+        self["clip"] = None
 
 
     def get_name(self):
@@ -295,6 +354,8 @@ class CanvasContainer(CanvasObject):
     def __init__(self):
         self._children = []
         super(CanvasContainer, self).__init__()
+
+        self._supported_sync_properties = ["clip", "name", "pos"]
 
 
     def _canvased(self, canvas):
@@ -331,8 +392,25 @@ class CanvasContainer(CanvasObject):
    
 
     def _sync_properties(self):
+        super(CanvasContainer, self)._sync_properties()
         for child in self._children:
             child._sync_properties()
+
+    def _sync_property_clip(self):
+        super(CanvasContainer, self)._sync_property_clip()
+        self._apply_clip_to_children()
+
+
+    def _apply_clip_to_children(self):
+        for child in self._children:
+            if type(child) == CanvasContainer:
+                child._apply_clip_to_children()
+            else:
+                child._apply_parent_clip()
+
+    def _set_property_size(self, size):
+        if size != (-1, -1):
+            raise CanvasError, "NYI: Can't set size for containers yet."
 
 
     #
@@ -367,12 +445,14 @@ class CanvasContainer(CanvasObject):
     # Convenience functions for object creation.
 
     def _add_common(self, o, kwargs):
+        self.add_child(o)
         if "pos" in kwargs:     o.move(kwargs["pos"])
         if "visible" in kwargs: o.set_visible(kwargs["visible"])
         if "color" in kwargs:   o.set_color(*kwargs["color"])
         if "name" in kwargs:    o.set_name(kwargs["name"])
         if "layer" in kwargs:   o.set_layer(kwargs["layer"])
-        self.add_child(o)
+        if "clip" in kwargs:    o.clip(*kwargs["clip"])
+        if "size" in kwargs:    o.resize(kwargs["size"])
         return o
 
 
@@ -380,21 +460,13 @@ class CanvasContainer(CanvasObject):
         return self._add_common(CanvasContainer(), kwargs)
 
     def add_image(self, image, **kwargs):
-        img = CanvasImage(image)
-        if "dst_size" in kwargs:
-            img.resize(kwargs["dst_size"])
-        # TODO: Do src_pos/size via crop
-        if "dst_pos" in kwargs: 
-            kwargs["pos"] = kwargs["dst_pos"]
-        return self._add_common(img, kwargs)
+        return self._add_common(CanvasImage(image), kwargs)
 
     def add_text(self, text = None, **kwargs):
         return self._add_common(CanvasText(text), kwargs)
 
     def add_rectangle(self, **kwargs):
-        o = self._add_common(CanvasRectangle(), kwargs)
-        if "size" in kwargs:
-            o.resize(kwargs["size"])
+        return self._add_common(CanvasRectangle(), kwargs)
 
 
 class CanvasText(CanvasObject):
@@ -402,7 +474,7 @@ class CanvasText(CanvasObject):
     def __init__(self, text = None, font = "arial", size = 24, color = None):
         super(CanvasText, self).__init__()
 
-        self._supported_properties += [ "text", "font" ]
+        self._supported_sync_properties += [ "text", "font" ]
 
         self.set_font(font, size)
         if text != None:
@@ -483,7 +555,7 @@ class CanvasImage(CanvasObject):
     def __init__(self, image_or_file = None):
         super(CanvasImage, self).__init__()
 
-        self._supported_properties += ["image", "filename", "pixels", "dirty", "size", "has_alpha"]
+        self._supported_sync_properties += ["image", "filename", "pixels", "dirty", "size", "has_alpha"]
 
         self._loaded = False
         self["has_alpha"] = True
@@ -719,6 +791,9 @@ class Canvas(CanvasContainer):
             # Dead weakref, remove it.
             del self._names[name]
 
+    def clip(self, pos = (0,0), size = (-1,-1)):
+        raise CanvasError, "Can't clip whole canvases yet -- looks like a bug in evas."
+
 
 
 class X11Canvas(Canvas):
@@ -730,10 +805,6 @@ class X11Canvas(Canvas):
 
         self._window.signals["key_press_event"].connect_weak(self.signals["key_press_event"].emit)
         self._window.set_cursor_hide_timeout(1)
-
-
-    def _sync_property_visible(self):
-        self._visibility_on_next_render = self["visible"]
 
 
     def _set_property_visible(self, vis):
@@ -765,4 +836,3 @@ class X11Canvas(Canvas):
             self._window.show()
 
         self._visibility_on_next_render = None
-
