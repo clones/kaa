@@ -84,7 +84,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
         KeyPressMask;
     attr.bit_gravity = ForgetGravity;
 
-    XLockDisplay(o->display);
+    XLockDisplay(disp->display);
     screen = DefaultScreen(disp->display);
 
     *ei_display = disp->display;
@@ -99,7 +99,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
 
     *ei_drawable = win;
     XStoreName(disp->display, win, title);
-    XUnlockDisplay(o->display);
+    XUnlockDisplay(disp->display);
 
     win_object = X11Window_PyObject__wrap((PyObject *)disp, win);
     return win_object;
