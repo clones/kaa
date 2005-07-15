@@ -85,6 +85,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     self->display_pyobject = (PyObject *)display;
     Py_INCREF(display);
     self->display = display->display;
+    XLockDisplay(self->display);
     self->window = XCreateSimpleWindow(self->display,
             DefaultRootWindow(self->display), 0, 0, w, h, 0, 0, 0);
     XStoreName(self->display, self->window, window_title);
@@ -92,6 +93,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
                  PointerMotionMask);
     self->ptr = PyInt_FromLong(self->window);
     _make_invisible_cursor(self);
+    XUnlockDisplay(self->display);
     return (PyObject *)self;
 }
 
@@ -107,9 +109,11 @@ X11Window_PyObject__dealloc(X11Window_PyObject * self)
 {
     if (self->window) {
         //printf("X11Window destroy\n");
+        XLockDisplay(self->display);
         XDestroyWindow(self->display, self->window);
         Py_XDECREF(self->ptr);
         XFreeCursor(self->display, self->invisible_cursor);
+        XUnlockDisplay(self->display);
     }
     Py_XDECREF(self->display_pyobject);
     X11Window_PyObject__clear(self);
@@ -120,17 +124,20 @@ X11Window_PyObject__dealloc(X11Window_PyObject * self)
 PyObject *
 X11Window_PyObject__show(X11Window_PyObject * self, PyObject * args)
 {
-    XMapWindow(self->display, self->window);
-    XRaiseWindow(self->display, self->window);
+    XLockDisplay(self->display);
+    XMapRaised(self->display, self->window);
     XSync(self->display, False);
+    XUnlockDisplay(self->display);
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 X11Window_PyObject__hide(X11Window_PyObject * self, PyObject * args)
 {
+    XLockDisplay(self->display);
     XUnmapWindow(self->display, self->window);
     XSync(self->display, False);
+    XUnlockDisplay(self->display);
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -142,6 +149,7 @@ X11Window_PyObject__set_geometry(X11Window_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "(ii)(ii)", &x, &y, &w, &h))
         return NULL;
 
+    XLockDisplay(self->display);
     if (x != -1 && w != -1)
         XMoveResizeWindow(self->display, self->window, x, y, w, h);
     else if (x != -1)
@@ -150,6 +158,7 @@ X11Window_PyObject__set_geometry(X11Window_PyObject * self, PyObject * args)
         XResizeWindow(self->display, self->window, w, h);
 
     XSync(self->display, False);
+    XUnlockDisplay(self->display);
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -161,10 +170,12 @@ X11Window_PyObject__set_cursor_visible(X11Window_PyObject * self,
     if (!PyArg_ParseTuple(args, "i", &visible))
         return NULL;
 
+    XLockDisplay(self->display);
     if (!visible)
         XDefineCursor(self->display, self->window, self->invisible_cursor);
     else
         XUndefineCursor(self->display, self->window);
+    XUnlockDisplay(self->display);
 
     return Py_INCREF(Py_None), Py_None;
 }
@@ -173,7 +184,9 @@ PyObject *
 X11Window_PyObject__get_geometry(X11Window_PyObject * self, PyObject * args)
 {
     XWindowAttributes attrs;
+    XLockDisplay(self->display);
     XGetWindowAttributes(self->display, self->window, &attrs);
+    XUnlockDisplay(self->display);
     return Py_BuildValue("((ii)(ii))", attrs.x, attrs.y, attrs.width,
                          attrs.height);
 }
@@ -204,7 +217,9 @@ X11Window_PyObject__wrap(PyObject *display, Window window)
     o->display = ((X11Display_PyObject *)display)->display;
     o->window = window;
     o->ptr = PyInt_FromLong(window);
+    XLockDisplay(o->display);
     _make_invisible_cursor(o);
+    XUnlockDisplay(o->display);
     return o;
 }
 

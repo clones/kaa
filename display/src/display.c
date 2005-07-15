@@ -51,8 +51,6 @@ PyMethodDef display_methods[] = {
     { NULL }
 };
 
-PyTypeObject *Evas_PyObject_Type;
-
 void **get_module_api(char *module)
 {
     PyObject *m, *c_api;
@@ -111,4 +109,7 @@ void init_Display()
 #else
     Evas_PyObject_Type = NULL;
 #endif
+
+    if (!XInitThreads())
+        PyErr_Format(PyExc_SystemError, "Unable to initialize X11 threads.");
 }

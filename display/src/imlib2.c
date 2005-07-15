@@ -33,9 +33,10 @@
 #include "config.h"
 #include <Python.h>
 
+PyTypeObject *Image_PyObject_Type;
+
 #ifdef USE_IMLIB2
 #include "imlib2.h"
-PyTypeObject *Image_PyObject_Type;
 Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
 #endif
 

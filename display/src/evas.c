@@ -31,10 +31,13 @@
  */
 
 #include "config.h"
+#include <Python.h>
+
+PyTypeObject *Evas_PyObject_Type;
+
 
 #ifdef USE_EVAS
 
-#include <Python.h>
 #include "evas.h"
 #include "x11display.h"
 #include "x11window.h"
@@ -81,6 +84,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
         KeyPressMask;
     attr.bit_gravity = ForgetGravity;
 
+    XLockDisplay(o->display);
     screen = DefaultScreen(disp->display);
 
     *ei_display = disp->display;
@@ -95,6 +99,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
 
     *ei_drawable = win;
     XStoreName(disp->display, win, title);
+    XUnlockDisplay(o->display);
 
     win_object = X11Window_PyObject__wrap((PyObject *)disp, win);
     return win_object;

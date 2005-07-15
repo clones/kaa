@@ -87,6 +87,7 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     PyObject *events = PyList_New(0), *o;
     XEvent ev;
 
+    XLockDisplay(self->display);
     XSync(self->display, False);
     while (XPending(self->display)) {
         XNextEvent(self->display, &ev);
@@ -120,13 +121,16 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             Py_DECREF(o);
         }
     }
+    XUnlockDisplay(self->display);
     return events;
 }
 
 PyObject *
 X11Display_PyObject__sync(X11Display_PyObject * self, PyObject * args)
 {
+    XLockDisplay(self->display);
     XSync(self->display, False);
+    XUnlockDisplay(self->display);
     return Py_INCREF(Py_None), Py_None;
 }
 
