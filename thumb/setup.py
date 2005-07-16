@@ -39,19 +39,15 @@ except ImportError:
     
 thumbnailer = Extension("kaa.thumb._thumbnailer",
                         ["src/thumbnail.c", "src/png.c" ],
-                        libraries = ['png'], config='src/config.h')
+                        config='src/config.h')
 
 if not thumbnailer.check_library('imlib2', '1.1.1'):
     print 'Imlib2 >= 1.1.1 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
-if not thumbnailer.check_cc([], '', '-lpng'):
-    print 'Error: libpng is missing.'
-    sys.exit(1)
-
-if not thumbnailer.check_cc(['<png.h>'], '', '-lpng'):
-    print 'Error: libpng header file is missing.'
+if not thumbnailer.check_library('libpng', '1.2.0'):
+    print 'libpng >= 1.2.0 not found'
     sys.exit(1)
 
 if thumbnailer.check_library('epeg', '0.9'):
