@@ -33,6 +33,7 @@
 import re
 import os
 import sys
+import popen2
 
 try:
     # kaa base imports
@@ -83,9 +84,11 @@ except ImportError:
 # Test for evas and supported engines
 evas_engines = ""
 if display.check_library('evas', '0.9.9.010'):
+    indent = re.compile("^", re.M)
     out = "/tmp/a.out.%s" % os.getpid()
     cmd = "cc -x c - `evas-config --libs --cflags` -o %s" % out
-    os.popen(cmd + " &>/dev/null", "w").write('''
+    p = popen2.Popen4(cmd)
+    p.tochild.write('''
         #include <Evas.h>
         #include <stdio.h>
 
@@ -94,15 +97,27 @@ if display.check_library('evas', '0.9.9.010'):
             for (;p; p = p->next) printf("%s\\n", (char *)p->data);
         }
     ''')
-    for line in os.popen(out + " 2>/dev/null").readlines():
-        engine = line.strip()
-        if engine == "software_x11":
-            display.config("#define ENABLE_ENGINE_SOFTWARE_X11\n")
-            evas_engines += " software_x11"
-        elif engine == "gl_x11":
-            display.config("#define ENABLE_ENGINE_GL_X11\n")
-            evas_engines += " gl_x11"
-    os.unlink(out)
+    p.tochild.close()
+    output = p.fromchild.read()
+    if os.waitpid(p.pid, 0)[1] != 0:
+        output = indent.sub("\t", output)
+        print "! Failed to compile evas test program:\n", output
+    else:
+        p = popen2.Popen4(out)
+        output = p.fromchild.read()
+        if os.waitpid(p.pid, 0)[1] != 0:
+            output = indent.sub("\t", output)
+            print "! Failed to run evas test program:\n", output
+
+        for line in output.splitlines():
+            engine = line.strip()
+            if engine == "software_x11":
+                display.config("#define ENABLE_ENGINE_SOFTWARE_X11\n")
+                evas_engines += " software_x11"
+            elif engine == "gl_x11":
+                display.config("#define ENABLE_ENGINE_GL_X11\n")
+                evas_engines += " gl_x11"
+        os.unlink(out)
 
 if evas_engines == "":
     print "- evas support disabled"
