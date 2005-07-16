@@ -1,3 +1,4 @@
+import sys
 from kaa import xine, display
 import kaa
 
