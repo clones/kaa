@@ -70,7 +70,9 @@ void **get_module_api(char *module)
 void init_Display()
 {
     PyObject *m, *display_c_api;
-    void **imlib2_api_ptrs, *display_api_ptrs[1], **evas_api_ptrs;
+    void **imlib2_api_ptrs, **evas_api_ptrs;
+    static void *display_api_ptrs[3];
+
     m = Py_InitModule("_Display", display_methods);
 
     if (PyType_Ready(&X11Display_PyObject_Type) < 0)
@@ -85,6 +87,9 @@ void init_Display()
 
     // Export display C API
     display_api_ptrs[0] = (void *)X11Window_PyObject__wrap;
+    display_api_ptrs[1] = (void *)&X11Window_PyObject_Type;
+    display_api_ptrs[2] = (void *)x11window_object_decompose;
+
     display_c_api = PyCObject_FromVoidPtr((void *)display_api_ptrs, NULL);
     PyModule_AddObject(m, "_C_API", display_c_api);
 

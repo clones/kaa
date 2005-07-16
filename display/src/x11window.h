@@ -34,6 +34,8 @@
 #define _X11WINDOW_H_
 #include <X11/Xlib.h>
 
+#define X11Window_PyObject_Check(v) ((v)->ob_type == &X11Window_PyObject_Type)
+
 typedef struct {
     PyObject_HEAD
 
@@ -47,5 +49,7 @@ typedef struct {
 
 extern PyTypeObject X11Window_PyObject_Type;
 
+// Exported API functions
+int x11window_object_decompose(X11Window_PyObject *, Window *, Display **);
 X11Window_PyObject *X11Window_PyObject__wrap(PyObject *display, Window window);
 #endif

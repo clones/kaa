@@ -38,6 +38,7 @@
 
 extern PyTypeObject X11Display_PyObject_Type;
 
+
 PyObject *
 X11Display_PyObject__new(PyTypeObject *type, PyObject * args,
                          PyObject * kwargs)
@@ -73,7 +74,7 @@ X11Display_PyObject__init(X11Display_PyObject *self, PyObject *args,
 void
 X11Display_PyObject__dealloc(X11Display_PyObject * self)
 {
-    //printf("X11Display dealloc\n");
+    printf("X11Display dealloc\n");
     if (self->display) {
         XCloseDisplay(self->display);
     }

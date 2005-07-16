@@ -239,6 +239,23 @@ _make_invisible_cursor(X11Window_PyObject *win)
     XFreePixmap(win->display, pix);
 }
 
+// Exported _C_API function
+int x11window_object_decompose(X11Window_PyObject *win, Window *window, Display **display)
+{
+    XWindowAttributes attrs;
+
+    if (!win || !X11Window_PyObject_Check(win))
+        return 0;
+
+    if (window)
+        *window = win->window;
+    if (display)
+        *display = win->display;
+
+    return 1;
+}
+
+
 static PyMemberDef X11Window_PyObject_members[] = {
     {"ptr", T_OBJECT_EX, offsetof(X11Window_PyObject, ptr), 0, ""},
     {NULL}  /* Sentinel */
