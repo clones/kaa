@@ -115,7 +115,7 @@ class Channel(object):
         notifier_counter = 0
         for p in self.__epg.sql_get_programs(self.id, start, stop):
             i = Program(p.id, p.title, p.start, p.stop, p.episode, p.subtitle,
-                        p['description'], channel=self)
+                        p.description, channel=self)
             new_progs.append(i)
             notifier_counter = (notifier_counter + 1) % 500
             if not notifier_counter:

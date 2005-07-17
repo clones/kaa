@@ -53,7 +53,6 @@ class Guide(object):
         self.channel_list = []
         self.channel_dict = {}
 
-
     def connect(self, frontent, *args):
         """
         Connect to the database frontent
@@ -74,12 +73,12 @@ class Guide(object):
         # Check the db for channels. All channels not in the exclude list
         # will be added if not already in the list
         for c in self.sql_get_channels():
-            if c['id'].encode('latin-1', 'ignore') in tv_channels_exclude:
+            id, display_name, access_id = c
+            if id.encode('latin-1', 'ignore') in tv_channels_exclude:
                 # Skip channels that we explicitly do not want.
                 continue
-            if not c['id'] in self.channel_dict.keys():
-                self.add_channel(Channel(c['id'], c['display_name'],
-                                         c['access_id'], self))
+            if not id in self.channel_dict.keys():
+                self.add_channel(Channel(id, display_name, access_id, self))
 
 
     def close(self):
@@ -96,8 +95,7 @@ class Guide(object):
         """
         if not type(sql) in StringTypes:
             return sql
-        sql = sql.replace('\'','')
-        return sql
+        return sql.replace('\'','')
 
 
     def __escape_value(self, val):
@@ -183,7 +181,7 @@ class Guide(object):
 
     def search(self, searchstr, by_chan=None, search_title=True,
                search_subtitle=False, search_description=False,
-               exact_match=False):
+               exact_match=False, interval=None):
         """
         Return a list of programs with a title similar to the given parameter.
         If by_chan is given, it has to be a valid channel id and only programs
@@ -194,8 +192,10 @@ class Guide(object):
         if not (search_title or search_subtitle or search_description):
             return []
 
-        now = time.time()
-        clause = 'where stop > %d' % now
+        if interval:
+            clause = 'where stop > %d and start <= %d' % interval
+        else:
+            clause = 'where stop > %d' % time.time()
         if by_chan:
             clause = '%s and channel_id="%s"' % (clause, by_chan)
 
@@ -224,13 +224,14 @@ class Guide(object):
         clause += ' )'
 
         query = 'select * from programs %s order by channel_id, start' % clause
+
         result = []
-        for p in self.sql_execute(query):
-            if self.channel_dict.has_key(p.channel_id):
-                result.append(Program(p.id, p.title, p.start, p.stop,
-                                      p.episode, p.subtitle,
-                                      description=p['description'],
-                                      channel=self.channel_dict[p.channel_id]))
+        for p in self.sql_execute(query, True):
+            # id, channel_id, start, stop, title, episode, subtitle, \
+            #     description, rating, original_airdate
+            if self.channel_dict.has_key(p[1]):
+                result.append(Program(p[0], p[4], p[2], p[3], p[5], p[6],
+                                      p[7], self.channel_dict[p[1]]))
         return result
 
 
@@ -242,12 +243,12 @@ class Guide(object):
         query = 'select * from programs where id="%s"' % id
         result = self.sql_execute(query)
         if result:
-            p = result[0]
-            if self.channel_dict.has_key(p.channel_id):
-                return Program(p.id, p.title, p.start, p.stop,
-                               p.episode, p.subtitle,
-                               description=p['description'],
-                               channel=self.channel_dict[p.channel_id])
+            id, channel_id, start, stop, title, episode, subtitle, \
+                description, rating, original_airdate = result[0]
+            if self.channel_dict.has_key(channel_id):
+                return Program(id, title, start, stop, episode, subtitle,
+                               description=description,
+                               channel=self.channel_dict[channel_id])
         return None
 
     #
@@ -257,17 +258,17 @@ class Guide(object):
     # outside kaa.epg
     #
 
-    def sql_execute(self, query):
+    def sql_execute(self, query, as_list=False):
         """
-        Execute sql query.
+        Execute sql query. If as_list is True, the result can only be accessed
+        as a list. So result[0] is possible, result['title'] is not. Using
+        as_list will speed up the query for sqlite2.
         """
-        query = self.__escape_query(query)
         try:
-            result = self.db.execute(query)
+            return self.db.execute(self.__escape_query(query), as_list)
         except TypeError:
             log.exception('execute error')
             return False
-        return result
 
 
     def sql_commit(self):
@@ -296,16 +297,6 @@ class Guide(object):
         self.sql_commit()
 
 
-    def sql_get_channel(self, id):
-        """
-        Get a channel.
-        """
-        query = 'select * from channels where id="%s' % id
-        channel = self.sql_execute(query)
-        if len(channel):
-            return channel[0]
-
-
     def sql_get_channels(self):
         """
         Get all channels.
@@ -331,7 +322,7 @@ class Guide(object):
         query = 'select id from channels'
         rows = self.sql_execute(query)
         for row in rows:
-            id_list.append(row.id)
+            id_list.append(row[0])
 
         return id_list
 
@@ -353,13 +344,13 @@ class Guide(object):
         query = 'select * from programs where channel_id="%s" ' % channel_id +\
                 'and start>%s and start<%s' % (start, stop)
         rows = self.sql_execute(query)
-        if len(rows) and (len(rows) > 1 or rows[0]['start'] != start or \
-                          rows[0]['stop'] != stop):
+        if len(rows) and (len(rows) > 1 or rows[0].start != start or \
+                          rows[0].stop != stop):
             log.info('changed program time table:')
             # The time table changed. Old programs overlapp new once
             # Better remove everything here
             for row in rows:
-                title = row['title'].encode('latin-1', 'replace')
+                title = row.title.encode('latin-1', 'replace')
                 log.info('delete %s:' % title)
                 self.sql_remove_program(row.id)
 
@@ -370,18 +361,18 @@ class Guide(object):
         if len(rows) == 1:
             # An old program is found, check attributes.
             old = rows[0]
-            if old['title'] == title:
+            if old.title == title:
                 # program timeslot is unchanged, see if there's anything
                 # that we should update
-                if old['subtitle'] != subtitle:
+                if old.subtitle != subtitle:
                     query = 'update programs set subtitle="%s" where id=%d'
                     self.sql_execute(query % (subtitle, old.id))
                     self.sql_commit()
-                if old['description'] != description:
+                if old.description != description:
                     query = 'update programs set description="%s" where id=%d'
                     self.sql_execute(query % (description, old.id))
                     self.sql_commit()
-                if old['episode'] != episode:
+                if old.episode != episode:
                     query = 'update programs set episode="%s" where id=%d'
                     self.sql_execute(query % (episode, old.id))
                     self.sql_commit()
@@ -391,7 +382,7 @@ class Guide(object):
                 # old prog and new prog have same times but different title,
                 # this is probably a schedule change, remove the old one
                 # TODO: check for shifting times and program overlaps
-                self.sql_remove_program(old['id'])
+                self.sql_remove_program(old.id)
 
         #
         # If we made it here there's no identical program in the table
