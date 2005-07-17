@@ -182,7 +182,7 @@ class Guide(object):
 
 
     def search(self, searchstr, by_chan=None, search_title=True,
-               search_subtitle=True, search_description=True,
+               search_subtitle=False, search_description=False,
                exact_match=False):
         """
         Return a list of programs with a title similar to the given parameter.
