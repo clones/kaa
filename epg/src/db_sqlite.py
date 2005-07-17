@@ -93,7 +93,7 @@ class Database(object):
                     log.warning(warning % latest_version)
                     if ver == "0.0.0" and latest_version == "0.1.1":
                         for cmd in schema.update['0.1.1']:
-                            self.execute(cmd)
+                            self.execute(cmd, True)
                         self.commit()
             except AttributeError:
                 log.warning('Invalid database, creating a new one')
@@ -101,7 +101,7 @@ class Database(object):
                 os.unlink(dbpath)
 
         if dbmissing:
-            self.execute(schema.schema)
+            self.execute(schema.schema, True)
             self.commit()
 
 
@@ -119,9 +119,9 @@ class Database(object):
         self.db.close()
 
 
-    def execute(self, query):
+    def execute(self, query, as_list):
         """
-        Execute a query.
+        Execute a query. The parameter as_list has no effect on this backend.
         """
         while 1:
             try:
@@ -138,7 +138,7 @@ class Database(object):
         """
         if self.check_table('versioning'):
             cmd = 'select version from versioning where thing="sql"'
-            return self.execute(cmd)[0][0]
+            return self.execute(cmd, True)[0][0]
         else:
             log.warning('EPG database version check failed')
             raise AttributeError('Broken DB')
@@ -152,6 +152,6 @@ class Database(object):
             return False
         # verify the table exists
         if not self.execute('select name from sqlite_master where ' + \
-                            'name="%s" and type="table"' % table):
+                            'name="%s" and type="table"' % table, True):
             return None
         return table
