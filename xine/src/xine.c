@@ -5,6 +5,8 @@
 #include "audio_port.h"
 #include "stream.h"
 #include "post.h"
+#include "post_out.h"
+#include "post_in.h"
 #include "post/buffer.h"
 
 PyObject *xine_error;
@@ -156,7 +158,9 @@ Xine_PyObject_list_plugins(Xine_PyObject *self, PyObject *args, PyObject *kwargs
 
     pylist = PyList_New(0);
     for (i = 0; list[i] != 0; i++) {
-        PyList_Append(pylist, PyString_FromString(list[i]));
+        PyObject *str = PyString_FromString(list[i]);
+        PyList_Append(pylist, str);
+        Py_DECREF(str);
     }
     return pylist;
 }
@@ -416,6 +420,16 @@ init_xine()
         return;
     Py_INCREF(&Xine_Post_PyObject_Type);
     PyModule_AddObject(m, "Post", (PyObject *)&Xine_Post_PyObject_Type);
+
+    if (PyType_Ready(&Xine_Post_Out_PyObject_Type) < 0)
+        return;
+    Py_INCREF(&Xine_Post_Out_PyObject_Type);
+    PyModule_AddObject(m, "PostOut", (PyObject *)&Xine_Post_Out_PyObject_Type);
+
+    if (PyType_Ready(&Xine_Post_In_PyObject_Type) < 0)
+        return;
+    Py_INCREF(&Xine_Post_In_PyObject_Type);
+    PyModule_AddObject(m, "PostIn", (PyObject *)&Xine_Post_In_PyObject_Type);
 
     if (xine_object_to_pyobject_dict == NULL)
         xine_object_to_pyobject_dict = PyDict_New();

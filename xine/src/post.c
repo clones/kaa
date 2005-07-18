@@ -2,6 +2,8 @@
 #include "video_port.h"
 #include "audio_port.h"
 #include "post.h"
+#include "post_in.h"
+#include "post_out.h"
 #include "structmember.h"
 
 Xine_Post_PyObject *
@@ -110,9 +112,9 @@ static PyMemberDef Xine_Post_PyObject_members[] = {
 void
 Xine_Post_PyObject__dealloc(Xine_Post_PyObject *self)
 {
-    printf("DEalloc Post: %x\n", self->xine);
+    printf("DEalloc Post: %x\n", self->post);
     if (self->post && self->xine_object_owner) {
-        // bug in xine?
+        // bug in xine: http://sourceforge.net/mailarchive/forum.php?thread_id=7753300&forum_id=7131
         //xine_post_dispose(self->xine, self->post);
     }
     Py_DECREF(self->wrapper);
@@ -369,13 +371,113 @@ Xine_Post_PyObject_set_parameters(Xine_Post_PyObject *self, PyObject *args, PyOb
     return Py_None;
 }
 
-// *INDENT-OFF*
+PyObject *
+Xine_Post_PyObject_get_help(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    xine_post_in_t *input_api;
+    xine_post_api_t *api;
+    char *help;
+
+    input_api = (xine_post_in_t *)xine_post_input(self->post, "parameters");
+    if (!input_api) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    api = (xine_post_api_t *)input_api->data;
+    help = api->get_help();
+    if (!help) 
+        help = "";
+    return PyString_FromString(help);
+}
+
+
+PyObject *
+Xine_Post_PyObject_list_inputs(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    const char *const *list;
+    PyObject *pylist = PyList_New(0);
+    int i;
+
+    list = xine_post_list_inputs(self->post);
+    for (i = 0; list[i]; i++) {
+        PyObject *o = PyString_FromString(list[i]);
+        PyList_Append(pylist, o);
+        Py_DECREF(o);
+    }
+
+    return pylist;
+}
+
+PyObject *
+Xine_Post_PyObject_list_outputs(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    const char *const *list;
+    PyObject *pylist = PyList_New(0);
+    int i;
+
+    list = xine_post_list_outputs(self->post);
+    for (i = 0; list[i]; i++) {
+        PyObject *o = PyString_FromString(list[i]);
+        PyList_Append(pylist, o);
+        Py_DECREF(o);
+    }
+
+    return pylist;
+}
+
+PyObject *
+Xine_Post_PyObject_post_output(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *name;
+    xine_post_out_t *output;
+
+    if (!PyArg_ParseTuple(args, "s", &name))
+        return NULL;
+
+    output = xine_post_output(self->post, name);
+    if (!output) {
+        PyErr_Format(xine_error, "Failed to get post output: %s", name);
+        return NULL;
+    }
+
+    return (PyObject *)pyxine_new_post_out_pyobject(self, output, 1);
+}
+
+PyObject *
+Xine_Post_PyObject_post_input(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *name;
+    xine_post_in_t *input;
+
+    if (!PyArg_ParseTuple(args, "s", &name))
+        return NULL;
+
+    input = xine_post_input(self->post, name);
+    if (!input) {
+        PyErr_Format(xine_error, "Failed to get post input: %s", name);
+        return NULL;
+    }
+
+    return (PyObject *)pyxine_new_post_in_pyobject(self, input, 1);
+}
+
+
 PyMethodDef Xine_Post_PyObject_methods[] = {
     {"get_audio_inputs", (PyCFunction) Xine_Post_PyObject_get_audio_inputs, METH_VARARGS},
     {"get_video_inputs", (PyCFunction) Xine_Post_PyObject_get_video_inputs, METH_VARARGS},
     {"get_parameters_desc", (PyCFunction) Xine_Post_PyObject_get_parameters_desc, METH_VARARGS},
     {"get_parameters", (PyCFunction) Xine_Post_PyObject_get_parameters, METH_VARARGS},
     {"set_parameters", (PyCFunction) Xine_Post_PyObject_set_parameters, METH_VARARGS},
+    {"get_help", (PyCFunction) Xine_Post_PyObject_get_help, METH_VARARGS},
+    {"list_inputs", (PyCFunction) Xine_Post_PyObject_list_inputs, METH_VARARGS},
+    {"list_outputs", (PyCFunction) Xine_Post_PyObject_list_outputs, METH_VARARGS},
+    {"post_output", (PyCFunction) Xine_Post_PyObject_post_output, METH_VARARGS},
+    {"post_input", (PyCFunction) Xine_Post_PyObject_post_input, METH_VARARGS},
+
+// XXX: how?
+//    {"get_description", (PyCFunction) Xine_Post_PyObject_get_description, METH_VARARGS},
+//    {"get_identifier", (PyCFunction) Xine_Post_PyObject_get_identifer, METH_VARARGS},
 
     {NULL, NULL}
 };

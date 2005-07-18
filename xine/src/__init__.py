@@ -16,6 +16,10 @@ def _wrap_xine_object(obj):
         o = Stream(obj)
     elif type(obj) == _xine.Post:
         o = Post(obj)
+    elif type(obj) == _xine.PostOut:
+        o = PostOut(obj)
+    elif type(obj) == _xine.PostIn:
+        o = PostIn(obj)
 
     obj.wrapper = weakref.ref(o)
     return o
@@ -93,6 +97,13 @@ class Stream(object):
     def play(self, pos = 0, time = 0):
         return self._stream.play(pos, time)
 
+    def get_video_source(self):
+        return _wrap_xine_object(self._stream.get_source("video"))
+
+    def get_audio_source(self):
+        return _wrap_xine_object(self._stream.get_source("audio"))
+
+
 
 class Post(object):
     def __init__(self, post):
@@ -104,20 +115,63 @@ class Post(object):
             l.append(_wrap_xine_object(item))
         return l
 
+    def get_audio_inputs(self):
+        l = []
+        for item in self._post.get_audio_inputs():
+            l.append(_wrap_xine_object(item))
+        return l
+
     def get_parameters_desc(self):
         return self._post.get_parameters_desc()
 
     def get_parameters(self):
         return self._post.get_parameters()
 
-    def set_parameters(self, values):
-        assert(type(values) == dict)
+    def set_parameters(self, **kwargs):
         parms = self.get_parameters_desc()
-        for key, value in values.items():
+        for key, value in kwargs.items():
             assert(key in parms)
             assert(type(value) == parms[key]["type"])
 
-        return self._post.set_parameters(values)
+        return self._post.set_parameters(kwargs)
 
-    def set_parameter(self, param, value):
-        return self.set_parameters({param: value})
+    def get_identifier(self):
+        return self._post.get_identifier()
+
+    def get_description(self):
+        return self._post.get_description()
+
+    def get_help(self):
+        return self._post.get_help()
+
+    def list_inputs(self):
+        return self._post.list_inputs()
+
+    def list_outputs(self):
+        return self._post.list_outputs()
+
+    def get_output(self, name):
+        return _wrap_xine_object(self._post.post_output(name))
+
+    def get_input(self, name):
+        return _wrap_xine_object(self._post.post_input(name))
+
+
+class PostOut(object):
+    def __init__(self, post_out):
+        self._post_out = post_out
+
+    def wire(self, input):
+        if type(input) == PostIn:
+            return self._post_out.wire(input._post_in)
+        elif type(input) == VideoPort:
+            return self._post_out.wire_video_port(input._vo)
+        elif type(input) == AudioPort:
+            return self._post_out.wire_audio_port(input._ao)
+        else:
+            raise XineError, "Unsupported input type: " + str(type(input))
+
+
+class PostIn(object):
+    def __init__(self, post_in):
+        self._post_in = post_in

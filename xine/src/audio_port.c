@@ -82,7 +82,7 @@ static PyMemberDef Xine_Audio_Port_PyObject_members[] = {
 void
 Xine_Audio_Port_PyObject__dealloc(Xine_Audio_Port_PyObject *self)
 {
-    printf("DEalloc Audio Port: %x\n", self->xine);
+    printf("DEalloc Audio Port: %x\n", self->ao);
     if (self->ao && self->xine_object_owner) {
         xine_close_audio_driver(self->xine, self->ao);
     }

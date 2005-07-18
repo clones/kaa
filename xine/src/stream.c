@@ -1,6 +1,7 @@
 #include "xine.h"
 #include "stream.h"
 #include "structmember.h"
+#include "post_out.h"
 
 Xine_Stream_PyObject *
 pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream,
@@ -111,7 +112,7 @@ static PyMemberDef Xine_Stream_PyObject_members[] = {
 void
 Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
 {
-    printf("DEalloc Stream: %x\n", self->xine);
+    printf("DEalloc Stream: %x\n", self->stream);
     if (self->stream && self->xine_object_owner) {
         xine_close(self->stream);
         xine_dispose(self->stream);
@@ -157,10 +158,36 @@ Xine_Stream_PyObject_play(Xine_Stream_PyObject *self, PyObject *args, PyObject *
     return Py_INCREF(Py_None), Py_None;
 }
 
+
+PyObject *
+Xine_Stream_PyObject_get_source(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *source;
+    xine_post_out_t *output = NULL;
+
+    if (!PyArg_ParseTuple(args, "s", &source))
+        return NULL;
+
+    if (!strcmp(source, "video"))
+        output = xine_get_video_source(self->stream);
+    else if (!strcmp(source, "audio"))
+        output = xine_get_audio_source(self->stream);
+
+    if (!output) {
+        PyErr_Format(xine_error, "Failed to get output source for %s stream", source);
+        return NULL;
+    }
+
+    return (PyObject *)pyxine_new_post_out_pyobject(NULL, output, 0);
+}
+
+
+
 // *INDENT-OFF*
 PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"open", (PyCFunction) Xine_Stream_PyObject_open, METH_VARARGS | METH_KEYWORDS},
     {"play", (PyCFunction) Xine_Stream_PyObject_play, METH_VARARGS | METH_KEYWORDS},
+    {"get_source", (PyCFunction) Xine_Stream_PyObject_get_source, METH_VARARGS | METH_KEYWORDS},
     {NULL, NULL}
 };
 
