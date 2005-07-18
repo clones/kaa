@@ -2,6 +2,36 @@
 #include "stream.h"
 #include "structmember.h"
 
+Xine_Stream_PyObject *
+pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream,
+                           Xine_Audio_Port_PyObject *ao, 
+                           Xine_Video_Port_PyObject *vo, int owner)
+{
+    Xine_Stream_PyObject *o = (Xine_Stream_PyObject *)xine_object_to_pyobject_find(stream);
+    if (o) {
+        Py_INCREF(o);
+        return o;
+    }
+
+    o = (Xine_Stream_PyObject *)Xine_Stream_PyObject__new(&Xine_Stream_PyObject_Type, NULL, NULL);
+    if (!o)
+        return NULL;
+    o->stream = stream;
+    o->xine_object_owner = owner;
+    o->ao_pyobject = ao;
+    Py_INCREF(ao);
+    o->vo_pyobject = vo;
+    Py_INCREF(vo);
+    o->xine_pyobject = (PyObject *)xine;
+    o->xine = xine->xine;
+    Py_INCREF(xine);
+    xine_object_to_pyobject_register(stream, (PyObject *)o);
+    return o;
+}
+
+
+
+
 static int
 Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
 {
@@ -57,10 +87,11 @@ Xine_Stream_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs
     }
 
     self = (Xine_Stream_PyObject *)type->tp_alloc(type, 0);
-    self->owns_ref = 0;
     self->stream = NULL;
     self->xine = NULL;
     self->xine_pyobject = NULL;
+    self->wrapper = Py_None;
+    Py_INCREF(Py_None);
     return (PyObject *)self;
 }
 
@@ -72,6 +103,7 @@ Xine_Stream_PyObject__init(Xine_Stream_PyObject *self, PyObject *args, PyObject 
 
 
 static PyMemberDef Xine_Stream_PyObject_members[] = {
+    {"wrapper", T_OBJECT_EX, offsetof(Xine_Stream_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
 
@@ -80,11 +112,13 @@ void
 Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
 {
     printf("DEalloc Stream: %x\n", self->xine);
-    if (self->stream && self->owns_ref) {
+    if (self->stream && self->xine_object_owner) {
         xine_close(self->stream);
         xine_dispose(self->stream);
     }
+    Py_DECREF(self->wrapper);
     Xine_Stream_PyObject__clear(self);
+    xine_object_to_pyobject_unregister(self->stream);
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -133,7 +167,7 @@ PyMethodDef Xine_Stream_PyObject_methods[] = {
 PyTypeObject Xine_Stream_PyObject_Type = {
     PyObject_HEAD_INIT(NULL) 
     0,                          /* ob_size */
-    "_xine.XineVideoPort",               /* tp_name */
+    "_xine.Stream",               /* tp_name */
     sizeof(Xine_Stream_PyObject),      /* tp_basicsize */
     0,                          /* tp_itemsize */
     (destructor) Xine_Stream_PyObject__dealloc,        /* tp_dealloc */
@@ -152,7 +186,7 @@ PyTypeObject Xine_Stream_PyObject_Type = {
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
-    "Xine Video Port Object",               /* tp_doc */
+    "Xine Stream Object",               /* tp_doc */
     (traverseproc)Xine_Stream_PyObject__traverse,   /* tp_traverse */
     (inquiry)Xine_Stream_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */

@@ -4,8 +4,54 @@
 #include "video_port.h"
 #include "audio_port.h"
 #include "stream.h"
+#include "post.h"
+#include "post/buffer.h"
 
 PyObject *xine_error;
+// Maps xine object actresses to Xine python objects
+static PyObject *xine_object_to_pyobject_dict = 0;
+
+
+///
+
+void
+xine_object_to_pyobject_register(void *ptr, PyObject *o)
+{
+    PyObject *key = PyLong_FromLong((long)ptr), *val;
+    if (!PyDict_Contains(xine_object_to_pyobject_dict, key)) {
+        val = PyCObject_FromVoidPtr(o, NULL);
+        PyDict_SetItem(xine_object_to_pyobject_dict, key, val);
+        Py_DECREF(val);
+    }
+    Py_DECREF(key);
+}
+
+void
+xine_object_to_pyobject_unregister(void *ptr)
+{
+    PyObject *key = PyLong_FromLong((long)ptr);
+    if (PyDict_Contains(xine_object_to_pyobject_dict, key)) {
+        PyDict_DelItem(xine_object_to_pyobject_dict, key);
+    }
+    Py_DECREF(key);
+}
+
+PyObject *
+xine_object_to_pyobject_find(void *ptr)
+{
+    PyObject *key = PyLong_FromLong((long)ptr);
+    PyObject *o = NULL;
+    if (PyDict_Contains(xine_object_to_pyobject_dict, key)) {
+        o = PyDict_GetItem(xine_object_to_pyobject_dict, key);
+    }
+    Py_DECREF(key);
+    if (o)
+        return (PyObject *)PyCObject_AsVoidPtr(o);
+    return NULL;
+}
+
+///
+
 
 static int
 Xine_PyObject__clear(Xine_PyObject *self)
@@ -37,6 +83,8 @@ Xine_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
 
     self = (Xine_PyObject *)type->tp_alloc(type, 0);
     self->dependencies = PyList_New(0);
+    self->wrapper = Py_None;
+    Py_INCREF(Py_None);
     return (PyObject *)self;
 }
 
@@ -58,12 +106,15 @@ Xine_PyObject__init(Xine_PyObject *self, PyObject *args, PyObject *kwds)
     snprintf(cfgfile, PATH_MAX, "%s%s", xine_get_homedir(), "/.xine/config");
     xine_config_load(xine, cfgfile);
     xine_init(xine);
+    xine_register_plugins(xine, xine_buffer_plugin_info);
     self->xine = xine;
+    xine_object_to_pyobject_register(xine, (PyObject *)self);
     return 0;
 }
 
 static PyMemberDef Xine_PyObject_members[] = {
     {"dependencies", T_OBJECT_EX, offsetof(Xine_PyObject, dependencies), 0, "Dependencies"},
+    {"wrapper", T_OBJECT_EX, offsetof(Xine_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
 
@@ -75,11 +126,40 @@ Xine_PyObject__dealloc(Xine_PyObject *self)
     if (self->xine) {
         xine_exit(self->xine);
     }
+    Py_DECREF(self->wrapper);
     Xine_PyObject__clear(self);
+    xine_object_to_pyobject_unregister(self->xine);
     self->ob_type->tp_free((PyObject*)self);
 }
 
 
+PyObject *
+Xine_PyObject_list_plugins(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *type;
+    const char *const *list;
+    PyObject *pylist = NULL;
+    int i;
+
+    if (!PyArg_ParseTuple(args, "s", &type))
+        return NULL;
+    if (!strcmp(type, "video"))
+        list = xine_list_video_output_plugins(self->xine);
+    else if (!strcmp(type, "audio"))
+        list = xine_list_audio_output_plugins(self->xine);
+    else if (!strcmp(type, "post"))
+        list = xine_list_post_plugins(self->xine);
+    else {
+        PyErr_Format(xine_error, "Unknown plugin type: %s", type);
+        return NULL;
+    }
+
+    pylist = PyList_New(0);
+    for (i = 0; list[i] != 0; i++) {
+        PyList_Append(pylist, PyString_FromString(list[i]));
+    }
+    return pylist;
+}
 
 // XXX Temporary.  Obviously. :)
 static void frame_output_cb(void *data, int video_width, int video_height,
@@ -93,7 +173,7 @@ static void frame_output_cb(void *data, int video_width, int video_height,
   *dest_width        = 640;//width;
   *dest_height       = 480;//height;
   *dest_pixel_aspect = 1;
- // printf("frame_output_cb: Video width: %d, heigh: %d, pixel aspect: %f %x\n", video_width, video_height, video_pixel_aspect, data);
+  //printf("frame_output_cb: Video width: %d, heigh: %d, pixel aspect: %f %x\n", video_width, video_height, video_pixel_aspect, data);
 }
 
 
@@ -101,15 +181,14 @@ PyObject *
 Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     char *driver;
+    xine_video_port_t *vo_port = NULL;
 
     if (!PyArg_ParseTuple(args, "s", &driver))
         return NULL;
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "auto")) {
         PyObject *window;
-        Xine_Video_Port_PyObject *o;
         x11_visual_t vis;
-        xine_video_port_t *vo_port;
 
         window = PyDict_GetItemString(kwargs, "window");
         if (!x11window_object_decompose(window, &vis.d, (Display **)&vis.display))
@@ -117,25 +196,17 @@ Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         vis.screen = DefaultScreen(vis.display);
         vis.user_data = NULL;
         vis.frame_output_cb = frame_output_cb;
-        
+        vis.user_data = window;
         vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_X11, (void *)&vis);
-        if (!vo_port) {
-            PyErr_Format(xine_error, "Failed to open driver.");
-            return NULL;
-        }
-        o = (Xine_Video_Port_PyObject *)Xine_Video_Port_PyObject__new(&Xine_Video_Port_PyObject_Type, NULL, NULL);
-        if (!o)
-            return NULL;
-
-        o->owns_ref = 1;
-        o->vo = vo_port;
-        o->xine = self->xine;
-        o->xine_pyobject = (PyObject *)self;
-        Py_INCREF(self);
-        return (PyObject *)o;
-
+    } else if (!strcmp(driver, "none")) {
+        vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
     }
-    return Py_INCREF(Py_None), Py_None;
+        
+    if (!vo_port) {
+        PyErr_Format(xine_error, "Failed to open driver: %s", driver);
+        return NULL;
+    }
+    return (PyObject *)pyxine_new_video_port_pyobject(self, vo_port, 1);
 }
 
 PyObject *
@@ -155,16 +226,8 @@ Xine_PyObject_open_audio_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         PyErr_Format(xine_error, "Failed to open audio driver.");
         return NULL;
     }
-    o = (Xine_Audio_Port_PyObject *)Xine_Audio_Port_PyObject__new(&Xine_Audio_Port_PyObject_Type, NULL, NULL);
-    if (!o)
-        return NULL;
 
-    o->owns_ref = 1;
-    o->ao = ao_port;
-    o->xine = self->xine;
-    o->xine_pyobject = (PyObject *)self;
-    Py_INCREF(self);
-    return (PyObject *)o;
+    return (PyObject *)pyxine_new_audio_port_pyobject(self, ao_port, 1);
 }
 
 PyObject *
@@ -185,29 +248,63 @@ Xine_PyObject_stream_new(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
         PyErr_Format(xine_error, "Failed to create stream.");
         return NULL;
     }
-    o = (Xine_Stream_PyObject *)Xine_Stream_PyObject__new(&Xine_Stream_PyObject_Type, NULL, NULL);
-    if (!o)
-        return NULL;
-
-    o->stream  = stream;
-    o->xine = self->xine;
-    o->xine_pyobject = (PyObject *)self;
-    o->ao_pyobject = ao;
-    o->vo_pyobject = vo;
-    o->owns_ref = 1;
-
-    Py_INCREF(self);
-    Py_INCREF(ao);
-    Py_INCREF(vo);
-
-    return (PyObject *)o;
+    return (PyObject *)pyxine_new_stream_pyobject(self, stream, ao, vo, 1);
 }
 
+PyObject *
+Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *name;
+    int inputs, i;
+    PyObject *audio_targets, *video_targets;
+    xine_video_port_t **vo;
+    xine_audio_port_t **ao;
+    xine_post_t *post;
+
+    if (!PyArg_ParseTuple(args, "siOO", &name, &inputs, &audio_targets,
+                          &video_targets))
+        return NULL;
+
+    ao = (xine_audio_port_t **)malloc((1 + sizeof(xine_audio_port_t *) * PyList_Size(audio_targets)));
+    for (i = 0; i < PyList_Size(audio_targets); i++)
+        ao[i] = ((Xine_Audio_Port_PyObject *)PyList_GetItem(audio_targets, i))->ao;
+    ao[i] = NULL;
+
+    vo = (xine_video_port_t **)malloc((1 + sizeof(xine_video_port_t *) * PyList_Size(video_targets)));
+    for (i = 0; i < PyList_Size(video_targets); i++)
+        vo[i] = ((Xine_Video_Port_PyObject *)PyList_GetItem(video_targets, i))->vo;
+    vo[i] = NULL;
+    
+    post = xine_post_init(self->xine, name, inputs, ao, vo);
+
+    free(ao);
+    free(vo);
+    
+    if (!post) {
+        PyErr_Format(xine_error, "Failed to initialize post plugin.");
+        return NULL;
+    }
+
+    {
+        /*
+        xine_post_in_t *input_api = (xine_post_in_t *) xine_post_input(post, "parameters");
+        xine_post_api_t *api = (xine_post_api_t *)input_api->data;
+        int data = 142;
+        api->set_parameters(post, &data);
+        printf("POST API: %x\n", input_api);
+        */
+    }
+
+    return (PyObject *)pyxine_new_post_pyobject(self, post, audio_targets, video_targets, 1);
+
+}
 
 PyMethodDef Xine_PyObject_methods[] = {
+    {"list_plugins", (PyCFunction) Xine_PyObject_list_plugins, METH_VARARGS | METH_KEYWORDS},
     {"open_video_driver", (PyCFunction) Xine_PyObject_open_video_driver, METH_VARARGS | METH_KEYWORDS},
     {"open_audio_driver", (PyCFunction) Xine_PyObject_open_audio_driver, METH_VARARGS | METH_KEYWORDS},
     {"stream_new", (PyCFunction) Xine_PyObject_stream_new, METH_VARARGS | METH_KEYWORDS},
+    {"post_init", (PyCFunction) Xine_PyObject_post_init, METH_VARARGS | METH_KEYWORDS},
     {NULL, NULL}
 };
 
@@ -314,6 +411,14 @@ init_xine()
         return;
     Py_INCREF(&Xine_Stream_PyObject_Type);
     PyModule_AddObject(m, "Stream", (PyObject *)&Xine_Stream_PyObject_Type);
+
+    if (PyType_Ready(&Xine_Post_PyObject_Type) < 0)
+        return;
+    Py_INCREF(&Xine_Post_PyObject_Type);
+    PyModule_AddObject(m, "Post", (PyObject *)&Xine_Post_PyObject_Type);
+
+    if (xine_object_to_pyobject_dict == NULL)
+        xine_object_to_pyobject_dict = PyDict_New();
 
 #if 1
     display_api_ptrs = get_module_api("kaa.display._Display");

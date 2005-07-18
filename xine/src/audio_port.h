@@ -10,16 +10,18 @@
 typedef struct {
     PyObject_HEAD
 
-
     xine_audio_port_t *ao;
-    int owns_ref;
+    int xine_object_owner;
     PyObject *xine_pyobject;
     xine_t *xine;
+
+    PyObject *wrapper;
 } Xine_Audio_Port_PyObject;
 
 extern PyTypeObject Xine_Audio_Port_PyObject_Type;
 
 PyObject *Xine_Audio_Port_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
+Xine_Audio_Port_PyObject *pyxine_new_audio_port_pyobject(Xine_PyObject *, xine_audio_port_t *, int);
 
 
 #endif

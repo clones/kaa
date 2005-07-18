@@ -35,7 +35,8 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-files = ["src/xine.c", 'src/video_port.c', 'src/audio_port.c', 'src/stream.c', 'src/drivers/x11.c']
+files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
+         'src/post.c', 'src/drivers/x11.c', 'src/post/buffer.c']
 xineso = Extension('kaa.xine._xinemodule', files, config='src/config.h')
 
 

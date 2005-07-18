@@ -2,6 +2,29 @@
 #include "audio_port.h"
 #include "structmember.h"
 
+
+Xine_Audio_Port_PyObject *
+pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, int owner)
+{
+    Xine_Audio_Port_PyObject *o = (Xine_Audio_Port_PyObject *)xine_object_to_pyobject_find(ao);
+    if (o) {
+        Py_INCREF(o);
+        return o;
+    }
+
+    o = (Xine_Audio_Port_PyObject *)Xine_Audio_Port_PyObject__new(&Xine_Audio_Port_PyObject_Type, NULL, NULL);
+    if (!o)
+        return NULL;
+    o->ao = ao;
+    o->xine_pyobject = (PyObject *)xine;
+    o->xine = xine->xine;
+    o->xine_object_owner = owner;
+    Py_INCREF(xine);
+    xine_object_to_pyobject_register(ao, (PyObject *)o);
+    return o;
+}
+
+
 static int
 Xine_Audio_Port_PyObject__clear(Xine_Audio_Port_PyObject *self)
 {
@@ -37,9 +60,10 @@ Xine_Audio_Port_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kw
     }
 
     self = (Xine_Audio_Port_PyObject *)type->tp_alloc(type, 0);
-    self->owns_ref = 0;
     self->ao = NULL;
     self->xine = NULL;
+    self->wrapper = Py_None;
+    Py_INCREF(Py_None);
     return (PyObject *)self;
 }
 
@@ -50,6 +74,7 @@ Xine_Audio_Port_PyObject__init(Xine_Audio_Port_PyObject *self, PyObject *args, P
 }
 
 static PyMemberDef Xine_Audio_Port_PyObject_members[] = {
+    {"wrapper", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
 
@@ -58,10 +83,12 @@ void
 Xine_Audio_Port_PyObject__dealloc(Xine_Audio_Port_PyObject *self)
 {
     printf("DEalloc Audio Port: %x\n", self->xine);
-    if (self->ao && self->owns_ref) {
+    if (self->ao && self->xine_object_owner) {
         xine_close_audio_driver(self->xine, self->ao);
     }
+    Py_DECREF(self->wrapper);
     Xine_Audio_Port_PyObject__clear(self);
+    xine_object_to_pyobject_unregister(self->ao);
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -73,7 +100,7 @@ PyMethodDef Xine_Audio_Port_PyObject_methods[] = {
 PyTypeObject Xine_Audio_Port_PyObject_Type = {
     PyObject_HEAD_INIT(NULL) 
     0,                          /* ob_size */
-    "_xine.XineAudioPort",               /* tp_name */
+    "_xine.AudioPort",               /* tp_name */
     sizeof(Xine_Audio_Port_PyObject),      /* tp_basicsize */
     0,                          /* tp_itemsize */
     (destructor) Xine_Audio_Port_PyObject__dealloc,        /* tp_dealloc */

@@ -12,9 +12,14 @@ extern PyObject *xine_error;
 typedef struct {
     PyObject_HEAD
     xine_t *xine;
-    PyObject *dependencies;
+    PyObject *dependencies, *wrapper;
 } Xine_PyObject;
 
 extern PyTypeObject Xine_PyObject_Type;
+
+void xine_object_to_pyobject_register(void *ptr, PyObject *o);
+void xine_object_to_pyobject_unregister(void *ptr);
+PyObject *xine_object_to_pyobject_find(void *ptr);
+
 
 #endif
