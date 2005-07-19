@@ -33,7 +33,7 @@ def _wrap_xine_object(obj):
 class Xine(object):
     def __init__(self):
         self._xine = _xine.Xine()
-        self._xine.log_callback = self._log_callback
+        self._xine.log_callback = notifier.WeakCallback(self._log_callback)
         self.signals = {
             "log": notifier.Signal()
         }
@@ -85,9 +85,8 @@ class Xine(object):
     def list_audio_plugins(self):
         return self._xine.list_plugins("audio")
 
-    def list_post_plugins(self):
-        return self._xine.list_plugins("post")
-
+    def list_post_plugins(self, types = -1):
+        return self._xine.list_plugins("post", types)
 
     def post_init(self, name, inputs = 0, audio_targets = [], video_targets = []):
         assert(type(audio_targets) in (list, tuple))
@@ -124,7 +123,36 @@ class Xine(object):
         section = sections[section]
         print "LOG", section
         self.signals["log"].emit(section)
-        
+ 
+    def get_engine_param(self, param):
+        return self._xine.get_engine_param(param)
+
+    def set_engine_param(self, param, value):
+        return self._xine.set_engine_param(param, value)
+      
+    def get_browsable_input_plugin_ids(self):
+        return self._xine.get_input_plugin_ids("browsable")
+
+    def get_browse_mrls(self, plugin, start_mrl = None):
+        return self._xine.get_browse_mrls(plugin, start_mrl)
+
+    def get_autoplay_input_plugin_ids(self):
+        return self._xine.get_input_plugin_ids("autoplay")
+
+    def get_autoplay_mrls(self, plugin):
+        return self._xine.get_autoplay_mrls(plugin)
+
+    def get_file_extensions(self):
+        return self._xine.get_file_extensions().split(" ")
+
+    def get_mime_types(self):
+        types = []
+        for t in self._xine.get_mime_types().split(";"):
+            vals = map(lambda x: x.strip(), t.split(":"))
+            if len(vals) > 1:
+                vals[1] = tuple(vals[1].split(","))
+            types.append(tuple(vals))
+        return types
 
 class VideoPort(object):
     def __init__(self, vo):
@@ -152,7 +180,43 @@ class Stream(object):
     def get_audio_source(self):
         return _wrap_xine_object(self._stream.get_source("audio"))
 
+    def slave(self, slave, affection = 0xff):
+        assert(type(slave) == Stream)
+        assert(slave != self)
+        return self._stream.slave(slave._stream, affection)
 
+    def set_trick_mode(self, mode, value):
+        return self._stream.set_trick_mode(mode, value)
+
+    def stop(self):
+        return self._stream.stop()
+
+    def eject(self):
+        return self._stream.eject()
+
+    def get_current_vpts(self):
+        return self._stream.get_current_vpts()
+
+    def get_status(self):
+        return self._stream.get_status()
+
+    def get_error(self):
+        return self._stream.get_error()
+
+    def get_audio_lang(self, channel = -1):
+        return self._stream.get_lang("audio", channel)
+
+    def get_spu_lang(self, channel = -1):
+        return self._stream.get_lang("spu", channel)
+
+    def get_pos_length(self):
+        return self._stream.get_pos_length()
+
+    def get_info(self, info):
+        return self._stream.get_info(info)
+
+    def get_meta_info(self, info):
+        return self._stream.get_meta_info(info)
 
 class Post(object):
     def __init__(self, post):

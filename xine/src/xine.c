@@ -172,16 +172,20 @@ Xine_PyObject_list_plugins(Xine_PyObject *self, PyObject *args, PyObject *kwargs
     char *type;
     const char *const *list;
     PyObject *pylist = NULL;
-    int i;
+    int i, post_types = -1;
 
-    if (!PyArg_ParseTuple(args, "s", &type))
+    if (!PyArg_ParseTuple(args, "s|i", &type, &post_types))
         return NULL;
     if (!strcmp(type, "video"))
         list = xine_list_video_output_plugins(self->xine);
     else if (!strcmp(type, "audio"))
         list = xine_list_audio_output_plugins(self->xine);
-    else if (!strcmp(type, "post"))
-        list = xine_list_post_plugins(self->xine);
+    else if (!strcmp(type, "post")) {
+        if (post_types == -1)
+            list = xine_list_post_plugins(self->xine);
+        else
+            list = xine_list_post_plugins_typed(self->xine, post_types);
+    }
     else {
         PyErr_Format(xine_error, "Unknown plugin type: %s", type);
         return NULL;
@@ -346,15 +350,159 @@ Xine_PyObject_get_log(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
     return pylist;
 }
 
+PyObject *
+Xine_PyObject_set_engine_param(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int param, value;
+
+    if (!PyArg_ParseTuple(args, "ii", &param, &value))
+        return NULL;
+    xine_engine_set_param(self->xine, param, value);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Xine_PyObject_get_engine_param(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int param, value;
+
+    if (!PyArg_ParseTuple(args, "i", &param))
+        return NULL;
+    value = xine_engine_get_param(self->xine, param);
+    return PyInt_FromLong(value);
+}
+
+PyObject *
+Xine_PyObject_get_input_plugin_ids(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    const char *const *list;
+    PyObject *pylist = NULL;
+    int i;
+    char *type;
+
+    if (!PyArg_ParseTuple(args, "s", &type))
+        return NULL;
+    if (!strcmp(type, "browsable"))
+        list = xine_get_browsable_input_plugin_ids(self->xine);
+    else
+        list = xine_get_autoplay_input_plugin_ids(self->xine);
+
+    pylist = PyList_New(0);
+    for (i = 0; list && list[i] != 0; i++) {
+        PyObject *str = PyString_FromString(list[i]);
+        PyList_Append(pylist, str);
+        Py_DECREF(str);
+    }
+    return pylist;
+}
+
+PyObject *
+Xine_PyObject_get_browse_mrls(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    xine_mrl_t **mrls;
+    PyObject *pylist = NULL, *dict, *val;
+    char *plugin_id, *start_mrl;
+    int i, num;
+
+    if (!PyArg_ParseTuple(args, "sz", &plugin_id, &start_mrl))
+        return NULL;
+    mrls = xine_get_browse_mrls(self->xine, plugin_id, start_mrl, &num);
+    if (!mrls) {
+        PyErr_Format(xine_error, "Failed to get browse mrls -- unknown plugin?");
+        return NULL;
+    }
+
+    pylist = PyList_New(0);
+    for (i = 0; i < num; i++) {
+        dict = PyDict_New();
+        val = Py_BuildValue("s", mrls[i]->origin);
+        PyDict_SetItemString(dict, "origin", val);
+        Py_DECREF(val);
+
+        val = Py_BuildValue("s", mrls[i]->link);
+        PyDict_SetItemString(dict, "link", val);
+        Py_DECREF(val);
+
+        val = Py_BuildValue("s", mrls[i]->mrl);
+        PyDict_SetItemString(dict, "mrl", val);
+        Py_DECREF(val);
+
+        val = Py_BuildValue("i", mrls[i]->type);
+        PyDict_SetItemString(dict, "type", val);
+        Py_DECREF(val);
+
+        val = Py_BuildValue("i", mrls[i]->size);
+        PyDict_SetItemString(dict, "size", val);
+        Py_DECREF(val);
+
+        PyList_Append(pylist, dict);
+        Py_DECREF(dict);
+    }
+    return pylist;
+}
+
+
+PyObject *
+Xine_PyObject_get_autoplay_mrls(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *pylist = NULL;
+    int i, num;
+    char *plugin, **mrls;
+
+    if (!PyArg_ParseTuple(args, "s", &plugin))
+        return NULL;
+
+    mrls = xine_get_autoplay_mrls(self->xine, plugin, &num);
+    if (!mrls) {
+        PyErr_Format(xine_error, "Failed to get autoplay mrls -- unknown plugin?");
+        return NULL;
+    }
+
+    pylist = PyList_New(0);
+    for (i = 0; i < num; i++) {
+        PyObject *str = PyString_FromString(mrls[i]);
+        PyList_Append(pylist, str);
+        Py_DECREF(str);
+    }
+    return pylist;
+}
+
+
+PyObject *
+Xine_PyObject_get_file_extensions(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *o;
+    char *s = xine_get_file_extensions(self->xine);
+    o = Py_BuildValue("z", s);
+    free(s);
+    return o;
+}
+
+PyObject *
+Xine_PyObject_get_mime_types(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *o;
+    char *s = xine_get_mime_types(self->xine);
+    o = Py_BuildValue("z", s);
+    free(s);
+    return o;
+}
 
 PyMethodDef Xine_PyObject_methods[] = {
-    {"list_plugins", (PyCFunction) Xine_PyObject_list_plugins, METH_VARARGS | METH_KEYWORDS},
+    {"list_plugins", (PyCFunction) Xine_PyObject_list_plugins, METH_VARARGS },
     {"open_video_driver", (PyCFunction) Xine_PyObject_open_video_driver, METH_VARARGS | METH_KEYWORDS},
     {"open_audio_driver", (PyCFunction) Xine_PyObject_open_audio_driver, METH_VARARGS | METH_KEYWORDS},
-    {"stream_new", (PyCFunction) Xine_PyObject_stream_new, METH_VARARGS | METH_KEYWORDS},
-    {"post_init", (PyCFunction) Xine_PyObject_post_init, METH_VARARGS | METH_KEYWORDS},
-    {"get_log_names", (PyCFunction) Xine_PyObject_get_log_names, METH_VARARGS | METH_KEYWORDS},
-    {"get_log", (PyCFunction) Xine_PyObject_get_log, METH_VARARGS | METH_KEYWORDS},
+    {"stream_new", (PyCFunction) Xine_PyObject_stream_new, METH_VARARGS },
+    {"post_init", (PyCFunction) Xine_PyObject_post_init, METH_VARARGS },
+    {"get_log_names", (PyCFunction) Xine_PyObject_get_log_names, METH_VARARGS },
+    {"get_log", (PyCFunction) Xine_PyObject_get_log, METH_VARARGS },
+    {"get_engine_param", (PyCFunction) Xine_PyObject_get_engine_param, METH_VARARGS },
+    {"set_engine_param", (PyCFunction) Xine_PyObject_set_engine_param, METH_VARARGS },
+    {"get_input_plugin_ids", (PyCFunction) Xine_PyObject_get_input_plugin_ids, METH_VARARGS },
+    {"get_browse_mrls", (PyCFunction) Xine_PyObject_get_browse_mrls, METH_VARARGS },
+    {"get_autoplay_mrls", (PyCFunction) Xine_PyObject_get_autoplay_mrls, METH_VARARGS },
+    {"get_file_extensions", (PyCFunction) Xine_PyObject_get_file_extensions, METH_VARARGS },
+    {"get_mime_types", (PyCFunction) Xine_PyObject_get_mime_types, METH_VARARGS },
     {NULL, NULL}
 };
 

@@ -52,6 +52,11 @@ Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
         self->vo_pyobject = 0;
         Py_DECREF(tmp);
     }
+    if (self->master) {
+        tmp = (PyObject *)self->master;
+        self->master= 0;
+        Py_DECREF(tmp);
+    }
     return 0;
 }
 
@@ -71,6 +76,11 @@ Xine_Stream_PyObject__traverse(Xine_Stream_PyObject *self, visitproc visit, void
     }
     if (self->vo_pyobject) {
         ret = visit((PyObject *)self->vo_pyobject, arg);
+        if (ret != 0)
+            return ret;
+    }
+    if (self->master) {
+        ret = visit((PyObject *)self->master, arg);
         if (ret != 0)
             return ret;
     }
@@ -115,7 +125,7 @@ Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
     printf("DEalloc Stream: %x\n", self->stream);
     if (self->stream && self->xine_object_owner) {
         Py_BEGIN_ALLOW_THREADS
-        xine_close(self->stream);
+        //xine_close(self->stream);
         xine_dispose(self->stream);
         Py_END_ALLOW_THREADS
     }
@@ -162,6 +172,24 @@ Xine_Stream_PyObject_play(Xine_Stream_PyObject *self, PyObject *args, PyObject *
     return Py_INCREF(Py_None), Py_None;
 }
 
+PyObject *
+Xine_Stream_PyObject_stop(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    Py_BEGIN_ALLOW_THREADS
+    xine_stop(self->stream);
+    Py_END_ALLOW_THREADS
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Xine_Stream_PyObject_eject(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int result;
+    Py_BEGIN_ALLOW_THREADS
+    result = xine_eject(self->stream);
+    Py_END_ALLOW_THREADS
+    return PyBool_FromLong(result);
+}
 
 PyObject *
 Xine_Stream_PyObject_get_source(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
@@ -185,13 +213,136 @@ Xine_Stream_PyObject_get_source(Xine_Stream_PyObject *self, PyObject *args, PyOb
     return (PyObject *)pyxine_new_post_out_pyobject(NULL, output, 0);
 }
 
+PyObject *
+Xine_Stream_PyObject_slave(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *tmp = NULL;
+    Xine_Stream_PyObject *slave;
+    int affection, result;
+
+    if (!PyArg_ParseTuple(args, "O!i", &Xine_Stream_PyObject_Type, &slave, &affection))
+        return NULL;
+
+    if (slave->master)
+        tmp = slave->master;
+    slave->master = (PyObject *)self;
+    Py_INCREF(self);
+    if (tmp)
+        Py_DECREF(tmp);
+
+    Py_BEGIN_ALLOW_THREADS
+    result = xine_stream_master_slave(self->stream, slave->stream, affection);
+    Py_END_ALLOW_THREADS
+    return PyBool_FromLong(result);
+}
+
+PyObject *
+Xine_Stream_PyObject_set_trick_mode(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int mode, value, result;
+
+    if (!PyArg_ParseTuple(args, "ii", &mode, &value))
+        return NULL;
+
+    result = xine_trick_mode(self->stream, mode, value);
+    return PyBool_FromLong(result);
+}
+
+PyObject *
+Xine_Stream_PyObject_get_current_vpts(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    return PyLong_FromLongLong(xine_get_current_vpts(self->stream));
+}
+
+PyObject *
+Xine_Stream_PyObject_get_error(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    return PyLong_FromLongLong(xine_get_error(self->stream));
+}
+
+PyObject *
+Xine_Stream_PyObject_get_status(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    return PyLong_FromLongLong(xine_get_status(self->stream));
+}
+
+PyObject *
+Xine_Stream_PyObject_get_lang(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int channel = -1, result;
+    char lang[XINE_LANG_MAX+1], *type;
+
+    if (!PyArg_ParseTuple(args, "si", &type, &channel))
+        return NULL;
+
+    if (!strcmp(type, "spu"))
+        result = xine_get_spu_lang(self->stream, channel, &lang[0]);
+    else
+        result = xine_get_audio_lang(self->stream, channel, &lang[0]);
+    
+    if (!result) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return PyString_FromString(lang);
+}
 
 
-// *INDENT-OFF*
+PyObject *
+Xine_Stream_PyObject_get_pos_length(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int pos_stream, pos_time, length_time, result;
+
+    result = xine_get_pos_length(self->stream, &pos_stream, &pos_time, &length_time);
+    if (!result)
+        return Py_BuildValue("(sss)", NULL, NULL, NULL);
+
+    return Py_BuildValue("(iii)", pos_stream, pos_time, length_time);
+}
+
+
+PyObject *
+Xine_Stream_PyObject_get_info(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int info;
+
+    if (!PyArg_ParseTuple(args, "i", &info))
+        return NULL;
+
+    return PyLong_FromLong(xine_get_stream_info(self->stream, info));
+}
+
+
+PyObject *
+Xine_Stream_PyObject_get_meta_info(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int info;
+
+    if (!PyArg_ParseTuple(args, "i", &info))
+        return NULL;
+
+    return Py_BuildValue("s", (xine_get_meta_info(self->stream, info)));
+}
+
+
 PyMethodDef Xine_Stream_PyObject_methods[] = {
-    {"open", (PyCFunction) Xine_Stream_PyObject_open, METH_VARARGS | METH_KEYWORDS},
-    {"play", (PyCFunction) Xine_Stream_PyObject_play, METH_VARARGS | METH_KEYWORDS},
-    {"get_source", (PyCFunction) Xine_Stream_PyObject_get_source, METH_VARARGS | METH_KEYWORDS},
+    {"open", (PyCFunction) Xine_Stream_PyObject_open, METH_VARARGS },
+    {"play", (PyCFunction) Xine_Stream_PyObject_play, METH_VARARGS },
+    {"stop", (PyCFunction) Xine_Stream_PyObject_stop, METH_VARARGS },
+    {"eject", (PyCFunction) Xine_Stream_PyObject_eject, METH_VARARGS },
+    {"get_source", (PyCFunction) Xine_Stream_PyObject_get_source, METH_VARARGS },
+    {"slave", (PyCFunction) Xine_Stream_PyObject_slave, METH_VARARGS },
+    {"set_trick_mode", (PyCFunction) Xine_Stream_PyObject_set_trick_mode, METH_VARARGS },
+    {"get_current_vpts", (PyCFunction) Xine_Stream_PyObject_get_current_vpts, METH_VARARGS },
+    {"get_error", (PyCFunction) Xine_Stream_PyObject_get_error, METH_VARARGS },
+    {"get_status", (PyCFunction) Xine_Stream_PyObject_get_status, METH_VARARGS },
+    {"get_lang", (PyCFunction) Xine_Stream_PyObject_get_lang, METH_VARARGS },
+    {"get_pos_length", (PyCFunction) Xine_Stream_PyObject_get_pos_length, METH_VARARGS },
+    {"get_info", (PyCFunction) Xine_Stream_PyObject_get_info, METH_VARARGS },
+    {"get_meta_info", (PyCFunction) Xine_Stream_PyObject_get_meta_info, METH_VARARGS },
+
+    // TODO: xine_get_current_frame
     {NULL, NULL}
 };
 

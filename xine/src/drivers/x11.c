@@ -22,6 +22,7 @@ static void x11_frame_output_cb(void *data, int video_width, int video_height,
     x11_callback_user_data *user_data = (x11_callback_user_data *)data;
     PyObject *args, *result;
     PyGILState_STATE gstate;
+    int success = 0;
 
     if (!user_data->frame_output_callback) {
         // This should never happen because it's checked in x11_open_video_driver()
@@ -29,17 +30,22 @@ static void x11_frame_output_cb(void *data, int video_width, int video_height,
         return;
     }
 
+
     gstate = PyGILState_Ensure();
     args = Py_BuildValue("(iid)", video_width, video_height, video_pixel_aspect);
     result = PyEval_CallObject(user_data->frame_output_callback, args);
     Py_DECREF(args);
     if (result) {
-        if (!PyArg_ParseTuple(result, "(ii)(ii)(ii)d", dest_x, dest_y, win_x, win_y,
+        if (PyBool_Check(result)) {
+            // Probably WeakCallback returning False because we're on shutdown.
+            success = 0;
+        } else if (!PyArg_ParseTuple(result, "(ii)(ii)(ii)d", dest_x, dest_y, win_x, win_y,
                               dest_width, dest_height, dest_pixel_aspect)) {
             // FIXME: find a way to propagate this back to the main thread.
             printf("EXCEPTION: frame_output_cb returned bad arguments.\n");
             PyErr_Print();
-        }
+        } else
+            success = 1;
 
         Py_DECREF(result);
     } else {
@@ -47,7 +53,16 @@ static void x11_frame_output_cb(void *data, int video_width, int video_height,
         printf("EXCEPTION in frame_output_cb!\n");
         PyErr_Print();
     }
+
     PyGILState_Release(gstate);
+
+    if (!success) {
+        // Call to python space failed, but we need to set some sane defaults
+        // here, or else xine does ugly things.
+        *dest_x = *dest_y = *win_x = *win_y = 0;
+        *dest_width = *dest_height = 50;
+        *dest_pixel_aspect = 1;
+    }
 }
 
 

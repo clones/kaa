@@ -19,6 +19,7 @@ typedef struct {
     xine_t *xine;
     xine_stream_t *stream;
     int xine_object_owner;
+    PyObject *master;
 
     PyObject *wrapper;
 } Xine_Stream_PyObject;
