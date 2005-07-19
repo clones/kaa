@@ -17,16 +17,17 @@ typedef struct {
 
     PyObject *xine_pyobject;
     xine_t *xine;
-    PyObject *audio_targets, *video_targets;
+    PyObject *outputs, *inputs;
 
-    PyObject *prev, *next; // ref to previous and next plugins in the chain
     PyObject *wrapper;
 } Xine_Post_PyObject;
 
 extern PyTypeObject Xine_Post_PyObject_Type;
 
 PyObject *Xine_Post_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Post_PyObject *pyxine_new_post_pyobject(Xine_PyObject *, xine_post_t *, PyObject *, PyObject *, int);
+//Xine_Post_PyObject *pyxine_new_post_pyobject(Xine_PyObject *, xine_post_t *, PyObject *, PyObject *, int);
+Xine_Post_PyObject *pyxine_new_post_pyobject(Xine_PyObject *, xine_post_t *, 
+                                             xine_audio_port_t **, xine_video_port_t **, int);
 
 
 #endif

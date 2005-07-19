@@ -16,6 +16,7 @@ typedef struct {
 
     PyObject *post_pyobject;
     PyObject *wrapper;
+    PyObject *next; // pointer to PostIn object
 } Xine_Post_Out_PyObject;
 
 extern PyTypeObject Xine_Post_Out_PyObject_Type;

@@ -15,13 +15,14 @@ typedef struct {
     PyObject *xine_pyobject;
     xine_t *xine;
 
+    PyObject *post; // post plugin for this port or None otherwise
     PyObject *wrapper;
 } Xine_Audio_Port_PyObject;
 
 extern PyTypeObject Xine_Audio_Port_PyObject_Type;
 
 PyObject *Xine_Audio_Port_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Audio_Port_PyObject *pyxine_new_audio_port_pyobject(Xine_PyObject *, xine_audio_port_t *, int);
+Xine_Audio_Port_PyObject *pyxine_new_audio_port_pyobject(Xine_PyObject *, xine_audio_port_t *, PyObject *post, int);
 
 
 #endif

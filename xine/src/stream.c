@@ -180,7 +180,7 @@ Xine_Stream_PyObject_get_source(Xine_Stream_PyObject *self, PyObject *args, PyOb
         return NULL;
     }
 
-    return (PyObject *)pyxine_new_post_out_pyobject(NULL, output, 0);
+    return (PyObject *)pyxine_new_post_out_pyobject((Xine_Post_PyObject *)self, output, 0);
 }
 
 PyObject *

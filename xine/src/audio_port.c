@@ -4,7 +4,7 @@
 
 
 Xine_Audio_Port_PyObject *
-pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, int owner)
+pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, PyObject *post, int owner)
 {
     Xine_Audio_Port_PyObject *o = (Xine_Audio_Port_PyObject *)xine_object_to_pyobject_find(ao);
     if (o) {
@@ -17,9 +17,14 @@ pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, int o
         return NULL;
     o->ao = ao;
     o->xine_pyobject = (PyObject *)xine;
+    Py_INCREF(xine);
     o->xine = xine->xine;
     o->xine_object_owner = owner;
-    Py_INCREF(xine);
+    if (post && post != o->post) {
+        Py_DECREF(o->post);
+        o->post = post;
+        Py_INCREF(post);
+    }
     xine_object_to_pyobject_register(ao, (PyObject *)o);
     return o;
 }
@@ -28,14 +33,14 @@ pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, int o
 static int
 Xine_Audio_Port_PyObject__clear(Xine_Audio_Port_PyObject *self)
 {
-    PyObject **list[] = {&self->xine_pyobject, NULL};
+    PyObject **list[] = {&self->xine_pyobject, &self->post, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Audio_Port_PyObject__traverse(Xine_Audio_Port_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->xine_pyobject, NULL};
+    PyObject **list[] = {&self->xine_pyobject, &self->post, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -52,7 +57,8 @@ Xine_Audio_Port_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kw
     self = (Xine_Audio_Port_PyObject *)type->tp_alloc(type, 0);
     self->ao = NULL;
     self->xine = NULL;
-    self->wrapper = Py_None;
+    self->post = self->wrapper = Py_None;
+    Py_INCREF(Py_None);
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -64,6 +70,7 @@ Xine_Audio_Port_PyObject__init(Xine_Audio_Port_PyObject *self, PyObject *args, P
 }
 
 static PyMemberDef Xine_Audio_Port_PyObject_members[] = {
+    {"post", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, post), 0, "Post object"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };

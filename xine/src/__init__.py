@@ -176,11 +176,16 @@ class VideoPort(object):
     def __init__(self, vo):
         self._vo = vo
 
+    def get_post_plugin(self):
+        return _wrap_xine_object(self._vo.post)
+
 
 class AudioPort(object):
     def __init__(self, ao):
         self._ao = ao
 
+    def get_post_plugin(self):
+        return _wrap_xine_object(self._ao.post)
 
 class Stream(object):
     def __init__(self, stream):
@@ -309,7 +314,23 @@ class PostOut(object):
             raise XineError, "Unsupported input type: " + str(type(input))
 
     def get_post_plugin(self):
-        return _wrap_xine_object(self._post_out.post)
+        if type(self._post_out.post) == _xine.Post:
+            return _wrap_xine_object(self._post_out.post)
+
+    def get_stream(self):
+        if type(self._post_out.post) == _xine.Stream:
+            return _wrap_xine_object(self._post_out.post)
+
+    def get_output_type(self):
+        if type(self._post_out.post) == _xine.Stream:
+            return Stream
+        elif type(self._post_out.post) == _xine.Post:
+            return Post
+        
+    def get_output(self):
+        if self.get_output_type() == Stream:
+            return self.get_stream()
+        return self.get_post_plugin()
 
 
 class PostIn(object):

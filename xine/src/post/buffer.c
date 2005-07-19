@@ -103,6 +103,8 @@ static post_plugin_t *buffer_open_plugin(post_class_t *class_gen, int inputs,
         return NULL;
     }
 
+
+    printf("BUFFER INIT video target=%x\n", video_target[0]);
     _x_post_init(&this->post, 0, 1);
 
     this->params.ptr = 0;

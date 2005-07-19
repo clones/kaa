@@ -8,9 +8,12 @@
 
 Xine_Post_PyObject *
 pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post, 
-                         PyObject *audio_targets, PyObject *video_targets, 
+                         xine_audio_port_t **ao, xine_video_port_t **vo,
+//                         PyObject *audio_targets, PyObject *video_targets, 
                          int owner)
 {
+    int i;
+    const char *const *list;
     Xine_Post_PyObject *o = (Xine_Post_PyObject *)xine_object_to_pyobject_find(post);
     if (o) {
         Py_INCREF(o);
@@ -24,11 +27,25 @@ pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post,
     o->xine = xine->xine;
     o->xine_object_owner = owner;
     Py_INCREF(xine);
+    /*
     o->audio_targets = audio_targets;
     Py_INCREF(audio_targets);
     o->video_targets = video_targets;
     Py_INCREF(video_targets);
+    */
     xine_object_to_pyobject_register(post, (PyObject *)o);
+
+    printf("CONNECTED POST PLUGIN\n");
+    list = xine_post_list_outputs(post);
+    for (i = 0; list[i]; i++) {
+        xine_post_out_t *out = xine_post_output(post, list[i]);
+        if (out->type == XINE_POST_DATA_VIDEO) {
+            xine_video_port_t *vop = *(xine_video_port_t **)out->data;
+            printf("Output: %s out=%x outtype=%d video port: %x==%x\n", list[i], out, out->type, vo[i], vop);
+        }
+    }
+
+
     return o;
 }
 
@@ -37,16 +54,14 @@ pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post,
 static int
 Xine_Post_PyObject__clear(Xine_Post_PyObject *self)
 {
-    PyObject **list[] = {&self->xine_pyobject, &self->audio_targets, 
-                         &self->video_targets, &self->prev, &self->next, NULL};
+    PyObject **list[] = {&self->xine_pyobject, NULL };
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Post_PyObject__traverse(Xine_Post_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->xine_pyobject, &self->audio_targets, 
-                         &self->video_targets, &self->prev, &self->next, NULL};
+    PyObject **list[] = {&self->xine_pyobject, NULL };
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -64,9 +79,7 @@ Xine_Post_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     self->post = NULL;
     self->xine = NULL;
     self->xine_pyobject = NULL;
-    self->wrapper = self->prev = self->next = Py_None;
-    Py_INCREF(Py_None);
-    Py_INCREF(Py_None);
+    self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -78,8 +91,6 @@ Xine_Post_PyObject__init(Xine_Post_PyObject *self, PyObject *args, PyObject *kwd
 }
 
 static PyMemberDef Xine_Post_PyObject_members[] = {
-    {"prev", T_OBJECT_EX, offsetof(Xine_Post_PyObject, prev), 0, "Previous plugin in chain"},
-    {"next", T_OBJECT_EX, offsetof(Xine_Post_PyObject, next), 0, "Next plugin in chain"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Post_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -109,7 +120,7 @@ Xine_Post_PyObject_get_audio_inputs(Xine_Post_PyObject *self, PyObject *args, Py
 
     for (i = 0; self->post->audio_input[i]; i++) {
         ao = self->post->audio_input[i];
-        o = (PyObject *)pyxine_new_audio_port_pyobject(xine, ao, 0);
+        o = (PyObject *)pyxine_new_audio_port_pyobject(xine, ao, (PyObject *)self, 0);
         PyList_Append(list, o);
         Py_DECREF(o);
     }
@@ -127,7 +138,7 @@ Xine_Post_PyObject_get_video_inputs(Xine_Post_PyObject *self, PyObject *args, Py
 
     for (i = 0; self->post->video_input[i]; i++) {
         vo = self->post->video_input[i];
-        o = (PyObject *)pyxine_new_video_port_pyobject(xine, vo, 0);
+        o = (PyObject *)pyxine_new_video_port_pyobject(xine, vo, (PyObject *)self, 0);
         PyList_Append(list, o);
         Py_DECREF(o);
     }
@@ -417,6 +428,7 @@ Xine_Post_PyObject_post_output(Xine_Post_PyObject *self, PyObject *args, PyObjec
         return NULL;
     }
 
+    //printf("POST OUTPUT DATA %s %x\n", name, *(void **)output->data);
     return (PyObject *)pyxine_new_post_out_pyobject(self, output, 1);
 }
 

@@ -240,7 +240,7 @@ Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         return NULL;
     }
 
-    vo = pyxine_new_video_port_pyobject(self, vo_port, 1);
+    vo = pyxine_new_video_port_pyobject(self, vo_port, NULL, 1);
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "auto")) {
         x11_open_video_driver_finalize(vo, finalize_data);
@@ -266,7 +266,7 @@ Xine_PyObject_open_audio_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         return NULL;
     }
 
-    return (PyObject *)pyxine_new_audio_port_pyobject(self, ao_port, 1);
+    return (PyObject *)pyxine_new_audio_port_pyobject(self, ao_port, NULL, 1);
 }
 
 PyObject *
@@ -295,7 +295,7 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     char *name;
     int inputs, i;
-    PyObject *audio_targets, *video_targets;
+    PyObject *audio_targets, *video_targets, *post_pyobject;
     xine_video_port_t **vo;
     xine_audio_port_t **ao;
     xine_post_t *post;
@@ -316,6 +316,9 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
     
     post = xine_post_init(self->xine, name, inputs, ao, vo);
 
+    if (post)
+        post_pyobject = (PyObject *)pyxine_new_post_pyobject(self, post, ao, vo, 1);
+
     free(ao);
     free(vo);
     
@@ -323,8 +326,8 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
         PyErr_Format(xine_error, "Failed to initialize post plugin.");
         return NULL;
     }
+    return post_pyobject;
 
-    return (PyObject *)pyxine_new_post_pyobject(self, post, audio_targets, video_targets, 1);
 
 }
 
