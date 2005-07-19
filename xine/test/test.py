@@ -2,6 +2,9 @@ import sys
 from kaa import xine, display
 import kaa, gc
 
+print xine.get_version()
+sys.exit(0)
+
 def key_press(key):
     print "KEY PRESS", key
     if key == 113:
@@ -11,10 +14,12 @@ win = display.X11Window(size=(640, 480), title="Movie")
 win.set_cursor_hide_timeout(0)
 win.show()
 x = xine.Xine()
+print x.get_log_names()
 vo_none = x.open_video_driver("none")
-vo = x.open_video_driver("xv", window = win)
+vo = x.open_video_driver(window = win)
 ao = x.open_audio_driver()
-
+print "0", x.get_log("messages")
+sys.exit(1)
 post = x.post_init("buffer", video_targets = [vo])
 print post.list_inputs()
 print post.list_outputs()
@@ -43,3 +48,4 @@ print "connect"
 kaa.signals["keypress"].connect(key_press)
 print "START MAIN"
 kaa.main()
+win.hide()

@@ -1,8 +1,13 @@
 import weakref
 import _xine
 from kaa import display, notifier
+from kaa.base.version import Version
+from constants import *
 
 XineError = _xine.XineError
+
+def get_version():
+    return Version(_xine.get_version())
 
 def _wrap_xine_object(obj):
     if obj.wrapper and obj.wrapper():
@@ -28,6 +33,10 @@ def _wrap_xine_object(obj):
 class Xine(object):
     def __init__(self):
         self._xine = _xine.Xine()
+        self._xine.log_callback = self._log_callback
+        self.signals = {
+            "log": notifier.Signal()
+        }
 
     def _default_frame_output_cb(self, width, height, aspect, window):
         #print "FRAME CALLBACK", width, height, aspect, window.get_geometry()
@@ -95,6 +104,27 @@ class Xine(object):
         post = self._xine.post_init(name, inputs, ao, vo)
         return _wrap_xine_object(post)
 
+    def get_log_names(self):
+        return self._xine.get_log_names()
+
+    def _resolve_log_section_name(self, section):
+        return section
+
+    def get_log(self, section):
+        if type(section) == str:
+            sections = self.get_log_names()
+            if section not in sections:
+                raise XineError, "Unknown log section: " + section
+            section = sections.index(section)
+        return self._xine.get_log(section)
+
+
+    def _log_callback(self, section):
+        sections = self.get_log_names()
+        section = sections[section]
+        print "LOG", section
+        self.signals["log"].emit(section)
+        
 
 class VideoPort(object):
     def __init__(self, vo):

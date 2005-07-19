@@ -54,6 +54,20 @@ xine_object_to_pyobject_find(void *ptr)
 
 ///
 
+void
+_xine_log_callback(void *xine_pyobject, int section)
+{
+    PyObject *args, *result;
+    Xine_PyObject *xine = (Xine_PyObject *)xine_pyobject;
+
+    if (xine->log_callback != Py_None) {
+        args = Py_BuildValue("(i)", section);
+        result = PyEval_CallObject(xine->log_callback, args);
+        Py_DECREF(args);
+        Py_DECREF(result);
+    }
+}
+
 
 static int
 Xine_PyObject__clear(Xine_PyObject *self)
@@ -64,6 +78,11 @@ Xine_PyObject__clear(Xine_PyObject *self)
         self->dependencies= 0;
         Py_DECREF(tmp);
     }
+    if (self->log_callback) {
+        tmp = self->log_callback;
+        self->log_callback = 0;
+        Py_DECREF(tmp);
+    }
     return 0;
 }
 
@@ -72,6 +91,11 @@ Xine_PyObject__traverse(Xine_PyObject *self, visitproc visit, void *arg)
 {
     if (self->dependencies) {
         int ret = visit(self->dependencies, arg);
+        if (ret != 0)
+            return ret;
+    }
+    if (self->log_callback) {
+        int ret = visit(self->log_callback, arg);
         if (ret != 0)
             return ret;
     }
@@ -86,6 +110,8 @@ Xine_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     self = (Xine_PyObject *)type->tp_alloc(type, 0);
     self->dependencies = PyList_New(0);
     self->wrapper = Py_None;
+    self->log_callback = Py_None;
+    Py_INCREF(Py_None);
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -111,12 +137,17 @@ Xine_PyObject__init(Xine_PyObject *self, PyObject *args, PyObject *kwds)
     xine_register_plugins(xine, xine_buffer_plugin_info);
     self->xine = xine;
     xine_object_to_pyobject_register(xine, (PyObject *)self);
+
+    // This isn't implemented in xine yet.
+    //xine_register_log_cb(xine, _xine_log_callback, self);
+
     return 0;
 }
 
 static PyMemberDef Xine_PyObject_members[] = {
     {"dependencies", T_OBJECT_EX, offsetof(Xine_PyObject, dependencies), 0, "Dependencies"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_PyObject, wrapper), 0, "Wrapper object"},
+    {"log_callback", T_OBJECT_EX, offsetof(Xine_PyObject, log_callback), 0, "Log Callback"},
     {NULL}
 };
 
@@ -275,12 +306,55 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 
 }
 
+
+PyObject *
+Xine_PyObject_get_log_names(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    const char *const *list;
+    PyObject *pylist = NULL;
+    int i;
+
+    list = xine_get_log_names(self->xine);
+    pylist = PyList_New(0);
+    for (i = 0; list[i] != 0; i++) {
+        PyObject *str = PyString_FromString(list[i]);
+        PyList_Append(pylist, str);
+        Py_DECREF(str);
+    }
+    return pylist;
+}
+
+PyObject *
+Xine_PyObject_get_log(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *type;
+    const char *const *list;
+    PyObject *pylist = NULL;
+    int i, section;
+
+    if (!PyArg_ParseTuple(args, "i", &section))
+        return NULL;
+    list = xine_get_log(self->xine, section);
+    pylist = PyList_New(0);
+    for (i = 0; list && list[i] != 0; i++) {
+        if (!list[i] || *list[i] == 0)
+            continue;
+        PyObject *str = PyString_FromString(list[i]);
+        PyList_Append(pylist, str);
+        Py_DECREF(str);
+    }
+    return pylist;
+}
+
+
 PyMethodDef Xine_PyObject_methods[] = {
     {"list_plugins", (PyCFunction) Xine_PyObject_list_plugins, METH_VARARGS | METH_KEYWORDS},
     {"open_video_driver", (PyCFunction) Xine_PyObject_open_video_driver, METH_VARARGS | METH_KEYWORDS},
     {"open_audio_driver", (PyCFunction) Xine_PyObject_open_audio_driver, METH_VARARGS | METH_KEYWORDS},
     {"stream_new", (PyCFunction) Xine_PyObject_stream_new, METH_VARARGS | METH_KEYWORDS},
     {"post_init", (PyCFunction) Xine_PyObject_post_init, METH_VARARGS | METH_KEYWORDS},
+    {"get_log_names", (PyCFunction) Xine_PyObject_get_log_names, METH_VARARGS | METH_KEYWORDS},
+    {"get_log", (PyCFunction) Xine_PyObject_get_log, METH_VARARGS | METH_KEYWORDS},
     {NULL, NULL}
 };
 
@@ -334,7 +408,14 @@ PyTypeObject Xine_PyObject_Type = {
 };
 
 
+PyObject *
+Xine_get_version(PyObject *module, PyObject *args, PyObject *kwargs)
+{
+    return PyString_FromString(xine_get_version_string());
+}
+
 PyMethodDef xine_methods[] = {
+    {"get_version", (PyCFunction) Xine_get_version, METH_VARARGS | METH_KEYWORDS},
     {NULL}
 };
 
