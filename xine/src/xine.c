@@ -52,7 +52,34 @@ xine_object_to_pyobject_find(void *ptr)
     return NULL;
 }
 
-///
+//
+// GC helper functions
+int
+pyxine_gc_helper_clear(PyObject ***list)
+{
+    int i;
+    for (i = 0; list[i] && *list[i]; i++) {
+        PyObject *tmp = *list[i];
+        *list[i] = 0;
+        Py_DECREF(tmp);
+    }
+    return 0;
+}
+
+int
+pyxine_gc_helper_traverse(PyObject ***list, visitproc visit, void *arg)
+{
+    int i, ret;
+    for (i = 0; list[i] && *list[i]; i++) {
+        ret = visit(*list[i], arg);
+        if (ret != 0)
+            return ret;
+    }
+    return 0;
+}
+
+//
+
 
 void
 _xine_log_callback(void *xine_pyobject, int section)
@@ -72,34 +99,15 @@ _xine_log_callback(void *xine_pyobject, int section)
 static int
 Xine_PyObject__clear(Xine_PyObject *self)
 {
-    PyObject *tmp;
-    if (self->dependencies) {
-        tmp = self->dependencies;
-        self->dependencies= 0;
-        Py_DECREF(tmp);
-    }
-    if (self->log_callback) {
-        tmp = self->log_callback;
-        self->log_callback = 0;
-        Py_DECREF(tmp);
-    }
-    return 0;
+    PyObject **list[] = {&self->dependencies, &self->log_callback, NULL};
+    return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_PyObject__traverse(Xine_PyObject *self, visitproc visit, void *arg)
 {
-    if (self->dependencies) {
-        int ret = visit(self->dependencies, arg);
-        if (ret != 0)
-            return ret;
-    }
-    if (self->log_callback) {
-        int ret = visit(self->log_callback, arg);
-        if (ret != 0)
-            return ret;
-    }
-    return 0;
+    PyObject **list[] = {&self->dependencies, &self->log_callback, NULL};
+    return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
 PyObject *

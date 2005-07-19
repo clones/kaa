@@ -10,6 +10,9 @@ def get_version():
     return Version(_xine.get_version())
 
 def _wrap_xine_object(obj):
+    if obj == None:
+        return obj
+
     if obj.wrapper and obj.wrapper():
         return obj.wrapper()
 
@@ -139,10 +142,10 @@ class Xine(object):
         print "LOG", section
         self.signals["log"].emit(section)
  
-    def get_engine_param(self, param):
+    def get_parameter(self, param):
         return self._xine.get_engine_param(param)
 
-    def set_engine_param(self, param, value):
+    def set_parameter(self, param, value):
         return self._xine.set_engine_param(param, value)
       
     def get_browsable_input_plugin_ids(self):
@@ -205,6 +208,9 @@ class Stream(object):
 
     def stop(self):
         return self._stream.stop()
+
+    def close(self):
+        return self._stream.close()
 
     def eject(self):
         return self._stream.eject()
@@ -284,6 +290,9 @@ class Post(object):
     def get_input(self, name):
         return _wrap_xine_object(self._post.post_input(name))
 
+#    def wire(self, input):
+#        output = self.get_output
+
 
 class PostOut(object):
     def __init__(self, post_out):
@@ -299,7 +308,13 @@ class PostOut(object):
         else:
             raise XineError, "Unsupported input type: " + str(type(input))
 
+    def get_post_plugin(self):
+        return _wrap_xine_object(self._post_out.post)
+
 
 class PostIn(object):
     def __init__(self, post_in):
         self._post_in = post_in
+
+    def get_post_plugin(self):
+        return _wrap_xine_object(self._post_in.post)

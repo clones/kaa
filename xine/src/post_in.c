@@ -27,24 +27,16 @@ pyxine_new_post_in_pyobject(Xine_Post_PyObject *post, xine_post_in_t *post_in,
 static int
 Xine_Post_In_PyObject__clear(Xine_Post_In_PyObject *self)
 {
-    PyObject *tmp;
-    if (self->post_pyobject) {
-        tmp = self->post_pyobject;
-        self->post_pyobject = 0;
-        Py_DECREF(tmp);
-    }
-    return 0;
+    PyObject **list[] = {&self->post_pyobject, &self->wrapper, NULL};
+    return pyxine_gc_helper_clear(list);
+
 }
 
 static int
 Xine_Post_In_PyObject__traverse(Xine_Post_In_PyObject *self, visitproc visit, void *arg)
 {
-    int ret;
-    if (self->post_pyobject) {
-        ret = visit((PyObject *)self->post_pyobject, arg);
-        if (ret != 0)
-            return ret;
-    }
+    PyObject **list[] = {&self->post_pyobject, &self->wrapper, NULL};
+    return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
 PyObject *
@@ -84,7 +76,6 @@ Xine_Post_In_PyObject__dealloc(Xine_Post_In_PyObject *self)
     printf("DEalloc Post In: %x\n", self->post_in);
     if (self->post_in && self->xine_object_owner) {
     }
-    Py_DECREF(self->wrapper);
     Xine_Post_In_PyObject__clear(self);
     xine_object_to_pyobject_unregister(self->post_in);
     self->ob_type->tp_free((PyObject*)self);

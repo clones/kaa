@@ -28,25 +28,15 @@ pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, int o
 static int
 Xine_Audio_Port_PyObject__clear(Xine_Audio_Port_PyObject *self)
 {
-    PyObject *tmp;
-    if (self->xine_pyobject) {
-        tmp = self->xine_pyobject;
-        self->xine_pyobject = 0;
-        Py_DECREF(tmp);
-    }
-    return 0;
+    PyObject **list[] = {&self->xine_pyobject, NULL};
+    return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Audio_Port_PyObject__traverse(Xine_Audio_Port_PyObject *self, visitproc visit, void *arg)
 {
-    int ret;
-    if (self->xine_pyobject) {
-        ret = visit((PyObject *)self->xine_pyobject, arg);
-        if (ret != 0)
-            return ret;
-    }
-    return 0;
+    PyObject **list[] = {&self->xine_pyobject, NULL};
+    return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
 PyObject *

@@ -4,6 +4,7 @@
 
 #include <Python.h>
 #include <xine.h>
+#include <xine/post.h>
 
 
 #define Xine_Post_PyObject_Check(v) ((v)->ob_type == &Xine_Post_PyObject_Type)
@@ -18,6 +19,7 @@ typedef struct {
     xine_t *xine;
     PyObject *audio_targets, *video_targets;
 
+    PyObject *prev, *next; // ref to previous and next plugins in the chain
     PyObject *wrapper;
 } Xine_Post_PyObject;
 

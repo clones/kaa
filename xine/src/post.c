@@ -37,45 +37,17 @@ pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post,
 static int
 Xine_Post_PyObject__clear(Xine_Post_PyObject *self)
 {
-    PyObject *tmp;
-    if (self->xine_pyobject) {
-        tmp = self->xine_pyobject;
-        self->xine_pyobject = 0;
-        Py_DECREF(tmp);
-    }
-    if (self->audio_targets) {
-        tmp = self->audio_targets;
-        self->audio_targets = 0;
-        Py_DECREF(tmp);
-    }
-    if (self->video_targets) {
-        tmp = self->video_targets;
-        self->video_targets = 0;
-        Py_DECREF(tmp);
-    }
-    return 0;
+    PyObject **list[] = {&self->xine_pyobject, &self->audio_targets, 
+                         &self->video_targets, &self->prev, &self->next, NULL};
+    return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Post_PyObject__traverse(Xine_Post_PyObject *self, visitproc visit, void *arg)
 {
-    int ret;
-    if (self->xine_pyobject) {
-        ret = visit((PyObject *)self->xine_pyobject, arg);
-        if (ret != 0)
-            return ret;
-    }
-    if (self->audio_targets) {
-        ret = visit((PyObject *)self->audio_targets, arg);
-        if (ret != 0)
-            return ret;
-    }
-    if (self->video_targets) {
-        ret = visit((PyObject *)self->video_targets, arg);
-        if (ret != 0)
-            return ret;
-    }
-    return 0;
+    PyObject **list[] = {&self->xine_pyobject, &self->audio_targets, 
+                         &self->video_targets, &self->prev, &self->next, NULL};
+    return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
 PyObject *
@@ -92,7 +64,9 @@ Xine_Post_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     self->post = NULL;
     self->xine = NULL;
     self->xine_pyobject = NULL;
-    self->wrapper = Py_None;
+    self->wrapper = self->prev = self->next = Py_None;
+    Py_INCREF(Py_None);
+    Py_INCREF(Py_None);
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -104,6 +78,8 @@ Xine_Post_PyObject__init(Xine_Post_PyObject *self, PyObject *args, PyObject *kwd
 }
 
 static PyMemberDef Xine_Post_PyObject_members[] = {
+    {"prev", T_OBJECT_EX, offsetof(Xine_Post_PyObject, prev), 0, "Previous plugin in chain"},
+    {"next", T_OBJECT_EX, offsetof(Xine_Post_PyObject, next), 0, "Next plugin in chain"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Post_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };

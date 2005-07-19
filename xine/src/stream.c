@@ -36,55 +36,17 @@ pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream,
 static int
 Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
 {
-    PyObject *tmp;
-    if (self->xine_pyobject) {
-        tmp = self->xine_pyobject;
-        self->xine_pyobject = 0;
-        Py_DECREF(tmp);
-    }
-    if (self->ao_pyobject) {
-        tmp = (PyObject *)self->ao_pyobject;
-        self->ao_pyobject = 0;
-        Py_DECREF(tmp);
-    }
-    if (self->vo_pyobject) {
-        tmp = (PyObject *)self->vo_pyobject;
-        self->vo_pyobject = 0;
-        Py_DECREF(tmp);
-    }
-    if (self->master) {
-        tmp = (PyObject *)self->master;
-        self->master= 0;
-        Py_DECREF(tmp);
-    }
-    return 0;
+    PyObject **list[] = {&self->xine_pyobject, (PyObject **)&self->ao_pyobject,
+                         (PyObject **)&self->vo_pyobject, &self->master, NULL};
+    return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Stream_PyObject__traverse(Xine_Stream_PyObject *self, visitproc visit, void *arg)
 {
-    int ret;
-    if (self->xine_pyobject) {
-        ret = visit((PyObject *)self->xine_pyobject, arg);
-        if (ret != 0)
-            return ret;
-    }
-    if (self->ao_pyobject) {
-        ret = visit((PyObject *)self->ao_pyobject, arg);
-        if (ret != 0)
-            return ret;
-    }
-    if (self->vo_pyobject) {
-        ret = visit((PyObject *)self->vo_pyobject, arg);
-        if (ret != 0)
-            return ret;
-    }
-    if (self->master) {
-        ret = visit((PyObject *)self->master, arg);
-        if (ret != 0)
-            return ret;
-    }
-    return 0;
+    PyObject **list[] = {&self->xine_pyobject, (PyObject **)&self->ao_pyobject,
+                         (PyObject **)&self->vo_pyobject, &self->master, NULL};
+    return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
 PyObject *
@@ -191,6 +153,14 @@ Xine_Stream_PyObject_eject(Xine_Stream_PyObject *self, PyObject *args, PyObject 
     return PyBool_FromLong(result);
 }
 
+PyObject *
+Xine_Stream_PyObject_close(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    Py_BEGIN_ALLOW_THREADS
+    xine_close(self->stream);
+    Py_END_ALLOW_THREADS
+    return Py_INCREF(Py_None), Py_None;
+}
 PyObject *
 Xine_Stream_PyObject_get_source(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
 {
@@ -331,6 +301,7 @@ PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"play", (PyCFunction) Xine_Stream_PyObject_play, METH_VARARGS },
     {"stop", (PyCFunction) Xine_Stream_PyObject_stop, METH_VARARGS },
     {"eject", (PyCFunction) Xine_Stream_PyObject_eject, METH_VARARGS },
+    {"close", (PyCFunction) Xine_Stream_PyObject_close, METH_VARARGS },
     {"get_source", (PyCFunction) Xine_Stream_PyObject_get_source, METH_VARARGS },
     {"slave", (PyCFunction) Xine_Stream_PyObject_slave, METH_VARARGS },
     {"set_trick_mode", (PyCFunction) Xine_Stream_PyObject_set_trick_mode, METH_VARARGS },

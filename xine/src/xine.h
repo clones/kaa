@@ -21,5 +21,9 @@ void xine_object_to_pyobject_register(void *ptr, PyObject *o);
 void xine_object_to_pyobject_unregister(void *ptr);
 PyObject *xine_object_to_pyobject_find(void *ptr);
 
+int pyxine_gc_helper_traverse(PyObject ***list, visitproc visit, void *arg);
+int pyxine_gc_helper_clear(PyObject ***list);
+
+
 
 #endif
