@@ -88,6 +88,21 @@ class Xine(object):
     def list_post_plugins(self, types = -1):
         return self._xine.list_plugins("post", types)
 
+    def list_demuxer_plugins(self):
+        return self._xine.list_plugins("demuxer")
+
+    def list_input_plugins(self):
+        return self._xine.list_plugins("input")
+
+    def list_spu_plugins(self):
+        return self._xine.list_plugins("spu")
+
+    def list_audio_decoder_plugins(self):
+        return self._xine.list_plugins("audio_decoder")
+
+    def list_video_decoder_plugins(self):
+        return self._xine.list_plugins("video_decoder")
+
     def post_init(self, name, inputs = 0, audio_targets = [], video_targets = []):
         assert(type(audio_targets) in (list, tuple))
         assert(type(video_targets) in (list, tuple))

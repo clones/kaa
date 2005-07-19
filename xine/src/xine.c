@@ -180,6 +180,16 @@ Xine_PyObject_list_plugins(Xine_PyObject *self, PyObject *args, PyObject *kwargs
         list = xine_list_video_output_plugins(self->xine);
     else if (!strcmp(type, "audio"))
         list = xine_list_audio_output_plugins(self->xine);
+    else if (!strcmp(type, "demuxer"))
+        list = xine_list_demuxer_plugins(self->xine);
+    else if (!strcmp(type, "input"))
+        list = xine_list_input_plugins(self->xine);
+    else if (!strcmp(type, "spu"))
+        list = xine_list_spu_plugins(self->xine);
+    else if (!strcmp(type, "audio_decoder"))
+        list = xine_list_audio_decoder_plugins(self->xine);
+    else if (!strcmp(type, "video_decoder"))
+        list = xine_list_video_decoder_plugins(self->xine);
     else if (!strcmp(type, "post")) {
         if (post_types == -1)
             list = xine_list_post_plugins(self->xine);
