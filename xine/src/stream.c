@@ -114,8 +114,10 @@ Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
 {
     printf("DEalloc Stream: %x\n", self->stream);
     if (self->stream && self->xine_object_owner) {
+        Py_BEGIN_ALLOW_THREADS
         xine_close(self->stream);
         xine_dispose(self->stream);
+        Py_END_ALLOW_THREADS
     }
     Py_DECREF(self->wrapper);
     Xine_Stream_PyObject__clear(self);
@@ -149,12 +151,14 @@ Xine_Stream_PyObject_play(Xine_Stream_PyObject *self, PyObject *args, PyObject *
     if (!PyArg_ParseTuple(args, "|ii", &pos, &time))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     result = xine_play(self->stream, pos, time);
+    Py_END_ALLOW_THREADS
     if (!result) {
         PyErr_Format(xine_error, "Failed to play stream (FIXME: add useful error).");
         return NULL;
     }
-
+    
     return Py_INCREF(Py_None), Py_None;
 }
 

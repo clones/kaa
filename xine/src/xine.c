@@ -165,52 +165,34 @@ Xine_PyObject_list_plugins(Xine_PyObject *self, PyObject *args, PyObject *kwargs
     return pylist;
 }
 
-// XXX Temporary.  Obviously. :)
-static void frame_output_cb(void *data, int video_width, int video_height,
-                double video_pixel_aspect, int *dest_x, int *dest_y,
-                int *dest_width, int *dest_height,
-                double *dest_pixel_aspect, int *win_x, int *win_y) {
-  *dest_x            = 0;
-  *dest_y            = 0;
-  *win_x             = 0;
-  *win_y             = 0;
-  *dest_width        = 640;//width;
-  *dest_height       = 480;//height;
-  *dest_pixel_aspect = 1;
-  //printf("frame_output_cb: Video width: %d, heigh: %d, pixel aspect: %f %x\n", video_width, video_height, video_pixel_aspect, data);
-}
-
-
 PyObject *
 Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    char *driver;
     xine_video_port_t *vo_port = NULL;
+    Xine_Video_Port_PyObject *vo;
+    char *driver;
+    void *finalize_data = NULL;
 
     if (!PyArg_ParseTuple(args, "s", &driver))
         return NULL;
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "auto")) {
-        PyObject *window;
-        x11_visual_t vis;
-
-        window = PyDict_GetItemString(kwargs, "window");
-        if (!x11window_object_decompose(window, &vis.d, (Display **)&vis.display))
-            return NULL;
-        vis.screen = DefaultScreen(vis.display);
-        vis.user_data = NULL;
-        vis.frame_output_cb = frame_output_cb;
-        vis.user_data = window;
-        vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_X11, (void *)&vis);
+        vo_port = x11_open_video_driver(self, driver, kwargs, &finalize_data);
     } else if (!strcmp(driver, "none")) {
         vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
     }
         
-    if (!vo_port) {
+    if (!vo_port && !PyErr_Occurred()) {
         PyErr_Format(xine_error, "Failed to open driver: %s", driver);
         return NULL;
     }
-    return (PyObject *)pyxine_new_video_port_pyobject(self, vo_port, 1);
+
+    vo = pyxine_new_video_port_pyobject(self, vo_port, 1);
+
+    if (!strcmp(driver, "xv") || !strcmp(driver, "auto")) {
+        x11_open_video_driver_finalize(vo, finalize_data);
+    }
+    return (PyObject *)vo;
 }
 
 PyObject *
@@ -287,16 +269,6 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
     if (!post) {
         PyErr_Format(xine_error, "Failed to initialize post plugin.");
         return NULL;
-    }
-
-    {
-        /*
-        xine_post_in_t *input_api = (xine_post_in_t *) xine_post_input(post, "parameters");
-        xine_post_api_t *api = (xine_post_api_t *)input_api->data;
-        int data = 142;
-        api->set_parameters(post, &data);
-        printf("POST API: %x\n", input_api);
-        */
     }
 
     return (PyObject *)pyxine_new_post_pyobject(self, post, audio_targets, video_targets, 1);
@@ -446,4 +418,5 @@ init_xine()
     X11Window_PyObject_Type = NULL;
 #endif
 
+    PyEval_InitThreads();
 }

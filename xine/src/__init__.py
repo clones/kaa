@@ -1,6 +1,6 @@
 import weakref
 import _xine
-from kaa import display
+from kaa import display, notifier
 
 XineError = _xine.XineError
 
@@ -29,11 +29,30 @@ class Xine(object):
     def __init__(self):
         self._xine = _xine.Xine()
 
+    def _default_frame_output_cb(self, width, height, aspect, window):
+        #print "FRAME CALLBACK", width, height, aspect, window.get_geometry()
+        if window:
+            win_w, win_h = window.get_geometry()[1]
+        else:
+            win_w, win_h = 640, 480
+        # Return order: dst_pos, win_pos, dst_size, aspect
+        aspect = width / height
+        w = win_w
+        h = w / aspect
+        y = (win_h-h)/2
+        return (0, y), (0, 0), (w, h), 1
+
     def open_video_driver(self, driver = "auto", **kwargs):
         if "window" in kwargs:
-            assert(type(kwargs["window"]) == display.X11Window)
-            kwargs["window"] = kwargs["window"]._window
-            self._xine.dependencies.append(kwargs["window"])
+            window = kwargs["window"]
+            assert(type(window) == display.X11Window)
+            if "frame_output_cb" not in kwargs:
+                kwargs["frame_output_cb"] = notifier.WeakCallback(self._default_frame_output_cb, window)
+            if "dest_size_cb" not in kwargs:
+                kwargs["dest_size_cb"] = self._default_frame_output_cb
+            kwargs["window"] = window._window
+            self._xine.dependencies.append(window._window)
+
         
         vo = self._xine.open_video_driver(driver, **kwargs)
         return _wrap_xine_object(vo)
@@ -94,8 +113,8 @@ class Stream(object):
     def open(self, mrl):
         return self._stream.open(mrl)
 
-    def play(self, pos = 0, time = 0):
-        return self._stream.play(pos, time)
+    def play(self, pos = 0, time = 0.0):
+        return self._stream.play(pos, int(time*1000))
 
     def get_video_source(self):
         return _wrap_xine_object(self._stream.get_source("video"))

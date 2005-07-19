@@ -36,9 +36,11 @@ except ImportError:
     sys.exit(1)
     
 files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
-         'src/post.c', 'src/drivers/x11.c', 'src/post/buffer.c']
+         'src/post.c', 'src/drivers/x11.c', 'src/post/buffer.c',
+	 'src/post_out.c', 'src/post_in.c']
 xineso = Extension('kaa.xine._xinemodule', files, config='src/config.h')
-
+#xineso.libraries += ["X11"]
+#xineso.library_dirs.append("/usr/X11R6/lib")
 
 if not xineso.check_library('xine', '1.0.0'):
     print 'xine >= 1.0.0 not found'

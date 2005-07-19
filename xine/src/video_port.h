@@ -16,6 +16,9 @@ typedef struct {
     xine_video_port_t *vo;
 
     PyObject *wrapper;
+
+    void (*driver_dealloc_cb)(void *);
+    void *driver_dealloc_data;
 } Xine_Video_Port_PyObject;
 
 extern PyTypeObject Xine_Video_Port_PyObject_Type;

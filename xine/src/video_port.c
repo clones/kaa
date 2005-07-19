@@ -94,11 +94,17 @@ Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
 {
     printf("DEalloc Video Port: %x\n", self->vo);
     if (self->vo && self->xine_object_owner) {
+        Py_BEGIN_ALLOW_THREADS
         xine_close_video_driver(self->xine, self->vo);
+        Py_END_ALLOW_THREADS
     }
     Py_DECREF(self->wrapper);
     Xine_Video_Port_PyObject__clear(self);
     xine_object_to_pyobject_unregister(self->vo);
+
+    if (self->driver_dealloc_cb)
+        self->driver_dealloc_cb(self->driver_dealloc_data);
+
     self->ob_type->tp_free((PyObject *) self);
 }
 
