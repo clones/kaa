@@ -80,7 +80,7 @@ Xine_Event_Queue_PyObject__dealloc(Xine_Event_Queue_PyObject *self)
     printf("DEalloc Event Queue: %x\n", self->queue);
     if (self->queue && self->xine_object_owner) {
         Py_BEGIN_ALLOW_THREADS
-        xine_event_dipose_queue(self->queue);
+        xine_event_dispose_queue(self->queue);
         Py_END_ALLOW_THREADS
     }
     Py_DECREF(self->wrapper);
