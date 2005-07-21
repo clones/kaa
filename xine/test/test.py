@@ -94,6 +94,7 @@ def print_vpts(stream):
 
 print post.get_video_inputs()
 win.show()
+win.resize((320, 200))
 kaa.main()
 win.hide()
 # Explicitly delete these to test that gc works.

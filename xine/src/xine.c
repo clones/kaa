@@ -20,7 +20,7 @@ void
 xine_object_to_pyobject_register(void *ptr, PyObject *o)
 {
     PyObject *key = PyLong_FromLong((long)ptr), *val;
-    if (!PyDict_Contains(xine_object_to_pyobject_dict, key)) {
+    if (!PyMapping_HasKey(xine_object_to_pyobject_dict, key)) {
         val = PyCObject_FromVoidPtr(o, NULL);
         PyDict_SetItem(xine_object_to_pyobject_dict, key, val);
         Py_DECREF(val);
@@ -32,7 +32,7 @@ void
 xine_object_to_pyobject_unregister(void *ptr)
 {
     PyObject *key = PyLong_FromLong((long)ptr);
-    if (PyDict_Contains(xine_object_to_pyobject_dict, key)) {
+    if (PyMapping_HasKey(xine_object_to_pyobject_dict, key)) {
         PyDict_DelItem(xine_object_to_pyobject_dict, key);
     }
     Py_DECREF(key);
@@ -43,7 +43,7 @@ xine_object_to_pyobject_find(void *ptr)
 {
     PyObject *key = PyLong_FromLong((long)ptr);
     PyObject *o = NULL;
-    if (PyDict_Contains(xine_object_to_pyobject_dict, key)) {
+    if (PyMapping_HasKey(xine_object_to_pyobject_dict, key)) {
         o = PyDict_GetItem(xine_object_to_pyobject_dict, key);
     }
     Py_DECREF(key);

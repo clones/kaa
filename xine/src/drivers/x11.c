@@ -126,7 +126,6 @@ x11_open_video_driver(Xine_PyObject *xine, char *driver, PyObject *kwargs,
     PyObject *window, *frame_output_callback, *dest_size_callback;
 
     window = PyDict_GetItemString(kwargs, "window");
-    printf("Driver: %s, window: %x\n", driver, window);
     if (!x11window_object_decompose(window, &vis.d, (Display **)&vis.display)) {
         PyErr_Format(xine_error, "Error in window parameter.");
         return NULL;
