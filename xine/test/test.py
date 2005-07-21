@@ -17,6 +17,11 @@ def key_press(key, stream):
         post.unwire()
         xine._debug_show_chain(stream._stream)
 
+    elif key == 320: # up
+        stream.seek_relative(60)
+    elif key == 321: # down
+        stream.seek_relative(-60)
+
 win = display.X11Window(size=(640, 480), title="Movie")
 win.set_cursor_hide_timeout(0)
 x = xine.Xine()

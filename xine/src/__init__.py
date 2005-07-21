@@ -285,7 +285,7 @@ class Stream(object):
     def open(self, mrl):
         return self._stream.open(mrl)
 
-    def play(self, pos = 0, time = 0.0):
+    def play(self, time = 0.0, pos = 0):
         return self._stream.play(pos, int(time*1000))
 
     def get_video_source(self):
@@ -327,7 +327,18 @@ class Stream(object):
         return self._stream.get_lang("spu", channel)
 
     def get_pos_length(self):
-        return self._stream.get_pos_length()
+        stream, time, length = self._stream.get_pos_length()
+        time /= 1000.0
+        return stream, time, length
+
+    def get_stream_pos(self):
+        return self.get_pos_length()[0]
+
+    def get_time(self):
+        return self.get_pos_length()[1]
+
+    def get_length(self):
+        return self.get_pos_length()[2]
 
     def get_info(self, info):
         return self._stream.get_info(info)
@@ -340,6 +351,28 @@ class Stream(object):
 
     def set_parameter(self, param, value):
         return self._stream.set_param(param, value)
+
+    def _seek(self, time):
+        if self.get_status() != STATUS_PLAY:
+            print "Stream not playing"
+            return False
+        speed = self.get_parameter(PARAM_SPEED)
+        self.set_parameter(PARAM_SPEED, SPEED_NORMAL)
+        if not self.get_parameter(STREAM_INFO_SEEKABLE):
+            print "Stream not seekable"
+            return False
+
+        self.play(time)
+        self.set_parameter(PARAM_SPEED, speed)
+        
+    def seek_relative(self, offset):
+        t = max(0, self.get_time() + offset)
+        print t
+        return self._seek(t)
+
+    def seek_absolute(self, t):
+        t = max(0, time)
+        return self._seek(t)
 
 
 

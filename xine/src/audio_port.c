@@ -21,9 +21,6 @@ pyxine_new_audio_port_pyobject(PyObject *owner_pyobject, xine_audio_port_t *ao, 
     o = (Xine_Audio_Port_PyObject *)Xine_Audio_Port_PyObject__new(&Xine_Audio_Port_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
-    o->ao = ao;
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
 
     if (Xine_PyObject_Check(owner_pyobject))
         o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
@@ -36,6 +33,9 @@ pyxine_new_audio_port_pyobject(PyObject *owner_pyobject, xine_audio_port_t *ao, 
     else
         PyErr_Format(xine_error, "Unsupported owner for AudioPort object");
 
+    o->ao = ao;
+    o->owner_pyobject = owner_pyobject;
+    Py_INCREF(owner_pyobject);
 
     xine_object_to_pyobject_register(ao, (PyObject *)o);
     return o;

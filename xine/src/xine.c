@@ -7,6 +7,8 @@
 #include "post.h"
 #include "post_out.h"
 #include "post_in.h"
+#include "event_queue.h"
+#include "event.h"
 #include "post/buffer.h"
 
 PyObject *xine_error;
@@ -675,6 +677,16 @@ init_xine()
         return;
     Py_INCREF(&Xine_Post_In_PyObject_Type);
     PyModule_AddObject(m, "PostIn", (PyObject *)&Xine_Post_In_PyObject_Type);
+
+    if (PyType_Ready(&Xine_Event_Queue_PyObject_Type) < 0)
+        return;
+    Py_INCREF(&Xine_Event_Queue_PyObject_Type);
+    PyModule_AddObject(m, "EventQueue", (PyObject *)&Xine_Event_Queue_PyObject_Type);
+
+    if (PyType_Ready(&Xine_Event_PyObject_Type) < 0)
+        return;
+    Py_INCREF(&Xine_Event_PyObject_Type);
+    PyModule_AddObject(m, "Event", (PyObject *)&Xine_Event_PyObject_Type);
 
     if (xine_object_to_pyobject_dict == NULL)
         xine_object_to_pyobject_dict = PyDict_New();
