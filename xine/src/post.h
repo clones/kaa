@@ -15,9 +15,10 @@ typedef struct {
     xine_post_t *post;
     int xine_object_owner;
 
-    PyObject *xine_pyobject;
+    PyObject *owner_pyobject;
     xine_t *xine;
     PyObject *outputs, *inputs;
+    PyObject *name; // post plugin identifier
 
     PyObject *wrapper;
 } Xine_Post_PyObject;
@@ -25,9 +26,7 @@ typedef struct {
 extern PyTypeObject Xine_Post_PyObject_Type;
 
 PyObject *Xine_Post_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-//Xine_Post_PyObject *pyxine_new_post_pyobject(Xine_PyObject *, xine_post_t *, PyObject *, PyObject *, int);
-Xine_Post_PyObject *pyxine_new_post_pyobject(Xine_PyObject *, xine_post_t *, 
-                                             xine_audio_port_t **, xine_video_port_t **, int);
+Xine_Post_PyObject *pyxine_new_post_pyobject(PyObject *, xine_post_t *, char *, int);
 
 
 #endif

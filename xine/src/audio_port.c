@@ -1,10 +1,16 @@
 #include "xine.h"
+#include "post.h"
+#include "post_in.h"
+#include "post_out.h"
 #include "audio_port.h"
+#include "stream.h"
 #include "structmember.h"
 
 
+// Owner must be a Post In, Post Out, Xine, or Stream object
+// XXX: if Xine, must be driver -- owner param deprecated then?
 Xine_Audio_Port_PyObject *
-pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, PyObject *post, int owner)
+pyxine_new_audio_port_pyobject(PyObject *owner_pyobject, xine_audio_port_t *ao, int owner)
 {
     Xine_Audio_Port_PyObject *o = (Xine_Audio_Port_PyObject *)xine_object_to_pyobject_find(ao);
     if (o) {
@@ -16,15 +22,21 @@ pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, PyObj
     if (!o)
         return NULL;
     o->ao = ao;
-    o->xine_pyobject = (PyObject *)xine;
-    Py_INCREF(xine);
-    o->xine = xine->xine;
-    o->xine_object_owner = owner;
-    if (post && post != o->post) {
-        Py_DECREF(o->post);
-        o->post = post;
-        Py_INCREF(post);
-    }
+    o->owner_pyobject = owner_pyobject;
+    Py_INCREF(owner_pyobject);
+
+    if (Xine_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
+    else if (Xine_Post_In_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_Post_In_PyObject *)owner_pyobject)->xine;
+    else if (Xine_Post_Out_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_Post_Out_PyObject *)owner_pyobject)->xine;
+    else if (Xine_Stream_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_Stream_PyObject *)owner_pyobject)->xine;
+    else
+        PyErr_Format(xine_error, "Unsupported owner for AudioPort object");
+
+
     xine_object_to_pyobject_register(ao, (PyObject *)o);
     return o;
 }
@@ -33,14 +45,14 @@ pyxine_new_audio_port_pyobject(Xine_PyObject *xine, xine_audio_port_t *ao, PyObj
 static int
 Xine_Audio_Port_PyObject__clear(Xine_Audio_Port_PyObject *self)
 {
-    PyObject **list[] = {&self->xine_pyobject, &self->post, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wire_object, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Audio_Port_PyObject__traverse(Xine_Audio_Port_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->xine_pyobject, &self->post, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wire_object, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -57,7 +69,7 @@ Xine_Audio_Port_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kw
     self = (Xine_Audio_Port_PyObject *)type->tp_alloc(type, 0);
     self->ao = NULL;
     self->xine = NULL;
-    self->post = self->wrapper = Py_None;
+    self->wire_object = self->wrapper = Py_None;
     Py_INCREF(Py_None);
     Py_INCREF(Py_None);
     return (PyObject *)self;
@@ -70,7 +82,8 @@ Xine_Audio_Port_PyObject__init(Xine_Audio_Port_PyObject *self, PyObject *args, P
 }
 
 static PyMemberDef Xine_Audio_Port_PyObject_members[] = {
-    {"post", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, post), 0, "Post object"},
+    {"wire_object", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, wire_object), 0, "Object wired to"},
+    {"owner", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };

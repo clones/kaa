@@ -3,11 +3,11 @@
 #include "structmember.h"
 #include "post_out.h"
 
+// Owner must be a Xine object
 Xine_Stream_PyObject *
-pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream,
-                           Xine_Audio_Port_PyObject *ao, 
-                           Xine_Video_Port_PyObject *vo, int owner)
+pyxine_new_stream_pyobject(PyObject *owner_pyobject, xine_stream_t *stream, int owner)
 {
+    xine_post_out_t *post_out;
     Xine_Stream_PyObject *o = (Xine_Stream_PyObject *)xine_object_to_pyobject_find(stream);
     if (o) {
         Py_INCREF(o);
@@ -17,15 +17,23 @@ pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream,
     o = (Xine_Stream_PyObject *)Xine_Stream_PyObject__new(&Xine_Stream_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
+
+    if (Xine_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
+    else
+        PyErr_Format(xine_error, "Unsupported owner for Stream object");
+
+    o->owner_pyobject = owner_pyobject;
+    Py_INCREF(owner_pyobject);
+
     o->stream = stream;
     o->xine_object_owner = owner;
-    o->ao_pyobject = ao;
-    Py_INCREF(ao);
-    o->vo_pyobject = vo;
-    Py_INCREF(vo);
-    o->xine_pyobject = (PyObject *)xine;
-    o->xine = xine->xine;
-    Py_INCREF(xine);
+ 
+    post_out = xine_get_video_source(stream);
+    o->video_source = (PyObject *)pyxine_new_post_out_pyobject((PyObject *)o, post_out, 0);
+    post_out = xine_get_audio_source(stream);
+    o->audio_source = (PyObject *)pyxine_new_post_out_pyobject((PyObject *)o, post_out, 0);
+
     xine_object_to_pyobject_register(stream, (PyObject *)o);
     return o;
 }
@@ -36,16 +44,16 @@ pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream,
 static int
 Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
 {
-    PyObject **list[] = {&self->xine_pyobject, (PyObject **)&self->ao_pyobject,
-                         (PyObject **)&self->vo_pyobject, &self->master, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->master, 
+                         &self->video_source, &self->audio_source, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Stream_PyObject__traverse(Xine_Stream_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->xine_pyobject, (PyObject **)&self->ao_pyobject,
-                         (PyObject **)&self->vo_pyobject, &self->master, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->master, 
+                         &self->video_source, &self->audio_source, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -62,8 +70,9 @@ Xine_Stream_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs
     self = (Xine_Stream_PyObject *)type->tp_alloc(type, 0);
     self->stream = NULL;
     self->xine = NULL;
-    self->xine_pyobject = NULL;
-    self->wrapper = Py_None;
+    self->owner_pyobject = NULL;
+    self->master = self->wrapper = Py_None;
+    Py_INCREF(Py_None);
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -76,6 +85,8 @@ Xine_Stream_PyObject__init(Xine_Stream_PyObject *self, PyObject *args, PyObject 
 
 
 static PyMemberDef Xine_Stream_PyObject_members[] = {
+    {"video_source", T_OBJECT_EX, offsetof(Xine_Stream_PyObject, video_source), 0, "Video source PostOut"},
+    {"audio_source", T_OBJECT_EX, offsetof(Xine_Stream_PyObject, audio_source), 0, "Audio source PostOut"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Stream_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -87,7 +98,7 @@ Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
     printf("DEalloc Stream: %x\n", self->stream);
     if (self->stream && self->xine_object_owner) {
         Py_BEGIN_ALLOW_THREADS
-        //xine_close(self->stream);
+        xine_close(self->stream);
         xine_dispose(self->stream);
         Py_END_ALLOW_THREADS
     }
@@ -161,6 +172,8 @@ Xine_Stream_PyObject_close(Xine_Stream_PyObject *self, PyObject *args, PyObject 
     Py_END_ALLOW_THREADS
     return Py_INCREF(Py_None), Py_None;
 }
+
+/*
 PyObject *
 Xine_Stream_PyObject_get_source(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
 {
@@ -180,9 +193,9 @@ Xine_Stream_PyObject_get_source(Xine_Stream_PyObject *self, PyObject *args, PyOb
         return NULL;
     }
 
-    return (PyObject *)pyxine_new_post_out_pyobject((Xine_Post_PyObject *)self, output, 0);
+    return (PyObject *)pyxine_new_post_out_pyobject((PyObject *)self, output, 0);
 }
-
+*/
 PyObject *
 Xine_Stream_PyObject_slave(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
 {
@@ -295,6 +308,29 @@ Xine_Stream_PyObject_get_meta_info(Xine_Stream_PyObject *self, PyObject *args, P
     return Py_BuildValue("s", (xine_get_meta_info(self->stream, info)));
 }
 
+PyObject *
+Xine_Stream_PyObject_get_param(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int param;
+
+    if (!PyArg_ParseTuple(args, "i", &param))
+        return NULL;
+
+    return PyLong_FromLong(xine_get_param(self->stream, param));
+}
+
+PyObject *
+Xine_Stream_PyObject_set_param(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int param, value;
+
+    if (!PyArg_ParseTuple(args, "ii", &param, &value))
+        return NULL;
+
+    xine_set_param(self->stream, param, value);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
 
 PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"open", (PyCFunction) Xine_Stream_PyObject_open, METH_VARARGS },
@@ -302,7 +338,7 @@ PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"stop", (PyCFunction) Xine_Stream_PyObject_stop, METH_VARARGS },
     {"eject", (PyCFunction) Xine_Stream_PyObject_eject, METH_VARARGS },
     {"close", (PyCFunction) Xine_Stream_PyObject_close, METH_VARARGS },
-    {"get_source", (PyCFunction) Xine_Stream_PyObject_get_source, METH_VARARGS },
+//    {"get_source", (PyCFunction) Xine_Stream_PyObject_get_source, METH_VARARGS },
     {"slave", (PyCFunction) Xine_Stream_PyObject_slave, METH_VARARGS },
     {"set_trick_mode", (PyCFunction) Xine_Stream_PyObject_set_trick_mode, METH_VARARGS },
     {"get_current_vpts", (PyCFunction) Xine_Stream_PyObject_get_current_vpts, METH_VARARGS },
@@ -312,6 +348,8 @@ PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"get_pos_length", (PyCFunction) Xine_Stream_PyObject_get_pos_length, METH_VARARGS },
     {"get_info", (PyCFunction) Xine_Stream_PyObject_get_info, METH_VARARGS },
     {"get_meta_info", (PyCFunction) Xine_Stream_PyObject_get_meta_info, METH_VARARGS },
+    {"get_param", (PyCFunction) Xine_Stream_PyObject_get_param, METH_VARARGS },
+    {"set_param", (PyCFunction) Xine_Stream_PyObject_set_param, METH_VARARGS },
 
     // TODO: xine_get_current_frame
     {NULL, NULL}

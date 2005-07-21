@@ -16,7 +16,9 @@ def _wrap_xine_object(obj):
     if obj.wrapper and obj.wrapper():
         return obj.wrapper()
 
-    if type(obj) == _xine.VideoPort:
+    if type(obj) == _xine.Xine:
+        o = Xine(obj)
+    elif type(obj) == _xine.VideoPort:
         o = VideoPort(obj)
     elif type(obj) == _xine.AudioPort:
         o = AudioPort(obj)
@@ -28,31 +30,85 @@ def _wrap_xine_object(obj):
         o = PostOut(obj)
     elif type(obj) == _xine.PostIn:
         o = PostIn(obj)
+    else:
+        raise TypeError, "Unknown xine object: " + str(obj)
 
     obj.wrapper = weakref.ref(o)
     return o
 
 
+
+def _debug_show_chain(o, level = 0):
+    # For debugging, shows the post chain
+    indent = " " * level
+    if type(o) == _xine.Stream:
+        print "%s [STREAM] %s " % (indent, repr(o)), o
+        print "%s   Video:" % indent
+        vt = o.video_source.wire_object
+        _debug_show_chain(vt, level + 5)
+        print "%s   Audio:" % indent
+        at = o.audio_source.wire_object
+        _debug_show_chain(at, level + 5)
+    elif type(o) == _xine.PostIn:
+        post = o.owner
+        print '%s  -> [POST IN %s / %s]' % (indent, post.name, o.get_name()), o
+        for output in post.list_outputs():
+            _debug_show_chain(post.post_output(output), level)
+    elif type(o) == _xine.PostOut:
+        if type(o.owner) == _xine.Stream:
+            target = o.wire_object
+            name = "(stream)"
+        else:
+            if type(o.port.wire_object) == list:
+                target = o.port
+            else:
+                target = o.port.wire_object
+            name = o.owner.name
+        print '%s  -> [POST OUT %s / %s]' % (indent, name, o.get_name()), o
+        _debug_show_chain(target, level + 5)
+    elif type(o) == _xine.VideoPort:
+        print '%s  -> [VIDEO DRIVER]' % indent, o
+    elif type(o) == _xine.AudioPort:
+        print '%s  -> [AUDIO DRIVER]' % indent, o
+    elif o == None:
+        print '%s  -> [NONE]' % indent
+    else:
+        print '%s  -> [UNKNOWN]' % indent, o
+
+
+
 class Xine(object):
-    def __init__(self):
+    def __init__(self, xine = None):
+        if xine:
+            self._xine = xine
+            return
+
         self._xine = _xine.Xine()
         self._xine.log_callback = notifier.WeakCallback(self._log_callback)
         self.signals = {
             "log": notifier.Signal()
         }
+        self._xine.wrapper = weakref.ref(self)
 
     def _default_frame_output_cb(self, width, height, aspect, window):
-        #print "FRAME CALLBACK", width, height, aspect, window.get_geometry()
+        #print "FRAME CALLBACK", width, height, aspect, window
         if window:
             win_w, win_h = window.get_geometry()[1]
         else:
             win_w, win_h = 640, 480
         # Return order: dst_pos, win_pos, dst_size, aspect
-        aspect = width / height
+        movie_aspect = width / float(height)
         w = win_w
-        h = w / aspect
-        y = (win_h-h)/2
-        return (0, y), (0, 0), (w, h), 1
+        h = int(w / movie_aspect)
+        y = int((win_h-h)/2)
+        return (0, 0), (0, 0), (win_w, win_h), 1
+
+    def _default_dest_size_cb(self, width, height, aspect, window):
+        if window:
+            win_w, win_h = window.get_geometry()[1]
+        else:
+            win_w, win_h = 640, 480
+        return (win_w, win_h), 1
 
     def open_video_driver(self, driver = "auto", **kwargs):
         if "window" in kwargs:
@@ -61,17 +117,22 @@ class Xine(object):
             if "frame_output_cb" not in kwargs:
                 kwargs["frame_output_cb"] = notifier.WeakCallback(self._default_frame_output_cb, window)
             if "dest_size_cb" not in kwargs:
-                kwargs["dest_size_cb"] = self._default_frame_output_cb
+                kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
             kwargs["window"] = window._window
             self._xine.dependencies.append(window._window)
 
         
         vo = self._xine.open_video_driver(driver, **kwargs)
+        # This port is a driver, initialize wire_object to empty list.
+        vo.wire_object = []
         return _wrap_xine_object(vo)
+                    
 
 
     def open_audio_driver(self, driver = "auto", **kwargs):
         ao = self._xine.open_audio_driver(driver, **kwargs)
+        # This port is a driver, initialize wire_object to empty list.
+        ao.wire_object = []
         return _wrap_xine_object(ao)
 
 
@@ -79,7 +140,23 @@ class Xine(object):
         assert(type(audio_port) == AudioPort)
         assert(type(video_port) == VideoPort)
 
-        stream = self._xine.stream_new(audio_port._ao, video_port._vo)
+        stream = self._xine.stream_new(audio_port._port, video_port._port)
+        # Set wire_objects for stream outputs
+        vsource = stream.video_source
+        asource = stream.audio_source
+        vsource.wire_object = video_port._port
+        if vsource not in video_port._port.wire_object:
+            video_port._port.wire_object.append(vsource)
+
+        asource.wire_object = audio_port._port
+        if asource not in audio_port._port.wire_object:
+            audio_port._port.wire_object.append(asource)
+
+        for dep in self._xine.dependencies:
+            if type(dep) == display._Display.X11Window:
+                video_port._port.send_gui_data(GUI_SEND_DRAWABLE_CHANGED, dep.ptr)
+                video_port._port.send_gui_data(GUI_SEND_VIDEOWIN_VISIBLE, 1)
+
         return _wrap_xine_object(stream)
 
     def list_video_plugins(self):
@@ -112,13 +189,25 @@ class Xine(object):
         ao = []
         for item in audio_targets:
             assert(type(item) == AudioPort)
-            ao.append(item._ao)
+            ao.append(item._port)
         vo = []
         for item in video_targets:
             assert(type(item) == VideoPort)
-            vo.append(item._vo)
+            vo.append(item._port)
 
         post = self._xine.post_init(name, inputs, ao, vo)
+
+        # Post outputs are wired to a/v ports.
+        for output in post.outputs:
+            if output.get_type() in (POST_DATA_VIDEO, POST_DATA_AUDIO):
+                if output.port not in output.port.wire_object:
+                    output.port.wire_object.append(output)
+
+        # Post inputs are unconnected; initialize them to a empty list.
+        for input in post.inputs:
+            if input.get_type() in (POST_DATA_VIDEO, POST_DATA_AUDIO):
+                input.port.wire_object = []
+
         return _wrap_xine_object(post)
 
     def get_log_names(self):
@@ -139,7 +228,6 @@ class Xine(object):
     def _log_callback(self, section):
         sections = self.get_log_names()
         section = sections[section]
-        print "LOG", section
         self.signals["log"].emit(section)
  
     def get_parameter(self, param):
@@ -174,18 +262,21 @@ class Xine(object):
 
 class VideoPort(object):
     def __init__(self, vo):
-        self._vo = vo
+        self._port = vo
 
-    def get_post_plugin(self):
-        return _wrap_xine_object(self._vo.post)
+    def get_owner(self):
+        # Can be Xine, Post, or Stream object
+        return _wrap_xine_object(self._port.owner)
 
 
 class AudioPort(object):
     def __init__(self, ao):
-        self._ao = ao
+        self._port = ao
 
-    def get_post_plugin(self):
-        return _wrap_xine_object(self._ao.post)
+    def get_owner(self):
+        # Can be Xine, Post, or Stream object
+        return _wrap_xine_object(self._port.owner)
+
 
 class Stream(object):
     def __init__(self, stream):
@@ -198,10 +289,10 @@ class Stream(object):
         return self._stream.play(pos, int(time*1000))
 
     def get_video_source(self):
-        return _wrap_xine_object(self._stream.get_source("video"))
+        return _wrap_xine_object(self._stream.video_source)
 
     def get_audio_source(self):
-        return _wrap_xine_object(self._stream.get_source("audio"))
+        return _wrap_xine_object(self._stream.audio_source)
 
     def slave(self, slave, affection = 0xff):
         assert(type(slave) == Stream)
@@ -244,20 +335,30 @@ class Stream(object):
     def get_meta_info(self, info):
         return self._stream.get_meta_info(info)
 
+    def get_parameter(self, param):
+        return self._stream.get_param(param)
+
+    def set_parameter(self, param, value):
+        return self._stream.set_param(param, value)
+
+
+
 class Post(object):
     def __init__(self, post):
         self._post = post
 
     def get_video_inputs(self):
         l = []
-        for item in self._post.get_video_inputs():
-            l.append(_wrap_xine_object(item))
+        for input in self._post.inputs:
+            if input.get_type() == POST_DATA_VIDEO:
+                l.append(_wrap_xine_object(input.port))
         return l
 
     def get_audio_inputs(self):
         l = []
-        for item in self._post.get_audio_inputs():
-            l.append(_wrap_xine_object(item))
+        for input in self._post.inputs:
+            if input.get_type() == POST_DATA_AUDIO:
+                l.append(_wrap_xine_object(input.port))
         return l
 
     def get_parameters_desc(self):
@@ -274,8 +375,8 @@ class Post(object):
 
         return self._post.set_parameters(kwargs)
 
-    def get_identifier(self):
-        return self._post.get_identifier()
+    def get_name(self):
+        return self._post.name
 
     def get_description(self):
         return self._post.get_description()
@@ -295,8 +396,10 @@ class Post(object):
     def get_input(self, name):
         return _wrap_xine_object(self._post.post_input(name))
 
-#    def wire(self, input):
-#        output = self.get_output
+    def unwire(self):
+        for name in self.list_outputs():
+            output = self.get_output(name)
+            output.unwire()
 
 
 class PostOut(object):
@@ -305,37 +408,126 @@ class PostOut(object):
 
     def wire(self, input):
         if type(input) == PostIn:
-            return self._post_out.wire(input._post_in)
+            if self._post_out.wire_object == input._post_in:
+                return
+            r = self._post_out.wire(input._post_in)
+            if r:
+                self._rewire(input._post_in)
+            return r
+
         elif type(input) == VideoPort:
-            return self._post_out.wire_video_port(input._vo)
+            if self._post_out.wire_object == input._port:
+                return
+            r = self._post_out.wire_video_port(input._port)
+            if r:
+                self._rewire(input._port)
+            return r
+
         elif type(input) == AudioPort:
-            return self._post_out.wire_audio_port(input._ao)
+            if self._post_out.wire_object == input._port:
+                return
+            r = self._post_out.wire_audio_port(input._port)
+            if r:
+                self._rewire(input._port)
+            return r
         else:
             raise XineError, "Unsupported input type: " + str(type(input))
 
-    def get_post_plugin(self):
-        if type(self._post_out.post) == _xine.Post:
-            return _wrap_xine_object(self._post_out.post)
+    def _rewire(self, target):
+        self._unwire()
+        if type(self.get_owner()) == Stream:
+            # Special case for streams
+            self._post_out.wire_object = target
+        else:
+            self.get_port()._port.wire_object = target
 
-    def get_stream(self):
-        if type(self._post_out.post) == _xine.Stream:
-            return _wrap_xine_object(self._post_out.post)
+        if type(target) in (_xine.PostIn, _xine.PostOut):
+            target_port = target.port
+        elif type(target) in (_xine.VideoPort, _xine.AudioPort):
+            target_port = target
+        else:
+            raise XineError, "Unsupported wire target: " + str(type(target))
 
-    def get_output_type(self):
-        if type(self._post_out.post) == _xine.Stream:
-            return Stream
-        elif type(self._post_out.post) == _xine.Post:
-            return Post
+        self._post_out.wire_object = target
+
+        if self._post_out not in target_port.wire_object:
+            target_port.wire_object.append(self._post_out)
+
+    def _unwire(self):
+        if not self._post_out.wire_object:
+            return
+
+        # Target is either a PostIn or a Port.
+        target = self._post_out.wire_object
+        if type(target) == _xine.PostIn:
+            # It's a PostIn, so get the wire object list via its Port.
+            target_sources = target.port.wire_object
+        else:
+            # Must be a Video/Audio Port.
+            target_sources = target.wire_object
+        if self._post_out not in target_sources:
+            raise XineError, "Consistency error in _unwire()"
+        target_sources.remove(self._post_out)
+        self._post_out.wire_object = None
+
+    def unwire(self):
+        if type(self.get_owner()) == Stream:
+            # XXX: we could do this automatically ...
+            raise XineError, "Can't unwire a Stream source.  Try rewiring to a null port."
+
+        # Given previous -> me -> next, connect previous to next.  The problem
+        # is that for multiple inputs/outputs this could do the wrong thing.
+        # So we make a guess and use the first input/output and hope for the
+        # best.  If anything more intelligent is needed, it will have to be
+        # done manually.
+        port = self._post_out.port
+        if type(port.wire_object) == list: 
+            # We're wired to a video device.
+            old_target = _wrap_xine_object(port)
+        else:
+            old_target = _wrap_xine_object(port.wire_object)
+        self._unwire()
+
+        # If we're here, owner is a Post.
+        post = self._post_out.owner
+        # Get the default input for the Post object.
+        input = post.post_input(post.list_inputs()[0])
+        # Get each PostOut connected to this.
+        for previous in input.port.wire_object:
+            # Wire this one to our old target.
+            _wrap_xine_object(previous).wire(old_target)
+
+
         
-    def get_output(self):
-        if self.get_output_type() == Stream:
-            return self.get_stream()
-        return self.get_post_plugin()
+    def get_type(self):
+        # POST_DATA_VIDEO or POST_DATA_AUDIO
+        return self._post_out.get_type()
+
+    def get_name(self):
+        return self._post_out.get_name()
+
+    def get_owner(self):
+        # Can be Post or Stream
+        return _wrap_xine_object(self._post_out.owner)
+
+    def get_port(self):
+        return _wrap_xine_object(self._post_out.port)
 
 
 class PostIn(object):
     def __init__(self, post_in):
         self._post_in = post_in
 
-    def get_post_plugin(self):
-        return _wrap_xine_object(self._post_in.post)
+    def get_owner(self):
+        # Post object
+        return _wrap_xine_object(self._post_in.owner)
+
+    def get_type(self):
+        # POST_DATA_VIDEO or POST_DATA_AUDIO
+        return self._post_in.get_type()
+
+    def get_name(self):
+        return self._post_in.get_name()
+
+    def get_port(self):
+        return _wrap_xine_object(self._post_in.port)

@@ -13,16 +13,18 @@ typedef struct {
 
     xine_post_out_t *post_out;
     int xine_object_owner;
+    xine_t *xine;
 
-    PyObject *post_pyobject;
-    PyObject *wrapper;
-    PyObject *next; // pointer to PostIn object
+    PyObject *owner_pyobject,
+             *port, // Video or Audio port for this PostOut
+             *wire_object, // if this PostOut is for a stream, the wire target
+             *wrapper;
 } Xine_Post_Out_PyObject;
 
 extern PyTypeObject Xine_Post_Out_PyObject_Type;
 
 PyObject *Xine_Post_Out_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Post_Out_PyObject *pyxine_new_post_out_pyobject(Xine_Post_PyObject *, xine_post_out_t *, int);
+Xine_Post_Out_PyObject *pyxine_new_post_out_pyobject(PyObject *, xine_post_out_t *, int);
 
 
 #endif

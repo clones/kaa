@@ -6,11 +6,9 @@
 #include "post_out.h"
 #include "structmember.h"
 
+// Owner is a Xine object
 Xine_Post_PyObject *
-pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post, 
-                         xine_audio_port_t **ao, xine_video_port_t **vo,
-//                         PyObject *audio_targets, PyObject *video_targets, 
-                         int owner)
+pyxine_new_post_pyobject(PyObject *owner_pyobject, xine_post_t *post, char *id, int owner)
 {
     int i;
     const char *const *list;
@@ -22,29 +20,37 @@ pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post,
     o = (Xine_Post_PyObject *)Xine_Post_PyObject__new(&Xine_Post_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
+
+    if (Xine_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
+    else
+        PyErr_Format(xine_error, "Unsupported owner for Post object");
+
+
+    o->owner_pyobject = owner_pyobject;
+    Py_INCREF(owner_pyobject);
+
+    o->name = Py_BuildValue("z", id);
     o->post = post;
-    o->xine_pyobject = (PyObject *)xine;
-    o->xine = xine->xine;
     o->xine_object_owner = owner;
-    Py_INCREF(xine);
-    /*
-    o->audio_targets = audio_targets;
-    Py_INCREF(audio_targets);
-    o->video_targets = video_targets;
-    Py_INCREF(video_targets);
-    */
     xine_object_to_pyobject_register(post, (PyObject *)o);
 
     printf("CONNECTED POST PLUGIN\n");
     list = xine_post_list_outputs(post);
     for (i = 0; list[i]; i++) {
         xine_post_out_t *out = xine_post_output(post, list[i]);
-        if (out->type == XINE_POST_DATA_VIDEO) {
-            xine_video_port_t *vop = *(xine_video_port_t **)out->data;
-            printf("Output: %s out=%x outtype=%d video port: %x==%x\n", list[i], out, out->type, vo[i], vop);
-        }
+        PyObject *pyout = (PyObject *)pyxine_new_post_out_pyobject((PyObject *)o, out, 1);
+        PyList_Append(o->outputs, pyout);
+        Py_DECREF(pyout);
     }
 
+    list = xine_post_list_inputs(post);
+    for (i = 0; list[i]; i++) {
+        xine_post_in_t *in = xine_post_input(post, list[i]);
+        PyObject *pyin = (PyObject *)pyxine_new_post_in_pyobject((PyObject *)o, in, 1);
+        PyList_Append(o->inputs, pyin);
+        Py_DECREF(pyin);
+    }
 
     return o;
 }
@@ -54,14 +60,14 @@ pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post,
 static int
 Xine_Post_PyObject__clear(Xine_Post_PyObject *self)
 {
-    PyObject **list[] = {&self->xine_pyobject, NULL };
+    PyObject **list[] = {&self->owner_pyobject, &self->inputs, &self->outputs, NULL };
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Post_PyObject__traverse(Xine_Post_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->xine_pyobject, NULL };
+    PyObject **list[] = {&self->owner_pyobject, &self->inputs, &self->outputs, NULL };
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -78,7 +84,9 @@ Xine_Post_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     self = (Xine_Post_PyObject *)type->tp_alloc(type, 0);
     self->post = NULL;
     self->xine = NULL;
-    self->xine_pyobject = NULL;
+    self->owner_pyobject = NULL;
+    self->inputs = PyList_New(0);
+    self->outputs = PyList_New(0);
     self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *)self;
@@ -91,6 +99,9 @@ Xine_Post_PyObject__init(Xine_Post_PyObject *self, PyObject *args, PyObject *kwd
 }
 
 static PyMemberDef Xine_Post_PyObject_members[] = {
+    {"name", T_OBJECT_EX, offsetof(Xine_Post_PyObject, name), 0, "Post name"},
+    {"inputs", T_OBJECT_EX, offsetof(Xine_Post_PyObject, inputs), 0, "Post Inputs List"},
+    {"outputs", T_OBJECT_EX, offsetof(Xine_Post_PyObject, outputs), 0, "Post Outputs List"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Post_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -104,46 +115,11 @@ Xine_Post_PyObject__dealloc(Xine_Post_PyObject *self)
         // bug in xine: http://sourceforge.net/mailarchive/forum.php?thread_id=7753300&forum_id=7131
         //xine_post_dispose(self->xine, self->post);
     }
+    Py_DECREF(self->name);
     Py_DECREF(self->wrapper);
     Xine_Post_PyObject__clear(self);
     xine_object_to_pyobject_unregister(self->post);
     self->ob_type->tp_free((PyObject*)self);
-}
-
-PyObject *
-Xine_Post_PyObject_get_audio_inputs(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    Xine_PyObject *xine = (Xine_PyObject *)self->xine_pyobject;
-    PyObject *list = PyList_New(0), *o;
-    xine_audio_port_t *ao;
-    int i;
-
-    for (i = 0; self->post->audio_input[i]; i++) {
-        ao = self->post->audio_input[i];
-        o = (PyObject *)pyxine_new_audio_port_pyobject(xine, ao, (PyObject *)self, 0);
-        PyList_Append(list, o);
-        Py_DECREF(o);
-    }
-
-    return list;
-}
-
-PyObject *
-Xine_Post_PyObject_get_video_inputs(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    Xine_PyObject *xine = (Xine_PyObject *)self->xine_pyobject;
-    PyObject *list = PyList_New(0), *o;
-    xine_video_port_t *vo;
-    int i;
-
-    for (i = 0; self->post->video_input[i]; i++) {
-        vo = self->post->video_input[i];
-        o = (PyObject *)pyxine_new_video_port_pyobject(xine, vo, (PyObject *)self, 0);
-        PyList_Append(list, o);
-        Py_DECREF(o);
-    }
-
-    return list;
 }
 
 PyObject *
@@ -429,7 +405,7 @@ Xine_Post_PyObject_post_output(Xine_Post_PyObject *self, PyObject *args, PyObjec
     }
 
     //printf("POST OUTPUT DATA %s %x\n", name, *(void **)output->data);
-    return (PyObject *)pyxine_new_post_out_pyobject(self, output, 1);
+    return (PyObject *)pyxine_new_post_out_pyobject((PyObject *)self, output, 1);
 }
 
 PyObject *
@@ -447,13 +423,11 @@ Xine_Post_PyObject_post_input(Xine_Post_PyObject *self, PyObject *args, PyObject
         return NULL;
     }
 
-    return (PyObject *)pyxine_new_post_in_pyobject(self, input, 1);
+    return (PyObject *)pyxine_new_post_in_pyobject((PyObject *)self, input, 1);
 }
 
 
 PyMethodDef Xine_Post_PyObject_methods[] = {
-    {"get_audio_inputs", (PyCFunction) Xine_Post_PyObject_get_audio_inputs, METH_VARARGS},
-    {"get_video_inputs", (PyCFunction) Xine_Post_PyObject_get_video_inputs, METH_VARARGS},
     {"get_parameters_desc", (PyCFunction) Xine_Post_PyObject_get_parameters_desc, METH_VARARGS},
     {"get_parameters", (PyCFunction) Xine_Post_PyObject_get_parameters, METH_VARARGS},
     {"set_parameters", (PyCFunction) Xine_Post_PyObject_set_parameters, METH_VARARGS},
@@ -465,7 +439,6 @@ PyMethodDef Xine_Post_PyObject_methods[] = {
 
 // XXX: how?
 //    {"get_description", (PyCFunction) Xine_Post_PyObject_get_description, METH_VARARGS},
-//    {"get_identifier", (PyCFunction) Xine_Post_PyObject_get_identifer, METH_VARARGS},
 
     {NULL, NULL}
 };

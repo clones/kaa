@@ -11,13 +11,13 @@
 typedef struct {
     PyObject_HEAD
 
-    PyObject *xine_pyobject;
+    PyObject *owner_pyobject; // Post object or Xine object
     int xine_object_owner;
     xine_t *xine;
     xine_video_port_t *vo;
 
-    PyObject *post; // post plugin for this port or None otherwise
     PyObject *wrapper;
+    PyObject *wire_object; // Wired object (PostOut/Stream source list or PostIn/Port target)
 
     void (*driver_dealloc_cb)(void *);
     void *driver_dealloc_data;
@@ -26,7 +26,7 @@ typedef struct {
 extern PyTypeObject Xine_Video_Port_PyObject_Type;
 
 PyObject *Xine_Video_Port_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Video_Port_PyObject *pyxine_new_video_port_pyobject(Xine_PyObject *, xine_video_port_t *, PyObject *post, int);
+Xine_Video_Port_PyObject *pyxine_new_video_port_pyobject(PyObject *, xine_video_port_t *, int);
 
 
 #endif

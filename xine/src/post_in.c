@@ -1,10 +1,12 @@
 #include "xine.h"
+#include "stream.h"
 #include "post.h"
 #include "post_in.h"
 #include "structmember.h"
 
+// Owner must be a Post object
 Xine_Post_In_PyObject *
-pyxine_new_post_in_pyobject(Xine_Post_PyObject *post, xine_post_in_t *post_in, 
+pyxine_new_post_in_pyobject(PyObject *owner_pyobject, xine_post_in_t *post_in, 
                          int owner)
 {
     Xine_Post_In_PyObject *o = (Xine_Post_In_PyObject *)xine_object_to_pyobject_find(post_in);
@@ -15,11 +17,39 @@ pyxine_new_post_in_pyobject(Xine_Post_PyObject *post, xine_post_in_t *post_in,
     o = (Xine_Post_In_PyObject *)Xine_Post_In_PyObject__new(&Xine_Post_In_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
+
+    if (Xine_Post_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_Post_PyObject *)owner_pyobject)->xine;
+    else
+        PyErr_Format(xine_error, "Unsupported owner for PostIn object");
+
+
+    o->owner_pyobject = owner_pyobject;
+    Py_INCREF(owner_pyobject);
+
     o->post_in = post_in;
-    o->post_pyobject = (PyObject *)post;
-    Py_INCREF(post);
     o->xine_object_owner = owner;
     xine_object_to_pyobject_register(post_in, (PyObject *)o);
+
+    // Create Port object for this PostIn
+    if (post_in->type == XINE_POST_DATA_VIDEO) {
+        if (post_in->data) {
+            xine_video_port_t *vo = (xine_video_port_t *)post_in->data;
+            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, 0);
+        }
+    }
+    else if (post_in->type == XINE_POST_DATA_AUDIO) {
+        if (post_in->data) {
+            xine_audio_port_t *ao = (xine_audio_port_t *)post_in->data;
+            o->port = (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)o, ao, 0);
+        }
+    }
+    else {
+        o->port = Py_None;
+        Py_INCREF(Py_None);
+        printf("!!! Unsupported PostIn data type: %d\n", post_in->type);
+    }
+
     return o;
 }
 
@@ -27,7 +57,7 @@ pyxine_new_post_in_pyobject(Xine_Post_PyObject *post, xine_post_in_t *post_in,
 static int
 Xine_Post_In_PyObject__clear(Xine_Post_In_PyObject *self)
 {
-    PyObject **list[] = {&self->post_pyobject, &self->wrapper, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, NULL};
     return pyxine_gc_helper_clear(list);
 
 }
@@ -35,7 +65,7 @@ Xine_Post_In_PyObject__clear(Xine_Post_In_PyObject *self)
 static int
 Xine_Post_In_PyObject__traverse(Xine_Post_In_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->post_pyobject, &self->wrapper, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -51,7 +81,7 @@ Xine_Post_In_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwarg
 
     self = (Xine_Post_In_PyObject *)type->tp_alloc(type, 0);
     self->post_in = NULL;
-    self->post_pyobject = NULL;
+    self->owner_pyobject = NULL;
     self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *)self;
@@ -64,7 +94,8 @@ Xine_Post_In_PyObject__init(Xine_Post_In_PyObject *self, PyObject *args, PyObjec
 }
 
 static PyMemberDef Xine_Post_In_PyObject_members[] = {
-    {"post", T_OBJECT_EX, offsetof(Xine_Post_In_PyObject, post_pyobject), 0, "Post object"},
+    {"port", T_OBJECT_EX, offsetof(Xine_Post_In_PyObject, port), 0, "Video/Audio Port"},
+    {"owner", T_OBJECT_EX, offsetof(Xine_Post_In_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Post_In_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -82,9 +113,45 @@ Xine_Post_In_PyObject__dealloc(Xine_Post_In_PyObject *self)
 }
 
 
-// *INDENT-OFF*
+PyObject *
+Xine_Post_In_PyObject_get_type(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    printf("POST IN TYPE DATA: %x\n", self->post_in->data);
+    return PyInt_FromLong(self->post_in->type);
+}
+
+PyObject *
+Xine_Post_In_PyObject_get_port(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *port = NULL;
+
+    if (self->post_in->type == XINE_POST_DATA_VIDEO) {
+        if (self->post_in->data) {
+            xine_video_port_t *vo = (xine_video_port_t *)self->post_in->data;
+            port = (PyObject *)pyxine_new_video_port_pyobject(self->owner_pyobject, vo, 0);
+        }
+    }
+    else if (self->post_in->type == XINE_POST_DATA_AUDIO) {
+        if (self->post_in->data) {
+            xine_audio_port_t *ao = (xine_audio_port_t *)self->post_in->data;
+            port = (PyObject *)pyxine_new_audio_port_pyobject(self->owner_pyobject, ao, 0);
+        }
+    }
+    if (port)
+        return port;
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *
+Xine_Post_In_PyObject_get_name(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    return Py_BuildValue("z", self->post_in->name);
+}
+
 PyMethodDef Xine_Post_In_PyObject_methods[] = {
-//    {"get_identifier", (PyCFunction) Xine_Post_In_PyObject_get_identifer, METH_VARARGS},
+    {"get_type", (PyCFunction) Xine_Post_In_PyObject_get_type, METH_VARARGS},
+    {"get_name", (PyCFunction) Xine_Post_In_PyObject_get_name, METH_VARARGS},
 
     {NULL, NULL}
 };

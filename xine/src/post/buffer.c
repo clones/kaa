@@ -69,12 +69,16 @@ static xine_post_api_t post_api = {
 
 static int buffer_intercept_frame(post_video_port_t *port, vo_frame_t *frame)
 {
+    static int active=0;
 //      return (frame->format == XINE_IMGFMT_YV12 || frame->format == XINE_IMGFMT_YUY2);
     post_plugin_buffer_t *this = (post_plugin_buffer_t *)port->post;
 
     pthread_mutex_lock(&this->lock);
-    if (this->params.ptr)
-    printf("BUFFER intercept frame: %d\n", this->params.ptr);
+    if (!active) {
+        printf("BUFFER plugin intercepting, ptr=%d\n", this->params.ptr);
+        active=1;
+    }
+   // printf("BUFFER plugin intercepting, ptr=%d\n", this->params.ptr);
     pthread_mutex_unlock(&this->lock);
     return 0;
 }
@@ -120,8 +124,8 @@ static post_plugin_t *buffer_open_plugin(post_class_t *class_gen, int inputs,
     input_api->data = &post_api;
     xine_list_append_content(this->post.input, input_api);
 
-    input->xine_in.name   = "video";
-    output->xine_out.name = "video passthrough";
+//    input->xine_in.name   = "video";
+//    output->xine_out.name = "video passthrough";
 
     this->post.xine_post.video_input[0] = &port->new_port;
     this->post.dispose = buffer_dispose;

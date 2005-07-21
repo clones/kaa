@@ -4,6 +4,7 @@
 
 #include <Python.h>
 #include <xine.h>
+#include <assert.h>
 
 extern PyObject *xine_error;
 

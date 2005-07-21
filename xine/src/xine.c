@@ -52,13 +52,33 @@ xine_object_to_pyobject_find(void *ptr)
     return NULL;
 }
 
+
+// A version of the above function available in python space.
+PyObject *
+Xine_find_object_by_id(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int id;
+    PyObject *o;
+
+    if (!PyArg_ParseTuple(args, "i", &id))
+        return NULL;
+    o = xine_object_to_pyobject_find((void *)id);
+    if (!o) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    return o;
+}
+
 //
 // GC helper functions
 int
 pyxine_gc_helper_clear(PyObject ***list)
 {
     int i;
-    for (i = 0; list[i] && *list[i]; i++) {
+    for (i = 0; list[i]; i++) {
+        if (!*list[i])
+            continue;
         PyObject *tmp = *list[i];
         *list[i] = 0;
         Py_DECREF(tmp);
@@ -70,7 +90,9 @@ int
 pyxine_gc_helper_traverse(PyObject ***list, visitproc visit, void *arg)
 {
     int i, ret;
-    for (i = 0; list[i] && *list[i]; i++) {
+    for (i = 0; list[i]; i++) {
+        if (!*list[i])
+            continue;
         ret = visit(*list[i], arg);
         if (ret != 0)
             return ret;
@@ -229,7 +251,7 @@ Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *k
     if (!PyArg_ParseTuple(args, "s", &driver))
         return NULL;
 
-    if (!strcmp(driver, "xv") || !strcmp(driver, "auto")) {
+    if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto")) {
         vo_port = x11_open_video_driver(self, driver, kwargs, &finalize_data);
     } else if (!strcmp(driver, "none")) {
         vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
@@ -240,9 +262,9 @@ Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         return NULL;
     }
 
-    vo = pyxine_new_video_port_pyobject(self, vo_port, NULL, 1);
+    vo = pyxine_new_video_port_pyobject((PyObject *)self, vo_port, 1);
 
-    if (!strcmp(driver, "xv") || !strcmp(driver, "auto")) {
+    if (!strcmp(driver, "xv") || !strcmp(driver, "auto") || !strcmp(driver, "xshm")) {
         x11_open_video_driver_finalize(vo, finalize_data);
     }
     return (PyObject *)vo;
@@ -266,7 +288,7 @@ Xine_PyObject_open_audio_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         return NULL;
     }
 
-    return (PyObject *)pyxine_new_audio_port_pyobject(self, ao_port, NULL, 1);
+    return (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)self, ao_port, 1);
 }
 
 PyObject *
@@ -287,7 +309,7 @@ Xine_PyObject_stream_new(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
         PyErr_Format(xine_error, "Failed to create stream.");
         return NULL;
     }
-    return (PyObject *)pyxine_new_stream_pyobject(self, stream, ao, vo, 1);
+    return (PyObject *)pyxine_new_stream_pyobject((PyObject *)self, stream, 1);
 }
 
 PyObject *
@@ -317,7 +339,7 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
     post = xine_post_init(self->xine, name, inputs, ao, vo);
 
     if (post)
-        post_pyobject = (PyObject *)pyxine_new_post_pyobject(self, post, ao, vo, 1);
+        post_pyobject = (PyObject *)pyxine_new_post_pyobject((PyObject *)self, post, name, 1);
 
     free(ao);
     free(vo);
@@ -584,7 +606,8 @@ Xine_get_version(PyObject *module, PyObject *args, PyObject *kwargs)
 }
 
 PyMethodDef xine_methods[] = {
-    {"get_version", (PyCFunction) Xine_get_version, METH_VARARGS | METH_KEYWORDS},
+    {"find_object_by_id", (PyCFunction) Xine_find_object_by_id, METH_VARARGS },
+    {"get_version", (PyCFunction) Xine_get_version, METH_VARARGS },
     {NULL}
 };
 

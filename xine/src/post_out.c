@@ -1,13 +1,16 @@
 #include "xine.h"
-#include "post_out.h"
 #include "post.h"
+#include "post_out.h"
+#include "post_in.h"
 #include "video_port.h"
 #include "audio_port.h"
-#include "post_in.h"
+#include "stream.h"
 #include "structmember.h"
 
+
+// Owner must be a Post or Stream object
 Xine_Post_Out_PyObject *
-pyxine_new_post_out_pyobject(Xine_Post_PyObject *post, xine_post_out_t *post_out, 
+pyxine_new_post_out_pyobject(PyObject *owner_pyobject, xine_post_out_t *post_out, 
                          int owner)
 {
     Xine_Post_Out_PyObject *o = (Xine_Post_Out_PyObject *)xine_object_to_pyobject_find(post_out);
@@ -18,15 +21,42 @@ pyxine_new_post_out_pyobject(Xine_Post_PyObject *post, xine_post_out_t *post_out
     o = (Xine_Post_Out_PyObject *)Xine_Post_Out_PyObject__new(&Xine_Post_Out_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
-    o->post_out = post_out;
+     
+    if (Xine_Post_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_Post_PyObject *)owner_pyobject)->xine;
+    else if (Xine_Stream_PyObject_Check(owner_pyobject))
+        o->xine = ((Xine_Stream_PyObject *)owner_pyobject)->xine;
+    else
+        PyErr_Format(xine_error, "Unsupported owner for PostOut object");
 
-    if (!post)
-        post = (Xine_Post_PyObject *)Py_None;
-    o->post_pyobject = (PyObject *)post;
-    Py_INCREF(post);
+   
+    o->owner_pyobject = owner_pyobject;
+    Py_INCREF(owner_pyobject);
+
+    o->post_out = post_out;
     o->xine_object_owner = owner;
 
     xine_object_to_pyobject_register(post_out, (PyObject *)o);
+
+    // Create Port object for this PostOut
+    if (Xine_Stream_PyObject_Check(owner_pyobject)) {
+        o->port = Py_None;
+        Py_INCREF(Py_None);
+    } else if (post_out->type == XINE_POST_DATA_VIDEO) {
+        if (post_out->data && *(void **)post_out->data) {
+            xine_video_port_t *vo = *(xine_video_port_t **)post_out->data;
+            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, 0);
+        }
+    }
+    else if (post_out->type == XINE_POST_DATA_AUDIO) {
+        if (post_out->data && *(void **)post_out->data) {
+            xine_audio_port_t *ao = *(xine_audio_port_t **)post_out->data;
+            o->port = (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)o, ao, 0);
+        }
+    }
+    else
+        printf("!!! Unsupported PostOut data type: %d\n", post_out->type);
+
     return o;
 }
 
@@ -34,14 +64,14 @@ pyxine_new_post_out_pyobject(Xine_Post_PyObject *post, xine_post_out_t *post_out
 static int
 Xine_Post_Out_PyObject__clear(Xine_Post_Out_PyObject *self)
 {
-    PyObject **list[] = {&self->post_pyobject, &self->wrapper, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, &self->wire_object, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Post_Out_PyObject__traverse(Xine_Post_Out_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->post_pyobject, &self->wrapper, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, &self->wire_object, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -57,8 +87,9 @@ Xine_Post_Out_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwar
 
     self = (Xine_Post_Out_PyObject *)type->tp_alloc(type, 0);
     self->post_out = NULL;
-    self->post_pyobject = NULL;
-    self->wrapper = Py_None;
+    self->owner_pyobject = NULL;
+    self->wire_object = self->wrapper = Py_None;
+    Py_INCREF(Py_None);
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -70,7 +101,9 @@ Xine_Post_Out_PyObject__init(Xine_Post_Out_PyObject *self, PyObject *args, PyObj
 }
 
 static PyMemberDef Xine_Post_Out_PyObject_members[] = {
-    {"post", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, post_pyobject), 0, "Post object"},
+    {"wire_object", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, wire_object), 0, "Wire target for streams"},
+    {"port", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, port), 0, "Video or Audio Port"},
+    {"owner", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -87,6 +120,20 @@ Xine_Post_Out_PyObject__dealloc(Xine_Post_Out_PyObject *self)
     self->ob_type->tp_free((PyObject*)self);
 }
 
+PyObject *
+Xine_Post_Out_PyObject_get_type(Xine_Post_Out_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    printf("POST OUT TYPE DATA: %x\n", *(void **)self->post_out->data);
+    return PyInt_FromLong(self->post_out->type);
+}
+
+PyObject *
+Xine_Post_Out_PyObject_get_name(Xine_Post_Out_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    return Py_BuildValue("z", self->post_out->name);
+}
+
+
 
 PyObject *
 Xine_Post_Out_PyObject_wire(Xine_Post_Out_PyObject *self, PyObject *args, PyObject *kwargs)
@@ -97,7 +144,9 @@ Xine_Post_Out_PyObject_wire(Xine_Post_Out_PyObject *self, PyObject *args, PyObje
     if (!PyArg_ParseTuple(args, "O!", &Xine_Post_In_PyObject_Type, &input))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     result = xine_post_wire(self->post_out, input->post_in);
+    Py_END_ALLOW_THREADS
     return PyBool_FromLong(result);
 }
 
@@ -110,7 +159,9 @@ Xine_Post_Out_PyObject_wire_video_port(Xine_Post_Out_PyObject *self, PyObject *a
     if (!PyArg_ParseTuple(args, "O!", &Xine_Video_Port_PyObject_Type, &port))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     result = xine_post_wire_video_port(self->post_out, port->vo);
+    Py_END_ALLOW_THREADS
     return PyBool_FromLong(result);
 }
 
@@ -123,12 +174,15 @@ Xine_Post_Out_PyObject_wire_audio_port(Xine_Post_Out_PyObject *self, PyObject *a
     if (!PyArg_ParseTuple(args, "O!", &Xine_Audio_Port_PyObject_Type, &port))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     result = xine_post_wire_audio_port(self->post_out, port->ao);
+    Py_END_ALLOW_THREADS
     return PyBool_FromLong(result);
 }
 
-
 PyMethodDef Xine_Post_Out_PyObject_methods[] = {
+    {"get_type", (PyCFunction) Xine_Post_Out_PyObject_get_type, METH_VARARGS},
+    {"get_name", (PyCFunction) Xine_Post_Out_PyObject_get_name, METH_VARARGS},
     {"wire", (PyCFunction) Xine_Post_Out_PyObject_wire, METH_VARARGS},
     {"wire_video_port", (PyCFunction) Xine_Post_Out_PyObject_wire_video_port, METH_VARARGS},
     {"wire_audio_port", (PyCFunction) Xine_Post_Out_PyObject_wire_audio_port, METH_VARARGS},
