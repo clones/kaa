@@ -101,8 +101,16 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             Py_DECREF(o);
         }
         else if (ev.type == KeyPress) {
-            o = Py_BuildValue("(i(ii))", KeyPress, ev.xkey.window,
-                              ev.xkey.keycode);
+            char buf[100];
+            KeySym keysym;
+            static XComposeStatus stat;
+            int key;
+
+            // Peeled shamelessly from MPlayer.
+            XLookupString(&ev.xkey, buf, sizeof(buf), &keysym, &stat);
+            key = ((keysym & 0xff00) != 0 ? ((keysym & 0x00ff) + 256) : (keysym));
+
+            o = Py_BuildValue("(i(ii))", KeyPress, ev.xkey.window, key);
             PyList_Append(events, o);
             Py_DECREF(o);
         }

@@ -43,6 +43,44 @@ from kaa.notifier import Signal
 # default X11 display
 _default_x11_display = None
 
+_keysym_names = {
+    338: "up",
+    340: "down",
+    337: "left",
+    339: "right",
+
+    446: "F1",
+    447: "F2",
+    448: "F3",
+    449: "F4",
+    450: "F5",
+    451: "F6",
+    452: "F7",
+    453: "F8",
+    454: "F9",
+    455: "F10",
+    456: "F11",
+    457: "F21",
+
+    355: "ins",
+    511: "del",
+    336: "home",
+    343: "end",
+    283: "esc",
+    269: "enter",
+    264: "backspace",
+    32: "space",
+
+    489: "left-alt",
+    490: "right-alt",
+    483: "left-ctrl",
+    484: "right-ctrl",
+    481: "left-shift",
+    482: "right-shift",
+    359: "menu",
+    275: "pause"
+}
+    
 
 class X11Display(object):
     XEVENT_MOTION_NOTIFY = 6
@@ -163,7 +201,12 @@ class X11Window(object):
                 self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
             elif event == X11Display.XEVENT_KEY_PRESS:
-                self.signals["key_press_event"].emit(args[0])
+                key = args[0]
+                if key in _keysym_names:
+                    key = _keysym_names[key]
+                elif key < 255:
+                    key = chr(key)
+                self.signals["key_press_event"].emit(key)
 
             elif event == X11Display.XEVENT_EXPOSE:
                 # Queue expose regions so we only need to emit one signal.
