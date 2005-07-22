@@ -37,7 +37,7 @@
 
 void _make_invisible_cursor(X11Window_PyObject *win);
 
-int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data)
+int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
 {
     int res, i;
     XEvent ev;
@@ -51,10 +51,11 @@ int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data)
     ev.xclient.window = o->window;
     ev.xclient.format = 32;
 
-    for (i = 0; data && data[i]; i++)
+    for (i = 0; i < ndata; i++)
         ev.xclient.data.l[i] = (long)data[i];
     res = XSendEvent(o->display, DefaultRootWindow(o->display), False,
                     SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+    XSync(o->display, False);
     XUnlockDisplay(o->display);
 
     return res;
@@ -222,8 +223,7 @@ X11Window_PyObject__set_fullscreen(X11Window_PyObject *self, PyObject *args)
 
     data[0] = (void *)(fs ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE);
     data[1] = (void *)XInternAtom(self->display, "_NET_WM_STATE_FULLSCREEN", False);
-    data[2] = NULL;
-    return PyBool_FromLong(_ewmh_set_hint(self, "_NET_WM_STATE", data));
+    return PyBool_FromLong(_ewmh_set_hint(self, "_NET_WM_STATE", data, 2));
 }
 
 PyMethodDef X11Window_PyObject_methods[] = {
