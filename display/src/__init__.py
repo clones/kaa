@@ -59,6 +59,10 @@ class X11Display(object):
         self._windows = {}
         dispatcher = kaa.notifier.SocketDispatcher(self.handle_events)
         dispatcher.register(self.socket)
+        # Also connect to the idle signal. It is a bad hack, but when
+        # drawing is done, the socket is read and we will miss keypress
+        # events when doing drawings.
+        kaa.notifier.signals['idle'].connect(self.handle_events)
 
         
     def handle_events(self):
