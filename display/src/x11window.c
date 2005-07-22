@@ -31,13 +31,34 @@
  */
 
 #include <Python.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
 #include "x11window.h"
 #include "x11display.h"
 #include "structmember.h"
 
 void _make_invisible_cursor(X11Window_PyObject *win);
+
+int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data)
+{
+    int res, i;
+    XEvent ev;
+
+    memset(&ev, 0, sizeof(ev));
+
+    XLockDisplay(o->display);
+    ev.xclient.type = ClientMessage;
+    ev.xclient.send_event = True;
+    ev.xclient.message_type = XInternAtom(o->display, type, False);
+    ev.xclient.window = o->window;
+    ev.xclient.format = 32;
+
+    for (i = 0; data && data[i]; i++)
+        ev.xclient.data.l[i] = (long)data[i];
+    res = XSendEvent(o->display, DefaultRootWindow(o->display), False,
+                    SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+    XUnlockDisplay(o->display);
+
+    return res;
+}
 
 static int
 X11Window_PyObject__clear(X11Window_PyObject *self)
@@ -163,8 +184,7 @@ X11Window_PyObject__set_geometry(X11Window_PyObject * self, PyObject * args)
 }
 
 PyObject *
-X11Window_PyObject__set_cursor_visible(X11Window_PyObject * self,
-                                       PyObject * args)
+X11Window_PyObject__set_cursor_visible(X11Window_PyObject *self, PyObject *args)
 {
     int visible;
     if (!PyArg_ParseTuple(args, "i", &visible))
@@ -191,15 +211,28 @@ X11Window_PyObject__get_geometry(X11Window_PyObject * self, PyObject * args)
                          attrs.height);
 }
 
+PyObject *
+X11Window_PyObject__set_fullscreen(X11Window_PyObject *self, PyObject *args)
+{
+    int fs;
+    void *data[3];
+
+    if (!PyArg_ParseTuple(args, "i", &fs))
+        return NULL;
+
+    data[0] = (void *)(fs ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE);
+    data[1] = (void *)XInternAtom(self->display, "_NET_WM_STATE_FULLSCREEN", False);
+    data[2] = NULL;
+    return PyBool_FromLong(_ewmh_set_hint(self, "_NET_WM_STATE", data));
+}
+
 PyMethodDef X11Window_PyObject_methods[] = {
-    { "show", ( PyCFunction ) X11Window_PyObject__show, METH_VARARGS },
-    { "hide", ( PyCFunction ) X11Window_PyObject__hide, METH_VARARGS },
-    { "set_geometry", ( PyCFunction ) X11Window_PyObject__set_geometry,
-      METH_VARARGS },
-    { "get_geometry", ( PyCFunction ) X11Window_PyObject__get_geometry,
-      METH_VARARGS },
-    { "set_cursor_visible",
-      ( PyCFunction ) X11Window_PyObject__set_cursor_visible, METH_VARARGS },
+    { "show", (PyCFunction)X11Window_PyObject__show, METH_VARARGS },
+    { "hide", (PyCFunction)X11Window_PyObject__hide, METH_VARARGS },
+    { "set_geometry", (PyCFunction)X11Window_PyObject__set_geometry, METH_VARARGS },
+    { "get_geometry", (PyCFunction)X11Window_PyObject__get_geometry, METH_VARARGS },
+    { "set_cursor_visible", (PyCFunction)X11Window_PyObject__set_cursor_visible, METH_VARARGS },
+    { "set_fullscreen", (PyCFunction)X11Window_PyObject__set_fullscreen, METH_VARARGS },
     { NULL, NULL }
 };
 

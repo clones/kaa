@@ -88,6 +88,7 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     PyObject *events = PyList_New(0), *o;
     XEvent ev;
 
+//    printf("START HANDLE EVENTS\n");
     XLockDisplay(self->display);
     XSync(self->display, False);
     while (XPending(self->display)) {
@@ -123,6 +124,7 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
         }
     }
     XUnlockDisplay(self->display);
+//    printf("END HANDL EVENTS\n");
     return events;
 }
 
@@ -135,12 +137,28 @@ X11Display_PyObject__sync(X11Display_PyObject * self, PyObject * args)
     return Py_INCREF(Py_None), Py_None;
 }
 
+PyObject *
+X11Display_PyObject__get_size(X11Display_PyObject * self, PyObject * args)
+{
+    int screen = -1, w, h;
+    if (!PyArg_ParseTuple(args, "|i", &screen))
+        return NULL;
+
+    XLockDisplay(self->display);
+    if (screen == -1)
+        screen = XDefaultScreen(self->display);
+    w = DisplayWidth(self->display, screen);
+    h = DisplayHeight(self->display, screen);
+    XUnlockDisplay(self->display);
+
+    return Py_BuildValue("(ii)", w, h);
+}
 
 
 PyMethodDef X11Display_PyObject_methods[] = {
-    { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events,
-      METH_VARARGS },
+    { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
     { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
+    { "get_size", ( PyCFunction ) X11Display_PyObject__get_size, METH_VARARGS },
     { NULL, NULL }
 };
 

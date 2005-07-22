@@ -32,7 +32,11 @@
 
 #ifndef _X11WINDOW_H_
 #define _X11WINDOW_H_
+
+#include <X11/X.h>
 #include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <stdint.h>
 
 #define X11Window_PyObject_Check(v) ((v)->ob_type == &X11Window_PyObject_Type)
 
@@ -52,4 +56,10 @@ extern PyTypeObject X11Window_PyObject_Type;
 // Exported API functions
 int x11window_object_decompose(X11Window_PyObject *, Window *, Display **);
 X11Window_PyObject *X11Window_PyObject__wrap(PyObject *display, Window window);
+
+// EWMH state actions: http://freedesktop.org/Standards/wm-spec/index.html
+#define _NET_WM_STATE_REMOVE    0
+#define _NET_WM_STATE_ADD       1
+#define _NET_WM_STATE_TOGGLE    2
+
 #endif

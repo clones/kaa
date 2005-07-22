@@ -59,6 +59,7 @@ class X11Display(object):
         self._windows = {}
         dispatcher = kaa.notifier.SocketDispatcher(self.handle_events)
         dispatcher.register(self.socket)
+
         
     def handle_events(self):
         window_events = {}
@@ -93,6 +94,9 @@ class X11Display(object):
     def sync(self):
         return self._display.sync()
 
+    def get_size(self, screen = -1):
+        return self._display.get_size(screen)
+
 
 def _get_display(display):
     if not display:
@@ -121,6 +125,7 @@ class X11Window(object):
         self._cursor_hide_timeout = -1
         self._cursor_hide_timer = kaa.notifier.WeakOneShotTimer(self._cursor_hide_cb)
         self._cursor_visible = True
+        self._fs_size_save = None
 
         self.signals = {
             "key_press_event": Signal(),
@@ -177,6 +182,12 @@ class X11Window(object):
     def get_geometry(self):
         return self._window.get_geometry()
 
+    def get_size(self):
+        return self.get_geometry()[1]
+
+    def get_pos(self):
+        return self.get_geometry()[0]
+
     def set_cursor_visible(self, visible):
         self._window.set_cursor_visible(visible)
         self._cursor_visible = visible
@@ -189,7 +200,27 @@ class X11Window(object):
         self._cursor_hide_timeout = timeout * 1000
         self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
+    def set_fullscreen(self, fs = True):
+        if not fs:
+            if self._fs_size_save:
+                self._window.set_fullscreen(False)
+                self.resize(self._fs_size_save)
+                self._fs_size_save = None
+                return True
 
+            return False
+
+        if self._fs_size_save:
+            return False
+
+        self._fs_size_save = self.get_size()
+        display_size = self.get_display().get_size()
+        self.resize(display_size)
+        self._window.set_fullscreen(True)
+
+    def get_fullscreen(self):
+        return self._fs_size_save != None
+        
 
 class EvasX11Window(X11Window):
     def __init__(self, gl = False, display = None, size = (640, 480), 
