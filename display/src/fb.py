@@ -34,4 +34,5 @@ class Framebuffer(object):
         fb.update(self.image._image)
 
     def __del__(self):
+        print 'foo'
         fb.close()

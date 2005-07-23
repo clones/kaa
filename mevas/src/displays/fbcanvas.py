@@ -62,3 +62,7 @@ class FramebufferCanvas(BitmapCanvas):
 
     def _blit(self, img, r):
         self._rect.append(r)
+
+    def __del__(self):
+        del self.fbset
+        super(FramebufferCanvas, self).__del__()
