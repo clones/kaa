@@ -54,8 +54,8 @@ pyxine_new_post_out_pyobject(PyObject *owner_pyobject, xine_post_out_t *post_out
             o->port = (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)o, ao, 0);
         }
     }
-    else
-        printf("!!! Unsupported PostOut data type: %d\n", post_out->type);
+//    else
+//        printf("!!! Unsupported PostOut data type: %d\n", post_out->type);
 
     return o;
 }
@@ -123,7 +123,6 @@ Xine_Post_Out_PyObject__dealloc(Xine_Post_Out_PyObject *self)
 PyObject *
 Xine_Post_Out_PyObject_get_type(Xine_Post_Out_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    printf("POST OUT TYPE DATA: %x\n", *(void **)self->post_out->data);
     return PyInt_FromLong(self->post_out->type);
 }
 

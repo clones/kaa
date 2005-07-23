@@ -12,98 +12,7 @@
 #include "post/buffer.h"
 
 PyObject *xine_error;
-// Maps xine object actresses to Xine python objects
-static PyObject *xine_object_to_pyobject_dict = 0;
-
-
-///
-
-void
-xine_object_to_pyobject_register(void *ptr, PyObject *o)
-{
-    PyObject *key = PyLong_FromLong((long)ptr), *val;
-    if (!PyMapping_HasKey(xine_object_to_pyobject_dict, key)) {
-        val = PyCObject_FromVoidPtr(o, NULL);
-        PyDict_SetItem(xine_object_to_pyobject_dict, key, val);
-        Py_DECREF(val);
-    }
-    Py_DECREF(key);
-}
-
-void
-xine_object_to_pyobject_unregister(void *ptr)
-{
-    PyObject *key = PyLong_FromLong((long)ptr);
-    if (PyMapping_HasKey(xine_object_to_pyobject_dict, key)) {
-        PyDict_DelItem(xine_object_to_pyobject_dict, key);
-    }
-    Py_DECREF(key);
-}
-
-PyObject *
-xine_object_to_pyobject_find(void *ptr)
-{
-    PyObject *key = PyLong_FromLong((long)ptr);
-    PyObject *o = NULL;
-    if (PyMapping_HasKey(xine_object_to_pyobject_dict, key)) {
-        o = PyDict_GetItem(xine_object_to_pyobject_dict, key);
-    }
-    Py_DECREF(key);
-    if (o)
-        return (PyObject *)PyCObject_AsVoidPtr(o);
-    return NULL;
-}
-
-
-// A version of the above function available in python space.
-PyObject *
-Xine_find_object_by_id(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    int id;
-    PyObject *o;
-
-    if (!PyArg_ParseTuple(args, "i", &id))
-        return NULL;
-    o = xine_object_to_pyobject_find((void *)id);
-    if (!o) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-    return o;
-}
-
-//
-// GC helper functions
-int
-pyxine_gc_helper_clear(PyObject ***list)
-{
-    int i;
-    for (i = 0; list[i]; i++) {
-        if (!*list[i])
-            continue;
-        PyObject *tmp = *list[i];
-        *list[i] = 0;
-        Py_DECREF(tmp);
-    }
-    return 0;
-}
-
-int
-pyxine_gc_helper_traverse(PyObject ***list, visitproc visit, void *arg)
-{
-    int i, ret;
-    for (i = 0; list[i]; i++) {
-        if (!*list[i])
-            continue;
-        ret = visit(*list[i], arg);
-        if (ret != 0)
-            return ret;
-    }
-    return 0;
-}
-
-//
-
+extern PyObject *xine_object_to_pyobject_dict;
 
 void
 _xine_log_callback(void *xine_pyobject, int section)
@@ -160,8 +69,6 @@ Xine_PyObject__init(Xine_PyObject *self, PyObject *args, PyObject *kwds)
         PyErr_SetString(PyExc_RuntimeError, "Unknown error creating Xine object");
         return -1;
     }
-
-    printf("Init Xine\n");
 
     snprintf(cfgfile, PATH_MAX, "%s%s", xine_get_homedir(), "/.xine/config");
     xine_config_load(xine, cfgfile);
@@ -461,24 +368,19 @@ Xine_PyObject_get_browse_mrls(Xine_PyObject *self, PyObject *args, PyObject *kwa
     for (i = 0; i < num; i++) {
         dict = PyDict_New();
         val = Py_BuildValue("s", mrls[i]->origin);
-        PyDict_SetItemString(dict, "origin", val);
-        Py_DECREF(val);
+        PyDict_SetItemString_STEAL(dict, "origin", val);
 
         val = Py_BuildValue("s", mrls[i]->link);
-        PyDict_SetItemString(dict, "link", val);
-        Py_DECREF(val);
+        PyDict_SetItemString_STEAL(dict, "link", val);
 
         val = Py_BuildValue("s", mrls[i]->mrl);
-        PyDict_SetItemString(dict, "mrl", val);
-        Py_DECREF(val);
+        PyDict_SetItemString_STEAL(dict, "mrl", val);
 
         val = Py_BuildValue("i", mrls[i]->type);
-        PyDict_SetItemString(dict, "type", val);
-        Py_DECREF(val);
+        PyDict_SetItemString_STEAL(dict, "type", val);
 
         val = Py_BuildValue("i", mrls[i]->size);
-        PyDict_SetItemString(dict, "size", val);
-        Py_DECREF(val);
+        PyDict_SetItemString_STEAL(dict, "size", val);
 
         PyList_Append(pylist, dict);
         Py_DECREF(dict);
@@ -608,7 +510,6 @@ Xine_get_version(PyObject *module, PyObject *args, PyObject *kwargs)
 }
 
 PyMethodDef xine_methods[] = {
-    {"find_object_by_id", (PyCFunction) Xine_find_object_by_id, METH_VARARGS },
     {"get_version", (PyCFunction) Xine_get_version, METH_VARARGS },
     {NULL}
 };

@@ -1,5 +1,8 @@
 import weakref
+import threading
+
 import _xine
+import kaa
 from kaa import display, notifier
 from kaa.base.version import Version
 from constants import *
@@ -30,6 +33,10 @@ def _wrap_xine_object(obj):
         o = PostOut(obj)
     elif type(obj) == _xine.PostIn:
         o = PostIn(obj)
+    elif type(obj) == _xine.EventQueue:
+        o = EventQueue(obj)
+    elif type(obj) == _xine.Event:
+        o = Event(obj)
     else:
         raise TypeError, "Unknown xine object: " + str(obj)
 
@@ -91,7 +98,7 @@ class Xine(object):
         self._xine.wrapper = weakref.ref(self)
 
     def _default_frame_output_cb(self, width, height, aspect, window):
-        #print "FRAME CALLBACK", width, height, aspect, window
+        #print "FRAME CALLBACK", width, height, aspect
         if window:
             win_w, win_h = window.get_geometry()[1]
         else:
@@ -101,6 +108,7 @@ class Xine(object):
         w = win_w
         h = int(w / movie_aspect)
         y = int((win_h-h)/2)
+        window.aspect = movie_aspect * aspect
         return (0, 0), (0, 0), (win_w, win_h), 1
 
     def _default_dest_size_cb(self, width, height, aspect, window):
@@ -108,6 +116,8 @@ class Xine(object):
             win_w, win_h = window.get_geometry()[1]
         else:
             win_w, win_h = 640, 480
+        movie_aspect = width / float(height)
+        window.aspect = movie_aspect * aspect
         return (win_w, win_h), 1
 
     def open_video_driver(self, driver = "auto", **kwargs):
@@ -118,6 +128,8 @@ class Xine(object):
                 kwargs["frame_output_cb"] = notifier.WeakCallback(self._default_frame_output_cb, window)
             if "dest_size_cb" not in kwargs:
                 kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
+
+            window.aspect = -1 
             kwargs["window"] = window._window
             self._xine.dependencies.append(window._window)
 
@@ -136,7 +148,7 @@ class Xine(object):
         return _wrap_xine_object(ao)
 
 
-    def stream_new(self, audio_port, video_port):
+    def new_stream(self, audio_port, video_port):
         assert(type(audio_port) == AudioPort)
         assert(type(video_port) == VideoPort)
 
@@ -281,6 +293,17 @@ class AudioPort(object):
 class Stream(object):
     def __init__(self, stream):
         self._stream = stream
+        self.signals = {
+            "event": notifier.Signal()
+        }
+        self.event_queue = self.new_event_queue()
+        kaa.signals["idle"].connect_weak(self._poll_events)
+        #self.event_queue._queue.event_callback = notifier.WeakCallback(self._event_callback)
+
+    def _poll_events(self):
+        event = self.event_queue.get_event()
+        if event:
+            self.signals["event"].emit(_wrap_xine_object(event))
 
     def open(self, mrl):
         return self._stream.open(mrl)
@@ -327,9 +350,11 @@ class Stream(object):
         return self._stream.get_lang("spu", channel)
 
     def get_pos_length(self):
-        stream, time, length = self._stream.get_pos_length()
-        time /= 1000.0
-        return stream, time, length
+        pos, time, length = self._stream.get_pos_length()
+        if pos == None:
+            return 0, 0, 0
+
+        return pos, time / 1000.0, length / 1000.0
 
     def get_stream_pos(self):
         return self.get_pos_length()[0]
@@ -352,29 +377,39 @@ class Stream(object):
     def set_parameter(self, param, value):
         return self._stream.set_param(param, value)
 
-    def _seek(self, time):
-        if self.get_status() != STATUS_PLAY:
-            print "Stream not playing"
-            return False
-        speed = self.get_parameter(PARAM_SPEED)
+    def _seek_thread(self, time):
         self.set_parameter(PARAM_SPEED, SPEED_NORMAL)
         if not self.get_parameter(STREAM_INFO_SEEKABLE):
             print "Stream not seekable"
             return False
 
         self.play(time)
-        self.set_parameter(PARAM_SPEED, speed)
+
+
+    def _seek(self, time):
+        if self.get_status() != STATUS_PLAY:
+            print "Stream not playing"
+            return False
+         
+        # Need a xine engine mutex for this.  Later.  
+        #thread = threading.Thread(target = self._seek_thread, args = (time,))
+        #thread.start()
+        self._seek_thread(time)
         
     def seek_relative(self, offset):
         t = max(0, self.get_time() + offset)
-        print t
         return self._seek(t)
 
     def seek_absolute(self, t):
         t = max(0, time)
         return self._seek(t)
 
+    def new_event_queue(self):
+        return _wrap_xine_object(self._stream.new_event_queue())
 
+
+    def send_event(self, type, **kwargs):
+        return self._stream.send_event(type, **kwargs)
 
 class Post(object):
     def __init__(self, post):
@@ -434,6 +469,11 @@ class Post(object):
             output = self.get_output(name)
             output.unwire()
 
+    def get_default_output(self):
+        return self.get_output(self.list_outputs()[0])
+
+    def get_default_input(self):
+        return self.get_input(self.list_inputs()[0])
 
 class PostOut(object):
     def __init__(self, post_out):
@@ -564,3 +604,27 @@ class PostIn(object):
 
     def get_port(self):
         return _wrap_xine_object(self._post_in.port)
+
+
+class EventQueue(object):
+    def __init__(self, queue):
+        self._queue = queue
+
+    def get_event(self):
+        return self._queue.get_event()
+
+class Event(object):
+    def __init__(self, event):
+        self._event = event
+
+    def __getattr__(self, attr):
+        if attr in ("type", "data"):
+            return getattr(self._event, attr)
+        else:
+            return object.__getattr__(self, attr)
+
+    def get_stream(self):
+        return _wrap_xine_object(self._event.owner.owner)
+
+    def get_queue(self):
+        return _wrap_xine_object(self._event.owner)

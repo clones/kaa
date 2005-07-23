@@ -16,7 +16,8 @@ typedef struct {
     xine_t *xine;
 
     PyObject *wrapper;
-
+    PyObject *event_callback;
+    void *event_callback_data;
 } Xine_Event_Queue_PyObject;
 
 extern PyTypeObject Xine_Event_Queue_PyObject_Type;

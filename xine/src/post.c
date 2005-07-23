@@ -35,7 +35,6 @@ pyxine_new_post_pyobject(PyObject *owner_pyobject, xine_post_t *post, char *id, 
     o->xine_object_owner = owner;
     xine_object_to_pyobject_register(post, (PyObject *)o);
 
-    printf("CONNECTED POST PLUGIN\n");
     list = xine_post_list_outputs(post);
     for (i = 0; list[i]; i++) {
         xine_post_out_t *out = xine_post_output(post, list[i]);
@@ -163,15 +162,13 @@ Xine_Post_PyObject_get_parameters_desc(Xine_Post_PyObject *self, PyObject *args,
                 type = (PyObject *)&PyBool_Type;
                 break;
         }
-        Py_INCREF(type);
         PyDict_SetItemString(dict, "type", type);
-        PyDict_SetItemString(dict, "name", PyString_FromString(parm->name));
-        PyDict_SetItemString(dict, "offset", PyInt_FromLong(parm->offset));
-        PyDict_SetItemString(dict, "size", PyInt_FromLong(parm->size));
-        PyDict_SetItemString(dict, "readonly", PyBool_FromLong(parm->readonly));
+        PyDict_SetItemString_STEAL(dict, "name", PyString_FromString(parm->name));
+        PyDict_SetItemString_STEAL(dict, "offset", PyInt_FromLong(parm->offset));
+        PyDict_SetItemString_STEAL(dict, "size", PyInt_FromLong(parm->size));
+        PyDict_SetItemString_STEAL(dict, "readonly", PyBool_FromLong(parm->readonly));
 
-        PyDict_SetItemString(param_dict, parm->name, dict);
-        Py_DECREF(dict);
+        PyDict_SetItemString_STEAL(param_dict, parm->name, dict);
         parm++;
     }
 
@@ -237,10 +234,8 @@ Xine_Post_PyObject_get_parameters(Xine_Post_PyObject *self, PyObject *args, PyOb
         if (PyErr_Occurred()) 
             break;
 
-        if (value) {
-            PyDict_SetItemString(dict, parm->name, value);
-            Py_DECREF(value);
-        }
+        if (value) 
+            PyDict_SetItemString_STEAL(dict, parm->name, value);
         parm++;
     }
 

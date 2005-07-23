@@ -47,7 +47,7 @@ pyxine_new_post_in_pyobject(PyObject *owner_pyobject, xine_post_in_t *post_in,
     else {
         o->port = Py_None;
         Py_INCREF(Py_None);
-        printf("!!! Unsupported PostIn data type: %d\n", post_in->type);
+//        printf("!!! Unsupported PostIn data type: %d\n", post_in->type);
     }
 
     return o;
@@ -116,7 +116,6 @@ Xine_Post_In_PyObject__dealloc(Xine_Post_In_PyObject *self)
 PyObject *
 Xine_Post_In_PyObject_get_type(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    printf("POST IN TYPE DATA: %x\n", self->post_in->data);
     return PyInt_FromLong(self->post_in->type);
 }
 

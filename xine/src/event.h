@@ -15,8 +15,9 @@ typedef struct {
     int xine_object_owner;
     xine_t *xine;
 
-    PyObject *wrapper;
-
+    PyObject *wrapper,
+             *type,
+             *data;
 } Xine_Event_PyObject;
 
 extern PyTypeObject Xine_Event_PyObject_Type;

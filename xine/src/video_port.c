@@ -51,7 +51,7 @@ pyxine_new_video_port_pyobject(PyObject *owner_pyobject, xine_video_port_t * vo,
 static int
 Xine_Video_Port_PyObject__clear(Xine_Video_Port_PyObject * self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wire_object,  NULL};
+    PyObject **list[] = {&self->wire_object,  NULL};
     return pyxine_gc_helper_clear(list);
 }
 
@@ -110,6 +110,7 @@ Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
     }
     Py_DECREF(self->wrapper);
     Xine_Video_Port_PyObject__clear(self);
+    Py_DECREF(self->owner_pyobject);
     xine_object_to_pyobject_unregister(self->vo);
 
     if (self->driver_dealloc_cb)

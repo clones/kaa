@@ -75,10 +75,10 @@ static int buffer_intercept_frame(post_video_port_t *port, vo_frame_t *frame)
 
     pthread_mutex_lock(&this->lock);
     if (!active) {
-        printf("BUFFER plugin intercepting, ptr=%d\n", this->params.ptr);
+        //printf("BUFFER plugin intercepting, ptr=%d\n", this->params.ptr);
         active=1;
     }
-   // printf("BUFFER plugin intercepting, ptr=%d\n", this->params.ptr);
+    printf("BUFFER plugin intercepting, ptr=%d aspect=%f\n", this->params.ptr, frame->ratio);
     pthread_mutex_unlock(&this->lock);
     return 0;
 }

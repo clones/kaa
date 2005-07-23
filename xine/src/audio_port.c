@@ -45,7 +45,7 @@ pyxine_new_audio_port_pyobject(PyObject *owner_pyobject, xine_audio_port_t *ao, 
 static int
 Xine_Audio_Port_PyObject__clear(Xine_Audio_Port_PyObject *self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wire_object, NULL};
+    PyObject **list[] = {&self->wire_object, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
@@ -100,6 +100,7 @@ Xine_Audio_Port_PyObject__dealloc(Xine_Audio_Port_PyObject *self)
     }
     Py_DECREF(self->wrapper);
     Xine_Audio_Port_PyObject__clear(self);
+    Py_DECREF(self->owner_pyobject);
     xine_object_to_pyobject_unregister(self->ao);
     self->ob_type->tp_free((PyObject*)self);
 }
