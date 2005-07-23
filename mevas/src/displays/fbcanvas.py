@@ -28,7 +28,7 @@
 # -----------------------------------------------------------------------------
 
 # kaa display imports
-from kaa.display.fb import Framebuffer
+import kaa.display.fb
 
 # mevas imports
 from kaa import mevas
@@ -38,8 +38,13 @@ from bitmapcanvas import *
 
 class FramebufferCanvas(BitmapCanvas):
 
-    def __init__(self, size):
-        self._fb = Framebuffer()
+    def __init__(self, size, tv_format=''):
+        fbset = tv_format.upper() + '_%sx%s' % size
+        if hasattr(kaa.display.fb, fbset):
+            fbset = getattr(kaa.display.fb, fbset)
+        else:
+            fbset = None
+        self._fb = kaa.display.fb.Framebuffer(fbset)
         if self._fb.size() != size:
             del self._fb
             raise AttributeError('size does not match framebuffer')
