@@ -53,8 +53,6 @@ PyObject *fb_update(PyObject *self, PyObject *args)
 
 PyObject *fb_open(PyObject *self, PyObject *args)
 {
-  int i;
-  
   tty_disable ();
   
   fb_fd = open ("/dev/fb0", O_RDWR);
@@ -82,6 +80,16 @@ PyObject *fb_open(PyObject *self, PyObject *args)
   /* OK, this is ugly but we need this. */
   fb_var.bits_per_pixel = 32;
   
+  /* try to set fbsettings */
+  PyArg_ParseTuple(args, "(iiiiiiiiiiiiiiiii)", &fb_var.xres, &fb_var.yres, 
+		   &fb_var.xres_virtual, &fb_var.yres_virtual, 
+		   &fb_var.xoffset, &fb_var.yoffset, &fb_var.height, 
+		   &fb_var.height, &fb_var.pixclock, &fb_var.left_margin, 
+		   &fb_var.right_margin, &fb_var.upper_margin, 
+		   &fb_var.lower_margin, &fb_var.vsync_len, 
+		   &fb_var.hsync_len,
+		   &fb_var.sync, &fb_var.vmode);
+
   if (ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var) != 0) {
     perror ("ioctl");
     close (fb_fd);
@@ -138,6 +146,17 @@ PyObject *fb_depth(PyObject *self, PyObject *args)
   return Py_BuildValue("i", fb_var.bits_per_pixel);
 }
 
+PyObject *fb_info(PyObject *self, PyObject *args)
+{
+  return Py_BuildValue("(iiiiiiiiiiiiiiiii)", fb_var.xres, fb_var.yres, 
+		       fb_var.xres_virtual, fb_var.yres_virtual, 
+		       fb_var.xoffset, fb_var.yoffset, fb_var.height, 
+		       fb_var.height, fb_var.pixclock, fb_var.left_margin, 
+		       fb_var.right_margin, fb_var.upper_margin, 
+		       fb_var.lower_margin, fb_var.vsync_len, 
+		       fb_var.hsync_len,
+		       fb_var.sync, fb_var.vmode);
+}
 
 static void tty_disable (void)
 {
@@ -187,6 +206,7 @@ PyMethodDef fb_methods[] = {
     { "update", (PyCFunction) fb_update, METH_VARARGS },
     { "size", (PyCFunction) fb_size, METH_VARARGS },
     { "depth", (PyCFunction) fb_depth, METH_VARARGS },
+    { "info", (PyCFunction) fb_info, METH_VARARGS },
     { NULL }
 };
 
