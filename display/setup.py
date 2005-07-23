@@ -42,6 +42,15 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
+# the framebuffer so module
+fb = Extension('kaa.display._FBmodule', [ 'src/fb.c'] )
+
+if fb.check_library('imlib2', '1.1.1'):
+    print "+ FB support enabled"
+else:
+    print "+ FB support disabled"
+    fb = None
+
 # the display so module
 display = Extension('kaa.display._Displaymodule',
                     [ 'src/display.c', 'src/sdl.c', 'src/x11display.c',
@@ -125,7 +134,11 @@ else:
     print "+ evas support enabled for engines:" + evas_engines
     display.config("#define USE_EVAS\n")
 
+ext_modules = [ display ]
+if fb:
+    ext_modules.append(fb)
+    
 setup(module  = 'display',
       version = '0.1',
-      ext_modules= [ display ]
+      ext_modules = ext_modules
 )
