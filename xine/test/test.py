@@ -5,22 +5,41 @@ import kaa, gc, weakref
 def key_press(key, stream):
     global post
     print "KEY PRESS", key
-    if key == 113:
+
+    ch = stream.get_parameter(xine.PARAM_AUDIO_CHANNEL_LOGICAL)
+    lang = stream.get_audio_lang(ch)
+    print "Channel language", lang
+    if key == "q":
         raise SystemExit
-    elif key == 32:
+    elif key == "space":
         speed = stream.get_parameter(xine.PARAM_SPEED)
         if speed == xine.SPEED_PAUSE:
             stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_NORMAL)
         else:
             stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_PAUSE)
-    elif key == 97:
+    elif key == "a":
         post.unwire()
         xine._debug_show_chain(stream._stream)
 
-    elif key == 320: # up
-        stream.seek_relative(60)
-    elif key == 321: # down
-        stream.seek_relative(-60)
+    elif key == "up":
+        if lang == "menu":
+            stream.send_event(xine.EVENT_INPUT_UP)
+        else:
+            stream.seek_relative(60)
+    elif key == "down":
+        if lang == "menu":
+            stream.send_event(xine.EVENT_INPUT_DOWN)
+        else:
+            stream.seek_relative(-60)
+
+    elif key == "m":
+        print "Send menu 2"
+        stream.send_event(xine.EVENT_INPUT_MENU2)
+
+    elif key == "enter":
+        stream.send_event(xine.EVENT_INPUT_SELECT)
+
+    print "End handle event"
 
 win = display.X11Window(size=(640, 480), title="Movie")
 win.set_cursor_hide_timeout(0)
@@ -29,7 +48,19 @@ print x.get_log_names()
 vo_none = x.open_video_driver("none")
 vo = x.open_video_driver("xv", window = win)
 ao = x.open_audio_driver()
-stream = x.stream_new(ao, vo)
+stream = x.new_stream(ao, vo)
+def show_event(event):
+    print "EVENT SIGNAL", event.type, event.data
+    stream = event.get_stream()
+    print "Stream width", stream.get_parameter(xine.STREAM_INFO_VIDEO_WIDTH)
+    print "Stream height", stream.get_parameter(xine.STREAM_INFO_VIDEO_HEIGHT)
+    if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
+        ch = stream.get_parameter(xine.PARAM_AUDIO_CHANNEL_LOGICAL)
+        lang = stream.get_audio_lang(ch)
+        print "CHANN", ch, lang
+
+stream.signals["event"].connect(show_event)
+
 #del x, vo, ao, stream
 #sys.exit(1)
 source = stream.get_video_source()
@@ -83,7 +114,7 @@ print stream._stream.video_source.port
 #print stream.slave(stream2)
 #print stream2
 print "connect"
-kaa.signals["keypress"].connect_weak(key_press, stream)
+kaa.signals["stdin_key_press_event"].connect_weak(key_press, stream)
 
 def print_vpts(stream):
     print "VPTS", stream.get_current_vpts()
@@ -97,9 +128,12 @@ def print_vpts(stream):
 #deint = x.post_init("tvtime", video_targets = [vo])
 #deint.set_parameters(method=5)
 
-print post.get_video_inputs()
+print "Stream width", stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH)
+print "Stream height", stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT)
+print "Stream aspect", stream.get_info(xine.STREAM_INFO_VIDEO_RATIO)
+print "Bitrate", stream.get_info(xine.STREAM_INFO_VIDEO_BITRATE)
 win.show()
-win.resize((320, 200))
+#win.resize((320, 200))
 kaa.main()
 win.hide()
 # Explicitly delete these to test that gc works.
