@@ -108,7 +108,11 @@ class Xine(object):
         w = win_w
         h = int(w / movie_aspect)
         y = int((win_h-h)/2)
-        window.aspect = movie_aspect * aspect
+        win_aspect = movie_aspect * aspect
+        if window.aspect != win_aspect:
+            window.aspect = win_aspect
+            window.signals["aspect_changed"].emit(win_aspect)
+
         return (0, 0), (0, 0), (win_w, win_h), 1
 
     def _default_dest_size_cb(self, width, height, aspect, window):
@@ -129,6 +133,7 @@ class Xine(object):
             if "dest_size_cb" not in kwargs:
                 kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
 
+            window.signals["aspect_changed"] = notifier.Signal()
             window.aspect = -1 
             kwargs["window"] = window._window
             self._xine.dependencies.append(window._window)

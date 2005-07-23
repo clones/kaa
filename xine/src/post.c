@@ -144,6 +144,8 @@ Xine_Post_PyObject_get_parameters_desc(Xine_Post_PyObject *self, PyObject *args,
     while (parm->type != POST_PARAM_TYPE_LAST) {
         PyObject *dict = PyDict_New();
         PyObject *type = Py_None;
+        PyObject *enums = PyList_New(0);
+
         switch(parm->type) {
             case POST_PARAM_TYPE_INT:
                 type = (PyObject *)&PyInt_Type;
@@ -167,7 +169,15 @@ Xine_Post_PyObject_get_parameters_desc(Xine_Post_PyObject *self, PyObject *args,
         PyDict_SetItemString_STEAL(dict, "offset", PyInt_FromLong(parm->offset));
         PyDict_SetItemString_STEAL(dict, "size", PyInt_FromLong(parm->size));
         PyDict_SetItemString_STEAL(dict, "readonly", PyBool_FromLong(parm->readonly));
-
+        if (parm->enum_values) {
+            int i;
+            for (i = 0; parm->enum_values[i]; i++) {
+                PyObject *str = PyString_FromString(parm->enum_values[i]);
+                PyList_Append(enums, str);
+                Py_DECREF(str);
+            }
+        }
+        PyDict_SetItemString_STEAL(dict, "enums", enums);
         PyDict_SetItemString_STEAL(param_dict, parm->name, dict);
         parm++;
     }
