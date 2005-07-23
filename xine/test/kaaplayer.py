@@ -105,9 +105,7 @@ kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream,
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 kaa.signals["idle"].connect_weak(output_status_line, stream)
 
-post = x.post_init("eq2", video_targets = [vo])
-print post.get_parameters_desc()
-sys.exit(0)
+#post = x.post_init("eq2", video_targets = [vo])
 #stream.get_video_source().wire(post.get_default_input())
 #post.set_parameters(gamma = 1.2, contrast = 1.2)
 
