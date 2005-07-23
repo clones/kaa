@@ -22,6 +22,7 @@ int fb_fd = 0;
 int *fb_mem = 0;
 
 static struct fb_var_screeninfo fb_var;
+static struct fb_var_screeninfo fb_var_save;
 static struct fb_fix_screeninfo fb_fix;
 
 static void tty_disable (void);
@@ -77,11 +78,14 @@ PyObject *fb_open(PyObject *self, PyObject *args)
     return NULL;
   }
 
+  /* save settings to restore at the end */
+  ioctl (fb_fd, FBIOGET_VSCREENINFO, &fb_var_save);
+
   /* OK, this is ugly but we need this. */
   fb_var.bits_per_pixel = 32;
   
   /* try to set fbsettings */
-  PyArg_ParseTuple(args, "(iiiiiiiiiiiiiiiii)", &fb_var.xres, &fb_var.yres, 
+  PyArg_ParseTuple(args, "|(iiiiiiiiiiiiiiiii)", &fb_var.xres, &fb_var.yres, 
 		   &fb_var.xres_virtual, &fb_var.yres_virtual, 
 		   &fb_var.xoffset, &fb_var.yoffset, &fb_var.height, 
 		   &fb_var.height, &fb_var.pixclock, &fb_var.left_margin, 
@@ -98,15 +102,10 @@ PyObject *fb_open(PyObject *self, PyObject *args)
 
   }
 
-  if (ioctl (fb_fd, FBIOGET_VSCREENINFO, &fb_var) != 0) {
-    perror ("ioctl");
-    close (fb_fd);
-    PyErr_Format(PyExc_SystemError, "unable to get screen vars");
-    return NULL;
-
-  }
+  ioctl (fb_fd, FBIOGET_VSCREENINFO, &fb_var);
 
   if (fb_var.bits_per_pixel != 32) {
+    ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var_save);
     close (fb_fd);
     PyErr_Format(PyExc_SystemError, "unable to set depth=32");
     return NULL;
@@ -115,11 +114,10 @@ PyObject *fb_open(PyObject *self, PyObject *args)
   fb_mem = mmap ((void *) NULL, fb_var.xres * fb_var.yres * fb_var.bits_per_pixel / 8,
 		 PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, 0);
 
-  close (fb_fd);
-  fb_fd = 0;
-  
   if (fb_mem == MAP_FAILED) {
     perror ("mmap");
+    ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var_save);
+    close (fb_fd);
     PyErr_Format(PyExc_SystemError, "unable to get memory");
     return NULL;
   }
@@ -131,6 +129,8 @@ PyObject *fb_open(PyObject *self, PyObject *args)
 PyObject *fb_close(PyObject *self, PyObject *args)
 {
   tty_enable ();
+  ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var_save);
+  close (fb_fd);
   Py_INCREF(Py_None);
   return Py_None;
 }
