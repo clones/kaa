@@ -216,19 +216,20 @@ class X11Window(object):
             self.signals["expose_event"].emit(expose_regions)
                 
 
-    def move(self, pos):
-        self.set_geometry(pos, (-1, -1))
+    def move(self, pos, force = False):
+        return self.set_geometry(pos, (-1, -1))
 
     def resize(self, size, force = False):
-        self.set_geometry((-1, -1), size, force)
+        return self.set_geometry((-1, -1), size, force)
 
     def set_geometry(self, pos, size, force = False):
         if self.get_fullscreen() and not force:
             self._fs_size_save = size
-            return
+            return False
 
         self._window.set_geometry(pos, size)
         self._display.handle_events()
+        return True
 
     def get_geometry(self):
         return self._window.get_geometry()
@@ -254,8 +255,8 @@ class X11Window(object):
     def set_fullscreen(self, fs = True):
         if not fs:
             if self._fs_size_save:
-                self._window.set_fullscreen(False)
                 self.resize(self._fs_size_save, force = True)
+                self._window.set_fullscreen(False)
                 self._fs_size_save = None
                 return True
 
@@ -266,8 +267,8 @@ class X11Window(object):
 
         self._fs_size_save = self.get_size()
         display_size = self.get_display().get_size()
-        self.resize(display_size, force = True)
         self._window.set_fullscreen(True)
+        self.resize(display_size, force = True)
 
     def get_fullscreen(self):
         return self._fs_size_save != None
