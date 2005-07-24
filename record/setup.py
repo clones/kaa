@@ -36,13 +36,15 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-files = [ 'src/tuner.cc', 'src/dvbwrapper.cc', 'src/dvbdevice.cc', 'src/filter.cc',
-          'src/op_generic.cc', 'src/op_filewriter.cc', 'src/remux.cc',
-          'src/ringbuffer.cc']
+dvb_files = [ 'src/tuner.cc', 'src/dvbwrapper.cc', 'src/dvbdevice.cc', 'src/filter.cc' ]
 
-dvb = Extension('kaa.record.dvbmodule', files)
+op_files = [ 'src/op_generic.cc', 'src/op_filewriter.cc', 'src/remux.cc',
+             'src/ringbuffer.cc', 'src/op_wrapper.cc' ]
+
+dvb = Extension('kaa.record._dvb', dvb_files)
+op = Extension('kaa.record._op', op_files)
 
 setup(module      = 'record',
       version     = '0.1',
-      ext_modules = [ dvb ]
+      ext_modules = [ dvb, op ]
 )
