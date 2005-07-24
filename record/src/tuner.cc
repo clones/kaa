@@ -21,6 +21,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <Python.h>
+
 // open
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -107,9 +109,13 @@ const Param Tuner::transmissionmode_list[] = {
 
 
 
-Tuner::Tuner( string adapter ) :
-  fd_frontend(-1)
+Tuner::Tuner( string adapter, PyObject *timer ) :
+  fd_frontend(-1),
+  timer(timer)
 {
+  if (timer) 
+    Py_INCREF(timer);
+  
   current_bouquet.name = "";  // invalidate current_bouquet (see dvbdevice.h)
 
   if (adapter.empty()) {
@@ -126,6 +132,8 @@ Tuner::Tuner( string adapter ) :
 
 Tuner::~Tuner() {
   release_tuner();
+  if (timer) 
+    Py_DECREF(timer);
 }
 
 
@@ -187,6 +195,20 @@ void Tuner::set_other_pid(int fd, uint16_t pid) {
   if (ioctl(fd, DMX_SET_PES_FILTER, &M) < 0) {
     printD( LOG_ERROR, "ioctl failed: %s\n", strerror(errno));
   }
+}
+
+bool Tuner::timer_expired() {
+  // OK, this function does nothing so far, but all the usleep is very ugly.
+  // So there is a timer object now, pointing to this function.
+  // You can start the timer (e.g. 500 ms) with
+  // PyObject* result = PyObject_CallMethod(timer, "start", "i", 500);
+  // if (result)
+  // 	 Py_DECREF(result);
+  // and stop it by returning false or call
+  // PyObject* result = PyObject_CallMethod(timer, "stop", "");
+  // if (result)
+  // 	 Py_DECREF(result);
+  return false;
 }
 
 

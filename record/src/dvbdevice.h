@@ -24,6 +24,7 @@
 #ifndef __DVBDEVICE_H_
 #define __DVBDEVICE_H_
 
+#include <Python.h>
 #include "filter.h"
 #include "tuner.h"
 
@@ -40,12 +41,14 @@ class DvbDevice {
   std::string     file_adapter;                   // path of used adapter (e.g. /dev/dvb/adapter0/)
   std::string     file_channels;                  // path of channel list (e.g. /root/.channels.conf)
   int             priority;
+  int             fd;
   std::string     card_type;                      // "DVB-T", "DVB-S", "DVB-C" or "unknown"
   std::vector<bouquet_t> bouquet_list;
   Tuner          *tuner;
   Filter          filter;
   std::map<int, std::vector<int> >  id2pid;       // registered filter
-
+  PyObject       *socket_dispatcher, *tuner_timer;
+  
   public:
   // DvbDevice(...)
   // params: adapter that should be opened (e.g. /dev/dvb/adapter0/)
@@ -72,6 +75,15 @@ class DvbDevice {
 
   // returns: in card_type type of device ("DVB-T", "DVB-C", "DVB-S" or "unknown")
   const std::string get_card_type() const;
+
+  // set notifier object
+  void connect_to_notifier(PyObject* socket_dispatcher, PyObject *tuner_timer);
+  
+  // callback for notifier
+  void read_fd_data();
+  
+  // callback for tuner timer
+  bool tuner_timer_expired();
 
   Filter &get_filter() { return filter; }
 };

@@ -22,6 +22,7 @@
  */
 
 // open()
+#include <Python.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -32,13 +33,9 @@
 
 using namespace std;
 
-// static gboolean event_data_available( GIOChannel *source, 
-// 				      GIOCondition condition,
-// 				      DvbDevice *dvb );
-
 DvbDevice::DvbDevice( const std::string &adapter,
-		      const std::string &channelsfile, int prio ) :
-//   gioc_dvrdev( NULL ), 
+		      const std::string &channelsfile, int prio):
+  socket_dispatcher(NULL), tuner_timer(NULL),
   file_adapter( adapter ), file_channels( channelsfile ),
   priority( prio ), tuner(NULL) {
 
@@ -47,7 +44,7 @@ DvbDevice::DvbDevice( const std::string &adapter,
   }
 
   // start temporary tuner
-  Tuner tmptuner(file_adapter);
+  Tuner tmptuner(file_adapter, NULL);
   // read card type
   card_type = tmptuner.get_type_str();
   // load channel list
@@ -95,6 +92,7 @@ DvbDevice::DvbDevice( const std::string &adapter,
 }
 
 
+
 DvbDevice::~DvbDevice() {
   // unregister all filters
   std::map<int, std::vector<int> >::iterator iter;
@@ -108,13 +106,13 @@ DvbDevice::~DvbDevice() {
     tuner = NULL;
   }
 
-  // close gioc_dvrdev and unregister from libnotifier
-//   if ( gioc_dvrdev ) {
-//     g_source_remove( io_source );
-//     g_io_channel_shutdown( gioc_dvrdev, TRUE, NULL );
-//     g_io_channel_unref( gioc_dvrdev );
-//     gioc_dvrdev = NULL;
-//   }
+  // unregister from kaa.notifier
+  PyObject* result = PyObject_CallMethod(socket_dispatcher, "unregister", "");
+  if (result)
+    Py_DECREF(result);
+  // free references
+  Py_DECREF(socket_dispatcher);
+  Py_DECREF(tuner_timer);
 }
 
 
@@ -141,7 +139,7 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
 
 	// instantiate tuner object if it doesn't exist
 	if (!tuner) {
-	  tuner = new Tuner( file_adapter );
+	  tuner = new Tuner( file_adapter, tuner_timer );
 	}
 
 	// ...set tuner to this bouquet and stop search
@@ -183,10 +181,13 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
 	    chan_name.c_str() );
     return -1;
   }
-
+  
   // open dvr device if not open
-//   if ( gioc_dvrdev == NULL ) {
+  PyObject* result;
 
+  result = PyObject_CallMethod(socket_dispatcher, "active", "");
+  if (result == Py_False) {
+  
     string fn( file_adapter );
     if (fn[ fn.length() - 1 ] != '/') {
       fn.append("/");
@@ -194,7 +195,7 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
     fn.append("dvr0");  // TODO FIXME use constant here
 
     printD( LOG_VERBOSE, "trying to open %s\n", fn.c_str() );
-    int fd = open( fn.c_str(), O_RDONLY);
+    fd = open( fn.c_str(), O_RDONLY);
     if (fd == -1) {
       printD( LOG_ERROR, "open device %s failed! err=%s (%d)\n", fn.c_str(), strerror(errno), errno);
       printD( LOG_ERROR, "WARNING: program enters inconsistent state!\n" );
@@ -202,11 +203,13 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
     }
     printD( LOG_VERBOSE, "%s opened successfully\n", fn.c_str() );
 
-//     gioc_dvrdev = g_io_channel_unix_new( fd );
-    // register gioc_dvrdev to notifier
-//     io_source = g_io_add_watch( gioc_dvrdev, G_IO_IN,
-// 				( GIOFunc ) event_data_available, this );
-//   }
+    // register to notifier
+    Py_DECREF(result);
+    result = PyObject_CallMethod(socket_dispatcher, "register", "i", fd);
+  }
+
+  if (result)
+    Py_DECREF(result);
 
   return id;
 
@@ -238,9 +241,9 @@ void DvbDevice::stop_recording( int id ) {
 
     // if no recording is active then close fd_dvr and remove tuner
     if (id2pid.empty()) {
-//       g_source_remove( io_source );
-//       g_io_channel_unref( gioc_dvrdev );
-//       gioc_dvrdev = NULL;
+      PyObject* result = PyObject_CallMethod(socket_dispatcher, "unregister", "");
+      if (result)
+	Py_DECREF(result);
 
       delete tuner;
       tuner = NULL;
@@ -263,30 +266,38 @@ const std::string DvbDevice::get_card_type() const {
 }
 
 
-// static gboolean event_data_available( GIOChannel *source, 
-// 				      GIOCondition condition, 
-// 				      DvbDevice *dvb )
-// {
-//   // read data von fd_dvr and pass it to filter via filter.process_data()
-//   static char buf[ DvbDevice::BUFFERSIZE ];
-//   // TODO FIXME some kind of ugly
-//   static string bufstr;
+void DvbDevice::connect_to_notifier(PyObject* socket_dispatcher, PyObject *tuner_timer) {
+  this->socket_dispatcher = socket_dispatcher;
+  this->tuner_timer = tuner_timer;
+  Py_INCREF(socket_dispatcher);
+  Py_INCREF(tuner_timer);
+}
 
-//   int fd = g_io_channel_unix_get_fd( source );
 
-//   bufstr.reserve( DvbDevice::BUFFERSIZE + 10 );
+void DvbDevice::read_fd_data() {
+  // read data von fd_dvr and pass it to filter via filter.process_data()
+  static char buf[ DvbDevice::BUFFERSIZE ];
+  // TODO FIXME some kind of ugly
+  static string bufstr;
 
-//   int len = read( fd, buf, DvbDevice::BUFFERSIZE );
-//   if ( len < 0 ) {
-//     printD( LOG_WARN, 
-// 	    "WARNING: read failed: errno=%d  err=%s\n",
-// 	    errno, strerror(errno) );
-//   }
-//   if ( len > 0 ) {
-//     // TODO FIXME some kind of ugly
-//     bufstr.assign( buf, len );
-//     dvb->get_filter().process_data( bufstr );
-//   }
+  bufstr.reserve( DvbDevice::BUFFERSIZE + 10 );
 
-//   return TRUE;
-// }
+  int len = read( fd, buf, DvbDevice::BUFFERSIZE );
+  if ( len < 0 ) {
+    printD( LOG_WARN, 
+	    "WARNING: read failed: errno=%d  err=%s\n",
+	    errno, strerror(errno) );
+  }
+  if ( len > 0 ) {
+    // TODO FIXME some kind of ugly
+    bufstr.assign( buf, len );
+    get_filter().process_data( bufstr );
+  }
+}
+
+bool DvbDevice::tuner_timer_expired() {
+  if (tuner)
+    return tuner->timer_expired();
+  return false;
+}
+

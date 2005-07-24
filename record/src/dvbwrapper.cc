@@ -1,6 +1,6 @@
 #include <Python.h>
 #include "dvbdevice.h"
-#include "op_filewriter.h"
+#include "op_generic.h"
 
 int debug_level = 100;
 
@@ -10,33 +10,44 @@ typedef struct {
 } DvbDevicePyObject;
 
 
+
 PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
 {
   int result;
-  char *chan_name;
-  char *filename;
-  std::string chan_name_str;
-  OutputPluginFilewriter *plugin = NULL;
+  char *channel;
+  std::string channel_str;
+  PyObject *plugin_PyObject;
+  OutputPlugin* plugin_pointer;
   
-  if (!PyArg_ParseTuple(args, "ss", &chan_name, &filename)) {
-    PyErr_Format(PyExc_ValueError, "");
+  if (!PyArg_ParseTuple(args, "sO", &channel, &plugin_PyObject)) {
+    PyErr_Format(PyExc_ValueError, "Wrong number of arguments");
     return NULL;
   }
 
   // create stupid reference
-  chan_name_str = chan_name;
+  channel_str = channel;
   
-  plugin = new OutputPluginFilewriter(filename, 0, OutputPluginFilewriter::FT_MPEG);
-  result = ((DvbDevicePyObject *)self)->device->start_recording(chan_name_str, plugin);
+  // get real plugin object
+  plugin_PyObject = PyObject_CallMethod(plugin_PyObject, "_create_plugin", "");
+  if (plugin_PyObject == NULL) {
+    PyErr_Format(PyExc_ValueError, "Can't create C++ plugin");
+    return NULL;
+  }
+    
+  plugin_pointer = (OutputPlugin*) PyCObject_AsVoidPtr(plugin_PyObject);
+
+  result = ((DvbDevicePyObject *)self)->device->start_recording(channel_str, plugin_pointer);
+  Py_DECREF(plugin_PyObject);
   return Py_BuildValue("i", result);
 }
+
 
 PyObject *DvbDevicePyObject__stop_recording(PyObject *self, PyObject* args)
 {
   int id;
   
   if (!PyArg_ParseTuple(args, "i", &id)) {
-    PyErr_Format(PyExc_ValueError, "");
+    PyErr_Format(PyExc_ValueError, "Wrong number of arguments");
     return NULL;
   }
   
@@ -47,11 +58,21 @@ PyObject *DvbDevicePyObject__stop_recording(PyObject *self, PyObject* args)
 
 PyObject *DvbDevicePyObject__get_bouquet_list(PyObject *self, PyObject* args)
 {
-  std::vector<bouquet_t> result;
-  result = ((DvbDevicePyObject *)self)->device->get_bouquet_list();
-  // FIXME: return the result as python list
-  Py_INCREF(Py_None);
-  return Py_None;
+  std::vector<bouquet_t> bouquet_list;
+  PyObject *result;
+  
+  bouquet_list = ((DvbDevicePyObject *)self)->device->get_bouquet_list();
+  result = PyList_New(bouquet_list.size());
+  for (int i=0; i<bouquet_list.size(); i++) {
+    std::vector< bouquet_channel_t > &channels = bouquet_list[i].channels;
+    PyObject *l = PyList_New(channels.size());
+    PyList_SetItem(result, i, l);
+    for (int j=0; j<channels.size(); j++) {
+      PyObject *c = PyString_FromString(channels[j].name.c_str());
+      PyList_SetItem(l, j, c);
+    }
+  }
+  return result;
 }
 
 PyObject *DvbDevicePyObject__get_card_type(PyObject *self, PyObject* args)
@@ -59,6 +80,31 @@ PyObject *DvbDevicePyObject__get_card_type(PyObject *self, PyObject* args)
   std::string result;
   result = ((DvbDevicePyObject *)self)->device->get_card_type();
   return Py_BuildValue("s", result.c_str());
+}
+
+PyObject *DvbDevicePyObject__read_fd_data(PyObject *self, PyObject* args)
+{
+  ((DvbDevicePyObject *)self)->device->read_fd_data();
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+PyObject *DvbDevicePyObject__tuner_timer_expired(PyObject *self, PyObject* args)
+{
+  ((DvbDevicePyObject *)self)->device->tuner_timer_expired();
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+PyObject *DvbDevicePyObject__connect_to_notifier(PyObject *self, PyObject* args)
+{
+  PyObject *socket_dispatcher, *tuner_timer;
+  
+  if (!PyArg_ParseTuple(args,"OO", &socket_dispatcher, &tuner_timer))
+    return NULL;
+  ((DvbDevicePyObject *)self)->device->connect_to_notifier(socket_dispatcher, tuner_timer);
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 
 void DvbDevicePyObject__dealloc(DvbDevicePyObject *self)
@@ -72,7 +118,7 @@ static int DvbDevicePyObject__init(DvbDevicePyObject *self, PyObject *args)
   char *adapter;
   char *channels;
   int prio;
-  
+
   if (!PyArg_ParseTuple(args,"ssi", &adapter, &channels, &prio))
     return -1;
 
@@ -86,6 +132,9 @@ static PyMethodDef DvbDevicePyObject__methods[] = {
     { "stop_recording", DvbDevicePyObject__stop_recording, METH_VARARGS },
     { "get_bouquet_list", DvbDevicePyObject__get_bouquet_list, METH_VARARGS },
     { "get_card_type", DvbDevicePyObject__get_card_type, METH_VARARGS },
+    { "connect_to_notifier", DvbDevicePyObject__connect_to_notifier, METH_VARARGS },
+    { "read_fd_data", DvbDevicePyObject__read_fd_data, METH_VARARGS },
+    { "tuner_timer_expired", DvbDevicePyObject__tuner_timer_expired, METH_VARARGS },
     { NULL }
 };
 
@@ -93,7 +142,7 @@ static PyMethodDef DvbDevicePyObject__methods[] = {
 PyTypeObject DvbDevicePyObject_Type = {
     PyObject_HEAD_INIT(NULL)
     0,                         /*ob_size*/
-    "_Record.Tuner",           /*tp_name*/
+    "_dvb.DvbDevice",          /*tp_name*/
     sizeof(DvbDevicePyObject),    /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor)DvbDevicePyObject__dealloc, /* tp_dealloc */
@@ -138,9 +187,8 @@ PyMethodDef dvb_methods[] = {
 };
 
 
-
 extern "C"
-void initdvb() {
+void init_dvb() {
   PyObject *m;
   
   PyObject *nfModule;
@@ -149,28 +197,9 @@ void initdvb() {
   PyObject *nfDict, *nfFunc, *nfArgs;
   PyObject *nfInstance;
 
-  m = Py_InitModule("dvb", dvb_methods);
+  m = Py_InitModule("_dvb", dvb_methods);
   if (PyType_Ready(&DvbDevicePyObject_Type) < 0)
     return;
-
-//   nfName=PyString_FromString("foo");
-//   nfModule = PyImport_Import(nfName);
-//   Py_DECREF(nfName);
-
-//   nfDict = PyModule_GetDict(nfModule);
-//   nfFunc = PyDict_GetItemString(nfDict, "x");
-//   Py_DECREF(nfDict);
-
-//   nfDict = PyDict_New();
-//   nfArgs = PyTuple_New(1);
-
-//   PyTuple_SetItem(nfArgs, 0, PyInt_FromLong(0));
-//   nfInstance = PyInstance_New(nfFunc, nfArgs, nfDict);
-//   Py_DECREF(nfDict);
-//   Py_DECREF(nfArgs);
-  
-//   nfName=PyString_FromString("y");
-//   PyMethod_New(nfName, nfInstance, nfFunc);
   
   PyModule_AddObject(m, "DvbDevice", (PyObject *)&DvbDevicePyObject_Type);
 }
