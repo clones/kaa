@@ -1,10 +1,9 @@
 #!/usr/bin/python
 
-import sys
-import math
+import sys, math, threading, os, time
 
 import kaa
-from kaa import xine, display, metadata
+from kaa import xine, display, metadata, notifier
 
 if len(sys.argv) <= 1:
     print "Usage: %s [mrl]" % sys.argv[0]
@@ -17,7 +16,10 @@ if mrl.find("://") == -1:
     if isinstance(md, (metadata.disc.dvdinfo.DVDInfo, metadata.disc.lsdvd.DVDInfo)):
         mrl = "dvd://" + mrl
     else:
+        if mrl[0] != '/':
+            mrl = os.path.join(os.getcwd(), mrl)
         mrl = "file://" + mrl
+        print mrl
 
 def say(line):
     if line[0] != "\n":
@@ -46,6 +48,16 @@ def handle_keypress_event(key, stream, window):
         stream.send_event(xine.EVENT_INPUT_NEXT)
     elif key == "[":
         stream.send_event(xine.EVENT_INPUT_PREVIOUS)
+    elif key == "d":
+        source = stream.get_video_source()
+        deint_input = stream.deint_post.get_default_input()
+        if source.get_wire_target() == deint_input:
+            stream.deint_post.unwire()
+            say("\nDeinterlacing OFF\n")
+        else:
+            source.wire(deint_input)
+            say("\nDeinterlacing ON\n")
+        
 
     if lang == "menu":
         d = { "up": xine.EVENT_INPUT_UP, "down": xine.EVENT_INPUT_DOWN,
@@ -63,19 +75,20 @@ def handle_keypress_event(key, stream, window):
 def handle_xine_event(event, window):
     stream = event.get_stream()
     #print "EVENT", event.type, event.data
-    if event.type  == xine.EVENT_UI_CHANNELS_CHANGED and window.aspect > 0:
-        # Resize window to video dimensions
-        video_width = stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH)
-        height = stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT)
-        width = int(math.ceil(height * window.aspect))
-        if width and height and (width, height) != window.get_size():
-            if window.resize((width, height)):
-                say("VO: %dx%d => %dx%d\n" % (video_width, height, width, height))
-            window.show()
 
-    elif event.type == xine.EVENT_UI_SET_TITLE:
+    if event.type == xine.EVENT_UI_SET_TITLE:
         say("New title: %s\n" % event.data["str"])
 
+
+def handle_aspect_changed(aspect, stream, window):
+    # Resize window to video dimensions
+    video_width = stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH)
+    height = stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT)
+    width = int(math.ceil(height * window.aspect))
+    if width and height and (width, height) != window.get_size():
+        if window.resize((width, height)):
+            say("VO: %dx%d => %dx%d\n" % (video_width, height, width, height))
+        window.show()
 
 def output_status_line(stream):
     if stream.get_parameter(xine.PARAM_SPEED) == xine.SPEED_PAUSE:
@@ -98,16 +111,18 @@ ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
 stream.signals["event"].connect_weak(handle_xine_event, win)
 
+kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
+win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
+win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
+kaa.signals["idle"].connect_weak(output_status_line, stream)
+
 stream.open(mrl)
 stream.play()
 
-kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
-win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
-kaa.signals["idle"].connect_weak(output_status_line, stream)
-
-#post = x.post_init("eq2", video_targets = [vo])
-#stream.get_video_source().wire(post.get_default_input())
-#post.set_parameters(gamma = 1.2, contrast = 1.2)
+stream.deint_post = x.post_init("tvtime", video_targets = [vo])
+methods = stream.deint_post.get_parameters_desc()["method"]["enums"]
+stream.deint_post.set_parameters(method = methods.index("Greedy2Frame"))
+#post.set_parameters(method = methods.index("TomsMoComp"), cheap_mode = False)
 
 kaa.main()
 win.hide()

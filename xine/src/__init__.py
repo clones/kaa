@@ -575,7 +575,6 @@ class PostOut(object):
             # Wire this one to our old target.
             _wrap_xine_object(previous).wire(old_target)
 
-
         
     def get_type(self):
         # POST_DATA_VIDEO or POST_DATA_AUDIO
@@ -590,6 +589,13 @@ class PostOut(object):
 
     def get_port(self):
         return _wrap_xine_object(self._post_out.port)
+
+    def get_wire_target(self):
+        if type(self.get_owner()) == Stream:
+            target = self._post_out.wire_object
+        else:
+            target = self._post_out.port.wire_object
+        return _wrap_xine_object(target)
 
 
 class PostIn(object):
