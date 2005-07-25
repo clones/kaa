@@ -31,6 +31,7 @@
 
 # python imports
 import pygame
+import pygame.locals
 import time
 import kaa.notifier
 
