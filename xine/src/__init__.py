@@ -152,6 +152,9 @@ class Xine(object):
             kwargs["window"] = window._window
             self._xine.dependencies.append(window._window)
 
+        if "passthrough" in kwargs:
+            assert(isinstance(kwargs["passthrough"], VideoPort))
+            kwargs["passthrough"] = kwargs["passthrough"]._port
         
         vo = self._xine.open_video_driver(driver, **kwargs)
         # This port is a driver, initialize wire_object to empty list.

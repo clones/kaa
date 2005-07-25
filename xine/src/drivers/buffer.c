@@ -1,5 +1,7 @@
 #include <Python.h>
 #include "buffer.h"
+#include "../xine.h"
+#include "../video_port.h"
 
 typedef struct buffer_frame_s {
     vo_frame_t vo_frame;
@@ -13,7 +15,9 @@ typedef struct buffer_driver_s {
     config_values_t *config;
     pthread_mutex_t lock;
     xine_t *xine;
+
     PyObject *callback;
+    xine_video_port_t *passthrough;
 } buffer_driver_t;
 
 typedef struct buffer_class_s {
@@ -41,6 +45,7 @@ buffer_frame_dispose(vo_frame_t *vo_img)
 {
     buffer_frame_t *frame = (buffer_frame_t *)vo_img;
     printf("buffer_frame_dispose\n");
+    pthread_mutex_destroy(&frame->vo_frame.mutex);
     if (frame->vo_frame.base[0])
         free(frame->vo_frame.base[0]);
     free(frame);
@@ -121,23 +126,45 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
 {
     buffer_driver_t *this = (buffer_driver_t *)this_gen;
     buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
+    vo_frame_t *passthrough_frame;
+    int do_passthrough = 1;
     PyObject *args, *result;
     PyGILState_STATE gstate;
 
     pthread_mutex_lock(&this->lock);
-    //printf("buffer_display_frame: fd=%d %d\n", this->callback, frame->vo_frame.base[0][2000]);
+//    printf("buffer_display_frame: fd=%d %d\n", this->callback, frame->vo_frame.base[0][2000]);
+
     gstate = PyGILState_Ensure();
     args = Py_BuildValue("(iidi)", frame->width, frame->height, frame->ratio,
                          (long)frame->vo_frame.base[0]);
     result = PyEval_CallObject(this->callback, args);
-    if (result)
+    if (result) {
+        if (PyInt_Check(result))
+            do_passthrough = PyLong_AsLong(result);
+            
         Py_DECREF(result);
-    else {
+    } else {
         printf("Exception in buffer callback:\n");
         PyErr_Print();
     }
     Py_DECREF(args);
     PyGILState_Release(gstate);
+
+    if (this->passthrough && do_passthrough) {
+        passthrough_frame = this->passthrough->get_frame(this->passthrough, 
+            frame->vo_frame.width, frame->vo_frame.height, frame->vo_frame.ratio, 
+            frame->vo_frame.format, frame->vo_frame.flags);
+        
+        int size = (frame_gen->pitches[0] * frame->height) + (frame_gen->pitches[1] * (frame->height>>1))*2;
+        xine_fast_memcpy(passthrough_frame->base[0], frame_gen->base[0], frame_gen->pitches[0] * frame->height);
+        xine_fast_memcpy(passthrough_frame->base[1], frame_gen->base[1], frame_gen->pitches[1] * (frame->height>>1));
+        xine_fast_memcpy(passthrough_frame->base[2], frame_gen->base[2], frame_gen->pitches[2] * (frame->height>>1));
+
+        _x_post_frame_copy_down(frame, passthrough_frame);
+        passthrough_frame->draw(passthrough_frame, frame_gen->stream);
+        _x_post_frame_copy_up(passthrough_frame, frame);
+        passthrough_frame->free(passthrough_frame);
+    }
     frame->vo_frame.free(&frame->vo_frame);
     pthread_mutex_unlock(&this->lock);
 }
@@ -176,17 +203,31 @@ buffer_dispose(vo_driver_t *this_gen)
     buffer_driver_t *this = (buffer_driver_t *)this_gen;
     printf("buffer_dispose\n");
     if (this->callback)
-        Py_DECREF(this->callback);
+       Py_DECREF(this->callback);
 
     free(this);
+    printf("Returning from buffer_dispose\n");
 }
 
 static vo_driver_t *
-buffer_open_plugin(video_driver_class_t *class_gen, const void *visual)
+buffer_open_plugin(video_driver_class_t *class_gen, const void *args)
 {
     buffer_class_t *class = (buffer_class_t *)class_gen;
     config_values_t *config = class->config;
     buffer_driver_t *this;
+    PyObject *kwargs, *callback, *passthrough;
+    
+    kwargs = (PyObject *)args;
+    callback = PyDict_GetItemString(kwargs, "callback");
+    if (!callback) {
+        PyErr_Format(xine_error, "Specify callback for buffer driver");
+        return NULL;
+    }
+    passthrough = PyDict_GetItemString(kwargs, "passthrough");
+    if (passthrough && !Xine_Video_Port_PyObject_Check(passthrough)) {
+        PyErr_Format(xine_error, "Passthrough must be a video driver");
+        return NULL;
+    }
 
     printf("buffer_open_plugin\n");
     this = (buffer_driver_t *)xine_xmalloc(sizeof(buffer_driver_t));
@@ -211,8 +252,9 @@ buffer_open_plugin(video_driver_class_t *class_gen, const void *visual)
     this->vo_driver.dispose                 = buffer_dispose;
     this->vo_driver.redraw_needed           = buffer_redraw_needed;
 
-    this->callback = (PyObject *)visual;
+    this->callback = callback;
     Py_INCREF(this->callback);
+    this->passthrough = ((Xine_Video_Port_PyObject *)passthrough)->vo;
 
     return &this->vo_driver;
 }

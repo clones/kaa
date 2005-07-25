@@ -53,20 +53,15 @@ def handle_keypress_event(key, stream, window):
             say("\nDeinterlacing ON\n")
 
     elif key == "a":
-        global vo_buffer, vo, win, win2
-        t = stream.get_video_source().get_wire_target()
-        if t == vo_buffer:
-            say("\nWire to Xv\n")
-            stream.get_video_source().wire(vo)
-            #win2.hide()
-            win.show()
-        else:
-            say("\nWire to Evas\n")
-            stream.get_video_source().wire(vo_buffer)
+        global vo_xv, win, win2
+        if win.get_visible():
             win2.show()
-            #win.hide()
-        vo._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
-        vo._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
+            win.hide()
+        else:
+            win.show()
+            win2.hide()
+            vo_xv._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
+            vo_xv._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
         
 
     if lang == "menu":
@@ -116,7 +111,8 @@ def render():
     print "RENDER FROM MAIN THREAD\n\n"
 
 def foo(width, height, aspect, buffer, window):
-    #return
+    if not window.get_visible():
+        return True
     if window.movie.size_get() != (width, height):
         print "RESIZE", width, height, threading.currentThread()
         window.movie.size_set( (width, height) )
@@ -139,7 +135,7 @@ win.set_cursor_hide_timeout(0.5)
 
 x = xine.Xine()
 if 1: #isinstance(win, display.EvasX11Window):
-    win2 = display.EvasX11Window(gl = False, size = (640, 480), title = "Kaa Player")
+    win2 = display.EvasX11Window(gl = True, size = (640, 480), title = "Kaa Player")
     r = win2.get_evas().object_rectangle_add()
     r.color_set((255,255,255,255))
     r.move((0,0))
@@ -157,10 +153,11 @@ if 1: #isinstance(win, display.EvasX11Window):
 
     cb = notifier.MainThreadCallback(foo, win2)
     #cb.set_async(False)
-    vo_buffer = x.open_video_driver("buffer", callback = cb)
-    vo = x.open_video_driver(window = win)
+    vo_xv = x.open_video_driver(window = win)
+    vo = x.open_video_driver("buffer", callback = cb, passthrough = vo_xv)
+    #vo = vo_xv
 else:
-    vo_buffer = None
+    vo_xv = None
     vo = x.open_video_driver(window = win)
 
 ao = x.open_audio_driver()
@@ -189,8 +186,11 @@ stream.deint_post.set_parameters(method = methods.index("LinearBlend"))
 #stream.get_video_source().wire(buffer.get_default_input())
 #buffer.get_default_output().wire(stream.deint_post.get_default_input())
 
-#print x.list_video_plugins()
+#fork = x.post_init("fork", video_targets = [vo, vo_buffer])
+#stream.get_video_source().wire(fork.get_default_input())
+
+print x.list_post_plugins()
 win.show()
 kaa.main()
 win.hide()
-del ao, vo, stream, x, vo_buffer, win
+del ao, vo, stream, x, vo_xv, win, win2

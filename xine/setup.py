@@ -38,7 +38,7 @@ except ImportError:
 files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
          'src/post.c', 'src/drivers/x11.c', 'src/drivers/buffer.c',
          'src/post_out.c', 'src/post_in.c', 'src/event.c', 'src/event_queue.c',
-         'src/utils.c']
+         'src/utils.c', 'src/post/fork.c']
 xineso = Extension('kaa.xine._xinemodule', files, config='src/config.h')
 #xineso.libraries += ["X11"]
 #xineso.library_dirs.append("/usr/X11R6/lib")

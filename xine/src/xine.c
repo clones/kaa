@@ -10,6 +10,7 @@
 #include "event_queue.h"
 #include "event.h"
 #include "drivers/buffer.h"
+#include "post/fork.h"
 
 PyObject *xine_error;
 extern PyObject *xine_object_to_pyobject_dict;
@@ -74,6 +75,7 @@ Xine_PyObject__init(Xine_PyObject *self, PyObject *args, PyObject *kwds)
     xine_config_load(xine, cfgfile);
     xine_init(xine);
     xine_register_plugins(xine, xine_vo_buffer_plugin_info);
+    xine_register_plugins(xine, xine_fork_plugin_info);
     self->xine = xine;
     xine_object_to_pyobject_register(xine, (PyObject *)self);
 
@@ -156,6 +158,7 @@ Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *k
     Xine_Video_Port_PyObject *vo;
     char *driver;
     void *finalize_data = NULL;
+    int own = 1;
 
     if (!PyArg_ParseTuple(args, "s", &driver))
         return NULL;
@@ -165,20 +168,17 @@ Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *k
     } else if (!strcmp(driver, "none")) {
         vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
     } else if (!strcmp(driver, "buffer")) {
-        PyObject *callback = PyDict_GetItemString(kwargs, "callback");
-        if (!callback) {
-            PyErr_Format(xine_error, "Specify callback for buffer driver");
-            return NULL;
-        }
-        vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)callback);
+        vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)kwargs);
+        own = 1;
     }
         
-    if (!vo_port && !PyErr_Occurred()) {
-        PyErr_Format(xine_error, "Failed to open driver: %s", driver);
+    if (!vo_port) {
+        if (!PyErr_Occurred())
+            PyErr_Format(xine_error, "Failed to open driver: %s", driver);
         return NULL;
     }
 
-    vo = pyxine_new_video_port_pyobject((PyObject *)self, vo_port, 1);
+    vo = pyxine_new_video_port_pyobject((PyObject *)self, vo_port, own);
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "auto") || !strcmp(driver, "xshm")) {
         x11_open_video_driver_finalize(vo, finalize_data);
