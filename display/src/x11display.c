@@ -162,10 +162,27 @@ X11Display_PyObject__get_size(X11Display_PyObject * self, PyObject * args)
     return Py_BuildValue("(ii)", w, h);
 }
 
+PyObject *
+X11Display_PyObject__lock(X11Display_PyObject * self, PyObject * args)
+{
+    XLockDisplay(self->display);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *
+X11Display_PyObject__unlock(X11Display_PyObject * self, PyObject * args)
+{
+    XUnlockDisplay(self->display);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
 
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
     { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
+    { "lock", ( PyCFunction ) X11Display_PyObject__lock, METH_VARARGS },
+    { "unlock", ( PyCFunction ) X11Display_PyObject__unlock, METH_VARARGS },
     { "get_size", ( PyCFunction ) X11Display_PyObject__get_size, METH_VARARGS },
     { NULL, NULL }
 };

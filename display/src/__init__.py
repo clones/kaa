@@ -32,6 +32,9 @@
 # python imports
 import weakref
 import time
+import threading
+import select
+import os
 
 # the display module
 import _Display
@@ -80,8 +83,7 @@ _keysym_names = {
     359: "menu",
     275: "pause"
 }
-    
-
+ 
 class X11Display(object):
     XEVENT_MOTION_NOTIFY = 6
     XEVENT_EXPOSE = 12
@@ -95,6 +97,7 @@ class X11Display(object):
     def __init__(self, dispname = ""):
         self._display = _Display.X11Display(dispname)
         self._windows = {}
+
         dispatcher = kaa.notifier.SocketDispatcher(self.handle_events)
         dispatcher.register(self.socket)
         # Also connect to the idle signal. It is a bad hack, but when
@@ -102,7 +105,6 @@ class X11Display(object):
         # events when doing drawings.
         kaa.notifier.signals['idle'].connect(self.handle_events)
 
-        
     def handle_events(self):
         window_events = {}
         for event, args in self._display.handle_events():
@@ -135,6 +137,12 @@ class X11Display(object):
 
     def sync(self):
         return self._display.sync()
+
+    def lock(self):
+        return self._display.lock()
+
+    def unlock(self):
+        return self._display.unlock()
 
     def get_size(self, screen = -1):
         return self._display.get_size(screen)
@@ -184,6 +192,15 @@ class X11Window(object):
     def hide(self):
         self._window.hide()
         self._display.handle_events()
+
+    def set_visible(self, visible = True):
+        if visible:
+            self.show()
+        else:
+            self.hide()
+
+    def get_visible(self):
+        return self._window.get_visible()
 
     def render_imlib2_image(self, i, dst_pos = (0, 0), src_pos = (0, 0),
                             size = (-1, -1), dither = True, blend = False):

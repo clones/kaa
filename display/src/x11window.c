@@ -226,6 +226,16 @@ X11Window_PyObject__set_fullscreen(X11Window_PyObject *self, PyObject *args)
     return PyBool_FromLong(_ewmh_set_hint(self, "_NET_WM_STATE", data, 2));
 }
 
+PyObject *
+X11Window_PyObject__get_visible(X11Window_PyObject * self, PyObject * args)
+{
+    XWindowAttributes attrs;
+    XLockDisplay(self->display);
+    XGetWindowAttributes(self->display, self->window, &attrs);
+    XUnlockDisplay(self->display);
+    return Py_BuildValue("i", attrs.map_state);
+}
+
 PyMethodDef X11Window_PyObject_methods[] = {
     { "show", (PyCFunction)X11Window_PyObject__show, METH_VARARGS },
     { "hide", (PyCFunction)X11Window_PyObject__hide, METH_VARARGS },
@@ -233,6 +243,7 @@ PyMethodDef X11Window_PyObject_methods[] = {
     { "get_geometry", (PyCFunction)X11Window_PyObject__get_geometry, METH_VARARGS },
     { "set_cursor_visible", (PyCFunction)X11Window_PyObject__set_cursor_visible, METH_VARARGS },
     { "set_fullscreen", (PyCFunction)X11Window_PyObject__set_fullscreen, METH_VARARGS },
+    { "get_visible", (PyCFunction)X11Window_PyObject__get_visible, METH_VARARGS },
     { NULL, NULL }
 };
 
