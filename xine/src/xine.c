@@ -9,7 +9,7 @@
 #include "post_in.h"
 #include "event_queue.h"
 #include "event.h"
-#include "post/buffer.h"
+#include "drivers/buffer.h"
 
 PyObject *xine_error;
 extern PyObject *xine_object_to_pyobject_dict;
@@ -73,7 +73,7 @@ Xine_PyObject__init(Xine_PyObject *self, PyObject *args, PyObject *kwds)
     snprintf(cfgfile, PATH_MAX, "%s%s", xine_get_homedir(), "/.xine/config");
     xine_config_load(xine, cfgfile);
     xine_init(xine);
-    xine_register_plugins(xine, xine_buffer_plugin_info);
+    xine_register_plugins(xine, xine_vo_buffer_plugin_info);
     self->xine = xine;
     xine_object_to_pyobject_register(xine, (PyObject *)self);
 
@@ -164,6 +164,13 @@ Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         vo_port = x11_open_video_driver(self, driver, kwargs, &finalize_data);
     } else if (!strcmp(driver, "none")) {
         vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
+    } else if (!strcmp(driver, "buffer")) {
+        PyObject *callback = PyDict_GetItemString(kwargs, "callback");
+        if (!callback) {
+            PyErr_Format(xine_error, "Specify callback for buffer driver");
+            return NULL;
+        }
+        vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)callback);
     }
         
     if (!vo_port && !PyErr_Occurred()) {

@@ -1,9 +1,10 @@
 import weakref
 import threading
+import os
 
 import _xine
 import kaa
-from kaa import display, notifier
+from kaa import display, notifier, metadata
 from kaa.base.version import Version
 from constants import *
 
@@ -82,6 +83,19 @@ def _debug_show_chain(o, level = 0):
     else:
         print '%s  -> [UNKNOWN]' % indent, o
 
+def make_mrl(arg):
+    if arg.find("://") != -1:
+        return arg
+
+    md = metadata.parse(arg)
+    if isinstance(md, (metadata.disc.dvdinfo.DVDInfo, metadata.disc.lsdvd.DVDInfo)):
+        mrl = "dvd://" + arg
+    else:
+        if arg[0] != '/':
+            arg = os.path.join(os.getcwd(), arg)
+        mrl = "file://" + arg
+
+    return mrl
 
 
 class Xine(object):
@@ -98,7 +112,7 @@ class Xine(object):
         self._xine.wrapper = weakref.ref(self)
 
     def _default_frame_output_cb(self, width, height, aspect, window):
-        #print "FRAME CALLBACK", width, height, aspect
+        #print "FRAME CALLBACK", width, height, aspect, window
         if window:
             win_w, win_h = window.get_geometry()[1]
         else:
@@ -127,7 +141,7 @@ class Xine(object):
     def open_video_driver(self, driver = "auto", **kwargs):
         if "window" in kwargs:
             window = kwargs["window"]
-            assert(type(window) == display.X11Window)
+            assert(isinstance(window, display.X11Window))
             if "frame_output_cb" not in kwargs:
                 kwargs["frame_output_cb"] = notifier.WeakCallback(self._default_frame_output_cb, window)
             if "dest_size_cb" not in kwargs:

@@ -281,22 +281,29 @@ PyObject *
 Xine_Stream_PyObject_get_meta_info(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     int info;
+    const char *value;
 
     if (!PyArg_ParseTuple(args, "i", &info))
         return NULL;
 
-    return Py_BuildValue("s", (xine_get_meta_info(self->stream, info)));
+    Py_BEGIN_ALLOW_THREADS
+    value = xine_get_meta_info(self->stream, info);
+    Py_END_ALLOW_THREADS
+    return Py_BuildValue("s", value);
 }
 
 PyObject *
 Xine_Stream_PyObject_get_param(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    int param;
+    int param, value;
 
     if (!PyArg_ParseTuple(args, "i", &param))
         return NULL;
 
-    return PyInt_FromLong(xine_get_param(self->stream, param));
+    Py_BEGIN_ALLOW_THREADS
+    value = xine_get_param(self->stream, param);
+    Py_END_ALLOW_THREADS
+    return PyInt_FromLong(value);
 }
 
 PyObject *
@@ -307,7 +314,9 @@ Xine_Stream_PyObject_set_param(Xine_Stream_PyObject *self, PyObject *args, PyObj
     if (!PyArg_ParseTuple(args, "ii", &param, &value))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     xine_set_param(self->stream, param, value);
+    Py_END_ALLOW_THREADS
     Py_INCREF(Py_None);
     return Py_None;
 }
