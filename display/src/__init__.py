@@ -81,7 +81,11 @@ _keysym_names = {
     481: "left-shift",
     482: "right-shift",
     359: "menu",
-    275: "pause"
+    275: "pause",
+
+    # keypad
+    427: "kp_plus",
+    429: "kp_minus"
 }
  
 class X11Display(object):
