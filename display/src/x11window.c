@@ -64,12 +64,6 @@ int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
 static int
 X11Window_PyObject__clear(X11Window_PyObject *self)
 {
-    PyObject *tmp;
-    if (self->display_pyobject) {
-        tmp = self->display_pyobject;
-        self->display_pyobject = 0;
-        Py_DECREF(tmp);
-    }
     return 0;
 }
 
@@ -129,8 +123,8 @@ X11Window_PyObject__init(X11Window_PyObject *self, PyObject *args,
 void
 X11Window_PyObject__dealloc(X11Window_PyObject * self)
 {
+    printf("X11Window dealloc\n");
     if (self->window) {
-        //printf("X11Window destroy\n");
         XLockDisplay(self->display);
         XDestroyWindow(self->display, self->window);
         Py_XDECREF(self->ptr);

@@ -1,14 +1,15 @@
 from kaa import display, main
+import gc
 
 def handle_key(key, obj):
     alpha = obj.color_get()[3]
-    if key == 104:
+    if key == "down":
         obj.color_set(a = alpha - 10)
         obj.evas_get().render()
-    elif key == 98:
+    elif key == "up":
         obj.color_set(a = alpha + 10)
         obj.evas_get().render()
-    elif key == 24:
+    elif key == "q":
         raise SystemExit
         
 
@@ -28,3 +29,4 @@ window.show()
 
 print "Up/down arrows modify text alpha level; 'q' quits."
 main()
+del window, canvas, bg, text
