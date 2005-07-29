@@ -1,0 +1,37 @@
+--- xine-lib.orig/src/xine-engine/load_plugins.c	2005-07-17 21:46:02.000000000 -0400
++++ xine-lib/src/xine-engine/load_plugins.c	2005-07-28 17:25:04.000000000 -0400
+@@ -1466,13 +1466,12 @@
+   return driver;
+ }
+ 
+-xine_video_port_t *xine_open_video_driver (xine_t *this,
+-					   const char *id,
++vo_driver_t *_x_load_video_output_plugin(xine_t *this,
++					   char *id,
+ 					   int visual_type, void *visual) {
+ 
+   plugin_node_t      *node;
+   vo_driver_t        *driver;
+-  xine_video_port_t  *port;
+   vo_info_t          *vo_info;
+   plugin_catalog_t   *catalog = this->plugin_catalog;
+ 
+@@ -1510,6 +1509,18 @@
+ 
+   pthread_mutex_unlock (&catalog->lock);
+ 
++  return driver;
++}
++
++xine_video_port_t *xine_open_video_driver (xine_t *this,
++					   const char *id,
++					   int visual_type, void *visual) {
++
++  vo_driver_t        *driver;
++  xine_video_port_t  *port;
++
++  driver = _x_load_video_output_plugin(this, (char *)id, visual_type, visual);
++
+   if (!driver) {
+     lprintf ("failed to load video output plugin <%s>\n", id);
+     return NULL;
