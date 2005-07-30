@@ -1,6 +1,7 @@
 #include "xine.h"
 #include "structmember.h"
 #include "drivers/x11.h"
+#include "vo_driver.h"
 #include "video_port.h"
 #include "audio_port.h"
 #include "stream.h"
@@ -33,14 +34,16 @@ _xine_log_callback(void *xine_pyobject, int section)
 static int
 Xine_PyObject__clear(Xine_PyObject *self)
 {
-    PyObject **list[] = {&self->dependencies, &self->log_callback, NULL};
+    PyObject **list[] = {&self->log_callback, NULL};
+    //printf("XINE CLEAR\n");
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_PyObject__traverse(Xine_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->dependencies, &self->log_callback, NULL};
+    PyObject **list[] = {/*&self->dependencies, */&self->log_callback, NULL};
+    //printf("XINE TRAV: %d\n", PySequence_Length(self->dependencies));
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -97,12 +100,16 @@ void
 Xine_PyObject__dealloc(Xine_PyObject *self)
 {
     printf("DEalloc Xine: %x\n", self->xine);
+    Py_DECREF(self->wrapper);
+    Py_DECREF(self->dependencies);
+    Xine_PyObject__clear(self);
+    xine_object_to_pyobject_unregister(self->xine);
+
+    printf("XINE EXIT\n");
     if (self->xine) {
         xine_exit(self->xine);
     }
-    Py_DECREF(self->wrapper);
-    Xine_PyObject__clear(self);
-    xine_object_to_pyobject_unregister(self->xine);
+
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -151,39 +158,40 @@ Xine_PyObject_list_plugins(Xine_PyObject *self, PyObject *args, PyObject *kwargs
     return pylist;
 }
 
+
 PyObject *
-Xine_PyObject_open_video_driver(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    xine_video_port_t *vo_port = NULL;
-    Xine_Video_Port_PyObject *vo;
+    vo_driver_t *vo_driver;
+    Xine_VO_Driver_PyObject *vo_driver_pyobject;
     char *driver;
     void *finalize_data = NULL;
-    int own = 1;
 
     if (!PyArg_ParseTuple(args, "s", &driver))
         return NULL;
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto")) {
-        vo_port = x11_open_video_driver(self, driver, kwargs, &finalize_data);
+        vo_driver = x11_open_video_driver(self, driver, kwargs, &finalize_data);
     } else if (!strcmp(driver, "none")) {
-        vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
+        //vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
+        vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
     } else if (!strcmp(driver, "buffer")) {
-        vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)kwargs);
-        own = 1;
+        //vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)kwargs);
+        vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)kwargs);
     }
         
-    if (!vo_port) {
+    if (!vo_driver) {
         if (!PyErr_Occurred())
             PyErr_Format(xine_error, "Failed to open driver: %s", driver);
         return NULL;
     }
 
-    vo = pyxine_new_video_port_pyobject((PyObject *)self, vo_port, own);
+    vo_driver_pyobject = pyxine_new_vo_driver_pyobject((PyObject *)self, vo_driver, 1);
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "auto") || !strcmp(driver, "xshm")) {
-        x11_open_video_driver_finalize(vo, finalize_data);
+        x11_open_video_driver_finalize(vo_driver_pyobject, finalize_data);
     }
-    return (PyObject *)vo;
+    return (PyObject *)vo_driver_pyobject;
 }
 
 PyObject *
@@ -444,7 +452,7 @@ Xine_PyObject_get_mime_types(Xine_PyObject *self, PyObject *args, PyObject *kwar
 
 PyMethodDef Xine_PyObject_methods[] = {
     {"list_plugins", (PyCFunction) Xine_PyObject_list_plugins, METH_VARARGS },
-    {"open_video_driver", (PyCFunction) Xine_PyObject_open_video_driver, METH_VARARGS | METH_KEYWORDS},
+    {"load_video_output_plugin", (PyCFunction) Xine_PyObject_load_video_output_plugin, METH_VARARGS | METH_KEYWORDS},
     {"open_audio_driver", (PyCFunction) Xine_PyObject_open_audio_driver, METH_VARARGS | METH_KEYWORDS},
     {"stream_new", (PyCFunction) Xine_PyObject_stream_new, METH_VARARGS },
     {"post_init", (PyCFunction) Xine_PyObject_post_init, METH_VARARGS },
@@ -539,6 +547,11 @@ void **get_module_api(char *module)
 }
 
 
+#define INIT_XINE_TYPE(s, label) \
+    if (PyType_Ready(& s ## _PyObject_Type) < 0) return; \
+    Py_INCREF(& s ## _PyObject_Type); \
+    PyModule_AddObject(m, label, (PyObject *)& s ## _PyObject_Type)
+
 
 void
 init_xine()
@@ -551,50 +564,16 @@ init_xine()
     Py_INCREF(xine_error);
     PyModule_AddObject(m, "XineError", xine_error);
 
-    if (PyType_Ready(&Xine_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_PyObject_Type);
-    PyModule_AddObject(m, "Xine", (PyObject *)&Xine_PyObject_Type);
-
-    if (PyType_Ready(&Xine_Video_Port_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Video_Port_PyObject_Type);
-    PyModule_AddObject(m, "VideoPort", (PyObject *)&Xine_Video_Port_PyObject_Type);
-
-    if (PyType_Ready(&Xine_Audio_Port_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Audio_Port_PyObject_Type);
-    PyModule_AddObject(m, "AudioPort", (PyObject *)&Xine_Audio_Port_PyObject_Type);
-    
-    if (PyType_Ready(&Xine_Stream_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Stream_PyObject_Type);
-    PyModule_AddObject(m, "Stream", (PyObject *)&Xine_Stream_PyObject_Type);
-
-    if (PyType_Ready(&Xine_Post_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Post_PyObject_Type);
-    PyModule_AddObject(m, "Post", (PyObject *)&Xine_Post_PyObject_Type);
-
-    if (PyType_Ready(&Xine_Post_Out_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Post_Out_PyObject_Type);
-    PyModule_AddObject(m, "PostOut", (PyObject *)&Xine_Post_Out_PyObject_Type);
-
-    if (PyType_Ready(&Xine_Post_In_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Post_In_PyObject_Type);
-    PyModule_AddObject(m, "PostIn", (PyObject *)&Xine_Post_In_PyObject_Type);
-
-    if (PyType_Ready(&Xine_Event_Queue_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Event_Queue_PyObject_Type);
-    PyModule_AddObject(m, "EventQueue", (PyObject *)&Xine_Event_Queue_PyObject_Type);
-
-    if (PyType_Ready(&Xine_Event_PyObject_Type) < 0)
-        return;
-    Py_INCREF(&Xine_Event_PyObject_Type);
-    PyModule_AddObject(m, "Event", (PyObject *)&Xine_Event_PyObject_Type);
+    INIT_XINE_TYPE(Xine, "Xine");
+    INIT_XINE_TYPE(Xine_VO_Driver, "VODriver");
+    INIT_XINE_TYPE(Xine_Video_Port, "VideoPort");
+    INIT_XINE_TYPE(Xine_Audio_Port, "AudioPort");
+    INIT_XINE_TYPE(Xine_Stream, "Stream");
+    INIT_XINE_TYPE(Xine_Post, "Post");
+    INIT_XINE_TYPE(Xine_Post_In, "PostIn");
+    INIT_XINE_TYPE(Xine_Post_Out, "PostOut");
+    INIT_XINE_TYPE(Xine_Event_Queue, "EventQueue");
+    INIT_XINE_TYPE(Xine_Event, "Event");
 
     if (xine_object_to_pyobject_dict == NULL)
         xine_object_to_pyobject_dict = PyDict_New();

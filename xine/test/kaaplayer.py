@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, math, threading, os, time
+import sys, math, threading, os, time, gc
 
 import kaa
 from kaa import xine, display, metadata, notifier, evas
@@ -43,13 +43,11 @@ def handle_keypress_event(key, stream, window):
     elif key == "[":
         stream.send_event(xine.EVENT_INPUT_PREVIOUS)
     elif key == "d":
-        source = stream.get_video_source()
-        deint_input = stream.deint_post.get_default_input()
-        if source.get_wire_target() == deint_input:
-            stream.deint_post.unwire()
+        enabled = stream.deint_post.get_parameters()["enabled"]
+        stream.deint_post.set_parameters(enabled = not enabled)
+        if enabled:
             say("\nDeinterlacing OFF\n")
         else:
-            source.wire(deint_input)
             say("\nDeinterlacing ON\n")
 
     elif key == "a":
@@ -110,7 +108,18 @@ def output_status_line(stream, window):
 def render():
     print "RENDER FROM MAIN THREAD\n\n"
 
+toggle=1
+c=0
+lf=0
 def foo(width, height, aspect, buffer, window):
+    global toggle, c, lf
+    c+=1
+    toggle=1-toggle
+    if time.time()-lf > 1:
+        print threading.currentThread(), "fps %d\n" % c
+        c=0
+        lf=time.time()
+    return 1
     if not window.get_visible():
         return True
     if window.movie.size_get() != (width, height):
@@ -123,19 +132,16 @@ def foo(width, height, aspect, buffer, window):
 
     window.movie.pixels_import(buffer, width, height, evas.PIXEL_FORMAT_YUV420P_601)
     window.movie.pixels_dirty_set()
-    window.get_evas().render()
-    return 42
-    #cb = notifier.MainThreadCallback(window.get_evas().render)
-    #cb()
-    #notifier.call_from_main(window.get_evas().render)
+    notifier.MainThreadCallback(window.get_evas().render)()
+    return True
 
 
 win = display.X11Window(size = (50, 50), title = "Kaa Player")
 win.set_cursor_hide_timeout(0.5)
 
 x = xine.Xine()
-if 1: #isinstance(win, display.EvasX11Window):
-    win2 = display.EvasX11Window(gl = True, size = (640, 480), title = "Kaa Player")
+if 1:
+    win2 = display.EvasX11Window(gl = False, size = (640, 480), title = "Kaa Player")
     r = win2.get_evas().object_rectangle_add()
     r.color_set((255,255,255,255))
     r.move((0,0))
@@ -151,13 +157,13 @@ if 1: #isinstance(win, display.EvasX11Window):
     win2.movie.layer_set(10)
     win2.movie.show()
 
-    cb = notifier.MainThreadCallback(foo, win2)
+    cb = notifier.Callback(foo, win2)
+    #cb = notifier.MainThreadCallback(foo, win2)
     #cb.set_async(False)
-    vo_xv = x.open_video_driver(window = win)
-    vo = x.open_video_driver("buffer", callback = cb, passthrough = vo_xv)
-    #vo = vo_xv
+    #vo_xv = x.open_video_driver(window = win)
+    vo = x.open_video_driver("buffer", callback = cb, passthrough = x.load_video_output_plugin("xv", window=win))
+    #vo = x.open_video_driver("xv", window = win)
 else:
-    vo_xv = None
     vo = x.open_video_driver(window = win)
 
 ao = x.open_audio_driver()
@@ -168,29 +174,20 @@ kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream,
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 if not isinstance(win, display.EvasX11Window):
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
-kaa.signals["idle"].connect_weak(output_status_line, stream, win)
+#kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
+stream.deint_post = x.post_init("tvtime", video_targets = [vo])
+print stream.deint_post.get_parameters_desc()["framerate_mode"]
+stream.deint_post.set_parameters(method = "GreedyH")
+stream.get_video_source().wire(stream.deint_post.get_default_input())
+
+#print vo, vo.get_driver(), vo.get_driver()._driver.owner, vo.get_driver().get_port()
 stream.open(mrl)
 stream.play()
 
-stream.deint_post = x.post_init("tvtime", video_targets = [vo])
-methods = stream.deint_post.get_parameters_desc()["method"]["enums"]
-print methods
-stream.deint_post.set_parameters(method = methods.index("LinearBlend"))
-#stream.deint_post.set_parameters(method = methods.index("TomsMoComp"), cheap_mode = False)
-
-#cb = notifier.Callback(foo, win)
-#buffer = x.post_init("buffer", video_targets = [vo])
-#buffer = x.post_init("buffer", video_targets = [stream.deint_post.get_default_input().get_port()])
-#buffer.set_parameters(callback = id(cb))
-#stream.get_video_source().wire(buffer.get_default_input())
-#buffer.get_default_output().wire(stream.deint_post.get_default_input())
-
-#fork = x.post_init("fork", video_targets = [vo, vo_buffer])
-#stream.get_video_source().wire(fork.get_default_input())
-
-print x.list_post_plugins()
 win.show()
 kaa.main()
 win.hide()
-del ao, vo, stream, x, vo_xv, win, win2
+print win2._display._display, win._display._display, win2.get_evas()._dependencies
+del ao, vo, stream, x, win, win2, r, cb
+gc.collect()

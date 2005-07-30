@@ -4,6 +4,7 @@
 
 #include <Python.h>
 #include <xine.h>
+#include <xine/xine_internal.h>
 #include <assert.h>
 
 #include "utils.h"

@@ -7,9 +7,8 @@
 #include "structmember.h"
 
 // Owner must be a Post In, Post Out, Xine, or Stream object
-// XXX: if Xine, must be driver -- owner param deprecated then?
 Xine_Video_Port_PyObject *
-pyxine_new_video_port_pyobject(PyObject *owner_pyobject, xine_video_port_t * vo, int owner)
+pyxine_new_video_port_pyobject(PyObject *owner_pyobject, xine_video_port_t * vo, PyObject *driver, int owner)
 {
     Xine_Video_Port_PyObject *o = (Xine_Video_Port_PyObject *)xine_object_to_pyobject_find(vo);
     if (o) {
@@ -40,6 +39,12 @@ pyxine_new_video_port_pyobject(PyObject *owner_pyobject, xine_video_port_t * vo,
     o->owner_pyobject = owner_pyobject;
     Py_INCREF(owner_pyobject);
 
+    if (driver)
+        o->driver = driver;
+    else
+        o->driver = Py_None;
+    Py_INCREF(o->driver);
+
     o->vo = vo;
     o->xine_object_owner = owner;
     xine_object_to_pyobject_register(vo, (PyObject *)o);
@@ -51,7 +56,7 @@ pyxine_new_video_port_pyobject(PyObject *owner_pyobject, xine_video_port_t * vo,
 static int
 Xine_Video_Port_PyObject__clear(Xine_Video_Port_PyObject * self)
 {
-    PyObject **list[] = {&self->wire_object,  NULL};
+    PyObject **list[] = {&self->wire_object, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
@@ -59,7 +64,7 @@ static int
 Xine_Video_Port_PyObject__traverse(Xine_Video_Port_PyObject * self,
                                    visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wire_object,  NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wire_object, &self->driver, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -92,6 +97,7 @@ Xine_Video_Port_PyObject__init(Xine_Video_Port_PyObject * self,
 }
 
 static PyMemberDef Xine_Video_Port_PyObject_members[] = {
+    {"driver", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, driver), 0, "Video Driver object of this port"},
     {"wire_object", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, wire_object), 0, "Object wired to"},
     {"owner", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, wrapper), 0, "Wrapper object"},
@@ -102,19 +108,19 @@ static PyMemberDef Xine_Video_Port_PyObject_members[] = {
 void
 Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
 {
-    printf("DEalloc Video Port: %x, driver=%x\n", self->vo, ((xine_video_port_t *)self->vo)->driver);
+    printf("DEalloc Video Port: %x, driver=%x (%d) owner=%s \n", self->vo, 
+            ((xine_video_port_t *)self->vo)->driver, self->xine_object_owner,
+            self->owner_pyobject->ob_type->tp_name);
     if (self->vo && self->xine_object_owner) {
         Py_BEGIN_ALLOW_THREADS
         xine_close_video_driver(self->xine, self->vo);
         Py_END_ALLOW_THREADS
     }
+    Py_DECREF(self->driver);
     Py_DECREF(self->wrapper);
     Xine_Video_Port_PyObject__clear(self);
     Py_DECREF(self->owner_pyobject);
     xine_object_to_pyobject_unregister(self->vo);
-
-    if (self->driver_dealloc_cb)
-        self->driver_dealloc_cb(self->driver_dealloc_data);
 
     self->ob_type->tp_free((PyObject *) self);
 }

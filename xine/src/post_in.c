@@ -35,7 +35,7 @@ pyxine_new_post_in_pyobject(PyObject *owner_pyobject, xine_post_in_t *post_in,
     if (post_in->type == XINE_POST_DATA_VIDEO) {
         if (post_in->data) {
             xine_video_port_t *vo = (xine_video_port_t *)post_in->data;
-            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, 0);
+            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, NULL, 0);
         }
     }
     else if (post_in->type == XINE_POST_DATA_AUDIO) {
@@ -127,7 +127,7 @@ Xine_Post_In_PyObject_get_port(Xine_Post_In_PyObject *self, PyObject *args, PyOb
     if (self->post_in->type == XINE_POST_DATA_VIDEO) {
         if (self->post_in->data) {
             xine_video_port_t *vo = (xine_video_port_t *)self->post_in->data;
-            port = (PyObject *)pyxine_new_video_port_pyobject(self->owner_pyobject, vo, 0);
+            port = (PyObject *)pyxine_new_video_port_pyobject(self->owner_pyobject, vo, NULL, 0);
         }
     }
     else if (self->post_in->type == XINE_POST_DATA_AUDIO) {

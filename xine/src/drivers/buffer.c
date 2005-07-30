@@ -1,12 +1,19 @@
 #include <Python.h>
 #include "buffer.h"
 #include "../xine.h"
-#include "../video_port.h"
+#include "../vo_driver.h"
+
+static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);
+
 
 typedef struct buffer_frame_s {
     vo_frame_t vo_frame;
     int width, height, format;
     double ratio;
+    int flags;
+
+    unsigned char *yv12_buffer, *yuy2_buffer;
+    vo_frame_t *passthrough_frame;
     // more
 } buffer_frame_t;
 
@@ -16,8 +23,11 @@ typedef struct buffer_driver_s {
     pthread_mutex_t lock;
     xine_t *xine;
 
+    int aspect;
+
     PyObject *callback;
-    xine_video_port_t *passthrough;
+    vo_driver_t *passthrough;
+    PyObject *passthrough_pyobject;
 } buffer_driver_t;
 
 typedef struct buffer_class_s {
@@ -31,7 +41,7 @@ static uint32_t
 buffer_get_capabilities(vo_driver_t *this_gen)
 {
     printf("buffer: get_capabilities\n");
-    return VO_CAP_YV12;
+    return VO_CAP_YV12 | VO_CAP_YUY2;
 }
 
 static void
@@ -44,24 +54,39 @@ static void
 buffer_frame_dispose(vo_frame_t *vo_img)
 {
     buffer_frame_t *frame = (buffer_frame_t *)vo_img;
-    printf("buffer_frame_dispose\n");
+    //printf("buffer_frame_dispose\n");
     pthread_mutex_destroy(&frame->vo_frame.mutex);
-    if (frame->vo_frame.base[0])
-        free(frame->vo_frame.base[0]);
+    if (frame->yv12_buffer)
+        free(frame->yv12_buffer);
+    if (frame->yuy2_buffer)
+        free(frame->yuy2_buffer);
+
     free(frame);
 }
+
+void vo_frame_inc_lock(vo_frame_t *img)
+{
+}
+
+void vo_frame_dec_lock(vo_frame_t *img)
+{
+}
+
 
 static vo_frame_t *
 buffer_alloc_frame(vo_driver_t *this_gen)
 {
     buffer_frame_t *frame;
+    buffer_driver_t *this = (buffer_driver_t *)this_gen;
     
-    //printf("buffer_alloc_frame\n");
+    printf("buffer_alloc_frame: %x\n", this);
     frame = (buffer_frame_t *)xine_xmalloc(sizeof(buffer_frame_t));
     if (!frame)
         return NULL;
 
     pthread_mutex_init(&frame->vo_frame.mutex, NULL);
+
+    frame->yv12_buffer = frame->yuy2_buffer = NULL;
 
     frame->vo_frame.base[0] = NULL;
     frame->vo_frame.base[1] = NULL;
@@ -73,52 +98,90 @@ buffer_alloc_frame(vo_driver_t *this_gen)
     frame->vo_frame.dispose = buffer_frame_dispose;
     frame->vo_frame.driver = this_gen;
 
+    frame->passthrough_frame = this->passthrough->alloc_frame(this->passthrough);
+    frame->passthrough_frame->free = vo_frame_dec_lock;
+    frame->passthrough_frame->lock = vo_frame_inc_lock;
+
+
     return (vo_frame_t *)frame;
 }
 
-
 static void 
 buffer_update_frame_format (vo_driver_t *this_gen,
-                    vo_frame_t *frame_gen,
-                    uint32_t width, uint32_t height,
-                    double ratio, int format, int flags) 
+                vo_frame_t *frame_gen,
+                uint32_t width, uint32_t height,
+                double ratio, int format, int flags) 
 {
     buffer_driver_t *this = (buffer_driver_t *)this_gen;
     buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
     int y_size, uv_size;
 
-    //printf("buffer_update_frame_format: %dx%d ratio=%.3f\n", width, height, ratio);
-
-    frame->vo_frame.pitches[0] = width;
-    frame->vo_frame.pitches[1] = width>>1;
-    frame->vo_frame.pitches[2] = width>>1;
-
-    y_size = frame->vo_frame.pitches[0] * height;
-    uv_size = frame->vo_frame.pitches[1] * (height>>1);
+//    printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
 
 
-    if (frame->width != width || frame->height != height) {
-        if (frame->vo_frame.base[0]) {
-            free(frame->vo_frame.base[0]);
+    this->passthrough->update_frame_format(this->passthrough,
+        frame->passthrough_frame, width, height, ratio, format, flags);
+
+    memcpy(&frame->vo_frame.pitches, frame->passthrough_frame->pitches, sizeof(int)*3);
+    memcpy(&frame->vo_frame.base, frame->passthrough_frame->base, sizeof(char *)*3);
+
+
+#if 0
+    if (frame->width != width || frame->height != height || format != frame->format) {
+        if (format == XINE_IMGFMT_YV12) {
+            frame->vo_frame.pitches[0] = 8*((width + 7) / 8);
+            frame->vo_frame.pitches[1] = 8*((width + 15) / 16);
+            frame->vo_frame.pitches[2] = 8*((width + 15) / 16);
+    
+            y_size  = frame->vo_frame.pitches[0] * height;
+            uv_size = frame->vo_frame.pitches[1] * ((height+1)/2);
+    
+            if (frame->yv12_buffer && (width != frame->width || height != frame->height)) {
+                free(frame->yv12_buffer);
+                frame->yv12_buffer = NULL;
+            }
+            if (!frame->yv12_buffer) {
+                printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
+                frame->yv12_buffer = xine_xmalloc(y_size + 2*uv_size);
+            }
+            frame->vo_frame.base[0] = frame->yv12_buffer;
+            frame->vo_frame.base[1] = frame->vo_frame.base[0] + y_size+uv_size;
+            frame->vo_frame.base[2] = frame->vo_frame.base[0] + y_size;
+        } else if (format == XINE_IMGFMT_YUY2) {
+            frame->vo_frame.pitches[0] = 8*((width + 3) / 4);
+            frame->vo_frame.pitches[1] = 0;
+            frame->vo_frame.pitches[2] = 0;
+            if (frame->yuy2_buffer && (width != frame->width || height != frame->height)) {
+                free(frame->yuy2_buffer);
+                frame->yuy2_buffer = NULL;
+            }
+            if (!frame->yuy2_buffer) {
+                printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
+                frame->yuy2_buffer = xine_xmalloc(frame->vo_frame.pitches[0] * height);
+            }
+    
+            frame->vo_frame.base[0] = frame->yuy2_buffer;
+            frame->vo_frame.base[1] = NULL;
+            frame->vo_frame.base[2] = NULL;
+        } else {
+            printf("\n\n\nUNSUPPORTED FRAME FORMAT %d\n\n\n", format);
         }
-        frame->vo_frame.base[0] = xine_xmalloc(y_size + (2*uv_size));
-        frame->vo_frame.base[1] = frame->vo_frame.base[0] + y_size;
-        frame->vo_frame.base[2] = frame->vo_frame.base[0] + y_size + uv_size;
     }
-
+#endif
     frame->width = width;
     frame->height = height;
     frame->format = format;
     frame->ratio = ratio;
-
-
+    frame->flags = flags;
 }
 
 static int
 buffer_redraw_needed(vo_driver_t *vo)
 {
-//    printf("buffer_redraw_needed\n");
-    return 0;
+    buffer_driver_t *this = (buffer_driver_t *)vo;
+    //printf("buffer_redraw_needed: %x\n", vo);
+    return this->passthrough->redraw_needed(this->passthrough);
+    return 1;
 }
 
 static void 
@@ -131,8 +194,8 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     PyObject *args, *result;
     PyGILState_STATE gstate;
 
+    //printf("buffer_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
     pthread_mutex_lock(&this->lock);
-//    printf("buffer_display_frame: fd=%d %d\n", this->callback, frame->vo_frame.base[0][2000]);
 
     gstate = PyGILState_Ensure();
     args = Py_BuildValue("(iidi)", frame->width, frame->height, frame->ratio,
@@ -151,19 +214,7 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     PyGILState_Release(gstate);
 
     if (this->passthrough && do_passthrough) {
-        passthrough_frame = this->passthrough->get_frame(this->passthrough, 
-            frame->vo_frame.width, frame->vo_frame.height, frame->vo_frame.ratio, 
-            frame->vo_frame.format, frame->vo_frame.flags);
-        
-        int size = (frame_gen->pitches[0] * frame->height) + (frame_gen->pitches[1] * (frame->height>>1))*2;
-        xine_fast_memcpy(passthrough_frame->base[0], frame_gen->base[0], frame_gen->pitches[0] * frame->height);
-        xine_fast_memcpy(passthrough_frame->base[1], frame_gen->base[1], frame_gen->pitches[1] * (frame->height>>1));
-        xine_fast_memcpy(passthrough_frame->base[2], frame_gen->base[2], frame_gen->pitches[2] * (frame->height>>1));
-
-        _x_post_frame_copy_down(frame, passthrough_frame);
-        passthrough_frame->draw(passthrough_frame, frame_gen->stream);
-        _x_post_frame_copy_up(passthrough_frame, frame);
-        passthrough_frame->free(passthrough_frame);
+        this->passthrough->display_frame(this->passthrough, frame->passthrough_frame);
     }
     frame->vo_frame.free(&frame->vo_frame);
     pthread_mutex_unlock(&this->lock);
@@ -172,38 +223,62 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
 static int 
 buffer_get_property (vo_driver_t *this_gen, int property) 
 {
+    buffer_driver_t *this = (buffer_driver_t *)this_gen;
     printf("buffer_get_property: %d\n", property);
+    switch(property) {
+        case VO_PROP_ASPECT_RATIO:
+            return this->aspect;
+    }
+    return this->passthrough->get_property(this->passthrough, property);
 }
 
 static int 
 buffer_set_property (vo_driver_t *this_gen,
                 int property, int value) 
 {
+    buffer_driver_t *this = (buffer_driver_t *)this_gen;
     printf("buffer_set_property %d=%d\n", property, value);
+    switch (property) {
+        case VO_PROP_ASPECT_RATIO:
+            if (value >= XINE_VO_ASPECT_NUM_RATIOS)
+                value = XINE_VO_ASPECT_AUTO;
+            this->aspect = value;
+            return value;
+    }
+    return this->passthrough->set_property(this->passthrough, property, value);
 }
 
 static void 
 buffer_get_property_min_max (vo_driver_t *this_gen,
                      int property, int *min, int *max) 
 {
+    buffer_driver_t *this = (buffer_driver_t *)this_gen;
     printf("buffer_get_property_min_max\n");
+    this->passthrough->get_property_min_max(this->passthrough, property, min, max);
 }
 
 static int
 buffer_gui_data_exchange (vo_driver_t *this_gen,
                  int data_type, void *data) 
 {
+    buffer_driver_t *this = (buffer_driver_t *)this_gen;
     printf("buffer_gui_data_exchange\n");
-    return 0;
+    return this->passthrough->gui_data_exchange(this->passthrough, data_type, data);
 }
 
 static void
 buffer_dispose(vo_driver_t *this_gen)
 {
+    PyGILState_STATE gstate;
     buffer_driver_t *this = (buffer_driver_t *)this_gen;
+
     printf("buffer_dispose\n");
+
+    gstate = PyGILState_Ensure();
     if (this->callback)
        Py_DECREF(this->callback);
+    Py_DECREF(this->passthrough_pyobject);
+    PyGILState_Release(gstate);
 
     free(this);
     printf("Returning from buffer_dispose\n");
@@ -224,8 +299,8 @@ buffer_open_plugin(video_driver_class_t *class_gen, const void *args)
         return NULL;
     }
     passthrough = PyDict_GetItemString(kwargs, "passthrough");
-    if (passthrough && !Xine_Video_Port_PyObject_Check(passthrough)) {
-        PyErr_Format(xine_error, "Passthrough must be a video driver");
+    if (passthrough && !Xine_VO_Driver_PyObject_Check(passthrough)) {
+        PyErr_Format(xine_error, "Passthrough must be a VODriver object");
         return NULL;
     }
 
@@ -242,7 +317,7 @@ buffer_open_plugin(video_driver_class_t *class_gen, const void *args)
     this->vo_driver.alloc_frame             = buffer_alloc_frame;
     this->vo_driver.update_frame_format     = buffer_update_frame_format;
     this->vo_driver.overlay_begin           = NULL;
-    this->vo_driver.overlay_blend           = NULL;
+    this->vo_driver.overlay_blend           = _overlay_blend;
     this->vo_driver.overlay_end             = NULL;
     this->vo_driver.display_frame           = buffer_display_frame;
     this->vo_driver.get_property            = buffer_get_property;
@@ -254,8 +329,11 @@ buffer_open_plugin(video_driver_class_t *class_gen, const void *args)
 
     this->callback = callback;
     Py_INCREF(this->callback);
-    this->passthrough = ((Xine_Video_Port_PyObject *)passthrough)->vo;
+    this->passthrough = ((Xine_VO_Driver_PyObject *)passthrough)->driver;
+    Py_INCREF(passthrough);
+    this->passthrough_pyobject = passthrough;
 
+//    memcpy(&this->vo_driver, this->passthrough->driver, sizeof(vo_driver_t));
     return &this->vo_driver;
 }
 
@@ -295,6 +373,440 @@ buffer_init_class (xine_t *xine, void *visual_gen)
     this->xine   = xine;
     return this;
 }
+
+
+// These rle blend functions taken from xine (src/video_out/alphablend.c)
+
+#define BLEND_BYTE(dst, src, o) (((src)*o + ((dst)*(0xf-o)))/0xf)
+
+static void mem_blend32(uint8_t *mem, uint8_t *src, uint8_t o, int len) {
+  uint8_t *limit = mem + len*4;
+  while (mem < limit) {
+    *mem = BLEND_BYTE(*mem, src[0], o);
+    mem++;
+    *mem = BLEND_BYTE(*mem, src[1], o);
+    mem++;
+    *mem = BLEND_BYTE(*mem, src[2], o);
+    mem++;
+    *mem = BLEND_BYTE(*mem, src[3], o);
+    mem++;
+  }
+}
+
+
+typedef struct {         /* CLUT == Color LookUp Table */
+  uint8_t cb    : 8;
+  uint8_t cr    : 8;
+  uint8_t y     : 8;
+  uint8_t foo   : 8;
+} __attribute__ ((packed)) clut_t;
+
+
+static void _overlay_mem_blend_8(uint8_t *mem, uint8_t val, uint8_t o, size_t sz)
+{
+   uint8_t *limit = mem + sz;
+   while (mem < limit) {
+      *mem = BLEND_BYTE(*mem, val, o);
+      mem++;
+   }
+}
+
+static void _overlay_blend_yuv(uint8_t *dst_base[3], vo_overlay_t * img_overl, int dst_width, int dst_height, int dst_pitches[3])
+{
+   clut_t *my_clut;
+   uint8_t *my_trans;
+   int src_width;
+   int src_height;
+   rle_elem_t *rle;
+   rle_elem_t *rle_limit;
+   int x_off;
+   int y_off;
+   int ymask, xmask;
+   int rle_this_bite;
+   int rle_remainder;
+   int rlelen;
+   int x, y;
+   int clip_right;
+   uint8_t clr = 0;
+
+   src_width = img_overl->width;
+   src_height = img_overl->height;
+   rle = img_overl->rle;
+   rle_limit = rle + img_overl->num_rle;
+   x_off = img_overl->x;
+   y_off = img_overl->y;
+
+   if (!rle) return;
+
+   //printf("_overlay_blend_yuv: rle=%x w=%d h=%d x=%d y=%d\n", rle, src_width, src_height, x_off, y_off);
+   uint8_t *dst_y = dst_base[0] + dst_pitches[0] * y_off + x_off;
+   uint8_t *dst_cr = dst_base[2] + (y_off / 2) * dst_pitches[1] + (x_off / 2) + 1;
+   uint8_t *dst_cb = dst_base[1] + (y_off / 2) * dst_pitches[2] + (x_off / 2) + 1;
+   my_clut = (clut_t *) img_overl->clip_color;
+   my_trans = img_overl->clip_trans;
+
+   /* avoid wraping overlay if drawing to small image */
+   if( (x_off + img_overl->clip_right) < dst_width )
+     clip_right = img_overl->clip_right;
+   else
+     clip_right = dst_width - 1 - x_off;
+
+   /* avoid buffer overflow */
+   if( (src_height + y_off) >= dst_height )
+     src_height = dst_height - 1 - y_off;
+
+   rlelen=rle_remainder=0;
+   for (y = 0; y < src_height; y++) {
+      ymask = ((img_overl->clip_top > y) || (img_overl->clip_bottom < y));
+      xmask = 0;
+
+      for (x = 0; x < src_width;) {
+     uint16_t o;
+
+     if (rlelen == 0) {
+        rle_remainder = rlelen = rle->len;
+        clr = rle->color;
+        rle++;
+     }
+     if (rle_remainder == 0) {
+        rle_remainder = rlelen;
+     }
+     if ((rle_remainder + x) > src_width) {
+        /* Do something for long rlelengths */
+        rle_remainder = src_width - x;
+     }
+
+     if (ymask == 0) {
+        if (x <= img_overl->clip_left) {
+           /* Starts outside clip area */
+           if ((x + rle_remainder - 1) > img_overl->clip_left ) {
+          /* Cutting needed, starts outside, ends inside */
+          rle_this_bite = (img_overl->clip_left - x + 1);
+          rle_remainder -= rle_this_bite;
+          rlelen -= rle_this_bite;
+          my_clut = (clut_t *) img_overl->color;
+          my_trans = img_overl->trans;
+          xmask = 0;
+           } else {
+          /* no cutting needed, starts outside, ends outside */
+          rle_this_bite = rle_remainder;
+          rle_remainder = 0;
+          rlelen -= rle_this_bite;
+          my_clut = (clut_t *) img_overl->color;
+          my_trans = img_overl->trans;
+          xmask = 0;
+           }
+        } else if (x < clip_right) {
+           /* Starts inside clip area */
+           if ((x + rle_remainder) > clip_right ) {
+          /* Cutting needed, starts inside, ends outside */
+          rle_this_bite = (clip_right - x);
+          rle_remainder -= rle_this_bite;
+          rlelen -= rle_this_bite;
+          my_clut = (clut_t *) img_overl->clip_color;
+          my_trans = img_overl->clip_trans;
+          xmask++;
+           } else {
+          /* no cutting needed, starts inside, ends inside */
+          rle_this_bite = rle_remainder;
+          rle_remainder = 0;
+          rlelen -= rle_this_bite;
+          my_clut = (clut_t *) img_overl->clip_color;
+          my_trans = img_overl->clip_trans;
+          xmask++;
+           }
+        } else if (x >= clip_right) {
+           /* Starts outside clip area, ends outsite clip area */
+           if ((x + rle_remainder ) > src_width ) {
+          /* Cutting needed, starts outside, ends at right edge */
+          /* It should never reach here due to the earlier test of src_width */
+          rle_this_bite = (src_width - x );
+          rle_remainder -= rle_this_bite;
+          rlelen -= rle_this_bite;
+          my_clut = (clut_t *) img_overl->color;
+          my_trans = img_overl->trans;
+          xmask = 0;
+           } else {
+          /* no cutting needed, starts outside, ends outside */
+          rle_this_bite = rle_remainder;
+          rle_remainder = 0;
+          rlelen -= rle_this_bite;
+          my_clut = (clut_t *) img_overl->color;
+          my_trans = img_overl->trans;
+          xmask = 0;
+           }
+        }
+     } else {
+        /* Outside clip are due to y */
+        /* no cutting needed, starts outside, ends outside */
+        rle_this_bite = rle_remainder;
+        rle_remainder = 0;
+        rlelen -= rle_this_bite;
+        my_clut = (clut_t *) img_overl->color;
+        my_trans = img_overl->trans;
+        xmask = 0;
+     }
+     o   = my_trans[clr];
+     if (o) {
+        if(o >= 15) {
+           memset(dst_y + x, my_clut[clr].y, rle_this_bite);
+           if (y & 1) {
+          memset(dst_cr + (x >> 1), my_clut[clr].cr, (rle_this_bite+1) >> 1);
+          memset(dst_cb + (x >> 1), my_clut[clr].cb, (rle_this_bite+1) >> 1);
+           }
+        } else {
+           _overlay_mem_blend_8(dst_y + x, my_clut[clr].y, o, rle_this_bite);
+           if (y & 1) {
+          /* Blending cr and cb should use a different function, with pre -128 to each sample */
+          _overlay_mem_blend_8(dst_cr + (x >> 1), my_clut[clr].cr, o, (rle_this_bite+1) >> 1);
+          _overlay_mem_blend_8(dst_cb + (x >> 1), my_clut[clr].cb, o, (rle_this_bite+1) >> 1);
+           }
+        }
+
+     }
+     x += rle_this_bite;
+     if (rle >= rle_limit) {
+        break;
+     }
+      }
+      if (rle >= rle_limit) {
+     break;
+      }
+
+      dst_y += dst_pitches[0];
+
+      if (y & 1) {
+     dst_cr += dst_pitches[2];
+     dst_cb += dst_pitches[1];
+      }
+   }
+}
+
+
+void _overlay_blend_yuy2 (uint8_t * dst_img, vo_overlay_t * img_overl,
+                 int dst_width, int dst_height, int dst_pitch)
+{
+  clut_t *my_clut;
+  uint8_t *my_trans;
+
+  int src_width = img_overl->width;
+  int src_height = img_overl->height;
+  rle_elem_t *rle = img_overl->rle;
+  rle_elem_t *rle_limit = rle + img_overl->num_rle;
+  int x_off = img_overl->x;
+  int y_off = img_overl->y;
+  int x_odd = x_off & 1;
+  int ymask;
+  int rle_this_bite;
+  int rle_remainder;
+  int rlelen;
+  int x, y;
+  int l = 0;
+  int clip_right;
+
+  union {
+    uint32_t value;
+    uint8_t  b[4];
+    uint16_t h[2];
+  } yuy2;
+
+  uint8_t clr = 0;
+
+  int any_line_buffered = 0;
+  uint8_t *(*blend_yuy2_data)[ 3 ] = 0;
+  
+  uint8_t *dst_y = dst_img + dst_pitch * y_off + 2 * x_off;
+  uint8_t *dst;
+
+  my_clut = (clut_t*) img_overl->clip_color;
+  my_trans = img_overl->clip_trans;
+
+  /* avoid wraping overlay if drawing to small image */
+  if( (x_off + img_overl->clip_right) <= dst_width )
+    clip_right = img_overl->clip_right;
+  else
+    clip_right = dst_width - x_off;
+
+  /* avoid buffer overflow */
+  if( (src_height + y_off) > dst_height )
+    src_height = dst_height - y_off;
+
+  if (src_height <= 0)
+    return;
+
+  rlelen=rle_remainder=0;
+  for (y = 0; y < src_height; y++) {
+    if (rle >= rle_limit)
+      break;
+    
+    ymask = ((y < img_overl->clip_top) || (y >= img_overl->clip_bottom));
+
+    dst = dst_y;
+    for (x = 0; x < src_width;) {
+      uint16_t o;
+
+      if (rle >= rle_limit)
+        break;
+    
+      if ((rlelen < 0) || (rle_remainder < 0)) {
+      } 
+      if (rlelen == 0) {
+        rle_remainder = rlelen = rle->len;
+        clr = rle->color;
+        rle++;
+      }
+      if (rle_remainder == 0) {
+        rle_remainder = rlelen;
+      }
+      if ((rle_remainder + x) > src_width) {
+        /* Do something for long rlelengths */
+        rle_remainder = src_width - x;
+      }
+
+      if (ymask == 0) {
+        if (x < img_overl->clip_left) { 
+          /* Starts outside clip area */
+          if ((x + rle_remainder) > img_overl->clip_left ) {
+            /* Cutting needed, starts outside, ends inside */
+            rle_this_bite = (img_overl->clip_left - x);
+            rle_remainder -= rle_this_bite;
+            rlelen -= rle_this_bite;
+            my_clut = (clut_t*) img_overl->color;
+            my_trans = img_overl->trans;
+          } else {
+          /* no cutting needed, starts outside, ends outside */
+            rle_this_bite = rle_remainder;
+            rle_remainder = 0;
+            rlelen -= rle_this_bite;
+            my_clut = (clut_t*) img_overl->color;
+            my_trans = img_overl->trans;
+          }
+        } else if (x < clip_right) {
+          /* Starts inside clip area */
+          if ((x + rle_remainder) > clip_right ) {
+            /* Cutting needed, starts inside, ends outside */
+            rle_this_bite = (clip_right - x);
+            rle_remainder -= rle_this_bite;
+            rlelen -= rle_this_bite;
+            my_clut = (clut_t*) img_overl->clip_color;
+            my_trans = img_overl->clip_trans;
+          } else {
+          /* no cutting needed, starts inside, ends inside */
+            rle_this_bite = rle_remainder;
+            rle_remainder = 0;
+            rlelen -= rle_this_bite;
+            my_clut = (clut_t*) img_overl->clip_color;
+            my_trans = img_overl->clip_trans;
+          }
+        } else if (x >= clip_right) {
+          /* Starts outside clip area, ends outsite clip area */
+          if ((x + rle_remainder ) > src_width ) { 
+            /* Cutting needed, starts outside, ends at right edge */
+            /* It should never reach here due to the earlier test of src_width */
+            rle_this_bite = (src_width - x );
+            rle_remainder -= rle_this_bite;
+            rlelen -= rle_this_bite;
+            my_clut = (clut_t*) img_overl->color;
+            my_trans = img_overl->trans;
+          } else {
+          /* no cutting needed, starts outside, ends outside */
+            rle_this_bite = rle_remainder;
+            rle_remainder = 0;
+            rlelen -= rle_this_bite;
+            my_clut = (clut_t*) img_overl->color;
+            my_trans = img_overl->trans;
+          }
+        }
+      } else {
+        /* Outside clip are due to y */
+        /* no cutting needed, starts outside, ends outside */
+        rle_this_bite = rle_remainder;
+        rle_remainder = 0;
+        rlelen -= rle_this_bite;
+        my_clut = (clut_t*) img_overl->color;
+        my_trans = img_overl->trans;
+      }
+      o   = my_trans[clr];
+
+      if (x < (dst_width - x_off)) {
+        /* clip against right edge of destination area */
+        if ((x + rle_this_bite) > (dst_width - x_off)) {
+          int toClip = (x + rle_this_bite) - (dst_width - x_off);
+          
+          rle_this_bite -= toClip;
+          rle_remainder += toClip;
+          rlelen += toClip;
+        }
+
+        if (o) {
+            l = rle_this_bite>>1;
+            if( !((x_odd+x) & 1) ) {
+              yuy2.b[0] = my_clut[clr].y;
+              yuy2.b[1] = my_clut[clr].cb;
+              yuy2.b[2] = my_clut[clr].y;
+              yuy2.b[3] = my_clut[clr].cr;
+            } else {
+              yuy2.b[0] = my_clut[clr].y;
+              yuy2.b[1] = my_clut[clr].cr;
+              yuy2.b[2] = my_clut[clr].y;
+              yuy2.b[3] = my_clut[clr].cb;
+            }
+
+          if (o >= 15) {
+              while(l--) {
+                *(uint16_t *)dst = yuy2.h[0];
+                dst += 2;
+                *(uint16_t *)dst = yuy2.h[1];
+                dst += 2;
+              }
+              if(rle_this_bite & 1) {
+                *(uint16_t *)dst = yuy2.h[0];
+                dst += 2;
+              }
+          } else {
+              if( l ) {
+                mem_blend32(dst, &yuy2.b[0], o, l);
+                dst += 4*l;
+              }
+              
+              if(rle_this_bite & 1) {
+                *dst = BLEND_BYTE(*dst, yuy2.b[0], o);
+                dst++;
+                *dst = BLEND_BYTE(*dst, yuy2.b[1], o);
+                dst++;
+              }
+          }
+
+        } else {
+          dst += rle_this_bite*2;
+        }
+      }
+      
+      x += rle_this_bite;
+    }
+    
+    dst_y += dst_pitch;
+  }
+}
+
+
+static void
+_overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_overlay)
+{
+    buffer_driver_t *this = (buffer_driver_t *)this_gen;
+    buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
+
+    printf("buffer_overlay_blend: format=%d overlay=%x\n", frame->format, vo_overlay);
+    if (frame->format == XINE_IMGFMT_YV12)
+       _overlay_blend_yuv(frame->vo_frame.base, vo_overlay,
+                      frame->width, frame->height,
+                      frame->vo_frame.pitches);
+    else
+       _overlay_blend_yuy2(frame->vo_frame.base[0], vo_overlay,
+                      frame->width, frame->height,
+                      frame->vo_frame.pitches[0]);
+}
+
 
 static vo_info_t buffer_vo_info = {
     1,

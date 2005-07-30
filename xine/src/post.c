@@ -59,7 +59,7 @@ pyxine_new_post_pyobject(PyObject *owner_pyobject, xine_post_t *post, char *id, 
 static int
 Xine_Post_PyObject__clear(Xine_Post_PyObject *self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->inputs, &self->outputs, NULL };
+    PyObject **list[] = {&self->inputs, &self->outputs, NULL };
     return pyxine_gc_helper_clear(list);
 }
 
@@ -109,13 +109,14 @@ static PyMemberDef Xine_Post_PyObject_members[] = {
 void
 Xine_Post_PyObject__dealloc(Xine_Post_PyObject *self)
 {
-    printf("DEalloc Post: %x\n", self->post);
+    printf("DEalloc Post: %x (%d)\n", self->post, self->xine_object_owner);
     if (self->post && self->xine_object_owner) {
         // bug in xine: http://sourceforge.net/mailarchive/forum.php?thread_id=7753300&forum_id=7131
-        //xine_post_dispose(self->xine, self->post);
+        xine_post_dispose(self->xine, self->post);
     }
     Py_DECREF(self->name);
     Py_DECREF(self->wrapper);
+    Py_DECREF(self->owner_pyobject);
     Xine_Post_PyObject__clear(self);
     xine_object_to_pyobject_unregister(self->post);
     self->ob_type->tp_free((PyObject*)self);

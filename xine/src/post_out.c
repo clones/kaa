@@ -45,7 +45,7 @@ pyxine_new_post_out_pyobject(PyObject *owner_pyobject, xine_post_out_t *post_out
     } else if (post_out->type == XINE_POST_DATA_VIDEO) {
         if (post_out->data && *(void **)post_out->data) {
             xine_video_port_t *vo = *(xine_video_port_t **)post_out->data;
-            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, 0);
+            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, NULL, 0);
         }
     }
     else if (post_out->type == XINE_POST_DATA_AUDIO) {

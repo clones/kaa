@@ -22,6 +22,8 @@ def _wrap_xine_object(obj):
 
     if type(obj) == _xine.Xine:
         o = Xine(obj)
+    elif type(obj) == _xine.VODriver:
+        o = VODriver(obj)
     elif type(obj) == _xine.VideoPort:
         o = VideoPort(obj)
     elif type(obj) == _xine.AudioPort:
@@ -130,15 +132,19 @@ class Xine(object):
         return (0, 0), (0, 0), (win_w, win_h), 1
 
     def _default_dest_size_cb(self, width, height, aspect, window):
+        #print "DEST SIZE CB", width, height, aspect, window
         if window:
             win_w, win_h = window.get_geometry()[1]
         else:
             win_w, win_h = 640, 480
         movie_aspect = width / float(height)
-        window.aspect = movie_aspect * aspect
+        win_aspect = movie_aspect * aspect
+        if window.aspect != win_aspect:
+            window.aspect = win_aspect
+            window.signals["aspect_changed"].emit(win_aspect)
         return (win_w, win_h), 1
 
-    def open_video_driver(self, driver = "auto", **kwargs):
+    def load_video_output_plugin(self, driver = "auto", **kwargs):
         if "window" in kwargs:
             window = kwargs["window"]
             assert(isinstance(window, display.X11Window))
@@ -150,17 +156,23 @@ class Xine(object):
             window.signals["aspect_changed"] = notifier.Signal()
             window.aspect = -1 
             kwargs["window"] = window._window
-            self._xine.dependencies.append(window._window)
+            #print "SET DEPS", window._window
+            #self._xine.dependencies.append(window._window)
+            #self._xine.dependencies.append(window._display)
 
         if "passthrough" in kwargs:
-            assert(isinstance(kwargs["passthrough"], VideoPort))
-            kwargs["passthrough"] = kwargs["passthrough"]._port
+            vo = kwargs["passthrough"]
+            assert(isinstance(vo, VODriver))
+            assert(type(vo._driver.owner) == _xine.Xine)
+            kwargs["passthrough"] = vo._driver
         
-        vo = self._xine.open_video_driver(driver, **kwargs)
-        # This port is a driver, initialize wire_object to empty list.
-        vo.wire_object = []
-        return _wrap_xine_object(vo)
+        driver = self._xine.load_video_output_plugin(driver, **kwargs)
+        return _wrap_xine_object(driver)
                     
+    def open_video_driver(self, driver = "auto", **kwargs):
+        driver = self.load_video_output_plugin(driver, **kwargs)
+        vo = driver.get_port()
+        return vo
 
 
     def open_audio_driver(self, driver = "auto", **kwargs):
@@ -218,6 +230,12 @@ class Xine(object):
         return self._xine.list_plugins("video_decoder")
 
     def post_init(self, name, inputs = 0, audio_targets = [], video_targets = []):
+        """
+        This method is deprecated.  Use new_post() instead.
+        """
+        return self.new_post(name, inputs, audio_targets, video_targets)
+
+    def new_post(self, name, inputs = 0, audio_targets = [], video_targets = []):
         assert(type(audio_targets) in (list, tuple))
         assert(type(video_targets) in (list, tuple))
         ao = []
@@ -294,6 +312,21 @@ class Xine(object):
             types.append(tuple(vals))
         return types
 
+
+class VODriver(object):
+    def __init__(self, driver):
+        self._driver = driver
+
+    def get_port(self):
+        # A new VODriver() is owned by a Xine object, but when get_port() is
+        # first called, the new VideoPort assumes ownership of us.
+        port = self._driver.get_port()
+        if port.wire_object == None:
+            # This port is a driver, initialize wire_object to empty list.
+            port.wire_object = []
+        return _wrap_xine_object(port)
+        
+
 class VideoPort(object):
     def __init__(self, vo):
         self._port = vo
@@ -302,6 +335,8 @@ class VideoPort(object):
         # Can be Xine, Post, or Stream object
         return _wrap_xine_object(self._port.owner)
 
+    def get_driver(self):
+        return _wrap_xine_object(self._port.driver)
 
 class AudioPort(object):
     def __init__(self, ao):
@@ -461,7 +496,14 @@ class Post(object):
         parms = self.get_parameters_desc()
         for key, value in kwargs.items():
             assert(key in parms)
+            # Check enums for value
+            if value in parms[key]["enums"]:
+                value = kwargs[key] = parms[key]["enums"].index(value)
+            elif parms[key]["enums"] and type(value) != parms[key]["type"]:
+                raise XineError, "Value '%s' for parameter '%s' invalid." % (value, key)
+
             assert(type(value) == parms[key]["type"])
+            
 
         return self._post.set_parameters(kwargs)
 
