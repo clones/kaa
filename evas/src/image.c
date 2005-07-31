@@ -218,35 +218,72 @@ Evas_Object_PyObject_image_pixels_dirty_get(Evas_Object_PyObject * self,
     return Py_INCREF(Py_False), Py_False;
 }
 
+static void *
+_get_ptr_from_pyobject(PyObject *o)
+{
+    void *data;
+    int len;
+
+    if (PyNumber_Check(o)) {
+        data = (void *) PyLong_AsLong(o);
+    } else {
+        if (PyObject_AsReadBuffer(o, (const void **) &data, &len) == -1)
+            return NULL;
+    }
+    return data;
+}
+
+
 PyObject *
 Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
                                   PyObject * args)
 {
     Evas_Pixel_Import_Source ps;
-    PyObject *buffer;
-    void *data, *p;
-    int i, stride, len;
+    PyObject *data;
+    void *p, *planes[3] = {0,0,0};
+    int i, stride, len, plane;
 
-
-    if (!PyArg_ParseTuple(args, "Oiii", &buffer, &ps.w, &ps.h, &ps.format))
+    if (!PyArg_ParseTuple(args, "Oiii", &data, &ps.w, &ps.h, &ps.format))
         return NULL;
 
-    if (PyNumber_Check(buffer)) {
-        data = (void *) PyLong_AsLong(buffer);
-    } else {
-        if (PyObject_AsReadBuffer(buffer, (const void **) &data, &len) == -1)
+    /* Data can be a single buffer/int pointing to memory that holds each
+       plane contiguously, or a tuple of buffer/ints pointing to each
+       individual plane. */
+    if (!PyTuple_Check(data)) {
+        if ((planes[0] = _get_ptr_from_pyobject(data)) == 0)
             return NULL;
+        planes[1] = planes[0] + (ps.w * ps.h);
+        planes[2] = planes[1] + ((ps.w * ps.h) >> 2);
+        printf("Planes 0=%x 1=%x 2=%x\n", planes[0], planes[1], planes[2]);
+    } else {
+        if (PySequence_Length(data) != 3) {
+            PyErr_Format(PyExc_ValueError, "Invalid size for planes tuple");
+            return NULL;
+        }
+        for (i = 0; i < 3; i++) {
+            PyObject *o = PyTuple_GetItem(data, i);
+            if ((planes[i] = _get_ptr_from_pyobject(o)) == 0)
+                return NULL;
+        }
     }
+
     if (ps.format == EVAS_PIXEL_FORMAT_YUV420P_601) {
         ps.rows = malloc(ps.h * 2 * sizeof(void *));
-        for (i = 0, stride = ps.w, p = data; i < ps.h * 2; i++, p += stride) {
+        stride = ps.w;
+        for (i = 0, plane = 0, p = planes[0]; i < ps.h * 2; i++) {
             ps.rows[i] = p;
             if (i == ps.h)
                 stride >>= 1;
+            if (i == ps.h || i == ps.h+(ps.h/2)) 
+                p = planes[++plane];
+            else
+                p += stride;
         }
-    } else
-        return PyErr_SetString(PyExc_ValueError, "Invalid pixel format"),
-            (PyObject *) NULL;
+    } else {
+        PyErr_SetString(PyExc_ValueError, "Invalid pixel format");
+        return NULL;
+    }
+
     evas_object_image_pixels_import(self->object, &ps);
     free(ps.rows);
     return Py_INCREF(Py_None), Py_None;

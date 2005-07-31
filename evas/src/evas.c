@@ -53,7 +53,6 @@ Evas_PyObject__traverse(Evas_PyObject *self, visitproc visit, void *arg)
         if (ret != 0)
             return ret;
     }
-
     return 0;
 }
 
