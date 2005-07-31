@@ -13,4 +13,8 @@ int pyxine_gc_helper_clear(PyObject ***list);
 #define PyDict_SetItemString_STEAL(dict, key, value) \
  { PyObject *_tm=value; PyDict_SetItemString(dict, key, _tm); Py_DECREF(_tm); }
 
+#define PyList_Append_STEAL(list, value) \
+ { PyObject *_tm=value; PyList_Append(list, _tm); Py_DECREF(_tm); }
+
+
 #endif

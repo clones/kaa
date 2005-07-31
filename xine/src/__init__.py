@@ -312,6 +312,31 @@ class Xine(object):
             types.append(tuple(vals))
         return types
 
+    def get_config_entries(self):
+        cfg = self._xine.config_get_first_entry()
+        yield cfg
+        while True:
+            cfg = self._xine.config_get_next_entry()
+            if not cfg:
+                break
+            yield cfg
+
+    def get_config_value(self, key):
+        return self._xine.config_lookup_entry(key)
+
+    def set_config_value(self, key, value):
+        cfg = self.get_config_value(key)
+        if cfg == None:
+            raise XineError, "Config option '%s' doesn't exist" % key
+        if cfg["type"] == tuple and type(value) != int:
+            # Try to resolve value
+            if value not in cfg["enums"]:
+                raise XineError, "Value '%s' is not in list of valid values" % value
+            value = cfg["enums"].index(value)
+        else:
+            assert(type(value) == cfg["type"])
+        return self._xine.config_update_entry(key, value)
+
 
 class VODriver(object):
     def __init__(self, driver):

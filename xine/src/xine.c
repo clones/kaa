@@ -450,6 +450,140 @@ Xine_PyObject_get_mime_types(Xine_PyObject *self, PyObject *args, PyObject *kwar
     return o;
 }
 
+PyObject *
+_xine_config_entry_to_pydict(xine_cfg_entry_t *cfg)
+{
+    PyObject *dict = PyDict_New();
+    PyDict_SetItemString_STEAL(dict, "key", PyString_FromString(cfg->key));
+    switch(cfg->type) {
+        case XINE_CONFIG_TYPE_UNKNOWN:
+            PyDict_SetItemString(dict, "type", Py_None);
+            break;
+
+        case XINE_CONFIG_TYPE_RANGE:
+            PyDict_SetItemString(dict, "type", (PyObject *)&PyInt_Type);
+            PyDict_SetItemString_STEAL(dict, "min", PyInt_FromLong(cfg->range_min));
+            PyDict_SetItemString_STEAL(dict, "max", PyInt_FromLong(cfg->range_max));
+            PyDict_SetItemString_STEAL(dict, "value", PyInt_FromLong(cfg->num_value));
+            PyDict_SetItemString_STEAL(dict, "default", PyInt_FromLong(cfg->num_default));
+            break;
+
+        case XINE_CONFIG_TYPE_STRING:
+            PyDict_SetItemString(dict, "type", (PyObject *)&PyString_Type);
+            PyDict_SetItemString_STEAL(dict, "value", PyString_FromString(cfg->str_value));
+            PyDict_SetItemString_STEAL(dict, "default", PyString_FromString(cfg->str_default));
+            break;
+
+        case XINE_CONFIG_TYPE_ENUM:
+        {
+            int i;
+            PyObject *enums = PyList_New(0);
+            PyDict_SetItemString(dict, "type", (PyObject *)&PyTuple_Type);
+
+            for (i = 0; cfg->enum_values[i]; i++) {
+                PyObject *val = PyString_FromString(cfg->enum_values[i]);
+                PyList_Append_STEAL(enums, val);
+                if (i == cfg->num_value)
+                    PyDict_SetItemString(dict, "value", val);
+                if (i == cfg->num_default)
+                    PyDict_SetItemString(dict, "default", val);
+            }
+            PyDict_SetItemString_STEAL(dict, "enums", enums);
+            break;
+        }
+        case XINE_CONFIG_TYPE_NUM:
+            PyDict_SetItemString(dict, "type", (PyObject *)&PyInt_Type);
+            PyDict_SetItemString_STEAL(dict, "value", PyInt_FromLong(cfg->num_value));
+            PyDict_SetItemString_STEAL(dict, "default", PyInt_FromLong(cfg->num_default));
+            break;
+        case XINE_CONFIG_TYPE_BOOL:
+            PyDict_SetItemString(dict, "type", (PyObject *)&PyBool_Type);
+            PyDict_SetItemString_STEAL(dict, "value", PyBool_FromLong(cfg->num_value));
+            PyDict_SetItemString_STEAL(dict, "default", PyBool_FromLong(cfg->num_default));
+            break;
+    }
+    return dict;
+}
+
+PyObject *
+Xine_PyObject_config_get_first_entry(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    xine_cfg_entry_t cfg;
+
+    if (!xine_config_get_first_entry(self->xine, &cfg)) {
+        PyErr_Format(xine_error, "Failed to get first config entry");
+        return NULL;
+    }
+
+    return _xine_config_entry_to_pydict(&cfg);
+}
+
+PyObject *
+Xine_PyObject_config_get_next_entry(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    xine_cfg_entry_t cfg;
+
+    if (!xine_config_get_next_entry(self->xine, &cfg)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return _xine_config_entry_to_pydict(&cfg);
+}
+
+PyObject *
+Xine_PyObject_config_lookup_entry(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    xine_cfg_entry_t cfg;
+    char *key;
+
+    if (!PyArg_ParseTuple(args, "s", &key))
+        return NULL;
+
+    if (!xine_config_lookup_entry(self->xine, key, &cfg)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    return _xine_config_entry_to_pydict(&cfg);
+}
+
+PyObject *
+Xine_PyObject_config_update_entry(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    xine_cfg_entry_t cfg;
+    char *key;
+    PyObject *value;
+
+    if (!PyArg_ParseTuple(args, "sO", &key, &value))
+        return NULL;
+
+    if (!xine_config_lookup_entry(self->xine, key, &cfg)) {
+        PyErr_Format(xine_error, "Unable to locate config entry '%s'", key);
+        return NULL;
+    }
+
+    switch(cfg.type) {
+        case XINE_CONFIG_TYPE_STRING:
+            if (cfg.str_value)
+                free(cfg.str_value);
+            cfg.str_value = strdup(PyString_AsString(value));
+            break;
+        case XINE_CONFIG_TYPE_ENUM:
+        case XINE_CONFIG_TYPE_RANGE:
+        case XINE_CONFIG_TYPE_NUM:
+        case XINE_CONFIG_TYPE_BOOL:
+            cfg.num_value = PyLong_AsLong(value);
+            break;
+    }
+
+    xine_config_update_entry(self->xine, &cfg);
+    if (cfg.callback)
+        cfg.callback(cfg.callback_data, &cfg);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 PyMethodDef Xine_PyObject_methods[] = {
     {"list_plugins", (PyCFunction) Xine_PyObject_list_plugins, METH_VARARGS },
     {"load_video_output_plugin", (PyCFunction) Xine_PyObject_load_video_output_plugin, METH_VARARGS | METH_KEYWORDS},
@@ -465,6 +599,11 @@ PyMethodDef Xine_PyObject_methods[] = {
     {"get_autoplay_mrls", (PyCFunction) Xine_PyObject_get_autoplay_mrls, METH_VARARGS },
     {"get_file_extensions", (PyCFunction) Xine_PyObject_get_file_extensions, METH_VARARGS },
     {"get_mime_types", (PyCFunction) Xine_PyObject_get_mime_types, METH_VARARGS },
+
+    {"config_get_first_entry", (PyCFunction) Xine_PyObject_config_get_first_entry, METH_VARARGS },
+    {"config_get_next_entry", (PyCFunction) Xine_PyObject_config_get_next_entry, METH_VARARGS },
+    {"config_lookup_entry", (PyCFunction) Xine_PyObject_config_lookup_entry, METH_VARARGS },
+    {"config_update_entry", (PyCFunction) Xine_PyObject_config_update_entry, METH_VARARGS },
     {NULL, NULL}
 };
 
