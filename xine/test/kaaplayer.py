@@ -12,6 +12,8 @@ if len(sys.argv) <= 1:
 # Make argment into mrl if not already
 mrl = xine.make_mrl(sys.argv[1])
 
+needs_redraw = False
+
 def say(line):
     if line[0] != "\n":
         sys.stdout.write(" " * 60 + "\r")
@@ -23,9 +25,7 @@ def handle_keypress_event(key, stream, window):
     lang = stream.get_audio_lang(channel)
 
     if key == "q":
-        print "\n\nExiting\n\n"
         stream.stop()
-        print "\n\nDone Exiting\n\n"
         raise SystemExit
     elif key == "f":
         window.set_fullscreen(not window.get_fullscreen())
@@ -51,16 +51,16 @@ def handle_keypress_event(key, stream, window):
             say("\nDeinterlacing ON\n")
 
     elif key == "a":
-        global vo_xv, win, win2
+        global vo, win, win2, needs_redraw
         if win.get_visible():
             win2.show()
             win.hide()
         else:
             win.show()
             win2.hide()
-            vo_xv._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
-            vo_xv._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
-        
+            vo._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
+            vo._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
+        needs_redraw = True
 
     if lang == "menu":
         d = { "up": xine.EVENT_INPUT_UP, "down": xine.EVENT_INPUT_DOWN,
@@ -111,28 +111,40 @@ def render():
 toggle=1
 c=0
 lf=0
-def foo(width, height, aspect, buffer, window):
-    global toggle, c, lf
-    c+=1
-    toggle=1-toggle
-    if time.time()-lf > 1:
-        print threading.currentThread(), "fps %d\n" % c
-        c=0
-        lf=time.time()
-    return 1
-    if not window.get_visible():
-        return True
+def buffer_vo_callback(command, data, window):
+    global needs_redraw
+    if command == xine.BUFFER_VO_COMMAND_QUERY_REQUEST:
+        if not window.get_visible():
+            return xine.BUFFER_VO_REQUEST_PASSTHROUGH, -1, -1
+        return xine.BUFFER_VO_REQUEST_SEND, 320, 200 #-1, -1
+    elif command == xine.BUFFER_VO_COMMAND_QUERY_REDRAW:
+        tmp = needs_redraw
+        needs_redraw = False
+        return tmp
+    elif command == xine.BUFFER_VO_COMMAND_SEND:
+        global toggle, c, lf
+        c+=1
+        toggle=1-toggle
+        if time.time()-lf > 1:
+            print "fps %d\n" % c
+            c=0
+            lf=time.time()
+        notifier.MainThreadCallback(update_evas, data, window)()
+
+def update_evas((width, height, aspect, buffer, unlock_cb), window):
     if window.movie.size_get() != (width, height):
-        print "RESIZE", width, height, threading.currentThread()
+        print "RESIZE EVAS", aspect, width, height, window.movie.size_get()
         window.movie.size_set( (width, height) )
-        w, h = width, height
+        w = min(window.get_size()[0], width)
+        h = int(w / aspect)
         window.movie.resize( (w, h) )
         window.movie.fill_set( (0, 0), (w, h) )
         window.movie.move((0,0))
 
-    window.movie.pixels_import(buffer, width, height, evas.PIXEL_FORMAT_YUV420P_601)
+    window.movie.data_set(buffer, copy = False)
     window.movie.pixels_dirty_set()
-    notifier.MainThreadCallback(window.get_evas().render)()
+    window.get_evas().render()
+    unlock_cb()
     return True
 
 
@@ -153,14 +165,11 @@ if 1:
     win2.bg.layer_set(2)
     win2.movie = win2.get_evas().object_image_add()
     win2.movie.alpha_set(True)
-    #win.movie.color_set(a=50)
+    win2.movie.color_set(a=75)
     win2.movie.layer_set(10)
     win2.movie.show()
 
-    cb = notifier.Callback(foo, win2)
-    #cb = notifier.MainThreadCallback(foo, win2)
-    #cb.set_async(False)
-    #vo_xv = x.open_video_driver(window = win)
+    cb = notifier.Callback(buffer_vo_callback, win2)
     vo = x.open_video_driver("buffer", callback = cb, passthrough = x.load_video_output_plugin("xv", window=win))
     #vo = x.open_video_driver("xv", window = win)
 else:
@@ -174,14 +183,17 @@ kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream,
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 if not isinstance(win, display.EvasX11Window):
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
-#kaa.signals["idle"].connect_weak(output_status_line, stream, win)
+kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
 stream.deint_post = x.post_init("tvtime", video_targets = [vo])
-print stream.deint_post.get_parameters_desc()["framerate_mode"]
-stream.deint_post.set_parameters(method = "GreedyH")
+stream.deint_post.set_parameters(method = "GreedyH", enabled = False)
 stream.get_video_source().wire(stream.deint_post.get_default_input())
 
-#print vo, vo.get_driver(), vo.get_driver()._driver.owner, vo.get_driver().get_port()
+x.set_config_value("video.device.xv_colorkey", 1)
+x.set_config_value("video.device.xv_autopaint_colorkey", True)
+#for cfg in x.get_config_entries():
+#    print cfg
+#sys.exit(0)
 stream.open(mrl)
 stream.play()
 

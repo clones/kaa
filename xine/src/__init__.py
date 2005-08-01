@@ -10,6 +10,14 @@ from constants import *
 
 XineError = _xine.XineError
 
+# Constants for buffer vo
+BUFFER_VO_COMMAND_QUERY_REQUEST = 0
+BUFFER_VO_COMMAND_QUERY_REDRAW  = 1
+BUFFER_VO_COMMAND_SEND          = 2
+
+BUFFER_VO_REQUEST_SEND          = 0x01
+BUFFER_VO_REQUEST_PASSTHROUGH   = 0x02
+
 def get_version():
     return Version(_xine.get_version())
 
@@ -156,9 +164,6 @@ class Xine(object):
             window.signals["aspect_changed"] = notifier.Signal()
             window.aspect = -1 
             kwargs["window"] = window._window
-            #print "SET DEPS", window._window
-            #self._xine.dependencies.append(window._window)
-            #self._xine.dependencies.append(window._display)
 
         if "passthrough" in kwargs:
             vo = kwargs["passthrough"]

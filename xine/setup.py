@@ -26,7 +26,7 @@
 # -----------------------------------------------------------------------------
 
 # python imports
-import sys
+import sys, os
 
 try:
     # kaa base imports
@@ -39,7 +39,7 @@ files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
          'src/post.c', 'src/drivers/x11.c', 'src/drivers/buffer.c',
          'src/post_out.c', 'src/post_in.c', 'src/event.c', 'src/event_queue.c',
          'src/utils.c', 'src/post/fork.c', 'src/vo_driver.c',
-#         'src/drivers/yuv2rgb.c', 'src/drivers/yuv2rgb_mmx.c'
+         'src/drivers/yuv2rgb.c', 'src/drivers/yuv2rgb_mmx.c'
 ]
 xineso = Extension('kaa.xine._xinemodule', files, config='src/config.h')
 #xineso.libraries += ["X11"]
@@ -49,6 +49,12 @@ if not xineso.check_library('xine', '1.0.0'):
     print 'xine >= 1.0.0 not found'
     print 'Download from http://xinehq.de'
     sys.exit(1)
+
+arch = os.popen("uname -i").read().strip()
+if arch == "x86_64":
+    xineso.config('#define ARCH_X86_64')
+elif arch == "i386":
+    xineso.config('#define ARCH_X86')
 
 setup(module      = 'xine',
       version     = '0.1',

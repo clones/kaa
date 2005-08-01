@@ -2,9 +2,19 @@
 #include "buffer.h"
 #include "../xine.h"
 #include "../vo_driver.h"
+#include "yuv2rgb.h"
+
+//#define STOPWATCH
+
+#define BUFFER_VO_COMMAND_QUERY_REQUEST 0
+#define BUFFER_VO_COMMAND_QUERY_REDRAW  1
+#define BUFFER_VO_COMMAND_SEND          2
+
+#define BUFFER_VO_REQUEST_SEND          0x01
+#define BUFFER_VO_REQUEST_PASSTHROUGH   0x02
+
 
 static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);
-
 
 typedef struct buffer_frame_s {
     vo_frame_t vo_frame;
@@ -13,7 +23,10 @@ typedef struct buffer_frame_s {
     int flags;
 
     unsigned char *yv12_buffer, *yuy2_buffer;
+    unsigned char *bgra_buffer;
+    pthread_mutex_t bgra_lock;
     vo_frame_t *passthrough_frame;
+    yuv2rgb_t *yuv2rgb;
     // more
 } buffer_frame_t;
 
@@ -23,6 +36,7 @@ typedef struct buffer_driver_s {
     pthread_mutex_t lock;
     xine_t *xine;
 
+    yuv2rgb_factory_t *yuv2rgb_factory;
     int aspect;
 
     PyObject *callback;
@@ -35,6 +49,148 @@ typedef struct buffer_class_s {
     config_values_t *config;
     xine_t *xine;
 } buffer_class_t;
+
+
+#ifdef STOPWATCH
+static void stopwatch(int n, char *text, ...)
+{
+    va_list ap;
+    struct timezone tz;
+    static struct {
+        struct timeval tv, last_tv;
+        char text[250];
+    } t[10];
+
+    gettimeofday(&t[n].tv, &tz);
+    if (!text) {
+        fprintf(stderr, "@@@ Stopwatch (%d): %s: %ld usec\n", n, t[n].text,
+               (t[n].tv.tv_sec - t[n].last_tv.tv_sec) * 1000000 +
+               (t[n].tv.tv_usec - t[n].last_tv.tv_usec));
+    } else {
+        t[n].last_tv.tv_sec = t[n].tv.tv_sec;
+        t[n].last_tv.tv_usec = t[n].tv.tv_usec;
+
+        va_start(ap, text);
+        vsprintf(t[n].text, text, ap);
+        va_end(ap);
+    }
+}
+#else
+#define stopwatch(n, text, ...)
+#endif
+
+
+////////////
+
+
+PyObject *
+_unlock_frame_cb(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    buffer_frame_t *frame = (buffer_frame_t *)PyCObject_AsVoidPtr(self);
+    pthread_mutex_unlock(&frame->bgra_lock);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyMethodDef unlock_frame_def = {
+    "unlock_frame_cb", (PyCFunction)_unlock_frame_cb, 
+    METH_VARARGS, NULL 
+};
+
+
+static int
+buffer_callback_command_query_redraw(buffer_driver_t *this)
+{
+    PyObject *args, *result;
+    PyGILState_STATE gstate;
+    int retval = 0;
+
+    gstate = PyGILState_Ensure();
+    args = Py_BuildValue("(i())", BUFFER_VO_COMMAND_QUERY_REDRAW);
+    result = PyEval_CallObject(this->callback, args);
+    if (result) {
+        if (PyInt_Check(result))
+            retval = PyLong_AsLong(result);
+        Py_DECREF(result);
+    }
+    if (PyErr_Occurred()) {
+        printf("Exception in buffer callback:\n");
+        PyErr_Print();
+    }
+    Py_DECREF(args);
+    PyGILState_Release(gstate);
+    return retval;
+}
+
+static int
+buffer_callback_command_query_request(buffer_driver_t *this, 
+    int *request_return, int *width_return, int *height_return)
+{
+    PyObject *args, *result;
+    PyGILState_STATE gstate;
+    int retval = 1;
+
+    gstate = PyGILState_Ensure();
+    args = Py_BuildValue("(i())", BUFFER_VO_COMMAND_QUERY_REQUEST);
+    result = PyEval_CallObject(this->callback, args);
+    if (result) {
+        PyArg_ParseTuple(result, "iii", request_return, width_return, height_return);
+        Py_DECREF(result);
+    }
+    if (PyErr_Occurred()) {
+        printf("Exception in buffer callback:\n");
+        PyErr_Print();
+        retval = 0;
+    }
+    Py_DECREF(args);
+    PyGILState_Release(gstate);
+
+    return retval;
+}
+
+static int
+buffer_callback_send(buffer_driver_t *this, buffer_frame_t *frame, int w, int h)
+{
+    PyObject *args, *result, *unlock_frame_cb, *frame_pyobject;
+    PyGILState_STATE gstate;
+    int retval = 1;
+
+    gstate = PyGILState_Ensure();
+    frame_pyobject = PyCObject_FromVoidPtr((void *)frame, NULL);
+    unlock_frame_cb = PyCFunction_New(&unlock_frame_def, frame_pyobject);
+    args = Py_BuildValue("(i(iidiO))", BUFFER_VO_COMMAND_SEND, w, h, 
+                         frame->ratio, (long)frame->bgra_buffer, 
+                         unlock_frame_cb);
+    Py_DECREF(unlock_frame_cb);
+    Py_DECREF(frame_pyobject);
+    result = PyEval_CallObject(this->callback, args);
+    if (result)
+        Py_DECREF(result);
+    else {
+        printf("Exception in buffer callback:\n");
+        PyErr_Print();
+        retval = 0;
+    }
+    Py_DECREF(args);
+    PyGILState_Release(gstate);
+
+    return retval;
+}
+
+
+////////////
+
+
+int
+pthread_mutex_lock_timeout(pthread_mutex_t *lock, double timeout)
+{
+    struct timespec abstime;
+    abstime.tv_sec = (int)floor(timeout);
+    abstime.tv_nsec = (timeout-(double)abstime.tv_sec)*1000000000;
+    //printf("Lock timeout: %d sec %d usec\n", abstime.tv_sec, abstime.tv_nsec);
+    return pthread_mutex_timedlock(lock, &abstime);
+}
+
 
 
 static uint32_t 
@@ -56,11 +212,14 @@ buffer_frame_dispose(vo_frame_t *vo_img)
     buffer_frame_t *frame = (buffer_frame_t *)vo_img;
     //printf("buffer_frame_dispose\n");
     pthread_mutex_destroy(&frame->vo_frame.mutex);
+    pthread_mutex_destroy(&frame->bgra_lock);
     if (frame->yv12_buffer)
         free(frame->yv12_buffer);
     if (frame->yuy2_buffer)
         free(frame->yuy2_buffer);
-
+    if (frame->bgra_buffer)
+        free(frame->bgra_buffer);
+    frame->yuv2rgb->dispose (frame->yuv2rgb);
     free(frame);
 }
 
@@ -85,8 +244,9 @@ buffer_alloc_frame(vo_driver_t *this_gen)
         return NULL;
 
     pthread_mutex_init(&frame->vo_frame.mutex, NULL);
+    pthread_mutex_init(&frame->bgra_lock, NULL);
 
-    frame->yv12_buffer = frame->yuy2_buffer = NULL;
+    frame->yv12_buffer = frame->yuy2_buffer = frame->bgra_buffer = NULL;
 
     frame->vo_frame.base[0] = NULL;
     frame->vo_frame.base[1] = NULL;
@@ -102,6 +262,7 @@ buffer_alloc_frame(vo_driver_t *this_gen)
     frame->passthrough_frame->free = vo_frame_dec_lock;
     frame->passthrough_frame->lock = vo_frame_inc_lock;
 
+    frame->yuv2rgb = this->yuv2rgb_factory->create_converter(this->yuv2rgb_factory);
 
     return (vo_frame_t *)frame;
 }
@@ -116,15 +277,15 @@ buffer_update_frame_format (vo_driver_t *this_gen,
     buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
     int y_size, uv_size;
 
-//    printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
+    //printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
 
+    // XXX: locking in this function risks deadlock.
 
     this->passthrough->update_frame_format(this->passthrough,
         frame->passthrough_frame, width, height, ratio, format, flags);
 
     memcpy(&frame->vo_frame.pitches, frame->passthrough_frame->pitches, sizeof(int)*3);
     memcpy(&frame->vo_frame.base, frame->passthrough_frame->base, sizeof(char *)*3);
-
 
 #if 0
     if (frame->width != width || frame->height != height || format != frame->format) {
@@ -179,9 +340,11 @@ static int
 buffer_redraw_needed(vo_driver_t *vo)
 {
     buffer_driver_t *this = (buffer_driver_t *)vo;
-    //printf("buffer_redraw_needed: %x\n", vo);
-    return this->passthrough->redraw_needed(this->passthrough);
-    return 1;
+    int redraw;
+
+    redraw = buffer_callback_command_query_redraw(this);
+    //printf("buffer_redraw_needed: %d\n", redraw);
+    return redraw || this->passthrough->redraw_needed(this->passthrough);
 }
 
 static void 
@@ -190,34 +353,62 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     buffer_driver_t *this = (buffer_driver_t *)this_gen;
     buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
     vo_frame_t *passthrough_frame;
-    int do_passthrough = 1;
-    PyObject *args, *result;
+    int request = 0, dst_width = -1, dst_height = -1;
     PyGILState_STATE gstate;
 
     //printf("buffer_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
     pthread_mutex_lock(&this->lock);
 
-    gstate = PyGILState_Ensure();
-    args = Py_BuildValue("(iidi)", frame->width, frame->height, frame->ratio,
-                         (long)frame->vo_frame.base[0]);
-    result = PyEval_CallObject(this->callback, args);
-    if (result) {
-        if (PyInt_Check(result))
-            do_passthrough = PyLong_AsLong(result);
-            
-        Py_DECREF(result);
-    } else {
-        printf("Exception in buffer callback:\n");
-        PyErr_Print();
+    buffer_callback_command_query_request(this, &request, &dst_width, &dst_height);
+    if (dst_width == -1 || dst_height == -1) {
+        dst_width = frame->width;
+        dst_height = frame->height;
     }
-    Py_DECREF(args);
-    PyGILState_Release(gstate);
 
-    if (this->passthrough && do_passthrough) {
+    if (request & BUFFER_VO_REQUEST_SEND) {
+        if (pthread_mutex_lock_timeout(&frame->bgra_lock, 0.2) != 0) {
+            printf("FAILED to acquire lock\n");
+            goto bail;
+        }
+        if (!frame->bgra_buffer || 
+             frame->width != frame->yuv2rgb->source_width || 
+             frame->height != frame->yuv2rgb->source_height ||
+             frame->vo_frame.pitches[0] != frame->yuv2rgb->y_stride ||
+             frame->vo_frame.pitches[1] != frame->yuv2rgb->uv_stride ||
+             frame->yuv2rgb->dest_width != dst_width ||
+             frame->yuv2rgb->dest_height != dst_height) {
+            if (frame->bgra_buffer)
+                free(frame->bgra_buffer);
+            frame->bgra_buffer = malloc(frame->width*frame->height*4);
+            frame->yuv2rgb->configure(frame->yuv2rgb, frame->width, frame->height,
+                                      frame->vo_frame.pitches[0],
+                                      frame->vo_frame.pitches[1],
+                                      dst_width, dst_height, 4*(dst_width));
+        }
+        if (frame->format == XINE_IMGFMT_YV12) {
+            stopwatch(0, "yv12 to bgra32");
+            frame->yuv2rgb->yuv2rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
+                                         frame->vo_frame.base[0],  
+                                         frame->vo_frame.base[1],  
+                                         frame->vo_frame.base[2]);
+            stopwatch(0, NULL);
+        } else {
+            stopwatch(0, "yuy2 to bgra32");
+            frame->yuv2rgb->yuy22rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
+                                          frame->vo_frame.base[0]);
+            stopwatch(0, NULL);
+        }
+        buffer_callback_send(this, frame, dst_width, dst_height);
+    }
+
+bail:
+    if (this->passthrough && request & BUFFER_VO_REQUEST_PASSTHROUGH) {
         this->passthrough->display_frame(this->passthrough, frame->passthrough_frame);
     }
+
     frame->vo_frame.free(&frame->vo_frame);
     pthread_mutex_unlock(&this->lock);
+
 }
 
 static int 
@@ -280,6 +471,7 @@ buffer_dispose(vo_driver_t *this_gen)
     Py_DECREF(this->passthrough_pyobject);
     PyGILState_Release(gstate);
 
+    this->yuv2rgb_factory->dispose(this->yuv2rgb_factory);
     free(this);
     printf("Returning from buffer_dispose\n");
 }
@@ -332,6 +524,8 @@ buffer_open_plugin(video_driver_class_t *class_gen, const void *args)
     this->passthrough = ((Xine_VO_Driver_PyObject *)passthrough)->driver;
     Py_INCREF(passthrough);
     this->passthrough_pyobject = passthrough;
+
+    this->yuv2rgb_factory = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
 
 //    memcpy(&this->vo_driver, this->passthrough->driver, sizeof(vo_driver_t));
     return &this->vo_driver;
@@ -796,7 +990,7 @@ _overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_ov
     buffer_driver_t *this = (buffer_driver_t *)this_gen;
     buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
 
-    printf("buffer_overlay_blend: format=%d overlay=%x\n", frame->format, vo_overlay);
+    //printf("buffer_overlay_blend: format=%d overlay=%x\n", frame->format, vo_overlay);
     if (frame->format == XINE_IMGFMT_YV12)
        _overlay_blend_yuv(frame->vo_frame.base, vo_overlay,
                       frame->width, frame->height,
@@ -806,7 +1000,6 @@ _overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_ov
                       frame->width, frame->height,
                       frame->vo_frame.pitches[0]);
 }
-
 
 static vo_info_t buffer_vo_info = {
     1,
