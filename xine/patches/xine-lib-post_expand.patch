@@ -1,0 +1,98 @@
+--- xine-lib.orig/src/post/planar/expand.c	2004-04-17 15:54:32.000000000 -0400
++++ xine-lib/src/post/planar/expand.c	2005-08-01 13:56:54.000000000 -0400
+@@ -62,6 +62,7 @@
+ typedef struct expand_parameters_s {
+   int enable_automatic_shift;
+   int overlay_y_offset;
++  double aspect;
+ } expand_parameters_t;
+ 
+ START_PARAM_DESCR(expand_parameters_t)
+@@ -69,6 +70,8 @@
+   "enable automatic overlay shifting")
+ PARAM_ITEM(POST_PARAM_TYPE_INT, overlay_y_offset, NULL, -500, 500, 0,
+   "manually shift the overlay vertically")
++PARAM_ITEM(POST_PARAM_TYPE_DOUBLE, aspect, NULL, 1.0, 3.5, 0,
++  "target aspect ratio")
+ END_PARAM_DESCR(expand_param_descr)
+ 
+ typedef struct post_expand_s {
+@@ -78,6 +81,7 @@
+   
+   int                      enable_automatic_shift;
+   int                      overlay_y_offset;
++  double                   aspect;
+   int                      top_bar_height;
+ } post_expand_t;
+ 
+@@ -147,6 +151,7 @@
+   
+   this->enable_automatic_shift = 0;
+   this->overlay_y_offset       = 0;
++  this->aspect                 = 4.0 / 3.0;
+   
+   port = _x_post_intercept_video_port(&this->post, video_target[0], &input, &output);
+   port->new_port.get_frame     = expand_get_frame;
+@@ -203,9 +208,10 @@
+ {
+   post_expand_t *this = (post_expand_t *)this_gen;
+   expand_parameters_t *param = (expand_parameters_t *)param_gen;
+-  
++
+   this->enable_automatic_shift = param->enable_automatic_shift;
+   this->overlay_y_offset       = param->overlay_y_offset;
++  this->aspect                 = param->aspect;
+   return 1;
+ }
+ 
+@@ -216,18 +222,20 @@
+   
+   param->enable_automatic_shift = this->enable_automatic_shift;
+   param->overlay_y_offset       = this->overlay_y_offset;
++  param->aspect                 = this->aspect;
+   return 1;
+ }
+ 
+ static char *expand_get_help(void) {
+   return _("The expand plugin is meant to take frames of arbitrary aspect ratio and "
+-           "converts them to 4:3 aspect by adding black bars on the top and bottom "
+-           "of the frame. This allows us to shift overlays down into the black area "
+-           "so they don't cover the image.\n"
++           "converts them to a different aspect (4:3 by default) by adding black bars "
++           "on the top and bottom of the frame. This allows us to shift overlays "
++           "down into the black area so they don't cover the image.\n"
+            "\n"
+            "Parameters (FIXME: better help)\n"
+            "  Enable_automatic_shift: Enable automatic overlay shifting\n"
+            "  Overlay_y_offset: Manually shift the overlay vertically\n"
++           "  aspect: The target aspect ratio (default 4:3)\n"
+            "\n"
+          );
+ }
+@@ -248,7 +256,7 @@
+   if (ratio <= 0.0) ratio = (double)width / (double)height;
+   
+   /* Calculate height of expanded frame */
+-  new_height = (double)height * ratio * 3.0 / 4.0;
++  new_height = (double)height * ratio / this->aspect;
+   new_height = (new_height + 1) & ~1;
+   top_bar_height = (new_height - height) / 2;
+   top_bar_height = (top_bar_height + 1) & ~1;
+@@ -258,7 +266,7 @@
+   if (new_height > height &&
+       (format == XINE_IMGFMT_YV12 || format == XINE_IMGFMT_YUY2)) {
+     frame = port->original_port->get_frame(port->original_port,
+-      width, new_height, 4.0 / 3.0, format, flags);
++      width, new_height, this->aspect, format, flags);
+     
+     _x_post_inc_usage(port);
+     frame = _x_post_intercept_video_frame(frame, port);
+@@ -267,7 +275,7 @@
+      * from the decoders by modifying the pointers to and
+      * the size of the drawing area */
+     frame->height = height;
+-    frame->ratio  = ratio;
++    frame->ratio  = this->aspect;
+     switch (format) {
+     case XINE_IMGFMT_YV12:
+       /* paint top bar */
