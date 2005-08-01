@@ -55,11 +55,13 @@ def handle_keypress_event(key, stream, window):
         if win.get_visible():
             win2.show()
             win.hide()
+            stream.deint_post.set_parameters(method = "Linear", framerate_mode = "half_top")
         else:
             win.show()
             win2.hide()
             vo._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
             vo._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
+            stream.deint_post.set_parameters(method = "GreedyH", framerate_mode = "full")
         needs_redraw = True
 
     if lang == "menu":
@@ -187,8 +189,9 @@ kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
 stream.deint_post = x.post_init("tvtime", video_targets = [vo])
 stream.deint_post.set_parameters(method = "GreedyH", enabled = False)
+eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
+eq2.set_parameters(gamma = 1.2, contrast = 1.1)
 stream.get_video_source().wire(stream.deint_post.get_default_input())
-
 x.set_config_value("video.device.xv_colorkey", 1)
 x.set_config_value("video.device.xv_autopaint_colorkey", True)
 #for cfg in x.get_config_entries():
@@ -201,5 +204,5 @@ win.show()
 kaa.main()
 win.hide()
 print win2._display._display, win._display._display, win2.get_evas()._dependencies
-del ao, vo, stream, x, win, win2, r, cb
+del ao, vo, stream, x, win, win2, r, cb, eq2
 gc.collect()
