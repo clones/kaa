@@ -55,13 +55,15 @@ def handle_keypress_event(key, stream, window):
         if win.get_visible():
             win2.show()
             win.hide()
-            stream.deint_post.set_parameters(method = "Linear", framerate_mode = "half_top")
+            stream.deint_post.set_parameters(method = "Linear", framerate_mode = "half_top", pulldown = "none")
+            vo._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 0)
         else:
             win.show()
             win2.hide()
-            vo._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
             vo._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
-            stream.deint_post.set_parameters(method = "GreedyH", framerate_mode = "full")
+            stream.deint_post.set_parameters(method = "GreedyH", framerate_mode = "full", pulldown = "vektor")
+        #vo._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
+        print "WINDOW TOGGLE"
         needs_redraw = True
 
     if lang == "menu":
@@ -87,6 +89,10 @@ def handle_xine_event(event, window):
 
 def handle_aspect_changed(aspect, stream, window):
     # Resize window to video dimensions
+    global win2
+    if not window.get_visible() and win.get_visible():
+        return
+
     video_width = stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH)
     height = stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT)
     width = int(math.ceil(height * window.aspect))
@@ -118,7 +124,7 @@ def buffer_vo_callback(command, data, window):
     if command == xine.BUFFER_VO_COMMAND_QUERY_REQUEST:
         if not window.get_visible():
             return xine.BUFFER_VO_REQUEST_PASSTHROUGH, -1, -1
-        return xine.BUFFER_VO_REQUEST_SEND, 320, 200 #-1, -1
+        return xine.BUFFER_VO_REQUEST_SEND, 400, 250 #-1, -1
     elif command == xine.BUFFER_VO_COMMAND_QUERY_REDRAW:
         tmp = needs_redraw
         needs_redraw = False
@@ -134,9 +140,10 @@ def buffer_vo_callback(command, data, window):
         notifier.MainThreadCallback(update_evas, data, window)()
 
 def update_evas((width, height, aspect, buffer, unlock_cb), window):
-    if window.movie.size_get() != (width, height):
+    if window.movie.size_get() != (width, height) or aspect != window.movie.aspect:
         print "RESIZE EVAS", aspect, width, height, window.movie.size_get()
         window.movie.size_set( (width, height) )
+        window.movie.aspect = aspect
         w = min(window.get_size()[0], width)
         h = int(w / aspect)
         window.movie.resize( (w, h) )
@@ -166,6 +173,7 @@ if 1:
     win2.bg.show()
     win2.bg.layer_set(2)
     win2.movie = win2.get_evas().object_image_add()
+    win2.movie.aspect = -1
     win2.movie.alpha_set(True)
     win2.movie.color_set(a=75)
     win2.movie.layer_set(10)
@@ -191,8 +199,9 @@ stream.deint_post = x.post_init("tvtime", video_targets = [vo])
 stream.deint_post.set_parameters(method = "GreedyH", enabled = False)
 eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
 eq2.set_parameters(gamma = 1.2, contrast = 1.1)
-stream.get_video_source().wire(stream.deint_post.get_default_input())
-x.set_config_value("video.device.xv_colorkey", 1)
+#stream.get_video_source().wire(stream.deint_post.get_default_input())
+stream.get_video_source().wire(eq2.get_default_input())
+x.set_config_value("video.device.xv_colorkey", 2110)
 x.set_config_value("video.device.xv_autopaint_colorkey", True)
 #for cfg in x.get_config_entries():
 #    print cfg

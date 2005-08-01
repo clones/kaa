@@ -3,6 +3,7 @@
 #include "../xine.h"
 #include "../vo_driver.h"
 #include "yuv2rgb.h"
+#include "../config.h"
 
 //#define STOPWATCH
 
@@ -14,6 +15,15 @@
 #define BUFFER_VO_REQUEST_PASSTHROUGH   0x02
 
 
+#if defined(ARCH_X86) || defined(ARCH_X86_64)
+    #define YUY2_SIZE_THRESHOLD   400*280
+#else
+    #define YUY2_SIZE_THRESHOLD   2000*2000
+#endif
+
+
+
+
 static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);
 
 typedef struct buffer_frame_s {
@@ -22,8 +32,11 @@ typedef struct buffer_frame_s {
     double ratio;
     int flags;
 
-    unsigned char *yv12_buffer, *yuy2_buffer;
-    unsigned char *bgra_buffer;
+    unsigned char *yv12_buffer, 
+                  *yv12_planes[3],
+                  *yuy2_buffer,
+                  *bgra_buffer;
+    int yv12_strides[3];
     pthread_mutex_t bgra_lock;
     vo_frame_t *passthrough_frame;
     yuv2rgb_t *yuv2rgb;
@@ -192,6 +205,31 @@ pthread_mutex_lock_timeout(pthread_mutex_t *lock, double timeout)
 }
 
 
+static void
+_alloc_yv12(int width, int height, unsigned char **base, 
+            unsigned char *planes[3], int strides[3])
+{
+    int y_size, uv_size;
+
+    strides[0] = 8*((width + 7) / 8);
+    strides[1] = 8*((width + 15) / 16);
+    strides[2] = 8*((width + 15) / 16);
+    
+    printf("IN ALLOC: %d %d %d\n", strides[0], strides[1], strides[2]);
+    y_size  = strides[0] * height;
+    uv_size = strides[1] * ((height+1)/2);
+ 
+    if (*base)
+        free(*base);
+           
+    *base = (unsigned char *)xine_xmalloc(y_size + 2*uv_size);
+    
+    planes[0] = *base;
+    planes[1] = *base + y_size + uv_size;
+    planes[2] = *base + y_size;
+}
+
+////////////
 
 static uint32_t 
 buffer_get_capabilities(vo_driver_t *this_gen)
@@ -377,12 +415,22 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
              frame->vo_frame.pitches[1] != frame->yuv2rgb->uv_stride ||
              frame->yuv2rgb->dest_width != dst_width ||
              frame->yuv2rgb->dest_height != dst_height) {
+
+            int y_stride = frame->vo_frame.pitches[0],
+                uv_stride = frame->vo_frame.pitches[1];
             if (frame->bgra_buffer)
                 free(frame->bgra_buffer);
             frame->bgra_buffer = malloc(frame->width*frame->height*4);
+
+            if (frame->format == XINE_IMGFMT_YUY2 && dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
+                _alloc_yv12(frame->width, frame->height, &frame->yv12_buffer,
+                            frame->yv12_planes, frame->yv12_strides);
+                y_stride = frame->yv12_strides[0];
+                uv_stride = frame->yv12_strides[1];
+            }
+
             frame->yuv2rgb->configure(frame->yuv2rgb, frame->width, frame->height,
-                                      frame->vo_frame.pitches[0],
-                                      frame->vo_frame.pitches[1],
+                                      y_stride, uv_stride,
                                       dst_width, dst_height, 4*(dst_width));
         }
         if (frame->format == XINE_IMGFMT_YV12) {
@@ -394,8 +442,25 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
             stopwatch(0, NULL);
         } else {
             stopwatch(0, "yuy2 to bgra32");
-            frame->yuv2rgb->yuy22rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
-                                          frame->vo_frame.base[0]);
+            if (dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
+                // Naive optimization: yuv2rgb has an accelerated version
+                // but yuy22rgb doesn't.  So when the area of the image is
+                // greater than the size threshold (determined empirically)
+                // first convert the yuy2 image to yv12 and then convert
+                // yv12 to rgb, both operations of which are accelerated.
+                yuy2_to_yv12(frame->vo_frame.base[0], frame->vo_frame.pitches[0],
+                             frame->yv12_planes[0], frame->yv12_strides[0],
+                             frame->yv12_planes[1], frame->yv12_strides[1],
+                             frame->yv12_planes[2], frame->yv12_strides[2],
+                             frame->width, frame->height);
+                frame->yuv2rgb->yuv2rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
+                                             frame->yv12_planes[0],
+                                             frame->yv12_planes[1],
+                                             frame->yv12_planes[2]);
+            } else {
+                frame->yuv2rgb->yuy22rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
+                                              frame->vo_frame.base[0]);
+            }
             stopwatch(0, NULL);
         }
         buffer_callback_send(this, frame, dst_width, dst_height);
