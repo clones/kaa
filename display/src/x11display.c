@@ -93,10 +93,12 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     XSync(self->display, False);
     while (XPending(self->display)) {
         XNextEvent(self->display, &ev);
+        //printf("EVENT: %d\n", ev.type);
         if (ev.type == Expose) {
-            o = Py_BuildValue("(i(i(ii)(ii)))", Expose, ev.xexpose.window,
-                              ev.xexpose.x, ev.xexpose.y, ev.xexpose.width,
-                              ev.xexpose.height);
+            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii)})", Expose, 
+                              "window", ev.xexpose.window,
+                              "pos", ev.xexpose.x, ev.xexpose.y, 
+                              "size", ev.xexpose.width, ev.xexpose.height);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
@@ -110,23 +112,31 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             XLookupString(&ev.xkey, buf, sizeof(buf), &keysym, &stat);
             key = ((keysym & 0xff00) != 0 ? ((keysym & 0x00ff) + 256) : (keysym));
 
-            o = Py_BuildValue("(i(ii))", KeyPress, ev.xkey.window, key);
+            o = Py_BuildValue("(i{s:i,s:i})", KeyPress, 
+                              "window", ev.xkey.window, 
+                              "key", key);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == MotionNotify) {
-            o = Py_BuildValue("(i(i(ii)(ii)))", MotionNotify,
-                              ev.xmotion.window,
-                    ev.xmotion.x, ev.xmotion.y,
-                    ev.xmotion.x_root, ev.xmotion.y_root);
+            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii)})", MotionNotify,
+                              "window", ev.xmotion.window,
+                              "pos", ev.xmotion.x, ev.xmotion.y,
+                              "root_pos", ev.xmotion.x_root, ev.xmotion.y_root);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == ConfigureNotify) {
-            o = Py_BuildValue("(i(i(ii)(ii)))", ConfigureNotify,
-                              ev.xconfigure.window,
-                    ev.xconfigure.x, ev.xconfigure.y,
-                    ev.xconfigure.width, ev.xconfigure.height);
+            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii)})", ConfigureNotify,
+                              "window", ev.xconfigure.window,
+                              "pos", ev.xconfigure.x, ev.xconfigure.y,
+                              "size", ev.xconfigure.width, ev.xconfigure.height);
+            PyList_Append(events, o);
+            Py_DECREF(o);
+        }
+        else if (ev.type == MapNotify) {
+            o = Py_BuildValue("(i{s:i})", MapNotify,
+                              "window", ev.xmap.window);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
@@ -178,12 +188,19 @@ X11Display_PyObject__unlock(X11Display_PyObject * self, PyObject * args)
     return Py_None;
 }
 
+PyObject *
+X11Display_PyObject__get_string(X11Display_PyObject * self, PyObject * args)
+{
+    return Py_BuildValue("s", DisplayString(self->display));
+}
+
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
     { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
     { "lock", ( PyCFunction ) X11Display_PyObject__lock, METH_VARARGS },
     { "unlock", ( PyCFunction ) X11Display_PyObject__unlock, METH_VARARGS },
     { "get_size", ( PyCFunction ) X11Display_PyObject__get_size, METH_VARARGS },
+    { "get_string", ( PyCFunction ) X11Display_PyObject__get_string, METH_VARARGS },
     { NULL, NULL }
 };
 

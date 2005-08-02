@@ -89,14 +89,17 @@ _keysym_names = {
 }
  
 class X11Display(object):
+
     XEVENT_MOTION_NOTIFY = 6
     XEVENT_EXPOSE = 12
     XEVENT_BUTTON_PRESS = 4
     XEVENT_KEY_PRESS = 2
     XEVENT_EXPOSE = 12
+    XEVENT_UNMAP_NOTIFY = 18
+    XEVENT_MAP_NOTIFY = 19
     XEVENT_CONFIGURE_NOTIFY = 22
     
-    XEVENT_WINDOW_EVENTS = (6, 12, 4, 2, 22)
+    #XEVENT_WINDOW_EVENTS = (6, 12, 4, 2, 22, 18, 19)
 
     def __init__(self, dispname = ""):
         self._display = _Display.X11Display(dispname)
@@ -111,14 +114,14 @@ class X11Display(object):
 
     def handle_events(self):
         window_events = {}
-        for event, args in self._display.handle_events():
+        for event, data in self._display.handle_events():
             wid = 0
             if event in X11Display.XEVENT_WINDOW_EVENTS:
-                wid = args[0]
+                wid = data["window"]
             if wid:
                 if wid not in window_events:
                     window_events[wid] = []
-                window_events[wid].append((event, args[1:]))
+                window_events[wid].append((event, data))
 
         for wid, events in window_events.items():
             assert(wid in self._windows)
@@ -151,6 +154,12 @@ class X11Display(object):
     def get_size(self, screen = -1):
         return self._display.get_size(screen)
 
+    def get_string(self):
+        return self._display.get_string()
+
+
+X11Display.XEVENT_WINDOW_EVENTS_LIST = filter(lambda x: x.find("XEVENT_") != -1, dir(X11Display))
+X11Display.XEVENT_WINDOW_EVENTS = map(lambda x: getattr(X11Display, x), X11Display.XEVENT_WINDOW_EVENTS_LIST)
 
 def _get_display(display):
     if not display:
@@ -170,7 +179,9 @@ class X11Window(object):
         if window:
             self._window = window
         else:
-            assert("size" in kwargs and "title" in kwargs)
+            assert("size" in kwargs)
+            if "title" not in kwargs:
+                kwargs["title"] = "Kaa Window"
             self._window = _Display.X11Window(display._display,
                                               kwargs["size"], kwargs["title"])
 
@@ -183,7 +194,9 @@ class X11Window(object):
 
         self.signals = {
             "key_press_event": Signal(),
-            "expose_event": Signal()
+            "expose_event": Signal(),
+            "map_event": Signal(),
+            "unmap_event": Signal(),
         }
         
     def get_display(self):
@@ -213,7 +226,7 @@ class X11Window(object):
 
     def handle_events(self, events):
         expose_regions = []
-        for event, args in events:
+        for event, data in events:
             if event == X11Display.XEVENT_MOTION_NOTIFY:
                 # Mouse moved, so show cursor.
                 if self._cursor_hide_timeout != 0 and not self._cursor_visible:
@@ -222,7 +235,7 @@ class X11Window(object):
                 self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
             elif event == X11Display.XEVENT_KEY_PRESS:
-                key = args[0]
+                key = data["key"]
                 if key in _keysym_names:
                     key = _keysym_names[key]
                 elif key < 255:
@@ -231,7 +244,10 @@ class X11Window(object):
 
             elif event == X11Display.XEVENT_EXPOSE:
                 # Queue expose regions so we only need to emit one signal.
-                expose_regions.append(args)
+                expose_regions.append((data["pos"], data["size"]))
+
+            elif event == X11Display.XEVENT_MAP_NOTIFY:
+                self.signals["map_event"].emit()
 
         if len(expose_regions) > 0:
             self.signals["expose_event"].emit(expose_regions)
@@ -293,7 +309,9 @@ class X11Window(object):
 
     def get_fullscreen(self):
         return self._fs_size_save != None
-        
+     
+    def get_id(self):
+        return hex(self._window.ptr)
 
 class EvasX11Window(X11Window):
     def __init__(self, gl = False, display = None, size = (640, 480), 

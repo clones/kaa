@@ -80,8 +80,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
     attr.border_pixel = 0;
     attr.background_pixmap = None;
     attr.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-        StructureNotifyMask | PointerMotionMask | StructureNotifyMask |
-        KeyPressMask;
+        StructureNotifyMask | PointerMotionMask | KeyPressMask;
     attr.bit_gravity = ForgetGravity;
 
     XLockDisplay(disp->display);
