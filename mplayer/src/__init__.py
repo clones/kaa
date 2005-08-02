@@ -270,7 +270,6 @@ class MPlayer(object):
             w, h = self._size
             filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h)]
 
-        filters += ["expand=:::::.891"]
         args = "-v -slave -osdlevel 0 -nolirc -nojoystick -nomouseinput " \
                "-nodouble -fixed-vo -identify -framedrop -input conf=%s " % keyfile
 
