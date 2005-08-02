@@ -51,7 +51,7 @@ class MPlayer(object):
 
         self.filters = {}
         self.info = {}
-        self.position = 0.0
+        self._position = 0.0
         
         self.signals = {
             "output": notifier.Signal(),
@@ -113,7 +113,23 @@ class MPlayer(object):
 
 
     def _handle_line(self, line):
-        if line[:3] == "ID_" and line.find("=") != -1:
+
+        if line[:2] in ("A:", "V:"):
+            m = MPlayer.RE_STATUS.match(line)
+            if m:
+                old_pos = self._position
+                self._position = float((m.group(1) or m.group(2)).replace(",", "."))
+                if self._position - old_pos < 0 or self._position - old_pos > 1:
+                    self.signals["seek"].emit(self._position)
+
+                self.signals["tick"].emit(self._position)
+                if self._state == MPlayer.STATE_PAUSED:
+                    self._state = MPlayer.STATE_PLAYING
+                    self.signals["pause_toggle"].emit()
+                    self.signals["play"].emit()
+
+
+        elif line.startswith("ID_") and line.find("=") != -1:
             attr, value = line.split("=")
             attr = attr[3:]
             info = { "VIDEO_FORMAT": ("vformat", str),
@@ -129,59 +145,44 @@ class MPlayer(object):
             if attr in info:
                 self.info[info[attr][0]] = info[attr][1](value)
 
-        elif line[:12] == "Movie-Aspect":
+        elif line.startswith("Movie-Aspect"):
             aspect = line[16:].split(":")[0].replace(",", ".")
             if aspect[0].isdigit():
                 self.info["aspect"] = float(aspect)
 
-        elif line[:3] == "VO:":
+        elif line.startswith("VO:"):
             m = re.search("=> (\d+)x(\d+)", line)
             if m:
                 self._vo_size = int(m.group(1)), int(m.group(2))
                 self._window.resize(self._vo_size)
                 self.signals["start"].emit()
 
-        elif line[:2] in ("A:", "V:"):
-            m = MPlayer.RE_STATUS.match(line)
-            if m:
-                old_pos = self.position
-                self.position = float((m.group(1) or m.group(2)).replace(",", "."))
-                if self.position - old_pos < 0 or self.position - old_pos > 1:
-                    self.signals["seek"].emit(self.position)
-
-                self.signals["tick"].emit(self.position)
-                if self._state == MPlayer.STATE_PAUSED:
-                    self._state = MPlayer.STATE_PLAYING
-                    self.signals["pause_toggle"].emit()
-                    self.signals["play"].emit()
-
-        elif line[:14] == "  =====  PAUSE":
+        elif line.startswith("  =====  PAUSE"):
             self._state = MPlayer.STATE_PAUSED
             self.signals["pause_toggle"].emit()
             self.signals["pause"].emit()
             
 
-        elif line[:17] == "Starting playback":
+        elif line.startswith("Starting playback"):
             self.signals["play"].emit()
             self._state = MPlayer.STATE_PLAYING
 
-        elif line[:13] == "Parsing input":
+        elif line.startswith("Parsing input"):
             # Delete the temporary key input file.
             file = line[line.find("file")+5:]
             os.unlink(file)
 
-        elif line[:14] == "File not found":
+        elif line.startswith("File not found"):
             file = line[line.find(":")+2:]
             raise IOError, (2, "No such file or directory: %s" % file)
 
-        if re.search("@@@|outbuf|osd", line, re.I) and DEBUG == 1:
-            print line
-        elif line[:2] not in ("A:", "V:") and DEBUG == 2:
-            print line
-        elif DEBUG == 3:
-            print line
-
-
+        if DEBUG:
+            if re.search("@@@|outbuf|osd", line, re.I) and DEBUG == 1:
+                print line
+            elif line[:2] not in ("A:", "V:") and DEBUG == 2:
+                print line
+            elif DEBUG == 3:
+                print line
 
 
     def _slave_cmd(self, cmd):
@@ -272,3 +273,6 @@ class MPlayer(object):
 
     def get_vo_size(self):
         return self._vo_size
+
+    def get_position(self):
+        return self._position
