@@ -1,4 +1,4 @@
-import os, re, string, tempfile, time
+import os, re, string, tempfile, time, stat
 
 from kaa import notifier, display
 import kaa
@@ -6,8 +6,84 @@ import kaa
 # 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status
 DEBUG=0
 
+# A cache holding values specific to an MPlayer executable (version,
+# filter list, video/audio driver list, input keylist).  This dict is
+# keyed on the full path of the MPlayer binary.
+_cache = {}
+
+def _get_mplayer_info(path, mtime = None):
+    """
+    Fetches info about the given MPlayer executable.  If the values are
+    cached and the cache is fresh, it returns a dict immediately.  If it
+    needs to load MPlayer to fetch the values, it returns a Signal object
+    that the caller can connect to to receive the result once it's complete.
+    The value passed to the signal callback is either the values dict, or an
+    Exception object if an error occurred.
+
+    If 'mtime' is not None, it means we've called ourself as a thread.
+    """
+
+    if not mtime:
+        # Fetch the mtime of the binary
+        mtime = os.stat(path)[stat.ST_MTIME]
+
+        if path in _cache and _cache[path]["mtime"] == mtime:
+            # Cache isn't stale, so return that.
+            return _cache[path]
+
+        # We need to run MPlayer to get these values.  Create a signal, call
+        # ourself as a thread, and return the signal back to the caller.
+        signal = notifier.Signal()
+        thread = notifier.Thread(_get_mplayer_info, path, mtime)
+        # Thread class ensures the callbacks get invoked in the main thread.
+        thread.signals["completed"].connect(signal.emit)
+        thread.signals["exception"].connect(signal.emit)
+        thread.start()
+        return signal
+
+    # At this point we're running in a thread.
+
+    info = { 
+        "version": None, 
+        "mtime": mtime,
+        "video_filters": {},
+        "video_drivers": {},
+        "audio_filters": {},
+        "audio_drivers": {},
+        "keylist": []
+    }
+
+    regexps = (
+        ("video_filters", "-vf help", "\s*(\w+)\s+:\s+(.*)"),
+        ("video_drivers", "-vo help", "\s*(\w+)\s+(.*)"),
+        ("audio_filters", "-af help", "\s*(\w+)\s+:\s+(.*)"),
+        ("audio_drivers", "-ao help", "\s*(\w+)\s+(.*)"),
+        ("keylist", "-input keylist", "^(\w+)$"),
+    )
+
+    for key, args, regexp in regexps:
+        for line in os.popen("%s %s" % (path, args)):
+            # Check version
+            if line.startswith("MPlayer "):
+                info["version"] = line.split()[1]
+
+            # Check regexp
+            m = re.match(regexp, line.strip())
+            if not m:
+                continue
+
+            if len(m.groups()) == 2:
+                info[key][m.group(1)] = m.group(2)
+            else:
+                info[key].append(m.group(1))
+ 
+    _cache[path] = info
+    return info       
+
+
 class MPlayerError(Exception):
     pass
+
 
 class MPlayer(object):
 
@@ -18,6 +94,10 @@ class MPlayer(object):
     STATE_LOADING = 1
     STATE_PLAYING = 2
     STATE_PAUSED = 3
+    # Waiting for some operation to complete before playing a video;
+    # state_data contains a tuple (filename, user_args) that should be played
+    # when the operation is finished.
+    STATE_PENDING = 4
 
     RE_STATUS = re.compile("A:\s*([\d+\.]+)|V:\s*([\d+\.]+)")
 
@@ -48,9 +128,9 @@ class MPlayer(object):
         self._vo_size = None 
         self._process = None
         self._state = MPlayer.STATE_EXITED
+        self._state_data = None
 
-        self.filters = {}
-        self.info = {}
+        self._file_info = {}
         self._position = 0.0
         
         self.signals = {
@@ -64,24 +144,10 @@ class MPlayer(object):
             "start": notifier.Signal()
         }
 
-        mp = self._spawn("-vf help", hook_notifier = False)
-        valid = False
-        for line in mp.readlines():
-            if line[:7] == "MPlayer":
-                valid = True
-            m = re.match("\s*(\w+)\s+:\s+(.*)", line)
-            if m:
-                self.filters[m.group(1)] = m.group(2)
-
-        if not valid:
-            raise MPlayerError, "'%s' doesn't seem to be a valid MPlayer" % self._mp_cmd
-
-        self._keylist = []
-        mp = self._spawn("-input keylist", hook_notifier = False)
-        for line in mp.readlines():
-            if line.find(" ") == -1 and line:
-                self._keylist.append(line)
-
+        self._mp_info = _get_mplayer_info(self._mp_cmd)
+        if type(self._mp_info) == notifier.Signal:
+            self._mp_info.connect(self._handle_mp_info)
+            self._mp_info = None
 
 
     def _spawn(self, args, hook_notifier = True):
@@ -104,16 +170,25 @@ class MPlayer(object):
         deleted once MPlayer has read it.
         """
         keys = filter(lambda x: x not in string.whitespace, string.printable)
-        keys = list(keys) + self._keylist
+        keys = list(keys) + self._mp_info["keylist"]
         fp, filename = tempfile.mkstemp()
         for key in keys:
             os.write(fp, "%s noop\n" % key)
         os.close(fp)
         return filename
 
+    def _handle_mp_info(self, info):
+        if isinstance(info, Exception):
+            # TODO: handle me
+            raise info
+        self._mp_info = info
+        if self._state == MPlayer.STATE_PENDING:
+            file, user_args = self._state_data
+            self._state_data = None
+            self._play(file, user_args)
+
 
     def _handle_line(self, line):
-
         if line[:2] in ("A:", "V:"):
             m = MPlayer.RE_STATUS.match(line)
             if m:
@@ -143,12 +218,12 @@ class MPlayer(object):
                      "LENGTH": ("length", int),
                      "FILENAME": ("filename", str) }
             if attr in info:
-                self.info[info[attr][0]] = info[attr][1](value)
+                self._file_info[info[attr][0]] = info[attr][1](value)
 
         elif line.startswith("Movie-Aspect"):
             aspect = line[16:].split(":")[0].replace(",", ".")
             if aspect[0].isdigit():
-                self.info["aspect"] = float(aspect)
+                self._file_info["aspect"] = float(aspect)
 
         elif line.startswith("VO:"):
             m = re.search("=> (\d+)x(\d+)", line)
@@ -185,6 +260,31 @@ class MPlayer(object):
                 print line
 
 
+    def _play(self, file, user_args = ""):
+        assert(self._mp_info)
+
+        keyfile = self._make_dummy_input_config()
+
+        filters = []
+        if self._size:
+            w, h = self._size
+            filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h)]
+
+        filters += ["expand=:::::.891"]
+        args = "-v -slave -osdlevel 0 -nolirc -nojoystick -nomouseinput " \
+               "-nodouble -fixed-vo -identify -framedrop -input conf=%s " % keyfile
+
+        if filters:
+            args += "-vf %s " % string.join(filters, ",")
+
+        args += "-wid %s " % self._window.get_id()
+        args += "-display %s " % self._window.get_display().get_string()
+        args += "%s \"%s\" " % (user_args, file)
+
+        self._spawn(args)
+        self._state = MPlayer.STATE_LOADING
+
+
     def _slave_cmd(self, cmd):
         self._process.write(cmd + "\n")
 
@@ -205,26 +305,19 @@ class MPlayer(object):
             win_size = self._size or (640, 480)
             self._window = display.X11Window(size = win_size, title = "MPlayer Window")
 
-        keyfile = self._make_dummy_input_config()
+        if not self._mp_info:
+            # We're probably waiting for _get_mplayer_info() to finish; set
+            # state so that _handle_mp_info() will call _play().  There's no
+            # race condition here if we're currently in the main thread,
+            # because _handle_mp_info() is guaranteed to be called in the
+            # main thread.
+            self._state = MPlayer.STATE_PENDING 
+            self._state_data = (file, user_args) 
+            return False
 
-        filters = []
-        if self._size:
-            w, h = self._size
-            filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h)]
-
-        args = "-v -slave -osdlevel 0 -nolirc -nojoystick -nomouseinput " \
-               "-nodouble -fixed-vo -identify -input conf=%s " % keyfile
-
-        if filters:
-            args += "-vf %s " % string.join(filters, ",")
-
-        args += "-wid %s " % self._window.get_id()
-        args += "-display %s " % self._window.get_display().get_string()
-        args += "%s \"%s\" " % (user_args, file)
-
-        self._spawn(args)
-        self._state = MPlayer.STATE_LOADING
-
+        self._play(file, user_args)
+        return True
+        
 
     def is_paused(self):
         return self.get_state() == MPlayer.STATE_PAUSED
@@ -276,3 +369,6 @@ class MPlayer(object):
 
     def get_position(self):
         return self._position
+
+    def get_file_info(self):
+        return self._file_info
