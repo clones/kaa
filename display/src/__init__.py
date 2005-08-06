@@ -286,7 +286,7 @@ class X11Window(object):
         self.set_cursor_visible(False)
 
     def set_cursor_hide_timeout(self, timeout):
-        self._cursor_hide_timeout = timeout * 1000
+        self._cursor_hide_timeout = timeout
         self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
     def set_fullscreen(self, fs = True):

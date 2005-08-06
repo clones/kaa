@@ -111,10 +111,10 @@ class Recording(object):
             # rec not started yet
             wait = int(max(0, self.start - time.time()))
             log.info('start recording %s in %s seconds' % (self.id, wait))
-            self.timer['start'].start(wait * 1000)
+            self.timer['start'].start(wait)
         wait = int(max(0, self.stop - time.time()))
         log.info('stop recording %s in %s seconds' % (self.id, wait))
-        self.timer['stop'].start(wait * 1000)
+        self.timer['stop'].start(wait)
             
 
     def __start(self):

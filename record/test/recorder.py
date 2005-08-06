@@ -22,7 +22,7 @@ if 0:
     id = dvb.start_recording('ZDF', Filewriter('foo.mpg', 0, Filewriter.FT_MPEG))
 
     # stop record after 10 seconds
-    t = OneShotTimer(dvb.stop_recording, id).start(10000)
+    t = OneShotTimer(dvb.stop_recording, id).start(10)
 
 
 if 1:
@@ -45,6 +45,6 @@ if 1:
 
 
 # stop test after 15 seconds
-t = OneShotTimer(sys.exit, 0).start(15000)
+t = OneShotTimer(sys.exit, 0).start(15)
 
 kaa.main()
