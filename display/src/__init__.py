@@ -338,15 +338,15 @@ class EvasX11Window(X11Window):
 
     def handle_events(self, events):
         needs_render = False
-        for event, args in events:
+        for event, data in events:
             if event == X11Display.XEVENT_EXPOSE:
-                self._evas.damage_rectangle_add((args[0], args[1]))
+                self._evas.damage_rectangle_add((data["pos"], data["size"]))
                 needs_render = True
             elif event == X11Display.XEVENT_CONFIGURE_NOTIFY:
-                if args[1] != self._evas.output_size_get():
+                if data["size"] != self._evas.output_size_get():
                     # This doesn't act right for gl.
-                    self._evas.output_size_set(args[1])
-                    self._evas.viewport_set((0, 0), args[1])
+                    self._evas.output_size_set(data["size"])
+                    self._evas.viewport_set((0, 0), data["size"])
                     needs_render = True
 
         super(EvasX11Window, self).handle_events(events)
