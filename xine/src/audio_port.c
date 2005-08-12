@@ -45,14 +45,14 @@ pyxine_new_audio_port_pyobject(PyObject *owner_pyobject, xine_audio_port_t *ao, 
 static int
 Xine_Audio_Port_PyObject__clear(Xine_Audio_Port_PyObject *self)
 {
-    PyObject **list[] = {&self->wire_object, NULL};
+    PyObject **list[] = {&self->wire_list, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Audio_Port_PyObject__traverse(Xine_Audio_Port_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wire_object, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wire_list, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -69,8 +69,8 @@ Xine_Audio_Port_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kw
     self = (Xine_Audio_Port_PyObject *)type->tp_alloc(type, 0);
     self->ao = NULL;
     self->xine = NULL;
-    self->wire_object = self->wrapper = Py_None;
-    Py_INCREF(Py_None);
+    self->wire_list = PyList_New(0);
+    self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -82,7 +82,7 @@ Xine_Audio_Port_PyObject__init(Xine_Audio_Port_PyObject *self, PyObject *args, P
 }
 
 static PyMemberDef Xine_Audio_Port_PyObject_members[] = {
-    {"wire_object", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, wire_object), 0, "Object wired to"},
+    {"wire_list", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, wire_list), 0, "List of wired PostOut objects"},
     {"owner", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Audio_Port_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}

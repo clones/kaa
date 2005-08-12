@@ -55,14 +55,14 @@ def handle_keypress_event(key, stream, window):
         if win.get_visible():
             win2.show()
             win.hide()
-            stream.deint_post.set_parameters(method = "Linear", framerate_mode = "half_top", pulldown = "none")
-            vo._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 0)
+            stream.deint_post.set_parameters(method = "LinearBlend", framerate_mode = "half_top", pulldown = "none")
+            vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 0)
         else:
             win.show()
             win2.hide()
-            vo._port.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
-            stream.deint_post.set_parameters(method = "GreedyH", framerate_mode = "full", pulldown = "vektor")
-        #vo._port.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
+            vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
+            stream.deint_post.set_parameters(method = "LinearBlend", framerate_mode = "full", pulldown = "vektor")
+        vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
         print "WINDOW TOGGLE"
         needs_redraw = True
 
@@ -89,7 +89,7 @@ def handle_xine_event(event, window):
 
 def handle_aspect_changed(aspect, stream, window):
     # Resize window to video dimensions
-    global win2
+    global win2, needs_redraw
     if not window.get_visible() and win.get_visible():
         return
 
@@ -101,6 +101,7 @@ def handle_aspect_changed(aspect, stream, window):
         if window.resize((width, height)):
             say("VO: %dx%d => %dx%d\n" % (video_width, height, width, height))
         window.show()
+        #needs_redraw = True
 
 def output_status_line(stream, window):
     if stream.get_parameter(xine.PARAM_SPEED) == xine.SPEED_PAUSE:
@@ -124,7 +125,13 @@ def buffer_vo_callback(command, data, window):
     if command == xine.BUFFER_VO_COMMAND_QUERY_REQUEST:
         if not window.get_visible():
             return xine.BUFFER_VO_REQUEST_PASSTHROUGH, -1, -1
-        return xine.BUFFER_VO_REQUEST_SEND, 400, 250 #-1, -1
+
+        w, h, aspect = data
+        if w > window.get_size()[0]:
+            w = window.get_size()[0]
+        w = 320
+        h = 200#int(w / aspect)
+        return xine.BUFFER_VO_REQUEST_SEND, w, h #-1, -1
     elif command == xine.BUFFER_VO_COMMAND_QUERY_REDRAW:
         tmp = needs_redraw
         needs_redraw = False
@@ -144,8 +151,9 @@ def update_evas((width, height, aspect, buffer, unlock_cb), window):
         print "RESIZE EVAS", aspect, width, height, window.movie.size_get()
         window.movie.size_set( (width, height) )
         window.movie.aspect = aspect
-        w = min(window.get_size()[0], width)
-        h = int(w / aspect)
+        w, h = width, height
+        #w = min(window.get_size()[0], width)
+        #h = int(w / aspect)
         window.movie.resize( (w, h) )
         window.movie.fill_set( (0, 0), (w, h) )
         window.movie.move((0,0))
@@ -161,8 +169,8 @@ win = display.X11Window(size = (50, 50), title = "Kaa Player")
 win.set_cursor_hide_timeout(0.5)
 
 x = xine.Xine()
-if 1:
-    win2 = display.EvasX11Window(gl = False, size = (640, 480), title = "Kaa Player")
+if 0:
+    win2 = display.EvasX11Window(gl = True, size = (640, 480), title = "Kaa Player")
     r = win2.get_evas().object_rectangle_add()
     r.color_set((255,255,255,255))
     r.move((0,0))
@@ -174,20 +182,23 @@ if 1:
     win2.bg.layer_set(2)
     win2.movie = win2.get_evas().object_image_add()
     win2.movie.aspect = -1
-    win2.movie.alpha_set(True)
-    win2.movie.color_set(a=75)
+    win2.movie.alpha_set(False)
+    #win2.movie.color_set(a=75)
     win2.movie.layer_set(10)
     win2.movie.show()
 
     cb = notifier.Callback(buffer_vo_callback, win2)
-    vo = x.open_video_driver("buffer", callback = cb, passthrough = x.load_video_output_plugin("xv", window=win))
-    #vo = x.open_video_driver("xv", window = win)
+    #vo = x.open_video_driver("buffer", callback = cb, passthrough = x.load_video_output_plugin("xv", window=win))
+    vo = x.open_video_driver("xv", window = win)
 else:
     vo = x.open_video_driver(window = win)
 
+#x.set_config_value("video.device.xv_colorkey", 2)
+#x.set_config_value("video.device.xv_autopaint_colorkey", True)
+
 ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
-stream.signals["event"].connect_weak(handle_xine_event, win)
+#stream.signals["event"].connect_weak(handle_xine_event, win)
 
 kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
@@ -195,23 +206,36 @@ if not isinstance(win, display.EvasX11Window):
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
 kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
-stream.deint_post = x.post_init("tvtime", video_targets = [vo])
-stream.deint_post.set_parameters(method = "GreedyH", enabled = False)
-eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
-eq2.set_parameters(gamma = 1.2, contrast = 1.1)
-#stream.get_video_source().wire(stream.deint_post.get_default_input())
-stream.get_video_source().wire(eq2.get_default_input())
-x.set_config_value("video.device.xv_colorkey", 2110)
-x.set_config_value("video.device.xv_autopaint_colorkey", True)
-#for cfg in x.get_config_entries():
-#    print cfg
-#sys.exit(0)
+#print "STRAEM souRCE", stream.get_video_source()._post_out.get_port()
+#print "STRAEM souRCE", stream.get_audio_source()._post_out.get_port()
+#print "Create expand", vo._port, vo._port
+#expand = x.post_init("invert", video_targets = [vo])
+#print "Done creating expand INPUT", expand.get_default_input()._post_in.port
+#print "Done creating expand OUTPUT", expand.get_default_output().get_port()._port.owner
+#expand.set_parameters(aspect = 4.0/3.0)
+
+#stream.deint_post = x.post_init("tvtime", video_targets = [vo])#expand.get_default_input()])
+#stream.deint_post.get_default_output().wire(expand.get_default_input())
+#print "Done creating DEINT OUTPUT", stream.deint_post.get_default_output().get_port()._port.owner
+#stream.deint_post.set_parameters(method = "TomsMoComp", enabled = False)
+
+#eq2 = x.post_init("eq2", video_targets = [vo])#expand.get_default_input().get_port()])
+#eq2.set_parameters(gamma = 1.2, contrast = 1.1)
+
+#stream.get_video_source()._post_out.wire(expand.get_default_input()._post_in)
+#stream.get_video_source().wire(expand.get_default_input())
+
+#print "AUDIO", ao._port
+#print "STRAEM souRCE", stream.get_video_source()._post_out.get_port()
+#print "STRAEM souRCE", stream.get_audio_source()._post_out.get_port()
+#xine._debug_show_chain(stream._stream)
 stream.open(mrl)
 stream.play()
+
 
 win.show()
 kaa.main()
 win.hide()
-print win2._display._display, win._display._display, win2.get_evas()._dependencies
-del ao, vo, stream, x, win, win2, r, cb, eq2
+#del ao, vo, stream, x, win, win2, r, cb, eq2, expand
+del stream, ao, vo, x, win
 gc.collect()

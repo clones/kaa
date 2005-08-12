@@ -56,7 +56,7 @@ pyxine_new_video_port_pyobject(PyObject *owner_pyobject, xine_video_port_t * vo,
 static int
 Xine_Video_Port_PyObject__clear(Xine_Video_Port_PyObject * self)
 {
-    PyObject **list[] = {&self->wire_object, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wire_list, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
@@ -64,7 +64,7 @@ static int
 Xine_Video_Port_PyObject__traverse(Xine_Video_Port_PyObject * self,
                                    visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wire_object, &self->driver, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wire_list, &self->driver, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -83,8 +83,8 @@ Xine_Video_Port_PyObject__new(PyTypeObject * type, PyObject * args,
     self->vo = NULL;
     self->xine = NULL;
     self->owner_pyobject = NULL;
-    self->wire_object = self->wrapper = Py_None;
-    Py_INCREF(Py_None);
+    self->wire_list = PyList_New(0);
+    self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *) self;
 }
@@ -98,7 +98,7 @@ Xine_Video_Port_PyObject__init(Xine_Video_Port_PyObject * self,
 
 static PyMemberDef Xine_Video_Port_PyObject_members[] = {
     {"driver", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, driver), 0, "Video Driver object of this port"},
-    {"wire_object", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, wire_object), 0, "Object wired to"},
+    {"wire_list", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, wire_list), 0, "List of wired PostOut objects"},
     {"owner", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
@@ -119,7 +119,6 @@ Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
     Py_DECREF(self->driver);
     Py_DECREF(self->wrapper);
     Xine_Video_Port_PyObject__clear(self);
-    Py_DECREF(self->owner_pyobject);
     xine_object_to_pyobject_unregister(self->vo);
 
     self->ob_type->tp_free((PyObject *) self);

@@ -92,7 +92,7 @@ static PyMemberDef Xine_VO_Driver_PyObject_members[] = {
 void
 Xine_VO_Driver_PyObject__dealloc(Xine_VO_Driver_PyObject * self)
 {
-    printf("DEalloc VO Driver: %x\n", self->driver);
+    printf("DEalloc VO Driver: %x (owner=%d)\n", self->driver, self->xine_object_owner);
     if (self->driver && self->xine_object_owner) {
         Py_BEGIN_ALLOW_THREADS
         self->driver->dispose(self->driver);
@@ -102,8 +102,8 @@ Xine_VO_Driver_PyObject__dealloc(Xine_VO_Driver_PyObject * self)
     Xine_VO_Driver_PyObject__clear(self);
     xine_object_to_pyobject_unregister(self->driver);
 
-    if (self->dealloc_cb)
-        self->dealloc_cb(self->dealloc_data);
+    //if (self->dealloc_cb)
+     //   self->dealloc_cb(self->dealloc_data);
 
     self->ob_type->tp_free((PyObject *) self);
 }
@@ -123,9 +123,9 @@ Xine_VO_Driver_PyObject_get_port(Xine_VO_Driver_PyObject *self, PyObject *args, 
     vo = pyxine_new_video_port_pyobject(self->owner_pyobject, vo_port, (PyObject *)self, 1);
 
     // VideoPort object assumes ownership of us.
+    Py_INCREF(vo);
     Py_DECREF(self->owner_pyobject);
     self->owner_pyobject = (PyObject *)vo;
-    Py_INCREF(vo);
     self->xine_object_owner = 0;
 
     return (PyObject *)vo;

@@ -38,25 +38,6 @@ pyxine_new_post_out_pyobject(PyObject *owner_pyobject, xine_post_out_t *post_out
 
     xine_object_to_pyobject_register(post_out, (PyObject *)o);
 
-    // Create Port object for this PostOut
-    if (Xine_Stream_PyObject_Check(owner_pyobject)) {
-        o->port = Py_None;
-        Py_INCREF(Py_None);
-    } else if (post_out->type == XINE_POST_DATA_VIDEO) {
-        if (post_out->data && *(void **)post_out->data) {
-            xine_video_port_t *vo = *(xine_video_port_t **)post_out->data;
-            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, NULL, 0);
-        }
-    }
-    else if (post_out->type == XINE_POST_DATA_AUDIO) {
-        if (post_out->data && *(void **)post_out->data) {
-            xine_audio_port_t *ao = *(xine_audio_port_t **)post_out->data;
-            o->port = (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)o, ao, 0);
-        }
-    }
-//    else
-//        printf("!!! Unsupported PostOut data type: %d\n", post_out->type);
-
     return o;
 }
 
@@ -64,14 +45,14 @@ pyxine_new_post_out_pyobject(PyObject *owner_pyobject, xine_post_out_t *post_out
 static int
 Xine_Post_Out_PyObject__clear(Xine_Post_Out_PyObject *self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, &self->wire_object, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Post_Out_PyObject__traverse(Xine_Post_Out_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, &self->wire_object, NULL};
+    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -88,8 +69,7 @@ Xine_Post_Out_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwar
     self = (Xine_Post_Out_PyObject *)type->tp_alloc(type, 0);
     self->post_out = NULL;
     self->owner_pyobject = NULL;
-    self->wire_object = self->wrapper = Py_None;
-    Py_INCREF(Py_None);
+    self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *)self;
 }
@@ -101,8 +81,6 @@ Xine_Post_Out_PyObject__init(Xine_Post_Out_PyObject *self, PyObject *args, PyObj
 }
 
 static PyMemberDef Xine_Post_Out_PyObject_members[] = {
-    {"wire_object", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, wire_object), 0, "Wire target for streams"},
-    {"port", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, port), 0, "Video or Audio Port"},
     {"owner", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Post_Out_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
@@ -118,6 +96,39 @@ Xine_Post_Out_PyObject__dealloc(Xine_Post_Out_PyObject *self)
     Xine_Post_Out_PyObject__clear(self);
     xine_object_to_pyobject_unregister(self->post_out);
     self->ob_type->tp_free((PyObject*)self);
+}
+
+PyObject *
+Xine_Post_Out_PyObject_get_port(Xine_Post_Out_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    xine_video_port_t *vo;
+    xine_audio_port_t *ao;
+
+    // Return the video/audio port that we are wired to.  Streams are special
+    // cases, since the data field of the xine_post_out_t seems to point to a
+    // Xine object.  So we check to see if we're owned by a Steam, and if so,
+    // fetch the video_out/audio_out field from xine_stream_t instead.
+
+    if (self->post_out->type == XINE_POST_DATA_VIDEO) {
+        if (self->post_out->data && *(void **)self->post_out->data) {
+            if (Xine_Stream_PyObject_Check(self->owner_pyobject))
+                vo = ((Xine_Stream_PyObject *)self->owner_pyobject)->stream->video_out;
+            else
+                vo = *(xine_video_port_t **)self->post_out->data;
+            return (PyObject *)pyxine_new_video_port_pyobject((PyObject *)self, vo, NULL, 0);
+        }
+    }
+    else if (self->post_out->type == XINE_POST_DATA_AUDIO) {
+        if (self->post_out->data && *(void **)self->post_out->data) {
+            if (Xine_Stream_PyObject_Check(self->owner_pyobject))
+                ao = ((Xine_Stream_PyObject *)self->owner_pyobject)->stream->audio_out;
+            else
+                ao = *(xine_audio_port_t **)self->post_out->data;
+            return (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)self, ao, 0);
+        }
+    }
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 PyObject *
@@ -180,6 +191,7 @@ Xine_Post_Out_PyObject_wire_audio_port(Xine_Post_Out_PyObject *self, PyObject *a
 }
 
 PyMethodDef Xine_Post_Out_PyObject_methods[] = {
+    {"get_port", (PyCFunction) Xine_Post_Out_PyObject_get_port, METH_VARARGS},
     {"get_type", (PyCFunction) Xine_Post_Out_PyObject_get_type, METH_VARARGS},
     {"get_name", (PyCFunction) Xine_Post_Out_PyObject_get_name, METH_VARARGS},
     {"wire", (PyCFunction) Xine_Post_Out_PyObject_wire, METH_VARARGS},

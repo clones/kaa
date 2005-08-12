@@ -16,7 +16,7 @@ typedef struct {
     xine_t *xine;
 
     PyObject *wrapper;
-    PyObject *wire_object; // Wired object (PostOut/Stream or PostIn/Port)
+    PyObject *wire_list;  // List of PostOut objects connected to us
 
 } Xine_Audio_Port_PyObject;
 

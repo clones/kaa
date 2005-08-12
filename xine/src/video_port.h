@@ -18,7 +18,7 @@ typedef struct {
 
     PyObject *driver; // VODriver or None
     PyObject *wrapper;
-    PyObject *wire_object; // Wired object (PostOut/Stream source list or PostIn/Port target)
+    PyObject *wire_list;  // List of PostOut objects connected to us
 
 } Xine_Video_Port_PyObject;
 

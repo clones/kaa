@@ -45,7 +45,7 @@ pyxine_new_stream_pyobject(PyObject *owner_pyobject, xine_stream_t *stream, int 
 static int
 Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->master, 
+    PyObject **list[] = {&self->owner_pyobject, &self->master, &self->vo,
                          &self->video_source, &self->audio_source, NULL};
 
     if (self->stream && self->xine_object_owner) {
@@ -60,7 +60,7 @@ Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
 static int
 Xine_Stream_PyObject__traverse(Xine_Stream_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->master, 
+    PyObject **list[] = {&self->owner_pyobject, &self->master, &self->vo,
                          &self->video_source, &self->audio_source, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
@@ -76,9 +76,9 @@ Xine_Stream_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs
     }
 
     self = (Xine_Stream_PyObject *)type->tp_alloc(type, 0);
-    self->stream = NULL;
     self->xine = NULL;
     self->owner_pyobject = NULL;
+    self->vo = NULL;
     self->master = self->wrapper = Py_None;
     Py_INCREF(Py_None);
     Py_INCREF(Py_None);
@@ -350,6 +350,14 @@ Xine_Stream_PyObject_send_event(Xine_Stream_PyObject *self, PyObject *args, PyOb
     return Py_None;
 }
 
+PyObject *
+Xine_Stream_PyObject_get_video_source(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    // XXX: remove me (testing)
+    xine_video_port_t *port;
+    port = self->stream->video_out;
+    return (PyObject *)pyxine_new_video_port_pyobject((PyObject *)self, port, NULL, 0);
+}
 
 PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"open", (PyCFunction) Xine_Stream_PyObject_open, METH_VARARGS },
@@ -370,6 +378,7 @@ PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"set_param", (PyCFunction) Xine_Stream_PyObject_set_param, METH_VARARGS },
     {"new_event_queue", (PyCFunction) Xine_Stream_PyObject_new_event_queue, METH_VARARGS },
     {"send_event", (PyCFunction) Xine_Stream_PyObject_send_event, METH_VARARGS | METH_KEYWORDS },
+    {"get_video_source", (PyCFunction) Xine_Stream_PyObject_get_video_source, METH_VARARGS | METH_KEYWORDS },
 
     // TODO: xine_get_current_frame
     {NULL, NULL}

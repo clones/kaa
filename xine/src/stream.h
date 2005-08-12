@@ -22,6 +22,7 @@ typedef struct {
              *audio_source, // reference to PostOut object for audio
              *video_source, // reference to PostOut object for video
              *wrapper;
+    PyObject *vo; //tmp
 } Xine_Stream_PyObject;
 
 extern PyTypeObject Xine_Stream_PyObject_Type;

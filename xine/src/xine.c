@@ -222,6 +222,7 @@ Xine_PyObject_stream_new(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
     Xine_Video_Port_PyObject *vo;
     Xine_Stream_PyObject *o;
     xine_stream_t *stream;
+    PyObject *stream_pyobject;
 
     if (!PyArg_ParseTuple(args, "O!O!", &Xine_Audio_Port_PyObject_Type, &ao,
                                         &Xine_Video_Port_PyObject_Type, &vo))
@@ -233,7 +234,11 @@ Xine_PyObject_stream_new(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
         PyErr_Format(xine_error, "Failed to create stream.");
         return NULL;
     }
-    return (PyObject *)pyxine_new_stream_pyobject((PyObject *)self, stream, 1);
+
+    stream_pyobject = (PyObject *)pyxine_new_stream_pyobject((PyObject *)self, stream, 1);
+    ((Xine_Stream_PyObject *)stream_pyobject)->vo = vo;
+    Py_INCREF(vo);
+    return stream_pyobject;
 }
 
 PyObject *

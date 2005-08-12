@@ -5,7 +5,7 @@
 #include "yuv2rgb.h"
 #include "../config.h"
 
-//#define STOPWATCH
+#define STOPWATCH
 
 #define BUFFER_VO_COMMAND_QUERY_REQUEST 0
 #define BUFFER_VO_COMMAND_QUERY_REDRAW  1
@@ -136,7 +136,7 @@ buffer_callback_command_query_redraw(buffer_driver_t *this)
 }
 
 static int
-buffer_callback_command_query_request(buffer_driver_t *this, 
+buffer_callback_command_query_request(buffer_driver_t *this, buffer_frame_t *frame,
     int *request_return, int *width_return, int *height_return)
 {
     PyObject *args, *result;
@@ -144,7 +144,8 @@ buffer_callback_command_query_request(buffer_driver_t *this,
     int retval = 1;
 
     gstate = PyGILState_Ensure();
-    args = Py_BuildValue("(i())", BUFFER_VO_COMMAND_QUERY_REQUEST);
+    args = Py_BuildValue("(i(iid))", BUFFER_VO_COMMAND_QUERY_REQUEST,
+                         frame->width, frame->height, frame->ratio);
     result = PyEval_CallObject(this->callback, args);
     if (result) {
         PyArg_ParseTuple(result, "iii", request_return, width_return, height_return);
@@ -215,7 +216,6 @@ _alloc_yv12(int width, int height, unsigned char **base,
     strides[1] = 8*((width + 15) / 16);
     strides[2] = 8*((width + 15) / 16);
     
-    printf("IN ALLOC: %d %d %d\n", strides[0], strides[1], strides[2]);
     y_size  = strides[0] * height;
     uv_size = strides[1] * ((height+1)/2);
  
@@ -241,6 +241,7 @@ buffer_get_capabilities(vo_driver_t *this_gen)
 static void
 buffer_frame_field(vo_frame_t *frame, int which)
 {
+    printf("frame_field %d\n", which);
     // noop
 }
 
@@ -397,7 +398,7 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     //printf("buffer_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
     pthread_mutex_lock(&this->lock);
 
-    buffer_callback_command_query_request(this, &request, &dst_width, &dst_height);
+    buffer_callback_command_query_request(this, frame, &request, &dst_width, &dst_height);
     if (dst_width == -1 || dst_height == -1) {
         dst_width = frame->width;
         dst_height = frame->height;

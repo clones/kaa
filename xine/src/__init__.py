@@ -8,6 +8,47 @@ from kaa import display, notifier, metadata
 from kaa.base.version import Version
 from constants import *
 
+# POST MAGIC:
+#
+#  - Post has an arbitrary number of inputs (PostIn) and outputs (PostOut).
+#  - PostOuts are wired to Audio/Video Ports.  The Port can be either
+#    a audio/video device, or a port belonging to a PostIn object.
+#  - PostIns act as Audio/Video ports:
+#         postout.wire(postin) == postout.wire(postin.get_port())
+#  - PostOuts are always wired to something (i.e. PostOut.get_port() is
+#    never None).  By default they are wired to the audio/video targets
+#    listed when the post is created.
+#  - Whether or not a Post is actually "in the chain" depends on if there
+#    exists a PostOut that's wired to one of its PostIn inputs which is
+#    ultimately being fed by a Stream.
+#  - Streams have two PostOut objects, a video source and an audio source.
+#    The ports of these PostOuts is a Xine object.  These sources are by
+#    default wired to the audio/video targets when the stream is created.
+#
+#
+# Internal view (i.e. types from the _xine module):
+#
+#     Post.inputs: list of PostIn
+#     Post.outputs: list of PostOut
+#
+#     PostIn.owner: The Post object the input belongs to
+#     PostIn.get_port(): VideoPort or AudioPort for that PostIn. (STATIC)
+#
+#     PostOut.owner: The Post or Stream object the output belongs to
+#     PostOut.get_port(): VideoPort or AudioPort this PostOut is wired to.
+#                        (CHANGES based on what it's wired to.)
+#
+#     VideoPort.owner: Owner of the port: if owner is a Xine object,
+#                      the port is a DEVICE; if owner is a PostIn object
+#                      then the port is an input of a Post object.
+#     VideoPort.wire_list: A list of PostOut objects that is wired to this 
+#                          VideoPort.
+# 
+#         - and same above for AudioPort
+#
+# FIXME: all the code needs fixing to reflect the above.
+
+
 XineError = _xine.XineError
 
 # Constants for buffer vo
@@ -58,6 +99,7 @@ def _wrap_xine_object(obj):
 
 def _debug_show_chain(o, level = 0):
     # For debugging, shows the post chain
+    return
     indent = " " * level
     if type(o) == _xine.Stream:
         print "%s [STREAM] %s " % (indent, repr(o)), o
@@ -77,10 +119,12 @@ def _debug_show_chain(o, level = 0):
             target = o.wire_object
             name = "(stream)"
         else:
-            if type(o.port.wire_object) == list:
-                target = o.port
+            if type(o.get_port().wire_object) == list:
+                target = o.get_port()
+                print "TARGET IS LIST"
             else:
-                target = o.port.wire_object
+                target = o.get_port().wire_object
+                print "TARGET IS PORT", o.port
             name = o.owner.name
         print '%s  -> [POST OUT %s / %s]' % (indent, name, o.get_name()), o
         _debug_show_chain(target, level + 5)
@@ -122,12 +166,12 @@ class Xine(object):
         self._xine.wrapper = weakref.ref(self)
 
     def _default_frame_output_cb(self, width, height, aspect, window):
+        # FIXME: be smarter
         #print "FRAME CALLBACK", width, height, aspect, window
         if window:
             win_w, win_h = window.get_geometry()[1]
         else:
             win_w, win_h = 640, 480
-        # Return order: dst_pos, win_pos, dst_size, aspect
         movie_aspect = width / float(height)
         w = win_w
         h = int(w / movie_aspect)
@@ -137,6 +181,7 @@ class Xine(object):
             window.aspect = win_aspect
             window.signals["aspect_changed"].emit(win_aspect)
 
+        # Return order: dst_pos, win_pos, dst_size, aspect
         return (0, 0), (0, 0), (win_w, win_h), 1
 
     def _default_dest_size_cb(self, width, height, aspect, window):
@@ -175,6 +220,8 @@ class Xine(object):
         return _wrap_xine_object(driver)
                     
     def open_video_driver(self, driver = "auto", **kwargs):
+        if "window" not in kwargs and driver == "auto":
+            driver = "none"
         driver = self.load_video_output_plugin(driver, **kwargs)
         vo = driver.get_port()
         return vo
@@ -182,12 +229,15 @@ class Xine(object):
 
     def open_audio_driver(self, driver = "auto", **kwargs):
         ao = self._xine.open_audio_driver(driver, **kwargs)
-        # This port is a driver, initialize wire_object to empty list.
-        ao.wire_object = []
         return _wrap_xine_object(ao)
 
 
-    def new_stream(self, audio_port, video_port):
+    def new_stream(self, audio_port = None, video_port = None):
+        if audio_port == None:
+            audio_port = self.open_audio_driver()
+        if video_port == None:
+            video_port = self.open_video_driver()
+
         assert(type(audio_port) == AudioPort)
         assert(type(video_port) == VideoPort)
 
@@ -195,18 +245,11 @@ class Xine(object):
         # Set wire_objects for stream outputs
         vsource = stream.video_source
         asource = stream.audio_source
-        vsource.wire_object = video_port._port
-        if vsource not in video_port._port.wire_object:
-            video_port._port.wire_object.append(vsource)
+        #if vsource not in video_port._port.wire_list:
+        #    video_port._port.wire_list.append(vsource)
 
-        asource.wire_object = audio_port._port
-        if asource not in audio_port._port.wire_object:
-            audio_port._port.wire_object.append(asource)
-
-        for dep in self._xine.dependencies:
-            if type(dep) == display._Display.X11Window:
-                video_port._port.send_gui_data(GUI_SEND_DRAWABLE_CHANGED, dep.ptr)
-                video_port._port.send_gui_data(GUI_SEND_VIDEOWIN_VISIBLE, 1)
+        #if asource not in audio_port._port.wire_list:
+        #    audio_port._port.wire_list.append(asource)
 
         return _wrap_xine_object(stream)
 
@@ -249,22 +292,37 @@ class Xine(object):
             ao.append(item._port)
         vo = []
         for item in video_targets:
+            if type(item) == PostIn:
+                item = item.get_port()
             assert(type(item) == VideoPort)
             vo.append(item._port)
 
         post = self._xine.post_init(name, inputs, ao, vo)
 
-        # Post outputs are wired to a/v ports.
-        for output in post.outputs:
-            if output.get_type() in (POST_DATA_VIDEO, POST_DATA_AUDIO):
-                if output.port not in output.port.wire_object:
-                    output.port.wire_object.append(output)
-
         # Post inputs are unconnected; initialize them to a empty list.
-        for input in post.inputs:
-            if input.get_type() in (POST_DATA_VIDEO, POST_DATA_AUDIO):
-                input.port.wire_object = []
+        #for input in post.inputs:
+        #    if input.get_type() in (POST_DATA_VIDEO, POST_DATA_AUDIO):
+        #        input.port.wire_object = []
 
+        #post = _wrap_xine_object(post)
+
+        # Post outputs are wired to a/v ports.
+        #for name in post.list_outputs():
+        #    output = post.get_output(name)
+        #    if output.get_type() == POST_DATA_VIDEO:
+        #        print "Output wired to", output, video_targets[0]._port, video_targets[0]._port.wire_object
+        #        output.wire(video_targets[0])
+        #    elif output.get_type() == POST_DATA_AUDIO:
+        #        output.wire(audio_targets[0])
+
+        for output in post.outputs:
+            if not output.get_type() in (POST_DATA_VIDEO, POST_DATA_AUDIO):
+                continue
+            port = output.get_port()
+            if output not in port.wire_list:
+                port.wire_list.append(output)
+
+        #return post
         return _wrap_xine_object(post)
 
     def get_log_names(self):
@@ -351,9 +409,6 @@ class VODriver(object):
         # A new VODriver() is owned by a Xine object, but when get_port() is
         # first called, the new VideoPort assumes ownership of us.
         port = self._driver.get_port()
-        if port.wire_object == None:
-            # This port is a driver, initialize wire_object to empty list.
-            port.wire_object = []
         return _wrap_xine_object(port)
         
 
@@ -367,6 +422,9 @@ class VideoPort(object):
 
     def get_driver(self):
         return _wrap_xine_object(self._port.driver)
+
+    def send_gui_data(self, type, data):
+        return self._port.send_gui_data(type, data)
 
 class AudioPort(object):
     def __init__(self, ao):
@@ -506,14 +564,14 @@ class Post(object):
         l = []
         for input in self._post.inputs:
             if input.get_type() == POST_DATA_VIDEO:
-                l.append(_wrap_xine_object(input.port))
+                l.append(_wrap_xine_object(input.get_port()))
         return l
 
     def get_audio_inputs(self):
         l = []
         for input in self._post.inputs:
             if input.get_type() == POST_DATA_AUDIO:
-                l.append(_wrap_xine_object(input.port))
+                l.append(_wrap_xine_object(input.get_port))
         return l
 
     def get_parameters_desc(self):
@@ -531,6 +589,8 @@ class Post(object):
                 value = kwargs[key] = parms[key]["enums"].index(value)
             elif parms[key]["enums"] and type(value) != parms[key]["type"]:
                 raise XineError, "Value '%s' for parameter '%s' invalid." % (value, key)
+            elif type(value) == int and parms[key]["type"] == float:
+                value = kwargs[key] = float(value)
 
             assert(type(value) == parms[key]["type"])
             
@@ -575,7 +635,7 @@ class PostOut(object):
 
     def wire(self, input):
         if type(input) == PostIn:
-            if self._post_out.wire_object == input._post_in:
+            if self._post_out.get_port() == input._post_in.get_port():
                 return
             r = self._post_out.wire(input._post_in)
             if r:
@@ -583,7 +643,7 @@ class PostOut(object):
             return r
 
         elif type(input) == VideoPort:
-            if self._post_out.wire_object == input._port:
+            if self._post_out.get_port() == input._port:
                 return
             r = self._post_out.wire_video_port(input._port)
             if r:
@@ -591,7 +651,7 @@ class PostOut(object):
             return r
 
         elif type(input) == AudioPort:
-            if self._post_out.wire_object == input._port:
+            if self._post_out.get_port() == input.get_port():
                 return
             r = self._post_out.wire_audio_port(input._port)
             if r:
@@ -601,41 +661,23 @@ class PostOut(object):
             raise XineError, "Unsupported input type: " + str(type(input))
 
     def _rewire(self, target):
+        #print "_rewire", self._post_out, target, target.wire_object
         self._unwire()
-        if type(self.get_owner()) == Stream:
-            # Special case for streams
-            self._post_out.wire_object = target
-        else:
-            self.get_port()._port.wire_object = target
-
+        
         if type(target) in (_xine.PostIn, _xine.PostOut):
-            target_port = target.port
+            target_port = target.get_port()
         elif type(target) in (_xine.VideoPort, _xine.AudioPort):
             target_port = target
         else:
             raise XineError, "Unsupported wire target: " + str(type(target))
 
-        self._post_out.wire_object = target
-
-        if self._post_out not in target_port.wire_object:
-            target_port.wire_object.append(self._post_out)
+        #print "WIRE TO ", target, target_port, target_port.wire_object
+        if self._post_out not in target_port.wire_list:
+            target_port.wire_list.append(self._post_out)
 
     def _unwire(self):
-        if not self._post_out.wire_object:
-            return
-
-        # Target is either a PostIn or a Port.
-        target = self._post_out.wire_object
-        if type(target) == _xine.PostIn:
-            # It's a PostIn, so get the wire object list via its Port.
-            target_sources = target.port.wire_object
-        else:
-            # Must be a Video/Audio Port.
-            target_sources = target.wire_object
-        if self._post_out not in target_sources:
-            raise XineError, "Consistency error in _unwire()"
-        target_sources.remove(self._post_out)
-        self._post_out.wire_object = None
+        if self._post_out in self._post_out.get_port().wire_list:
+            self._post_out.get_port().wire_list.remove(self._post_out)
 
     def unwire(self):
         if type(self.get_owner()) == Stream:
@@ -647,12 +689,7 @@ class PostOut(object):
         # So we make a guess and use the first input/output and hope for the
         # best.  If anything more intelligent is needed, it will have to be
         # done manually.
-        port = self._post_out.port
-        if type(port.wire_object) == list: 
-            # We're wired to a video device.
-            old_target = _wrap_xine_object(port)
-        else:
-            old_target = _wrap_xine_object(port.wire_object)
+        port = self._post_out.get_port()
         self._unwire()
 
         # If we're here, owner is a Post.
@@ -660,7 +697,7 @@ class PostOut(object):
         # Get the default input for the Post object.
         input = post.post_input(post.list_inputs()[0])
         # Get each PostOut connected to this.
-        for previous in input.port.wire_object:
+        for previous in input.get_port().wire_list:
             # Wire this one to our old target.
             _wrap_xine_object(previous).wire(old_target)
 
@@ -677,14 +714,10 @@ class PostOut(object):
         return _wrap_xine_object(self._post_out.owner)
 
     def get_port(self):
-        return _wrap_xine_object(self._post_out.port)
+        return _wrap_xine_object(self._post_out.get_port())
 
     def get_wire_target(self):
-        if type(self.get_owner()) == Stream:
-            target = self._post_out.wire_object
-        else:
-            target = self._post_out.port.wire_object
-        return _wrap_xine_object(target)
+        return _wrap_xine_object(self._post_out.get_port())
 
 
 class PostIn(object):
@@ -703,7 +736,7 @@ class PostIn(object):
         return self._post_in.get_name()
 
     def get_port(self):
-        return _wrap_xine_object(self._post_in.port)
+        return _wrap_xine_object(self._post_in.get_port())
 
 
 class EventQueue(object):

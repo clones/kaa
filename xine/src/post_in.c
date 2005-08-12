@@ -120,37 +120,22 @@ Xine_Post_In_PyObject_get_type(Xine_Post_In_PyObject *self, PyObject *args, PyOb
 }
 
 PyObject *
-Xine_Post_In_PyObject_get_port(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    PyObject *port = NULL;
-
-    if (self->post_in->type == XINE_POST_DATA_VIDEO) {
-        if (self->post_in->data) {
-            xine_video_port_t *vo = (xine_video_port_t *)self->post_in->data;
-            port = (PyObject *)pyxine_new_video_port_pyobject(self->owner_pyobject, vo, NULL, 0);
-        }
-    }
-    else if (self->post_in->type == XINE_POST_DATA_AUDIO) {
-        if (self->post_in->data) {
-            xine_audio_port_t *ao = (xine_audio_port_t *)self->post_in->data;
-            port = (PyObject *)pyxine_new_audio_port_pyobject(self->owner_pyobject, ao, 0);
-        }
-    }
-    if (port)
-        return port;
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-PyObject *
 Xine_Post_In_PyObject_get_name(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     return Py_BuildValue("z", self->post_in->name);
 }
 
+PyObject *
+Xine_Post_In_PyObject_get_port(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    Py_INCREF(self->port);
+    return self->port;
+}
+
 PyMethodDef Xine_Post_In_PyObject_methods[] = {
     {"get_type", (PyCFunction) Xine_Post_In_PyObject_get_type, METH_VARARGS},
     {"get_name", (PyCFunction) Xine_Post_In_PyObject_get_name, METH_VARARGS},
+    {"get_port", (PyCFunction) Xine_Post_In_PyObject_get_port, METH_VARARGS},
 
     {NULL, NULL}
 };

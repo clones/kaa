@@ -16,8 +16,6 @@ typedef struct {
     xine_t *xine;
 
     PyObject *owner_pyobject,
-             *port, // Video or Audio port for this PostOut
-             *wire_object, // if this PostOut is for a stream, the wire target
              *wrapper;
 } Xine_Post_Out_PyObject;
 
