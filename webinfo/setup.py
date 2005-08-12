@@ -1,26 +1,64 @@
-#!/usr/bin/env python
-
-"""Setup script for the pywebinfo distribution."""
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# setup.py - setup script for kaa.webinfo
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa-webinfo - Python module for gathering information from the web
+# Copyright (C) 2002-2005 Viggo Fredriksen, Dirk Meyer, et al.
+#
+# First Edition: Viggo Fredriksen <viggo@katatonic.org>
+# Maintainer:    Viggo Fredriksen <viggo@katatonic.org>
+#                Dirk Meyer <dmeyer@tzi.de>
+#                Rob Shortt <rob@tvcentric.com>
+#
+# Please see the file docs/CREDITS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
 
 __revision__ = "$Id$"
 
-from distutils.core import setup, Extension
+# python imports
+import sys
+
+try:
+    # kaa base imports
+    from kaa.base.distribution import Extension, setup
+except ImportError:
+    print 'kaa.base not installed'
+    sys.exit(1)
+
 
 setup (# Distribution meta-data
-       name = "pywebinfo",
+       name = "kaa.webinfo",
        version = 0.1,
-       description = "",
+       description = "Module for gathering information from websites and services.",
        author = "",
        author_email = "freevo-devel@lists.sourceforge.net",
        url = "http://freevo.sf.net",
 
-       package_dir = {'pywebinfo': 'src'},
-       packages    = ['pywebinfo',
-                      'pywebinfo.movie', 
-                      'pywebinfo.audio',
-                      'pywebinfo.lib',
-                      'pywebinfo.rss',
-                      'pywebinfo.weather',
-                      'pywebinfo.images',
+       package_dir = {'kaa.webinfo': 'src'},
+       packages    = ['kaa.webinfo',
+                      'kaa.webinfo.movie', 
+                      'kaa.webinfo.audio',
+                      'kaa.webinfo.lib',
+                      'kaa.webinfo.rss',
+                      'kaa.webinfo.weather',
+                      'kaa.webinfo.images',
                       ],
       )
