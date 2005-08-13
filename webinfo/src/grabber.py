@@ -34,10 +34,10 @@ import logging
 from cStringIO import StringIO
 from types import StringTypes
 
-# pywebinfo modules
-from pywebinfo.httpreader import HTTPReader
+# kaa.webinfo modules
+from kaa.webinfo.httpreader import HTTPReader
 
-log = logging.getLogger('pywebinfo')
+log = logging.getLogger('webinfo')
 
 # notifier to keep main loop alive
 try:

@@ -44,8 +44,8 @@ import urllib
 import socket
 
 # webinfo modules
-from pywebinfo.grabberitem import GrabberItem
-from pywebinfo.grabber     import Grabber
+from kaa.webinfo.grabberitem import GrabberItem
+from kaa.webinfo.grabber     import Grabber
 
 
 class FreedbItem(GrabberItem):

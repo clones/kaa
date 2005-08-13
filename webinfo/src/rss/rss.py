@@ -36,8 +36,8 @@
 from cStringIO import StringIO
 
 # webinfo module
-from pywebinfo.grabber     import Grabber
-from pywebinfo.lib.feedparser import parse
+from kaa.webinfo.grabber     import Grabber
+from kaa.webinfo.lib.feedparser import parse
 
 
 class RssGrabber(Grabber):

@@ -34,7 +34,7 @@ import re
 import urllib
 
 # webinfo modules
-from pywebinfo.grabber     import Grabber
+from kaa.webinfo.grabber     import Grabber
 
 from imdb import ImdbItem, ImdbPerson
 

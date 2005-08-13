@@ -38,7 +38,7 @@ from errno import EALREADY, EINPROGRESS, EWOULDBLOCK, EISCONN
 from cStringIO import StringIO
 
 import logging
-log = logging.getLogger('pywebinfo')
+log = logging.getLogger('webinfo')
 
 # notifier to keep main loop alive
 import notifier
@@ -142,7 +142,7 @@ class HTTPReader(object):
             # create a GET header
             self.add_header('GET %s HTTP/1.1\r\n' % uri)
             self.add_header('Host: %s:%i\r\n' % (host, port))
-            self.add_header('User-Agent: Freevo (pywebinfo)\r\n')
+            self.add_header('User-Agent: kaa.webinfo\r\n')
             self.add_header('Accept-Language: %s\r\n' % language)
             self.add_header('Connection: close\r\n')
             self.header_finalize()

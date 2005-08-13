@@ -35,9 +35,9 @@ import re
 
 # webinfo modules
 import logging
-from pywebinfo.grabber     import Grabber
-from pywebinfo.grabberitem import GrabberItem
-log = logging.getLogger('pywebinfo')
+from kaa.webinfo.grabber     import Grabber
+from kaa.webinfo.grabberitem import GrabberItem
+log = logging.getLogger('webinfo')
 
 class ApodItem(GrabberItem):
     name = None

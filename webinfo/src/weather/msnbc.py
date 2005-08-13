@@ -43,11 +43,11 @@ import time
 import logging
 
 # webinfo modules
-from pywebinfo.grabberitem import GrabberItem
-from pywebinfo.grabber     import Grabber
+from kaa.webinfo.grabberitem import GrabberItem
+from kaa.webinfo.grabber     import Grabber
 
 
-log = logging.getLogger('pywebinfo')
+log = logging.getLogger('webinfo')
 
 class WeatherItem(GrabberItem):
     # geo data

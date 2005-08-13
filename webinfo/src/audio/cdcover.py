@@ -35,11 +35,11 @@ from cStringIO import StringIO
 
 
 # webinfo modules
-from pywebinfo.grabberitem import GrabberItem
-from pywebinfo.grabber     import Grabber
+from kaa.webinfo.grabberitem import GrabberItem
+from kaa.webinfo.grabber     import Grabber
 
 # amazon module
-import pywebinfo.lib.amazon as amazon
+import kaa.webinfo.lib.amazon as amazon
 
 
 class CDCoverItem(GrabberItem):
