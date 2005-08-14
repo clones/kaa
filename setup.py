@@ -32,7 +32,7 @@ import sys
 import distutils.core
 
 submodules = [ 'base', 'imlib2', 'display', 'mevas', 'thumb', 'epg',
-               'metadata', 'evas', 'webinfo' ]
+               'metadata', 'evas', 'canvas', 'xine', 'mplayer', 'webinfo' ]
 
 for a in sys.argv:
     if a.startswith('--help'):
@@ -55,9 +55,25 @@ if sys.argv[1] == 'clean' and len(sys.argv) == 2:
             os.unlink(version)
             
 else:
+    failed = []
+    build = []
     for m in submodules:
         print '[setup] Entering kaa submodule', m
         os.chdir(m)
-        execfile('setup.py')
+        try:
+            execfile('setup.py')
+        except SystemExit:
+            print 'failed to build', m
+            failed.append(m)
+        else:
+            build.append(m)
         os.chdir('..')
         print '[setup] Leaving kaa submodule', m
+
+    print
+    print 'Summary:'
+    print '+', ', '.join(build)
+    print '-', ', '.join(failed)
+    print
+    print 'The failed modules (-) may not be required by Freevo, e.g.'
+    print 'evas, canvas and xine are not needed right now.'
