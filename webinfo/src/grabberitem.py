@@ -31,7 +31,6 @@
 #
 # -----------------------------------------------------------------------------
 
-import config
 import copy
 import htmlentitydefs
 from types import StringTypes
