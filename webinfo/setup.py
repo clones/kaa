@@ -46,6 +46,7 @@ except ImportError:
 
 setup (# Distribution meta-data
        name = "kaa.webinfo",
+       module = "webinfo",
        version = 0.1,
        description = "Module for gathering information from websites and services.",
        author = "",
