@@ -40,6 +40,7 @@ from types import *
 # kaa.epg imports
 from channel import Channel
 from program import Program
+from schema import *
 
 # get logging object
 log = logging.getLogger('epg')
@@ -85,7 +86,6 @@ class Guide(object):
         """
         Close the database connection.
         """
-        self.db.commit()
         self.db.close()
 
 
@@ -228,12 +228,13 @@ class Guide(object):
         query = 'select * from programs %s order by channel_id, start' % clause
 
         result = []
-        for p in self.db.execute(query, True):
+        for p in self.db.execute(query):
             # id, channel_id, start, stop, title, episode, subtitle, \
             #     description, rating, original_airdate
             if self.channel_dict.has_key(p[1]):
-                result.append(Program(p[0], p[4], p[2], p[3], p[5], p[6],
-                                      p[7], self.channel_dict[p[1]]))
+                result.append(Program(p[ID], p[TITLE], p[START], p[STOP], p[EPISODE],
+                                      p[SUBTITLE], p[DESCRIPTION],
+                                      self.channel_dict[p[CHANNEL_ID]]))
         return result
 
 
@@ -306,7 +307,7 @@ class Guide(object):
         query = 'select id from channels'
         rows = self.db.execute(query)
         for row in rows:
-            id_list.append(row[0])
+            id_list.append(row[ID])
 
         return id_list
 
@@ -332,14 +333,14 @@ class Guide(object):
         query = "select * from programs where channel_id='%s' " % channel_id +\
                 "and start>%s and start<%s" % (start, stop)
         rows = self.db.execute(query)
-        if len(rows) and (len(rows) > 1 or rows[0].start != start or \
-                          rows[0].stop != stop):
+        if len(rows) and (len(rows) > 1 or rows[0][START] != start or \
+                          rows[0][STOP] != stop):
             log.info('changed program time table:')
             # The time table changed. Old programs overlapp new once
             # Better remove everything here
             for row in rows:
-                log.info('delete %s:' % row.title.encode('latin-1', 'replace'))
-                self.sql_remove_program(row.id)
+                log.info('delete %s:' % row[TITLE].encode('latin-1', 'replace'))
+                self.sql_remove_program(row[ID])
 
         # Get program at the given time
         query = "select * from programs where channel_id='%s' " % channel_id +\
@@ -348,23 +349,21 @@ class Guide(object):
         if len(rows) == 1:
             # An old program is found, check attributes.
             old = rows[0]
-            if type(old.title) != unicode or type(title) != unicode:
-                log.error(type(old.title), type(title))
-                
-            if old.title == title:
+
+            if old[TITLE] == title:
                 # program timeslot is unchanged, see if there's anything
                 # that we should update
-                if old.subtitle != subtitle:
+                if old[SUBTITLE] != subtitle:
                     query = "update programs set subtitle='%s' where id=%d"
-                    self.db.execute(query % (subtitle.replace("'", "''"), old.id))
+                    self.db.execute(query % (subtitle.replace("'", "''"), old[ID]))
                     self.db.commit()
-                if old.description != description:
+                if old[DESCRIPTION] != description:
                     query = "update programs set description='%s' where id=%d"
-                    self.db.execute(query % (description.replace("'", "''"), old.id))
+                    self.db.execute(query % (description.replace("'", "''"), old[ID]))
                     self.db.commit()
-                if old.episode != episode:
+                if old[EPISODE] != episode:
                     query = "update programs set episode='%s' where id=%d"
-                    self.db.execute(query % (episode.replace("'", "''"), old.id))
+                    self.db.execute(query % (episode.replace("'", "''"), old[ID]))
                     self.db.commit()
                 return
 
@@ -372,7 +371,7 @@ class Guide(object):
                 # old prog and new prog have same times but different title,
                 # this is probably a schedule change, remove the old one
                 # TODO: check for shifting times and program overlaps
-                self.sql_remove_program(old.id)
+                self.sql_remove_program(old[ID])
 
         #
         # If we made it here there's no identical program in the table

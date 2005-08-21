@@ -57,6 +57,7 @@ import kaa.notifier
 
 # kaa.epg imports
 from program import Program
+from schema import *
 
 # get logging object
 log = logging.getLogger('epg')
@@ -114,7 +115,8 @@ class Channel(object):
         # keep the main loop alive
         notifier_counter = 0
         for p in self.__epg.sql_get_programs(self.id, start, stop):
-            i = Program(p[0], p[4], p[2], p[3], p[5], p[6], p[7], channel=self)
+            i = Program(p[ID], p[TITLE], p[START], p[STOP], p[EPISODE],
+                        p[SUBTITLE], p[DESCRIPTION], channel=self)
             new_progs.append(i)
             notifier_counter = (notifier_counter + 1) % 500
             if not notifier_counter:
@@ -132,12 +134,12 @@ class Channel(object):
             # and the first after end and create a dummy.
             before = self.__epg.sql_get_programs(self.id, 0, start)
             if before:
-                d_start = before[-1].stop
+                d_start = before[-1][STOP]
             else:
                 d_start = START_TIME
             after = self.__epg.sql_get_programs(self.id, stop, -1)
             if after:
-                d_stop = after[0].start
+                d_stop = after[0][START]
             else:
                 d_stop = STOP_TIME
             dummy_progs.append(self.__get_dummy_program(d_start, d_stop))
@@ -155,7 +157,7 @@ class Channel(object):
                     # item and fill the space with a dummy
                     more = self.__epg.sql_get_programs(self.id, 10, start)
                     if more:
-                        d = self.__get_dummy_program(more[-1].stop, p.start)
+                        d = self.__get_dummy_program(more[-1][STOP], p.start)
                     else:
                         d = self.__get_dummy_program(START_TIME, p.start)
                     dummy_progs.append(d)
@@ -164,7 +166,7 @@ class Channel(object):
                     # the gap or create an 'endless' entry
                     more = self.__epg.sql_get_programs(self.id, stop, -1)
                     if more:
-                        d = self.__get_dummy_program(p.stop, more[0].start)
+                        d = self.__get_dummy_program(p.stop, more[0][START])
                     else:
                         d = self.__get_dummy_program(p.stop, STOP_TIME)
                     dummy_progs.append(d)
@@ -238,6 +240,7 @@ class Channel(object):
         if stop == 0:
             # only get what's running at time start
             return filter(lambda x: x.start <= start, self.programs)[-1]
+
         elif stop == None:
             # get everything from time start onwards
             return filter(lambda x: x.stop > start, self.programs)
