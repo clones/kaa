@@ -29,7 +29,20 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'schema', 'update' ]
+__all__ = [ 'ID', 'CHANNEL_ID', 'START', 'STOP', 'TITLE', 'EPISODE', 'SUBTITLE',
+            'DESCRIPTION', 'RATING', 'ORIGINAL_AIRDATE' ]
+
+# program table index
+ID = 0
+CHANNEL_ID = 1
+START = 2
+STOP = 3
+TITLE = 4
+EPISODE = 5
+SUBTITLE = 6
+DESCRIPTION = 7
+RATING = 8
+ORIGINAL_AIRDATE = 9
 
 # the complete schema
 schema = '''
@@ -38,7 +51,7 @@ create table versioning (
     thing text primary key,
     version text
 );
-insert into versioning (thing, version) values ("sql", "0.1.1");
+insert into versioning (thing, version) values ("sql", "0.2");
 
 create table channels (
     id unicode primary key,
@@ -127,13 +140,3 @@ create table recorded_programs (
     program_id integer primary key
 );
 '''
-
-# internal update list between versions
-update = {
-    '0.1.1': '''
-    drop table admin;
-    create table versioning (thing text primary key, version text);
-    insert into versioning (thing, version) values ("sql", "0.1.1");
-    create index p_title on programs (title);
-    '''
-    }
