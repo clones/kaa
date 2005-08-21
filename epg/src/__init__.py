@@ -32,6 +32,7 @@
 # kaa.epg imports
 from guide import Guide
 from program import Program
+from schema import *
 
 # create guide
 guide = Guide()
