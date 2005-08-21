@@ -123,6 +123,10 @@ class Channel(object):
             #       comes from another DB table - same with categories,
             #       ratings and advisories.
 
+        if not new_progs and stop == -1:
+            # ok, it this case that is ok
+            return
+        
         if not new_progs:
             # No programs found? That's bad. Try to find the last before start
             # and the first after end and create a dummy.
