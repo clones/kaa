@@ -29,11 +29,6 @@
 #
 # -----------------------------------------------------------------------------
 
-# python imports
-import os
-import logging
-import copy
-
 # kaa imports
 import kaa.notifier
 
@@ -42,62 +37,27 @@ import pysqlite2.dbapi2 as sqlite
 
 # epg imports
 import schema
-
-# get logging object
-log = logging.getLogger('epg')
-
-latest_version = "0.1.1"
+import db_base
 
 
-class Cursor(sqlite.Cursor):
-    """
-    Cursor to return results similar to pysqlite1.
-    """
-    class List(list):
-        def __init__(self, description, row):
-            list.__init__(self, row)
-            self.__description = description
-            
-        def __getattr__(self, key):
-            for idx, col in enumerate(self.__description):
-                if col[0] == key:
-                    return self[idx]
-            raise AttributeError('Unknown key: %s' % key)
-
-    def __init__(self, *args, **kwargs):
-        sqlite.Cursor.__init__(self, *args, **kwargs)
-        self.row_factory = self.list_factory
-
-    def list_factory(self, cursor, row):
-        return self.List(cursor.description, row)
-
-
-
-class Database(object):
+class Database(db_base.Database):
     """
     Database class for sqlite usage
     """
-    def __init__(self, dbpath):
-        """
-        Create database and connect to it.
-        """
-        dbmissing = False
-        try:
-            # Check the database file
-            if os.path.isfile(dbpath):
-                if os.path.getsize(dbpath) == 0:
-                    e = 'EPG database is zero size (invalid), removing it'
-                    log.error(e)
-                    os.unlink(dbpath)
-            else:
-                log.warning('EPG database missing, creating it')
-                dbmissing = True
+    OperationalError = sqlite.OperationalError
 
-        except OSError, e:
-            if os.path.isfile(dbpath):
-                log.exception('Problem reading %s, check permissions' % dbpath)
-            raise e
+    def create(self):
+        """
+        Craete the db.
+        """
+        self.cursor.executescript(schema.schema)
+        self.db.commit()
 
+
+    def open(self, dbpath):
+        """
+        Open the db.
+        """
         while 1:
             # connect to the database
             try:
@@ -106,80 +66,4 @@ class Database(object):
             except sqlite.OperationalError, e:
                 # keep main loop alive
                 kaa.notifier.step(False, False)
-
-        self.cursor = self.db.cursor(factory=Cursor)
-        self.lcursor = self.db.cursor()
-        if not dbmissing:
-            try:
-                ver = self.get_version()
-                log.debug('EPG database version %s' % ver)
-                if ver != latest_version:
-                    warning = 'EPG database out of date, latest version is %s'
-                    log.warning(warning % latest_version)
-                    if ver == "0.0.0" and latest_version == "0.1.1":
-                        for cmd in schema.update['0.1.1']:
-                            self.execute(cmd, True)
-                        self.commit()
-            except AttributeError:
-                log.warning('Invalid database, creating a new one')
-                dbmissing = True
-                os.unlink(dbpath)
-
-        if dbmissing:
-            self.cursor.executescript(schema.schema)
-            self.commit()
-
-
-    def commit(self):
-        """
-        Commit changes to database.
-        """
-        self.db.commit()
-
-
-    def close(self):
-        """
-        Close database connection.
-        """
-        self.db.close()
-
-
-    def execute(self, query, as_list=False):
-        """
-        Execute a query.
-        """
-        cursor = self.lcursor
-        if not as_list:
-            cursor = self.cursor
-        while 1:
-            try:
-                cursor.execute(query)
-                return cursor.fetchall()
-            except sqlite.OperationalError, e:
-                # keep main loop alive
-                kaa.notifier.step(False, False)
-
-
-    def get_version(self):
-        """
-        Get database version information.
-        """
-        if self.check_table('versioning'):
-            cmd = 'select version from versioning where thing="sql"'
-            return self.execute(cmd, True)[0][0]
-        else:
-            log.warning('EPG database version check failed')
-            raise AttributeError('Broken DB')
-
-
-    def check_table(self, table=None):
-        """
-        Check if a table exists.
-        """
-        if not table:
-            return False
-        # verify the table exists
-        if not self.execute('select name from sqlite_master where ' + \
-                            'name="%s" and type="table"' % table, True):
-            return None
-        return table
+        self.cursor = self.db.cursor()
