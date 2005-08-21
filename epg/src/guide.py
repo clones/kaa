@@ -201,32 +201,34 @@ class Guide(object):
 
         clause += ' and ('
 
+        searchstr = searchstr.replace("'", "''")
+        
         if search_title:
             if exact_match:
-                clause = '%s title="%s"' % (clause, searchstr)
+                clause = "%s title='%s'" % (clause, searchstr)
             else:
-                clause = '%s title like "%%%s%%"' % (clause, searchstr)
+                clause = "%s title like '%%%s%%'" % (clause, searchstr)
 
         if search_subtitle:
             if search_title: clause += ' or'
             if exact_match:
-                clause = '%s subtitle="%s"' % (clause, searchstr)
+                clause = "%s subtitle='%s'" % (clause, searchstr)
             else:
-                clause = '%s subtitle like "%%%s%%"' % (clause, searchstr)
+                clause = "%s subtitle like '%%%s%%'" % (clause, searchstr)
 
         if search_description:
             if search_title or search_subtitle: clause += ' or'
             if exact_match:
-                clause = '%s description="%s"' % (clause, searchstr)
+                clause = "%s description='%s'" % (clause, searchstr)
             else:
-                clause = '%s description like "%%%s%%"' % (clause, searchstr)
+                clause = "%s description like '%%%s%%'" % (clause, searchstr)
 
         clause += ' )'
 
         query = 'select * from programs %s order by channel_id, start' % clause
 
         result = []
-        for p in self.sql_execute(query, True):
+        for p in self.db.execute(query, True):
             # id, channel_id, start, stop, title, episode, subtitle, \
             #     description, rating, original_airdate
             if self.channel_dict.has_key(p[1]):
@@ -241,7 +243,7 @@ class Guide(object):
         found.
         """
         query = 'select * from programs where id="%s"' % id
-        result = self.sql_execute(query)
+        result = self.db.execute(query)
         if result:
             id, channel_id, start, stop, title, episode, subtitle, \
                 description, rating, original_airdate = result[0]
@@ -258,26 +260,6 @@ class Guide(object):
     # outside kaa.epg
     #
 
-    def sql_execute(self, query, as_list=False):
-        """
-        Execute sql query. If as_list is True, the result can only be accessed
-        as a list. So result[0] is possible, result['title'] is not. Using
-        as_list will speed up the query for sqlite2.
-        """
-        try:
-            return self.db.execute(self.__escape_query(query), as_list)
-        except TypeError:
-            log.exception('execute error')
-            return False
-
-
-    def sql_commit(self):
-        """
-        Commit to database.
-        """
-        self.db.commit()
-
-
     def sql_checkTable(self, table=None):
         """
         Check if a table exists.
@@ -291,10 +273,12 @@ class Guide(object):
         """
         Add a channel to the database or replace the information.
         """
-        query = 'insert or replace into channels (id, display_name, access_id)\
-                 values ("%s", "%s", "%s")' % (id, display_name, access_id)
-        self.sql_execute(query)
-        self.sql_commit()
+        query = "insert or replace into channels (id, display_name, access_id) " + \
+                "values ('%s', '%s', '%s')" % \
+                (id.replace("'", "''"), display_name.replace("'", "''"),
+                 access_id.replace("'", "''"))
+        self.db.execute(query)
+        self.db.commit()
 
 
     def sql_get_channels(self):
@@ -302,16 +286,16 @@ class Guide(object):
         Get all channels.
         """
         query = 'select * from channels order by access_id'
-        return self.sql_execute(query)
+        return self.db.execute(query)
 
 
     def sql_remove_channel(self, id):
         """
         Remove a channel from the database.
         """
-        query = 'delete from channels where id="%s' % id
-        self.sql_execute(query)
-        self.sql_commit()
+        query = 'delete from channels where id="%s' % id.replace("'", "''")
+        self.db.execute(query)
+        self.db.commit()
 
 
     def sql_get_channel_ids(self):
@@ -320,7 +304,7 @@ class Guide(object):
         """
         id_list = []
         query = 'select id from channels'
-        rows = self.sql_execute(query)
+        rows = self.db.execute(query)
         for row in rows:
             id_list.append(row[0])
 
@@ -334,48 +318,54 @@ class Guide(object):
         overlap the new one.
         """
         now = time.time()
-        # clean up informations
-        title = self.__escape_value(title)
-        subtitle = self.__escape_value(subtitle).strip(' \t-_')
-        description = self.__escape_value(description).strip(' \t-_')
-        episode = self.__escape_value(episode).strip(' \t-_')
+
+        # convert to sql style
+        channel_id = channel_id.replace("'", "''")
+
+        # shorten strings to fit the db
+        if len(title) > 255: title = title[:255]
+        if len(subtitle) > 255: subtitle = subtitle[:255]
+        if len(episode) > 255: episode = episode[:255]
+        if len(description) > 4095: episode = episode[:4095]
 
         # get possible overlapping programs
-        query = 'select * from programs where channel_id="%s" ' % channel_id +\
-                'and start>%s and start<%s' % (start, stop)
-        rows = self.sql_execute(query)
+        query = "select * from programs where channel_id='%s' " % channel_id +\
+                "and start>%s and start<%s" % (start, stop)
+        rows = self.db.execute(query)
         if len(rows) and (len(rows) > 1 or rows[0].start != start or \
                           rows[0].stop != stop):
             log.info('changed program time table:')
             # The time table changed. Old programs overlapp new once
             # Better remove everything here
             for row in rows:
-                title = row.title.encode('latin-1', 'replace')
-                log.info('delete %s:' % title)
+                log.info('delete %s:' % row.title.encode('latin-1', 'replace'))
                 self.sql_remove_program(row.id)
 
         # Get program at the given time
-        query = 'select * from programs where channel_id="%s" ' % channel_id +\
-                'and start=%s' % start
-        rows = self.sql_execute(query)
+        query = "select * from programs where channel_id='%s' " % channel_id +\
+                "and start=%s" % start
+        rows = self.db.execute(query)
         if len(rows) == 1:
             # An old program is found, check attributes.
             old = rows[0]
+            if type(old.title) != unicode or type(title) != unicode:
+                log.error(type(old.title), type(title))
+                
             if old.title == title:
                 # program timeslot is unchanged, see if there's anything
                 # that we should update
                 if old.subtitle != subtitle:
-                    query = 'update programs set subtitle="%s" where id=%d'
-                    self.sql_execute(query % (subtitle, old.id))
-                    self.sql_commit()
+                    query = "update programs set subtitle='%s' where id=%d"
+                    self.db.execute(query % (subtitle.replace("'", "''"), old.id))
+                    self.db.commit()
                 if old.description != description:
-                    query = 'update programs set description="%s" where id=%d'
-                    self.sql_execute(query % (description, old.id))
-                    self.sql_commit()
+                    query = "update programs set description='%s' where id=%d"
+                    self.db.execute(query % (description.replace("'", "''"), old.id))
+                    self.db.commit()
                 if old.episode != episode:
-                    query = 'update programs set episode="%s" where id=%d'
-                    self.sql_execute(query % (episode, old.id))
-                    self.sql_commit()
+                    query = "update programs set episode='%s' where id=%d"
+                    self.db.execute(query % (episode.replace("'", "''"), old.id))
+                    self.db.commit()
                 return
 
             else:
@@ -401,27 +391,19 @@ class Guide(object):
         # If we got this far all we need to do now is insert a new
         # program row.
         #
-        if len(title) > 255:
-            title = title[:255]
+        title = title.replace("'", "''")
+        subtitle = subtitle.replace("'", "''")
+        description = description.replace("'", "''")
+        episode = episode.replace("'", "''")
 
-        if len(subtitle) > 255:
-            subtitle = subtitle[:255]
-
-        if len(episode) > 255:
-            episode = episode[:255]
-
-        if len(description) > 4095:
-            episode = episode[:4095]
-
-        query = 'insert into programs (channel_id, title, start, stop, \
-                                       subtitle, episode, description) \
-                 values ("%s", "%s", %s, %s, "%s", "%s", "%s")' % \
-                        (channel_id, title, start, stop,
-                         subtitle, episode, description)
+        query = "insert into programs (channel_id, title, start, stop, "\
+                "subtitle, episode, description)" \
+                "values ('%s', '%s', %s, %s, '%s', '%s', '%s')" % \
+                (channel_id, title, start, stop, subtitle, episode, description)
 
         try:
-            self.sql_execute(query)
-            self.sql_commit()
+            self.db.execute(query)
+            self.db.commit()
         except Exception, e:
             log.exception('Unable to add program')
 
@@ -444,31 +426,31 @@ class Guide(object):
         if channels:
             if type(channels) != ListType:
                 channels = [ channels, ]
-            query = u'select * from programs where'
+            query = u"select * from programs where"
             for c in channels:
-                query = '%s channel_id="%s"' % (query, c)
+                query = "%s channel_id='%s'" % (query, c.replace("'", "''"))
                 if channels.index(c) < len(channels)-1:
-                    query = '%s or' % query
-            query = u'%s and' % query
+                    query = "%s or" % query
+            query = u"%s and" % query
         else:
-            query = u'SELECT * FROM programs WHERE'
+            query = u"SELECT * FROM programs WHERE"
 
         if stop == 0:
             # only get what's running at time start
-            query = u'%s start<=%d and stop>%d' % (query, start, start)
+            query = u"%s start<=%d and stop>%d" % (query, start, start)
         elif stop == -1:
             # get everything from time start onwards
-            query = u'%s ((start<=%d and stop>%d) or start>%d)' % \
+            query = u"%s ((start<=%d and stop>%d) or start>%d)" % \
                     (query, start, start, start)
         elif stop > 0:
             # get everything from time start to time stop
-            query = u'%s start <= %s AND stop >= %s' % \
+            query = u"%s start <= %s AND stop >= %s" % \
                     (query, stop, start)
         else:
             return []
 
         # run the query
-        return self.sql_execute('%s order by start' % query)
+        return self.db.execute("%s order by start" % query)
 
 
     def sql_remove_program(self, id):
@@ -476,21 +458,21 @@ class Guide(object):
         Remove a program from the list.
         """
         query = 'delete from programs where id=%d' % id
-        self.sql_execute(query)
+        self.db.execute(query)
 
         query = 'delete from program_category where program_id=%d' % id
-        self.sql_execute(query)
+        self.db.execute(query)
 
         query = 'delete from program_advisory where program_id=%d' % id
-        self.sql_execute(query)
+        self.db.execute(query)
 
         query = 'delete from record_programs where program_id=%d' % id
-        self.sql_execute(query)
+        self.db.execute(query)
 
         query = 'delete from recorded_programs where program_id=%d' % id
-        self.sql_execute(query)
+        self.db.execute(query)
 
-        self.sql_commit()
+        self.db.commit()
 
 
     def sql_expire_programs(self):
@@ -503,17 +485,17 @@ class Guide(object):
                  (select id from programs where \
                 id not in (select program_id from recorded_programs) \
                 and stop<%d)' % EXPIRE_TIME
-        rows = self.sql_execute(query)
+        rows = self.db.execute(query)
 
         query = 'delete from program_advisory where program_id in \
                  (select id from programs where \
                 id not in (select program_id from recorded_programs) \
                 and stop<%d)' % EXPIRE_TIME
-        rows = self.sql_execute(query)
+        rows = self.db.execute(query)
 
         query = 'delete from programs where \
                  id not in (select program_id from recorded_programs) \
                  and stop<%d' % EXPIRE_TIME
-        rows = self.sql_execute(query)
+        rows = self.db.execute(query)
 
-        self.sql_commit()
+        self.db.commit()

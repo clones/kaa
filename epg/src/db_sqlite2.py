@@ -144,7 +144,7 @@ class Database(object):
         self.db.close()
 
 
-    def execute(self, query, as_list):
+    def execute(self, query, as_list=False):
         """
         Execute a query.
         """
