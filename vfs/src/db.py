@@ -15,7 +15,7 @@ CREATE_SCHEMA = """
     CREATE TABLE types (
         id              INTEGER PRIMARY KEY AUTOINCREMENT, 
         name            TEXT UNIQUE,
-        attrs_pickle    TEXT
+        attrs_pickle    BLOB
     );
 
     CREATE TABLE words (
@@ -120,7 +120,7 @@ class Database:
                 # don't need to alter the table, just update the types table.
                 cur_type_attrs.update(new_attrs)
                 self._db_query("UPDATE types SET attrs_pickle=? WHERE id=?",
-                           (cPickle.dumps(cur_type_attrs), cur_type_id))
+                           (buffer(cPickle.dumps(cur_type_attrs, 2)), cur_type_id))
                 return
 
             # Update the attr list to merge both existing and new attributes.
@@ -139,7 +139,7 @@ class Database:
                 ("parent_type", int, ATTR_SEARCHABLE),
                 ("size", int, ATTR_SIMPLE),
                 ("mtime", int, ATTR_SEARCHABLE),
-                ("pickle", str, ATTR_SEARCHABLE),
+                ("pickle", buffer, ATTR_SEARCHABLE),
             ) + tuple(attr_list)
 
         table_name = "objects_%s" % type_name
@@ -152,7 +152,8 @@ class Database:
             # If flags is non-zero it means this attribute needs to be a
             # column in the table, not a pickled value.
             if flags:
-                sql_types = {str: "TEXT", int: "INTEGER", float: "FLOAT"}
+                sql_types = {str: "TEXT", int: "INTEGER", float: "FLOAT", 
+                             buffer: "BLOB", unicode: "TEXT"}
                 assert(type in sql_types)
                 create_stmt += "%s %s" % (name, sql_types[type])
                 if name == "id":
@@ -162,14 +163,13 @@ class Database:
 
             attrs[name] = (type, flags)
 
-        create_stmt = create_stmt[:-1]
-        create_stmt += ")"
+        create_stmt = create_stmt[:-1] + ")"
         self._db_query(create_stmt)
 
         # Add this type to the types table, including the attributes
         # dictionary.
         self._db_query("INSERT OR REPLACE INTO types VALUES(NULL, ?, ?)", 
-                       (type_name, cPickle.dumps(attrs)))
+                       (type_name, buffer(cPickle.dumps(attrs, 2))))
 
         if new_attrs:
             # Migrate rows from old table to new one.
@@ -207,7 +207,7 @@ class Database:
 
     def _load_object_types(self):
         for id, name, attrs in self._db_query("SELECT * from types"):
-            self._object_types[name] = id, cPickle.loads(attrs.encode("utf-8"))
+            self._object_types[name] = id, cPickle.loads(str(attrs))
     
 
     def _make_query_from_attrs(self, query_type, attrs, type_name):
@@ -232,7 +232,7 @@ class Database:
                     values.append(None)
 
         if len(attrs_copy) > 0:
-            values[columns.index("pickle")] = cPickle.dumps(attrs_copy)
+            values[columns.index("pickle")] = buffer(cPickle.dumps(attrs_copy, 2))
         else:
             values[columns.index("pickle")] = None
 
@@ -289,7 +289,7 @@ class Database:
                                  (object_id,))
         assert(row)
         if row[0]:
-            row_attrs = cPickle.loads(row[0].encode("utf-8"))
+            row_attrs = cPickle.loads(str(row[0]))
             row_attrs.update(attrs)
             attrs = row_attrs
         if parent:
@@ -364,7 +364,7 @@ class Database:
                 result = dict(zip(columns, row))
                 result["type"] = type_name
                 if result["pickle"]:
-                    pickle = cPickle.loads(result["pickle"].encode("utf-8"))
+                    pickle = cPickle.loads(str(result["pickle"]))
                     del result["pickle"]
                     result.update(pickle)
                 new_results.append(result)
