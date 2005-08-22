@@ -131,6 +131,7 @@ class Database:
 
         else:
             new_attrs = {}
+            cur_type_id = None
             # Merge standard attributes with user attributes for this type.
             attr_list = (
                 ("id", int, ATTR_SEARCHABLE),
@@ -168,8 +169,8 @@ class Database:
 
         # Add this type to the types table, including the attributes
         # dictionary.
-        self._db_query("INSERT OR REPLACE INTO types VALUES(NULL, ?, ?)", 
-                       (type_name, buffer(cPickle.dumps(attrs, 2))))
+        self._db_query("INSERT OR REPLACE INTO types VALUES(?, ?, ?)", 
+                       (cur_type_id, type_name, buffer(cPickle.dumps(attrs, 2))))
 
         if new_attrs:
             # Migrate rows from old table to new one.
