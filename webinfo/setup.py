@@ -44,22 +44,7 @@ except ImportError:
     sys.exit(1)
 
 
-setup (# Distribution meta-data
-       name = "kaa.webinfo",
-       module = "webinfo",
-       version = 0.1,
-       description = "Module for gathering information from websites and services.",
-       author = "",
-       author_email = "freevo-devel@lists.sourceforge.net",
-       url = "http://freevo.sf.net",
-
-       package_dir = {'kaa.webinfo': 'src'},
-       packages    = ['kaa.webinfo',
-                      'kaa.webinfo.movie', 
-                      'kaa.webinfo.audio',
-                      'kaa.webinfo.lib',
-                      'kaa.webinfo.rss',
-                      'kaa.webinfo.weather',
-                      'kaa.webinfo.images',
-                      ],
-      )
+setup ( module = "webinfo",
+        version = 0.1,
+        description = "Module for gathering information from websites and services.",
+        )

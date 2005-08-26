@@ -58,15 +58,27 @@ class GrabberItem(object):
 
     def __str__(self):
         val = []
-        for a in self.__dict__.keys():
-            if isinstance(self.__dict__[a], StringTypes):
-                val.append('%s: %s' % (a, self.__dict__[a]) )
+        for key, value in self.__dict__.items():
+            if isinstance(value, unicode):
+                value = value.encode('latin-1', 'replace')
+            if isinstance(value, str):
+                val.append('%s: %s' % (key, value))
+            elif isinstance(value, (list, tuple)):
+                val.append('%s:' % key)
+                for l in value:
+                    if isinstance(l, unicode):
+                        l = l.encode('latin-1', 'replace')
+                    val.append('    %s' % l)
+            elif isinstance(value, (int, long, float)):
+                val.append('%s: %s' % (a, value))
+            elif value != None:
+                val.append('%s: %s' % (key, value.__class__))
         return '\n'.join(val)
 
     def htmlenties2txt(self, string):
         """
         Converts a string to a string with all html entities resolved.
-        Returns the result as Unicode object (that may conatin chars outside 256
+        Returns the result as unicode object (that may conatin chars outside 256
         """
         e = copy.deepcopy(htmlentitydefs.entitydefs)
         e['ndash'] = "-";
@@ -74,20 +86,23 @@ class GrabberItem(object):
         e['rsquo'] = "'";
         e['lsquo'] = "`";
         e['hellip'] = '...'
-    
-        string = Unicode(string).replace("&#039", "'").replace("&#146;", "'")
-    
+
+        try:
+            string = unicode(string).replace("&#039", "'").replace("&#146;", "'")
+        except:
+            string = unicode(string, 'replace').replace("&#039", "'").replace("&#146;", "'")
+
         i = 0
         while i < len(string):
             amp = string.find("&", i) # find & as start of entity
             if amp == -1: # not found
                 break
             i = amp + 1
-    
+
             semicolon = string.find(";", amp) # find ; as end of entity
             if string[amp + 1] == "#": # numerical entity like "&#039;"
                 entity = string[amp:semicolon+1]
-                replacement = Unicode(unichr(int(entity[2:-1])))
+                replacement = unicode(unichr(int(entity[2:-1])))
             else:
                 entity = string[amp:semicolon + 1]
                 if semicolon - amp > 7:
@@ -99,4 +114,3 @@ class GrabberItem(object):
                     continue
             string = string.replace(entity, replacement)
         return string
-                

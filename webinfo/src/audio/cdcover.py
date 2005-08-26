@@ -31,12 +31,15 @@
 
 # python modules
 from xml.dom import minidom
-from cStringIO import StringIO
+import urllib2
 
+# kaa modules
+from kaa.notifier import Signal
+import kaa.imlib2
 
 # webinfo modules
+from kaa.webinfo.httpreader import HTTPReader
 from kaa.webinfo.grabberitem import GrabberItem
-from kaa.webinfo.grabber     import Grabber
 
 # amazon module
 import kaa.webinfo.lib.amazon as amazon
@@ -46,64 +49,78 @@ class CDCoverItem(GrabberItem):
     """
     Class representing the result
     """
-    cover_large  = None
-    cover_medium = None
-    cover_small  = None
+    cover        = None
     release_date = None
     album        = None
     artist       = None
     tracks       = []
 
 
-
-class CDCoverGrabber(Grabber):
-    def __init__(self, amazon_license, cb_progress=None, cb_error=None,
-                 cb_result=None, language='en-US'):
-
-        Grabber.__init__(self, cb_progress, cb_error, cb_result, language)
-
+class CDCoverGrabber(HTTPReader):
+    def __init__(self, amazon_license=None):
+        HTTPReader.__init__(self)
+        self.show_progress = False
+        
         # configure the license
-        self.license = amazon_license
-        self.data = None
-        self.url = None
+        self.amazon_license = amazon_license
 
 
-    def handle_line(self, url, line):
-        """
-        Handle one line
-        """
-        # we need the whole data here
-        self.data.write(line)
- 
+    def search(self, search_type, keyword, product_line, type="heavy", page=None):
+        key = amazon.getLicense(self.amazon_license)
+        url = amazon.buildURL(search_type, keyword, product_line, type, page, key)
+        self.status_callback('searching')
+        self.get(url)
 
-    def handle_finished(self, url):
+        
+    def search_by_artist(self, artist, product_line="music", type="heavy", page=1):
+        if product_line not in ("music", "classical"):
+            raise amazon.AmazonError, "product_line must be in ('music', 'classical')"
+        return self.search("ArtistSearch", artist, product_line, type, page)
+
+
+    def search_by_keyword(self, keyword, product_line="books", type="heavy", page=1):
+        return self.search("KeywordSearch", keyword, product_line, type, page)
+
+
+    def _handle_result_threaded(self, output):
         """
         Finished receiving results
         """
-        self.data.seek(0)
-
-        xmldoc = minidom.parse(self.data)
-
-
+        xmldoc = minidom.parse(output)
         data = amazon.unmarshal(xmldoc).ProductInfo
-
-        # clean up
-        xmldoc.unlink()
-        self.data.close()
-
         if hasattr(data, 'ErrorMsg'):
-            self.deliver_result(None)
-        
+            output.close()
+            raise amazon.AmazonError, data.ErrorMsg
+
         items = []
 
         for cover in data.Details:
             item = CDCoverItem()
-            if hasattr(cover, 'ImageUrlLarge'):
-                item.cover_large = cover.ImageUrlLarge
-            if hasattr(cover, 'ImageUrlMedium'):
-                item.cover_medium = cover.ImageUrlMedium
-            if hasattr(cover, 'ImageUrlSmall'):
-                item.cover_small = cover.ImageUrlSmall
+
+            self.progress_callback(data.Details.index(cover) + 1, len(data.Details))
+            self.status_callback('getting cover "%s"' % cover.ProductName)
+            for url in cover.ImageUrlLarge, cover.ImageUrlMedium, \
+                    cover.ImageUrlLarge.replace('.01.', '.03.'):
+                try:
+                    idata = urllib2.urlopen(url)
+                    if idata.info()['Content-Length'] == '807':
+                        idata.close()
+                        continue
+                    image = kaa.imlib2.open_from_memory(idata.read())
+                    image = image.crop((2,2), (image.width-4, image.height-4))
+                    item.cover = image
+                    idata.close()
+                    break
+                except urllib2.HTTPError:
+                    # Amazon returned a 404 or bad image
+                    pass
+                except:
+                    continue
+                    
+            else:
+                # no image found
+                pass
+
             if hasattr(cover, 'ReleaseDate'):
                 item.release_date = cover.ReleaseDate
             if hasattr(cover, 'ProductName'):
@@ -117,21 +134,6 @@ class CDCoverGrabber(Grabber):
             if hasattr(cover, 'Tracks'):
                 item.tracks = cover.Tracks.Track
 
-            item.to_unicode()
             items.append(item)
 
-        self.deliver_result(items)
-
-
-    def search(self, search):
-        """
-        Perform a keywordsearch on amazon
-        """
-        self.data = StringIO()
-        self.url = amazon.buildURL('KeywordSearch', search,
-                                   'music', 'heavy', 1,
-                                   self.license)
-        self.get_url(self.url)
-
-        return self.return_result()
-
+        return items
