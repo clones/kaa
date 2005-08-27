@@ -82,7 +82,6 @@ def create(src, size = NORMAL, destdir = DOT_THUMBNAIL, url = None):
         return dest + hexdigest + '.png'
 
 
-
 def check(file, size = NORMAL, destdir = DOT_THUMBNAIL, url = None):
     """
     Check if a freedesktop.org thumbnail exists. Return is either the filename,
