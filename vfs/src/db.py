@@ -264,6 +264,9 @@ class Database:
         the object's parent.  In both cases, "type" is a type name as 
         given to register_object_type_attrs().  attrs kwargs will vary based on
         object type.  ATTR_SIMPLE attributes which a None are not added.
+
+        This method returns the dict that would be returned if this object
+        were queried by query_normalized().
         """
         if parent:
             attrs["parent_type"] = self._object_types[parent[0]][0]
@@ -272,8 +275,9 @@ class Database:
         query, values = self._make_query_from_attrs("add", attrs, object_type)
         self._db_query(query, values)
 
-        # add lastrowid
+        # Add id given by db, as well as object type.
         attrs["id"] = self._cursor.lastrowid
+        attrs["type"] = object_type
         # For attributes which aren't specified in kwargs, add them to the
         # dict we're about to return, setting default value to None.
         for name, (type, flags) in self._object_types[object_type][1].items():
