@@ -6,7 +6,12 @@ import kaa.metadata
 from db import *
 
 class Listing(list):
-        
+
+    # TODO: add signals to the object, like 'changed'
+    # The update function should run in background and should call
+    # the changed signal at the end if one or more iitems returned
+    # True for _parse
+    
     def update(self):
         for i in self:
             i._parse()
@@ -18,7 +23,10 @@ class Listing(list):
             ret += '  %s\n' % i
         return ret
 
+    # TODO: The Listing should know the query it was based on
+    # and should update itself.
 
+    
 class Item(object):
     def __init__(self, data, parent, db):
         self.data = data
@@ -77,6 +85,10 @@ class Item(object):
     
 
     def _update(self):
+
+        # TODO: This function should be called automaticly when __setitem__
+        # changed something and should run in the background
+
         if not self.__changes:
             return False
         self.db.update_object(self.__id__(), **self.__changes)
@@ -136,6 +148,8 @@ class Item(object):
         files = self.db.query_normalized(parent = ("dir", self.data["id"]))
         fs_listing = os.listdir(dirname)
 
+        # TODO: add OVERLAY_DIR support
+        
         ret = Listing()
         for f in files[:]:
             if f['name'] in fs_listing:
@@ -156,6 +170,8 @@ class Item(object):
             
 class MediaDB(Database):
 
+    # TODO: rename MediaDB to VFS
+    
     def __init__(self, dbfile = None):
         Database.__init__(self, dbfile)
         self.register_object_type_attrs("file", ())
@@ -180,6 +196,8 @@ class MediaDB(Database):
             ("width", int, ATTR_SEARCHABLE),
             ("height", int, ATTR_SEARCHABLE),
             ("date", int, ATTR_SEARCHABLE)))
+
+        # TODO: add more known types
         
         root = self.query_normalized(type="dir", name="/")
         if not root:
@@ -197,6 +215,9 @@ class MediaDB(Database):
             return self._dir_cache[dirname]
         pdir = self.__get_dir(os.path.dirname(dirname))
         parent = ("dir", pdir["id"])
+
+        # TODO: handle dirs on romdrives which down have '/'
+        # as basic parent
         
         name = os.path.basename(dirname)
         current = self.query_normalized(type="dir", name=name, parent=parent)
@@ -229,4 +250,12 @@ class MediaDB(Database):
         if not current:
             return Item(basename, dir, self)
         return Item(current[0], dir, self)
+    
+    def query(self, query):
+
+        # TODO: do a query like 'Artist = foo' and return a Listing
+        # object with the results
+        
+        pass
+
     
