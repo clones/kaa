@@ -52,7 +52,7 @@ class Database:
         self._open_db()
 
     def __del__(self):
-        self._db.commit()
+        self.commit()
 
     def _open_db(self):
         self._db = sqlite.connect(self._dbfile)
@@ -223,7 +223,7 @@ class Database:
                 del attrs[key]
         attrs_copy = attrs.copy()
         for name, (type, flags) in type_attrs.items():
-            if flags != ATTR_SIMPLE:
+            if flags != ATTR_SIMPLE and name in attrs:
                 columns.append(name)
                 placeholders.append("?")
                 if name in attrs:
@@ -233,9 +233,9 @@ class Database:
                     values.append(None)
 
         if len(attrs_copy) > 0:
-            values[columns.index("pickle")] = buffer(cPickle.dumps(attrs_copy, 2))
-        else:
-            values[columns.index("pickle")] = None
+            columns.append("pickle")
+            values.append(buffer(cPickle.dumps(attrs_copy, 2)))
+            placeholders.append("?")
 
         table_name = "objects_" + type_name
 
@@ -300,6 +300,8 @@ class Database:
         query, values = self._make_query_from_attrs("update", attrs, object_type)
         self._db_query(query, values)
 
+    def commit(self):
+        self._db.commit()
 
     def query(self, **attrs):
         """
@@ -326,6 +328,7 @@ class Database:
         for type_name, (type_id, type_attrs) in type_list:
             # List of attribute dicts for this type.
             columns = filter(lambda x: type_attrs[x][1], type_attrs.keys())
+            #columns=["id", "pickle", "name"]
 
             # Construct a query based on the supplied attributes for this
             # object type.  If any of the attribute names aren't valid for
