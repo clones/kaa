@@ -271,8 +271,15 @@ class Database:
         attrs["name"] = object_name
         query, values = self._make_query_from_attrs("add", attrs, object_type)
         self._db_query(query, values)
-        attrs["id"] = self._cursor.lastrowid
+
         # add lastrowid
+        attrs["id"] = self._cursor.lastrowid
+        # For attributes which aren't specified in kwargs, add them to the
+        # dict we're about to return, setting default value to None.
+        for name, (type, flags) in self._object_types[object_type][1].items():
+            if name not in attrs:
+                attrs[name] = None
+
         return attrs
 
 
