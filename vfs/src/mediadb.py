@@ -63,6 +63,7 @@ class Item(object):
         type = ''
         if metadata and metadata['media'] and \
                self.db._object_types.has_key(metadata['media']):
+
             type = metadata['media']
         elif os.path.isdir(path):
             type = 'dir'
@@ -73,6 +74,11 @@ class Item(object):
         for key in type_list[1].keys():
             if metadata and metadata.has_key(key) and metadata[key] != None:
                 attributes[key] = metadata[key]
+
+        # TODO: do some more stuff here:
+        # - check metadata for thumbnail or cover (audio) and use kaa.thumb to store it
+        # - schedule thumbnail genereation with kaa.thumb
+        # - search for covers based on the file
 
         if update:
             id = self.data['id']
@@ -111,6 +117,10 @@ class Item(object):
             return self.data[key]
         if self.data.has_key('tmp:' + key):
             return self.data['tmp:' + key]
+
+        # TODO: maybe get cover from parent (e.g. cover in a dir)
+        # Or should that be stored in each item
+        
         return None
 
 
