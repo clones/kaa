@@ -80,12 +80,10 @@ class Item(object):
         if update:
             id = self.data['id']
             self.db.update_object((type, id), **attributes)
+            self.data.update(attributes)
         else:
-            id = self.db.add_object((type, fname), parent=parent, **attributes)['id']
-            
-        # FIXME: get current data from database
-        self.data = self.db.query_normalized(type=type, id=id)[0]
-        self.data['path'] = path
+            self.data = self.db.add_object((type, fname), parent=parent, **attributes)
+            self.data['path'] = path
         return True
     
 
@@ -215,9 +213,9 @@ class MediaDB(Database):
         current = self.query_normalized(type="dir", name=name, parent=parent)
         if not current:
             current = self.add_object(("dir", name), parent=parent)
-            # FIXME: get current data from database
-            current = self.query_normalized(type='dir', name=name, parent=parent)
-        current = current[0]
+            print current
+        else:
+            current = current[0]
         current['path'] = dirname
         current = Item(current, pdir, self)
         self.dir[dirname] = current
