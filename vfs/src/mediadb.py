@@ -21,12 +21,12 @@ class Listing(object):
         
 
 class Item(object):
-    def __init__(self, data, dir, db):
+    def __init__(self, data, parent, db):
         self.data = data
-        self.dir = dir
+        self.parent = parent
         self.db = db
-        if isinstance(self.data, dict) and not self.data.has_key('path'):
-            self.data['path'] = self.dir['path'] + '/' + self.data['name']
+        if isinstance(self.data, dict) and parent and parent.isdir():
+            self.data['path'] = self.parent['path'] + '/' + self.data['name']
 
     def _parse(self):
         if isinstance(self.data, dict):
@@ -38,11 +38,12 @@ class Item(object):
             fname = self.data
             update = False
 
-        if self.dir:
-            dirname = self.dir['path']
+        if self.parent:
+            if not self.parent.isdir():
+                return False
+            dirname = self.parent['path']
             path = dirname + '/' + fname
-            parent = ("dir", self.dir["id"])
-
+            parent = self.parent.__id__()
         else:
             dirname = ''
             path = '/'
@@ -82,14 +83,26 @@ class Item(object):
         return self.data['name']
 
 
+    def __id__(self):
+        return (self.data['type'], self.data["id"])
+
+    
     def __getitem__(self, key):
         return self.data[key]
 
+
+    def isdir(self):
+        if isinstance(self.data, (str, unicode)):
+            return os.path.isdir(self.parent['path'] + '/' + self.data)
+        return self.data['type'] == 'dir'
+
     
-class Directory(Item):
     def list(self):
         self._parse()
 
+        if self.data['type'] != 'dir':
+            return self.db.query_normalized(parent = self.__id__())
+            
         dirname = os.path.normpath(self.data['path'])
         files = self.db.query_normalized(parent = ("dir", self.data["id"]))
         fs_listing = os.listdir(dirname)
@@ -107,18 +120,9 @@ class Directory(Item):
 
         for f in fs_listing:
             # new files
-            if os.path.isdir(dirname + '/' + f):
-                ret.items.append(Directory(f, self, self.db))
-            else:
-                ret.items.append(Item(f, self, self.db))
+            ret.items.append(Item(f, self, self.db))
             
         return ret
-
-
-    def __str__(self):
-        if isinstance(self.data, (str, unicode)):
-            return 'new dir %s' % self.data
-        return 'dir ' + self.data['name']
 
             
 class MediaDB(Database):
@@ -156,7 +160,7 @@ class MediaDB(Database):
         else:
             root = root[0]
         root['path'] = '/'
-        self.dir = { '/': Directory(root, None, self) }
+        self.dir = { '/': Item(root, None, self) }
 
 
     def __get_dir(self, dirname):
@@ -173,7 +177,7 @@ class MediaDB(Database):
             current = self.query_normalized(type='dir', name=name, parent=parent)
         current = current[0]
         current['path'] = dirname
-        current = Directory(current, pdir, self)
+        current = Item(current, pdir, self)
         self.dir[dirname] = current
         return current
 
