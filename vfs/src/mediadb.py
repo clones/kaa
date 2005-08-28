@@ -7,19 +7,29 @@ from db import *
 
 class Listing(object):
     def __init__(self):
-        self.items = []
+        self._items = []
+
+
+    def add(self, item):
+        self._items.append(item)
+
+        
+    def update(self):
+        for i in self._items:
+            i._parse()
+
+        
+    def __iter__(self):
+        return self._items.__iter__()
+
 
     def __str__(self):
         ret = 'Listing\n'
-        for i in self.items:
+        for i in self._items:
             ret += '  %s\n' % i
         return ret
 
-    def update(self):
-        for i in self.items:
-            i._parse()
-        
-
+    
 class Item(object):
     def __init__(self, data, parent, db):
         self.data = data
@@ -27,7 +37,9 @@ class Item(object):
         self.db = db
         if isinstance(self.data, dict) and parent and parent.isdir():
             self.data['path'] = self.parent['path'] + '/' + self.data['name']
+        self.__changes = {}
 
+        
     def _parse(self):
         if isinstance(self.data, dict):
             if os.stat(self.data['path'])[stat.ST_MTIME] == self.data['mtime']:
@@ -77,6 +89,14 @@ class Item(object):
         return True
     
 
+    def _update(self):
+        if not self.__changes:
+            return False
+        self.db.update_object(self.__id__(), **self.__changes)
+        self.__changes = {}
+        return True
+    
+        
     def __str__(self):
         if isinstance(self.data, (str, unicode)):
             return 'new file %s' % self.data
@@ -88,9 +108,31 @@ class Item(object):
 
     
     def __getitem__(self, key):
-        return self.data[key]
+        if self.data.has_key(key):
+            return self.data[key]
+        if self.data.has_key('tmp:' + key):
+            return self.data['tmp:' + key]
+        return None
 
 
+    def __setitem__(self, key, value):
+        self.data[key] = value
+        if not key.startswith('tmp:'):
+            self.__changes[key] = value
+
+
+    def keys(self):
+        return self.data.keys()
+
+
+    def items(self):
+        return self.data.items()
+
+
+    def has_key(self, key):
+        return self.data.has_key(key)
+
+        
     def isdir(self):
         if isinstance(self.data, (str, unicode)):
             return os.path.isdir(self.parent['path'] + '/' + self.data)
@@ -112,7 +154,7 @@ class Item(object):
             if f['name'] in fs_listing:
                 # file still there
                 fs_listing.remove(f['name'])
-                ret.items.append(Item(f, self, self.db))
+                ret.add(Item(f, self, self.db))
             else:
                 # file deleted
                 files.remove(f)
@@ -120,7 +162,7 @@ class Item(object):
 
         for f in fs_listing:
             # new files
-            ret.items.append(Item(f, self, self.db))
+            ret.add(Item(f, self, self.db))
             
         return ret
 
@@ -187,3 +229,17 @@ class MediaDB(Database):
         List directory.
         """
         return self.__get_dir(os.path.normpath(os.path.abspath(dirname))).list()
+
+
+    def file(self, filename):
+        """
+        Return item for the given file.
+        """
+        dirname = os.path.dirname(filename)
+        basename = os.path.basename(filename)
+        dir = self.__get_dir(os.path.normpath(os.path.abspath(dirname)))
+        current = self.query_normalized(name=basename, parent=dir.__id__())
+        if not current:
+            return Item(basename, dir, self)
+        return Item(current[0], dir, self)
+    

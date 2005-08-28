@@ -18,5 +18,20 @@ for dir in dirs_to_test:
     listing.update()
     print 'Update Time:', time.time() - t1
     print listing
-    
 
+
+print '*****************'
+i = db.file('/home/dmeyer/video/serenity_international.mov')
+print 'Data', i.items()
+
+if i.has_key('foo'):
+    i['foo'] = None
+else:
+    i['foo'] = 1
+i._update()
+
+print 'get info again from the db'
+i = db.file('/home/dmeyer/video/serenity_international.mov')
+print 'Data', i.items()
+
+db.commit()
