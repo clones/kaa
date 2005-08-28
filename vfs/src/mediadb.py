@@ -5,31 +5,20 @@ import kaa.metadata
 
 from db import *
 
-class Listing(object):
-    def __init__(self):
-        self._items = []
-
-
-    def add(self, item):
-        self._items.append(item)
-
+class Listing(list):
         
     def update(self):
-        for i in self._items:
+        for i in self:
             i._parse()
-
-        
-    def __iter__(self):
-        return self._items.__iter__()
 
 
     def __str__(self):
         ret = 'Listing\n'
-        for i in self._items:
+        for i in self:
             ret += '  %s\n' % i
         return ret
 
-    
+
 class Item(object):
     def __init__(self, data, parent, db):
         self.data = data
@@ -152,7 +141,7 @@ class Item(object):
             if f['name'] in fs_listing:
                 # file still there
                 fs_listing.remove(f['name'])
-                ret.add(Item(f, self, self.db))
+                ret.append(Item(f, self, self.db))
             else:
                 # file deleted
                 files.remove(f)
@@ -160,7 +149,7 @@ class Item(object):
 
         for f in fs_listing:
             # new files
-            ret.add(Item(f, self, self.db))
+            ret.append(Item(f, self, self.db))
             
         return ret
 
@@ -200,12 +189,12 @@ class MediaDB(Database):
         else:
             root = root[0]
         root['path'] = '/'
-        self.dir = { '/': Item(root, None, self) }
+        self._dir_cache = { '/': Item(root, None, self) }
 
 
     def __get_dir(self, dirname):
-        if dirname in self.dir:
-            return self.dir[dirname]
+        if dirname in self._dir_cache:
+            return self._dir_cache[dirname]
         pdir = self.__get_dir(os.path.dirname(dirname))
         parent = ("dir", pdir["id"])
         
@@ -218,7 +207,7 @@ class MediaDB(Database):
             current = current[0]
         current['path'] = dirname
         current = Item(current, pdir, self)
-        self.dir[dirname] = current
+        self._dir_cache[dirname] = current
         return current
 
 
