@@ -49,6 +49,10 @@ STOP_WORDS = (
     "will", "with", "the", "www", "http", "org"
 )
 
+# Word length limits for keyword indexing
+MIN_WORD_LENGTH = 2
+MAX_WORD_LENGTH = 30
+
 # These are special attributes for querying.  Attributes with
 # these names cannot be registered.
 RESERVED_ATTRIBUTES = ("parent", "object", "keywords", "type", "limit")
@@ -239,7 +243,10 @@ class Database:
                 columns.append(name)
                 placeholders.append("?")
                 if name in attrs:
-                    values.append(attrs[name])
+                    if type == str:
+                        values.append(utf8(attrs[name]))
+                    else:
+                        values.append(attrs[name])
                     del attrs_copy[name]
                 else:
                     values.append(None)
@@ -466,12 +473,12 @@ class Database:
             if len(Set(attrs).difference(columns)) > 0:
                 continue
 
-            q = "SELECT %s%%s FROM objects_%s" % \
-                (string.join(columns, ","), type_name)
+            q = "SELECT '%s',%s%%s FROM objects_%s" % \
+                (type_name, string.join(columns, ","), type_name)
 
             if computed_object_ids != None:
                 q %= ",%d+id as computed_id" % (type_id * 10000000)
-                q +=" WHERE computed_id IN %s" % (str(tuple(computed_object_ids)))
+                q +=" WHERE computed_id IN %s" % self._list_to_utf8_printable(computed_object_ids)
             else:
                 q %= ""
 
@@ -491,7 +498,7 @@ class Database:
             rows = self._db_query(q, query_values)
             #results.append((columns_dict, type_name, row))
             #results.extend(rows)
-            results.append((columns, type_name, rows))
+            results.append((["type"] + columns, type_name, rows))
 
         return results
 
@@ -564,12 +571,12 @@ class Database:
                 # Remove the first 2 levels (like /home/user/) and then take
                 # the last two levels that are left.
                 levels = dirname.strip('/').split(os.path.sep)[2:][-2:] + [fname_noext]
-                parsed = re.split("(\d+)|[\W_]+", string.join(levels)) + [fname_noext]
+                parsed = re.split("[\s_\-()/\\\\[\]\"]", string.join(levels)) + [fname_noext]
             else:
-                parsed = re.split('[\W_]+', text)
+                parsed = re.split('[\s_\-()/\\\\[\]\"]', text)
 
             for word in parsed:
-                if not word or len(word) > 30:
+                if not word or len(word) > MAX_WORD_LENGTH:
                     # Probably not a word.
                     continue
                 word = word.lower()
@@ -579,7 +586,7 @@ class Database:
                     # FIXME: if this fails too, word isn't unicode.
                     pass
 
-                if len(word) < 3 or word in STOP_WORDS:
+                if len(word) < MIN_WORD_LENGTH or word in STOP_WORDS:
                     continue
                 if word not in words:
                     words[word] = coeff
@@ -617,6 +624,30 @@ class Database:
         if self._cursor.rowcount > 0:
             self._db_query("UPDATE meta SET value=value-1 WHERE attr='keywords_filecount'")
 
+    def _list_to_utf8_printable(self, items):
+        """
+        Takes a list of mixed types and outputs a utf-8 encoded string.  For
+        example, a list [42, 'foo', None, "foo's string"], this returns the
+        string:
+
+            (42, 'foo', NULL, 'foo''s string')
+
+        Single quotes are escaped as ''.  This is suitable for use in SQL 
+        queries.
+        """
+        fixed_items = []
+        for item in items:
+            if type(item) in (int, long):
+                fixed_items.append(str(item))
+            elif item == None:
+                fixed_items.append("NULL")
+            elif type(item) in (str, unicode):
+                fixed_items.append("'%s'" % utf8(item.replace("'", "''")))
+            else:
+                raise Exception, "Unsupported type '%s' given to list_to_utf8_printable" % type(item)
+
+        return "(" + ",".join(fixed_items) + ")"
+
     def _add_object_keywords(self, (object_type, object_id), words):
         """
         Adds the dictionary of words (as computed by _score_words()) to the
@@ -629,12 +660,8 @@ class Database:
         # with their id and count.
         db_words_count = {}
 
-        # This mess takes the words dictionary and constructs a string in 
-        # the form ('word1', 'word2', 'word3') that is utf-8 encoded for use
-        # the SQL query that follows.
-        words_list_utf8 = reduce(lambda a, b: a + "'%s'," % b.replace("'", "''").encode("utf-8"), words.keys(), ",")
-        words_list_utf8 = "(" + words_list_utf8.strip(",") + ")"
-        q = "SELECT id,word,count FROM words WHERE word IN %s" % words_list_utf8
+        words_list = self._list_to_utf8_printable(words.keys())
+        q = "SELECT id,word,count FROM words WHERE word IN %s" % words_list
         rows = self._db_query(q)
         for row in rows:
             db_words_count[row[1]] = row[0], row[2]
@@ -702,16 +729,17 @@ class Database:
 
         # Convert words string to a tuple of lower case words.
         words = tuple(words.lower().split())
-        # Remove words that aren't indexed (words less than 3 characters, or
-        # and words in the stop list).
-        words = filter(lambda x: len(x) >= 3 and x not in STOP_WORDS, words)
+        # Remove words that aren't indexed (words less than MIN_WORD_LENGTH 
+        # characters, or and words in the stop list).
+        words = filter(lambda x: len(x) >= MIN_WORD_LENGTH and x not in STOP_WORDS, words)
+        words_list = self._list_to_utf8_printable(words)
         nwords = len(words)
 
         if nwords == 0:
             return []
 
         # Find word ids and order by least popular to most popular.
-        rows = self._db_query("SELECT id,word,count FROM words WHERE word IN %s ORDER BY count" % str(words))
+        rows = self._db_query("SELECT id,word,count FROM words WHERE word IN %s ORDER BY count" % words_list)
         words = {}
         ids = []
         for row in rows:
