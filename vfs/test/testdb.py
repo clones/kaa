@@ -39,7 +39,8 @@ if not dir:
             comment = "Trip to Finland, August 2005"
 
         db.add_object(("image", "foobar%s.jpg" % i), parent=("dir", dir["id"]), width=i, height=100, comment=comment)
-        db.add_object(("audio", "foobar%s.mp3" % i), parent=("dir", dir["id"]), artist="Enya")
+        db.add_object(("audio", "enya%s.mp3" % i), parent=("dir", dir["id"]), artist="Enya")
+        db.add_object(("audio", "yanni%s.mp3" % i), parent=("dir", dir["id"]), artist="Yanni")
     db.update_object(("dir", dir["id"]), name = "/home/freevo/mp3", is_removable = False)
     print db.query_normalized(type="dir", name="/home/freevo/mp3")
     for i in xrange(2500):
