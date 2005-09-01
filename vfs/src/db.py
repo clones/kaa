@@ -591,9 +591,9 @@ class Database:
                 # Remove the first 2 levels (like /home/user/) and then take
                 # the last two levels that are left.
                 levels = dirname.strip('/').split(os.path.sep)[2:][-2:] + [fname_noext]
-                parsed = re.split("[\s_\-()/\\\\[\]\"\.]", string.join(levels)) + [fname_noext]
+                parsed = re.split("[\s_\-()/\\\\[\]\"\.',;]", string.join(levels)) + [fname_noext]
             else:
-                parsed = re.split('[\s_\-()/\\\\[\]\"\.]', text)
+                parsed = re.split("[\s_\-()/\\\\[\]\"\.',;]", text)
 
             for word in parsed:
                 if not word or len(word) > MAX_WORD_LENGTH:
@@ -725,13 +725,14 @@ class Database:
         LIMIT (currently by an order of 10) and try again, specifying an 
         OFFSET in the query.
 
-        The worst case scenario is that all search terms exist in the database
-        but there exist no intersection of the search terms where one of the
-        terms has a very large number of hits.  This means we must search
-        the whole words table only to find there are no matches.  This could
-        be improved by avoiding the OFFSET/LIMIT technique as described above,
-        but that approach provides a big performance win when there are
-        matches.
+        The worst case scenario is given two search terms, each term matches
+        50% of all rows but there is only one intersection row.  (Or, more
+        generally, given N rows, each term matches (1/N)*100 percent rows with
+        only 1 row intersection between all N terms.)   This could be improved
+        by avoiding the OFFSET/LIMIT technique as described above, but that
+        approach provides a big performance win in more common cases.  This
+        case can be mitigated by caching common word combinations, but it is 
+        an extremely difficult problem to solve.
 
         object_type specifies an type name to search (for example we can
         search type "image" with keywords "2005 vacation"), or if object_type
