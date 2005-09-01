@@ -402,17 +402,16 @@ class Database:
                      performance it is highly recommended a limit is specified
                      for keyword searches.
 
-        Return value is a raw ("unnormalized") list of results that match the
-        query where each item is in the form (columns, type_name, rows), where
-        rows is a list of tuples for each row, type_name is the naem of the
-        type these rows belong to, and columns is a list of column names,
-        where each item in columns corresponds to an item in each row.
+        Return value is a tuple (columns, results), where columns is a 
+        dictionary that maps object types to a tuple of column names, and
+        results is a list of rows that satisfy the query where each item
+        in each row corresponds to the item in the column tuple for that
+        type.  The first item in each results row is the name of the type,
+        so for a given row, you can get the column names by columns[row[0]].
 
-        This raw list can be passed to normalize_query_results() which will
+        This "raw" tuple can be passed to normalize_query_results() which will
         return a list of dicts for more convenient use.
         """
-        # FIXME: Keyword searches lose sort order (by rank).  Fixing this
-        # will require changing the return value.
         if "object" in attrs:
             attrs["type"], attrs["id"] = attrs["object"]
             del attrs["object"]
@@ -428,19 +427,20 @@ class Database:
                 limit = None 
             else: 
                 limit = attrs.get("limit") 
-            results = self._query_keywords(attrs["keywords"], limit, 
-                                           attrs.get("type"))
+            kw_results = self._query_keywords(attrs["keywords"], limit, 
+                                              attrs.get("type"))
 
             # No matches to our keyword search, so we're done.
-            if not results:
-                return []
+            if not kw_results:
+                return {}, []
 
             computed_object_ids = []
-            for tp, id in results:
+            for tp, id in kw_results:
                 computed_object_ids.append(tp*10000000 + id)
+
             del attrs["keywords"]
         else:
-            computed_object_ids = None
+            kw_results = computed_object_ids = None
 
 
         if "type" in attrs:
@@ -462,6 +462,7 @@ class Database:
             result_limit = None
 
         results = []
+        type_columns = {}
         for type_name, (type_id, type_attrs) in type_list:
             # List of attribute dicts for this type.
             columns = filter(lambda x: type_attrs[x][1], type_attrs.keys())
@@ -473,7 +474,7 @@ class Database:
             if len(Set(attrs).difference(columns)) > 0:
                 continue
 
-            q = "SELECT '%s',%s%%s FROM objects_%s" % \
+            q = "SELECT '%s'%%s,%s FROM objects_%s" % \
                 (type_name, string.join(columns, ","), type_name)
 
             if computed_object_ids != None:
@@ -496,11 +497,24 @@ class Database:
                 q += " LIMIT %d" % result_limit
 
             rows = self._db_query(q, query_values)
-            #results.append((columns_dict, type_name, row))
-            #results.extend(rows)
-            results.append((["type"] + columns, type_name, rows))
+            results.extend(rows)
+            if computed_object_ids:
+                type_columns[type_name] = ["type", "computed_id"] + columns
+            else:
+                type_columns[type_name] = ["type"] + columns
 
-        return results
+        # If keyword search was done, sort results to preserve order given in 
+        # kw_results.
+        if kw_results:
+            # Convert (type,id) tuple to computed id value.
+            kw_results = map(lambda (type, id): type*10000000+id, kw_results)
+            # Create a dict mapping each computed id value to its position.
+            kw_results_order = dict(zip(kw_results, range(len(kw_results))))
+            # Now sort based on the order dict.  The second item in each row
+            # will be the computed id for that row.
+            results.sort(lambda a, b: cmp(kw_results_order[a[1]], kw_results_order[b[1]]))
+
+        return type_columns, results
 
     def query_normalized(self, **attrs):
         """
@@ -508,36 +522,42 @@ class Database:
         """
         return self.normalize_query_results(self.query(**attrs))
 
-    def normalize_query_results(self, results):
+    def normalize_query_results(self, (columns, results)):
         """
-        Takes a results list as returned from query() and converts to a list
+        Takes a results tuple as returned from query() and converts to a list
         of dicts.  Each result dict is given a "type" entry which corresponds 
-        to the type name of that object.
+        to the type name of that object.  This function also unpickles the
+        pickle contained in the row, and creates a "parent" key that holds
+        (parent type name, parent id).
         """
         new_results = []
-        for columns, type_name, rows in results:
-            for row in rows:
-                result = dict(zip(columns, row))
-                result["type"] = type_name
-                if result["pickle"]:
-                    pickle = cPickle.loads(str(result["pickle"]))
-                    del result["pickle"]
-                    result.update(pickle)
-                new_results.append(result)
+        # Map object type ids to names.
+        object_type_ids = dict( [(b[0],a) for a,b in self._object_types.items()] )
+
+        for row in results:
+            result = dict(zip(columns[row[0]], row))
+            if result["pickle"]:
+                pickle = cPickle.loads(str(result["pickle"]))
+                del result["pickle"]
+                result.update(pickle)
+            # Add convenience parent key, mapping parent_type id to name.
+            result["parent"] = (object_type_ids.get(result["parent_type"]), 
+                                result["parent_id"])
+            new_results.append(result)
         return new_results
 
 
-    def list_query_results_names(self, results):
+    def list_query_results_names(self, (columns, results)):
         """
         Do a quick-and-dirty list of filenames given a query results list,
         sorted by filename.
         """
         # XXX: should be part of VFS, not database.
-        files = []
-        for columns, type_name, rows in results:
-            filecol = columns.index("name")
-            for row in rows:
-                files.append(row[filecol])
+        name_index = {}
+        for type, c in columns.items():
+            name_index[type] = c.index("name")
+
+        files = [ row[name_index[row[0]]] for row in results ]
         files.sort()
         return files
 
@@ -571,9 +591,9 @@ class Database:
                 # Remove the first 2 levels (like /home/user/) and then take
                 # the last two levels that are left.
                 levels = dirname.strip('/').split(os.path.sep)[2:][-2:] + [fname_noext]
-                parsed = re.split("[\s_\-()/\\\\[\]\"]", string.join(levels)) + [fname_noext]
+                parsed = re.split("[\s_\-()/\\\\[\]\"\.]", string.join(levels)) + [fname_noext]
             else:
-                parsed = re.split('[\s_\-()/\\\\[\]\"]', text)
+                parsed = re.split('[\s_\-()/\\\\[\]\"\.]', text)
 
             for word in parsed:
                 if not word or len(word) > MAX_WORD_LENGTH:
@@ -740,13 +760,16 @@ class Database:
 
         # Find word ids and order by least popular to most popular.
         rows = self._db_query("SELECT id,word,count FROM words WHERE word IN %s ORDER BY count" % words_list)
+        save = map(lambda x: x.lower(), words)
         words = {}
         ids = []
         for row in rows:
+            # Give words weight according to their order
+            order_weight = 1 + len(save) - list(save).index(row[1])
             words[row[0]] = {
                 "word": row[1],
                 "count": row[2],
-                "idf_t": math.log(filecount / row[2] + 1) + 1
+                "idf_t": math.log(filecount / row[2] + 1) + order_weight
             }
             ids.append(row[0])
             print "WORD: %s (%d), freq=%d/%d, idf_t=%f" % (row[1], row[0], row[2], filecount, words[row[0]]["idf_t"])
