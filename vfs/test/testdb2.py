@@ -3,7 +3,7 @@ from kaa.vfs import *
 from kaa.base.utils import str_to_unicode
 from kaa import metadata
 
-AUDIO_PATH = "/data/mp3"
+AUDIO_PATH = u"/data/mp3"
 #AUDIO_PATH = "/data/mp3/Enya - Watermark"
 
 db = Database("testdb2.sqlite")
@@ -65,7 +65,7 @@ while 1:
             key, val = term.split("=")
             if val.isdigit():
                 val = int(val)
-            kwargs[key] = val
+            kwargs[str(key)] = val
         else:
             if "keywords" not in kwargs:
                 kwargs["keywords"] = term
@@ -76,6 +76,7 @@ while 1:
     rows = db.query_normalized(**kwargs)
     print "* Keyword query took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
     for row in rows:
-        if row["type"] != "audio":
-            continue
-        print "\t%s (Artist: %s, Album: %s)" % (row["name"], row["artist"], row["album"])
+        if row["type"] == "audio":
+            print "\t%s (Artist: %s, Album: %s)" % (row["name"], row["artist"], row["album"])
+        else:
+            print "\t%s (type=%s)" % (row["name"], row["type"])

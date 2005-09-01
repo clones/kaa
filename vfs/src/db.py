@@ -96,7 +96,7 @@ class Database:
 
     def check_table_exists(self, table):
         res = self._db_query_row("SELECT name FROM sqlite_master where " \
-                         "name=? and type='table'", (table,))
+                                 "name=? and type='table'", (table,))
         return res != None
 
 
@@ -173,9 +173,9 @@ class Database:
                 sql_types = {int: "INTEGER", float: "FLOAT", buffer: "BLOB", 
                              unicode: "TEXT"}
                 if type == str:
-                    raise Exception, "String type not supported, use unicode"
+                    raise ValueError, "String type not supported, use unicode"
                 if type not in sql_types:
-                    raise Exception, "Type '%s' not supported" % str(type)
+                    raise ValueError, "Type '%s' not supported" % str(type)
                 create_stmt += "%s %s" % (name, sql_types[type])
                 if name == "id":
                     # Special case, these are auto-incrementing primary keys
@@ -248,7 +248,7 @@ class Database:
                 placeholders.append("?")
                 if name in attrs:
                     if type == str:
-                        raise Exception, "String values not supported; use unicode"
+                        raise ValueError, "String values not supported; use unicode"
                     values.append(attrs[name])
                     del attrs_copy[name]
                 else:
@@ -315,7 +315,6 @@ class Database:
         for name, (type, flags) in type_attrs.items():
             if name in attrs and flags & ATTR_KEYWORDS:
                 word_parts.append((attrs[name], 1.0, flags))
-        print word_parts
         words = self._score_words(word_parts)
         self._add_object_keywords((object_type, attrs["id"]), words)
 
@@ -495,6 +494,8 @@ class Database:
                     q += " AND "
 
                 q += "%s=?" % attr
+                if type(value) == str:
+                    raise ValueError, "String values not supported; use unicode"
                 query_values.append(value)
             
             if result_limit != None:
