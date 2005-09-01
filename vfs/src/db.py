@@ -1,7 +1,6 @@
 import string, os, time, re, math, cPickle
 from sets import Set
 from pysqlite2 import dbapi2 as sqlite
-from kaa.base.utils import utf8
 
 CREATE_SCHEMA = """
     CREATE TABLE meta (
@@ -48,6 +47,8 @@ STOP_WORDS = (
     "some", "that", "the", "this", "was", "what", "when", "where", "who", 
     "will", "with", "the", "www", "http", "org"
 )
+WORDS_DELIM = re.compile("[\W_]+", re.U)
+#WORDS_DELIM = re.compile("[\s_\-()/\\\\[\]\"\.,;:]", re.U)
 
 # Word length limits for keyword indexing
 MIN_WORD_LENGTH = 2
@@ -150,7 +151,7 @@ class Database:
             # Merge standard attributes with user attributes for this type.
             attr_list = (
                 ("id", int, ATTR_SEARCHABLE),
-                ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME),
+                ("name", unicode, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME),
                 ("parent_id", int, ATTR_SEARCHABLE),
                 ("parent_type", int, ATTR_SEARCHABLE),
                 ("size", int, ATTR_SIMPLE),
@@ -169,9 +170,12 @@ class Database:
             # If flags is non-zero it means this attribute needs to be a
             # column in the table, not a pickled value.
             if flags:
-                sql_types = {str: "TEXT", int: "INTEGER", float: "FLOAT", 
-                             buffer: "BLOB", unicode: "TEXT"}
-                assert(type in sql_types)
+                sql_types = {int: "INTEGER", float: "FLOAT", buffer: "BLOB", 
+                             unicode: "TEXT"}
+                if type == str:
+                    raise Exception, "String type not supported, use unicode"
+                if type not in sql_types:
+                    raise Exception, "Type '%s' not supported" % str(type)
                 create_stmt += "%s %s" % (name, sql_types[type])
                 if name == "id":
                     # Special case, these are auto-incrementing primary keys
@@ -244,9 +248,8 @@ class Database:
                 placeholders.append("?")
                 if name in attrs:
                     if type == str:
-                        values.append(utf8(attrs[name]))
-                    else:
-                        values.append(attrs[name])
+                        raise Exception, "String values not supported; use unicode"
+                    values.append(attrs[name])
                     del attrs_copy[name]
                 else:
                     values.append(None)
@@ -312,6 +315,7 @@ class Database:
         for name, (type, flags) in type_attrs.items():
             if name in attrs and flags & ATTR_KEYWORDS:
                 word_parts.append((attrs[name], 1.0, flags))
+        print word_parts
         words = self._score_words(word_parts)
         self._add_object_keywords((object_type, attrs["id"]), words)
 
@@ -479,7 +483,7 @@ class Database:
 
             if computed_object_ids != None:
                 q %= ",%d+id as computed_id" % (type_id * 10000000)
-                q +=" WHERE computed_id IN %s" % self._list_to_utf8_printable(computed_object_ids)
+                q +=" WHERE computed_id IN %s" % self._list_to_printable(computed_object_ids)
             else:
                 q %= ""
 
@@ -583,7 +587,7 @@ class Database:
         for text, coeff, attr_type in text_parts:
             if not text:
                 continue
-            text = utf8(text)
+            assert(type(text) == unicode)
 
             if attr_type & ATTR_KEYWORDS_FILENAME:
                 dirname, filename = os.path.split(text)
@@ -591,20 +595,15 @@ class Database:
                 # Remove the first 2 levels (like /home/user/) and then take
                 # the last two levels that are left.
                 levels = dirname.strip('/').split(os.path.sep)[2:][-2:] + [fname_noext]
-                parsed = re.split("[\s_\-()/\\\\[\]\"\.',;]", string.join(levels)) + [fname_noext]
+                parsed = WORDS_DELIM.split(string.join(levels)) + [fname_noext]
             else:
-                parsed = re.split("[\s_\-()/\\\\[\]\"\.',;]", text)
+                parsed = WORDS_DELIM.split(text)
 
             for word in parsed:
                 if not word or len(word) > MAX_WORD_LENGTH:
                     # Probably not a word.
                     continue
                 word = word.lower()
-                try:
-                    word = word.decode("utf-8")
-                except:
-                    # FIXME: if this fails too, word isn't unicode.
-                    pass
 
                 if len(word) < MIN_WORD_LENGTH or word in STOP_WORDS:
                     continue
@@ -644,9 +643,9 @@ class Database:
         if self._cursor.rowcount > 0:
             self._db_query("UPDATE meta SET value=value-1 WHERE attr='keywords_filecount'")
 
-    def _list_to_utf8_printable(self, items):
+    def _list_to_printable(self, items):
         """
-        Takes a list of mixed types and outputs a utf-8 encoded string.  For
+        Takes a list of mixed types and outputs a unicode encoded string.  For
         example, a list [42, 'foo', None, "foo's string"], this returns the
         string:
 
@@ -661,12 +660,12 @@ class Database:
                 fixed_items.append(str(item))
             elif item == None:
                 fixed_items.append("NULL")
-            elif type(item) in (str, unicode):
-                fixed_items.append("'%s'" % utf8(item.replace("'", "''")))
+            elif type(item) == unicode:
+                fixed_items.append("'%s'" % item.replace("'", "''"))
             else:
-                raise Exception, "Unsupported type '%s' given to list_to_utf8_printable" % type(item)
+                raise Exception, "Unsupported type '%s' given to list_to_printable" % type(item)
 
-        return "(" + ",".join(fixed_items) + ")"
+        return '(' + ','.join(fixed_items) + ')'
 
     def _add_object_keywords(self, (object_type, object_id), words):
         """
@@ -680,7 +679,7 @@ class Database:
         # with their id and count.
         db_words_count = {}
 
-        words_list = self._list_to_utf8_printable(words.keys())
+        words_list = self._list_to_printable(words.keys())
         q = "SELECT id,word,count FROM words WHERE word IN %s" % words_list
         rows = self._db_query(q)
         for row in rows:
@@ -753,7 +752,7 @@ class Database:
         # Remove words that aren't indexed (words less than MIN_WORD_LENGTH 
         # characters, or and words in the stop list).
         words = filter(lambda x: len(x) >= MIN_WORD_LENGTH and x not in STOP_WORDS, words)
-        words_list = self._list_to_utf8_printable(words)
+        words_list = self._list_to_printable(words)
         nwords = len(words)
 
         if nwords == 0:
