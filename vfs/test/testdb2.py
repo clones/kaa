@@ -1,23 +1,26 @@
-import time, sys, os
+import time, sys, os, locale
 from kaa.vfs import *
+from kaa.base.utils import str_to_unicode
 from kaa import metadata
 
 AUDIO_PATH = "/data/mp3"
+#AUDIO_PATH = "/data/mp3/Enya - Watermark"
 
 db = Database("testdb2.sqlite")
 db.register_object_type_attrs("audio", (
-    ("title", str, ATTR_KEYWORDS),
-    ("artist", str, ATTR_KEYWORDS | ATTR_INDEXED),
-    ("album", str, ATTR_KEYWORDS),
-    ("genre", str, ATTR_INDEXED),
+    ("title", unicode, ATTR_KEYWORDS),
+    ("artist", unicode, ATTR_KEYWORDS | ATTR_INDEXED),
+    ("album", unicode, ATTR_KEYWORDS),
+    ("genre", unicode, ATTR_INDEXED),
     ("samplerate", int, ATTR_SIMPLE),
     ("length", int, ATTR_SIMPLE),
     ("bitrate", int, ATTR_SIMPLE),
     ("trackno", int, ATTR_SIMPLE))
 )
 
+
 def index(dir):
-    dir_object = db.add_object(("dir", dir))
+    dir_object = db.add_object(("dir", str_to_unicode(dir)))
     for entry in os.listdir(dir):
         filepath = os.path.abspath(os.path.join(dir,entry))
         dirname, filename = os.path.split(filepath)
@@ -39,7 +42,7 @@ def index(dir):
         sys.stdout.write("Processing: %s\r" % filename)
         sys.stdout.flush()
 
-        db.add_object(("audio", filename), parent=("dir", dir_object["id"]),
+        db.add_object(("audio", str_to_unicode(filename)), parent=("dir", dir_object["id"]),
                 title=md.get("title"),
                 artist=md.get("artist"), album=md.get("album"), genre=md.get("genre"),
                 samplerate=md.get("samplerate"), length=md.get("length"), 
@@ -54,9 +57,23 @@ if not dir:
 
 print "Type some query words, CTRL-C quits:"
 while 1:
-    q = sys.stdin.readline()
+    q = str_to_unicode(sys.stdin.readline())
+    kwargs = {}
+    kwargs["limit"] = 20
+    for term in q.split():
+        if term.find("=") != -1:
+            key, val = term.split("=")
+            if val.isdigit():
+                val = int(val)
+            kwargs[key] = val
+        else:
+            if "keywords" not in kwargs:
+                kwargs["keywords"] = term
+            else:
+                kwargs["keywords"] += " " + term
+
     t0=time.time()
-    rows = db.query_normalized(keywords=q, limit=20)
+    rows = db.query_normalized(**kwargs)
     print "* Keyword query took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
     for row in rows:
         if row["type"] != "audio":
