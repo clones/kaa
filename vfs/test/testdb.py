@@ -26,24 +26,24 @@ db.register_object_type_attrs("dir", (
     ("is_removable", int, ATTR_SEARCHABLE),)
 )
 
-dir = db.query_normalized(type="dir", name=u"/home/freevo/mp3")
+dir = db.query_normalized(type="dir", name="/home/freevo/mp3")
 if not dir:
     t0=time.time()
     print "* Creating (database) directory with 20000 objects"
-    dir = db.add_object(("dir", u"/home/freevo/mp3"), foo=1)
+    dir = db.add_object(("dir", "/home/freevo/mp3"), foo=1)
     for i in xrange(10000):
         if i < 5000:
             comment = u"Anna's birthday, June 2003"
         else:
             comment = u"My vacation to Hawaii, December 2004"
 
-        db.add_object(("image", u"foobar%s.jpg" % i), parent=("dir", dir["id"]),
+        db.add_object(("image", "foobar%s.jpg" % i), parent=("dir", dir["id"]),
                       width=i, height=100, comment=comment)
-        db.add_object(("audio", u"enya%s.mp3" % i), parent=("dir", dir["id"]),
+        db.add_object(("audio", "enya%s.mp3" % i), parent=("dir", dir["id"]),
                       artist=u"Enya")
 
     # This tests worst-case
-    db.add_object(("image", u"other.jpg"), parent=("dir", dir["id"]), width=100, height=100, 
+    db.add_object(("image", "other.jpg"), parent=("dir", dir["id"]), width=100, height=100, 
                   comment=u"birthday vacation")
 
     print "* Creation took %.03f seconds" % (time.time()-t0)
@@ -51,11 +51,11 @@ else:
     dir = dir[0]
 
 t0=time.time()
-rows = db.query_normalized(keywords=u"anna", limit=100)
+rows = db.query_normalized(keywords="anna", limit=100)
 print "* Keyword query took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
 
 t0=time.time()
-rows = db.query_normalized(keywords=u"birthday vacation", limit=100)
+rows = db.query_normalized(keywords="birthday vacation", limit=100)
 print "* Keyword query (worst case) took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
 
 t0=time.time()
@@ -81,7 +81,7 @@ db.register_object_type_attrs("audio", (
 print "* Modify type took %.03f seconds" % (time.time()-t0)
 
 t0=time.time()
-db.query(parent = ("dir", dir["id"]), name=u"zot2499")
+db.query(parent = ("dir", dir["id"]), name="foobar2499.jpg")
 print "* Query for single filename took %.05f seconds" % (time.time()-t0)
 
 t0=time.time()
