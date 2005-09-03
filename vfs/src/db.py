@@ -1,4 +1,5 @@
 import string, os, time, re, math, cPickle
+from kaa.base.utils import str_to_unicode
 from sets import Set
 from pysqlite2 import dbapi2 as sqlite
 
@@ -67,8 +68,10 @@ class Database:
         self._dbfile = dbfile
         self._open_db()
 
+
     def __del__(self):
         self.commit()
+
 
     def _open_db(self):
         self._db = sqlite.connect(self._dbfile)
@@ -83,16 +86,19 @@ class Database:
 
         self._load_object_types()
 
+
     def _db_query(self, statement, args = ()):
         self._cursor.execute(statement, args)
         rows = self._cursor.fetchall()
         return rows
+
 
     def _db_query_row(self, statement, args = ()):
         rows = self._db_query(statement, args)
         if len(rows) == 0:
             return None
         return rows[0]
+
 
     def check_table_exists(self, table):
         res = self._db_query_row("SELECT name FROM sqlite_master where " \
@@ -151,7 +157,7 @@ class Database:
             # Merge standard attributes with user attributes for this type.
             attr_list = (
                 ("id", int, ATTR_SEARCHABLE),
-                ("name", unicode, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME),
+                ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME),
                 ("parent_id", int, ATTR_SEARCHABLE),
                 ("parent_type", int, ATTR_SEARCHABLE),
                 ("size", int, ATTR_SIMPLE),
@@ -171,9 +177,7 @@ class Database:
             # column in the table, not a pickled value.
             if flags:
                 sql_types = {int: "INTEGER", float: "FLOAT", buffer: "BLOB", 
-                             unicode: "TEXT"}
-                if type == str:
-                    raise ValueError, "String type not supported, use unicode"
+                             unicode: "TEXT", str: "BLOB"}
                 if type not in sql_types:
                     raise ValueError, "Type '%s' not supported" % str(type)
                 create_stmt += "%s %s" % (name, sql_types[type])
@@ -242,14 +246,19 @@ class Database:
             if attrs[key] == None:
                 del attrs[key]
         attrs_copy = attrs.copy()
-        for name, (type, flags) in type_attrs.items():
+        for name, (attr_type, flags) in type_attrs.items():
             if flags != ATTR_SIMPLE and name in attrs:
                 columns.append(name)
                 placeholders.append("?")
                 if name in attrs:
-                    if type == str:
-                        raise ValueError, "String values not supported; use unicode"
-                    values.append(attrs[name])
+                    value = attrs[name]
+                    if attr_type != type(value):
+                        raise ValueError, "Type mismatch in query: '%s' (%s) is not a %s" % \
+                                          (str(value), str(value), str(attr_type))
+                    if attr_type == str:
+                        # Treat strings (non-unicode) as buffers.
+                        value = buffer(value)
+                    values.append(value)
                     del attrs_copy[name]
                 else:
                     values.append(None)
@@ -312,15 +321,15 @@ class Database:
 
         # Index keyword attributes
         word_parts = []
-        for name, (type, flags) in type_attrs.items():
+        for name, (attr_type, flags) in type_attrs.items():
             if name in attrs and flags & ATTR_KEYWORDS:
-                word_parts.append((attrs[name], 1.0, flags))
+                word_parts.append((attrs[name], 1.0, attr_type, flags))
         words = self._score_words(word_parts)
         self._add_object_keywords((object_type, attrs["id"]), words)
 
         # For attributes which aren't specified in kwargs, add them to the
         # dict we're about to return, setting default value to None.
-        for name, (type, flags) in type_attrs.items():
+        for name, (attr_type, flags) in type_attrs.items():
             if name not in attrs:
                 attrs[name] = None
 
@@ -340,7 +349,7 @@ class Database:
         type_attrs = self._object_types[object_type][1]
         needs_keyword_reindex = False
         keyword_columns = []
-        for name, (type, flags) in type_attrs.items():
+        for name, (attr_type, flags) in type_attrs.items():
             if flags & ATTR_KEYWORDS:
                 if name in attrs:
                     needs_keyword_reindex = True
@@ -379,15 +388,19 @@ class Database:
 
             # Re-index 
             word_parts = []
-            for name, (type, flags) in type_attrs.items():
+            for name, (attr_type, flags) in type_attrs.items():
                 if flags & ATTR_KEYWORDS:
-                    word_parts.append((attrs[name], 1.0, flags))
+                    if attr_type == str and type(attrs[name]) == buffer:
+                        # _score_words wants only string or unicode values.
+                        attrs[name] = str(attrs[name])
+                    word_parts.append((attrs[name], 1.0, attr_type, flags))
             words = self._score_words(word_parts)
             self._add_object_keywords((object_type, object_id), words)
 
 
     def commit(self):
         self._db.commit()
+
 
     def query(self, **attrs):
         """
@@ -488,14 +501,19 @@ class Database:
 
             query_values = []
             for attr, value in attrs.items():
+                if type(value) != type_attrs[attr][0]:
+                    raise ValueError, "Type mismatch in query: '%s' (%s) is not a %s" % \
+                                          (str(value), str(type(value)), str(type_attrs[attr][0]))
+                if type(value) == str:
+                    # Treat strings (non-unicode) as buffers.
+                    value = buffer(value)
+
                 if q.find("WHERE") == -1:
                     q += " WHERE "
                 else:
                     q += " AND "
 
                 q += "%s=?" % attr
-                if type(value) == str:
-                    raise ValueError, "String values not supported; use unicode"
                 query_values.append(value)
             
             if result_limit != None:
@@ -521,11 +539,13 @@ class Database:
 
         return type_columns, results
 
+
     def query_normalized(self, **attrs):
         """
         Performs a query as in query() and returns normalized results.
         """
         return self.normalize_query_results(self.query(**attrs))
+
 
     def normalize_query_results(self, (columns, results)):
         """
@@ -538,9 +558,18 @@ class Database:
         new_results = []
         # Map object type ids to names.
         object_type_ids = dict( [(b[0],a) for a,b in self._object_types.items()] )
+        # For type converstion, currently just used for converting buffer 
+        # values to strings.
+        type_maps = {}
+        for type_name, (type_id, type_attrs) in self._object_types.items():
+            type_maps[type_name] = [(x, str) for x in type_attrs if type_attrs[x][0] == str]
 
         for row in results:
-            result = dict(zip(columns[row[0]], row))
+            col_desc = columns[row[0]]
+            result = dict(zip(col_desc, row))
+            for attr, tp in type_maps[row[0]]:
+                result[attr] = tp(result[attr])
+
             if result["pickle"]:
                 pickle = cPickle.loads(str(result["pickle"]))
                 del result["pickle"]
@@ -566,12 +595,15 @@ class Database:
         files.sort()
         return files
 
+
     def _score_words(self, text_parts):
         """
         Scores the words given in text_parts, which is a list of tuples
         (text, coeff, type), where text is the string of words
         to be scored, coeff is the weight to give each word in this part
-        (1.0 is normal), and type is one of ATTR_KEYWORDS_*.
+        (1.0 is normal), and type is one of ATTR_KEYWORDS_*.  Text parts are
+        either unicode objects or strings.  If they are strings, they are
+        given to str_to_unicode() to try to decode them intelligently.
 
         Each word W is given the score:
              sqrt( (W coeff * W count) / total word count )
@@ -585,12 +617,16 @@ class Database:
         words = {}
         total_words = 0
 
-        for text, coeff, attr_type in text_parts:
+        for text, coeff, attr_type, flags in text_parts:
             if not text:
                 continue
-            assert(type(text) == unicode)
+            if type(text) not in (unicode, str):
+                raise ValueError, "Invalid type (%s) for ATTR_KEYWORDS attribute.  Only unicode or str allowed." % \
+                                  str(type(text)) 
+            if attr_type == str:
+                text = str_to_unicode(text)
 
-            if attr_type & ATTR_KEYWORDS_FILENAME:
+            if flags & ATTR_KEYWORDS_FILENAME:
                 dirname, filename = os.path.split(text)
                 fname_noext, ext = os.path.splitext(filename)
                 # Remove the first 2 levels (like /home/user/) and then take
@@ -620,6 +656,7 @@ class Database:
             words[word] = math.sqrt(words[word] / total_words)
         return words
 
+
     def _delete_object_keywords(self, (object_type, object_id)):
         """
         Removes all indexed keywords for the given object.  This function
@@ -644,16 +681,17 @@ class Database:
         if self._cursor.rowcount > 0:
             self._db_query("UPDATE meta SET value=value-1 WHERE attr='keywords_filecount'")
 
+
     def _list_to_printable(self, items):
         """
-        Takes a list of mixed types and outputs a unicode encoded string.  For
+        Takes a list of mixed types and outputs a unicode string.  For
         example, a list [42, 'foo', None, "foo's string"], this returns the
         string:
 
             (42, 'foo', NULL, 'foo''s string')
 
         Single quotes are escaped as ''.  This is suitable for use in SQL 
-        queries.
+        queries.  
         """
         fixed_items = []
         for item in items:
@@ -663,10 +701,13 @@ class Database:
                 fixed_items.append("NULL")
             elif type(item) == unicode:
                 fixed_items.append("'%s'" % item.replace("'", "''"))
+            elif type(item) == str:
+                fixed_items.append("'%s'" % str_to_unicode(item.replace("'", "''")))
             else:
                 raise Exception, "Unsupported type '%s' given to list_to_printable" % type(item)
 
         return '(' + ','.join(fixed_items) + ')'
+
 
     def _add_object_keywords(self, (object_type, object_id), words):
         """
@@ -749,7 +790,7 @@ class Database:
         filecount = int(row[0])
 
         # Convert words string to a tuple of lower case words.
-        words = tuple(words.lower().split())
+        words = tuple(str_to_unicode(words).lower().split())
         # Remove words that aren't indexed (words less than MIN_WORD_LENGTH 
         # characters, or and words in the stop list).
         words = filter(lambda x: len(x) >= MIN_WORD_LENGTH and x not in STOP_WORDS, words)
