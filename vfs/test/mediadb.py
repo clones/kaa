@@ -52,24 +52,28 @@ t1 = time.time()
 listing = kaa.vfs.query(keywords='wir helden')
 print 'Query Time:', time.time() - t1
 
-for l in listing:
-    print l['url']
+if 0:
+    for l in listing:
+        print l['url']
 
-def distinct_query(var, type):
-    # TODO: add support for DISTINCT queries to the db
-    result = []
-    for r in kaa.vfs._db._db_query('SELECT DISTINCT %s from objects_%s' % (var, type)):
-        if r[0]:
-            result.append(r[0])
-    result.sort()
-    return result
+
+t1 = time.time()
+listing = kaa.vfs.query(type='audio', attrs=['album'], distinct=True)
+print 'Query Time (album):', time.time() - t1
 
 if 0:
-    for a in distinct_query('album', 'audio'):
-        print a.encode(locale.getpreferredencoding())
+    for r in listing:
+        print r.encode(locale.getpreferredencoding())
+
+
+
+t1 = time.time()
+listing = kaa.vfs.query(type='audio', attrs=['artist'], distinct=True)
+print 'Query Time (artist):', time.time() - t1
 
 if 0:
-    for a in distinct_query('artist', 'audio'):
-        print a.encode(locale.getpreferredencoding())
+    for r in listing:
+        print r.encode(locale.getpreferredencoding())
+
 
 kaa.vfs.commit()
