@@ -328,6 +328,12 @@ class MediaDB(Database):
     
 
     def do_query(self, **args):
+        if 'attrs' in args:
+            # The user specified that only some args should be returned.
+            # In this case we can not create a valid Item for a listing and
+            # the data is returned as it is.
+            return self.query_normalized(**args)
+
         l = Listing()
         result = self.query_normalized(**args)
         result.sort(lambda x,y: cmp(x['parent'], y['parent']))
