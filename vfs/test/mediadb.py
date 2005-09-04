@@ -48,7 +48,12 @@ print 'get info again from the db'
 i = kaa.vfs.file('/home/dmeyer/video/serenity_international.mov')
 print 'Data', i.items()
 
-print kaa.vfs.query(keywords='wir helden')
+t1 = time.time()
+listing = kaa.vfs.query(keywords='wir helden')
+print 'Query Time:', time.time() - t1
+
+for l in listing:
+    print l['url']
 
 def distinct_query(var, type):
     # TODO: add support for DISTINCT queries to the db

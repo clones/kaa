@@ -33,20 +33,30 @@ class Item(object):
         self.parent = parent
         self.db = db
         if isinstance(self.data, dict) and parent and parent.isdir():
-            self.data['path'] = self.parent['path'] + '/' + self.data['name']
+
+            # TODO: handle parents not based on file:
+
+            if self.parent['url'] == 'file:/':
+                self.data['url'] = 'file:/' + self.data['name']
+            else:
+                self.data['url'] = self.parent['url'] + '/' + self.data['name']
         self.__changes = {}
 
         
     def _parse(self):
         if isinstance(self.data, dict):
 
+            if not self.data['url'].startswith('file:'):
+                return False
+            
             # TODO: mtime should be the mtime for all files having the
             # same base. E.g. the mtime of foo.jpg should be the sum of the
             # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the mtime should
             # be the sum of foo.mp3 and foo.jpg.
-            
-            if os.stat(self.data['path'])[stat.ST_MTIME] == self.data['mtime']:
+
+            if os.stat(self.data['url'][5:])[stat.ST_MTIME] == self.data['mtime']:
                 return False
+            
             fname = self.data['name']
             update = True
         else:
@@ -56,7 +66,7 @@ class Item(object):
         if self.parent:
             if not self.parent.isdir():
                 return False
-            dirname = self.parent['path']
+            dirname = self.parent['url'][5:]
             path = dirname + '/' + fname
             parent = self.parent.__id__()
         else:
@@ -92,7 +102,7 @@ class Item(object):
             self.data.update(attributes)
         else:
             self.data = self.db.add_object((type, fname), parent=parent, **attributes)
-            self.data['path'] = path
+            self.data['url'] = 'file:' + path
         return True
     
 
@@ -150,7 +160,7 @@ class Item(object):
         
     def isdir(self):
         if isinstance(self.data, (str, unicode)):
-            return os.path.isdir(self.parent['path'] + '/' + self.data)
+            return os.path.isdir(self.parent['url'][5:] + '/' + self.data)
         return self.data['type'] == 'dir'
 
     
@@ -160,7 +170,7 @@ class Item(object):
         if self.data['type'] != 'dir':
             return self.db.query_normalized(parent = self.__id__())
             
-        dirname = os.path.normpath(self.data['path'])
+        dirname = os.path.normpath(self.data['url'][5:])
         files = self.db.query_normalized(parent = ("dir", self.data["id"]))
         fs_listing = os.listdir(dirname)
 
@@ -229,9 +239,11 @@ class MediaDB(Database):
             root = self.query_normalized(type='dir', name='/')[0]
         else:
             root = root[0]
-        root['path'] = '/'
-        self._dir_cache = { '/': Item(root, None, self) }
-
+        root['url'] = 'file:/'
+        root = Item(root, None, self)
+        self._dir_cache = { '/': root }
+        self._parent_cache = { root.__id__(): root }
+        
 
     def __get_dir(self, dirname):
         if dirname in self._dir_cache:
@@ -239,7 +251,7 @@ class MediaDB(Database):
         pdir = self.__get_dir(os.path.dirname(dirname))
         parent = ("dir", pdir["id"])
 
-        # TODO: handle dirs on romdrives which down have '/'
+        # TODO: handle dirs on romdrives which don't have '/'
         # as basic parent
         
         name = os.path.basename(dirname)
@@ -248,11 +260,25 @@ class MediaDB(Database):
             current = self.add_object(("dir", name), parent=parent)
         else:
             current = current[0]
-        current['path'] = dirname
+        current['url'] = 'file:' + dirname
         current = Item(current, pdir, self)
         self._dir_cache[dirname] = current
+        self._parent_cache[current.__id__()] = current
         return current
 
+
+    def __get_parent(self, id):
+        if id in self._parent_cache:
+            return self._parent_cache[id]
+        object = self.query_normalized(type=id[0], id=id[1])[0]
+
+        # TODO: handle objects without parents (e.g. rom drives)
+
+        parent = self.__get_parent(object['parent'])
+        object = Item(object, parent, self)
+        self._parent_cache[id] = object
+        return object
+        
 
     def listdir(self, dirname):
         """
@@ -276,6 +302,14 @@ class MediaDB(Database):
 
     def do_query(self, **args):
         l = Listing()
-        for row in self.query_normalized(**args):
-            l.append(Item(row, None, self))
+        result = self.query_normalized(**args)
+        result.sort(lambda x,y: cmp(x['parent'], y['parent']))
+        last_parent_id = None
+        for row in result:
+            parent = row['parent']
+            if last_parent_id != parent:
+                # find correct parent
+                last_parent = self.__get_parent(parent)
+                last_parent_id = parent
+            l.append(Item(row, last_parent, self))
         return l
