@@ -5,6 +5,12 @@ import kaa.metadata
 
 from db import *
 
+# TODO: put all the sql stuff in a thread and have a client server
+# model between main and thread. After that, move the thread into an
+# extra process. Later a mixture may be a good idea. A process to
+# write (to only have one writer) and a thread for reading (process
+# intern may be faster).
+
 class Listing(list):
 
     # TODO: add signals to the object, like 'changed'
@@ -47,18 +53,12 @@ class Item(object):
         if isinstance(self.data, dict):
 
             if not self.data['url'].startswith('file:'):
+                # no need to update other information than file urls
                 return False
-            
-            # TODO: mtime should be the mtime for all files having the
-            # same base. E.g. the mtime of foo.jpg should be the sum of the
-            # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the mtime should
-            # be the sum of foo.mp3 and foo.jpg.
 
-            if os.stat(self.data['url'][5:])[stat.ST_MTIME] == self.data['mtime']:
-                return False
-            
             fname = self.data['name']
             update = True
+
         else:
             fname = self.data
             update = False
@@ -74,7 +74,34 @@ class Item(object):
             path = '/'
             parent = None
             
-        attributes = { 'mtime': os.stat(path)[stat.ST_MTIME] }
+        mtime = 0
+        if self.parent and not self.isdir():
+
+            # mtime is the the mtime for all files having the same
+            # base. E.g. the mtime of foo.jpg is the sum of the
+            # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the
+            # mtime is the sum of foo.mp3 and foo.jpg.
+            
+            base = os.path.splitext(fname)[0]
+            
+            # TODO: add overlay support
+            
+            # TODO: Make this much faster. We should cache the listdir
+            # and the stat results somewhere, maybe already split by ext
+            # But since this is done in background, this is not so
+            # important right now.
+            
+            files = map(lambda x: dirname + '/' + x, os.listdir(dirname))
+            for f in filter(lambda x: x.startswith(base), files):
+                mtime += os.stat(f)[stat.ST_MTIME]
+        else:
+            mtime = os.stat(path)[stat.ST_MTIME]
+
+        if isinstance(self.data, dict) and mtime == self.data['mtime']:
+            # no need to update
+            return False
+            
+        attributes = { 'mtime': mtime }
         metadata = kaa.metadata.parse(path)
         type = ''
         if metadata and metadata['media'] and \
@@ -94,7 +121,7 @@ class Item(object):
         # TODO: do some more stuff here:
         # - check metadata for thumbnail or cover (audio) and use kaa.thumb to store it
         # - schedule thumbnail genereation with kaa.thumb
-        # - search for covers based on the file
+        # - search for covers based on the file (should be done by kaa.metadata)
 
         if update:
             id = self.data['id']
