@@ -338,7 +338,7 @@ class MediaDB(Database):
                 # Only one result, reduce the list of dicts to a list. Also
                 # remove the 'None' result
                 attr = args['attrs'][0]
-                result = filter(lambda x: x != None, map(lambda x: x[attr], result))
+                result = [ x[attr] for x in result if x != None ]
             return Listing(result)
 
         l = Listing()
