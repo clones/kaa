@@ -542,11 +542,12 @@ class Database:
             query_values = []
             for attr, value in attrs.items():
                 # Coercion for numberic types
+                attr_type = type_attrs[attr][0]
                 if type(value) in (int, long, float) and attr_type in (int, long, float):
                     value = attr_type(value)
-                if type(value) != type_attrs[attr][0]:
+                if type(value) != attr_type:
                     raise ValueError, "Type mismatch in query: '%s' (%s) is not a %s" % \
-                                          (str(value), str(type(value)), str(type_attrs[attr][0]))
+                                          (str(value), str(type(value)), str(attr_type))
                 if type(value) == str:
                     # Treat strings (non-unicode) as buffers.
                     value = buffer(value)
