@@ -328,14 +328,20 @@ class MediaDB(Database):
     
 
     def do_query(self, **args):
+        result = self.query_normalized(**args)
+
         if 'attrs' in args:
             # The user specified that only some args should be returned.
             # In this case we can not create a valid Item for a listing and
             # the data is returned as it is.
-            return self.query_normalized(**args)
+            if len(args['attrs']) == 1:
+                # Only one result, reduce the list of dicts to a list. Also
+                # remove the 'None' result
+                attr = args['attrs'][0]
+                result = filter(lambda x: x != None, map(lambda x: x[attr], result))
+            return Listing(result)
 
         l = Listing()
-        result = self.query_normalized(**args)
         result.sort(lambda x,y: cmp(x['parent'], y['parent']))
         last_parent_id = None
         for row in result:
