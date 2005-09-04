@@ -253,8 +253,8 @@ class Database:
                 if name in attrs:
                     value = attrs[name]
                     if attr_type != type(value):
-                        raise ValueError, "Type mismatch in query: '%s' (%s) is not a %s" % \
-                                          (str(value), str(value), str(attr_type))
+                        raise ValueError, "Type mismatch in query for %s: '%s' (%s) is not a %s" % \
+                                          (name, str(value), str(type(value)), str(attr_type))
                     if attr_type == str:
                         # Treat strings (non-unicode) as buffers.
                         value = buffer(value)
