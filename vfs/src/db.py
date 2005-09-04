@@ -606,7 +606,12 @@ class Database:
         # values to strings.
         type_maps = {}
         for type_name, (type_id, type_attrs) in self._object_types.items():
-            type_maps[type_name] = [(x, str) for x in type_attrs if type_attrs[x][0] == str]
+            col_desc = query_info["columns"].get(type_name)
+            if col_desc:
+                type_maps[type_name] = [ (x, str) for x in type_attrs 
+                                         if type_attrs[x][0] == str and 
+                                            x in col_desc 
+                                       ]
 
         for row in results:
             col_desc = query_info["columns"][row[0]]
