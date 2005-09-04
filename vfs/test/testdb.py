@@ -92,3 +92,4 @@ count = db._db_query("SELECT count(*) FROM words")
 print "--\nWords table has %d rows" % count[0]
 count = db._db_query("SELECT count(*) FROM words_map")
 print "Words map table has %d rows" % count[0]
+

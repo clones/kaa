@@ -57,7 +57,8 @@ MAX_WORD_LENGTH = 30
 
 # These are special attributes for querying.  Attributes with
 # these names cannot be registered.
-RESERVED_ATTRIBUTES = ("parent", "object", "keywords", "type", "limit")
+RESERVED_ATTRIBUTES = ("parent", "object", "keywords", "type", "limit",
+                       "attrs", "distinct")
 
 class Database:
     def __init__(self, dbfile = None):
@@ -252,6 +253,10 @@ class Database:
                 placeholders.append("?")
                 if name in attrs:
                     value = attrs[name]
+                    # Coercion for numberic types
+                    if type(value) in (int, long, float) and attr_type in (int, long, float):
+                        value = attr_type(value)
+
                     if attr_type != type(value):
                         raise ValueError, "Type mismatch in query for %s: '%s' (%s) is not a %s" % \
                                           (name, str(value), str(type(value)), str(attr_type))
@@ -417,6 +422,11 @@ class Database:
                      specified) all matches are returned.  For better
                      performance it is highly recommended a limit is specified
                      for keyword searches.
+              attrs: A list of attributes to be returned.  If not specified,
+                     all possible attributes.
+           distinct: If True, selects only distinct rows.  When distinct is
+                     specified, attrs kwarg must also be given, and no
+                     specified attrs can be ATTR_SIMPLE.
 
         Return value is a tuple (columns, results), where columns is a 
         dictionary that maps object types to a tuple of column names, and
@@ -428,6 +438,8 @@ class Database:
         This "raw" tuple can be passed to normalize_query_results() which will
         return a list of dicts for more convenient use.
         """
+        query_info = {}
+
         if "object" in attrs:
             attrs["type"], attrs["id"] = attrs["object"]
             del attrs["object"]
@@ -477,11 +489,39 @@ class Database:
         else:
             result_limit = None
 
+        if "attrs" in attrs:
+            requested_columns = attrs["attrs"]
+            del attrs["attrs"]
+        else:
+            requested_columns = None
+
+        query_type = "ALL"
+        if "distinct" in attrs:
+            if attrs["distinct"]:
+                if not requested_columns:
+                    raise ValueError, "Distinct query specified, but no attrs kwarg given."
+                query_type = "DISTINCT"
+            del attrs["distinct"]
+
         results = []
-        type_columns = {}
+        query_info["columns"] = {}
         for type_name, (type_id, type_attrs) in type_list:
             # List of attribute dicts for this type.
-            columns = filter(lambda x: type_attrs[x][1], type_attrs.keys())
+            if requested_columns:
+                columns = requested_columns
+                # Ensure that all the requested columns exist for this type
+                missing = tuple(Set(columns).difference(type_attrs.keys()))
+                if missing:
+                    raise ValueError, "One or more requested attributes %s are not available for type '%s'" % \
+                                      (str(missing), type_name)
+                # Ensure that no requested attrs are ATTR_SIMPLE
+                simple = [ x for x in columns if type_attrs[x][1] == ATTR_SIMPLE ]
+                if simple:
+                    raise ValueError, "ATTR_SIMPLE attributes cannot yet be specified in attrs kwarg %s" % \
+                                      str(tuple(simple))
+            else:
+                # Select only sql columns (i.e. attrs that aren't ATTR_SIMPLE)
+                columns = filter(lambda x: type_attrs[x][1] != ATTR_SIMPLE, type_attrs.keys())
 
             # Construct a query based on the supplied attributes for this
             # object type.  If any of the attribute names aren't valid for
@@ -490,8 +530,8 @@ class Database:
             if len(Set(attrs).difference(columns)) > 0:
                 continue
 
-            q = "SELECT '%s'%%s,%s FROM objects_%s" % \
-                (type_name, string.join(columns, ","), type_name)
+            q = "SELECT %s '%s'%%s,%s FROM objects_%s" % \
+                (query_type, type_name, string.join(columns, ","), type_name)
 
             if computed_object_ids != None:
                 q %= ",%d+id as computed_id" % (type_id * 10000000)
@@ -501,6 +541,9 @@ class Database:
 
             query_values = []
             for attr, value in attrs.items():
+                # Coercion for numberic types
+                if type(value) in (int, long, float) and attr_type in (int, long, float):
+                    value = attr_type(value)
                 if type(value) != type_attrs[attr][0]:
                     raise ValueError, "Type mismatch in query: '%s' (%s) is not a %s" % \
                                           (str(value), str(type(value)), str(type_attrs[attr][0]))
@@ -522,9 +565,9 @@ class Database:
             rows = self._db_query(q, query_values)
             results.extend(rows)
             if computed_object_ids:
-                type_columns[type_name] = ["type", "computed_id"] + columns
+                query_info["columns"][type_name] = ["type", "computed_id"] + columns
             else:
-                type_columns[type_name] = ["type"] + columns
+                query_info["columns"][type_name] = ["type"] + columns
 
         # If keyword search was done, sort results to preserve order given in 
         # kw_results.
@@ -537,7 +580,7 @@ class Database:
             # will be the computed id for that row.
             results.sort(lambda a, b: cmp(kw_results_order[a[1]], kw_results_order[b[1]]))
 
-        return type_columns, results
+        return query_info, results
 
 
     def query_normalized(self, **attrs):
@@ -547,7 +590,7 @@ class Database:
         return self.normalize_query_results(self.query(**attrs))
 
 
-    def normalize_query_results(self, (columns, results)):
+    def normalize_query_results(self, (query_info, results)):
         """
         Takes a results tuple as returned from query() and converts to a list
         of dicts.  Each result dict is given a "type" entry which corresponds 
@@ -565,33 +608,35 @@ class Database:
             type_maps[type_name] = [(x, str) for x in type_attrs if type_attrs[x][0] == str]
 
         for row in results:
-            col_desc = columns[row[0]]
+            col_desc = query_info["columns"][row[0]]
             result = dict(zip(col_desc, row))
             for attr, tp in type_maps[row[0]]:
                 result[attr] = tp(result[attr])
 
-            if result["pickle"]:
+            if result.get("pickle"):
                 pickle = cPickle.loads(str(result["pickle"]))
                 del result["pickle"]
                 result.update(pickle)
+
             # Add convenience parent key, mapping parent_type id to name.
-            result["parent"] = (object_type_ids.get(result["parent_type"]), 
-                                result["parent_id"])
+            if result.get("parent_type"):
+                result["parent"] = (object_type_ids.get(result["parent_type"]), 
+                                    result["parent_id"])
             new_results.append(result)
         return new_results
 
 
-    def list_query_results_names(self, (columns, results)):
+    def list_query_results_names(self, (query_info, results)):
         """
         Do a quick-and-dirty list of filenames given a query results list,
         sorted by filename.
         """
         # XXX: should be part of VFS, not database.
         name_index = {}
-        for type, c in columns.items():
+        for type, c in query_info["columns"].items():
             name_index[type] = c.index("name")
 
-        files = [ row[name_index[row[0]]] for row in results ]
+        files = [ str(row[name_index[row[0]]]) for row in results ]
         files.sort()
         return files
 
