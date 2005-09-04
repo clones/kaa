@@ -39,6 +39,12 @@ class Item(object):
         
     def _parse(self):
         if isinstance(self.data, dict):
+
+            # TODO: mtime should be the mtime for all files having the
+            # same base. E.g. the mtime of foo.jpg should be the sum of the
+            # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the mtime should
+            # be the sum of foo.mp3 and foo.jpg.
+            
             if os.stat(self.data['path'])[stat.ST_MTIME] == self.data['mtime']:
                 return False
             fname = self.data['name']
@@ -103,7 +109,7 @@ class Item(object):
     
         
     def __str__(self):
-        if isinstance(self.data, (str, unicode)):
+        if isinstance(self.data, str):
             return 'new file %s' % self.data
         return self.data['name']
 
@@ -159,6 +165,7 @@ class Item(object):
         fs_listing = os.listdir(dirname)
 
         # TODO: add OVERLAY_DIR support
+        # Ignore . files
         
         ret = Listing()
         for f in files[:]:
@@ -182,21 +189,27 @@ class MediaDB(Database):
 
     # TODO: rename MediaDB to VFS
     
-    def __init__(self, dbfile = None):
-        Database.__init__(self, dbfile)
+    def __init__(self, dbdir):
+        if not os.path.exists(dbdir):
+            os.makedirs(dbdir)
+        elif not os.path.isdir(dbdir):
+            raise AttributeError('%s must be a directory')
+        
+        Database.__init__(self, dbdir + '/db')
+
         self.register_object_type_attrs("file", ())
 
         self.register_object_type_attrs("video", (
-            ("title", str, ATTR_KEYWORDS),
+            ("title", unicode, ATTR_KEYWORDS),
             ("width", int, ATTR_SIMPLE),
             ("height", int, ATTR_SIMPLE),
             ("length", int, ATTR_SIMPLE)))
 
         self.register_object_type_attrs("audio", (
-            ("title", str, ATTR_KEYWORDS),
-            ("artist", str, ATTR_KEYWORDS | ATTR_INDEXED),
-            ("album", str, ATTR_KEYWORDS),
-            ("genre", str, ATTR_INDEXED),
+            ("title", unicode, ATTR_KEYWORDS),
+            ("artist", unicode, ATTR_KEYWORDS | ATTR_INDEXED),
+            ("album", unicode, ATTR_KEYWORDS),
+            ("genre", unicode, ATTR_INDEXED),
             ("samplerate", int, ATTR_SIMPLE),
             ("length", int, ATTR_SIMPLE),
             ("bitrate", int, ATTR_SIMPLE),
@@ -233,7 +246,6 @@ class MediaDB(Database):
         current = self.query_normalized(type="dir", name=name, parent=parent)
         if not current:
             current = self.add_object(("dir", name), parent=parent)
-            print current
         else:
             current = current[0]
         current['path'] = dirname
@@ -261,11 +273,9 @@ class MediaDB(Database):
             return Item(basename, dir, self)
         return Item(current[0], dir, self)
     
-    def query(self, query):
 
-        # TODO: do a query like 'Artist = foo' and return a Listing
-        # object with the results
-        
-        pass
-
-    
+    def do_query(self, **args):
+        l = Listing()
+        for row in self.query_normalized(**args):
+            l.append(Item(row, None, self))
+        return l
