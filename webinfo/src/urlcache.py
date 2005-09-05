@@ -51,6 +51,7 @@
 import logging
 import string
 import time
+import traceback
 import urllib
 
 import os
@@ -189,12 +190,14 @@ class URLCache(object):
         try:
             rawstuff = self.hook_fetch(item.URL)
         except:
+            traceback.print_exc()
             log.error('failed to fetch: %s' % item.URL)
             return False
 
         try:
             stuff = self.hook_parse(rawstuff)
         except:
+            traceback.print_exc()
             log.error('failed to parse: %s' % item.URL)
             return False
 
