@@ -214,7 +214,7 @@ class URLCache(object):
 
 
     def save_cache(self):
-        save(self.cachfile, self.items)
+        save(self.cachefile, self.items)
 
 
     def load_cache(self):
