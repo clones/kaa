@@ -36,49 +36,35 @@
 from cStringIO import StringIO
 
 # webinfo module
-from kaa.webinfo.grabber     import Grabber
+from kaa.webinfo.httpreader import HTTPReader
 from kaa.webinfo.lib.feedparser import parse
 
 
-class RssGrabber(Grabber):
+class RssGrabber(HTTPReader):
     """
     This is just a thin layer above the feedparser to accommodate
     our needs for notifying the main loop. It does not return an
     item, only the raw dicts from feedparser. For more information
     on how to use it, ckeck lib/feedparser.
     """
-    def __init__(self, cb_progress=None, cb_error=None,
-                 cb_result=None, language='en-US'):
-
-        Grabber.__init__(self, cb_progress, cb_error, cb_result, language)
-        self.data = None
+    def __init__(self):
+        HTTPReader.__init__(self)
 
 
-    def handle_line(self, url, line):
-        """
-        Handle one line of data
-        """
-        self.data.write(line)
-
-
-    def handle_finished(self, url):
+    def _handle_result_threaded(self, output):
         # Use feedparser to parse the results.
         # PS: This seems to take a lot of time
         # (~1.3s on my 2800+), if anyone knows
         # a good implementation which takes as
         # many formats as feedparser, but is
         # quicker, please let me know.
-        self.data.seek(0)
-        feed = parse(self.data)
-        self.data.close()
-        self.deliver_result(feed)
+        return parse(output)
 
 
     def search(self, rss_url):
         """
         Gets an RSS feed.
+        I might actually ditch this method and use get() directly.
         """
-        self.data = StringIO()
-        self.get_url(rss_url)
+        self.get(rss_url)
 
-        return self.return_result()
