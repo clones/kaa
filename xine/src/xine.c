@@ -186,7 +186,7 @@ Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyOb
         return NULL;
     }
 
-    vo_driver_pyobject = pyxine_new_vo_driver_pyobject((PyObject *)self, vo_driver, 1);
+    vo_driver_pyobject = pyxine_new_vo_driver_pyobject(self, self->xine, vo_driver, 1);
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "auto") || !strcmp(driver, "xshm")) {
         x11_open_video_driver_finalize(vo_driver_pyobject, finalize_data);
@@ -212,7 +212,7 @@ Xine_PyObject_open_audio_driver(Xine_PyObject *self, PyObject *args, PyObject *k
         return NULL;
     }
 
-    return (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)self, ao_port, 1);
+    return (PyObject *)pyxine_new_audio_port_pyobject(self, self->xine, ao_port, 1);
 }
 
 PyObject *
@@ -235,9 +235,7 @@ Xine_PyObject_stream_new(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    stream_pyobject = (PyObject *)pyxine_new_stream_pyobject((PyObject *)self, stream, 1);
-    ((Xine_Stream_PyObject *)stream_pyobject)->vo = vo;
-    Py_INCREF(vo);
+    stream_pyobject = (PyObject *)pyxine_new_stream_pyobject(self, stream, 1);
     return stream_pyobject;
 }
 
@@ -268,7 +266,7 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
     post = xine_post_init(self->xine, name, inputs, ao, vo);
 
     if (post)
-        post_pyobject = (PyObject *)pyxine_new_post_pyobject((PyObject *)self, post, name, 1);
+        post_pyobject = (PyObject *)pyxine_new_post_pyobject(self, post, name, 1);
 
     free(ao);
     free(vo);
@@ -668,8 +666,25 @@ Xine_get_version(PyObject *module, PyObject *args, PyObject *kwargs)
     return PyString_FromString(xine_get_version_string());
 }
 
+PyObject *
+Xine_get_object_by_id(PyObject *module, PyObject *args, PyObject *kwargs)
+{
+    PyObject *o;
+    int ptr;
+
+    if (!PyArg_ParseTuple(args, "i", &ptr))
+        return NULL;
+
+    o = xine_object_to_pyobject_find((void *)ptr);
+    if (!o)
+        o = Py_None;
+    Py_INCREF(o);
+    return o;
+}
+
 PyMethodDef xine_methods[] = {
     {"get_version", (PyCFunction) Xine_get_version, METH_VARARGS },
+    {"get_object_by_id", (PyCFunction) Xine_get_object_by_id, METH_VARARGS },
     {NULL}
 };
 

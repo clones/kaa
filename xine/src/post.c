@@ -8,37 +8,33 @@
 
 // Owner is a Xine object
 Xine_Post_PyObject *
-pyxine_new_post_pyobject(PyObject *owner_pyobject, xine_post_t *post, char *id, int owner)
+pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post, char *id, int do_dispose)
 {
     int i;
     const char *const *list;
     Xine_Post_PyObject *o = (Xine_Post_PyObject *)xine_object_to_pyobject_find(post);
+
     if (o) {
         Py_INCREF(o);
         return o;
     }
+
     o = (Xine_Post_PyObject *)Xine_Post_PyObject__new(&Xine_Post_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
 
-    if (Xine_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
-    else
-        PyErr_Format(xine_error, "Unsupported owner for Post object");
-
-
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
-
-    o->name = Py_BuildValue("z", id);
+    o->do_dispose = do_dispose;
     o->post = post;
-    o->xine_object_owner = owner;
+    o->xine = xine;
+    o->name = Py_BuildValue("z", id);
+    Py_INCREF(o->xine);
+
     xine_object_to_pyobject_register(post, (PyObject *)o);
 
     list = xine_post_list_outputs(post);
     for (i = 0; list[i]; i++) {
         xine_post_out_t *out = xine_post_output(post, list[i]);
-        PyObject *pyout = (PyObject *)pyxine_new_post_out_pyobject((PyObject *)o, out, 1);
+        PyObject *pyout = (PyObject *)pyxine_new_post_out_pyobject(xine, post, out, 1);
         PyList_Append(o->outputs, pyout);
         Py_DECREF(pyout);
     }
@@ -46,7 +42,7 @@ pyxine_new_post_pyobject(PyObject *owner_pyobject, xine_post_t *post, char *id, 
     list = xine_post_list_inputs(post);
     for (i = 0; list[i]; i++) {
         xine_post_in_t *in = xine_post_input(post, list[i]);
-        PyObject *pyin = (PyObject *)pyxine_new_post_in_pyobject((PyObject *)o, in, 1);
+        PyObject *pyin = (PyObject *)pyxine_new_post_in_pyobject(xine, post, in, 1);
         PyList_Append(o->inputs, pyin);
         Py_DECREF(pyin);
     }
@@ -54,19 +50,17 @@ pyxine_new_post_pyobject(PyObject *owner_pyobject, xine_post_t *post, char *id, 
     return o;
 }
 
-
-
 static int
 Xine_Post_PyObject__clear(Xine_Post_PyObject *self)
 {
-    PyObject **list[] = {&self->inputs, &self->outputs, NULL };
+    PyObject **list[] = {&self->inputs, NULL };
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Post_PyObject__traverse(Xine_Post_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->inputs, &self->outputs, NULL };
+    PyObject **list[] = {&self->inputs, NULL };
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -83,7 +77,6 @@ Xine_Post_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     self = (Xine_Post_PyObject *)type->tp_alloc(type, 0);
     self->post = NULL;
     self->xine = NULL;
-    self->owner_pyobject = NULL;
     self->inputs = PyList_New(0);
     self->outputs = PyList_New(0);
     self->wrapper = Py_None;
@@ -109,17 +102,26 @@ static PyMemberDef Xine_Post_PyObject_members[] = {
 void
 Xine_Post_PyObject__dealloc(Xine_Post_PyObject *self)
 {
-    printf("DEalloc Post: %x (%d)\n", self->post, self->xine_object_owner);
-    if (self->post && self->xine_object_owner) {
+    printf("DEalloc Post: %x (%d)\n", self->post, self->do_dispose);
+    if (self->post && self->do_dispose) {
         // bug in xine: http://sourceforge.net/mailarchive/forum.php?thread_id=7753300&forum_id=7131
-        xine_post_dispose(self->xine, self->post);
+        xine_post_dispose(self->xine->xine, self->post);
     }
+    Xine_Post_PyObject__clear(self);
+    Py_DECREF(self->outputs);
+    //Py_DECREF(self->inputs);
     Py_DECREF(self->name);
     Py_DECREF(self->wrapper);
-    Py_DECREF(self->owner_pyobject);
-    Xine_Post_PyObject__clear(self);
+    Py_DECREF(self->xine);
     xine_object_to_pyobject_unregister(self->post);
     self->ob_type->tp_free((PyObject*)self);
+}
+
+PyObject *
+Xine_Post_PyObject_get_owner(Xine_Post_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    Py_INCREF(self->xine);
+    return (PyObject *)self->xine;
 }
 
 PyObject *
@@ -411,7 +413,7 @@ Xine_Post_PyObject_post_output(Xine_Post_PyObject *self, PyObject *args, PyObjec
     }
 
     //printf("POST OUTPUT DATA %s %x\n", name, *(void **)output->data);
-    return (PyObject *)pyxine_new_post_out_pyobject((PyObject *)self, output, 1);
+    return (PyObject *)pyxine_new_post_out_pyobject(self->xine, self->post, output, 1);
 }
 
 PyObject *
@@ -429,11 +431,12 @@ Xine_Post_PyObject_post_input(Xine_Post_PyObject *self, PyObject *args, PyObject
         return NULL;
     }
 
-    return (PyObject *)pyxine_new_post_in_pyobject((PyObject *)self, input, 1);
+    return (PyObject *)pyxine_new_post_in_pyobject(self->xine, self->post, input, 1);
 }
 
 
 PyMethodDef Xine_Post_PyObject_methods[] = {
+    {"get_owner", (PyCFunction) Xine_Post_PyObject_get_owner, METH_VARARGS},
     {"get_parameters_desc", (PyCFunction) Xine_Post_PyObject_get_parameters_desc, METH_VARARGS},
     {"get_parameters", (PyCFunction) Xine_Post_PyObject_get_parameters, METH_VARARGS},
     {"set_parameters", (PyCFunction) Xine_Post_PyObject_set_parameters, METH_VARARGS},

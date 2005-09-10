@@ -11,21 +11,21 @@
 typedef struct {
     PyObject_HEAD
 
-    PyObject *owner_pyobject; // Post In/Out, Xine, or Stream object
-    int xine_object_owner;
-    xine_t *xine;
+    Xine_PyObject *xine;
     xine_video_port_t *vo;
+    void *owner; // PostIn, PostOut, Xine, or Stream
+    int do_dispose;
 
-    PyObject *driver; // VODriver or None
-    PyObject *wrapper;
-    PyObject *wire_list;  // List of PostOut objects connected to us
+    PyObject *driver, // VODriver or None
+             *wrapper,
+             *wire_list;  // List of integers which are pointers to PostOut objects connected to us
 
 } Xine_Video_Port_PyObject;
 
 extern PyTypeObject Xine_Video_Port_PyObject_Type;
 
 PyObject *Xine_Video_Port_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Video_Port_PyObject *pyxine_new_video_port_pyobject(PyObject *, xine_video_port_t *, PyObject *, int);
+Xine_Video_Port_PyObject *pyxine_new_video_port_pyobject(Xine_PyObject *, void *, xine_video_port_t *, PyObject *, int);
 
 
 #endif

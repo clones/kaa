@@ -10,20 +10,20 @@
 typedef struct {
     PyObject_HEAD
 
+    Xine_PyObject *xine;
     xine_audio_port_t *ao;
-    PyObject *owner_pyobject;  // Post object or Xine object
-    int xine_object_owner;
-    xine_t *xine;
+    void *owner;  // Post object or Xine object
+    int do_dispose;
 
-    PyObject *wrapper;
-    PyObject *wire_list;  // List of PostOut objects connected to us
+    PyObject *wrapper,
+             *wire_list;  // List of integers which are pointers to PostOut objects connected to us
 
 } Xine_Audio_Port_PyObject;
 
 extern PyTypeObject Xine_Audio_Port_PyObject_Type;
 
 PyObject *Xine_Audio_Port_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Audio_Port_PyObject *pyxine_new_audio_port_pyobject(PyObject *, xine_audio_port_t *, int);
+Xine_Audio_Port_PyObject *pyxine_new_audio_port_pyobject(Xine_PyObject *, void *, xine_audio_port_t *, int);
 
 
 #endif

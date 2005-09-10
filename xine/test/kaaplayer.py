@@ -49,6 +49,9 @@ def handle_keypress_event(key, stream, window):
             say("\nDeinterlacing OFF\n")
         else:
             say("\nDeinterlacing ON\n")
+    elif key == "p":
+        pulldown = stream.deint_post.get_parameters()["pulldown"]
+        stream.deint_post.set_parameters(pulldown = {1: "none", 0: "vektor"}[pulldown])
 
     elif key == "a":
         global vo, win, win2, needs_redraw
@@ -169,6 +172,7 @@ win = display.X11Window(size = (50, 50), title = "Kaa Player")
 win.set_cursor_hide_timeout(0.5)
 
 x = xine.Xine()
+
 if 0:
     win2 = display.EvasX11Window(gl = True, size = (640, 480), title = "Kaa Player")
     r = win2.get_evas().object_rectangle_add()
@@ -188,8 +192,8 @@ if 0:
     win2.movie.show()
 
     cb = notifier.Callback(buffer_vo_callback, win2)
-    #vo = x.open_video_driver("buffer", callback = cb, passthrough = x.load_video_output_plugin("xv", window=win))
-    vo = x.open_video_driver("xv", window = win)
+    vo = x.open_video_driver("buffer", callback = cb, passthrough = x.load_video_output_plugin("xv", window=win))
+    #vo = x.open_video_driver("xv", window = win)
 else:
     vo = x.open_video_driver(window = win)
 
@@ -198,7 +202,6 @@ else:
 
 ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
-#stream.signals["event"].connect_weak(handle_xine_event, win)
 
 kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
@@ -206,29 +209,20 @@ if not isinstance(win, display.EvasX11Window):
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
 kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
-#print "STRAEM souRCE", stream.get_video_source()._post_out.get_port()
-#print "STRAEM souRCE", stream.get_audio_source()._post_out.get_port()
-#print "Create expand", vo._port, vo._port
-#expand = x.post_init("invert", video_targets = [vo])
-#print "Done creating expand INPUT", expand.get_default_input()._post_in.port
-#print "Done creating expand OUTPUT", expand.get_default_output().get_port()._port.owner
-#expand.set_parameters(aspect = 4.0/3.0)
+stream.deint_post = x.post_init("tvtime", video_targets = [vo])#expand.get_default_input()])
+stream.deint_post.set_parameters(method = "GreedyH", enabled = True)
 
-#stream.deint_post = x.post_init("tvtime", video_targets = [vo])#expand.get_default_input()])
-#stream.deint_post.get_default_output().wire(expand.get_default_input())
-#print "Done creating DEINT OUTPUT", stream.deint_post.get_default_output().get_port()._port.owner
-#stream.deint_post.set_parameters(method = "TomsMoComp", enabled = False)
+eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
+eq2.set_parameters(gamma = 1.2, contrast = 1.1)
 
-#eq2 = x.post_init("eq2", video_targets = [vo])#expand.get_default_input().get_port()])
-#eq2.set_parameters(gamma = 1.2, contrast = 1.1)
+# Test unwire
+stream.get_video_source().wire(eq2.get_default_input())
+eq2.unwire()
 
-#stream.get_video_source()._post_out.wire(expand.get_default_input()._post_in)
-#stream.get_video_source().wire(expand.get_default_input())
+assert(stream.get_video_source().get_port() == stream.deint_post.get_default_input().get_port())
 
-#print "AUDIO", ao._port
-#print "STRAEM souRCE", stream.get_video_source()._post_out.get_port()
-#print "STRAEM souRCE", stream.get_audio_source()._post_out.get_port()
-#xine._debug_show_chain(stream._stream)
+xine._debug_show_chain(stream._obj)
+
 stream.open(mrl)
 stream.play()
 
@@ -236,6 +230,6 @@ stream.play()
 win.show()
 kaa.main()
 win.hide()
-#del ao, vo, stream, x, win, win2, r, cb, eq2, expand
-del stream, ao, vo, x, win
+del stream, ao, vo, x, win, eq2
+#del win2, r
 gc.collect()

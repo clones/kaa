@@ -8,55 +8,52 @@
 
 // Owner must be a Post In, Post Out, Xine, or Stream object
 Xine_Video_Port_PyObject *
-pyxine_new_video_port_pyobject(PyObject *owner_pyobject, xine_video_port_t * vo, PyObject *driver, int owner)
+pyxine_new_video_port_pyobject(Xine_PyObject *xine, void *owner, xine_video_port_t *vo, PyObject *driver, int do_dispose)
 {
-    Xine_Video_Port_PyObject *o = (Xine_Video_Port_PyObject *)xine_object_to_pyobject_find(vo);
+    Xine_Video_Port_PyObject *o;
+    PyObject *owner_pyobject;
+
+    o = (Xine_Video_Port_PyObject *)xine_object_to_pyobject_find(vo);
     if (o) {
         Py_INCREF(o);
         return o;
     }
 
-    o = (Xine_Video_Port_PyObject *)
-        Xine_Video_Port_PyObject__new(&Xine_Video_Port_PyObject_Type, NULL, NULL);
+    // Verify owner
+    owner_pyobject = xine_object_to_pyobject_find(owner);
+    if (!owner_pyobject || 
+        (!Xine_Post_In_PyObject_Check(owner_pyobject) &&
+         !Xine_Post_Out_PyObject_Check(owner_pyobject) &&
+         !Xine_PyObject_Check(owner_pyobject) &&
+         !Xine_Stream_PyObject_Check(owner_pyobject))) {
+            PyErr_Format(xine_error, "Unsupported owner for Video Port object");
+            return NULL;
+    }
+
+
+    o = (Xine_Video_Port_PyObject *)Xine_Video_Port_PyObject__new(&Xine_Video_Port_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
 
-    if (Xine_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
-    else if (Xine_Post_PyObject_Check(owner_pyobject)) {
-        printf(" *** deprecated: pyxine_new_video_port_pyobject got a Post object -- use Post In/Out instead\n");
-        o->xine = ((Xine_Post_PyObject *)owner_pyobject)->xine;
-    }
-    else if (Xine_Post_In_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_Post_In_PyObject *)owner_pyobject)->xine;
-    else if (Xine_Post_Out_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_Post_Out_PyObject *)owner_pyobject)->xine;
-    else if (Xine_Stream_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_Stream_PyObject *)owner_pyobject)->xine;
-    else
-        PyErr_Format(xine_error, "Unsupported owner for VideoPort object");
-
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
-
-    if (driver)
-        o->driver = driver;
-    else
-        o->driver = Py_None;
+    o->vo = vo;
+    o->do_dispose = do_dispose;
+    o->owner = owner;
+    o->xine = xine;
+    o->driver = driver ? driver : Py_None;;
+    Py_INCREF(o->xine);
     Py_INCREF(o->driver);
 
-    o->vo = vo;
-    o->xine_object_owner = owner;
     xine_object_to_pyobject_register(vo, (PyObject *)o);
     return o;
 }
 
 
-
+/*
 static int
 Xine_Video_Port_PyObject__clear(Xine_Video_Port_PyObject * self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wire_list, NULL};
+    PyObject **list[] = {&self->wire_list, &self->owner_pyobject, NULL};
+    printf("VIDEO PORT: clear\n");
     return pyxine_gc_helper_clear(list);
 }
 
@@ -64,9 +61,11 @@ static int
 Xine_Video_Port_PyObject__traverse(Xine_Video_Port_PyObject * self,
                                    visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wire_list, &self->driver, NULL};
+    PyObject **list[] = {&self->wire_list, &self->driver, &self->owner_pyobject, NULL};
+    printf("VIDEO PORT: traverse\n");
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
+*/
 
 PyObject *
 Xine_Video_Port_PyObject__new(PyTypeObject * type, PyObject * args,
@@ -82,7 +81,7 @@ Xine_Video_Port_PyObject__new(PyTypeObject * type, PyObject * args,
     self = (Xine_Video_Port_PyObject *) type->tp_alloc(type, 0);
     self->vo = NULL;
     self->xine = NULL;
-    self->owner_pyobject = NULL;
+
     self->wire_list = PyList_New(0);
     self->wrapper = Py_None;
     Py_INCREF(Py_None);
@@ -99,7 +98,6 @@ Xine_Video_Port_PyObject__init(Xine_Video_Port_PyObject * self,
 static PyMemberDef Xine_Video_Port_PyObject_members[] = {
     {"driver", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, driver), 0, "Video Driver object of this port"},
     {"wire_list", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, wire_list), 0, "List of wired PostOut objects"},
-    {"owner", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Video_Port_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -108,23 +106,35 @@ static PyMemberDef Xine_Video_Port_PyObject_members[] = {
 void
 Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
 {
-    printf("DEalloc Video Port: %x, driver=%x (%d) owner=%s \n", self->vo, 
-            ((xine_video_port_t *)self->vo)->driver, self->xine_object_owner,
-            self->owner_pyobject->ob_type->tp_name);
-    if (self->vo && self->xine_object_owner) {
+    printf("DEalloc Video Port: %x (self %x, owner %x), driver=%x (%d)\n", self->vo, self, self->owner,
+            ((xine_video_port_t *)self->vo)->driver, self->do_dispose);
+
+    if (self->vo && self->do_dispose) {
         Py_BEGIN_ALLOW_THREADS
-        xine_close_video_driver(self->xine, self->vo);
+        xine_close_video_driver(self->xine->xine, self->vo);
         Py_END_ALLOW_THREADS
     }
+
     Py_DECREF(self->driver);
     Py_DECREF(self->wrapper);
-    Xine_Video_Port_PyObject__clear(self);
+    Py_DECREF(self->wire_list);
+    Py_DECREF(self->xine);
+    //Xine_Video_Port_PyObject__clear(self);
+
     xine_object_to_pyobject_unregister(self->vo);
 
     self->ob_type->tp_free((PyObject *) self);
 }
 
-
+PyObject *
+Xine_Video_Port_PyObject_get_owner(Xine_Video_Port_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *owner = xine_object_to_pyobject_find(self->owner);
+    if (!owner)
+        owner = Py_None;
+    Py_INCREF(owner);
+    return owner;
+}
 
 PyObject *
 Xine_Video_Port_PyObject_send_gui_data(Xine_Video_Port_PyObject *self, PyObject *args, PyObject *kwargs)
@@ -140,6 +150,7 @@ Xine_Video_Port_PyObject_send_gui_data(Xine_Video_Port_PyObject *self, PyObject 
 
 
 PyMethodDef Xine_Video_Port_PyObject_methods[] = {
+    {"get_owner", (PyCFunction) Xine_Video_Port_PyObject_get_owner, METH_VARARGS },
     {"send_gui_data", (PyCFunction) Xine_Video_Port_PyObject_send_gui_data, METH_VARARGS },
     {NULL, NULL}
 };
@@ -165,10 +176,10 @@ PyTypeObject Xine_Video_Port_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
     "Xine Video Port Object",               /* tp_doc */
-    (traverseproc)Xine_Video_Port_PyObject__traverse,   /* tp_traverse */
-    (inquiry)Xine_Video_Port_PyObject__clear,           /* tp_clear */
+    0, //(traverseproc)Xine_Video_Port_PyObject__traverse,   /* tp_traverse */
+    0, //(inquiry)Xine_Video_Port_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

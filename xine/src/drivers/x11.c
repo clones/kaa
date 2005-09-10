@@ -30,6 +30,9 @@ static void x11_frame_output_cb(void *data, int video_width, int video_height,
         printf("OOPS!  No frame output callback specified.\n");
         return;
     }
+    if (!Py_IsInitialized())
+        return;
+
     gstate = PyGILState_Ensure();
     args = Py_BuildValue("(iid)", video_width, video_height, video_pixel_aspect);
     result = PyEval_CallObject(user_data->frame_output_callback, args);

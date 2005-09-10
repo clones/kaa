@@ -19,7 +19,7 @@ void _xine_event_queue_listener_callback(void *_data, const xine_event_t *event)
     gstate = PyGILState_Ensure();
 
     if (PyCallable_Check(*data->callback)) {
-        pyevent = pyxine_new_event_pyobject((PyObject *)data->queue, (xine_event_t *)event, 1);
+        pyevent = pyxine_new_event_pyobject(data->queue->xine, data->queue, (xine_event_t *)event, 1);
         args = Py_BuildValue("(O)", pyevent);
         result = PyEval_CallObject(*data->callback, args);
         Py_DECREF(args);   
@@ -32,25 +32,32 @@ void _xine_event_queue_listener_callback(void *_data, const xine_event_t *event)
 
 // Owner must be a Stream object
 Xine_Event_Queue_PyObject *
-pyxine_new_event_queue_pyobject(PyObject *owner_pyobject, xine_event_queue_t *queue, int owner)
+pyxine_new_event_queue_pyobject(Xine_PyObject *xine, void *owner, xine_event_queue_t *queue, int do_dispose)
 {
-    Xine_Event_Queue_PyObject *o = (Xine_Event_Queue_PyObject *)xine_object_to_pyobject_find(queue);
+    Xine_Event_Queue_PyObject *o;
+    PyObject *owner_pyobject;
+
+    o = (Xine_Event_Queue_PyObject *)xine_object_to_pyobject_find(queue);
     if (o) {
         Py_INCREF(o);
         return o;
     }
 
+    // Verify owner
+    owner_pyobject = xine_object_to_pyobject_find(owner);
+    if (!owner_pyobject || !Xine_Stream_PyObject_Check(owner_pyobject)) {
+        PyErr_Format(xine_error, "Unsupported owner for Event Queue object");
+        return NULL;
+    }
+
     o = (Xine_Event_Queue_PyObject *)Xine_Event_Queue_PyObject__new(&Xine_Event_Queue_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
-    o->queue = queue;
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
 
-    if (Xine_Stream_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_Stream_PyObject *)owner_pyobject)->xine;
-    else
-        PyErr_Format(xine_error, "Unsupported owner for EventQueue object");
+    o->queue = queue;
+    o->do_dispose = do_dispose;
+    o->xine = xine;
+    Py_INCREF(o->xine);
 
     //xine_event_create_listener_thread(queue, _xine_event_queue_listener_callback, o->event_callback_data);
 
@@ -58,7 +65,7 @@ pyxine_new_event_queue_pyobject(PyObject *owner_pyobject, xine_event_queue_t *qu
     return o;
 }
 
-
+/*
 static int
 Xine_Event_Queue_PyObject__clear(Xine_Event_Queue_PyObject *self)
 {
@@ -72,6 +79,7 @@ Xine_Event_Queue_PyObject__traverse(Xine_Event_Queue_PyObject *self, visitproc v
     PyObject **list[] = {&self->owner_pyobject, &self->event_callback, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
+*/
 
 PyObject *
 Xine_Event_Queue_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
@@ -102,7 +110,6 @@ Xine_Event_Queue_PyObject__init(Xine_Event_Queue_PyObject *self, PyObject *args,
 
 static PyMemberDef Xine_Event_Queue_PyObject_members[] = {
     {"event_callback", T_OBJECT_EX, offsetof(Xine_Event_Queue_PyObject, event_callback), 0, "Event callback"},
-    {"owner", T_OBJECT_EX, offsetof(Xine_Event_Queue_PyObject, owner_pyobject), 0, "Owner (Stream)"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Event_Queue_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -112,17 +119,28 @@ void
 Xine_Event_Queue_PyObject__dealloc(Xine_Event_Queue_PyObject *self)
 {
     printf("DEalloc Event Queue: %x\n", self->queue);
-    if (self->queue && self->xine_object_owner) {
+    if (self->queue && self->do_dispose) {
         Py_BEGIN_ALLOW_THREADS
         xine_event_dispose_queue(self->queue);
         Py_END_ALLOW_THREADS
     }
     Py_DECREF(self->wrapper);
+    Py_DECREF(self->xine);
     free(self->event_callback_data);
-    Xine_Event_Queue_PyObject__clear(self);
-    Py_DECREF(self->owner_pyobject);
+    //Xine_Event_Queue_PyObject__clear(self);
+
     xine_object_to_pyobject_unregister(self->queue);
     self->ob_type->tp_free((PyObject*)self);
+}
+
+PyObject *
+Xine_Event_Queue_PyObject_get_owner(Xine_Event_Queue_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *owner = xine_object_to_pyobject_find(self->owner);
+    if (!owner)
+        owner = Py_None;
+    Py_INCREF(owner);
+    return owner;
 }
 
 
@@ -137,7 +155,7 @@ Xine_Event_Queue_PyObject_get_event(Xine_Event_Queue_PyObject *self, PyObject *a
         Py_INCREF(Py_None);
         return Py_None;
     }
-    pyev = pyxine_new_event_pyobject((PyObject *)self, event, 1);
+    pyev = pyxine_new_event_pyobject(self->xine, self->queue, event, 1);
     return (PyObject *)pyev;
 }
 
@@ -145,8 +163,8 @@ Xine_Event_Queue_PyObject_get_event(Xine_Event_Queue_PyObject *self, PyObject *a
 
 
 PyMethodDef Xine_Event_Queue_PyObject_methods[] = {
+    {"get_owner", (PyCFunction) Xine_Event_Queue_PyObject_get_owner, METH_VARARGS },
     {"get_event", (PyCFunction) Xine_Event_Queue_PyObject_get_event, METH_VARARGS },
-
     {NULL, NULL}
 };
 
@@ -171,10 +189,10 @@ PyTypeObject Xine_Event_Queue_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
     "Xine Event Queue Object",               /* tp_doc */
-    (traverseproc)Xine_Event_Queue_PyObject__traverse,   /* tp_traverse */
-    (inquiry)Xine_Event_Queue_PyObject__clear,           /* tp_clear */
+    0, //(traverseproc)Xine_Event_Queue_PyObject__traverse,   /* tp_traverse */
+    0, //(inquiry)Xine_Event_Queue_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

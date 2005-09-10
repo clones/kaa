@@ -6,7 +6,7 @@
 
 // Owner must be a Xine object
 Xine_Stream_PyObject *
-pyxine_new_stream_pyobject(PyObject *owner_pyobject, xine_stream_t *stream, int owner)
+pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream, int do_dispose)
 {
     xine_post_out_t *post_out;
     Xine_Stream_PyObject *o = (Xine_Stream_PyObject *)xine_object_to_pyobject_find(stream);
@@ -19,51 +19,43 @@ pyxine_new_stream_pyobject(PyObject *owner_pyobject, xine_stream_t *stream, int 
     if (!o)
         return NULL;
 
-    if (Xine_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
-    else
-        PyErr_Format(xine_error, "Unsupported owner for Stream object");
-
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
-
     o->stream = stream;
-    o->xine_object_owner = owner;
+    o->do_dispose = do_dispose;
+    o->xine = xine;
+    Py_INCREF(o->xine);
  
-    post_out = xine_get_video_source(stream);
-    o->video_source = (PyObject *)pyxine_new_post_out_pyobject((PyObject *)o, post_out, 0);
-    post_out = xine_get_audio_source(stream);
-    o->audio_source = (PyObject *)pyxine_new_post_out_pyobject((PyObject *)o, post_out, 0);
-
     xine_object_to_pyobject_register(stream, (PyObject *)o);
+
+    post_out = xine_get_video_source(stream);
+    o->video_source = (PyObject *)pyxine_new_post_out_pyobject(xine, stream, post_out, 0);
+    post_out = xine_get_audio_source(stream);
+    o->audio_source = (PyObject *)pyxine_new_post_out_pyobject(xine, stream, post_out, 0);
+ 
     return o;
 }
 
 
 
-
+/*
 static int
 Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->master, &self->vo,
-                         &self->video_source, &self->audio_source, NULL};
+    PyObject **list[] = { &self->video_source, &self->audio_source, //&self->vo,
+                          &self->owner_pyobject, &self->master, NULL};
 
-    if (self->stream && self->xine_object_owner) {
-        self->xine_object_owner = 0;
-        Py_BEGIN_ALLOW_THREADS
-        xine_dispose(self->stream);
-        Py_END_ALLOW_THREADS
-    }
+    printf("STREAM: clear\n");
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Stream_PyObject__traverse(Xine_Stream_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->master, &self->vo,
-                         &self->video_source, &self->audio_source, NULL};
+    PyObject **list[] = { &self->video_source, &self->audio_source, &self->vo, &self->ao,
+                          &self->owner_pyobject, &self->master, NULL};
+    printf("STREAM: traverse\n");
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
+*/
 
 PyObject *
 Xine_Stream_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
@@ -77,11 +69,11 @@ Xine_Stream_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs
 
     self = (Xine_Stream_PyObject *)type->tp_alloc(type, 0);
     self->xine = NULL;
-    self->owner_pyobject = NULL;
-    self->vo = NULL;
+
     self->master = self->wrapper = Py_None;
     Py_INCREF(Py_None);
     Py_INCREF(Py_None);
+
     return (PyObject *)self;
 }
 
@@ -104,10 +96,33 @@ void
 Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
 {
     printf("DEalloc Stream: %x\n", self->stream);
+    if (self->stream && self->do_dispose) {
+        printf("DISPOSE STREAM\n");
+        self->do_dispose = 0;
+        Py_BEGIN_ALLOW_THREADS
+        xine_dispose(self->stream);
+        Py_END_ALLOW_THREADS
+    }
+    printf("STREAM: DISPOSED: video source=%x audio_source=%x\n", self->video_source, self->audio_source);
+
     Py_DECREF(self->wrapper);
-    Xine_Stream_PyObject__clear(self);
+    Py_DECREF(self->video_source);
+    Py_DECREF(self->audio_source);
+    Py_DECREF(self->master);
+    Py_DECREF(self->xine);
+
+    //Xine_Stream_PyObject__clear(self);
+    
     xine_object_to_pyobject_unregister(self->stream);
     self->ob_type->tp_free((PyObject*)self);
+    printf("STREAM FREED\n");
+}
+
+PyObject *
+Xine_Stream_PyObject_get_owner(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    Py_INCREF(self->xine);
+    return (PyObject *)self->xine;
 }
 
 PyObject *
@@ -327,7 +342,7 @@ Xine_Stream_PyObject_new_event_queue(Xine_Stream_PyObject *self, PyObject *args,
     xine_event_queue_t *queue;
 
     queue = xine_event_new_queue(self->stream);
-    return (PyObject *)pyxine_new_event_queue_pyobject((PyObject *)self, queue, 1);
+    return (PyObject *)pyxine_new_event_queue_pyobject(self->xine, self->stream, queue, 1);
 }
 
 PyObject *
@@ -350,16 +365,8 @@ Xine_Stream_PyObject_send_event(Xine_Stream_PyObject *self, PyObject *args, PyOb
     return Py_None;
 }
 
-PyObject *
-Xine_Stream_PyObject_get_video_source(Xine_Stream_PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    // XXX: remove me (testing)
-    xine_video_port_t *port;
-    port = self->stream->video_out;
-    return (PyObject *)pyxine_new_video_port_pyobject((PyObject *)self, port, NULL, 0);
-}
-
 PyMethodDef Xine_Stream_PyObject_methods[] = {
+    {"get_owner", (PyCFunction) Xine_Stream_PyObject_get_owner, METH_VARARGS },
     {"open", (PyCFunction) Xine_Stream_PyObject_open, METH_VARARGS },
     {"play", (PyCFunction) Xine_Stream_PyObject_play, METH_VARARGS },
     {"stop", (PyCFunction) Xine_Stream_PyObject_stop, METH_VARARGS },
@@ -378,7 +385,6 @@ PyMethodDef Xine_Stream_PyObject_methods[] = {
     {"set_param", (PyCFunction) Xine_Stream_PyObject_set_param, METH_VARARGS },
     {"new_event_queue", (PyCFunction) Xine_Stream_PyObject_new_event_queue, METH_VARARGS },
     {"send_event", (PyCFunction) Xine_Stream_PyObject_send_event, METH_VARARGS | METH_KEYWORDS },
-    {"get_video_source", (PyCFunction) Xine_Stream_PyObject_get_video_source, METH_VARARGS | METH_KEYWORDS },
 
     // TODO: xine_get_current_frame
     {NULL, NULL}
@@ -405,10 +411,10 @@ PyTypeObject Xine_Stream_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
     "Xine Stream Object",               /* tp_doc */
-    (traverseproc)Xine_Stream_PyObject__traverse,   /* tp_traverse */
-    (inquiry)Xine_Stream_PyObject__clear,           /* tp_clear */
+    0, //(traverseproc)Xine_Stream_PyObject__traverse,   /* tp_traverse */
+    0, //(inquiry)Xine_Stream_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

@@ -10,20 +10,20 @@
 typedef struct {
     PyObject_HEAD
 
+    Xine_PyObject *xine;
     xine_event_queue_t *queue;
-    PyObject *owner_pyobject;  // Event_Queue Queue object
-    int xine_object_owner;
-    xine_t *xine;
+    void *owner;  // Stream object
+    int do_dispose;
 
-    PyObject *wrapper;
-    PyObject *event_callback;
+    PyObject *wrapper,
+             *event_callback;
     void *event_callback_data;
 } Xine_Event_Queue_PyObject;
 
 extern PyTypeObject Xine_Event_Queue_PyObject_Type;
 
 PyObject *Xine_Event_Queue_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Event_Queue_PyObject *pyxine_new_event_queue_pyobject(PyObject *, xine_event_queue_t *, int);
+Xine_Event_Queue_PyObject *pyxine_new_event_queue_pyobject(Xine_PyObject *, void *, xine_event_queue_t *, int);
 
 
 #endif

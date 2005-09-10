@@ -9,41 +9,46 @@
 
 // Owner must be a Xine or VideoPort object
 Xine_VO_Driver_PyObject *
-pyxine_new_vo_driver_pyobject(PyObject *owner_pyobject, vo_driver_t *driver, int owner)
+pyxine_new_vo_driver_pyobject(Xine_PyObject *xine, void *owner, vo_driver_t *driver, int do_dispose)
 {
-    Xine_VO_Driver_PyObject *o = (Xine_VO_Driver_PyObject *)xine_object_to_pyobject_find(driver);
+    Xine_VO_Driver_PyObject *o;
+    PyObject *owner_pyobject;
+
+    o = (Xine_VO_Driver_PyObject *)xine_object_to_pyobject_find(driver);
     if (o) {
         Py_INCREF(o);
         return o;
     }
 
-    o = (Xine_VO_Driver_PyObject *)
-        Xine_VO_Driver_PyObject__new(&Xine_VO_Driver_PyObject_Type, NULL, NULL);
+    // Verify owner
+    owner_pyobject = xine_object_to_pyobject_find(owner);
+    if (!owner_pyobject ||
+        (!Xine_Video_Port_PyObject_Check(owner_pyobject) &&
+         !Xine_PyObject_Check(owner_pyobject))) {
+            PyErr_Format(xine_error, "Unsupported owner for VO Driver Port object");
+            return NULL;
+    }
+
+    o = (Xine_VO_Driver_PyObject *)Xine_VO_Driver_PyObject__new(&Xine_VO_Driver_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
 
-    if (Xine_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_PyObject *)owner_pyobject)->xine;
-    else if (Xine_Video_Port_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_Video_Port_PyObject *)owner_pyobject)->xine;
-    else
-        PyErr_Format(xine_error, "Unsupported owner for VideoPort object");
-
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
-
     o->driver = driver;
-    o->xine_object_owner = owner;
+    o->do_dispose = do_dispose;
+    o->xine = xine;
+    Py_INCREF(o->xine);
+
     xine_object_to_pyobject_register(driver, (PyObject *)o);
     return o;
 }
 
 
-
+/*
 static int
 Xine_VO_Driver_PyObject__clear(Xine_VO_Driver_PyObject * self)
 {
-    PyObject **list[] = {&self->owner_pyobject,  NULL};
+    PyObject **list[] = {&self->owner_pyobject, NULL};
+    printf("DRIVER: clear\n");
     return pyxine_gc_helper_clear(list);
 }
 
@@ -52,8 +57,10 @@ Xine_VO_Driver_PyObject__traverse(Xine_VO_Driver_PyObject * self,
                                    visitproc visit, void *arg)
 {
     PyObject **list[] = {&self->owner_pyobject,  NULL};
+    printf("DRIVER: traverse\n");
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
+*/
 
 PyObject *
 Xine_VO_Driver_PyObject__new(PyTypeObject * type, PyObject * args,
@@ -69,7 +76,6 @@ Xine_VO_Driver_PyObject__new(PyTypeObject * type, PyObject * args,
     self = (Xine_VO_Driver_PyObject *) type->tp_alloc(type, 0);
     self->driver = NULL;
     self->xine = NULL;
-    self->owner_pyobject = NULL;
     self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *) self;
@@ -83,7 +89,6 @@ Xine_VO_Driver_PyObject__init(Xine_VO_Driver_PyObject * self,
 }
 
 static PyMemberDef Xine_VO_Driver_PyObject_members[] = {
-    {"owner", T_OBJECT_EX, offsetof(Xine_VO_Driver_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_VO_Driver_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -92,41 +97,53 @@ static PyMemberDef Xine_VO_Driver_PyObject_members[] = {
 void
 Xine_VO_Driver_PyObject__dealloc(Xine_VO_Driver_PyObject * self)
 {
-    printf("DEalloc VO Driver: %x (owner=%d)\n", self->driver, self->xine_object_owner);
-    if (self->driver && self->xine_object_owner) {
+    printf("DEalloc VO Driver: %x (owner=%d)\n", self->driver, self->do_dispose);
+    if (self->driver && self->do_dispose) {
         Py_BEGIN_ALLOW_THREADS
         self->driver->dispose(self->driver);
         Py_END_ALLOW_THREADS
     }
     Py_DECREF(self->wrapper);
-    Xine_VO_Driver_PyObject__clear(self);
+    Py_DECREF(self->xine);
+    //Xine_VO_Driver_PyObject__clear(self);
+
     xine_object_to_pyobject_unregister(self->driver);
 
-    //if (self->dealloc_cb)
-     //   self->dealloc_cb(self->dealloc_data);
+    if (self->dealloc_cb)
+        self->dealloc_cb(self->dealloc_data);
 
     self->ob_type->tp_free((PyObject *) self);
 }
+
+PyObject *
+Xine_VO_Driver_PyObject_get_owner(Xine_VO_Driver_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *owner = xine_object_to_pyobject_find(self->owner);
+    if (!owner)
+        owner = Py_None;
+    Py_INCREF(owner);
+    return owner;
+}
+
 
 PyObject *
 Xine_VO_Driver_PyObject_get_port(Xine_VO_Driver_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     xine_video_port_t *vo_port;
     Xine_Video_Port_PyObject *vo;
+    PyObject *owner_pyobject = xine_object_to_pyobject_find(self->owner);
 
-    if (Xine_Video_Port_PyObject_Check(self->owner_pyobject)) {
-        Py_INCREF(self->owner_pyobject);
-        return self->owner_pyobject;
+    if (owner_pyobject && Xine_Video_Port_PyObject_Check(owner_pyobject)) {
+        Py_INCREF(owner_pyobject);
+        return owner_pyobject;
     }
 
-    vo_port = _x_vo_new_port(self->xine, self->driver, 0);
-    vo = pyxine_new_video_port_pyobject(self->owner_pyobject, vo_port, (PyObject *)self, 1);
+    vo_port = _x_vo_new_port(self->xine->xine, self->driver, 0);
+    vo = pyxine_new_video_port_pyobject(self->xine, self->xine->xine, vo_port, (PyObject *)self, 1);
 
     // VideoPort object assumes ownership of us.
-    Py_INCREF(vo);
-    Py_DECREF(self->owner_pyobject);
-    self->owner_pyobject = (PyObject *)vo;
-    self->xine_object_owner = 0;
+    self->owner = vo_port;
+    self->do_dispose = 0;
 
     return (PyObject *)vo;
 }
@@ -134,6 +151,7 @@ Xine_VO_Driver_PyObject_get_port(Xine_VO_Driver_PyObject *self, PyObject *args, 
 
 
 PyMethodDef Xine_VO_Driver_PyObject_methods[] = {
+    {"get_owner", (PyCFunction) Xine_VO_Driver_PyObject_get_owner, METH_VARARGS },
     {"get_port", (PyCFunction) Xine_VO_Driver_PyObject_get_port, METH_VARARGS },
     {NULL, NULL}
 };
@@ -159,10 +177,10 @@ PyTypeObject Xine_VO_Driver_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
     "Xine VO Driver Object",               /* tp_doc */
-    (traverseproc)Xine_VO_Driver_PyObject__traverse,   /* tp_traverse */
-    (inquiry)Xine_VO_Driver_PyObject__clear,           /* tp_clear */
+    0, //(traverseproc)Xine_VO_Driver_PyObject__traverse,   /* tp_traverse */
+    0, //(inquiry)Xine_VO_Driver_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

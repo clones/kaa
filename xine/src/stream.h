@@ -13,22 +13,20 @@
 typedef struct {
     PyObject_HEAD
 
-    xine_t *xine;
+    Xine_PyObject *xine;
     xine_stream_t *stream;
-    int xine_object_owner;
+    int do_dispose;
 
-    PyObject *owner_pyobject,
-             *master,  // if configured master/slave 
+    PyObject *master,  // if configured master/slave 
              *audio_source, // reference to PostOut object for audio
              *video_source, // reference to PostOut object for video
              *wrapper;
-    PyObject *vo; //tmp
 } Xine_Stream_PyObject;
 
 extern PyTypeObject Xine_Stream_PyObject_Type;
 
 PyObject *Xine_Stream_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Stream_PyObject *pyxine_new_stream_pyobject(PyObject *, xine_stream_t *, int);
+Xine_Stream_PyObject *pyxine_new_stream_pyobject(Xine_PyObject *, xine_stream_t *, int);
 
 
 #endif

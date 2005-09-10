@@ -6,42 +6,48 @@
 
 // Owner must be a Post object
 Xine_Post_In_PyObject *
-pyxine_new_post_in_pyobject(PyObject *owner_pyobject, xine_post_in_t *post_in, 
-                         int owner)
+pyxine_new_post_in_pyobject(Xine_PyObject *xine, void *owner, xine_post_in_t *post_in, int do_dispose)
 {
-    Xine_Post_In_PyObject *o = (Xine_Post_In_PyObject *)xine_object_to_pyobject_find(post_in);
+    Xine_Post_In_PyObject *o;
+    PyObject *owner_pyobject = xine_object_to_pyobject_find(owner);
+
+    o = (Xine_Post_In_PyObject *)xine_object_to_pyobject_find(post_in);
     if (o) {
         Py_INCREF(o);
         return o;
     }
+
+    // Verify owner
+    if (!Xine_Post_PyObject_Check(owner_pyobject)) {
+        PyErr_Format(xine_error, "Unsupported owner for PostIn object");
+        return NULL;
+    }
+
     o = (Xine_Post_In_PyObject *)Xine_Post_In_PyObject__new(&Xine_Post_In_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
 
-    if (Xine_Post_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_Post_PyObject *)owner_pyobject)->xine;
-    else
-        PyErr_Format(xine_error, "Unsupported owner for PostIn object");
-
-
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
-
     o->post_in = post_in;
-    o->xine_object_owner = owner;
+    o->do_dispose = do_dispose;
+    o->xine = xine;
+    o->owner = owner;
+    o->post = owner_pyobject;
+    Py_INCREF(o->xine);
+    Py_INCREF(o->post);
+
     xine_object_to_pyobject_register(post_in, (PyObject *)o);
 
     // Create Port object for this PostIn
     if (post_in->type == XINE_POST_DATA_VIDEO) {
         if (post_in->data) {
             xine_video_port_t *vo = (xine_video_port_t *)post_in->data;
-            o->port = (PyObject *)pyxine_new_video_port_pyobject((PyObject *)o, vo, NULL, 0);
+            o->port = (PyObject *)pyxine_new_video_port_pyobject(xine, post_in, vo, NULL, 0);
         }
     }
     else if (post_in->type == XINE_POST_DATA_AUDIO) {
         if (post_in->data) {
             xine_audio_port_t *ao = (xine_audio_port_t *)post_in->data;
-            o->port = (PyObject *)pyxine_new_audio_port_pyobject((PyObject *)o, ao, 0);
+            o->port = (PyObject *)pyxine_new_audio_port_pyobject(xine, post_in, ao, 0);
         }
     }
     else {
@@ -57,7 +63,7 @@ pyxine_new_post_in_pyobject(PyObject *owner_pyobject, xine_post_in_t *post_in,
 static int
 Xine_Post_In_PyObject__clear(Xine_Post_In_PyObject *self)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, NULL};
+    PyObject **list[] = {&self->post, NULL};
     return pyxine_gc_helper_clear(list);
 
 }
@@ -65,9 +71,10 @@ Xine_Post_In_PyObject__clear(Xine_Post_In_PyObject *self)
 static int
 Xine_Post_In_PyObject__traverse(Xine_Post_In_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, &self->port, NULL};
+    PyObject **list[] = {&self->post, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
+
 
 PyObject *
 Xine_Post_In_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
@@ -80,8 +87,10 @@ Xine_Post_In_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwarg
     }
 
     self = (Xine_Post_In_PyObject *)type->tp_alloc(type, 0);
+
     self->post_in = NULL;
-    self->owner_pyobject = NULL;
+    self->xine = NULL;
+
     self->wrapper = Py_None;
     Py_INCREF(Py_None);
     return (PyObject *)self;
@@ -95,7 +104,6 @@ Xine_Post_In_PyObject__init(Xine_Post_In_PyObject *self, PyObject *args, PyObjec
 
 static PyMemberDef Xine_Post_In_PyObject_members[] = {
     {"port", T_OBJECT_EX, offsetof(Xine_Post_In_PyObject, port), 0, "Video/Audio Port"},
-    {"owner", T_OBJECT_EX, offsetof(Xine_Post_In_PyObject, owner_pyobject), 0, "Owner"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Post_In_PyObject, wrapper), 0, "Wrapper object"},
     {NULL}
 };
@@ -105,11 +113,26 @@ void
 Xine_Post_In_PyObject__dealloc(Xine_Post_In_PyObject *self)
 {
     printf("DEalloc Post In: %x\n", self->post_in);
-    if (self->post_in && self->xine_object_owner) {
+    if (self->post_in && self->do_dispose) {
     }
     Xine_Post_In_PyObject__clear(self);
+    Py_DECREF(self->port);
+    Py_DECREF(self->wrapper);
+    //Py_DECREF(self->post);
+    Py_DECREF(self->xine);
     xine_object_to_pyobject_unregister(self->post_in);
     self->ob_type->tp_free((PyObject*)self);
+}
+
+
+PyObject *
+Xine_Post_In_PyObject_get_owner(Xine_Post_In_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *owner = xine_object_to_pyobject_find(self->owner);
+    if (!owner)
+        owner = Py_None;
+    Py_INCREF(owner);
+    return owner;
 }
 
 
@@ -133,6 +156,7 @@ Xine_Post_In_PyObject_get_port(Xine_Post_In_PyObject *self, PyObject *args, PyOb
 }
 
 PyMethodDef Xine_Post_In_PyObject_methods[] = {
+    {"get_owner", (PyCFunction) Xine_Post_In_PyObject_get_owner, METH_VARARGS},
     {"get_type", (PyCFunction) Xine_Post_In_PyObject_get_type, METH_VARARGS},
     {"get_name", (PyCFunction) Xine_Post_In_PyObject_get_name, METH_VARARGS},
     {"get_port", (PyCFunction) Xine_Post_In_PyObject_get_port, METH_VARARGS},

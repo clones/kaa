@@ -6,26 +6,33 @@
 
 // Owner must be a EventQueue object
 Xine_Event_PyObject *
-pyxine_new_event_pyobject(PyObject *owner_pyobject, xine_event_t *event, int owner)
+pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event, int do_dispose)
 {
-    Xine_Event_PyObject *o = (Xine_Event_PyObject *)xine_object_to_pyobject_find(event);
+    Xine_Event_PyObject *o;
+    PyObject *owner_pyobject;
+
+    o = (Xine_Event_PyObject *)xine_object_to_pyobject_find(event);
     if (o) {
         Py_INCREF(o);
         return o;
     }
 
+    // Verify owner
+    owner_pyobject = xine_object_to_pyobject_find(owner);
+    if (!owner_pyobject || !Xine_Event_Queue_PyObject_Check(owner_pyobject)) {
+        PyErr_Format(xine_error, "Unsupported owner for Event object");
+        return NULL;
+    }
+
     o = (Xine_Event_PyObject *)Xine_Event_PyObject__new(&Xine_Event_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
-    if (Xine_Event_Queue_PyObject_Check(owner_pyobject))
-        o->xine = ((Xine_Event_Queue_PyObject *)owner_pyobject)->xine;
-    else
-        PyErr_Format(xine_error, "Unsupported owner for Event object");
 
     o->event = event;
     o->type = PyInt_FromLong(event->type);
-    o->owner_pyobject = owner_pyobject;
-    Py_INCREF(owner_pyobject);
+    o->xine = xine;
+    o->do_dispose = do_dispose;
+    Py_INCREF(o->xine);
 
     switch (event->type) {
         case XINE_EVENT_FRAME_FORMAT_CHANGE: {
@@ -53,7 +60,7 @@ pyxine_new_event_pyobject(PyObject *owner_pyobject, xine_event_t *event, int own
     return o;
 }
 
-
+/*
 static int
 Xine_Event_PyObject__clear(Xine_Event_PyObject *self)
 {
@@ -67,9 +74,10 @@ Xine_Event_PyObject__traverse(Xine_Event_PyObject *self, visitproc visit, void *
     PyObject **list[] = {&self->owner_pyobject, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
+*/
 
 PyObject *
-Xine_Event_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
+Xine_Event_PyObject__new(PyTypeObject *type, PyObject *args, PyObject * kwargs)
 {
     Xine_Event_PyObject *self;
 
@@ -92,7 +100,6 @@ Xine_Event_PyObject__init(Xine_Event_PyObject *self, PyObject *args, PyObject *k
 }
 
 static PyMemberDef Xine_Event_PyObject_members[] = {
-    {"owner", T_OBJECT_EX, offsetof(Xine_Event_PyObject, owner_pyobject), 0, "Owner (Queue)"},
     {"data", T_OBJECT_EX, offsetof(Xine_Event_PyObject, data), 0, "Event data"},
     {"type", T_OBJECT_EX, offsetof(Xine_Event_PyObject, type), 0, "Event type"},
     {"wrapper", T_OBJECT_EX, offsetof(Xine_Event_PyObject, wrapper), 0, "Wrapper object"},
@@ -104,7 +111,7 @@ void
 Xine_Event_PyObject__dealloc(Xine_Event_PyObject *self)
 {
     //printf("DEalloc Event: %x\n", self->event);
-    if (self->event && self->xine_object_owner) {
+    if (self->event && self->do_dispose) {
         Py_BEGIN_ALLOW_THREADS
         xine_event_free(self->event);
         Py_END_ALLOW_THREADS
@@ -112,13 +119,25 @@ Xine_Event_PyObject__dealloc(Xine_Event_PyObject *self)
     Py_DECREF(self->wrapper);
     Py_DECREF(self->data);
     Py_DECREF(self->type);
-    Xine_Event_PyObject__clear(self);
-    Py_DECREF(self->owner_pyobject);
+    Py_DECREF(self->xine);
+    //Xine_Event_PyObject__clear(self);
     xine_object_to_pyobject_unregister(self->event);
     self->ob_type->tp_free((PyObject*)self);
 }
 
+PyObject *
+Xine_Event_PyObject_get_owner(Xine_Event_PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    PyObject *owner = xine_object_to_pyobject_find(self->owner);
+    if (!owner)
+        owner = Py_None;
+    Py_INCREF(owner);
+    return owner;
+}
+
+
 PyMethodDef Xine_Event_PyObject_methods[] = {
+    {"get_owner", (PyCFunction) Xine_Event_PyObject_get_owner, METH_VARARGS },
     {NULL, NULL}
 };
 
@@ -143,10 +162,10 @@ PyTypeObject Xine_Event_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
     "Xine Event Object",               /* tp_doc */
-    (traverseproc)Xine_Event_PyObject__traverse,   /* tp_traverse */
-    (inquiry)Xine_Event_PyObject__clear,           /* tp_clear */
+    0, //(traverseproc)Xine_Event_PyObject__traverse,   /* tp_traverse */
+    0, //(inquiry)Xine_Event_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

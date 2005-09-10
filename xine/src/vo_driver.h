@@ -11,10 +11,10 @@
 typedef struct {
     PyObject_HEAD
 
-    PyObject *owner_pyobject; // Xine or VideoPort object
-    int xine_object_owner;
-    xine_t *xine;
+    Xine_PyObject *xine;
     vo_driver_t *driver;
+    void *owner; // Xine or VideoPort object
+    int do_dispose;
 
     PyObject *wrapper;
 
@@ -25,7 +25,7 @@ typedef struct {
 extern PyTypeObject Xine_VO_Driver_PyObject_Type;
 
 PyObject *Xine_VO_Driver_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_VO_Driver_PyObject *pyxine_new_vo_driver_pyobject(PyObject *, vo_driver_t *, int);
+Xine_VO_Driver_PyObject *pyxine_new_vo_driver_pyobject(Xine_PyObject *, void *, vo_driver_t *, int);
 
 
 #endif

@@ -11,19 +11,20 @@
 typedef struct {
     PyObject_HEAD
 
+    Xine_PyObject *xine;
     xine_post_in_t *post_in;
-    int xine_object_owner;
-    xine_t *xine;
+    void *owner; // Post object
+    int do_dispose;
+    PyObject *post;
 
-    PyObject *owner_pyobject,
-             *port, // Video or Audio port for this PostIn
+    PyObject *port, // Video or Audio port for this PostIn
              *wrapper;
 } Xine_Post_In_PyObject;
 
 extern PyTypeObject Xine_Post_In_PyObject_Type;
 
 PyObject *Xine_Post_In_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Post_In_PyObject *pyxine_new_post_in_pyobject(PyObject *, xine_post_in_t *, int);
+Xine_Post_In_PyObject *pyxine_new_post_in_pyobject(Xine_PyObject *, void *, xine_post_in_t *, int);
 
 
 #endif

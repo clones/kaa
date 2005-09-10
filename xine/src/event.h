@@ -10,10 +10,10 @@
 typedef struct {
     PyObject_HEAD
 
+    Xine_PyObject *xine;
     xine_event_t *event;
-    PyObject *owner_pyobject;  // Event Queue object
-    int xine_object_owner;
-    xine_t *xine;
+    void *owner;  // Event Queue object
+    int do_dispose;
 
     PyObject *wrapper,
              *type,
@@ -23,7 +23,7 @@ typedef struct {
 extern PyTypeObject Xine_Event_PyObject_Type;
 
 PyObject *Xine_Event_PyObject__new(PyTypeObject *, PyObject *, PyObject *);
-Xine_Event_PyObject *pyxine_new_event_pyobject(PyObject *, xine_event_t *, int);
+Xine_Event_PyObject *pyxine_new_event_pyobject(Xine_PyObject *, void *, xine_event_t *, int);
 
 
 #endif

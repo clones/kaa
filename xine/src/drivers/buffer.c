@@ -481,7 +481,6 @@ static int
 buffer_get_property (vo_driver_t *this_gen, int property) 
 {
     buffer_driver_t *this = (buffer_driver_t *)this_gen;
-    printf("buffer_get_property: %d\n", property);
     switch(property) {
         case VO_PROP_ASPECT_RATIO:
             return this->aspect;
