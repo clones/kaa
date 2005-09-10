@@ -47,7 +47,7 @@ class DvbDevice {
   Tuner          *tuner;
   Filter          filter;
   std::map<int, std::vector<int> >  id2pid;       // registered filter
-  PyObject       *socket_dispatcher, *tuner_timer;
+  PyObject       *socket_dispatcher;
   
   public:
   // DvbDevice(...)
@@ -77,14 +77,11 @@ class DvbDevice {
   const std::string get_card_type() const;
 
   // set notifier object
-  void connect_to_notifier(PyObject* socket_dispatcher, PyObject *tuner_timer);
+  void connect_to_notifier(PyObject* socket_dispatcher);
   
   // callback for notifier
   void read_fd_data();
   
-  // callback for tuner timer
-  bool tuner_timer_expired();
-
   Filter &get_filter() { return filter; }
 };
 

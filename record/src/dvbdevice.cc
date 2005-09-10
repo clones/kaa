@@ -35,7 +35,7 @@ using namespace std;
 
 DvbDevice::DvbDevice( const std::string &adapter,
 		      const std::string &channelsfile, int prio):
-  socket_dispatcher(NULL), tuner_timer(NULL),
+  socket_dispatcher(NULL),
   file_adapter( adapter ), file_channels( channelsfile ),
   priority( prio ), tuner(NULL) {
 
@@ -44,7 +44,7 @@ DvbDevice::DvbDevice( const std::string &adapter,
   }
 
   // start temporary tuner
-  Tuner tmptuner(file_adapter, NULL);
+  Tuner tmptuner(file_adapter);
   // read card type
   card_type = tmptuner.get_type_str();
   // load channel list
@@ -112,7 +112,6 @@ DvbDevice::~DvbDevice() {
     Py_DECREF(result);
   // free references
   Py_DECREF(socket_dispatcher);
-  Py_DECREF(tuner_timer);
 }
 
 
@@ -139,7 +138,7 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
 
 	// instantiate tuner object if it doesn't exist
 	if (!tuner) {
-	  tuner = new Tuner( file_adapter, tuner_timer );
+	  tuner = new Tuner( file_adapter );
 	}
 
 	// ...set tuner to this bouquet and stop search
@@ -266,11 +265,9 @@ const std::string DvbDevice::get_card_type() const {
 }
 
 
-void DvbDevice::connect_to_notifier(PyObject* socket_dispatcher, PyObject *tuner_timer) {
+void DvbDevice::connect_to_notifier(PyObject* socket_dispatcher) {
   this->socket_dispatcher = socket_dispatcher;
-  this->tuner_timer = tuner_timer;
   Py_INCREF(socket_dispatcher);
-  Py_INCREF(tuner_timer);
 }
 
 
@@ -293,11 +290,5 @@ void DvbDevice::read_fd_data() {
     bufstr.assign( buf, len );
     get_filter().process_data( bufstr );
   }
-}
-
-bool DvbDevice::tuner_timer_expired() {
-  if (tuner)
-    return tuner->timer_expired();
-  return false;
 }
 

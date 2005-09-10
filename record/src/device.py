@@ -43,10 +43,8 @@ class DvbDevice(object):
         self._device = _DvbDevice(device, channels, prio);
         # create socket dispatcher
         sd = SocketDispatcher(self._device.read_fd_data)
-        # create tuner timer
-        t = Timer(self._device.tuner_timer_expired)
-        # give both variables to the device
-        self._device.connect_to_notifier(sd, t)
+        # give variable to the device
+        self._device.connect_to_notifier(sd)
 
 
     def __getattr__(self, attr):

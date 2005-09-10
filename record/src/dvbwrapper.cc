@@ -89,20 +89,13 @@ PyObject *DvbDevicePyObject__read_fd_data(PyObject *self, PyObject* args)
   return Py_None;
 }
 
-PyObject *DvbDevicePyObject__tuner_timer_expired(PyObject *self, PyObject* args)
-{
-  ((DvbDevicePyObject *)self)->device->tuner_timer_expired();
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 PyObject *DvbDevicePyObject__connect_to_notifier(PyObject *self, PyObject* args)
 {
-  PyObject *socket_dispatcher, *tuner_timer;
+  PyObject *socket_dispatcher;
   
-  if (!PyArg_ParseTuple(args,"OO", &socket_dispatcher, &tuner_timer))
+  if (!PyArg_ParseTuple(args,"O", &socket_dispatcher))
     return NULL;
-  ((DvbDevicePyObject *)self)->device->connect_to_notifier(socket_dispatcher, tuner_timer);
+  ((DvbDevicePyObject *)self)->device->connect_to_notifier(socket_dispatcher);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -134,7 +127,6 @@ static PyMethodDef DvbDevicePyObject__methods[] = {
     { "get_card_type", DvbDevicePyObject__get_card_type, METH_VARARGS },
     { "connect_to_notifier", DvbDevicePyObject__connect_to_notifier, METH_VARARGS },
     { "read_fd_data", DvbDevicePyObject__read_fd_data, METH_VARARGS },
-    { "tuner_timer_expired", DvbDevicePyObject__tuner_timer_expired, METH_VARARGS },
     { NULL }
 };
 

@@ -85,7 +85,6 @@ class Tuner {
   static const Param qam_list[];
   static const Param transmissionmode_list[];
 
-  PyObject                       *timer;
   std::string                    device_frontend;
   std::string                    device_demux;
   std::string                    device_dvr;
@@ -112,7 +111,7 @@ class Tuner {
 
   public:
 
-  Tuner( std::string adapter, PyObject *timer );
+  Tuner( std::string adapter );
   ~Tuner();
 
   std::string get_type_str() const;
@@ -122,8 +121,6 @@ class Tuner {
   int add_pid( int pid );
   int remove_pid( int pid );
 
-  bool timer_expired();
-  
   std::vector<channel_t> load_channels( const std::string &channelsfile );
 };
 
