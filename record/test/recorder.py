@@ -14,12 +14,16 @@ print dvb.get_bouquet_list()
 
 logging.getLogger('record').setLevel(logging.INFO)
 
+chain = kaa.record.Chain()
+chain.append(kaa.record.Remux())
+chain.append(kaa.record.Filewriter('foo.mpg', 0))
+
 if 0:
     # One way of using the module is to simply start a recording
     # and stop it later.
     
     # start recording
-    id = dvb.start_recording('ZDF', Filewriter('foo.mpg', 0, Filewriter.FT_MPEG))
+    id = dvb.start_recording('ZDF', chain)
 
     # stop record after 10 seconds
     t = OneShotTimer(dvb.stop_recording, id).start(10)
@@ -36,8 +40,7 @@ if 1:
         print 'I know that the rec stopped'
         
     # record from start time in 3 seconds for 5 seconds
-    r = Recording(time.time() + 3, time.time() + 8, dvb, 'ZDF',
-                  Filewriter('foo.mpg', 0, Filewriter.FT_MPEG))
+    r = Recording(time.time() + 3, time.time() + 8, dvb, 'ZDF', chain)
 
     # get some notification
     r.signals['start'].connect(rec_started, r)
