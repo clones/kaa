@@ -60,6 +60,8 @@ PyObject *ChainPyObject__add_pid(PyObject *self, PyObject* args)
     if (!PyArg_ParseTuple(args,"i", &pid))
 	return NULL;
     self->chain->pids.push_back(pid);
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 
