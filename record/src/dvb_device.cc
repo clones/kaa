@@ -28,16 +28,15 @@
 #include <fcntl.h>
 
 #include "misc.h"
-#include "op_generic.h"
-#include "dvbdevice.h"
+#include "fp_generic.h"
+#include "dvb_device.h"
 
 using namespace std;
 
 DvbDevice::DvbDevice( const std::string &adapter,
 		      const std::string &channelsfile, int prio):
-  socket_dispatcher(NULL),
   file_adapter( adapter ), file_channels( channelsfile ),
-  priority( prio ), tuner(NULL) {
+  priority( prio ), tuner(NULL), socket_dispatcher(NULL) {
 
   if (file_adapter.empty()) {
     printD( LOG_WARN, "No adapter is set! Please check config file!\n");
@@ -115,16 +114,10 @@ DvbDevice::~DvbDevice() {
 }
 
 
-int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
-  // returns -1 if plugin does not exist or channel name is unknown
+int DvbDevice::start_recording( std::string &chan_name, FilterData &fdata ) {
+  // returns -1 if channel name is unknown
 
   int id = -1;
-
-  // check plugin
-  if (!plugin) {
-    printD( LOG_ERROR, "BUG: no plugin was given! plugin is NULL pointer!\n" );
-    return -1;
-  }
 
   // switch tuner to correct channel
   // ==> find correct bouquet and then call set_bouquet(...)
@@ -144,12 +137,6 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
 	// ...set tuner to this bouquet and stop search
 	tuner->set_bouquet( bouquet_list[ib] );
 
-	// create structure for new filter
-	FilterData fdata;
-	fdata.op = plugin;
-	fdata.pids.push_back( bouquet_list[ib].channels[ic].pid_video );
-	fdata.pids.push_back( bouquet_list[ib].channels[ic].pid_audio );
-
 	// add new filter
 	id = filter.add_filter( fdata );
 
@@ -161,16 +148,6 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
 	id2pid[ id ].push_back( bouquet_list[ib].channels[ic].pid_video );
 	id2pid[ id ].push_back( bouquet_list[ib].channels[ic].pid_audio );
 
-	// add pids to output plugin
-	vector<int> pids_a;
-	vector<int> pids_empty;
-	pids_a.push_back( bouquet_list[ib].channels[ic].pid_audio );
-
-	plugin->set_pids( bouquet_list[ib].channels[ic].pid_video,
-			  pids_a,
-			  pids_empty,
-			  pids_empty );
-
 	notfound = false;
       }
     }
@@ -180,13 +157,13 @@ int DvbDevice::start_recording( std::string &chan_name, OutputPlugin *plugin ) {
 	    chan_name.c_str() );
     return -1;
   }
-  
+
   // open dvr device if not open
   PyObject* result;
 
   result = PyObject_CallMethod(socket_dispatcher, "active", "");
   if (result == Py_False) {
-  
+
     string fn( file_adapter );
     if (fn[ fn.length() - 1 ] != '/') {
       fn.append("/");
@@ -281,7 +258,7 @@ void DvbDevice::read_fd_data() {
 
   int len = read( fd, buf, DvbDevice::BUFFERSIZE );
   if ( len < 0 ) {
-    printD( LOG_WARN, 
+    printD( LOG_WARN,
 	    "WARNING: read failed: errno=%d  err=%s\n",
 	    errno, strerror(errno) );
   }

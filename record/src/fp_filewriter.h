@@ -21,25 +21,21 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __OP_FILEWRITER_H_
-#define __OP_FILEWRITER_H_
+#ifndef __FP_FILEWRITER_H_
+#define __FP_FILEWRITER_H_
 
 #include <vector>
 #include <string>
-#include "op_generic.h"
-#include "remux.h"
+#include "fp_generic.h"
 
-class OutputPluginFilewriter : public OutputPlugin {
+class FPFilewriter : public FilterPlugin {
   public:
-  enum FileType { FT_RAW, FT_MPEG };
 
-  OutputPluginFilewriter( const std::string &uri, int chunksize, FileType ftype  );
-  virtual void set_pids( int Pid_V, std::vector<int> Pids_A, 
-			 std::vector<int> Pids_D, std::vector<int> Pids_S );
-  void process_data( const std::string &data );
-  void flush();  
-  ~OutputPluginFilewriter();
-
+  FPFilewriter( const std::string &uri, int chunksize );
+  void add_data( const std::string &data );
+  void process_data();
+  std::string get_data();
+  ~FPFilewriter();
 
   private:
   int file_fd;             // opened chunk file 
@@ -48,16 +44,9 @@ class OutputPluginFilewriter : public OutputPlugin {
   int file_counter;        // serial file number
   int file_size_total;     // summarized size of all chunks
   std::string file_name;   // output filename (may contain %)
-  FileType file_type;      // type of output file 
 
-  cRemux *remux;
-
-  std::string buffer_in;   // buffer for caching data
-  std::string buffer_out;  // buffer for caching data
+  std::string buffer;      // buffer for caching data
   
-  const static int DEFAULT_MAX_FILESIZE = 10 * 1024 * 1024; // 10 MiB
-  const static int DEFAULT_MAX_BUFFERSIZE = 188 * 1000;
-
   // close current chunk and open a new one
   void open_new_chunk();
 

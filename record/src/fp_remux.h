@@ -1,4 +1,4 @@
-/* File: op_generic.cc
+/* File: op_filewriter.h
  *
  * Author: Sönke Schwardt <schwardt@users.sourceforge.net>
  *
@@ -21,22 +21,36 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include "misc.h"
-#include "op_generic.h"
+#ifndef __FP_FILEWRITER_H_
+#define __FP_FILEWRITER_H_
 
-OutputPlugin::OutputPlugin( const std::string &uri, int chunksize ) :
-  uri(uri), chunksize(chunksize), pid_v(0)
-{
-  ;
-}
+#include <vector>
+#include <string>
+#include "fp_generic.h"
+#include "remux.h"
 
-void OutputPlugin::set_pids( int Pid_V, std::vector<int> Pids_A, 
-			     std::vector<int> Pids_D, std::vector<int> Pids_S ) {
-  pid_v  = Pid_V;
-  pids_a = Pids_A;
-  pids_d = Pids_D;
-  pids_s = Pids_S;
-  // TODO FIXME  fix debug output
-  //   printD( LOG_DEBUG_OUTPUTPLUGIN, "setting pids: v=%d  a1=%d  a2=%d  d1=%d  d2=%d\n",
-  // 	  pid_v, pid_a1, pid_a2, pid_d1, pid_d2 );
-}
+class FPRemux : public FilterPlugin {
+  public:
+
+  FPRemux();
+  ~FPRemux();
+
+  void add_data( const std::string &data );
+  void process_data();
+  std::string get_data();
+
+  virtual void set_pids( int Pid_V,                  // video pid
+			 std::vector<int> Pids_A,    // audio pids
+			 std::vector<int> Pids_D,    // dolby audio pids
+			 std::vector<int> Pids_S );  // subtitle pids
+
+  private:
+  cRemux *remux;
+
+  std::string buffer_in;   // buffer for caching data  
+  std::string buffer_out;  // buffer for caching data  
+
+  const static int DEFAULT_MAX_BUFFERSIZE = 188 * 1000;
+};
+
+#endif

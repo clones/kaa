@@ -35,8 +35,8 @@
 #include <string>
 #include <stdint.h>
 
-#include "frontend.h"
-#include "dmx.h"
+#include "dvb_frontend.h"
+#include "dvb_dmx.h"
 
 
 typedef struct {
@@ -120,6 +120,8 @@ class Tuner {
 
   int add_pid( int pid );
   int remove_pid( int pid );
+
+  std::string get_status ();
 
   std::vector<channel_t> load_channels( const std::string &channelsfile );
 };

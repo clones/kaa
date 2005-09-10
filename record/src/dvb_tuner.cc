@@ -43,7 +43,7 @@
 // #include <linux/dvb/dmx.h>
 
 #include "misc.h"
-#include "tuner.h"
+#include "dvb_tuner.h"
 
 using namespace std;
 
@@ -237,8 +237,6 @@ int Tuner::tune_it (struct dvb_frontend_parameters &front_param) {
 
   // returns 0 on success and -1 on failure
 
-  fe_status_t status;
-
   printD( LOG_DEBUG_TUNER, "front_param.frequency          = %d\n", front_param.frequency);
   printD( LOG_DEBUG_TUNER, "front_param.inversion          = %d\n", front_param.inversion);
   printD( LOG_DEBUG_TUNER, "front_param.ofdm.bandwidth     = %d\n", front_param.u.ofdm.bandwidth );
@@ -253,30 +251,51 @@ int Tuner::tune_it (struct dvb_frontend_parameters &front_param) {
     printD( LOG_ERROR, "setfront front: %s\n", strerror(errno));
   }
 
-  do {
-    if (ioctl(fd_frontend, FE_READ_STATUS, &status) < 0) {
-      printD( LOG_ERROR, "fe get event: %s\n", strerror(errno));
-      return -1;
-    }
-
-    printD( LOG_DEBUG_TUNER,
-	    "input_dvb: status: 0x%04x  |%s|%s|%s|%s|%s|%s|\n", status,
-	    (status & FE_HAS_SIGNAL ? "FE_HAS_SIGNAL" : "             "),
-	    (status & FE_TIMEDOUT   ? "FE_TIMEDOUT"   : "           "),
-	    (status & FE_HAS_LOCK   ? "FE_HAS_LOCK"   : "           "),
-	    (status & FE_HAS_CARRIER? "FE_HAS_CARRIER": "              "),
-	    (status & FE_HAS_VITERBI? "FE_HAS_VITERBI": "              "),
-	    (status & FE_HAS_SYNC   ? "FE_HAS_SYNC"   : "           ")
-	    );
-
-    if (status & FE_HAS_LOCK) {
-      return 0;
-    }
-    usleep(50000);
-  }
-  while (!(status & FE_TIMEDOUT));
-
   return -1;
+}
+
+
+std::string Tuner::get_status () {
+
+  std::string ret;
+  fe_status_t status;
+
+  if (ioctl(fd_frontend, FE_READ_STATUS, &status) < 0) {
+    printD( LOG_ERROR, "fe get event: %s\n", strerror(errno));
+    return "ERROR";
+  }
+
+  printD( LOG_DEBUG_TUNER,
+	  "input_dvb: status: 0x%04x  |%s|%s|%s|%s|%s|%s|\n", status,
+	  (status & FE_HAS_SIGNAL ? "FE_HAS_SIGNAL" : "             "),
+	  (status & FE_TIMEDOUT   ? "FE_TIMEDOUT"   : "           "),
+	  (status & FE_HAS_LOCK   ? "FE_HAS_LOCK"   : "           "),
+	  (status & FE_HAS_CARRIER? "FE_HAS_CARRIER": "              "),
+	  (status & FE_HAS_VITERBI? "FE_HAS_VITERBI": "              "),
+	  (status & FE_HAS_SYNC   ? "FE_HAS_SYNC"   : "           ")
+	  );
+
+  ret.assign("status: ").append( to_string(status) );
+  if (status & FE_HAS_SIGNAL) {
+    ret.append(" FE_HAS_SIGNAL");
+  }
+  if (status & FE_TIMEDOUT) {
+    ret.append(" FE_TIMEDOUT");
+  }
+  if (status & FE_HAS_LOCK) {
+    ret.append(" FE_HAS_LOCK");
+  }
+  if (status & FE_HAS_CARRIER) {
+    ret.append(" FE_HAS_CARRIER");
+  }
+  if (status & FE_HAS_VITERBI) {
+    ret.append(" FE_HAS_VITERBI");
+  }
+  if (status & FE_HAS_SYNC) {
+    ret.append(" FE_HAS_SYNC");
+  }
+
+  return ret;
 }
 
 

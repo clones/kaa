@@ -1,5 +1,5 @@
 #include <Python.h>
-#include "dvbdevice.h"
+#include "dvb_device.h"
 #include "op_generic.h"
 
 int debug_level = 100;
@@ -18,7 +18,7 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
   std::string channel_str;
   PyObject *plugin_PyObject;
   OutputPlugin* plugin_pointer;
-  
+
   if (!PyArg_ParseTuple(args, "sO", &channel, &plugin_PyObject)) {
     PyErr_Format(PyExc_ValueError, "Wrong number of arguments");
     return NULL;
@@ -26,14 +26,14 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
 
   // create stupid reference
   channel_str = channel;
-  
+
   // get real plugin object
   plugin_PyObject = PyObject_CallMethod(plugin_PyObject, "_create_plugin", "");
   if (plugin_PyObject == NULL) {
     PyErr_Format(PyExc_ValueError, "Can't create C++ plugin");
     return NULL;
   }
-    
+
   plugin_pointer = (OutputPlugin*) PyCObject_AsVoidPtr(plugin_PyObject);
 
   result = ((DvbDevicePyObject *)self)->device->start_recording(channel_str, plugin_pointer);
@@ -45,12 +45,12 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
 PyObject *DvbDevicePyObject__stop_recording(PyObject *self, PyObject* args)
 {
   int id;
-  
+
   if (!PyArg_ParseTuple(args, "i", &id)) {
     PyErr_Format(PyExc_ValueError, "Wrong number of arguments");
     return NULL;
   }
-  
+
   ((DvbDevicePyObject *)self)->device->stop_recording(id);
   Py_INCREF(Py_None);
   return Py_None;
@@ -60,7 +60,7 @@ PyObject *DvbDevicePyObject__get_bouquet_list(PyObject *self, PyObject* args)
 {
   std::vector<bouquet_t> bouquet_list;
   PyObject *result;
-  
+
   bouquet_list = ((DvbDevicePyObject *)self)->device->get_bouquet_list();
   result = PyList_New(bouquet_list.size());
   for (int i=0; i<bouquet_list.size(); i++) {
@@ -92,7 +92,7 @@ PyObject *DvbDevicePyObject__read_fd_data(PyObject *self, PyObject* args)
 PyObject *DvbDevicePyObject__connect_to_notifier(PyObject *self, PyObject* args)
 {
   PyObject *socket_dispatcher;
-  
+
   if (!PyArg_ParseTuple(args,"O", &socket_dispatcher))
     return NULL;
   ((DvbDevicePyObject *)self)->device->connect_to_notifier(socket_dispatcher);
@@ -182,16 +182,16 @@ PyMethodDef dvb_methods[] = {
 extern "C"
 void init_dvb() {
   PyObject *m;
-  
+
   PyObject *nfModule;
   PyObject *nfName;
-  
+
   PyObject *nfDict, *nfFunc, *nfArgs;
   PyObject *nfInstance;
 
   m = Py_InitModule("_dvb", dvb_methods);
   if (PyType_Ready(&DvbDevicePyObject_Type) < 0)
     return;
-  
+
   PyModule_AddObject(m, "DvbDevice", (PyObject *)&DvbDevicePyObject_Type);
 }

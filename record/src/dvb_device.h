@@ -21,12 +21,12 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __DVBDEVICE_H_
-#define __DVBDEVICE_H_
+#ifndef __DVB_DEVICE_H_
+#define __DVB_DEVICE_H_
 
 #include <Python.h>
 #include "filter.h"
-#include "tuner.h"
+#include "dvb_tuner.h"
 
 class Tuner;
 
@@ -36,8 +36,6 @@ class DvbDevice {
 
   private:
 
-/*   GIOChannel*     gioc_dvrdev; */
-/*   guint           io_source; */
   std::string     file_adapter;                   // path of used adapter (e.g. /dev/dvb/adapter0/)
   std::string     file_channels;                  // path of channel list (e.g. /root/.channels.conf)
   int             priority;
@@ -61,9 +59,9 @@ class DvbDevice {
 
   // start recording immediately
   // param: chan_name is the name of desired channel
-  // param: plugin is the output plugin which shall get the data
+  // param: fdata is the filter chain that shall process the data
   // returns: id of this recording (important for stop_recording())
-  int start_recording( std::string &chan_name, OutputPlugin *plugin );
+  int start_recording( std::string &chan_name, FilterData &fdata );
 
   // stop recording immediately
   // param: id of desired recording

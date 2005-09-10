@@ -21,7 +21,7 @@
  *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *
- * The parts of this code that implement TS2PES and Remux have been
+ * The part of this code that implement TS2PES and Remux have been
  * taken from VDR project. (http://www.cadsoft.de/people/kls/vdr/)
  *
  */

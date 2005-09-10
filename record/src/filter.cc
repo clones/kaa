@@ -24,23 +24,36 @@
 #include <set>
 
 #include "misc.h"
-#include "op_generic.h"
+#include "fp_generic.h"
 #include "filter.h"
 
 using namespace std;
 
 
-Filter::Filter() : idcounter(0) {
+Filter::Filter() : idcounter(0), inputtype(INPUT_RAW) {
   ;
 }
 
 
 Filter::~Filter() {
   // iterate through all registered filters and destroy corresponding output plugin
+
   std::map<int, FilterData>::iterator iter;
+  // iterate through all FilterData
   for( iter = id2filter.begin() ; iter != id2filter.end() ; ++iter) {
-    delete iter->second.op;
-    iter->second.op = NULL;
+    // iterate through filterlist
+    while(iter->second.filterlist.size() > 0) {
+      delete iter->second.filterlist[0];
+      iter->second.filterlist.erase( iter->second.filterlist.begin() );
+    }
+  }
+}
+
+
+void Filter::set_input_type( InputType inputtype ) {
+  if ((INPUT_RAW <= inputtype) &&
+      (inputtype <= INPUT_LAST)) {
+    this->inputtype = inputtype;
   }
 }
 
@@ -52,8 +65,8 @@ int Filter::add_filter( FilterData &fdata ) {
   id2filter[ id ] = fdata;
   // add output plugin to requested pid
   for(int i=fdata.pids.size()-1; i >= 0 ; --i) {
-    pid2op[ fdata.pids[i] ].push_back( fdata.op );
-    printD( LOG_DEBUG_FILTER, "Added output filter 0x%p to pid %d\n", fdata.op, fdata.pids[i] );
+    pid2id[ fdata.pids[i] ].push_back( id );
+    printD( LOG_DEBUG_FILTER, "Added output filter chain %d to pid %d\n", id, fdata.pids[i] );
   }
   // jump to next id :-)
   ++idcounter;
@@ -65,26 +78,31 @@ int Filter::add_filter( FilterData &fdata ) {
 bool Filter::remove_filter( int id ) {
   // check if filter id does exist
   if ( id2filter.find(id) != id2filter.end() ) {
-    // interate every pid for this filter id
+
+    // interate over every pid for this filter id
     for(unsigned int i = 0; i < id2filter[id].pids.size(); ++i) {
       int pid = id2filter[id].pids[i];
-      // iterate through all output plugins which are registered to "pid"
-      int size = pid2op[ pid ].size();
+      // iterate through all output plugins that are registered to "pid"
+      int size = pid2id[ pid ].size();
       for( int t = size-1; t >= 0; --t ) {
 	// if output plugin matches with output plugin of requested filter id
-	if ( pid2op[ pid ][t] == id2filter[id].op ) {
+	if ( pid2id[ pid ][t] == id ) {
 	  // then remove it
-	  pid2op[ pid ].erase( pid2op[ pid ].begin() + t );
-	  printD( LOG_DEBUG_FILTER, "Removed output filter 0x%p from pid %d\n",
-		  id2filter[id].op, pid );
+	  pid2id[ pid ].erase( pid2id[ pid ].begin() + t );
+	  printD( LOG_DEBUG_FILTER, "Removed filter chain %d from pid %d\n", id, pid );
 	}
       }
     }
-    // free output plugin
-    delete id2filter[id].op;
+
+    // free filter chain
+    while(id2filter[id].filterlist.size() > 0) {
+      delete id2filter[id].filterlist[0];
+      id2filter[id].filterlist.erase( id2filter[id].filterlist.begin() );
+    }
+
     // remove filter id from id2filter
     id2filter.erase( id2filter.find(id) );
-    printD( LOG_DEBUG_FILTER, "Removed filter with id %d\n", id );
+    printD( LOG_DEBUG_FILTER, "Removed filter chain with id %d\n", id );
 
     return true;
   }
@@ -96,12 +114,20 @@ bool Filter::remove_filter( int id ) {
 void Filter::process_data( std::string &data ) {
   // append new data to buffer
   buffer.append( data );
-  // new data
-  scan_buffer();
+  switch(inputtype) {
+  case INPUT_RAW:
+    process_new_data_RAW();
+    break;
+  case INPUT_TS:
+    process_new_data_TS();
+    break;
+  }
+
+  process_filter_chain();
 }
 
 
-void Filter::scan_buffer() {
+void Filter::process_new_data_TS() {
 
   unsigned int i;
 
@@ -128,8 +154,8 @@ void Filter::scan_buffer() {
   i = 0;
   int buflen = buffer.size();
 
-  typedef set< OutputPlugin*, greater<OutputPlugin*> > OP_List;
-  OP_List op_list;
+  typedef set< int, greater<int> > ID_Set;
+  ID_Set id_set;
 
   // iterate through all complete frames
   while( buflen - i >= 188 ) {
@@ -154,6 +180,7 @@ void Filter::scan_buffer() {
       //         "offset=%05d  ts_error=%d  pusi=%d  ts_prio=%d  pid=%d  ts_sc=%d  afc=%d  cc=%d\n",
       // 	 i, ts_error, pusi, ts_prio, pid, ts_sc, afc, cc );
 
+      // TODO implement counter to reduce output
       if (ts_error) {
 	printD( LOG_DEBUG_FILTER, "ts frame is damaged!\n");
       }
@@ -161,13 +188,13 @@ void Filter::scan_buffer() {
 	printD( LOG_VERBOSE, "ts frame is scrambled!\n");
       }
 
-      // iterate over all registered output plugins for this pid
-      int size = pid2op[ pid ].size();
+      // iterate over all registered filter plugins for this pid
+      int size = pid2id[ pid ].size();
       for( int plugi = 0; plugi < size; ++plugi ) {
-	// pass ts frame to output plugin
-	pid2op[ pid ][plugi]->process_data( buffer.substr(i,188) );
-	// remember output plugin to call flush() only on those plugins which received data
-	op_list.insert( pid2op[ pid ][plugi] );
+	// pass ts frame to filter plugin
+	id2filter[ pid2id[ pid ][plugi] ].filterlist[0]->add_data( buffer.substr(i,188) );
+	// remember output plugin to call flush() only on those filter plugins which received data
+	id_set.insert( pid2id[ pid ][plugi] );
       }
     }
     // jump to next ts frame
@@ -176,92 +203,38 @@ void Filter::scan_buffer() {
 
   buffer.erase(0,i);
 
-  // call flush on all output plugins that received new data
-  for( OP_List::iterator iter = op_list.begin(); iter != op_list.end() ; ++iter ) {
-    (*iter)->flush();
+  // call flush on all filter plugins that received new data
+  for( ID_Set::iterator iter = id_set.begin(); iter != id_set.end() ; ++iter ) {
+    id2filter[ (*iter) ].filterlist[0]->process_data();
   }
 }
 
-// *************************************************************
 
+void Filter::process_new_data_RAW() {
 
-/* schaut nach, wie viele Schedulings gerade aktiv sind.
-   Wenn ein *neues* Scheduling gefunden wird, werden die entsprechenden PIDs eingetragen
-   Wenn ein *altes* Scheduling entfernt wurde, werden die entsprechenden PIDs entfernt
-*/
-// int Filter::check_scheduled_entries() {
-//   printD( 5, "checking for new schedules\n" );
-
-//   int size=config.sched_entries.size();
-//   for(int i=0; i < size; ++i) {
-//     if ( pid2sched_entry.find( config.sched_entries[i].chan_info.pid_video ) == pid2sched_entry.end() ) {
-//       pid2sched_entry[ config.sched_entries[i].chan_info.pid_video ] = &config.sched_entries[i];
-//       if (config.devices[devnr].tuner) {
-// 	config.devices[devnr].tuner->add_pid( config.sched_entries[i].chan_info.pid_video );
-//       }
-//       printD( 5, "Adding to filter new video pid: %d\n", config.sched_entries[i].chan_info.pid_video );
-//     }
-//     if ( pid2sched_entry.find( config.sched_entries[i].chan_info.pid_audio ) == pid2sched_entry.end() ) {
-//       pid2sched_entry[ config.sched_entries[i].chan_info.pid_audio ] = &config.sched_entries[i];
-//       if (config.devices[devnr].tuner) {
-// 	config.devices[devnr].tuner->add_pid( config.sched_entries[i].chan_info.pid_audio );
-//       }
-//       printD( 5, "Adding to filter new audio pid: %d\n", config.sched_entries[i].chan_info.pid_audio );
-//     }
-//   }
-//   return 0;
-// }
-
-// EventResult Filter::whenReadReady(const FD& f)
-// {
-//   read_data();
-
-//   return OK;
-// }
-
-
-// void Filter::read_data() {
-
-//   static char buf[BUFFERSIZE];
-
-//   int len = read(fd, buf, BUFFERSIZE);
-//   if (len<0) {
-//     printD( 5, "WARNING: read failed: errno=%d  err=%s\n", errno, strerror(errno) );
-//   }
-//   if (len>0) {
-//     buffer.append( string(buf,len) );
-//     // new data
-//     scan_buffer();
-//   }
-// }
-
-
-/*
-bool Filter::add_recorder( output_t &rec ) {
-
-  if (!rec.rec) {
-    return false;
+  std::map<int, FilterData>::iterator iter;
+  // iterate over all registered filter chains
+  for( iter=id2filter.begin(); iter != id2filter.end(); ++iter) {
+    // add data to first filter plugin in chain
+    iter->second.filterlist[0]->add_data( buffer );
+    // process data
+    iter->second.filterlist[0]->process_data();
   }
 
-  outputs.push_back( rec );
-  return true;
-
+  buffer.erase();
 }
 
 
-bool Filter::rm_recorder( std::string channame ) {
-  bool found = false;
+void Filter::process_filter_chain() {
+  std::map<int, FilterData>::iterator iterFD;
+  // iterate over all registered filter chains
+  for( iterFD=id2filter.begin(); iterFD != id2filter.end(); ++iterFD) {
 
-  for(unsigned int i=0; i < outputs.size(); i++) {
-    if (outputs[i].channame == channame) {
-      delete( outputs[i].rec );
-      outputs.erase( outputs.begin() + i );
-      found = true;
-      i--;  // extremely evil ==> unsigned int FIXME
+    for(unsigned int i=1; i < iterFD->second.filterlist.size(); ++i) {
+      // get data from previous filter and add it to current filter
+      iterFD->second.filterlist[i]->add_data( iterFD->second.filterlist[i-1]->get_data() );
+      // process data
+      iterFD->second.filterlist[i]->process_data();
     }
   }
-
-  return found;
 }
-
-*/

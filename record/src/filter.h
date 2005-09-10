@@ -28,33 +28,52 @@
 #include <vector>
 #include <map>
 
-class OutputPlugin;
+class FilterPlugin;
 
 class FilterData {
   public:
   std::vector< int > pids;
-  OutputPlugin      *op;
+  std::vector< FilterPlugin* > filterlist;
 };
 
 class Filter {
 
   std::map<int, FilterData>  id2filter;
-  std::map<int, std::vector< OutputPlugin* > > pid2op;
+  std::map<int, std::vector< int > > pid2id;
 
   std::string buffer;      // buffer of filter object
   int idcounter;           // counter used for creating a new id
+  int inputtype;
 
   static const int BUFFERSIZE = 18800;
 
-  // scans buffer for MPEG-TS frames
+  // scans buffer for MPEG-TS frames and adds frames to filter chains
   // params: none
   // returns: nothing
-  void scan_buffer();
+  void process_new_data_TS();
+
+  // adds data to filter chains
+  // params: none
+  // returns: nothing
+  void process_new_data_RAW();
+  
+  // iterates through all filter chains and processes data
+  // params: none
+  // returns: nothing
+  void process_filter_chain();
+  
 
   public:
 
+  enum InputType { INPUT_RAW, INPUT_TS, INPUT_LAST };
+
   Filter();
   ~Filter();
+
+  // set filter chain handling
+  // params: type of input
+  // returns: nothing
+  void set_input_type( InputType inputtype );
 
   // adds a new filter
   // params: fdata contains requested pids and outputplugin

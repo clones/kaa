@@ -1,10 +1,10 @@
-/* File: generic.h
+/* File: fp_generic.h
  *
  * Author: Sönke Schwardt <schwardt@users.sourceforge.net>
  *
  * $Id$
  *
- * Copyright (C) 2004 Sönke Schwardt <schwardt@users.sourceforge.net>
+ * Copyright (C) 2005 Sönke Schwardt <schwardt@users.sourceforge.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,27 +21,31 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __OP_GENERIC_H_
-#define __OP_GENERIC_H_
+#ifndef __FP_GENERIC_H_
+#define __FP_GENERIC_H_
 
 #include <string>
 #include <vector>
 
-class OutputPlugin {
-  protected:
-  std::string uri;
-  int chunksize;
-  int pid_v;
-  std::vector<int> pids_a;
-  std::vector<int> pids_d;
-  std::vector<int> pids_s;
-  
+class FilterPlugin {
   public:
-  OutputPlugin( const std::string &uri, int chunksize );
-  virtual void set_pids( int Pid_V, std::vector<int> Pids_A, std::vector<int> Pids_D, std::vector<int> Pids_S );
-  virtual void process_data( const std::string &data ) = 0;
-  virtual void flush() = 0;  
-  virtual ~OutputPlugin() { };
+  virtual ~FilterPlugin() { };
+
+  /* 
+     add data to Filter Plugin buffer
+     NOTE: do not process data! may be called often with small chunks
+  */
+  virtual void add_data( const std::string &data ) = 0;
+
+  /* 
+     process data that is within Filter Plugin buffer
+  */
+  virtual void process_data() = 0;
+
+  /*
+    get processed data
+  */
+  virtual std::string get_data() = 0;  
 };
 
 #endif
