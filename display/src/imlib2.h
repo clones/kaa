@@ -36,6 +36,7 @@
 #include "config.h"
 #include "display.h"
 
+#ifdef USE_IMLIB2
 #ifndef USE_IMLIB2_DISPLAY
     #define X_DISPLAY_MISSING
 #else
@@ -45,6 +46,7 @@
 #include <Imlib2.h>
 extern Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
 
+#endif
 #endif
 
 PyObject *render_imlib2_image(PyObject *self, PyObject *args);
