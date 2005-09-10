@@ -254,7 +254,7 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
             return NULL;
         planes[1] = planes[0] + (ps.w * ps.h);
         planes[2] = planes[1] + ((ps.w * ps.h) >> 2);
-        printf("Planes 0=%x 1=%x 2=%x\n", planes[0], planes[1], planes[2]);
+        //printf("Planes (%d,%d) 0=%u 1=%u 2=%u\n", ps.w, ps.h, planes[0], planes[1], planes[2]);
     } else {
         if (PySequence_Length(data) != 3) {
             PyErr_Format(PyExc_ValueError, "Invalid size for planes tuple");
@@ -262,7 +262,8 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
         }
         for (i = 0; i < 3; i++) {
             PyObject *o = PyTuple_GetItem(data, i);
-            if ((planes[i] = _get_ptr_from_pyobject(o)) == 0)
+            planes[i] = _get_ptr_from_pyobject(o);
+            if (planes[i] == 0 && i == 0)
                 return NULL;
         }
     }
@@ -279,12 +280,13 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
             else
                 p += stride;
         }
-    } else {
+        evas_object_image_pixels_import(self->object, &ps);
+        free(ps.rows);
+    } 
+    else {
         PyErr_SetString(PyExc_ValueError, "Invalid pixel format");
         return NULL;
     }
 
-    evas_object_image_pixels_import(self->object, &ps);
-    free(ps.rows);
     return Py_INCREF(Py_None), Py_None;
 }
