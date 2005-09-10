@@ -45,7 +45,7 @@ dvb = Extension('kaa.record._dvb', dvb_files, [ 'src/dvb_wrapper.cc' ])
 
 # output plugin module
 filter_files = [ 'src/filter.cc', 'src/fp_filewriter.cc', 'src/fp_remux.cc',
-                 'src/remux.cc', 'src/ringbuffer.cc' ]
+                 'src/fp_udpsend.cc', 'src/remux.cc', 'src/ringbuffer.cc' ]
                  
 
 filter = Extension('kaa.record._filter', filter_files, [ 'src/fp_wrapper.cc' ])
