@@ -21,36 +21,38 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __FP_FILEWRITER_H_
-#define __FP_FILEWRITER_H_
+#ifndef __FP_UDPSEND_H_
+#define __FP_UDPSEND_H_
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #include <vector>
 #include <string>
 #include "fp_generic.h"
-#include "remux.h"
 
-class FPRemux : public FilterPlugin {
+class FPUDPSend : public FilterPlugin {
   public:
 
-  FPRemux();
-  ~FPRemux();
+  FPUDPSend( const std::string &targethost );  // "a.b.c.d:port" or "fqdn:port"
+  ~FPUDPSend();
 
   void add_data( const std::string &data );
   void process_data();
   std::string get_data();
 
-  void set_pids( int Pid_V,                  // video pid
-		 std::vector<int> Pids_A,    // audio pids
-		 std::vector<int> Pids_D,    // dolby audio pids
-		 std::vector<int> Pids_S );  // subtitle pids
-
   private:
-  cRemux *remux;
+  int file_fd;             // opened chunk file 
 
-  std::string buffer_in;   // buffer for caching data  
-  std::string buffer_out;  // buffer for caching data  
+  std::string buffer;      // buffer for caching data
+  
+  sockaddr_in sockAddrTarget;
 
-  const static int DEFAULT_MAX_BUFFERSIZE = 188 * 1000;
+  void open_fd( const std::string &targethost );
+
+  sockaddr_in convertStringToSockaddrIn( const std::string addr );
 };
 
 #endif
