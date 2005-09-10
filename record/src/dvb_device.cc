@@ -114,6 +114,33 @@ DvbDevice::~DvbDevice() {
 }
 
 
+bool DvbDevice::get_pids( std::string chan_name,
+			  std::vector< int > &video_pids,
+			  std::vector< int > &audio_pids,
+			  std::vector< int > &ac3_pids,
+			  std::vector< int > &teletext_pids,
+			  std::vector< int > &subtitle_pids )
+{
+  bool found = false;
+  // check every bouquet
+  for(unsigned int ib=0; ib < bouquet_list.size() && !found; ++ib) {
+    // check every channel
+    for(unsigned int ic=0; ic < bouquet_list[ib].channels.size() && !found; ++ic) {
+      // if specified channel was found in bouquet... (only name comparison)
+      if (bouquet_list[ib].channels[ic].name == chan_name) {
+
+	// TODO add all pids that are known
+	video_pids.push_back( bouquet_list[ib].channels[ic].pid_video );
+	audio_pids.push_back( bouquet_list[ib].channels[ic].pid_audio );
+
+	found = true;
+      }
+    }
+  }
+  return found;
+}
+
+
 int DvbDevice::start_recording( std::string &chan_name, FilterData &fdata ) {
   // returns -1 if channel name is unknown
 

@@ -79,6 +79,14 @@ class DvbDevice {
   
   // callback for notifier
   void read_fd_data();
+
+  // get all relevant pids for given channelname
+  bool get_pids( std::string channelname, 
+		 std::vector< int > &video_pids,
+		 std::vector< int > &audio_pids,
+		 std::vector< int > &ac3_pids,
+		 std::vector< int > &teletext_pids,
+		 std::vector< int > &subtitle_pids );
   
   Filter &get_filter() { return filter; }
 };
