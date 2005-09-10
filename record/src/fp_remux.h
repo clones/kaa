@@ -21,8 +21,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __FP_FILEWRITER_H_
-#define __FP_FILEWRITER_H_
+#ifndef __FP_REMUX_H_
+#define __FP_REMUX_H_
 
 #include <vector>
 #include <string>

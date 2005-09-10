@@ -30,26 +30,34 @@
 # -----------------------------------------------------------------------------
 
 # kaa.record imports
-import _op
+import _filter
 
-class Filewriter(object):
-    """
-    A file writer ouput plugin.
-    """
+class Chain(list):
+    def _get_chain(self, vpid, apid):
+        chain = _filter.Chain()
+        for filter in self:
+            if isinstance(filter, Remux):
+                filter.vpid = vpid
+                filter.apid = apid
+        chain.append(filter)
+        return chain
+
     
-    FT_RAW  = 0
-    FT_MPEG = 1
+class Remux(object):
+    def __init__(self):
+        self.vpid = 0
+        self.apid = 0
 
-    def __init__(self, filename, chunksize, type):
+    def _create_filter(self):
+        return _filter.create_remux(self.vpid, self.apid)
+        
+    
+class Filewriter(object):
+    def __init__(self, filename, chunksize=0):
         self.filename = filename
         self.chunksize = chunksize
-        if not type in (self.FT_RAW, self.FT_MPEG):
-            raise AttributeError('Invalid type')
-        self.type = type
+
+    def _create_filter(self):
+        return _filter.create_filewriter(self.filename, self.chunksize)
         
-    def _create_plugin(self):
-        """
-        Create the C++ OutputPlugin object. Do not use this function in
-        your python code or you will create a memory leak.
-        """
-        return _op.Filewriter(self.filename, self.chunksize, self.type)
+    
