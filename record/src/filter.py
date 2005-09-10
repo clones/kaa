@@ -60,4 +60,12 @@ class Filewriter(object):
     def _create_filter(self):
         return _filter.create_filewriter(self.filename, self.chunksize)
         
+
+class UDPSend(object):
+    def __init__(self, addr):
+        self.addr = addr
+
+    def _create_filter(self):
+        return _filter.create_udpsend(self.addr)
+        
     

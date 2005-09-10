@@ -2,6 +2,7 @@
 #include "filter.h"
 #include "fp_remux.h"
 #include "fp_filewriter.h"
+#include "fp_udpsend.h"
 
 int debug_level = 100;
 
@@ -92,6 +93,19 @@ PyObject *create_filewriter(PyObject *self, PyObject* args)
 	return NULL;
 
     FPFilewriter *filter = new FPFilewriter(fname, chunksize);
+    return PyCObject_FromVoidPtr((void*) filter, NULL);
+}
+
+PyObject *create_udpsend(PyObject *self, PyObject* args)
+{
+    char *addr;
+    
+    printf("create udpsend\n");
+    
+    if (!PyArg_ParseTuple(args,"s", &addr))
+	return NULL;
+
+    FPUDPSend *filter = new FPUDPSend(addr);
     return PyCObject_FromVoidPtr((void*) filter, NULL);
 }
 
