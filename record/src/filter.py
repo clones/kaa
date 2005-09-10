@@ -33,12 +33,24 @@
 import _filter
 
 class Chain(list):
-    def _get_chain(self, vpid, apid):
+
+    def __init__(self):
+        list.__init__(self)
+        self.vpid = 0
+        self.apid = 0
+
+    def set_pids(self, vpid, apid):
+        self.vpid = vpid
+        self.apid = apid
+
+    def _get_chain(self):
         chain = _filter.Chain()
+        chain.add_pid(self.vpid)
+        chain.add_pid(self.apid)
         for filter in self:
             if isinstance(filter, Remux):
-                filter.vpid = vpid
-                filter.apid = apid
+                filter.vpid = self.vpid
+                filter.apid = self.apid
         chain.append(filter)
         return chain
 
