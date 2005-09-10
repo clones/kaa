@@ -23,7 +23,7 @@ PyObject *DvbDevicePyObject__get_pids(PyObject *self, PyObject* args)
     char *channel;
     std::vector< int > video_pids, audio_pids, ac3_pids, teletext_pids, subtitle_pids;
     
-    if (!PyArg_ParseTuple(args, "sO", &channel))
+    if (!PyArg_ParseTuple(args, "s", &channel))
 	return NULL;
     self->device->get_pids(channel, video_pids, audio_pids, ac3_pids, 
 			   teletext_pids, subtitle_pids );
