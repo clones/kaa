@@ -99,7 +99,7 @@ class MPlayer(object):
     # when the operation is finished.
     STATE_PENDING = 4
 
-    RE_STATUS = re.compile("A:\s*([\d+\.]+)|V:\s*([\d+\.]+)")
+    RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
 
     def __init__(self, size = None, window = None):
         self._mp_cmd = MPlayer.PATH
@@ -114,8 +114,9 @@ class MPlayer(object):
             raise MPlayerError, "No MPlayer executable found in PATH"
 
         # Caller can pass his own X11Window here.  If it's None, it will
-        # get created in the play() call.
-        assert(window == None or type(window) == display.X11Window)
+        # get created in the play() call.  If it's False, no X11Window will
+        # be created and MPlayer will create its own window.
+        assert(window in (None, False) or type(window) == display.X11Window)
         self._window = window
         # Requested size of the video window (will be soft scaled/expanded)
         self._size = size
@@ -132,6 +133,7 @@ class MPlayer(object):
 
         self._file_info = {}
         self._position = 0.0
+        self._eat_ticks = 0
         
         self.signals = {
             "output": notifier.Signal(),
@@ -151,12 +153,12 @@ class MPlayer(object):
 
 
     def _spawn(self, args, hook_notifier = True):
-        cmd = self._mp_cmd + " " + args
-        self._process = notifier.Process(cmd)
+        self._process = notifier.Process(self._mp_cmd)
+        self._process.start(args)
         if hook_notifier:
             self._process.signals["stdout"].connect(self._handle_line)
             self._process.signals["stderr"].connect(self._handle_line)
-            self._process.signals["died"].connect(self._exited)
+            self._process.signals["completed"].connect(self._exited)
             kaa.signals["shutdown"].connect(self.quit)
         return self._process
     
@@ -189,15 +191,19 @@ class MPlayer(object):
 
 
     def _handle_line(self, line):
-        if line[:2] in ("A:", "V:"):
-            m = MPlayer.RE_STATUS.match(line)
+        if line.startswith("V:") or line.startswith("A:"):
+            m = MPlayer.RE_STATUS.search(line)
             if m:
                 old_pos = self._position
                 self._position = float((m.group(1) or m.group(2)).replace(",", "."))
                 if self._position - old_pos < 0 or self._position - old_pos > 1:
                     self.signals["seek"].emit(self._position)
 
-                self.signals["tick"].emit(self._position)
+                if self._eat_ticks > 0:
+                    self._eat_ticks -= 1
+                else:
+                    self.signals["tick"].emit(self._position)
+
                 if self._state == MPlayer.STATE_PAUSED:
                     self._state = MPlayer.STATE_PLAYING
                     self.signals["pause_toggle"].emit()
@@ -229,7 +235,8 @@ class MPlayer(object):
             m = re.search("=> (\d+)x(\d+)", line)
             if m:
                 self._vo_size = int(m.group(1)), int(m.group(2))
-                self._window.resize(self._vo_size)
+                if self._window:
+                    self._window.resize(self._vo_size)
                 self.signals["start"].emit()
 
         elif line.startswith("  =====  PAUSE"):
@@ -271,24 +278,31 @@ class MPlayer(object):
             filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h)]
 
         args = "-v -slave -osdlevel 0 -nolirc -nojoystick -nomouseinput " \
-               "-nodouble -fixed-vo -identify -framedrop -input conf=%s " % keyfile
+               "-nodouble -fixed-vo -identify -framedrop "
 
         if filters:
             args += "-vf %s " % string.join(filters, ",")
 
-        args += "-wid %s " % self._window.get_id()
-        args += "-display %s " % self._window.get_display().get_string()
-        args += "%s \"%s\" " % (user_args, file)
+        if self._window:
+            args += "-wid %s " % self._window.get_id()
+            args += "-display %s " % self._window.get_display().get_string()
+            args += "-input conf=%s " % keyfile
+
+        args += "%s " % user_args
+        if file:
+            args += "\"%s\"" % file
 
         self._spawn(args)
         self._state = MPlayer.STATE_LOADING
 
 
     def _slave_cmd(self, cmd):
+        if DEBUG >= 1:
+            print "SLAVE:", cmd
         self._process.write(cmd + "\n")
 
 
-    def _exited(self):
+    def _exited(self, exitcode):
         self._state = MPlayer.STATE_EXITED
         kaa.signals["shutdown"].disconnect(self.quit)
         self.signals["quit"].emit()
@@ -299,7 +313,7 @@ class MPlayer(object):
 
 
     def play(self, file, user_args = ""):
-        if not self._window:
+        if self._window == None:
             # Use the user specified size, or some sensible default.
             win_size = self._size or (640, 480)
             self._window = display.X11Window(size = win_size, title = "MPlayer Window")
@@ -316,7 +330,6 @@ class MPlayer(object):
 
         self._play(file, user_args)
         return True
-        
 
     def is_paused(self):
         return self.get_state() == MPlayer.STATE_PAUSED
@@ -328,12 +341,15 @@ class MPlayer(object):
 
     def set_state(self, state):
         if state == self._state or not self.is_alive():
-            return
+            return False
 
-        if state == MPlayer.STATE_PAUSED:
+        if state == MPlayer.STATE_PAUSED and self.get_state() == MPlayer.STATE_PLAYING:
             self._slave_cmd("pause")
+            self._eat_ticks += 1
         elif state == MPlayer.STATE_PLAYING and self.get_state() == MPlayer.STATE_PAUSED:
             self._slave_cmd("pause")
+
+        return True
  
  
     def pause(self):
