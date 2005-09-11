@@ -21,6 +21,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <Python.h>
 #include <cerrno>
 
 // open()
@@ -153,4 +154,23 @@ std::string FPRemux::get_data()
   std::string ret(buffer_out);
   buffer_out.erase();
   return ret;
+}
+
+/* Python interface */
+
+PyObject *PyFilter_Remux(PyObject *self, PyObject* args)
+{
+    int vpid;
+    int apid;
+
+    // TODO: support other pids
+    if (!PyArg_ParseTuple(args,"ii", &vpid, &apid))
+	return NULL;
+
+    std::vector<int> pids_a, pids_d, pids_s;
+    pids_a.push_back(apid);
+    
+    FPRemux *filter = new FPRemux();
+    filter->set_pids(vpid, pids_a, pids_d, pids_s);
+    return PyCObject_FromVoidPtr((void*) filter, NULL);
 }

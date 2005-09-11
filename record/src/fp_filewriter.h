@@ -24,6 +24,7 @@
 #ifndef __FP_FILEWRITER_H_
 #define __FP_FILEWRITER_H_
 
+#include <Python.h>
 #include <vector>
 #include <string>
 #include "fp_generic.h"
@@ -51,5 +52,7 @@ class FPFilewriter : public FilterPlugin {
   void open_new_chunk();
 
 };
+
+PyObject *PyFilter_Filewriter(PyObject *self, PyObject* args);
 
 #endif

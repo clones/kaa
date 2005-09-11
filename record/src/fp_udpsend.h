@@ -24,6 +24,7 @@
 #ifndef __FP_UDPSEND_H_
 #define __FP_UDPSEND_H_
 
+#include <Python.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -54,5 +55,7 @@ class FPUDPSend : public FilterPlugin {
 
   sockaddr_in convertStringToSockaddrIn( const std::string addr );
 };
+
+PyObject *PyFilter_UDPSend(PyObject *self, PyObject* args);
 
 #endif

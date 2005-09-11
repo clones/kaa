@@ -24,6 +24,7 @@
 #ifndef __FP_REMUX_H_
 #define __FP_REMUX_H_
 
+#include <Python.h>
 #include <vector>
 #include <string>
 #include "fp_generic.h"
@@ -52,5 +53,7 @@ class FPRemux : public FilterPlugin {
 
   const static int DEFAULT_MAX_BUFFERSIZE = 188 * 1000;
 };
+
+PyObject *PyFilter_Remux(PyObject *self, PyObject* args);
 
 #endif

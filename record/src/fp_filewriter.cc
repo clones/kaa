@@ -21,6 +21,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <Python.h>
 #include <cerrno>
 
 // open()
@@ -121,3 +122,17 @@ void FPFilewriter::open_new_chunk() {
   file_counter++;
 }
 
+
+/* Python interface */
+
+PyObject *PyFilter_Filewriter(PyObject *self, PyObject* args)
+{
+    char *fname;
+    int chunksize;
+    
+    if (!PyArg_ParseTuple(args,"si", &fname, &chunksize))
+	return NULL;
+
+    FPFilewriter *filter = new FPFilewriter(fname, chunksize);
+    return PyCObject_FromVoidPtr((void*) filter, NULL);
+}

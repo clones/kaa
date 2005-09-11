@@ -21,6 +21,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <Python.h>
 #include <cerrno>
 
 // open()
@@ -196,4 +197,18 @@ sockaddr_in FPUDPSend::convertStringToSockaddrIn( const std::string addr ) {
   }
 
   return ucaddr;
+}
+
+
+/* Python interface */
+
+PyObject *PyFilter_UDPSend(PyObject *self, PyObject* args)
+{
+    char *addr;
+    
+    if (!PyArg_ParseTuple(args,"s", &addr))
+	return NULL;
+
+    FPUDPSend *filter = new FPUDPSend(addr);
+    return PyCObject_FromVoidPtr((void*) filter, NULL);
 }
