@@ -103,8 +103,99 @@ IVTV_IOC_S_MSP_MATRIX = IOW('@', 210, MSP_MATRIX_ST)
 
 class IVTV(V4L):
 
-    def __init__(self, which=None, device=None):
-        V4L.__init__(self, which, device)
+    def __init__(self, device, norm, chanlist=None, card_input=4,
+                 custom_frequencies=None, resolution=None, aspect=2,
+                 audio_bitmask=None, bframes=None, bitrate_mode=1,
+                 bitrate=4500000, bitrate_peak=4500000, dnr_mode=None,
+                 dnr_spatial=None, dnr_temporal=None, dnr_type=None, framerate=None,
+                 framespergop=None, gop_closure=1, pulldown=None, stream_type=14):
+        """
+        Notes:
+            my old defaults for NTSC, some of these are set automaticly 
+            by the driver
+
+            self.input = 4
+            self.resolution = '720x480'
+            self.aspect = 2
+            self.audio_bitmask = 0x00a9
+            self.bframes = 3
+            self.bitrate_mode = 1
+            self.bitrate = 4500000
+            self.bitrate_peak = 4500000
+            self.dnr_mode = 0
+            self.dnr_spatial = 0
+            self.dnr_temporal = 0
+            self.dnr_type = 0
+            self.framerate = 0
+            self.framespergop = 15
+            self.gop_closure = 1
+            self.pulldown = 0
+            self.stream_type = 14
+        """
+        V4L.__init__(self, device, norm, chanlist, card_input, custom_frequencies)
+
+        self.resolution = resolution
+        self.aspect = aspect
+        self.audio_bitmask = audio_bitmask
+        self.bframes = bframes
+        self.bitrate_mode = bitrate_mode
+        self.bitrate = bitrate
+        self.bitrate_peak = bitrate_peak
+        self.dnr_mode = dnr_mode
+        self.dnr_spatial = dnr_spatial
+        self.dnr_temporal = dnr_temporal
+        self.dnr_type = dnr_type
+        self.framerate = framerate
+        self.framespergop = framespergop
+        self.gop_closure = gop_closure
+        self.pulldown = pulldown
+        self.stream_type = stream_type
+
+
+        if self.norm == 'NTSC':
+            # special defaults for NTSC
+
+            if not self.resolution:
+                self.resolution = "740x480"
+
+        elif self.norm == 'PAL':
+            # special defaults for PAL
+
+            if not self.resolution:
+                self.resolution = "720x576"
+
+        else:  
+            # special defaults for SECAM
+
+            if not self.resolution:
+                self.resolution = "720x576"
+
+
+        (width, height) = string.split(self.resolution, 'x')
+        self.setfmt(int(width), int(height))
+
+        codec = self.getCodecInfo()
+
+        for a in [ 'aspect', 'audio_bitmask', 'bframes', 'bitrate_mode', 'bitrate', 
+                   'bitrate_peak', 'dnr_mode', 'dnr_spatial', 'dnr_temporal',
+                   'dnr_type', 'framerate', 'framespergop', 'gop_closure', 'pulldown',
+                   'stream_type' ]:
+
+            if not hasattr(codec, a):
+                log.error('IVTV codec has no "%s" option' % a)
+                continue
+
+            b = getattr(self, a, None)
+            c = getattr(codec, a)
+
+            if b is not None:
+                # set codec based on self
+                setattr(codec, a, b)
+            else:
+                # set self based on codec
+                setattr(self, a, c)
+
+        self.setCodecInfo(codec)
 
 
     def setCodecInfo(self, codec):
@@ -140,37 +231,6 @@ class IVTV(V4L):
 
         val = struct.pack(MSP_MATRIX_ST, input, output)
         r = ioctl(self.devfd, IVTV_IOC_S_MSP_MATRIX, val)
-
-
-    def init_settings(self):
-        V4L.init_settings(self)
-
-        if not self.settings:
-            return
-
-
-        (width, height) = string.split(self.settings.resolution, 'x')
-        self.setfmt(int(width), int(height))
-
-        codec = self.getCodecInfo()
-
-        codec.aspect        = self.settings.aspect
-        codec.audio_bitmask = self.settings.audio_bitmask
-        codec.bframes       = self.settings.bframes
-        codec.bitrate_mode  = self.settings.bitrate_mode
-        codec.bitrate       = self.settings.bitrate
-        codec.bitrate_peak  = self.settings.bitrate_peak
-        codec.dnr_mode      = self.settings.dnr_mode
-        codec.dnr_spatial   = self.settings.dnr_spatial
-        codec.dnr_temporal  = self.settings.dnr_temporal
-        codec.dnr_type      = self.settings.dnr_type
-        codec.framerate     = self.settings.framerate
-        codec.framespergop  = self.settings.framespergop
-        codec.gop_closure   = self.settings.gop_closure
-        codec.pulldown      = self.settings.pulldown
-        codec.stream_type   = self.settings.stream_type
-
-        self.setCodecInfo(codec)
 
 
     def print_settings(self):
