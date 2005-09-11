@@ -44,43 +44,32 @@
 # ----------------------------------------------------------------------- */
 
 import logging
-import config
 
-log = logging.getLogger('tv')
+log = logging.getLogger('record')
 
-def get_frequency(tuner_id, chanlist=None):
+
+def get_frequency(tuner_id, chanlist):
     """
     Returns the frequency of a channel in MHz
     """
-    tuner_id = str(tuner_id)
-    freq = config.FREQUENCY_TABLE.get(tuner_id) 	 
+    freq_table = CHANLIST.get(chanlist) 	 
 
-    if freq: 	 
-        log.debug('USING CUSTOM FREQUENCY: chan="%s", freq="%s"' % (tuner_id, freq))
-    else: 	 
-        if not chanlist:
-            chanlist = config.CONF.chanlist
-
-        freq_table = CHANLIST.get(chanlist) 	 
-        if freq_table: 	 
-            freq = freq_table.get(tuner_id) 	 
-            if not freq: 	 
-                print String(_('ERROR')+': ' + \
-                      (_('Unable to get frequency for %s from %s.') % \
-                      (tuner_id, chanlist))) 	 
-                return 0 	 
-        else: 	 
-            print String(_('ERROR')+': ' + \
-                 (_('Unable to get frequency table for %s.') % chanlist)) 	 
+    if freq_table: 	 
+        freq = freq_table.get(tuner_id) 	 
+        if not freq: 	 
+            log.error('unable to get frequency for %s from %s') % (tuner_id, chanlist))
             return 0 	 
+    else: 	 
+        log.error('frequency table for %s unavailable') % chanlist)
+        return 0 	 
 
-        log.debug('USING STANDARD FREQUENCY: chan="%s", freq="%s"' % \
-                  (tuner_id, freq)) 	 
+    log.debug('USING STANDARD FREQUENCY: chan="%s", freq="%s"' % \
+              (tuner_id, freq)) 	 
 
     return freq
 
 
-def get_frequency_khz(tuner_id, chanlist=None):
+def get_frequency_khz(tuner_id, chanlist):
     """
     Returns the frequency of a channel in KHz
     """
