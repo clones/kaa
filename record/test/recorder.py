@@ -16,20 +16,25 @@ logging.getLogger('record').setLevel(logging.INFO)
 
 chain = kaa.record.Chain()
 chain.append(kaa.record.Remux())
-chain.append(kaa.record.Filewriter('foo.mpg', 0))
-
+    
 if 0:
+    chain.append(kaa.record.Filewriter('foo.mpg', 0))
+
     # One way of using the module is to simply start a recording
     # and stop it later.
     
     # start recording
-    id = dvb.start_recording('ZDF', chain)
+    id = dvb.start_recording('ProSieben', chain)
 
     # stop record after 10 seconds
     t = OneShotTimer(dvb.stop_recording, id).start(10)
 
+    # stop test after 15 seconds
+    t = OneShotTimer(sys.exit, 0).start(15)
 
-if 1:
+if 0:
+    chain.append(kaa.record.Filewriter('foo.mpg', 0))
+
     # A higher level interface are self starting recording objects. They
     # also have signals you can connect to to get notification of start and stop.
 
@@ -46,8 +51,16 @@ if 1:
     r.signals['start'].connect(rec_started, r)
     r.signals['stop'].connect(rec_stopped, r)
 
+    # stop test after 15 seconds
+    t = OneShotTimer(sys.exit, 0).start(15)
 
-# stop test after 15 seconds
-t = OneShotTimer(sys.exit, 0).start(15)
+if 1:
+    chain.append(kaa.record.UDPSend('127.0.0.1:12345'))
+
+    # start recording
+    id = dvb.start_recording('ZDF', chain)
+
+    # stop test after 60 seconds
+    t = OneShotTimer(sys.exit, 0).start(60)
 
 kaa.main()
