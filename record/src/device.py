@@ -29,11 +29,17 @@
 #
 # -----------------------------------------------------------------------------
 
+# python imports
+import logging
+
 # kaa imports
 from kaa.notifier import SocketDispatcher, Timer
 
 # kaa.record imports
 from _dvb import DvbDevice as _DvbDevice
+
+# get logging object
+log = logging.getLogger('record')
 
 class DvbDevice(object):
     """
@@ -46,11 +52,12 @@ class DvbDevice(object):
         # give variable to the device
         self._device.connect_to_notifier(sd)
 
+
     def start_recording(self, channel, filter_chain):
         pids = self._device.get_pids(channel)
-        print pids
+        log.info("start recording for pid list %s", pids)
         filter_chain.set_pids(pids[0][0], pids[1][0])
-        self._device.start_recording(channel, filter_chain)
+        return self._device.start_recording(channel, filter_chain)
         
     def __getattr__(self, attr):
         if attr in ('get_card_type', 'get_bouquet_list',

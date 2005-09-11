@@ -29,8 +29,14 @@
 #
 # -----------------------------------------------------------------------------
 
+# python imports
+import logging
+
 # kaa.record imports
 import _filter
+
+# get logging object
+log = logging.getLogger('record')
 
 class Chain(list):
 
@@ -43,7 +49,8 @@ class Chain(list):
         self.vpid = vpid
         self.apid = apid
 
-    def _get_chain(self):
+    def _create(self):
+        log.debug('create filter chain')
         chain = _filter.Chain()
         chain.add_pid(self.vpid)
         chain.add_pid(self.apid)
@@ -51,17 +58,17 @@ class Chain(list):
             if isinstance(filter, Remux):
                 filter.vpid = self.vpid
                 filter.apid = self.apid
-        chain.append(filter)
-        return chain
-
+            chain.append(filter)
+        return chain.get_chain()
+    
     
 class Remux(object):
     def __init__(self):
         self.vpid = 0
         self.apid = 0
 
-    def _create_filter(self):
-        return _filter.create_remux(self.vpid, self.apid)
+    def _create(self):
+        return _filter.Remux(self.vpid, self.apid)
         
     
 class Filewriter(object):
@@ -69,15 +76,14 @@ class Filewriter(object):
         self.filename = filename
         self.chunksize = chunksize
 
-    def _create_filter(self):
-        return _filter.create_filewriter(self.filename, self.chunksize)
+    def _create(self):
+        return _filter.Filewriter(self.filename, self.chunksize)
         
 
 class UDPSend(object):
     def __init__(self, addr):
         self.addr = addr
 
-    def _create_filter(self):
-        return _filter.create_udpsend(self.addr)
+    def _create(self):
+        return _filter.UDPSend(self.addr)
         
-    
