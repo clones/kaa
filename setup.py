@@ -31,7 +31,7 @@ import os
 import sys
 import distutils.core
 
-submodules = [ 'base', 'imlib2', 'display', 'mevas', 'thumb', 'epg', 'record'
+submodules = [ 'base', 'imlib2', 'display', 'mevas', 'thumb', 'epg', 'record',
                'metadata', 'evas', 'canvas', 'xine', 'mplayer', 'webinfo' ]
 
 for a in sys.argv:
