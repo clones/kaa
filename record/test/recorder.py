@@ -6,7 +6,7 @@ import kaa
 from kaa.notifier import OneShotTimer
 from kaa.record import DvbDevice, Filewriter, Recording
 
-dvb = DvbDevice('/dev/dvb/adapter0', '/home/dmeyer/.freevo/channels.conf', 9)
+dvb = DvbDevice('/dev/dvb/adapter0', '/home/dmeyer/.freevo/channels.conf')
 
 # print some debug
 print dvb.get_card_type()
