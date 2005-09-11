@@ -106,7 +106,7 @@ NORMS = { 'NTSC'  : 0x3000,
           'SECAM' : 0x7f0000  }
 
 
-class Videodev(object):
+class V4L(object):
     def __init__(self, device, norm, chanlist=None, card_input=1, 
                  custom_frequencies=None):
         """
