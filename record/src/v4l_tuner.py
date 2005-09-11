@@ -41,14 +41,20 @@
 #
 # ----------------------------------------------------------------------- */
 
-
-import string
-from freq import get_frequency
+# python imports
+import logging
 import os
+import string
 import struct
 import sys
-from util.ioctl import ioctl, IOR, IOW, IOWR
-import config
+from types import *
+
+# kaa imports
+from kaa.base.ioctl import ioctl, IOR, IOW, IOWR
+from v4l_frequencies import get_frequency, CHANLIST
+
+
+log = logging.getLogger('record')
 
 
 FREQUENCY_ST = "III32x"
@@ -101,32 +107,53 @@ NORMS = { 'NTSC'  : 0x3000,
 
 
 class Videodev(object):
-    def __init__(self, which=None, device=None):
-        self.devfd = None
-        self.settings = None
+    def __init__(self, device, norm, chanlist=None, card_input=1, 
+                 custom_frequencies=None):
+        """
+        """
+        self.device = device
+        self.card_input = card_input
 
-        if not which:
-            if not device:
-                device = '/dev/video'
-
-            self.basic_info(device)
-
+        if not chanlist:
+            if not custom_frequencies:
+                log.error('no chanlist or custom_frequencies supplied')
+                log.error('you must specify at least one to tune channels')
+                self.chanlist = 'unknown'
+            
         else:
-            self.settings = config.TV_CARDS.get(which)
-            self.init_settings()
+            if not chanlist in CHANLIST.keys():
+                log.error('bad chanlist "%s", setting to unknown' % chanlist)
+                self.chanlist = 'unknown'
+            else:
+                self.chanlist = chanlist
 
+        if not type(norm) is StringType or norm.upper() not in NORMS.keys():
+            log.error('bad norm "%s", using NTSC as default' % norm)
+            self.norm = 'NTSC'
+        else:
+            self.norm = norm.upper()
 
-    def basic_info(self, device):
-        self.devfd = os.open(device, os.O_TRUNC)
+        if not type(custom_frequencies) == DictType:
+            self.custom_frequencies = {}
+        else:
+            self.custom_frequencies = custom_frequencies
+
+        self.devfd = os.open(self.device, os.O_TRUNC)
         if self.devfd < 0:
-            sys.exit("Error: %d\n" %self.devfd)
+            log.error('failed to open %s, fd: %d' % (self.device, self.devfd))
 
-        results           = self.querycap()
-        self.driver       = results[0]
-        self.card         = results[1]
-        self.bus_info     = results[2]
-        self.version      = results[3]
-        self.capabilities = results[4]
+        cardcaps          = self.querycap()
+        self.driver       = cardcaps[0]
+        self.card         = cardcaps[1]
+        self.bus_info     = cardcaps[2]
+        self.version      = cardcaps[3]
+        self.capabilities = cardcaps[4]
+    
+        self.setstd(NORMS.get(self.norm))
+        self.setinput(self.card_input)
+
+        # XXX TODO: make a good way of setting the capture resolution
+        # self.setfmt(int(width), int(height))
     
 
     def close(self):
@@ -140,19 +167,19 @@ class Videodev(object):
             (junk,junk, freq, ) = struct.unpack(FREQUENCY_ST, r)
             return freq
         except IOError:
-            print "Failed to get frequency, not supported by device?" 
+            log.warn('Failed to get frequency, not supported by device?') 
             return -1
 
 
     def setchannel(self, channel):
-        if self.settings:
-            freq = get_frequency(channel, self.settings.chanlist)
-        else:
-            freq = get_frequency(channel)
+        freq = self.custom_frequencies.get(channel)
 
-        if not freq:
-            print 'ERROR: unable to get frequency for %s' % channel
-            return
+        if freq:
+            log.debug('using custom frequency %d for channel %s' % (freq, channel)) 
+        else:
+            freq = get_frequency(channel, self.chanlist)
+
+        log.debug('setting channel to %s (%d)' % (channel, freq))
 
         freq *= 16
 
@@ -223,7 +250,7 @@ class Videodev(object):
             r = ioctl(self.devfd,GET_FMT_NO,val)
             return struct.unpack( FMT_ST, r )
         except IOError:
-            print "Failed to get format, not supported by device?" 
+            log.warn('Failed to get format, not supported by device?') 
             return (-1, -1, -1, -1, -1, -1, -1, -1)
 
 
@@ -254,47 +281,35 @@ class Videodev(object):
         r = ioctl(self.devfd,SET_AUDIO_NO,val)
 
 
-    def init_settings(self):
-        if not self.settings:
-            # XXX: clever error here
-            return
-
-        self.basic_info(self.settings.vdev)
-        self.setstd(NORMS.get(self.settings.norm))
-        self.setinput(self.settings.input)
-
-        # XXX TODO: make a good way of setting the capture resolution
-        # self.setfmt(int(width), int(height))
-
-
     def print_settings(self):
-        print 'Driver: %s' % self.driver
-        print 'Card: %s' % self.card
-        print 'Version: %s' % self.version
-        print 'Capabilities: %s' % self.capabilities
+        log.info('Driver: %s' % self.driver)
+        log.info('Card: %s' % self.card)
+        log.info('Version: %s' % self.version)
+        log.info('Capabilities: %s' % self.capabilities)
 
-        print "Enumerating supported Standards."
+        log.info('Enumerating supported Standards.')
         try:
             for i in range(0,255):
                 (index,id,name,junk,junk,junk) = self.enumstd(i)
-                print "  %i: 0x%x %s" % (index, id, name)
+                log.info('  %i: 0x%x %s' % (index, id, name))
         except:
             pass
-        print "Current Standard is: 0x%x" % self.getstd()
+        log.info('Current Standard is: 0x%x' % self.getstd())
 
-        print "Enumerating supported Inputs."
+        log.info('Enumerating supported Inputs.')
         try:
             for i in range(0,255):
                 (index,name,type,audioset,tuner,std,status) = self.enuminput(i)
-                print "  %i: %s" % (index, name)
+                log.info('  %i: %s' % (index, name))
         except:
             pass
-        print "Input: %i" % self.getinput()
+        log.info('Input: %i' % self.getinput())
 
         (buf_type, width, height, pixelformat, field, bytesperline,
          sizeimage, colorspace) = self.getfmt()
-        print "Width: %i, Height: %i" % (width,height)
+        log.info('Width: %i, Height: %i' % (width,height))
 
-        print "Read Frequency: %i" % self.getfreq()
+        freq = self.getfreq()
+        log.info('Read Frequency: %d (%d)' % (freq, freq*1000/16))
 
 
