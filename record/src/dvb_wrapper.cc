@@ -29,10 +29,10 @@ PyObject *DvbDevicePyObject__get_pids(PyObject *self, PyObject* args)
 			   teletext_pids, subtitle_pids );
     PyObject *list = PyList_New(5);
     PyList_Insert(list, 0, PyFromIntVector(video_pids));
-    PyList_Insert(list, 0, PyFromIntVector(audio_pids));
-    PyList_Insert(list, 0, PyFromIntVector(ac3_pids));
-    PyList_Insert(list, 0, PyFromIntVector(teletext_pids));
-    PyList_Insert(list, 0, PyFromIntVector(subtitle_pids));
+    PyList_Insert(list, 1, PyFromIntVector(audio_pids));
+    PyList_Insert(list, 2, PyFromIntVector(ac3_pids));
+    PyList_Insert(list, 3, PyFromIntVector(teletext_pids));
+    PyList_Insert(list, 4, PyFromIntVector(subtitle_pids));
     return list;
 }
 
