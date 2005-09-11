@@ -84,7 +84,7 @@ class Recording(object):
         Remove the recording.
         """
         if self.recording():
-            self._stop()
+            self.__stop()
         self.timer['start'].stop()
         self.timer['stop'].stop()
 
