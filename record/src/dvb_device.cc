@@ -34,9 +34,9 @@
 using namespace std;
 
 DvbDevice::DvbDevice( const std::string &adapter,
-		      const std::string &channelsfile, int prio):
+		      const std::string &channelsfile):
   file_adapter( adapter ), file_channels( channelsfile ),
-  priority( prio ), tuner(NULL), socket_dispatcher(NULL) {
+  tuner(NULL), socket_dispatcher(NULL) {
 
   if (file_adapter.empty()) {
     printD( LOG_WARN, "No adapter is set! Please check config file!\n");

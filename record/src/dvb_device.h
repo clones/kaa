@@ -38,7 +38,6 @@ class DvbDevice {
 
   std::string     file_adapter;                   // path of used adapter (e.g. /dev/dvb/adapter0/)
   std::string     file_channels;                  // path of channel list (e.g. /root/.channels.conf)
-  int             priority;
   int             fd;
   std::string     card_type;                      // "DVB-T", "DVB-S", "DVB-C" or "unknown"
   std::vector<bouquet_t> bouquet_list;
@@ -51,8 +50,7 @@ class DvbDevice {
   // DvbDevice(...)
   // params: adapter that should be opened (e.g. /dev/dvb/adapter0/)
   // params: channelsfile which contains frequencies etc for given adapter
-  // params: prio is the priority for this card
-  DvbDevice( const std::string &adapter, const std::string &channelsfile, int prio);
+  DvbDevice( const std::string &adapter, const std::string &channelsfile);
 
   // destructor()
   ~DvbDevice();

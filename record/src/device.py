@@ -45,8 +45,8 @@ class DvbDevice(object):
     """
     Wrapper for DVB devices.
     """
-    def __init__(self, device, channels, prio):
-        self._device = _DvbDevice(device, channels, prio);
+    def __init__(self, device, channels):
+        self._device = _DvbDevice(device, channels);
         # create socket dispatcher
         sd = SocketDispatcher(self._device.read_fd_data)
         # give variable to the device

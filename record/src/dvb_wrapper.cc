@@ -136,12 +136,11 @@ static int DvbDevicePyObject__init(DvbDevicePyObject *self, PyObject *args)
 {
   char *adapter;
   char *channels;
-  int prio;
 
-  if (!PyArg_ParseTuple(args,"ssi", &adapter, &channels, &prio))
+  if (!PyArg_ParseTuple(args,"ss", &adapter, &channels))
     return -1;
 
-  self->device = new DvbDevice(adapter, channels, prio);
+  self->device = new DvbDevice(adapter, channels);
   return 0;
 }
 
