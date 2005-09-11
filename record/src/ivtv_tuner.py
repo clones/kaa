@@ -62,10 +62,17 @@ static inline int ivtv_api_enc_stop(int ivtvfd)
 }
 """
 
-import string, struct, fcntl, time
-from util.ioctl import ioctl, IOR, IOW, IOWR
+# python imports
+import logging
+import string
+import struct
+import time
 
-import tv.v4l2, config
+# kaa imports
+from kaa.base.ioctl import ioctl, IOR, IOW, IOWR
+from v4l_tuner import V4L
+
+log = logging.getLogger('record')
 
 
 # Stream types 
@@ -94,10 +101,10 @@ MSP_MATRIX_ST = '2i'
 IVTV_IOC_S_MSP_MATRIX = IOW('@', 210, MSP_MATRIX_ST)
 
 
-class IVTV(tv.v4l2.Videodev):
+class IVTV(V4L):
 
     def __init__(self, which=None, device=None):
-        tv.v4l2.Videodev.__init__(self, which, device)
+        V4L.__init__(self, which, device)
 
 
     def setCodecInfo(self, codec):
@@ -136,7 +143,7 @@ class IVTV(tv.v4l2.Videodev):
 
 
     def init_settings(self):
-        tv.v4l2.Videodev.init_settings(self)
+        V4L.init_settings(self)
 
         if not self.settings:
             return
@@ -167,25 +174,25 @@ class IVTV(tv.v4l2.Videodev):
 
 
     def print_settings(self):
-        tv.v4l2.Videodev.print_settings(self)
+        V4L.print_settings(self)
 
         codec = self.getCodecInfo()
 
-        print 'CODEC::aspect: %s' % codec.aspect
-        print 'CODEC::audio_bitmask: %s' % codec.audio_bitmask
-        print 'CODEC::bfrmes: %s' % codec.bframes
-        print 'CODEC::bitrate_mode: %s' % codec.bitrate_mode
-        print 'CODEC::bitrate: %s' % codec.bitrate
-        print 'CODEC::bitrate_peak: %s' % codec.bitrate_peak
-        print 'CODEC::dnr_mode: %s' % codec.dnr_mode
-        print 'CODEC::dnr_spatial: %s' % codec.dnr_spatial
-        print 'CODEC::dnr_temporal: %s' % codec.dnr_temporal
-        print 'CODEC::dnr_type: %s' % codec.dnr_type
-        print 'CODEC::framerate: %s' % codec.framerate
-        print 'CODEC::framespergop: %s' % codec.framespergop
-        print 'CODEC::gop_closure: %s' % codec.gop_closure
-        print 'CODEC::pulldown: %s' % codec.pulldown
-        print 'CODEC::stream_type: %s' % codec.stream_type
+        log.info('CODEC::aspect: %s' % codec.aspect)
+        log.info('CODEC::audio_bitmask: %s' % codec.audio_bitmask)
+        log.info('CODEC::bfrmes: %s' % codec.bframes)
+        log.info('CODEC::bitrate_mode: %s' % codec.bitrate_mode)
+        log.info('CODEC::bitrate: %s' % codec.bitrate)
+        log.info('CODEC::bitrate_peak: %s' % codec.bitrate_peak)
+        log.info('CODEC::dnr_mode: %s' % codec.dnr_mode)
+        log.info('CODEC::dnr_spatial: %s' % codec.dnr_spatial)
+        log.info('CODEC::dnr_temporal: %s' % codec.dnr_temporal)
+        log.info('CODEC::dnr_type: %s' % codec.dnr_type)
+        log.info('CODEC::framerate: %s' % codec.framerate)
+        log.info('CODEC::framespergop: %s' % codec.framespergop)
+        log.info('CODEC::gop_closure: %s' % codec.gop_closure)
+        log.info('CODEC::pulldown: %s' % codec.pulldown)
+        log.info('CODEC::stream_type: %s' % codec.stream_type)
 
 
 class IVTVCodec(object):
