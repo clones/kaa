@@ -57,14 +57,11 @@ def get_frequency(tuner_id, chanlist):
     if freq_table: 	 
         freq = freq_table.get(tuner_id) 	 
         if not freq: 	 
-            log.error('unable to get frequency for %s from %s') % (tuner_id, chanlist))
+            log.error('unable to get frequency for %s from %s' % (tuner_id, chanlist))
             return 0 	 
     else: 	 
-        log.error('frequency table for %s unavailable') % chanlist)
+        log.error('frequency table for "%s" unavailable' % chanlist)
         return 0 	 
-
-    log.debug('USING STANDARD FREQUENCY: chan="%s", freq="%s"' % \
-              (tuner_id, freq)) 	 
 
     return freq
 
