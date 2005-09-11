@@ -64,6 +64,7 @@ class Chain(list):
     
 class Remux(object):
     def __init__(self):
+        log.info('add filter Remux')
         self.vpid = 0
         self.apid = 0
 
@@ -73,6 +74,7 @@ class Remux(object):
     
 class Filewriter(object):
     def __init__(self, filename, chunksize=0):
+        log.info('add filter Filewriter::%s' % filename)
         self.filename = filename
         self.chunksize = chunksize
 
@@ -82,6 +84,7 @@ class Filewriter(object):
 
 class UDPSend(object):
     def __init__(self, addr):
+        log.info('add filter UDPSend::%s' % addr)
         self.addr = addr
 
     def _create(self):

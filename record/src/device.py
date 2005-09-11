@@ -55,7 +55,7 @@ class DvbDevice(object):
 
     def start_recording(self, channel, filter_chain):
         pids = self._device.get_pids(channel)
-        log.info("start recording for pid list %s", pids)
+        log.info("start recording %s with pid list %s" % (channel, pids))
         filter_chain.set_pids(pids[0][0], pids[1][0])
         return self._device.start_recording(channel, filter_chain)
         
