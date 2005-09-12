@@ -132,6 +132,7 @@ class Recording(object):
         """
         if not self.recording():
             # ignore, already dead
+            log.info('recording %s already dead' % self.id)
             return
         log.info('stop recording %s' % self.id)
         self.device.stop_recording(self.__rec_id)

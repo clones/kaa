@@ -64,29 +64,29 @@ class Chain(list):
     
 class Remux(object):
     def __init__(self):
-        log.info('add filter Remux')
         self.vpid = 0
         self.apid = 0
 
     def _create(self):
+        log.info('add filter Remux')
         return _filter.Remux(self.vpid, self.apid)
         
     
 class Filewriter(object):
     def __init__(self, filename, chunksize=0):
-        log.info('add filter Filewriter::%s' % filename)
         self.filename = filename
         self.chunksize = chunksize
 
     def _create(self):
+        log.info('add filter Filewriter::%s' % self.filename)
         return _filter.Filewriter(self.filename, self.chunksize)
         
 
 class UDPSend(object):
     def __init__(self, addr):
-        log.info('add filter UDPSend::%s' % addr)
         self.addr = addr
 
     def _create(self):
+        log.info('add filter UDPSend::%s' % self.addr)
         return _filter.UDPSend(self.addr)
         
