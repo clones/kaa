@@ -37,6 +37,7 @@ from kaa.notifier import SocketDispatcher, Timer
 
 # kaa.record imports
 from _dvb import DvbDevice as _DvbDevice
+from ivtv_tuner import IVTV
 
 # get logging object
 log = logging.getLogger('record')
@@ -64,3 +65,44 @@ class DvbDevice(object):
                     'stop_recording'):
             return getattr(self._device, attr)
         return object.__getattr__(self, attr)
+
+
+class IVTVDevice(IVTV):
+    """
+    Class for IVTV devices.
+    I'm still contemplating weather to keep this object extending IVTV
+    or to use a _device line DvbDevice.
+    """
+    def __init__(self, device, norm, chanlist=None, card_input=4,
+                 custom_frequencies=None, resolution=None, aspect=2,
+                 audio_bitmask=None, bframes=None, bitrate_mode=1,
+                 bitrate=4500000, bitrate_peak=4500000, dnr_mode=None,
+                 dnr_spatial=None, dnr_temporal=None, dnr_type=None, framerate=None,
+                 framespergop=None, gop_closure=1, pulldown=None, stream_type=14):
+
+        IVTV.__init__(self, device, norm, chanlist, card_input,
+                      custom_frequencies, resolution, aspect,
+                      audio_bitmask, bframes, bitrate_mode,
+                      bitrate, bitrate_peak, dnr_mode, dnr_spatial, 
+                      dnr_temporal, dnr_type, framerate, framespergop, 
+                      gop_closure, pulldown, stream_type)
+
+
+        # create socket dispatcher
+        #sd = SocketDispatcher(self._device.read_fd_data)
+        # give variable to the device
+        #self._device.connect_to_notifier(sd)
+
+
+    def start_recording(self, channel, filter_chain):
+        log.info("start recording channel %s" % channel)
+        self.assert_settings()
+        self.set_gop_end()
+        self.setchan(str(channel))
+        
+
+    def stop_recording(self, channel):
+        log.info("stop recording channel %s" % channel)
+        self.stop_encoding()
+        
+
