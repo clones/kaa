@@ -255,7 +255,7 @@ class V4L(object):
 
 
     def getfmt(self):  
-        val = struct.pack( FMT_ST, 0,0,0,0,0,0,0,0)
+        val = struct.pack( FMT_ST, 1L,0,0,0,0,0,0,0)
         try:
             r = ioctl(self.devfd,GET_FMT_NO,val)
             return struct.unpack( FMT_ST, r )
