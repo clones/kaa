@@ -41,26 +41,6 @@
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # ----------------------------------------------------------------------- */
-"""
-#define VIDIOC_STREAMOFF    _IOW  ('V', 19, int)
-        
-static inline int ivtv_api_enc_endgop(int ivtvfd, int gop)
-{
-        /* Send Stop at end of GOP API */
-        if (ioctl(ivtvfd, IVTV_IOC_S_GOP_END, &gop) < 0)
-                fprintf(stderr, "ioctl: IVTV_IOC_S_GOP_END failed\n");
-        return 0;
-}       
-        
-static inline int ivtv_api_enc_stop(int ivtvfd)
-{               
-        int dummy = 0;
-        /* Send Stop Capture API */
-        if (ioctl(ivtvfd, VIDIOC_STREAMOFF, &dummy) < 0)
-                fprintf(stderr, "ioctl: VIDIOC_STREAMOFF failed\n");
-        return 0;
-}
-"""
 
 # python imports
 import logging
@@ -70,7 +50,7 @@ import time
 
 # kaa imports
 from kaa.base.ioctl import ioctl, IOR, IOW, IOWR
-from v4l_tuner import V4L
+from v4l_tuner import *
 
 log = logging.getLogger('record')
 
@@ -91,11 +71,11 @@ IVTV_STREAM_DVD_S2 = 14
 
 # structs and ioctls
 
-VIDIOC_STREAMOFF = IOW('V', 19, 'i')
 CODEC_ST = '15I'
 IVTV_IOC_G_CODEC = IOR('@', 48, CODEC_ST)
 IVTV_IOC_S_CODEC = IOW('@', 49, CODEC_ST)
-IVTV_IOC_S_GOP_END = IOWR('@', 50, 'i')
+IVTV_IOC_S_GOP_END_ST = 'i'
+IVTV_IOC_S_GOP_END = IOWR('@', 50, IVTV_IOC_S_GOP_END_ST)
 
 MSP_MATRIX_ST = '2i'
 IVTV_IOC_S_MSP_MATRIX = IOW('@', 210, MSP_MATRIX_ST)
@@ -103,12 +83,12 @@ IVTV_IOC_S_MSP_MATRIX = IOW('@', 210, MSP_MATRIX_ST)
 
 class IVTV(V4L):
 
-    def __init__(self, device, norm, chanlist=None, card_input=4,
-                 custom_frequencies=None, resolution=None, aspect=2,
-                 audio_bitmask=None, bframes=None, bitrate_mode=1,
-                 bitrate=4500000, bitrate_peak=4500000, dnr_mode=None,
+    def __init__(self, device, norm, chanlist=None, card_input=None,
+                 custom_frequencies=None, resolution=None, aspect=None,
+                 audio_bitmask=None, bframes=None, bitrate_mode=None,
+                 bitrate=None, bitrate_peak=None, dnr_mode=None,
                  dnr_spatial=None, dnr_temporal=None, dnr_type=None, framerate=None,
-                 framespergop=None, gop_closure=1, pulldown=None, stream_type=14):
+                 framespergop=None, gop_closure=None, pulldown=None, stream_type=None):
         """
         Notes:
             my old defaults for NTSC, some of these are set automaticly 
@@ -151,7 +131,6 @@ class IVTV(V4L):
         self.pulldown = pulldown
         self.stream_type = stream_type
 
-
         if self.norm == 'NTSC':
             # special defaults for NTSC
 
@@ -170,9 +149,19 @@ class IVTV(V4L):
             if not self.resolution:
                 self.resolution = "720x576"
 
+        self.assert_settings()
+
+
+    def assert_settings(self):
+        """
+        This method is here so that we can make sure the driver settings are
+        set the way we think they are, just in case someone else changes the
+        settings in between recordings.
+        """
 
         (width, height) = string.split(self.resolution, 'x')
-        self.setfmt(int(width), int(height))
+        # XXX: this call silently breaks the driver, find out why
+        # self.setfmt(int(width), int(height))
 
         codec = self.getCodecInfo()
 
@@ -195,7 +184,38 @@ class IVTV(V4L):
                 # set self based on codec
                 setattr(self, a, c)
 
+        log.info(codec)
         self.setCodecInfo(codec)
+
+
+    def start_encoding(self):
+        """
+        start capture
+        """
+        r = ioctl(self.devfd, VIDIOC_STREAMON, 
+                  struct.pack(VIDIOC_STREAMON_ST, V4L2_BUF_TYPE_VIDEO_CAPTURE))
+        if r < 0:
+            log.error('ioctl: VIDIOC_STREAMON failed')
+
+
+    def stop_encoding(self):
+        """
+        stop capture
+        """
+        r = ioctl(self.devfd, VIDIOC_STREAMOFF, 
+                  struct.pack(VIDIOC_STREAMOFF_ST, 0))
+        if r < 0:
+            log.error('ioctl: VIDIOC_STREAMOFF failed')
+
+
+    def set_gop_end(self, gop=1):
+        """
+        End Encoding at GOP Ending Call 0=StopNOW, 1=GOPwait
+        """
+        r = ioctl(self.devfd, IVTV_IOC_S_GOP_END, 
+                  struct.pack(IVTV_IOC_S_GOP_END_ST, gop))
+        if r < 0:
+            log.error('ioctl: IVTV_IOC_S_GOP_END failed')
 
 
     def setCodecInfo(self, codec):
@@ -272,5 +292,22 @@ class IVTVCodec(object):
         self.gop_closure   = args[12]
         self.pulldown      = args[13]
         self.stream_type   = args[14]
+
+    def __str__(self):
+        return 'aspect:        %d\n'\
+               'audio_bitmask: %d\n'\
+               'bframes:       %d\n'\
+               'bitrate_mode:  %d\n'\
+               'bitrate:       %d\n'\
+               'bitrate_peak:  %d\n'\
+               'dnr_mode:      %d\n'\
+               'dnr_spatial:   %d\n'\
+               'dnr_temporal:  %d\n'\
+               'dnr_type:      %d\n'\
+               'framerate:     %d\n'\
+               'framespergop:  %d\n'\
+               'gop_closure:   %d\n'\
+               'pulldown:      %d\n'\
+               'stream_type:   %d' % ( self.aspect, self.audio_bitmask, self.bframes, self.bitrate_mode, self.bitrate, self.bitrate_peak, self.dnr_mode, self.dnr_spatial, self.dnr_temporal, self.dnr_type, self.framerate, self.framespergop, self.gop_closure, self.pulldown, self.stream_type)
 
 
