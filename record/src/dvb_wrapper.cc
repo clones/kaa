@@ -2,7 +2,7 @@
 #include "dvb_device.h"
 #include "filter.h"
 
-int debug_level = 100;
+int debug_level = 65535;
 
 #define DEVICE ((DvbDevicePyObject *)self)->device
 
@@ -12,11 +12,10 @@ typedef struct {
 } DvbDevicePyObject;
 
 
-PyObject *PyFromIntVector(std::vector< int >& v) 
+PyObject *PyFromIntVector(std::vector< int >& v)
 {
-    int i;
     PyObject *list = PyList_New(0);
-    for (i = 0; i < v.size(); i++)
+    for (unsigned int i = 0; i < v.size(); i++)
       PyList_Append(list, PyInt_FromLong(v[i]));
     return list;
 }
@@ -26,15 +25,15 @@ PyObject *DvbDevicePyObject__get_pids(PyObject *self, PyObject* args)
 {
     char *channel;
     std::vector< int > video_pids, audio_pids, ac3_pids, teletext_pids, subtitle_pids;
-    
+
     if (!PyArg_ParseTuple(args, "s", &channel))
 	return NULL;
 
-    DEVICE->get_pids(channel, video_pids, audio_pids, ac3_pids, teletext_pids, 
+    DEVICE->get_pids(channel, video_pids, audio_pids, ac3_pids, teletext_pids,
 		     subtitle_pids );
-    PyObject *list = Py_BuildValue("OOOOO", PyFromIntVector(video_pids), 
+    PyObject *list = Py_BuildValue("OOOOO", PyFromIntVector(video_pids),
 				   PyFromIntVector(audio_pids), PyFromIntVector(ac3_pids),
-				   PyFromIntVector(teletext_pids), 
+				   PyFromIntVector(teletext_pids),
 				   PyFromIntVector(subtitle_pids));
     return list;
 }
@@ -47,13 +46,13 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
     std::string channel_str;
     PyObject *plugin_PyObject;
     FilterData* plugin_pointer;
-    
+
     if (!PyArg_ParseTuple(args, "sO", &channel, &plugin_PyObject))
 	return NULL;
-    
+
     // create stupid reference
     channel_str = channel;
-    
+
     // get real plugin object
     plugin_PyObject = PyObject_CallMethod(plugin_PyObject, "_create", "");
     if (plugin_PyObject == NULL) {
@@ -62,7 +61,7 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
     }
 
     plugin_pointer = (FilterData*) PyCObject_AsVoidPtr(plugin_PyObject);
-    
+
     result = DEVICE->start_recording(channel_str, *plugin_pointer);
     Py_DECREF(plugin_PyObject);
     return Py_BuildValue("i", result);
@@ -89,11 +88,11 @@ PyObject *DvbDevicePyObject__get_bouquet_list(PyObject *self, PyObject* args)
 
   bouquet_list = DEVICE->get_bouquet_list();
   result = PyList_New(bouquet_list.size());
-  for (int i=0; i<bouquet_list.size(); i++) {
+  for (unsigned int i=0; i<bouquet_list.size(); i++) {
     std::vector< bouquet_channel_t > &channels = bouquet_list[i].channels;
     PyObject *l = PyList_New(channels.size());
     PyList_SetItem(result, i, l);
-    for (int j=0; j<channels.size(); j++) {
+    for (unsigned int j=0; j<channels.size(); j++) {
       PyObject *c = PyString_FromString(channels[j].name.c_str());
       PyList_SetItem(l, j, c);
     }
@@ -209,11 +208,11 @@ extern "C"
 void init_dvb() {
   PyObject *m;
 
-  PyObject *nfModule;
-  PyObject *nfName;
+//   PyObject *nfModule;
+//   PyObject *nfName;
 
-  PyObject *nfDict, *nfFunc, *nfArgs;
-  PyObject *nfInstance;
+//   PyObject *nfDict, *nfFunc, *nfArgs;
+//   PyObject *nfInstance;
 
   m = Py_InitModule("_dvb", module_methods);
   if (PyType_Ready(&DvbDevicePyObject_Type) < 0)

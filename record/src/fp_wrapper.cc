@@ -4,7 +4,7 @@
 #include "fp_filewriter.h"
 #include "fp_udpsend.h"
 
-int debug_level = 100;
+int debug_level = 65535;
 
 typedef struct {
     PyObject_HEAD
@@ -29,7 +29,7 @@ void ChainPyObject__dealloc(ChainPyObject *self)
 PyObject *ChainPyObject__append(PyObject *self, PyObject* args)
 {
     PyObject *filter;
-    
+
     if (!PyArg_ParseTuple(args,"O", &filter))
 	return NULL;
 
@@ -43,7 +43,7 @@ PyObject *ChainPyObject__append(PyObject *self, PyObject* args)
 	return NULL;
     }
     CHAIN->filterlist.push_back((FilterPlugin*) PyCObject_AsVoidPtr(plugin_PyObject));
-    
+
     Py_DECREF(plugin_PyObject);
     Py_INCREF(Py_None);
     return Py_None;
@@ -59,7 +59,7 @@ PyObject *ChainPyObject__get_chain(PyObject *self, PyObject* args)
 PyObject *ChainPyObject__add_pid(PyObject *self, PyObject* args)
 {
     int pid;
-    
+
     if (!PyArg_ParseTuple(args,"i", &pid))
 	return NULL;
     CHAIN->pids.push_back(pid);
@@ -120,9 +120,9 @@ PyTypeObject ChainPyObject_Type = {
 
 
 PyMethodDef module_methods[] = {
-    { "Remux", PyFilter_Remux, METH_VARARGS }, 
-    { "Filewriter", PyFilter_Filewriter, METH_VARARGS }, 
-    { "UDPSend", PyFilter_UDPSend, METH_VARARGS }, 
+    { "Remux", PyFilter_Remux, METH_VARARGS },
+    { "Filewriter", PyFilter_Filewriter, METH_VARARGS },
+    { "UDPSend", PyFilter_UDPSend, METH_VARARGS },
     { NULL }
 };
 
