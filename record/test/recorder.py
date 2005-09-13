@@ -4,9 +4,11 @@ import logging
 
 import kaa
 from kaa.notifier import OneShotTimer
-from kaa.record import DvbDevice, Filewriter, Recording
+from kaa.record import DvbDevice, FDSplitter, Filewriter, Recording
 
-dvb = DvbDevice('/dev/dvb/adapter0', '/home/dmeyer/.freevo/channels.conf')
+dvb = DvbDevice('/dev/dvb/adapter0', '/home/schwardt/.freevo/channels.conf')
+
+splitter = FDSplitter( dvb.get_fd() )
 
 # print some debug
 print dvb.get_card_type()
@@ -17,17 +19,18 @@ logging.getLogger('record').setLevel(logging.INFO)
 chain = kaa.record.Chain()
 chain.append(kaa.record.Remux())
     
-if 0:
+if 1:
     chain.append(kaa.record.Filewriter('foo.mpg', 0))
 
     # One way of using the module is to simply start a recording
     # and stop it later.
     
     # start recording
-    id = dvb.start_recording('ProSieben', chain)
+    idA = dvb.start_recording('ProSieben', chain)
+    idB = splitter.add_filter_chain(chain)
 
     # stop record after 10 seconds
-    t = OneShotTimer(dvb.stop_recording, id).start(10)
+    t = OneShotTimer(dvb.stop_recording, idA).start(10)
 
     # stop test after 15 seconds
     t = OneShotTimer(sys.exit, 0).start(15)
@@ -54,11 +57,12 @@ if 0:
     # stop test after 15 seconds
     t = OneShotTimer(sys.exit, 0).start(15)
 
-if 1:
+if 0:
     chain.append(kaa.record.UDPSend('127.0.0.1:12345'))
 
     # start recording
-    id = dvb.start_recording('ZDF', chain)
+    idA = dvb.start_recording('ZDF', chain)
+    idB = splitter.add_filter_chain(chain)
 
     # stop test after 60 seconds
     t = OneShotTimer(sys.exit, 0).start(60)
