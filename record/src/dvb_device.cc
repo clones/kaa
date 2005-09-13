@@ -88,21 +88,6 @@ DvbDevice::DvbDevice( const std::string &adapter,
     }
   }
   // stop temporary tuner
-
-
-  // open dvr device if not open
-  string fn( file_adapter );
-  if (fn[ fn.length() - 1 ] != '/') {
-    fn.append("/");
-  }
-  fn.append("dvr0");  // TODO FIXME use constant here
-
-  printD( LOG_VERBOSE, "trying to open %s\n", fn.c_str() );
-  fd = open( fn.c_str(), O_RDONLY);
-  if (fd == -1) {
-    printD( LOG_ERROR, "open device %s failed! err=%s (%d)\n", fn.c_str(), strerror(errno), errno);
-  }
-  printD( LOG_VERBOSE, "%s opened successfully\n", fn.c_str() );
 }
 
 
@@ -189,6 +174,22 @@ int DvbDevice::start_recording( std::string &chan_name, FilterChain &fchain ) {
     return -1;
   }
 
+  if (fd < 0 ) {
+    // open dvr device if not open
+    string fn( file_adapter );
+    if (fn[ fn.length() - 1 ] != '/') {
+      fn.append("/");
+    }
+    fn.append("dvr0");  // TODO FIXME use constant here
+
+    printD( LOG_VERBOSE, "trying to open %s\n", fn.c_str() );
+    fd = open( fn.c_str(), O_RDONLY);
+    if (fd < 0) {
+      printD( LOG_ERROR, "open device %s failed! err=%s (%d)\n", fn.c_str(), strerror(errno), errno);
+    }
+    printD( LOG_VERBOSE, "%s opened successfully (fd=%d)\n", fn.c_str(), fd );
+  }
+
   return id;
 
   // if tuner does not exist then create one
@@ -219,6 +220,12 @@ void DvbDevice::stop_recording( int id ) {
     if (id2pid.empty()) {
       delete tuner;
       tuner = NULL;
+
+      if (fd >= 0) {
+	close(fd);
+	printD( LOG_VERBOSE, "fd %d closed\n", fd );
+	fd = -1;
+      }
     }
   }
 }

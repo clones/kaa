@@ -65,6 +65,13 @@ void FDSplitter::set_input_type( InputType inputtype ) {
       (inputtype <= INPUT_LAST)) {
     this->inputtype = inputtype;
   }
+  char *s;
+  switch(inputtype) {
+  case INPUT_RAW: s="INPUT_RAW"; break;
+  case INPUT_TS:  s="INPUT_TS"; break;
+  default: s="UNKNOWN";
+  } 
+  printD( LOG_DEBUG, "set input type to %s (%d)\n", s, (int)inputtype );
 }
 
 
@@ -328,12 +335,18 @@ PyObject *PyFromIntVector(std::vector< int >& v)
 
 PyObject *FDSplitterPyObject__set_input_type(PyObject *self, PyObject* args)
 {
-  int inputtype;
+  char *inputtype;
 
-  if (!PyArg_ParseTuple(args,"i", &inputtype))
+  if (!PyArg_ParseTuple(args,"s", &inputtype))
     return NULL;
 
-  FDSPLITTER->set_input_type( (FDSplitter::InputType)inputtype );
+  if (!strcmp(inputtype, "RAW")) {
+    FDSPLITTER->set_input_type( FDSplitter::INPUT_RAW );
+  } else if (!strcmp(inputtype, "TS")) {
+    FDSPLITTER->set_input_type( FDSplitter::INPUT_TS );
+  } else {
+    FDSPLITTER->set_input_type( FDSplitter::INPUT_RAW );
+  }
 
   return Py_None;
 }

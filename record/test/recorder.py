@@ -9,6 +9,7 @@ from kaa.record import DvbDevice, FDSplitter, Filewriter, Recording
 dvb = DvbDevice('/dev/dvb/adapter0', '/home/schwardt/.freevo/channels.conf')
 
 splitter = FDSplitter( dvb.get_fd() )
+splitter.set_input_type( "TS" )
 
 # print some debug
 print dvb.get_card_type()

@@ -65,11 +65,7 @@ class FDSplitter(object):
 
     def add_filter_chain(self, filter_chain):
         """
-        Add filter chain ... bla bla bla ... TODO FIXME ...
-        Start recording a channel to the filter chain. The filter chain needs
-        the video and audio ids to know what part of the transport stream
-        should be recorded. This functions gets all ids for the channel and
-        starts the recording at C++ level.
+        Adds filter chain and returns id of that chain.
         """
         return self._fdsplitter.add_filter_chain(filter_chain)
 
@@ -79,3 +75,13 @@ class FDSplitter(object):
         Stop the recording with the given id.
         """
         return self._fdsplitter.remove_filter_chain(id)
+
+
+    def set_input_type(self, type):
+        """
+        Sets type of data that is passed to FDSplitter. Possible types
+        are 'RAW' and 'TS'.
+        """
+        return self._fdsplitter.set_input_type(type)
+    
+
