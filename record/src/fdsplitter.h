@@ -1,4 +1,4 @@
-/* File: filter.h
+/* File: fdsplitter.h
  *
  * Author: Sönke Schwardt <schwardt@users.sourceforge.net>
  *

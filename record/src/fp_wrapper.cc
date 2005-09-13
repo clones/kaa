@@ -1,5 +1,5 @@
 #include <Python.h>
-#include "filter.h"
+#include "fdsplitter.h"
 #include "fp_remux.h"
 #include "fp_filewriter.h"
 #include "fp_udpsend.h"
@@ -8,14 +8,14 @@ int debug_level = 65535;
 
 typedef struct {
     PyObject_HEAD
-    FilterData *chain;
+    FilterChain *chain;
 } ChainPyObject;
 
 #define CHAIN ((ChainPyObject *)self)->chain
 
 static int ChainPyObject__init(ChainPyObject *self, PyObject *args)
 {
-    self->chain = new FilterData();
+    self->chain = new FilterChain();
     return 0;
 }
 
