@@ -29,6 +29,7 @@
 #ifndef __RINGBUFFER_H
 #define __RINGBUFFER_H
 
+/* #include "thread.h" */
 /* #include "tools.h" */
 #include <inttypes.h>
 #include <time.h>
@@ -37,6 +38,7 @@ typedef unsigned char uchar;
 
 class cRingBuffer {
 private:
+/*   cCondWait readyForPut, readyForGet; */
   int putTimeout;
   int getTimeout;
   int size;
@@ -91,7 +93,7 @@ public:
   virtual int Free(void) { return Size() - Available() - 1 - margin; }
   virtual void Clear(void);
     ///< Immediately clears the ring buffer.
-/*   int Read(int FileHandle, int Max = 0); */
+  int Read(int FileHandle, int Max = 0);
     ///< Reads at most Max bytes from FileHandle and stores them in the
     ///< ring buffer. If Max is 0, reads as many bytes as possible.
     ///< Only one actual read() call is done.
@@ -135,11 +137,12 @@ public:
 
 class cRingBufferFrame : public cRingBuffer {
 private:
+/*   cMutex mutex; */
   cFrame *head;
   int currentFill;
   void Delete(cFrame *Frame);
-  void Lock(void) {}
-  void Unlock(void) {}
+  void Lock(void) { /* mutex.Lock(); */ }  
+  void Unlock(void) { /* mutex.Unlock(); */ }  
 public:
   cRingBufferFrame(int Size, bool Statistics = false);
   virtual ~cRingBufferFrame();

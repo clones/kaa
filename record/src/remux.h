@@ -34,6 +34,15 @@
 #include "ringbuffer.h"
 // #include "tools.h"
 
+enum ePesHeader {
+  phNeedMoreData = -1,
+  phInvalid = 0,
+  phMPEG1 = 1,
+  phMPEG2 = 2
+  };
+
+ePesHeader AnalyzePesHeader(const uchar *Data, int Count, int &PesPayloadOffset, bool *ContinuationHeader = NULL);
+
 // Picture types:
 #define NO_PICTURE 0
 #define I_FRAME    1
@@ -44,8 +53,6 @@
 #define MAXAPIDS 32
 #define MAXDPIDS 16
 #define MAXSPIDS 8
-
-#define MALLOC(type, size)  (type *)malloc(sizeof(type) * (size))
 
 class cTS2PES;
 
@@ -71,6 +78,12 @@ public:
        ///< PID). If ExitOnFailure is true, the remuxer will initiate an "emergency
        ///< exit" in case of problems with the data stream.
   ~cRemux();
+  void SetTimeouts(int PutTimeout, int GetTimeout) { resultBuffer->SetTimeouts(PutTimeout, GetTimeout); }
+       ///< By default cRemux assumes that Put() and Get() are called from different
+       ///< threads, and uses a timeout in the Get() function in case there is no
+       ///< data available. SetTimeouts() can be used to modify these timeouts.
+       ///< Especially if Put() and Get() are called from the same thread, setting
+       ///< both timeouts to 0 is recommended.
   int Put(const uchar *Data, int Count);
        ///< Puts at most Count bytes of Data into the remuxer.
        ///< \return Returns the number of bytes actually consumed from Data.

@@ -88,6 +88,7 @@ void FPRemux::set_pids( int pid_v,
   }
 
   remux = new cRemux( pid_v, p_a, p_d, p_s, false );
+  remux->SetTimeouts(0,0);
 
   if (p_a) {
     delete[] p_a;

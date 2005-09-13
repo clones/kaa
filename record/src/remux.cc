@@ -26,31 +26,876 @@
  *
  */
 
-#include <map>
 #include <stdlib.h>
 #include <inttypes.h>
-#include <string.h>
 #include "misc.h"
 #include "remux.h"
 // #include "channels.h"
 // #include "thread.h"
 // #include "tools.h"
 
+ePesHeader AnalyzePesHeader(const uchar *Data, int Count, int &PesPayloadOffset, bool *ContinuationHeader)
+{
+  if (Count < 7)
+     return phNeedMoreData; // too short
+
+  if ((Data[6] & 0xC0) == 0x80) { // MPEG 2
+     if (Count < 9)
+        return phNeedMoreData; // too short
+
+     PesPayloadOffset = 6 + 3 + Data[8];
+     if (Count < PesPayloadOffset)
+        return phNeedMoreData; // too short
+
+     if (ContinuationHeader)
+        *ContinuationHeader = ((Data[6] == 0x80) && !Data[7] && !Data[8]);
+
+     return phMPEG2; // MPEG 2
+     }
+
+  // check for MPEG 1 ...
+  PesPayloadOffset = 6;
+
+  // skip up to 16 stuffing bytes
+  for (int i = 0; i < 16; i++) {
+      if (Data[PesPayloadOffset] != 0xFF)
+         break;
+
+      if (Count <= ++PesPayloadOffset)
+         return phNeedMoreData; // too short
+      }
+
+  // skip STD_buffer_scale/size
+  if ((Data[PesPayloadOffset] & 0xC0) == 0x40) {
+     PesPayloadOffset += 2;
+
+     if (Count <= PesPayloadOffset)
+        return phNeedMoreData; // too short
+     }
+
+  if (ContinuationHeader)
+     *ContinuationHeader = false;
+
+  if ((Data[PesPayloadOffset] & 0xF0) == 0x20) {
+     // skip PTS only
+     PesPayloadOffset += 5;
+     }
+  else if ((Data[PesPayloadOffset] & 0xF0) == 0x30) {
+     // skip PTS and DTS
+     PesPayloadOffset += 10;
+     }
+  else if (Data[PesPayloadOffset] == 0x0F) {
+     // continuation header
+     PesPayloadOffset++;
+
+     if (ContinuationHeader)
+        *ContinuationHeader = true;
+     }
+  else
+     return phInvalid; // unknown
+
+  if (Count < PesPayloadOffset)
+     return phNeedMoreData; // too short
+
+  return phMPEG1; // MPEG 1
+}
+
 // --- cRepacker -------------------------------------------------------------
 
 class cRepacker {
 protected:
+  bool initiallySyncing;
   int maxPacketSize;
   uint8_t subStreamId;
+  static void DroppedData(const char *Reason, int Count) { printD( LOG_ERROR, "%s (dropped %d bytes)\n", Reason, Count); }
 public:
-  cRepacker(void) { maxPacketSize = 6 + 65535; subStreamId = 0; }
+  static int Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count, int CapacityNeeded);
+  cRepacker(void) { initiallySyncing = true; maxPacketSize = 6 + 65535; subStreamId = 0; }
   virtual ~cRepacker() {}
-  virtual void Reset(void) {}
-  virtual int Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count) = 0;
+  virtual void Reset(void) { initiallySyncing = true; }
+  virtual void Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count) = 0;
   virtual int BreakAt(const uchar *Data, int Count) = 0;
+  virtual int QuerySnoopSize(void) { return 0; }
   void SetMaxPacketSize(int MaxPacketSize) { maxPacketSize = MaxPacketSize; }
   void SetSubStreamId(uint8_t SubStreamId) { subStreamId = SubStreamId; }
   };
+
+int cRepacker::Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count, int CapacityNeeded)
+{
+  if (CapacityNeeded >= Count && ResultBuffer->Free() < CapacityNeeded) {
+     printD( LOG_ERROR, "ERROR: possible result buffer overflow, dropped %d out of %d byte\n", CapacityNeeded, CapacityNeeded);
+     return 0;
+     }
+  int n = ResultBuffer->Put(Data, Count);
+  if (n != Count)
+     printD( LOG_ERROR, "ERROR: result buffer overflow, dropped %d out of %d byte\n", Count - n, Count);
+  return n;
+}
+
+// --- cCommonRepacker --------------------------------------------------------
+
+class cCommonRepacker : public cRepacker {
+protected:
+  int skippedBytes;
+  int packetTodo;
+  uchar fragmentData[6 + 65535 + 3];
+  int fragmentLen;
+  uchar pesHeader[6 + 3 + 255 + 3];
+  int pesHeaderLen;
+  uchar pesHeaderBackup[6 + 3 + 255];
+  int pesHeaderBackupLen;
+  uint32_t scanner;
+  uint32_t localScanner;
+  int localStart;
+  bool PushOutPacket(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count);
+  virtual int QuerySnoopSize() { return 4; }
+  virtual void Reset(void);
+  };
+
+void cCommonRepacker::Reset(void)
+{
+  cRepacker::Reset();
+  skippedBytes = 0;
+  packetTodo = 0;
+  fragmentLen = 0;
+  pesHeaderLen = 0;
+  pesHeaderBackupLen = 0;
+  localStart = -1;
+}
+
+bool cCommonRepacker::PushOutPacket(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count)
+{
+  // enter packet length into PES header ...
+  if (fragmentLen > 0) { // ... which is contained in the fragment buffer
+     // determine PES packet payload
+     int PacketLen = fragmentLen + Count - 6;
+     fragmentData[ 4 ] = PacketLen >> 8;
+     fragmentData[ 5 ] = PacketLen & 0xFF;
+     // just skip packets with no payload
+     int PesPayloadOffset = 0;
+     if (AnalyzePesHeader(fragmentData, fragmentLen, PesPayloadOffset) <= phInvalid)
+        printD( LOG_ERROR, "cCommonRepacker: invalid PES packet encountered in fragment buffer!\n");
+     else if (6 + PacketLen <= PesPayloadOffset) {
+        fragmentLen = 0;
+        return true; // skip empty packet
+        }
+     // amount of data to put into result buffer: a negative Count value means
+     // to strip off any partially contained start code.
+     int Bite = fragmentLen + (Count >= 0 ? 0 : Count);
+     // put data into result buffer
+     int n = Put(ResultBuffer, fragmentData, Bite, 6 + PacketLen);
+     fragmentLen = 0;
+     if (n != Bite)
+        return false;
+     }
+  else if (pesHeaderLen > 0) { // ... which is contained in the PES header buffer
+     int PacketLen = pesHeaderLen + Count - 6;
+     pesHeader[ 4 ] = PacketLen >> 8;
+     pesHeader[ 5 ] = PacketLen & 0xFF;
+     // just skip packets with no payload
+     int PesPayloadOffset = 0;
+     if (AnalyzePesHeader(pesHeader, pesHeaderLen, PesPayloadOffset) <= phInvalid)
+        printD( LOG_ERROR, "cCommonRepacker: invalid PES packet encountered in header buffer!\n");
+     else if (6 + PacketLen <= PesPayloadOffset) {
+        pesHeaderLen = 0;
+        return true; // skip empty packet
+        }
+     // amount of data to put into result buffer: a negative Count value means
+     // to strip off any partially contained start code.
+     int Bite = pesHeaderLen + (Count >= 0 ? 0 : Count);
+     // put data into result buffer
+     int n = Put(ResultBuffer, pesHeader, Bite, 6 + PacketLen);
+     pesHeaderLen = 0;
+     if (n != Bite)
+        return false;
+     }
+  // append further payload
+  if (Count > 0) {
+     // amount of data to put into result buffer
+     int Bite = Count;
+     // put data into result buffer
+     int n = Put(ResultBuffer, Data, Bite, Bite);
+     if (n != Bite)
+        return false;
+     }
+  // we did it ;-)
+  return true;
+}
+
+// --- cVideoRepacker --------------------------------------------------------
+
+class cVideoRepacker : public cCommonRepacker {
+private:
+  enum eState {
+    syncing,
+    findPicture,
+    scanPicture
+    } state;
+public:
+  cVideoRepacker(void);
+  virtual void Reset(void);
+  virtual void Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count);
+  virtual int BreakAt(const uchar *Data, int Count);
+  };
+
+cVideoRepacker::cVideoRepacker(void)
+{
+  Reset();
+}
+
+void cVideoRepacker::Reset(void)
+{
+  cCommonRepacker::Reset();
+  scanner = 0xFFFFFFFF;
+  state = syncing;
+}
+
+void cVideoRepacker::Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count)
+{
+  // synchronisation is detected some bytes after frame start.
+  const int SkippedBytesLimit = 4;
+
+  // reset local scanner
+  localStart = -1;
+
+  int pesPayloadOffset = 0;
+  bool continuationHeader = false;
+  ePesHeader mpegLevel = AnalyzePesHeader(Data, Count, pesPayloadOffset, &continuationHeader);
+  if (mpegLevel <= phInvalid) {
+     DroppedData("cVideoRepacker: no valid PES packet header found", Count);
+     return;
+     }
+  if (!continuationHeader) {
+    // backup PES header
+    pesHeaderBackupLen = pesPayloadOffset;
+    memcpy(pesHeaderBackup, Data, pesHeaderBackupLen);
+    }
+
+  // skip PES header
+  int done = pesPayloadOffset;
+  int todo = Count - done;
+  const uchar *data = Data + done;
+  // remember start of the data
+  const uchar *payload = data;
+
+  while (todo > 0) {
+        // collect number of skipped bytes while syncing
+        if (state <= syncing)
+           skippedBytes++;
+        // did we reach a start code?
+        scanner <<= 8;
+        if (scanner != 0x00000100)
+           scanner |= *data;
+        else {
+           scanner |= *data;
+
+           // which kind of start code have we got?
+           switch (*data) {
+             case 0xB9 ... 0xFF: // system start codes
+                  printD( LOG_ERROR, "cVideoRepacker: found system start code: stream seems to be scrambled or not demultiplexed\n");
+                  break;
+             case 0xB0 ... 0xB1: // reserved start codes
+             case 0xB6:
+                  printD( LOG_ERROR, "cVideoRepacker: found reserved start code: stream seems to be scrambled\n");
+                  break;
+             case 0xB4: // sequence error code
+                  printD( LOG_INFO, "cVideoRepacker: found sequence error code: stream seems to be damaged\n");
+             case 0xB2: // user data start code
+             case 0xB5: // extension start code
+                  break;
+             case 0xB7: // sequence end code
+             case 0xB3: // sequence header code
+             case 0xB8: // group start code
+             case 0x00: // picture start code
+                  if (state == scanPicture) {
+                     // the above start codes indicate that the current picture is done. So
+                     // push out the packet to start a new packet for the next picuture. If
+                     // the byte count get's negative then the current buffer ends in a
+                     // partitial start code that must be stripped off, as it shall be put
+                     // in the next packet.
+                     PushOutPacket(ResultBuffer, payload, data - 3 - payload);
+                     // go on with syncing to the next picture
+                     state = syncing;
+                     }
+                  if (state == syncing) {
+                     if (initiallySyncing) // omit report for the typical initial case
+                        initiallySyncing = false;
+                     else if (skippedBytes > SkippedBytesLimit) // report that syncing dropped some bytes
+                        printD( LOG_ERROR, "cVideoRepacker: skipped %d bytes to sync on next picture", skippedBytes - SkippedBytesLimit);
+                     skippedBytes = 0;
+                     // if there is a PES header available, then use it ...
+                     if (pesHeaderBackupLen > 0) {
+                        // ISO 13818-1 says:
+                        // In the case of video, if a PTS is present in a PES packet header
+                        // it shall refer to the access unit containing the first picture start
+                        // code that commences in this PES packet. A picture start code commences
+                        // in PES packet if the first byte of the picture start code is present
+                        // in the PES packet.
+                        memcpy(pesHeader, pesHeaderBackup, pesHeaderBackupLen);
+                        pesHeaderLen = pesHeaderBackupLen;
+                        pesHeaderBackupLen = 0;
+                        }
+                     else {
+                        // ... otherwise create a continuation PES header
+                        pesHeaderLen = 0;
+                        pesHeader[pesHeaderLen++] = 0x00;
+                        pesHeader[pesHeaderLen++] = 0x00;
+                        pesHeader[pesHeaderLen++] = 0x01;
+                        pesHeader[pesHeaderLen++] = Data[3]; // video stream ID
+                        pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+                        pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+
+                        if (mpegLevel == phMPEG2) {
+                           pesHeader[pesHeaderLen++] = 0x80;
+                           pesHeader[pesHeaderLen++] = 0x00;
+                           pesHeader[pesHeaderLen++] = 0x00;
+                           }
+                        else
+                           pesHeader[pesHeaderLen++] = 0x0F;
+                        }
+                     // append the first three bytes of the start code
+                     pesHeader[pesHeaderLen++] = 0x00;
+                     pesHeader[pesHeaderLen++] = 0x00;
+                     pesHeader[pesHeaderLen++] = 0x01;
+                     // the next packet's payload will begin with the fourth byte of
+                     // the start code (= the actual code)
+                     payload = data;
+                     // as there is no length information available, assume the
+                     // maximum we can hold in one PES packet
+                     packetTodo = maxPacketSize - pesHeaderLen;
+                     // go on with finding the picture data
+                     ((int &)state)++;
+                     }
+                  break;
+             case 0x01 ... 0xAF: // slice start codes
+                  if (state == findPicture) {
+                     // go on with scanning the picture data
+                     ((int &)state)++;
+                     }
+                  break;
+             }
+           }
+        data++;
+        done++;
+        todo--;
+        // do we have to start a new packet as there is no more space left?
+        if (state != syncing && --packetTodo <= 0) {
+           // we connot start a new packet here if the current might end in a start
+           // code and this start code shall possibly be put in the next packet. So
+           // overfill the current packet until we can safely detect that we won't
+           // break a start code into pieces:
+           //
+           // A) the last four bytes were a start code.
+           // B) the current byte introduces a start code.
+           // C) the last three bytes begin a start code.
+           //
+           // Todo : Data                          : Rule : Result
+           // -----:-------------------------------:------:-------
+           //      : XX 00 00 00 01 YY|YY YY YY YY :      :
+           //    0 :                ^^|            : A    : push
+           // -----:-------------------------------:------:-------
+           //      : XX XX 00 00 00 01|YY YY YY YY :      :
+           //    0 :                ^^|            : B    : wait
+           //   -1 :                  |^^          : A    : push
+           // -----:-------------------------------:------:-------
+           //      : XX XX XX 00 00 00|01 YY YY YY :      :
+           //    0 :                ^^|            : C    : wait
+           //   -1 :                  |^^          : B    : wait
+           //   -2 :                  |   ^^       : A    : push
+           // -----:-------------------------------:------:-------
+           //      : XX XX XX XX 00 00|00 01 YY YY :      :
+           //    0 :                ^^|            : C    : wait
+           //   -1 :                  |^^          : C    : wait
+           //   -2 :                  |   ^^       : B    : wait
+           //   -3 :                  |      ^^    : A    : push
+           // -----:-------------------------------:------:-------
+           //      : XX XX XX XX XX 00|00 00 01 YY :      :
+           //    0 :                ^^|            : C    : wait
+           //   -1 :                  |^^          : C    : wait
+           //   -2 :                  |   ^^       :      : push
+           // -----:-------------------------------:------:-------
+           bool A = ((scanner & 0xFFFFFF00) == 0x00000100);
+           bool B = ((scanner &   0xFFFFFF) ==   0x000001);
+           bool C = ((scanner &       0xFF) ==       0x00) && (packetTodo >= -1);
+           if (A || (!B && !C)) {
+              // actually we cannot push out an overfull packet. So we'll have to
+              // adjust the byte count and payload start as necessary. If the byte
+              // count get's negative we'll have to append the excess from fragment's
+              // tail to the next PES header.
+              int bite = data + packetTodo - payload;
+              const uchar *excessData = fragmentData + fragmentLen + bite;
+              // a negative byte count means to drop some bytes from the current
+              // fragment's tail, to not exceed the maximum packet size.
+              PushOutPacket(ResultBuffer, payload, bite);
+              // create a continuation PES header
+              pesHeaderLen = 0;
+              pesHeader[pesHeaderLen++] = 0x00;
+              pesHeader[pesHeaderLen++] = 0x00;
+              pesHeader[pesHeaderLen++] = 0x01;
+              pesHeader[pesHeaderLen++] = Data[3]; // video stream ID
+              pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+              pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+
+              if (mpegLevel == phMPEG2) {
+                 pesHeader[pesHeaderLen++] = 0x80;
+                 pesHeader[pesHeaderLen++] = 0x00;
+                 pesHeader[pesHeaderLen++] = 0x00;
+                 }
+              else
+                 pesHeader[pesHeaderLen++] = 0x0F;
+
+              // copy any excess data
+              while (bite++ < 0) {
+                    // append the excess data here
+                    pesHeader[pesHeaderLen++] = *excessData++;
+                    packetTodo++;
+                    }
+              // the next packet's payload will begin here
+              payload = data + packetTodo;
+              // as there is no length information available, assume the
+              // maximum we can hold in one PES packet
+              packetTodo += maxPacketSize - pesHeaderLen;
+              }
+           }
+        }
+  // the packet is done. Now store any remaining data into fragment buffer
+  // if we are no longer syncing.
+  if (state != syncing) {
+     // append the PES header ...
+     int bite = pesHeaderLen;
+     pesHeaderLen = 0;
+     if (bite > 0) {
+        memcpy(fragmentData + fragmentLen, pesHeader, bite);
+        fragmentLen += bite;
+        }
+     // append payload. It may contain part of a start code at it's end,
+     // which will be removed when the next packet gets processed.
+     bite = data - payload;
+     if (bite > 0) {
+        memcpy(fragmentData + fragmentLen, payload, bite);
+        fragmentLen += bite;
+        }
+     }
+  // report that syncing dropped some bytes
+  if (skippedBytes > SkippedBytesLimit) {
+     if (!initiallySyncing) // omit report for the typical initial case
+        printD( LOG_ERROR, "cVideoRepacker: skipped %d bytes while syncing on next picture\n", skippedBytes - SkippedBytesLimit);
+     skippedBytes = SkippedBytesLimit;
+     }
+}
+
+int cVideoRepacker::BreakAt(const uchar *Data, int Count)
+{
+  if (initiallySyncing)
+     return -1; // fill the packet buffer completely until we have synced once
+
+  int PesPayloadOffset = 0;
+
+  if (AnalyzePesHeader(Data, Count, PesPayloadOffset) <= phInvalid)
+     return -1; // not enough data for test
+
+  // just detect end of picture
+  if (state == scanPicture) {
+     // setup local scanner
+     if (localStart < 0) {
+        localScanner = scanner;
+        localStart = 0;
+        }
+     // start where we've stopped at the last run
+     const uchar *data = Data + PesPayloadOffset + localStart;
+     const uchar *limit = Data + Count;
+     // scan data
+     while (data < limit) {
+           localStart++;
+           localScanner <<= 8;
+           localScanner |= *data++;
+           // check start codes which follow picture data
+           switch (localScanner) {
+             case 0x00000100: // picture start code
+             case 0x000001B8: // group start code
+             case 0x000001B3: // sequence header code
+             case 0x000001B7: // sequence end code
+                  return data - Data;
+             }
+           }
+     }
+  // just fill up packet and append next start code
+  return PesPayloadOffset + packetTodo + 4;
+}
+
+// --- cAudioRepacker --------------------------------------------------------
+
+class cAudioRepacker : public cCommonRepacker {
+private:
+  static int bitRates[2][3][16];
+  enum eState {
+    syncing,
+    scanFrame
+    } state;
+  int frameTodo;
+  int frameSize;
+  int cid;
+  static bool IsValidAudioHeader(uint32_t Header, bool Mpeg2, int *FrameSize = NULL);
+public:
+  cAudioRepacker(int Cid);
+  virtual void Reset(void);
+  virtual void Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count);
+  virtual int BreakAt(const uchar *Data, int Count);
+  };
+
+int cAudioRepacker::bitRates[2][3][16] = { // all values are specified as kbits/s
+  {
+    { 0,  32,  64,  96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1 }, // MPEG 1, Layer I
+    { 0,  32,  48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 384, -1 }, // MPEG 1, Layer II
+    { 0,  32,  40,  48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, -1 }  // MPEG 1, Layer III
+  },
+  {
+    { 0,  32,  48,  56,  64,  80,  96, 112, 128, 144, 160, 176, 192, 224, 256, -1 }, // MPEG 2, Layer I
+    { 0,   8,  16,  24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, -1 }, // MPEG 2, Layer II/III
+    { 0,   8,  16,  24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, -1 }  // MPEG 2, Layer II/III
+  }
+  };
+
+cAudioRepacker::cAudioRepacker(int Cid)
+{
+  cid = Cid;
+  Reset();
+}
+
+void cAudioRepacker::Reset(void)
+{
+  cCommonRepacker::Reset();
+  scanner = 0;
+  state = syncing;
+  frameTodo = 0;
+  frameSize = 0;
+}
+
+bool cAudioRepacker::IsValidAudioHeader(uint32_t Header, bool Mpeg2, int *FrameSize)
+{
+  int syncword           = (Header & 0xFFF00000) >> 20;
+  int id                 = (Header & 0x00080000) >> 19;
+  int layer              = (Header & 0x00060000) >> 17;
+//int protection_bit     = (Header & 0x00010000) >> 16;
+  int bitrate_index      = (Header & 0x0000F000) >> 12;
+  int sampling_frequency = (Header & 0x00000C00) >> 10;
+  int padding_bit        = (Header & 0x00000200) >>  9;
+//int private_bit        = (Header & 0x00000100) >>  8;
+//int mode               = (Header & 0x000000C0) >>  6;
+//int mode_extension     = (Header & 0x00000030) >>  4;
+//int copyright          = (Header & 0x00000008) >>  3;
+//int orignal_copy       = (Header & 0x00000004) >>  2;
+  int emphasis           = (Header & 0x00000003);
+
+  if (syncword != 0xFFF)
+     return false;
+
+  if (id == 0 && !Mpeg2) // reserved in MPEG 1
+     return false;
+
+  if (layer == 0) // reserved
+     return false;
+
+  if (bitrate_index == 0xF) // forbidden
+     return false;
+
+  if (sampling_frequency == 3) // reserved
+     return false;
+
+  if (emphasis == 2) // reserved
+     return false;
+
+  if (FrameSize) {
+     if (bitrate_index == 0)
+        *FrameSize = 0;
+     else {
+        static int samplingFrequencies[2][4] = { // all values are specified in Hz
+          { 44100, 48000, 32000, -1 }, // MPEG 1
+          { 22050, 24000, 16000, -1 }  // MPEG 2
+          };
+
+        static int slots_per_frame[2][3] = {
+          { 12, 144, 144 }, // MPEG 1, Layer I, II, III
+          { 12, 144,  72 }  // MPEG 2, Layer I, II, III
+          };
+
+        int mpegIndex = 1 - id;
+        int layerIndex = 3 - layer;
+
+        // Layer I (i. e., layerIndex == 0) has a larger slot size
+        int slotSize = (layerIndex == 0) ? 4 : 1; // bytes
+
+        int br = 1000 * bitRates[mpegIndex][layerIndex][bitrate_index]; // bits/s
+        int sf = samplingFrequencies[mpegIndex][sampling_frequency];
+
+        int N = slots_per_frame[mpegIndex][layerIndex] * br / sf; // slots
+
+        *FrameSize = (N + padding_bit) * slotSize; // bytes
+        }
+     }
+
+  return true;
+}
+
+void cAudioRepacker::Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count)
+{
+  // synchronisation is detected some bytes after frame start.
+  const int SkippedBytesLimit = 4;
+
+  // reset local scanner
+  localStart = -1;
+
+  int pesPayloadOffset = 0;
+  bool continuationHeader = false;
+  ePesHeader mpegLevel = AnalyzePesHeader(Data, Count, pesPayloadOffset, &continuationHeader);
+  if (mpegLevel <= phInvalid) {
+     DroppedData("cAudioRepacker: no valid PES packet header found", Count);
+     return;
+     }
+  if (!continuationHeader) {
+     // backup PES header
+     pesHeaderBackupLen = pesPayloadOffset;
+     memcpy(pesHeaderBackup, Data, pesHeaderBackupLen);
+     }
+
+  // skip PES header
+  int done = pesPayloadOffset;
+  int todo = Count - done;
+  const uchar *data = Data + done;
+  // remember start of the data
+  const uchar *payload = data;
+
+  while (todo > 0) {
+        // collect number of skipped bytes while syncing
+        if (state <= syncing)
+           skippedBytes++;
+        // did we reach an audio frame header?
+        scanner <<= 8;
+        scanner |= *data;
+        if ((scanner & 0xFFF00000) == 0xFFF00000) {
+           if (frameTodo <= 0 && (frameSize == 0 || skippedBytes >= 4) && IsValidAudioHeader(scanner, mpegLevel == phMPEG2, &frameSize)) {
+              if (state == scanFrame) {
+                 // As a new audio frame starts here, the previous one is done. So push
+                 // out the packet to start a new packet for the next audio frame. If
+                 // the byte count gets negative then the current buffer ends in a
+                 // partitial audio frame header that must be stripped off, as it shall
+                 // be put in the next packet.
+                 PushOutPacket(ResultBuffer, payload, data - 3 - payload);
+                 // go on with syncing to the next audio frame
+                 state = syncing;
+                 }
+              if (state == syncing) {
+                 if (initiallySyncing) // omit report for the typical initial case
+                    initiallySyncing = false;
+                 else if (skippedBytes > SkippedBytesLimit) // report that syncing dropped some bytes
+                    printD( LOG_ERROR, "cAudioRepacker(0x%02X): skipped %d bytes to sync on next audio frame\n", cid, skippedBytes - SkippedBytesLimit);
+                 skippedBytes = 0;
+                 // if there is a PES header available, then use it ...
+                 if (pesHeaderBackupLen > 0) {
+                    // ISO 13818-1 says:
+                    // In the case of audio, if a PTS is present in a PES packet header
+                    // it shall refer to the access unit commencing in the PES packet. An
+                    // audio access unit commences in a PES packet if the first byte of
+                    // the audio access unit is present in the PES packet.
+                    memcpy(pesHeader, pesHeaderBackup, pesHeaderBackupLen);
+                    pesHeaderLen = pesHeaderBackupLen;
+                    pesHeaderBackupLen = 0;
+                    }
+                 else {
+                    // ... otherwise create a continuation PES header
+                    pesHeaderLen = 0;
+                    pesHeader[pesHeaderLen++] = 0x00;
+                    pesHeader[pesHeaderLen++] = 0x00;
+                    pesHeader[pesHeaderLen++] = 0x01;
+                    pesHeader[pesHeaderLen++] = Data[3]; // audio stream ID
+                    pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+                    pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+
+                    if (mpegLevel == phMPEG2) {
+                       pesHeader[pesHeaderLen++] = 0x80;
+                       pesHeader[pesHeaderLen++] = 0x00;
+                       pesHeader[pesHeaderLen++] = 0x00;
+                       }
+                    else
+                       pesHeader[pesHeaderLen++] = 0x0F;
+                    }
+                 // append the first three bytes of the audio frame header
+                 pesHeader[pesHeaderLen++] = 0xFF;
+                 pesHeader[pesHeaderLen++] = (scanner >> 16) & 0xFF;
+                 pesHeader[pesHeaderLen++] = (scanner >>  8) & 0xFF;
+                 // the next packet's payload will begin with the fourth byte of
+                 // the audio frame header (= the actual byte)
+                 payload = data;
+                 // maximum we can hold in one PES packet
+                 packetTodo = maxPacketSize - pesHeaderLen;
+                 // expected remainder of audio frame: so far we have read 3 bytes from the frame header 
+                 frameTodo = frameSize - 3;
+                 // go on with collecting the frame's data
+                 ((int &)state)++;
+                 }
+              }
+           }
+        data++;
+        done++;
+        todo--;
+        // do we have to start a new packet as the current is done?
+        if (frameTodo > 0) {
+           if (--frameTodo == 0) {
+              // the current audio frame is is done now. So push out the packet to
+              // start a new packet for the next audio frame.
+              PushOutPacket(ResultBuffer, payload, data - payload);
+              // go on with syncing to the next audio frame
+              state = syncing;
+              }
+           }
+        // do we have to start a new packet as there is no more space left?
+        if (state != syncing && --packetTodo <= 0) {
+           // We connot start a new packet here if the current might end in an audio
+           // frame header and this header shall possibly be put in the next packet. So
+           // overfill the current packet until we can safely detect that we won't
+           // break an audio frame header into pieces:
+           //
+           // A) the last four bytes were an audio frame header.
+           // B) the last three bytes introduce an audio frame header.
+           // C) the last two bytes introduce an audio frame header.
+           // D) the last byte introduces an audio frame header.
+           //
+           // Todo : Data                          : Rule : Result
+           // -----:-------------------------------:------:-------
+           //      : XX XX FF Fz zz zz|YY YY YY YY :      :
+           //    0 :                ^^|            : A    : push
+           // -----:-------------------------------:------:-------
+           //      : XX XX XX FF Fz zz|zz YY YY YY :      :
+           //    0 :                ^^|            : B    : wait
+           //   -1 :                  |^^          : A    : push
+           // -----:-------------------------------:------:-------
+           //      : XX XX XX XX FF Fz|zz zz YY YY :      :
+           //    0 :                ^^|            : C    : wait
+           //   -1 :                  |^^          : B    : wait
+           //   -2 :                  |   ^^       : A    : push
+           // -----:-------------------------------:------:-------
+           //      : XX XX XX XX XX FF|Fz zz zz YY :      :
+           //    0 :                ^^|            : D    : wait
+           //   -1 :                  |^^          : C    : wait
+           //   -2 :                  |   ^^       : B    : wait
+           //   -3 :                  |      ^^    : A    : push
+           // -----:-------------------------------:------:-------
+           bool A = ((scanner & 0xFFF00000) == 0xFFF00000);
+           bool B = ((scanner &   0xFFF000) ==   0xFFF000);
+           bool C = ((scanner &     0xFFF0) ==     0xFFF0);
+           bool D = ((scanner &       0xFF) ==       0xFF);
+           if (A || (!B && !C && !D)) {
+              // Actually we cannot push out an overfull packet. So we'll have to
+              // adjust the byte count and payload start as necessary. If the byte
+              // count gets negative we'll have to append the excess from fragment's
+              // tail to the next PES header.
+              int bite = data + packetTodo - payload;
+              const uchar *excessData = fragmentData + fragmentLen + bite;
+              // A negative byte count means to drop some bytes from the current
+              // fragment's tail, to not exceed the maximum packet size.
+              PushOutPacket(ResultBuffer, payload, bite);
+              // create a continuation PES header
+              pesHeaderLen = 0;
+              pesHeader[pesHeaderLen++] = 0x00;
+              pesHeader[pesHeaderLen++] = 0x00;
+              pesHeader[pesHeaderLen++] = 0x01;
+              pesHeader[pesHeaderLen++] = Data[3]; // audio stream ID
+              pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+              pesHeader[pesHeaderLen++] = 0x00; // length still unknown
+
+              if (mpegLevel == phMPEG2) {
+                 pesHeader[pesHeaderLen++] = 0x80;
+                 pesHeader[pesHeaderLen++] = 0x00;
+                 pesHeader[pesHeaderLen++] = 0x00;
+                 }
+              else
+                 pesHeader[pesHeaderLen++] = 0x0F;
+
+              // copy any excess data
+              while (bite++ < 0) {
+                    // append the excess data here
+                    pesHeader[pesHeaderLen++] = *excessData++;
+                    packetTodo++;
+                    }
+              // the next packet's payload will begin here
+              payload = data + packetTodo;
+              // as there is no length information available, assume the
+              // maximum we can hold in one PES packet
+              packetTodo += maxPacketSize - pesHeaderLen;
+              }
+           }
+        }
+  // The packet is done. Now store any remaining data into fragment buffer
+  // if we are no longer syncing.
+  if (state != syncing) {
+     // append the PES header ...
+     int bite = pesHeaderLen;
+     pesHeaderLen = 0;
+     if (bite > 0) {
+        memcpy(fragmentData + fragmentLen, pesHeader, bite);
+        fragmentLen += bite;
+        }
+     // append payload. It may contain part of an audio frame header at it's
+     // end, which will be removed when the next packet gets processed.
+     bite = data - payload;
+     if (bite > 0) {
+        memcpy(fragmentData + fragmentLen, payload, bite);
+        fragmentLen += bite;
+        }
+     }
+  // report that syncing dropped some bytes
+  if (skippedBytes > SkippedBytesLimit) {
+     if (!initiallySyncing) // omit report for the typical initial case
+        printD( LOG_ERROR, "cAudioRepacker(0x%02X): skipped %d bytes while syncing on next audio frame\n", cid, skippedBytes - SkippedBytesLimit);
+     skippedBytes = SkippedBytesLimit;
+     }
+}
+
+int cAudioRepacker::BreakAt(const uchar *Data, int Count)
+{
+  if (initiallySyncing)
+     return -1; // fill the packet buffer completely until we have synced once
+
+  int PesPayloadOffset = 0;
+
+  ePesHeader MpegLevel = AnalyzePesHeader(Data, Count, PesPayloadOffset);
+  if (MpegLevel <= phInvalid)
+     return -1; // not enough data for test
+
+  // determine amount of data to fill up packet and to append next audio frame header
+  int packetRemainder = PesPayloadOffset + packetTodo + 4;
+
+  // just detect end of an audio frame
+  if (state == scanFrame) {
+     // when remaining audio frame size is known, then omit scanning
+     if (frameTodo > 0) {
+        // determine amount of data to fill up audio frame and to append next audio frame header
+        int remaining = PesPayloadOffset + frameTodo + 4;
+        if (remaining < packetRemainder)
+           return remaining;
+        return packetRemainder;
+        }
+     // setup local scanner
+     if (localStart < 0) {
+        localScanner = scanner;
+        localStart = 0;
+        }
+     // start where we've stopped at the last run
+     const uchar *data = Data + PesPayloadOffset + localStart;
+     const uchar *limit = Data + Count;
+     // scan data
+     while (data < limit) {
+           localStart++;
+           localScanner <<= 8;
+           localScanner |= *data++;
+           // check whether the next audio frame follows
+           if (((localScanner & 0xFFF00000) == 0xFFF00000) && IsValidAudioHeader(localScanner, MpegLevel == phMPEG2))
+              return data - Data;
+           }
+     }
+  // just fill up packet and append next audio frame header
+  return packetRemainder;
+}
 
 // --- cDolbyRepacker --------------------------------------------------------
 
@@ -75,14 +920,15 @@ private:
     get_length,
     output_packet
     } state;
+  int skippedBytes;
   void ResetPesHeader(bool ContinuationFrame = false);
   void AppendSubStreamID(bool ContinuationFrame = false);
-  bool FinishRemainder(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Done, int &Bite);
-  bool StartNewPacket(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Done, int &Bite);
+  bool FinishRemainder(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Bite);
+  bool StartNewPacket(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Bite);
 public:
   cDolbyRepacker(void);
   virtual void Reset(void);
-  virtual int Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count);
+  virtual void Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count);
   virtual int BreakAt(const uchar *Data, int Count);
   };
 
@@ -145,6 +991,7 @@ void cDolbyRepacker::ResetPesHeader(bool ContinuationFrame)
 
 void cDolbyRepacker::Reset(void)
 {
+  cRepacker::Reset();
   ResetPesHeader();
   state = find_0b;
   ac3todo = 0;
@@ -153,28 +1000,27 @@ void cDolbyRepacker::Reset(void)
   fragmentLen = 0;
   fragmentTodo = 0;
   pesHeaderBackupLen = 0;
+  skippedBytes = 0;
 }
 
-bool cDolbyRepacker::FinishRemainder(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Done, int &Bite)
+bool cDolbyRepacker::FinishRemainder(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Bite)
 {
+  bool success = true;
   // enough data available to put PES packet into buffer?
   if (fragmentTodo <= Todo) {
      // output a previous fragment first
      if (fragmentLen > 0) {
         Bite = fragmentLen;
-        int n = ResultBuffer->Put(fragmentData, Bite);
-        if (Bite != n) {
-           Reset();
-           return false;
-           }
+        int n = Put(ResultBuffer, fragmentData, Bite, fragmentLen + fragmentTodo);
+        if (Bite != n)
+           success = false;
         fragmentLen = 0;
         }
      Bite = fragmentTodo;
-     int n = ResultBuffer->Put(Data, Bite);
-     if (Bite != n) {
-        Reset();
-        Done += n;
-        return false;
+     if (success) {
+        int n = Put(ResultBuffer, Data, Bite, Bite);
+        if (Bite != n)
+           success = false;
         }
      fragmentTodo = 0;
      // ac3 frame completely processed?
@@ -184,19 +1030,16 @@ bool cDolbyRepacker::FinishRemainder(cRingBufferLinear *ResultBuffer, const ucha
   else {
      // copy the fragment into separate buffer for later processing
      Bite = Todo;
-     if (fragmentLen + Bite > (int)sizeof(fragmentData)) {
-        Reset();
-        return false;
-        }
      memcpy(fragmentData + fragmentLen, Data, Bite);
      fragmentLen += Bite;
      fragmentTodo -= Bite;
      }
-  return true;
+  return success;
 }
 
-bool cDolbyRepacker::StartNewPacket(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Done, int &Bite)
+bool cDolbyRepacker::StartNewPacket(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Bite)
 {
+  bool success = true;
   int packetLen = pesHeaderLen + ac3todo;
   // limit packet to maximum size
   if (packetLen > maxPacketSize)
@@ -206,17 +1049,14 @@ bool cDolbyRepacker::StartNewPacket(cRingBufferLinear *ResultBuffer, const uchar
   Bite = pesHeaderLen;
   // enough data available to put PES packet into buffer?
   if (packetLen - pesHeaderLen <= Todo) {
-     int n = ResultBuffer->Put(pesHeader, Bite);
-     if (Bite != n) {
-        Reset();
-        return false;
-        }
+     int n = Put(ResultBuffer, pesHeader, Bite, packetLen);
+     if (Bite != n)
+        success = false;
      Bite = packetLen - pesHeaderLen;
-     n = ResultBuffer->Put(Data, Bite);
-     if (Bite != n) {
-        Reset();
-        Done += n;
-        return false;
+     if (success) {
+        n = Put(ResultBuffer, Data, Bite, Bite);
+        if (Bite != n)
+           success = false;
         }
      // ac3 frame completely processed?
      if (Bite >= ac3todo)
@@ -225,31 +1065,28 @@ bool cDolbyRepacker::StartNewPacket(cRingBufferLinear *ResultBuffer, const uchar
   else {
      fragmentTodo = packetLen;
      // copy the pesheader into separate buffer for later processing
-     if (fragmentLen + Bite > (int)sizeof(fragmentData)) {
-        Reset();
-        return false;
-        }
      memcpy(fragmentData + fragmentLen, pesHeader, Bite);
      fragmentLen += Bite;
      fragmentTodo -= Bite;
      // copy the fragment into separate buffer for later processing
      Bite = Todo;
-     if (fragmentLen + Bite > (int)sizeof(fragmentData)) {
-        Reset();
-        return false;
-        }
      memcpy(fragmentData + fragmentLen, Data, Bite);
      fragmentLen += Bite;
      fragmentTodo -= Bite;
      }
-  return true;
+  return success;
 }
 
-int cDolbyRepacker::Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count)
+void cDolbyRepacker::Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count)
 {
+  // synchronisation is detected some bytes after frame start.
+  const int SkippedBytesLimit = 4;
+
   // check for MPEG 2
-  if ((Data[6] & 0xC0) != 0x80)
-     return 0;
+  if ((Data[6] & 0xC0) != 0x80) {
+     DroppedData("cDolbyRepacker: MPEG 2 PES header expected", Count);
+     return;
+     }
 
   // backup PES header
   if (Data[6] != 0x80 || Data[7] != 0x00 || Data[8] != 0x00) {
@@ -279,6 +1116,7 @@ int cDolbyRepacker::Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int 
                data++;
                done++;
                todo--;
+               skippedBytes++; // collect number of skipped bytes while syncing
                continue;
           case find_77:
                if (*data != 0x77) {
@@ -288,18 +1126,21 @@ int cDolbyRepacker::Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int 
                data++;
                done++;
                todo--;
+               skippedBytes++; // collect number of skipped bytes while syncing
                ++(int &)state;
                continue;
           case store_chk1:
                chk1 = *data++;
                done++;
                todo--;
+               skippedBytes++; // collect number of skipped bytes while syncing
                ++(int &)state;
                continue;
           case store_chk2:
                chk2 = *data++;
                done++;
                todo--;
+               skippedBytes++; // collect number of skipped bytes while syncing
                ++(int &)state;
                continue;
           case get_length:
@@ -327,6 +1168,11 @@ int cDolbyRepacker::Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int 
                   state = find_0b;
                   continue;
                   }
+               if (initiallySyncing) // omit report for the typical initial case
+                  initiallySyncing = false;
+               else if (skippedBytes > SkippedBytesLimit) // report that syncing dropped some bytes
+                  printD( LOG_ERROR, "cDolbyRepacker: skipped %d bytes to sync on next AC3 frame\n", skippedBytes - SkippedBytesLimit);
+               skippedBytes = 0;
                // append read data to header for common output processing
                pesHeader[pesHeaderLen++] = 0x0B;
                pesHeader[pesHeaderLen++] = 0x77;
@@ -338,14 +1184,11 @@ int cDolbyRepacker::Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int 
           case output_packet: {
                int bite = 0;
                // finish remainder of ac3 frame?
-               if (fragmentTodo > 0) {
-                  if (!FinishRemainder(ResultBuffer, data, todo, done, bite))
-                     return done;
-                  }
+               if (fragmentTodo > 0)
+                  FinishRemainder(ResultBuffer, data, todo, bite);
                else {
                   // start a new packet
-                  if (!StartNewPacket(ResultBuffer, data, todo, done, bite))
-                     return done;
+                  StartNewPacket(ResultBuffer, data, todo, bite);
                   // prepare for next (continuation) packet
                   ResetPesHeader(state == output_packet);
                   }
@@ -356,11 +1199,18 @@ int cDolbyRepacker::Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int 
                }
           }
         }
-  return Count;
+  // report that syncing dropped some bytes
+  if (skippedBytes > SkippedBytesLimit) {
+     if (!initiallySyncing) // omit report for the typical initial case
+        printD( LOG_ERROR, "cDolbyRepacker: skipped %d bytes while syncing on next AC3 frame\n", skippedBytes - 4);
+     skippedBytes = SkippedBytesLimit;
+     }
 }
 
 int cDolbyRepacker::BreakAt(const uchar *Data, int Count)
 {
+  if (initiallySyncing)
+     return -1; // fill the packet buffer completely until we have synced once
   // enough data for test?
   if (Count < 6 + 3)
      return -1;
@@ -406,7 +1256,6 @@ int cDolbyRepacker::BreakAt(const uchar *Data, int Count)
 
 //pts_dts flags
 #define PTS_ONLY         0x80
-#define PTS_DTS          0xC0
 
 #define TS_SIZE        188
 #define PID_MASK_HI    0x1F
@@ -422,9 +1271,6 @@ int cDolbyRepacker::BreakAt(const uchar *Data, int Count)
 
 #define IPACKS 2048
 
-// 22500 is a wild guess! 90000 == 1 second
-#define PTS_SPARE      22500LL
-
 // Start codes:
 #define SC_PICTURE 0x00  // "picture header"
 
@@ -439,7 +1285,7 @@ private:
   int count;
   uint8_t *buf;
   uint8_t cid;
-  uint8_t audioCid;
+  uint8_t rewriteCid;
   uint8_t subStreamId;
   int plength;
   uint8_t plen[2];
@@ -448,16 +1294,14 @@ private:
   uint8_t hlength;
   int mpeg;
   uint8_t check;
-  int which;
+  int mpeg1_required;
+  int mpeg1_stuffing;
   bool done;
   cRingBufferLinear *resultBuffer;
   int tsErrors;
   int ccErrors;
   int ccCounter;
   cRepacker *repacker;
-  std::map< uint8_t, long long int > cid2fPTS;
-  std::map< uint8_t, long long int > cid2lastNewPTS;
-  long long int newPTS;
   static uint8_t headr[];
   void store(uint8_t *Data, int Count);
   void reset_ipack(void);
@@ -465,7 +1309,7 @@ private:
   void write_ipack(const uint8_t *Data, int Count);
   void instant_repack(const uint8_t *Buf, int Count);
 public:
-  cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t AudioCid = 0x00, uint8_t SubStreamId = 0x00, cRepacker *Repacker = NULL);
+  cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t RewriteCid = 0x00, uint8_t SubStreamId = 0x00, cRepacker *Repacker = NULL);
   ~cTS2PES();
   int Pid(void) { return pid; }
   void ts_to_pes(const uint8_t *Buf); // don't need count (=188)
@@ -474,17 +1318,18 @@ public:
 
 uint8_t cTS2PES::headr[] = { 0x00, 0x00, 0x01 };
 
-cTS2PES::cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t AudioCid, uint8_t SubStreamId, cRepacker *Repacker)
+cTS2PES::cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t RewriteCid, uint8_t SubStreamId, cRepacker *Repacker)
 {
   pid = Pid;
   resultBuffer = ResultBuffer;
   size = Size;
-  audioCid = AudioCid;
+  rewriteCid = RewriteCid;
   subStreamId = SubStreamId;
   repacker = Repacker;
   if (repacker) {
      repacker->SetMaxPacketSize(size);
      repacker->SetSubStreamId(subStreamId);
+     size += repacker->QuerySnoopSize();
      }
 
   tsErrors = 0;
@@ -492,9 +1337,7 @@ cTS2PES::cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t Aud
   ccCounter = -1;
 
   if (!(buf = (uint8_t*)malloc(sizeof(uint8_t)*size)))
-     printD( LOG_ERROR, "Not enough memory for ts_transform\n");
-
-  newPTS = 0;
+    printD( LOG_ERROR, "Not enough memory for ts_transform\n");
 
   reset_ipack();
 }
@@ -502,7 +1345,7 @@ cTS2PES::cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t Aud
 cTS2PES::~cTS2PES()
 {
   if (tsErrors || ccErrors)
-     printD( LOG_INFO, "cTS2PES got %d TS errors, %d TS continuity errors\n", tsErrors, ccErrors);
+     printD( LOG_DEBUG_REMUX, "cTS2PES got %d TS errors, %d TS continuity errors\n", tsErrors, ccErrors);
   free(buf);
   delete repacker;
 }
@@ -516,9 +1359,10 @@ void cTS2PES::Clear(void)
 
 void cTS2PES::store(uint8_t *Data, int Count)
 {
-  int n = repacker ? repacker->Put(resultBuffer, Data, Count) : resultBuffer->Put(Data, Count);
-  if (n != Count)
-     printD( LOG_ERROR, "ERROR: result buffer overflow, dropped %d out of %d byte\n", Count - n, Count);
+  if (repacker)
+     repacker->Repack(resultBuffer, Data, Count);
+  else
+     cRepacker::Put(resultBuffer, Data, Count, Count);
 }
 
 void cTS2PES::reset_ipack(void)
@@ -531,16 +1375,17 @@ void cTS2PES::reset_ipack(void)
   hlength = 0;
   mpeg = 0;
   check = 0;
-  which = 0;
+  mpeg1_required = 0;
+  mpeg1_stuffing = 0;
   done = false;
   count = 0;
 }
 
 void cTS2PES::send_ipack(void)
 {
-  if (count < 10)
+  if (count <= ((mpeg == 2) ? 9 : 7)) // skip empty packets
      return;
-  buf[3] = (AUDIO_STREAM_S <= cid && cid <= AUDIO_STREAM_E && audioCid) ? audioCid : cid;
+  buf[3] = rewriteCid ? rewriteCid : cid;
   buf[4] = (uint8_t)(((count - 6) & 0xFF00) >> 8);
   buf[5] = (uint8_t)((count - 6) & 0x00FF);
   store(buf, count);
@@ -615,7 +1460,7 @@ void cTS2PES::instant_repack(const uint8_t *Buf, int Count)
 {
   int c = 0;
 
-  while (c < Count && (mpeg == 0 || (mpeg == 1 && found < 7) || (mpeg == 2 && found < 9)) && (found < 5 || !done)) {
+  while (c < Count && (mpeg == 0 || (mpeg == 1 && found < mpeg1_required) || (mpeg == 2 && found < 9)) && (found < 5 || !done)) {
         switch (found ) {
           case 0:
           case 1:
@@ -661,6 +1506,7 @@ void cTS2PES::instant_repack(const uint8_t *Buf, int Count)
                      plength = ntohs(*pl);
                      c += 2;
                      found += 2;
+                     mpeg1_stuffing = 0;
                      }
                   else {
                      plen[0] = Buf[c];
@@ -673,32 +1519,54 @@ void cTS2PES::instant_repack(const uint8_t *Buf, int Count)
                     unsigned short *pl = (unsigned short *)plen;
                     plength = ntohs(*pl);
                     found++;
+                    mpeg1_stuffing = 0;
                   }
                   break;
           case 6:
                   if (!done) {
                      flag1 = Buf[c++];
                      found++;
-                     if ((flag1 & 0xC0) == 0x80 )
-                        mpeg = 2;
-                     else {
-                        hlength = 0;
-                        which = 0;
-                        mpeg = 1;
-                        flag2 = 0;
+                     if (mpeg1_stuffing == 0) { // first stuffing iteration: determine MPEG level
+                        if ((flag1 & 0xC0) == 0x80)
+                           mpeg = 2;
+                        else {
+                           mpeg = 1;
+                           mpeg1_required = 7;
+                           }
+                        }
+                     if (mpeg == 1) {
+                        if (flag1 == 0xFF) { // MPEG1 stuffing
+                           if (++mpeg1_stuffing > 16)
+                              found = 0; // invalid MPEG1 header
+                           else { // ignore stuffing
+                              found--;
+                              if (plength > 0)
+                                 plength--;
+                              }
+                           }
+                        else if ((flag1 & 0xC0) == 0x40) // STD_buffer_scale/size
+                           mpeg1_required += 2;
+                        else if (flag1 != 0x0F && (flag1 & 0xF0) != 0x20 && (flag1 & 0xF0) != 0x30)
+                           found = 0; // invalid MPEG1 header
+                        else {
+                           flag2 = 0;
+                           hlength = 0;
+                           }
                         }
                      }
                   break;
           case 7:
-                  if (!done && mpeg == 2) {
+                  if (!done && (mpeg == 2 || mpeg1_required > 7)) {
                      flag2 = Buf[c++];
                      found++;
                      }
                   break;
           case 8:
-                  if (!done && mpeg == 2) {
+                  if (!done && (mpeg == 2 || mpeg1_required > 7)) {
                      hlength = Buf[c++];
                      found++;
+                     if (mpeg == 1 && hlength != 0x0F && (hlength & 0xF0) != 0x20 && (hlength & 0xF0) != 0x30)
+                        found = 0; // invalid MPEG1 header
                      }
                   break;
           default:
@@ -709,16 +1577,11 @@ void cTS2PES::instant_repack(const uint8_t *Buf, int Count)
   if (!plength)
      plength = MMAX_PLENGTH - 6;
 
-  if (done || ((mpeg == 2 && found >= 9) || (mpeg == 1 && found >= 7))) {
+  if (done || ((mpeg == 2 && found >= 9) || (mpeg == 1 && found >= mpeg1_required))) {
      switch (cid) {
        case AUDIO_STREAM_S ... AUDIO_STREAM_E:
        case VIDEO_STREAM_S ... VIDEO_STREAM_E:
        case PRIVATE_STREAM1:
-
-// 	 printD( LOG_DEBUG_REMUX, "mpeg=%d found=%d cid=0x%02X flag2=0x%02X  %02X %02X %02X %02X %02X\n", 
-// 		 mpeg, found, cid, flag2,
-// 		 Buf[0], Buf[1], Buf[2], Buf[3], Buf[4]
-// 		 );
 
             if (mpeg == 2 && found == 9) {
                write_ipack(&flag1, 1);
@@ -726,90 +1589,23 @@ void cTS2PES::instant_repack(const uint8_t *Buf, int Count)
                write_ipack(&hlength, 1);
                }
 
-            if (mpeg == 1 && found == 7)
+            if (mpeg == 1 && found == mpeg1_required) {
                write_ipack(&flag1, 1);
+               if (mpeg1_required > 7) {
+                  write_ipack(&flag2, 1);
+                  write_ipack(&hlength, 1);
+                  }
+               }
 
-	    if (mpeg == 2 && (flag2 & PTS_DTS) && found < 14) {
-	      long long int PTS = (
-				   (((((unsigned long long)(Buf[9])) & 0xE) >> 1) << 30) |
-				   (((unsigned long long)(Buf[10])) << 22) |
-				   ((((unsigned long long)(Buf[11])) >> 1) << 15) |
-				   (((unsigned long long)(Buf[12])) << 7) |
-				   (((unsigned long long)(Buf[13])) >> 1)
-				   );
-
-	      // set initially correction value for each cid
-	      if (cid2fPTS.find( cid ) == cid2fPTS.end()) {
-		cid2fPTS[ cid ] = PTS - PTS_SPARE;
-	      }
-
-	      newPTS = PTS - cid2fPTS[ cid ];
-	      if (newPTS < 0) {
-		// newPTS = 0;
-		newPTS = cid2lastNewPTS[ cid ] + 10;  // do not set this to zero ==> breaks video if pts is damaged
-	      }
-
-	      cid2lastNewPTS[ cid ] = newPTS;
-
-	      //        printD( LOG_DEBUG_REMUX, "cid=%02X  PTS=%llu  newPTS=%lld  lastNewPTS=%lld\n",
-	      // 	        cid, PTS, newPTS, cid2lastNewPTS[ cid ] );
-	      //  	printf("PTS: c=%d  Count=%d  found=%d flag1=%02X  flag2=%02X  hlength=%d\n",
-	      //  	       c, Count, found, flag1, flag2, hlength );
-
-	      // 	printf("c=%d  Count=%d  found=%d\n", c, Count, found);
-	      // 	printf("PTS changed!  newPTS = %lld = %llX\n", newPTS, newPTS);
-
-	      // set new PTS
-	      unsigned char x;
-	      x = (0x21 | ((newPTS >> 30) & 0x07));
-	      write_ipack(&x, 1); ++c; ++found;
-	      x = (        (newPTS >> 22) & 0xFF);
-	      write_ipack(&x, 1); ++c; ++found;
-	      x = (0x01 | ((newPTS >> 14) & 0xFE));
-	      write_ipack(&x, 1); ++c; ++found;
-	      x = (        (newPTS >> 7) & 0xFF);
-	      write_ipack(&x, 1); ++c; ++found;
-	      x = (0x01 | ((newPTS << 1) & 0xFF));
-	      write_ipack(&x, 1); ++c; ++found;
-
-	      if (flag2 & 0x40) {
-		long long int DTS = (
-				     (((((unsigned long long)(Buf[14])) & 0xE) >> 1) << 30) |
-				     (((unsigned long long)(Buf[15])) << 22) |
-				     ((((unsigned long long)(Buf[16])) >> 1) << 15) |
-				     (((unsigned long long)(Buf[17])) << 7) |
-				     (((unsigned long long)(Buf[18])) >> 1)
-				     );
-		long long int newDTS = DTS - cid2fPTS[ cid ];
-		if (newDTS < 0) {
-		  newDTS = 0;
-		}
-		// 	  printf("DTS changed!  newDTS = %lld = %llX\n", newDTS, newDTS);
-		// neue DTS setzen
-		unsigned char x;
-		x = (0x21 | ((newDTS >> 30) & 0x07));
-		write_ipack(&x, 1); ++c; ++found;
-		x = (        (newDTS >> 22) & 0xFF);
-		write_ipack(&x, 1); ++c; ++found;
-		x = (0x01 | ((newDTS >> 14) & 0xFE));
-		write_ipack(&x, 1); ++c; ++found;
-		x = (        (newDTS >> 7) & 0xFF);
-		write_ipack(&x, 1); ++c; ++found;
-		x = (0x01 | ((newDTS << 1) & 0xFF));
-		write_ipack(&x, 1); ++c; ++found;
-	      }
-
-	      while (c < Count && found < 14) {
-		//  	  printf("c=%d  Count=%d  found=%d  Buf[c]=%02X\n",
-		//  		 c, Count, found, Buf[c] );
-		write_ipack(Buf + c, 1);
-		c++;
-		found++;
-	      }
-
-	      if (c == Count)
+            if (mpeg == 2 && (flag2 & PTS_ONLY) && found < 14) {
+               while (c < Count && found < 14) {
+                     write_ipack(Buf + c, 1);
+                     c++;
+                     found++;
+                     }
+               if (c == Count)
                   return;
-	    }
+               }
 
             while (c < Count && found < plength + 6) {
                   int l = Count - c;
@@ -862,7 +1658,7 @@ void cTS2PES::ts_to_pes(const uint8_t *Buf) // don't need count (=188)
         // Enable this if you are having problems with signal quality.
         // These are the errors I used to get with Nova-T when antenna
         // was not positioned correcly (not transport errors). //tvr
-        //dsyslog("TS continuity error (%d)", ccCounter);
+        //printD( LOG_DEBUG_REMUX, "TS continuity error (%d)\n", ccCounter);
         }
      ccCounter = Buf[3] & CONT_CNT_MASK;
      }
@@ -889,7 +1685,7 @@ void cTS2PES::ts_to_pes(const uint8_t *Buf) // don't need count (=188)
 
 // --- cRemux ----------------------------------------------------------------
 
-#define RESULTBUFFERSIZE  (256 * 1024)
+#define RESULTBUFFERSIZE (256 * 1024)
 
 cRemux::cRemux(int VPid, const int *APids, const int *DPids, const int *SPids, bool ExitOnFailure)
 {
@@ -903,11 +1699,23 @@ cRemux::cRemux(int VPid, const int *APids, const int *DPids, const int *SPids, b
   resultBuffer = new cRingBufferLinear(RESULTBUFFERSIZE, IPACKS, false, "Result");
   resultBuffer->SetTimeouts(0, 100);
   if (VPid)
-     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS);
+#define TEST_cVideoRepacker
+#ifdef TEST_cVideoRepacker
+     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS, 0xE0, 0x00, new cVideoRepacker);
+#else
+     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS, 0xE0);
+#endif
   if (APids) {
      int n = 0;
-     while (*APids && numTracks < MAXTRACKS && n < MAXAPIDS)
+     while (*APids && numTracks < MAXTRACKS && n < MAXAPIDS) {
+#define TEST_cAudioRepacker
+#ifdef TEST_cAudioRepacker
+           ts2pes[numTracks++] = new cTS2PES(*APids++, resultBuffer, IPACKS, 0xC0 + n, 0x00, new cAudioRepacker(0xC0 + n));
+           n++;
+#else
            ts2pes[numTracks++] = new cTS2PES(*APids++, resultBuffer, IPACKS, 0xC0 + n++);
+#endif
+           }
      }
   if (DPids) {
      int n = 0;
@@ -951,10 +1759,9 @@ int cRemux::ScanVideoPacket(const uchar *Data, int Count, int Offset, uchar &Pic
   // If the return value is -1 the packet was not completely in the buffer.
   int Length = GetPacketLength(Data, Count, Offset);
   if (Length > 0) {
-     if (Length >= 8) {
-        int i = Offset + 8; // the minimum length of the video packet header
-        i += Data[i] + 1;   // possible additional header bytes
-        for (; i < Offset + Length - 5; i++) {
+     int PesPayloadOffset = 0;
+     if (AnalyzePesHeader(Data + Offset, Length, PesPayloadOffset) >= phMPEG1) {
+        for (int i = Offset + PesPayloadOffset; i < Offset + Length - 5; i++) {
             if (Data[i] == 0 && Data[i + 1] == 0 && Data[i + 2] == 1) {
                switch (Data[i + 3]) {
                  case SC_PICTURE: PictureType = (Data[i + 5] >> 3) & 0x07;
@@ -1013,7 +1820,7 @@ int cRemux::Put(const uchar *Data, int Count)
      if (skipped > MAXNONUSEFULDATA) {
         printD( LOG_ERROR, "ERROR: no useful data seen within %d byte of video stream\n", skipped);
         skipped = -1;
-//         if (exitOnFailure)
+// 	if (exitOnFailure)
 //            cThread::EmergencyExit(true);
         }
      else
@@ -1039,19 +1846,6 @@ uchar *cRemux::Get(int &Count, uchar *PictureType)
   return resultBuffer->Get(Count);
 #endif
 
-  // Special VPID case to enable recording radio channels:
-
-  if (isRadio) {
-     // XXX actually '0' should be enough, but '1' must be used with encrypted channels (driver bug?)
-     // XXX also allowing 0x1FFF to not break Michael Paar's original patch,
-     // XXX but it would probably be best to only use '0'
-     // Force syncing of radio channels to avoid "no useful data" error
-     synced = true;
-     if (PictureType)
-        *PictureType = I_FRAME;
-     return resultBuffer->Get(Count);
-     }
-
   // Check for frame borders:
 
   if (PictureType)
@@ -1076,7 +1870,7 @@ uchar *cRemux::Get(int &Count, uchar *PictureType)
                      printD( LOG_ERROR, "ERROR: unknown picture type '%d'\n", pt);
 //                      if (++numUPTerrors > MAXNUMUPTERRORS && exitOnFailure)
 //                         cThread::EmergencyExit(true);
-                     }
+		  }
                   else if (!synced) {
                      if (pt == I_FRAME) {
                         if (PictureType)
@@ -1096,6 +1890,18 @@ uchar *cRemux::Get(int &Count, uchar *PictureType)
                l = GetPacketLength(data, resultCount, i);
                if (l < 0)
                   return resultData;
+               if (isRadio) {
+                  if (!synced) {
+                     if (PictureType)
+                        *PictureType = I_FRAME;
+                     resultSkipped = i; // will drop everything before this position
+                     synced = true;
+                     }
+                  else if (Count)
+                     return resultData;
+                  else if (PictureType)
+                     *PictureType = I_FRAME;
+                  }
                }
             if (synced) {
                if (!Count)
@@ -1129,8 +1935,9 @@ void cRemux::Clear(void)
 
 void cRemux::SetBrokenLink(uchar *Data, int Length)
 {
-  if (Length > 9 && Data[0] == 0 && Data[1] == 0 && Data[2] == 1 && (Data[3] & 0xF0) == VIDEO_STREAM_S) {
-     for (int i = Data[8] + 9; i < Length - 7; i++) { // +9 to skip video packet header
+  int PesPayloadOffset = 0;
+  if (AnalyzePesHeader(Data, Length, PesPayloadOffset) >= phMPEG1 && (Data[3] & 0xF0) == VIDEO_STREAM_S) {
+     for (int i = PesPayloadOffset; i < Length - 7; i++) {
          if (Data[i] == 0 && Data[i + 1] == 0 && Data[i + 2] == 1 && Data[i + 3] == 0xB8) {
             if (!(Data[i + 7] & 0x40)) // set flag only if GOP is not closed
                Data[i + 7] |= 0x20;

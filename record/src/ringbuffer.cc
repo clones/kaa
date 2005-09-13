@@ -26,9 +26,9 @@
  *
  */
 
+
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
 // #include "tools.h"
 #include "misc.h"
 #include "ringbuffer.h"
@@ -71,18 +71,26 @@ void cRingBuffer::UpdatePercentage(int Fill)
 
 void cRingBuffer::WaitForPut(void)
 {
+//   if (putTimeout)
+//      readyForPut.Wait(putTimeout);
 }
 
 void cRingBuffer::WaitForGet(void)
 {
+//   if (getTimeout)
+//      readyForGet.Wait(getTimeout);
 }
 
 void cRingBuffer::EnablePut(void)
 {
+//   if (putTimeout && Free() > Size() / 3)
+//      readyForPut.Signal();
 }
 
 void cRingBuffer::EnableGet(void)
 {
+//   if (getTimeout && Available() > Size() / 3)
+//      readyForGet.Signal();
 }
 
 void cRingBuffer::SetTimeouts(int PutTimeout, int GetTimeout)
@@ -170,7 +178,7 @@ cRingBufferLinear::cRingBufferLinear(int Size, int Margin, bool Statistics, cons
      if (Margin <= Size / 2) {
         buffer = (unsigned char*)malloc( sizeof(unsigned char) * Size );
         if (!buffer)
-           printD( LOG_ERROR, "ERROR: can't allocate ring buffer (size=%d)", Size);
+	    printD( LOG_ERROR, "ERROR: can't allocate ring buffer (size=%d)", Size);
         Clear();
         }
      else
@@ -294,6 +302,8 @@ uchar *cRingBufferLinear::Get(int &Count)
 {
   uchar *p = NULL;
   int Head = head;
+//   if (getThreadTid <= 0)
+//      getThreadTid = pthread_self();
   int rest = Size() - tail;
   if (rest < margin && Head < tail) {
      int t = margin - rest;
