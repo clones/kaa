@@ -94,13 +94,19 @@ class DvbDevice(Device):
         return self._device.start_recording(channel, filter_chain)
 
 
+    def stop_recording(self, id):
+        """
+        Stop the recording with the given id.
+        """
+        return self._device.stop_recording(id)
+
+
     def __getattr__(self, attr):
         """
-        Support get_card_type, get_bouquet_list and stop_recording by passing
-        the call to the C++ object.
+        Support get_card_type and get_bouquet_list by passing the call to
+        the C++ object.
         """
-        if attr in ('get_card_type', 'get_bouquet_list',
-                    'stop_recording'):
+        if attr in ('get_card_type', 'get_bouquet_list'):
             return getattr(self._device, attr)
         return object.__getattr__(self, attr)
 
