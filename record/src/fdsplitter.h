@@ -21,8 +21,10 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __FILTER_H_
-#define __FILTER_H_
+#ifndef __FDSPLITTER_H_
+#define __FDSPLITTER_H_
+
+#include <Python.h>
 
 #include <string>
 #include <vector>
@@ -30,22 +32,30 @@
 
 class FilterPlugin;
 
-class FilterData {
+class FilterChain {
   public:
   std::vector< int > pids;
   std::vector< FilterPlugin* > filterlist;
 };
 
-class Filter {
+class FDSplitter {
 
-  std::map<int, FilterData>  id2filter;
+  std::map<int, FilterChain>  id2filter;
   std::map<int, std::vector< int > > pid2id;
 
   std::string buffer;      // buffer of filter object
   int idcounter;           // counter used for creating a new id
   int inputtype;
+  int fd;
+
+  PyObject       *socket_dispatcher;
 
   static const int BUFFERSIZE = 18800;
+
+  // process given dvb data
+  // params: data
+  // returns: nothing
+  void process_data();
 
   // scans buffer for MPEG-TS frames and adds frames to filter chains
   // params: none
@@ -61,14 +71,13 @@ class Filter {
   // params: none
   // returns: nothing
   void process_filter_chain();
-  
 
   public:
 
   enum InputType { INPUT_RAW, INPUT_TS, INPUT_LAST };
 
-  Filter();
-  ~Filter();
+  FDSplitter( int fd );
+  ~FDSplitter();
 
   // set filter chain handling
   // params: type of input
@@ -78,17 +87,23 @@ class Filter {
   // adds a new filter
   // params: fdata contains requested pids and outputplugin
   // returns: id for this filter
-  int add_filter( FilterData &fdata );
+  int add_filter_chain( FilterChain &fdata );
 
   // removes an existing filter
   // params: id that shall be removed
   // returns: true if successfully removed
-  bool remove_filter( int id );
+  bool remove_filter_chain( int id );
   
-  // process given dvb data
+  // copy given dvb data to internal buffer
   // params: data
   // returns: nothing
-  void process_data( std::string &data );
+  void add_data( std::string &data );
+
+  // set notifier object
+  void connect_to_notifier(PyObject* socket_dispatcher);
+  
+  // callback for notifier
+  void read_fd_data();
 };
 
 #endif

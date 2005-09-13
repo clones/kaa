@@ -21,7 +21,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-// open()
 #include <Python.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,7 +35,8 @@ using namespace std;
 DvbDevice::DvbDevice( const std::string &adapter,
 		      const std::string &channelsfile):
   file_adapter( adapter ), file_channels( channelsfile ),
-  tuner(NULL), socket_dispatcher(NULL) {
+  fd(-1), recording_id(0), tuner(NULL)
+{
 
   if (file_adapter.empty()) {
     printD( LOG_WARN, "No adapter is set! Please check config file!\n");
@@ -88,15 +88,29 @@ DvbDevice::DvbDevice( const std::string &adapter,
     }
   }
   // stop temporary tuner
+
+
+  // open dvr device if not open
+  string fn( file_adapter );
+  if (fn[ fn.length() - 1 ] != '/') {
+    fn.append("/");
+  }
+  fn.append("dvr0");  // TODO FIXME use constant here
+
+  printD( LOG_VERBOSE, "trying to open %s\n", fn.c_str() );
+  fd = open( fn.c_str(), O_RDONLY);
+  if (fd == -1) {
+    printD( LOG_ERROR, "open device %s failed! err=%s (%d)\n", fn.c_str(), strerror(errno), errno);
+  }
+  printD( LOG_VERBOSE, "%s opened successfully\n", fn.c_str() );
 }
 
 
 
 DvbDevice::~DvbDevice() {
-  // unregister all filters
-  std::map<int, std::vector<int> >::iterator iter;
-  for(iter = id2pid.begin(); iter != id2pid.end(); ++iter) {
-    filter.remove_filter( iter->first );
+  // close file
+  if (fd >= 0) {
+    close(fd);
   }
 
   // close tuner if open
@@ -104,13 +118,6 @@ DvbDevice::~DvbDevice() {
     delete tuner;
     tuner = NULL;
   }
-
-  // unregister from kaa.notifier
-  PyObject* result = PyObject_CallMethod(socket_dispatcher, "unregister", "");
-  if (result)
-    Py_DECREF(result);
-  // free references
-  Py_DECREF(socket_dispatcher);
 }
 
 
@@ -141,10 +148,10 @@ bool DvbDevice::get_pids( std::string chan_name,
 }
 
 
-int DvbDevice::start_recording( std::string &chan_name, FilterData &fdata ) {
+int DvbDevice::start_recording( std::string &chan_name, FilterChain &fchain ) {
   // returns -1 if channel name is unknown
 
-  int id = -1;
+  int id = recording_id++;
 
   // switch tuner to correct channel
   // ==> find correct bouquet and then call set_bouquet(...)
@@ -164,16 +171,13 @@ int DvbDevice::start_recording( std::string &chan_name, FilterData &fdata ) {
 	// ...set tuner to this bouquet and stop search
 	tuner->set_bouquet( bouquet_list[ib] );
 
-	// add new filter
-	id = filter.add_filter( fdata );
-
-	// add pids to tuner
-	tuner->add_pid( bouquet_list[ib].channels[ic].pid_video );
-	tuner->add_pid( bouquet_list[ib].channels[ic].pid_audio );
-
-	// remember filter
-	id2pid[ id ].push_back( bouquet_list[ib].channels[ic].pid_video );
-	id2pid[ id ].push_back( bouquet_list[ib].channels[ic].pid_audio );
+	// check requested pids
+	for(unsigned int i=0; i < fchain.pids.size(); ++i) {
+	  // add pids to tuner
+	  tuner->add_pid( fchain.pids[i] );
+	  // remember pids
+	  id2pid[ id ].push_back( fchain.pids[i] );
+	}
 
 	notfound = false;
       }
@@ -185,50 +189,19 @@ int DvbDevice::start_recording( std::string &chan_name, FilterData &fdata ) {
     return -1;
   }
 
-  // open dvr device if not open
-  PyObject* result;
-
-  result = PyObject_CallMethod(socket_dispatcher, "active", "");
-  if (result == Py_False) {
-
-    string fn( file_adapter );
-    if (fn[ fn.length() - 1 ] != '/') {
-      fn.append("/");
-    }
-    fn.append("dvr0");  // TODO FIXME use constant here
-
-    printD( LOG_VERBOSE, "trying to open %s\n", fn.c_str() );
-    fd = open( fn.c_str(), O_RDONLY);
-    if (fd == -1) {
-      printD( LOG_ERROR, "open device %s failed! err=%s (%d)\n", fn.c_str(), strerror(errno), errno);
-      printD( LOG_ERROR, "WARNING: program enters inconsistent state!\n" );
-      return -1;
-    }
-    printD( LOG_VERBOSE, "%s opened successfully\n", fn.c_str() );
-
-    // register to notifier
-    Py_DECREF(result);
-    result = PyObject_CallMethod(socket_dispatcher, "register", "i", fd);
-  }
-
-  if (result)
-    Py_DECREF(result);
-
   return id;
 
   // if tuner does not exist then create one
   // search for channel and pids
-  // add new filter
   // open fd_dvr and register to libnotifier
   // search chan_name in bouquet_list and check, if tuning is neccessary ==> then tune ==> otherwise don't
   // add pids to tuner
-  // add id to reg_filter
   // return id of filter
 }
 
 
 void DvbDevice::stop_recording( int id ) {
-  // check if filter id is in reg_filter
+  // check if recording id is in id2pid
   if (id2pid.find(id) == id2pid.end()) {
     printD( LOG_WARN, "cannot stop recording with id=%d because it does not exist!\n", id );
 
@@ -244,17 +217,9 @@ void DvbDevice::stop_recording( int id ) {
 
     // if no recording is active then close fd_dvr and remove tuner
     if (id2pid.empty()) {
-      PyObject* result = PyObject_CallMethod(socket_dispatcher, "unregister", "");
-      if (result)
-	Py_DECREF(result);
-
       delete tuner;
       tuner = NULL;
     }
-
-    // remove filter
-    bool b = filter.remove_filter( id );
-    printD( LOG_DEBUG_DVBDEVICE, "filter.remove_filter(%d)=%s\n", id, (b ? "TRUE" : "FALSE") );
   }
 }
 
@@ -268,31 +233,4 @@ const std::string DvbDevice::get_card_type() const {
   return card_type;
 }
 
-
-void DvbDevice::connect_to_notifier(PyObject* socket_dispatcher) {
-  this->socket_dispatcher = socket_dispatcher;
-  Py_INCREF(socket_dispatcher);
-}
-
-
-void DvbDevice::read_fd_data() {
-  // read data von fd_dvr and pass it to filter via filter.process_data()
-  static char buf[ DvbDevice::BUFFERSIZE ];
-  // TODO FIXME some kind of ugly
-  static string bufstr;
-
-  bufstr.reserve( DvbDevice::BUFFERSIZE + 10 );
-
-  int len = read( fd, buf, DvbDevice::BUFFERSIZE );
-  if ( len < 0 ) {
-    printD( LOG_WARN,
-	    "WARNING: read failed: errno=%d  err=%s\n",
-	    errno, strerror(errno) );
-  }
-  if ( len > 0 ) {
-    // TODO FIXME some kind of ugly
-    bufstr.assign( buf, len );
-    get_filter().process_data( bufstr );
-  }
-}
 

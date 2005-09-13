@@ -1,6 +1,6 @@
 #include <Python.h>
 #include "dvb_device.h"
-#include "filter.h"
+#include "fdsplitter.h"
 
 int debug_level = 65535;
 
@@ -45,7 +45,7 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
     char *channel;
     std::string channel_str;
     PyObject *plugin_PyObject;
-    FilterData* plugin_pointer;
+    FilterChain* plugin_pointer;
 
     if (!PyArg_ParseTuple(args, "sO", &channel, &plugin_PyObject))
 	return NULL;
@@ -60,7 +60,7 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
 	return NULL;
     }
 
-    plugin_pointer = (FilterData*) PyCObject_AsVoidPtr(plugin_PyObject);
+    plugin_pointer = (FilterChain*) PyCObject_AsVoidPtr(plugin_PyObject);
 
     result = DEVICE->start_recording(channel_str, *plugin_pointer);
     Py_DECREF(plugin_PyObject);
@@ -100,6 +100,7 @@ PyObject *DvbDevicePyObject__get_bouquet_list(PyObject *self, PyObject* args)
   return result;
 }
 
+
 PyObject *DvbDevicePyObject__get_card_type(PyObject *self, PyObject* args)
 {
   std::string result;
@@ -107,29 +108,19 @@ PyObject *DvbDevicePyObject__get_card_type(PyObject *self, PyObject* args)
   return Py_BuildValue("s", result.c_str());
 }
 
-PyObject *DvbDevicePyObject__read_fd_data(PyObject *self, PyObject* args)
+
+PyObject *DvbDevicePyObject__get_fd(PyObject *self, PyObject* args)
 {
-  DEVICE->read_fd_data();
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Py_BuildValue("i", DEVICE->get_fd());
 }
 
-PyObject *DvbDevicePyObject__connect_to_notifier(PyObject *self, PyObject* args)
-{
-  PyObject *socket_dispatcher;
-
-  if (!PyArg_ParseTuple(args,"O", &socket_dispatcher))
-    return NULL;
-  DEVICE->connect_to_notifier(socket_dispatcher);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
 
 void DvbDevicePyObject__dealloc(DvbDevicePyObject *self)
 {
     delete self->device;
     PyMem_DEL(self);
 }
+
 
 static int DvbDevicePyObject__init(DvbDevicePyObject *self, PyObject *args)
 {
@@ -143,14 +134,14 @@ static int DvbDevicePyObject__init(DvbDevicePyObject *self, PyObject *args)
   return 0;
 }
 
+
 static PyMethodDef DvbDevicePyObject__methods[] = {
     {"get_pids", DvbDevicePyObject__get_pids, METH_VARARGS },
     {"start_recording", DvbDevicePyObject__start_recording, METH_VARARGS },
     {"stop_recording", DvbDevicePyObject__stop_recording, METH_VARARGS },
     {"get_bouquet_list", DvbDevicePyObject__get_bouquet_list, METH_VARARGS },
     {"get_card_type", DvbDevicePyObject__get_card_type, METH_VARARGS },
-    {"read_fd_data", DvbDevicePyObject__read_fd_data, METH_VARARGS },
-    {"connect_to_notifier", DvbDevicePyObject__connect_to_notifier, METH_VARARGS },
+    {"get_fd", DvbDevicePyObject__get_fd, METH_VARARGS },
     { NULL }
 };
 

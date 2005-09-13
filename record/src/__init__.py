@@ -33,3 +33,4 @@ from filter import *
 from device import DvbDevice
 from device import IVTVDevice
 from recording import Recording
+from fdsplitter import FDSplitter

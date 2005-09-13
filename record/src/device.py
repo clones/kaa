@@ -63,6 +63,8 @@ class Device(object):
         """
         raise RuntimeError('stop_recording undefined')
 
+      
+
 
 class DvbDevice(Device):
     """
@@ -75,10 +77,6 @@ class DvbDevice(Device):
         register and unregister from notifier.
         """
         self._device = _DvbDevice(device, channels);
-        # create socket dispatcher
-        sd = SocketDispatcher(self._device.read_fd_data)
-        # give variable to the device
-        self._device.connect_to_notifier(sd)
 
 
     def start_recording(self, channel, filter_chain):
@@ -100,6 +98,14 @@ class DvbDevice(Device):
         """
         return self._device.stop_recording(id)
 
+
+    def get_fd(self):
+        """
+        Returns a file descriptor that is opened for reading from /dev/dvb/adapterX/dvr0.
+        If -1 is returned, the device is not opened.
+        """
+        return self._device.get_fd()
+    
 
     def __getattr__(self, attr):
         """

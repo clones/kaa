@@ -25,26 +25,22 @@
 #define __DVB_DEVICE_H_
 
 #include <Python.h>
-#include "filter.h"
+#include "fdsplitter.h"
 #include "dvb_tuner.h"
 
 class Tuner;
 
 class DvbDevice {
-  public:
-  static const int BUFFERSIZE = 18800;
-
   private:
 
   std::string     file_adapter;                   // path of used adapter (e.g. /dev/dvb/adapter0/)
   std::string     file_channels;                  // path of channel list (e.g. /root/.channels.conf)
   int             fd;
+  int             recording_id;
   std::string     card_type;                      // "DVB-T", "DVB-S", "DVB-C" or "unknown"
   std::vector<bouquet_t> bouquet_list;
   Tuner          *tuner;
-  Filter          filter;
   std::map<int, std::vector<int> >  id2pid;       // registered filter
-  PyObject       *socket_dispatcher;
   
   public:
   // DvbDevice(...)
@@ -59,7 +55,7 @@ class DvbDevice {
   // param: chan_name is the name of desired channel
   // param: fdata is the filter chain that shall process the data
   // returns: id of this recording (important for stop_recording())
-  int start_recording( std::string &chan_name, FilterData &fdata );
+  int start_recording( std::string &chan_name, FilterChain &fchain );
 
   // stop recording immediately
   // param: id of desired recording
@@ -72,12 +68,6 @@ class DvbDevice {
   // returns: in card_type type of device ("DVB-T", "DVB-C", "DVB-S" or "unknown")
   const std::string get_card_type() const;
 
-  // set notifier object
-  void connect_to_notifier(PyObject* socket_dispatcher);
-  
-  // callback for notifier
-  void read_fd_data();
-
   // get all relevant pids for given channelname
   bool get_pids( std::string channelname, 
 		 std::vector< int > &video_pids,
@@ -86,7 +76,8 @@ class DvbDevice {
 		 std::vector< int > &teletext_pids,
 		 std::vector< int > &subtitle_pids );
   
-  Filter &get_filter() { return filter; }
+  // returns file descriptor
+  int get_fd() { return fd; }
 };
 
 #endif
