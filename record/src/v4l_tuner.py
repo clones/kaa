@@ -148,9 +148,12 @@ class V4L(object):
         else:
             self.custom_frequencies = custom_frequencies
 
-        self.devfd = os.open(self.device, os.O_TRUNC)
-        if self.devfd < 0:
-            log.error('failed to open %s, fd: %d' % (self.device, self.devfd))
+        self.devfd = -1
+        self.open()
+
+        #self.devfd = os.open(self.device, os.O_RDONLY)
+        #if self.devfd < 0:
+        #    log.error('failed to open %s, fd: %d' % (self.device, self.devfd))
 
         cardcaps          = self.querycap()
         self.driver       = cardcaps[0]
@@ -165,6 +168,15 @@ class V4L(object):
         # XXX TODO: make a good way of setting the capture resolution
         # self.setfmt(int(width), int(height))
     
+
+    def open(self):
+        self.devfd = os.open(self.device, os.O_RDONLY)
+        if self.devfd < 0:
+            log.error('failed to open %s, fd: %d' % (self.device, self.devfd))
+            return -1
+
+        return self.devfd
+
 
     def close(self):
         os.close(self.devfd)
