@@ -32,6 +32,8 @@
 
 __all__ = [ 'Program' ]
 
+import time
+
 class Program(object):
     """
     A Program with informations from the EPG.
@@ -69,5 +71,6 @@ class Program(object):
 
 
     def __unicode__(self):
-        return u'%8d %s (%s): %s-%s' % (self.id, self.title, self.channel.id,
-                                        self.start, self.stop)
+        return u'%8d "%s" (%s): %s - %s' % (self.id, self.title, self.channel.id,
+					    time.strftime(u'%Y%m%d.%H:%M', time.localtime(self.start)),
+					    time.strftime(u'%Y%m%d.%H:%M', time.localtime(self.stop)))
