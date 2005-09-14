@@ -191,17 +191,6 @@ class IVTVDevice(Device, IVTV):
 
 
     def start_recording(self, channel, filter_chain):
-        log.error('filter_chain: %s' % filter_chain)
-        if self.recording_id > 0:
-            if not self_fdsplitter:
-                log.error('recording_id but no fdsplitter, resetting id')
-                self.recording_id = 0
-       
-            else:
-                log.error('IVTVDevice can only record one thing at a time!')
-                log.error('current recording_id is %d' % self.recording_id)
-                return -1
-
         log.info("start recording channel %s" % channel)
 
         # If we don't know the channel, return -1
