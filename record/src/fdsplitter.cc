@@ -21,6 +21,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <Python.h>
+
 #include <set>
 
 #include "misc.h"
@@ -38,6 +40,8 @@ FDSplitter::FDSplitter( int fd ) :
 
 
 FDSplitter::~FDSplitter() {
+  printD( LOG_DEBUG, "destroying FDSplitter\n");
+
   // iterate through all registered filters and destroy corresponding output plugin
 
   std::map<int, FilterChain>::iterator iter;
@@ -49,14 +53,6 @@ FDSplitter::~FDSplitter() {
       iter->second.filterlist.erase( iter->second.filterlist.begin() );
     }
   }
-
-  // unregister from kaa.notifier
-  PyObject* result = PyObject_CallMethod(socket_dispatcher, "unregister", "");
-  if (result) {
-    Py_DECREF(result);
-  }
-  // free references
-  Py_DECREF(socket_dispatcher);
 }
 
 
@@ -283,35 +279,6 @@ void FDSplitter::process_filter_chain() {
 }
 
 
-void FDSplitter::connect_to_notifier(PyObject* socket_dispatcher) {
-  this->socket_dispatcher = socket_dispatcher;
-  Py_INCREF(socket_dispatcher);
-
-  PyObject* result;
-
-  if (fd < 0) {
-
-    printD( LOG_VERBOSE, "no fd given\n" );
-
-  } else {
-
-    result = PyObject_CallMethod(socket_dispatcher, "active", "");
-    if (result == Py_False) {
-
-      // register to notifier
-      Py_DECREF(result);
-      result = PyObject_CallMethod(socket_dispatcher, "register", "i", fd);
-
-      printD( LOG_VERBOSE, "fd %d registered to notifier\n", fd );
-    }
-
-    if (result) {
-      Py_DECREF(result);
-    }
-  }
-}
-
-
 /* ********************* PYTHON WRAPPER CODE ************************ */
 
 
@@ -335,19 +302,14 @@ PyObject *PyFromIntVector(std::vector< int >& v)
 
 PyObject *FDSplitterPyObject__set_input_type(PyObject *self, PyObject* args)
 {
-  char *inputtype;
+  int inputtype;
 
-  if (!PyArg_ParseTuple(args,"s", &inputtype))
+  if (!PyArg_ParseTuple(args,"i", &inputtype))
     return NULL;
 
-  if (!strcmp(inputtype, "RAW")) {
-    FDSPLITTER->set_input_type( FDSplitter::INPUT_RAW );
-  } else if (!strcmp(inputtype, "TS")) {
-    FDSPLITTER->set_input_type( FDSplitter::INPUT_TS );
-  } else {
-    FDSPLITTER->set_input_type( FDSplitter::INPUT_RAW );
-  }
+  FDSPLITTER->set_input_type( (FDSplitter::InputType)inputtype );
 
+  Py_INCREF(Py_None);
   return Py_None;
 }
 
@@ -361,17 +323,10 @@ PyObject *FDSplitterPyObject__add_filter_chain(PyObject *self, PyObject* args)
   if (!PyArg_ParseTuple(args, "O", &plugin_PyObject))
     return NULL;
 
-  // get real plugin object
-  plugin_PyObject = PyObject_CallMethod(plugin_PyObject, "_create", "");
-  if (plugin_PyObject == NULL) {
-    PyErr_Format(PyExc_ValueError, "can't create filter plugin");
-    return NULL;
-  }
-
   plugin_pointer = (FilterChain*) PyCObject_AsVoidPtr(plugin_PyObject);
 
   result = FDSPLITTER->add_filter_chain( *plugin_pointer );
-  Py_DECREF(plugin_PyObject);
+
   return Py_BuildValue("i", result);
 }
 
@@ -401,18 +356,6 @@ PyObject *FDSplitterPyObject__read_fd_data(PyObject *self, PyObject* args)
 }
 
 
-PyObject *FDSplitterPyObject__connect_to_notifier(PyObject *self, PyObject* args)
-{
-  PyObject *socket_dispatcher;
-
-  if (!PyArg_ParseTuple(args,"O", &socket_dispatcher))
-    return NULL;
-  FDSPLITTER->connect_to_notifier(socket_dispatcher);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
 void FDSplitterPyObject__dealloc(FDSplitterPyObject *self)
 {
     delete self->fdsplitter;
@@ -431,12 +374,12 @@ static int FDSplitterPyObject__init(FDSplitterPyObject *self, PyObject *args)
   return 0;
 }
 
+
 static PyMethodDef FDSplitterPyObject__methods[] = {
     {"set_input_type", FDSplitterPyObject__set_input_type, METH_VARARGS },
     {"add_filter_chain", FDSplitterPyObject__add_filter_chain, METH_VARARGS },
     {"remove_filter_chain", FDSplitterPyObject__remove_filter_chain, METH_VARARGS },
     {"read_fd_data", FDSplitterPyObject__read_fd_data, METH_VARARGS },
-    {"connect_to_notifier", FDSplitterPyObject__connect_to_notifier, METH_VARARGS },
     { NULL }
 };
 

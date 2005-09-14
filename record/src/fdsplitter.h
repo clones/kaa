@@ -24,8 +24,6 @@
 #ifndef __FDSPLITTER_H_
 #define __FDSPLITTER_H_
 
-#include <Python.h>
-
 #include <string>
 #include <vector>
 #include <map>
@@ -47,8 +45,6 @@ class FDSplitter {
   int idcounter;           // counter used for creating a new id
   int inputtype;
   int fd;
-
-  PyObject       *socket_dispatcher;
 
   static const int BUFFERSIZE = 18800;
 
@@ -99,9 +95,6 @@ class FDSplitter {
   // returns: nothing
   void add_data( std::string &data );
 
-  // set notifier object
-  void connect_to_notifier(PyObject* socket_dispatcher);
-  
   // callback for notifier
   void read_fd_data();
 };

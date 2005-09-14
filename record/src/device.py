@@ -80,6 +80,8 @@ class DvbDevice(Device):
         register and unregister from notifier.
         """
         self._device = _DvbDevice(device, channels);
+	self._fdsplitter = None
+        self.recid2chainid = { }
 
 
     def start_recording(self, channel, filter_chain):
@@ -92,13 +94,44 @@ class DvbDevice(Device):
         pids = self._device.get_pids(channel)
         log.info("start recording %s with pid list %s" % (channel, pids))
         filter_chain.set_pids(pids[0][0], pids[1][0])
-        return self._device.start_recording(channel, filter_chain)
+
+	# create real filter chain
+	filter_chain = filter_chain._create()
+
+	# start recording	
+	rec_id = self._device.start_recording(channel, filter_chain)
+
+	# create FDSplitter if not existing
+	if self._fdsplitter == None:
+	    self._fdsplitter = FDSplitter( self._device.get_fd() )
+	    self._fdsplitter.set_input_type( FDSplitter.INPUT_TS )
+
+	chain_id = self._fdsplitter.add_filter_chain( filter_chain )
+
+	self.recid2chainid[ rec_id ] = chain_id
+
+        return rec_id
 
 
     def stop_recording(self, id):
         """
         Stop the recording with the given id.
         """
+	# remove filter chain
+	if not self.recid2chainid.has_key(id):
+	    log.error("recid %d not found" % id)
+	    return None
+
+	self._fdsplitter.remove_filter_chain( self.recid2chainid[id] )
+
+	# remove id from map
+	del self.recid2chainid[id]
+
+	# check if last filter chain was removed
+	if not self.recid2chainid:
+	    self._fdsplitter = None
+
+	# stop recording
         return self._device.stop_recording(id)
 
 

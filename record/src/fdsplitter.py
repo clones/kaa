@@ -49,6 +49,10 @@ class FDSplitter(object):
     Reads data from file descriptor and passes it to registered filter chains.
     Based on the C++ module _FDSplitter.
     """
+	
+    INPUT_RAW = 0
+    INPUT_TS  = 1	
+
     def __init__(self, filedesc):
         """
         Init the device by creating a C++ object and create a
@@ -58,9 +62,9 @@ class FDSplitter(object):
         # create c++ object
         self._fdsplitter = _FDSplitter(filedesc);
         # create socket dispatcher
-        sd = SocketDispatcher(self._fdsplitter.read_fd_data)
+        self.sd = SocketDispatcher(self._fdsplitter.read_fd_data)
         # give variable to the device
-        self._fdsplitter.connect_to_notifier(sd)
+        self.sd.register( filedesc )
 
 
     def add_filter_chain(self, filter_chain):
@@ -80,8 +84,10 @@ class FDSplitter(object):
     def set_input_type(self, type):
         """
         Sets type of data that is passed to FDSplitter. Possible types
-        are 'RAW' and 'TS'.
+        are the constants INPUT_RAW and INPUT_TS. Default is INPUT_RAW.
         """
         return self._fdsplitter.set_input_type(type)
-    
 
+    
+    def __del__(self):
+        self.sd.unregister()

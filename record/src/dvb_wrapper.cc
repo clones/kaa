@@ -53,17 +53,10 @@ PyObject *DvbDevicePyObject__start_recording(PyObject *self, PyObject* args)
     // create stupid reference
     channel_str = channel;
 
-    // get real plugin object
-    plugin_PyObject = PyObject_CallMethod(plugin_PyObject, "_create", "");
-    if (plugin_PyObject == NULL) {
-	PyErr_Format(PyExc_ValueError, "can't create filter plugin");
-	return NULL;
-    }
-
     plugin_pointer = (FilterChain*) PyCObject_AsVoidPtr(plugin_PyObject);
 
     result = DEVICE->start_recording(channel_str, *plugin_pointer);
-    Py_DECREF(plugin_PyObject);
+
     return Py_BuildValue("i", result);
 }
 

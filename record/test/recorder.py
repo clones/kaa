@@ -8,9 +8,6 @@ from kaa.record import DvbDevice, FDSplitter, Filewriter, Recording
 
 dvb = DvbDevice('/dev/dvb/adapter0', '/home/schwardt/.freevo/channels.conf')
 
-splitter = FDSplitter( dvb.get_fd() )
-splitter.set_input_type( "TS" )
-
 # print some debug
 print dvb.get_card_type()
 print dvb.get_bouquet_list()
@@ -27,11 +24,10 @@ if 1:
     # and stop it later.
     
     # start recording
-    idA = dvb.start_recording('ProSieben', chain)
-    idB = splitter.add_filter_chain(chain)
+    id = dvb.start_recording('ProSieben', chain)
 
     # stop record after 10 seconds
-    t = OneShotTimer(dvb.stop_recording, idA).start(10)
+    t = OneShotTimer(dvb.stop_recording, id).start(10)
 
     # stop test after 15 seconds
     t = OneShotTimer(sys.exit, 0).start(15)
@@ -62,8 +58,7 @@ if 0:
     chain.append(kaa.record.UDPSend('127.0.0.1:12345'))
 
     # start recording
-    idA = dvb.start_recording('ZDF', chain)
-    idB = splitter.add_filter_chain(chain)
+    id = dvb.start_recording('ZDF', chain)
 
     # stop test after 60 seconds
     t = OneShotTimer(sys.exit, 0).start(60)
