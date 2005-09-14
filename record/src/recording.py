@@ -45,7 +45,7 @@ class Recording(object):
     """
 
     # internal id counter
-    next_id = 0
+    NEXT_ID = 0
 
     def __init__(self, start, stop, device, channel, output):
         self.start = start
@@ -53,8 +53,8 @@ class Recording(object):
         self.device = device
         self.channel = channel
         self.output = output
-        self.id = self.next_id
-        self.next_id += 1
+        self.id = Recording.NEXT_ID
+        Recording.NEXT_ID += 1
 
         # signals to ge notified on changes
         self.signals = { 'start': Signal(), 'stop': Signal() }
