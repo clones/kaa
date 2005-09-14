@@ -80,7 +80,7 @@ class DvbDevice(Device):
         register and unregister from notifier.
         """
         self._device = _DvbDevice(device, channels);
-	self._fdsplitter = None
+        self._fdsplitter = None
         self.recid2chainid = { }
 
 
@@ -95,20 +95,20 @@ class DvbDevice(Device):
         log.info("start recording %s with pid list %s" % (channel, pids))
         filter_chain.set_pids(pids[0][0], pids[1][0])
 
-	# create real filter chain
-	filter_chain = filter_chain._create()
+        # create real filter chain
+        filter_chain = filter_chain._create()
 
-	# start recording	
-	rec_id = self._device.start_recording(channel, filter_chain)
+        # start recording	
+        rec_id = self._device.start_recording(channel, filter_chain)
 
-	# create FDSplitter if not existing
-	if self._fdsplitter == None:
-	    self._fdsplitter = FDSplitter( self._device.get_fd() )
-	    self._fdsplitter.set_input_type( FDSplitter.INPUT_TS )
+        # create FDSplitter if not existing
+        if self._fdsplitter == None:
+            self._fdsplitter = FDSplitter( self._device.get_fd() )
+            self._fdsplitter.set_input_type( FDSplitter.INPUT_TS )
 
-	chain_id = self._fdsplitter.add_filter_chain( filter_chain )
+        chain_id = self._fdsplitter.add_filter_chain( filter_chain )
 
-	self.recid2chainid[ rec_id ] = chain_id
+        self.recid2chainid[ rec_id ] = chain_id
 
         return rec_id
 
@@ -117,21 +117,21 @@ class DvbDevice(Device):
         """
         Stop the recording with the given id.
         """
-	# remove filter chain
-	if not self.recid2chainid.has_key(id):
-	    log.error("recid %d not found" % id)
-	    return None
+        # remove filter chain
+        if not self.recid2chainid.has_key(id):
+            log.error("recid %d not found" % id)
+            return None
 
-	self._fdsplitter.remove_filter_chain( self.recid2chainid[id] )
+        self._fdsplitter.remove_filter_chain( self.recid2chainid[id] )
 
-	# remove id from map
-	del self.recid2chainid[id]
+        # remove id from map
+        del self.recid2chainid[id]
 
-	# check if last filter chain was removed
-	if not self.recid2chainid:
-	    self._fdsplitter = None
+        # check if last filter chain was removed
+        if not self.recid2chainid:
+            self._fdsplitter = None
 
-	# stop recording
+        # stop recording
         return self._device.stop_recording(id)
 
 
@@ -175,7 +175,7 @@ class IVTVDevice(Device, IVTV):
                       dnr_temporal, dnr_type, framerate, framespergop,
                       gop_closure, pulldown, stream_type)
 
-        self.splitter = None
+        self._fdsplitter = None
 
         # For IVTV we have one device that we rely on for both the ioctl
         # commands and reading the data.  It may be beneficial to maintain
@@ -187,8 +187,21 @@ class IVTVDevice(Device, IVTV):
         # record one channel per device.
         self.recording_id = 0
 
+        self.recid2chainid = {}
+
 
     def start_recording(self, channel, filter_chain):
+        log.error('filter_chain: %s' % filter_chain)
+        if self.recording_id > 0:
+            if not self_fdsplitter:
+                log.error('recording_id but no fdsplitter, resetting id')
+                self.recording_id = 0
+       
+            else:
+                log.error('IVTVDevice can only record one thing at a time!')
+                log.error('current recording_id is %d' % self.recording_id)
+                return -1
+
         log.info("start recording channel %s" % channel)
 
         # If we don't know the channel, return -1
@@ -199,25 +212,38 @@ class IVTVDevice(Device, IVTV):
                 log.error('open failed')
                 return -1
 
-        self.recording_id += 1
+        self.setchannel(str(channel))
         self.assert_settings()
         self.set_gop_end()
-        self.setchannel(str(channel))
 
-        self.splitter = FDSplitter(self.get_fd())
-        # self.splitter.set_input_type("RAW")
-        self.splitter.add_filter_chain(filter_chain)
+        if self._fdsplitter == None:
+            self._fdsplitter = FDSplitter(self.get_fd())
+
+        self.recording_id += 1
+        chain_id = self._fdsplitter.add_filter_chain(filter_chain._create())
+        self.recid2chainid[self.recording_id] = chain_id
 
         return self.recording_id
 
 
     def stop_recording(self, id):
         log.info("stop recording %s" % id)
+
         # self.stop_encoding()
 
-        if self.get_fd() >= 0:
-            #self.read_file.close()
-            pass
+        # remove filter chain
+        if not self.recid2chainid.has_key(id):
+            log.error("recid %d not found" % id)
+            return None
+
+        self._fdsplitter.remove_filter_chain(self.recid2chainid[id])
+
+        # remove id from map
+        del self.recid2chainid[id]
+
+        # check if last filter chain was removed
+        if not self.recid2chainid:
+            self._fdsplitter = None
 
 
     def get_fd(self):
