@@ -184,6 +184,10 @@ class IVTV(V4L):
                 # set self based on codec
                 setattr(self, a, c)
 
+        # make sure bitrate_peak >= bitrate so the driver doesn't complain
+        if codec.bitrate_peak < codec.bitrate:
+            codec.bitrate_peak = codec.bitrate
+
         log.info(codec)
         self.setCodecInfo(codec)
 
