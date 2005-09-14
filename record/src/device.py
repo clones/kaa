@@ -33,6 +33,8 @@
 
 # python imports
 import logging
+import traceback
+from types import *
 
 # kaa imports
 from kaa.notifier import SocketDispatcher, Timer
@@ -40,9 +42,11 @@ from kaa.notifier import SocketDispatcher, Timer
 # kaa.record imports
 from _dvb import DvbDevice as _DvbDevice
 from ivtv_tuner import IVTV
+from fdsplitter import FDSplitter
 
 # get logging object
 log = logging.getLogger('record')
+
 
 class Device(object):
     """
@@ -64,7 +68,6 @@ class Device(object):
         raise RuntimeError('stop_recording undefined')
 
       
-
 
 class DvbDevice(Device):
     """
@@ -125,12 +128,12 @@ class IVTVDevice(Device, IVTV):
     or to use a _device line DvbDevice.
     """
     def __init__(self, device, norm, chanlist=None, card_input=4,
-                 custom_frequencies=None, resolution=None, aspect=2,
-                 audio_bitmask=None, bframes=None, bitrate_mode=1,
-                 bitrate=4500000, bitrate_peak=4500000, dnr_mode=None,
+                 custom_frequencies=None, resolution=None, aspect=None,
+                 audio_bitmask=None, bframes=None, bitrate_mode=None,
+                 bitrate=None, bitrate_peak=None, dnr_mode=None,
                  dnr_spatial=None, dnr_temporal=None, dnr_type=None,
                  framerate=None, framespergop=None, gop_closure=1,
-                 pulldown=None, stream_type=14):
+                 pulldown=None, stream_type=None):
 
         IVTV.__init__(self, device, norm, chanlist, card_input,
                       custom_frequencies, resolution, aspect,
@@ -139,20 +142,86 @@ class IVTVDevice(Device, IVTV):
                       dnr_temporal, dnr_type, framerate, framespergop,
                       gop_closure, pulldown, stream_type)
 
+        self.splitter = None
 
-        # create socket dispatcher
-        #sd = SocketDispatcher(self._device.read_fd_data)
-        # give variable to the device
-        #self._device.connect_to_notifier(sd)
+        # For IVTV we have one device that we rely on for both the ioctl
+        # commands and reading the data.  It may be beneficial to maintain
+        # seperate file descriptors for the two operations.  I am trying
+        # things both ways and will clean up the mess when satisfied.
+        # self.read_file = None
+
+        # I don't think recording_id means much for IVTV since we can only
+        # record one channel per device.
+        self.recording_id = 0
 
 
     def start_recording(self, channel, filter_chain):
         log.info("start recording channel %s" % channel)
+
+        # If we don't know the channel, return -1
+
+        if self.get_fd() < 0:
+            log.debug('read_file is closed, opening')
+            if self.open() < 0:
+                log.error('open failed')
+                return -1
+
+        self.recording_id += 1
         self.assert_settings()
         self.set_gop_end()
-        self.setchan(str(channel))
+        self.setchannel(str(channel))
+
+        self.splitter = FDSplitter(self.get_fd())
+        # self.splitter.set_input_type("RAW")
+        self.splitter.add_filter_chain(filter_chain)
+
+        return self.recording_id
 
 
     def stop_recording(self, id):
         log.info("stop recording %s" % id)
-        self.stop_encoding()
+        # self.stop_encoding()
+
+        if self.get_fd() >= 0:
+            #self.read_file.close()
+            pass
+
+
+    def get_fd(self):
+        return self.devfd
+
+# Thinking out loud.
+#        if self.read_file is None:
+#            return -1
+#
+#        try:
+#            fd = self.read_file.fileno()
+#        except:
+#            log.error('get_fd(): closed file')
+#            traceback.print_exc()
+#            return -1
+# 
+#        log.debug('fd: %d' % fd)
+#        return fd
+
+
+#    def open(self):
+#        return self.get_fd()
+#        if type(self.read_file) is FileType:
+#            log.error('file already open: %s' % self.read_file.name)
+#            return self.get_fd()
+#
+#        try:
+#            self.read_file = open(self.device, 'r')
+#        except:
+#            log.error('failed to open: %s' % self.device)
+#            return -1
+#
+#        return self.get_fd()
+
+
+#    def close(self):
+#        IVTV.close(self)
+#        #self.read_file.close()
+
+
