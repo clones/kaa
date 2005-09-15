@@ -4,12 +4,11 @@ import logging
 
 import kaa
 from kaa.notifier import OneShotTimer
-from kaa.record import DvbDevice, FDSplitter, Filewriter, Recording
+from kaa.record import DvbDevice, Filewriter, Recording
 
-dvb = DvbDevice('/dev/dvb/adapter0', '/home/schwardt/.freevo/channels.conf')
+dvb = DvbDevice('/dev/dvb/adapter0', '/home/dmeyer/.freevo/channels.conf')
 
 # print some debug
-print dvb.get_card_type()
 print dvb.get_bouquet_list()
 
 logging.getLogger('record').setLevel(logging.INFO)
@@ -24,7 +23,7 @@ if 1:
     # and stop it later.
     
     # start recording
-    id = dvb.start_recording('ProSieben', chain)
+    id = dvb.start_recording('arte', chain)
 
     # stop record after 10 seconds
     t = OneShotTimer(dvb.stop_recording, id).start(10)
