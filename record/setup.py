@@ -40,7 +40,7 @@ except ImportError:
     sys.exit(1)
 
 # dvb module
-dvb_files = [ 'src/dvb_tuner.cc', 'src/dvb_device.cc', 'src/dvb_wrapper.cc' ]
+dvb_files = [ 'src/dvb_tuner.cc', 'src/dvb_device.cc' ]
 dvb = Extension('kaa.record._dvb', dvb_files)
 
 # output plugin module
