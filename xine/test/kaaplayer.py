@@ -2,7 +2,7 @@
 
 import sys, math, threading, os, time, gc
 
-import kaa
+import kaa, kaa.input
 from kaa import xine, display, metadata, notifier, evas
 
 if len(sys.argv) <= 1:
@@ -20,6 +20,17 @@ def say(line):
     sys.stdout.write(line + "\r")
     sys.stdout.flush()
 
+def handle_lirc_event(code, stream, window):
+    lirc_map = { "exit": "q", "menu": "m", "select": "space",
+                 "ch-": "[", "ch+": "]", "input": "d",
+                 "up": "up", "down": "down", "left": "left", "right": "right"
+                }
+
+    code = code.lower()
+    if code in lirc_map:
+        return handle_keypress_event(lirc_map[code], stream, window)
+
+
 def handle_keypress_event(key, stream, window):
     channel = stream.get_parameter(xine.PARAM_AUDIO_CHANNEL_LOGICAL)
     lang = stream.get_audio_lang(channel)
@@ -31,13 +42,6 @@ def handle_keypress_event(key, stream, window):
         window.set_fullscreen(not window.get_fullscreen())
     elif key in ("m", "menu"):
         stream.send_event(xine.EVENT_INPUT_MENU2)
-    elif key == "space":
-        speed = stream.get_parameter(xine.PARAM_SPEED)
-        if speed == xine.SPEED_PAUSE:
-            stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_NORMAL)
-        else:
-            stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_PAUSE)
-            say("\n ==== PAUSE ====\n")
     elif key == "]":
         stream.send_event(xine.EVENT_INPUT_NEXT)
     elif key == "[":
@@ -59,12 +63,14 @@ def handle_keypress_event(key, stream, window):
             win2.show()
             win.hide()
             stream.deint_post.set_parameters(method = "LinearBlend", framerate_mode = "half_top", pulldown = "none")
+            print stream.deint_post.get_parameters()
             vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 0)
         else:
             win.show()
             win2.hide()
             vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
             stream.deint_post.set_parameters(method = "LinearBlend", framerate_mode = "full", pulldown = "vektor")
+            print stream.deint_post.get_parameters()
         vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
         print "WINDOW TOGGLE"
         needs_redraw = True
@@ -72,13 +78,20 @@ def handle_keypress_event(key, stream, window):
     if lang == "menu":
         d = { "up": xine.EVENT_INPUT_UP, "down": xine.EVENT_INPUT_DOWN,
               "left": xine.EVENT_INPUT_LEFT, "right": xine.EVENT_INPUT_RIGHT,
-              "enter": xine.EVENT_INPUT_SELECT }
+              "enter": xine.EVENT_INPUT_SELECT, "space": xine.EVENT_INPUT_SELECT }
         if key in d:
             stream.send_event(d[key])
     else:
         d = { "up": 60, "down": -60, "left": -10, "right": 10 }
         if key in d:
             stream.seek_relative(d[key])
+        elif key == "space":
+            speed = stream.get_parameter(xine.PARAM_SPEED)
+            if speed == xine.SPEED_PAUSE:
+                stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_NORMAL)
+            else:
+                stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_PAUSE)
+                say("\n ==== PAUSE ====\n")
 
         
 
@@ -203,7 +216,10 @@ else:
 ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
 
+kaa.input.lirc.init()
 kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
+if "lirc" in kaa.signals:
+    kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 if not isinstance(win, display.EvasX11Window):
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
@@ -211,6 +227,7 @@ kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
 stream.deint_post = x.post_init("tvtime", video_targets = [vo])#expand.get_default_input()])
 stream.deint_post.set_parameters(method = "GreedyH", enabled = True)
+#stream.deint_post.set_parameters(cheap_mode = True)
 
 eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
 eq2.set_parameters(gamma = 1.2, contrast = 1.1)
@@ -224,6 +241,7 @@ assert(stream.get_video_source().get_port() == stream.deint_post.get_default_inp
 xine._debug_show_chain(stream._obj)
 
 stream.open(mrl)
+win.set_fullscreen(True)
 stream.play()
 
 

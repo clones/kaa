@@ -144,12 +144,12 @@ def make_mrl(arg):
     if arg.find("://") != -1:
         return arg
 
+    if arg[0] != '/':
+        arg = os.path.join(os.getcwd(), arg)
     md = metadata.parse(arg)
     if isinstance(md, (metadata.disc.dvdinfo.DVDInfo, metadata.disc.lsdvd.DVDInfo)):
         mrl = "dvd://" + arg
     else:
-        if arg[0] != '/':
-            arg = os.path.join(os.getcwd(), arg)
         mrl = "file://" + arg
 
     return mrl
