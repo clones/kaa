@@ -45,23 +45,50 @@
 
 PyObject *imlib2_create(PyObject *self, PyObject *args)
 {
-    int w, h, num_bytes;
-    unsigned char *bytes = NULL;
+    int w, h, len, copy;
+    void *bytes = NULL;
 	char *from_format = "BGRA";
+    PyObject *data = NULL;
     Imlib_Image *image;
     Image_PyObject *o;
 
-    if (!PyArg_ParseTuple(args, "(ii)|s#s", &w, &h, &bytes, &num_bytes, 
-			  &from_format))
+    if (!PyArg_ParseTuple(args, "(ii)|Osi", &w, &h, &data, &from_format, &copy))
         return NULL;
 
-    if (bytes) {
-        if (!strcmp(from_format, "BGRA"))
-            image = imlib_create_image_using_copied_data(w, h, (void *)bytes);
+    if (strcmp(from_format, "BGRA") && !copy) {
+        PyErr_Format(PyExc_ValueError, "Non-BGRA format must use copy = True");
+        return NULL;
+    }
+
+    if (data) {
+        if (PyNumber_Check(data)) {
+            bytes = (void *)PyLong_AsLong(data);
+            data = NULL;
+        }
         else {
-            bytes = convert_raw_rgba_bytes(from_format, "BGRA", bytes, 
-                               NULL, w, h);
-            image = imlib_create_image_using_copied_data(w, h, (void *)bytes);
+            int r = PyObject_AsWriteBuffer(data, &bytes, &len);
+            if (r == -1) {
+                // Write buffer failed.  If we weren't asked to copy, we need
+                // to raise an exception.
+                if (!copy) {
+                    PyErr_Format(PyExc_ValueError, "Read-only buffer given, but copy = False");
+                    return NULL;
+                }
+                PyErr_Clear();
+                if (PyObject_AsReadBuffer(data, (const void **)&bytes, &len) == -1)
+                    return NULL;
+                data = NULL;
+            }
+        }
+
+        if (!strcmp(from_format, "BGRA")) {
+            if (copy)
+                image = imlib_create_image_using_copied_data(w, h, bytes);
+            else
+                image = imlib_create_image_using_data(w, h, bytes);
+        } else {
+            bytes = (void *)convert_raw_rgba_bytes(from_format, "BGRA", bytes, NULL, w, h);
+            image = imlib_create_image_using_copied_data(w, h, bytes);
             free(bytes);
         }
         imlib_context_set_image(image);
@@ -80,7 +107,11 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
 
     o = PyObject_NEW(Image_PyObject, &Image_PyObject_Type);
     o->image = image;
-    o->raw_data = NULL;
+    o->buffer = o->raw_data = NULL;
+    if (!copy && data) {
+        o->buffer = data;
+        Py_INCREF(o->buffer);
+    }
     return (PyObject *)o;
 }
 
@@ -106,7 +137,7 @@ Image_PyObject *_imlib2_open(char *filename, int use_cache)
     }
     o = PyObject_NEW(Image_PyObject, &Image_PyObject_Type);
     o->image = image;
-    o->raw_data = NULL;
+    o->buffer = o->raw_data = NULL;
     return o;
 }
 

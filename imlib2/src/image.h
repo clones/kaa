@@ -33,6 +33,7 @@ typedef struct {
     PyObject_HEAD
     Imlib_Image *image;
     void *raw_data;
+    PyObject *buffer;
 } Image_PyObject;
 
 extern PyTypeObject Image_PyObject_Type;

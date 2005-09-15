@@ -80,11 +80,13 @@ def open_from_memory(buf):
     return Image(img)
 
 
-def new(size, bytes = None, from_format = "BGRA"):
+def new(size, bytes = None, from_format = "BGRA", copy = True):
     """
     Generates a new Image of size 'size', which is a tuple holding the width
     and height.  If 'bytes' is specified, the image is initialized from the
-    raw BGRA data.
+    raw BGRA data.  If 'copy' is False, 'bytes' must be either a write buffer
+    or an integer pointing to a location in memory that will be used to hold
+    the image.  (In this caes, from_format must be BGRA.)
     """
     if 0 in size:
         raise ValueError, "Invalid image size %s" % repr(size)
@@ -93,13 +95,11 @@ def new(size, bytes = None, from_format = "BGRA"):
             raise ValueError, "Invalid image size %s" % repr(size)
     if bytes:
         if False in map(lambda x: x in "RGBA", list(from_format)):
-            raise ValueError, "Converting from unsupported format: " + \
-		  from_format
-        if len(bytes) < size[0]*size[1]*len(from_format):
-            raise ValueError, "Not enough bytes for converted format: " + \
-		  "expected %d, got %d" % (size[0]*size[1]*len(from_format),
-					   len(bytes))
-        return Image(_Imlib2.create(size, bytes, from_format))
+            raise ValueError, "Converting from unsupported format: " +  from_format
+        if type(bytes) != int and len(bytes) < size[0]*size[1]*len(from_format):
+            raise ValueError, "Not enough bytes for converted format: expected %d, got %d" % \
+                              (size[0]*size[1]*len(from_format), len(bytes))
+        return Image(_Imlib2.create(size, bytes, from_format, copy))
     else:
         return Image(_Imlib2.create(size))
 

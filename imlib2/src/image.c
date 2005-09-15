@@ -128,6 +128,8 @@ void Image_PyObject__dealloc(Image_PyObject *self)
 {
     imlib_context_set_image(self->image);
     imlib_free_image();
+    if (self->buffer)
+        Py_DECREF(self->buffer);
     PyMem_DEL(self);
 }
 
