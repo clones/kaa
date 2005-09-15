@@ -28,13 +28,7 @@
 #include <vector>
 #include <map>
 
-class FilterPlugin;
-
-class FilterChain {
-  public:
-  std::vector< int > pids;
-  std::vector< FilterPlugin* > filterlist;
-};
+#include "filter.h"
 
 class FDSplitter {
 

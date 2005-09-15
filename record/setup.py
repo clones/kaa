@@ -40,18 +40,16 @@ except ImportError:
     sys.exit(1)
 
 # dvb module
-dvb_files = [ 'src/dvb_tuner.cc', 'src/dvb_device.cc' ]
-dvb = Extension('kaa.record._dvb', dvb_files)
+dvb = Extension('kaa.record._dvb', [ 'src/dvb_tuner.cc', 'src/dvb_device.cc' ])
 
-# output plugin module
-filter_files = [ 'src/fp_filewriter.cc', 'src/fp_remux.cc',
-                 'src/fp_udpsend.cc', 'src/remux.cc', 'src/ringbuffer.cc',
-                 'src/fp_wrapper.cc']
-                 
-
-filter = Extension('kaa.record._filter', filter_files)
-
+# fdsplitter module
 fdsplitter = Extension('kaa.record._fdsplitter', [ 'src/fdsplitter.cc' ] )
+
+# filter module
+files = [ 'src/fp_filewriter.cc', 'src/fp_remux.cc', 'src/fp_udpsend.cc',
+          'src/remux.cc', 'src/ringbuffer.cc', 'src/filter.cc']
+filter = Extension('kaa.record._filter', files)
+
 
 
 setup(module      = 'record',
