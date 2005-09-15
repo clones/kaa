@@ -32,6 +32,7 @@
 # -----------------------------------------------------------------------------
 
 # python imports
+import os
 import logging
 
 # kaa imports
@@ -53,41 +54,56 @@ class FDSplitter(object):
     INPUT_RAW = 0
     INPUT_TS  = 1	
 
-    def __init__(self, filedesc):
+    def __init__(self, filedesc, inputtype = INPUT_RAW):
         """
         Init the device by creating a C++ object and create a
         SocketDispatcher for the file descriptor. The C++ objecty will
         register and unregister from notifier.
         """
+        # counter for added chains
+        self.chains = 0
+        if isinstance(filedesc, (str, unicode)):
+            # filedesc is a filename, open the file and remember
+            # to close it later
+            self.fd = os.open(filedesc, os.O_RDONLY | os.O_NONBLOCK), True
+        else:
+            # filedesc is an already open file, remeber the fd
+            # and do not close at the end.
+            self.fd = filedesc, False
+
         # create c++ object
-        self._fdsplitter = _FDSplitter(filedesc);
+        self._fdsplitter = _FDSplitter( self.fd [ 0 ] );
+        self._fdsplitter.set_input_type(inputtype)
+
         # create socket dispatcher
-        self.sd = SocketDispatcher(self._fdsplitter.read_fd_data)
-        # give variable to the device
-        self.sd.register( filedesc )
+        self.sd = SocketDispatcher( self._fdsplitter.read_fd_data )
 
 
     def add_filter_chain(self, filter_chain):
         """
         Adds filter chain and returns id of that chain.
         """
-        return self._fdsplitter.add_filter_chain(filter_chain)
+        if self.chains == 0:
+            self.sd.register( self.fd [ 0 ] )
+        self.chains += 1
+        return self._fdsplitter.add_filter_chain( filter_chain )
 
 
     def remove_filter_chain(self, id):
         """
         Stop the recording with the given id.
         """
+        if self.chains == 1:
+            self.sd.unregister()
+        self.chains -= 1
         return self._fdsplitter.remove_filter_chain(id)
 
 
-    def set_input_type(self, type):
-        """
-        Sets type of data that is passed to FDSplitter. Possible types
-        are the constants INPUT_RAW and INPUT_TS. Default is INPUT_RAW.
-        """
-        return self._fdsplitter.set_input_type(type)
-
-    
     def __del__(self):
-        self.sd.unregister()
+        """
+        Close file descriptor if it was opened by this object.
+        """
+        del self._fdsplitter
+        if self.fd[ 1 ]:
+            os.close( self.fd [ 0 ] )
+
