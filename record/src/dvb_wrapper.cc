@@ -94,20 +94,6 @@ PyObject *DvbDevicePyObject__get_bouquet_list(PyObject *self, PyObject* args)
 }
 
 
-PyObject *DvbDevicePyObject__get_card_type(PyObject *self, PyObject* args)
-{
-  std::string result;
-  result = DEVICE->get_card_type();
-  return Py_BuildValue("s", result.c_str());
-}
-
-
-PyObject *DvbDevicePyObject__get_fd(PyObject *self, PyObject* args)
-{
-  return Py_BuildValue("i", DEVICE->get_fd());
-}
-
-
 void DvbDevicePyObject__dealloc(DvbDevicePyObject *self)
 {
     delete self->device;
@@ -133,8 +119,6 @@ static PyMethodDef DvbDevicePyObject__methods[] = {
     {"start_recording", DvbDevicePyObject__start_recording, METH_VARARGS },
     {"stop_recording", DvbDevicePyObject__stop_recording, METH_VARARGS },
     {"get_bouquet_list", DvbDevicePyObject__get_bouquet_list, METH_VARARGS },
-    {"get_card_type", DvbDevicePyObject__get_card_type, METH_VARARGS },
-    {"get_fd", DvbDevicePyObject__get_fd, METH_VARARGS },
     { NULL }
 };
 

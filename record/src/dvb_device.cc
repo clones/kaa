@@ -35,7 +35,7 @@ using namespace std;
 DvbDevice::DvbDevice( const std::string &adapter,
 		      const std::string &channelsfile):
   file_adapter( adapter ), file_channels( channelsfile ),
-  fd(-1), recording_id(0), tuner(NULL)
+  recording_id(0), tuner(NULL)
 {
 
   if (file_adapter.empty()) {
@@ -44,8 +44,6 @@ DvbDevice::DvbDevice( const std::string &adapter,
 
   // start temporary tuner
   Tuner tmptuner(file_adapter);
-  // read card type
-  card_type = tmptuner.get_type_str();
   // load channel list
   vector<channel_t> clist = tmptuner.load_channels( channelsfile );
 
@@ -93,11 +91,6 @@ DvbDevice::DvbDevice( const std::string &adapter,
 
 
 DvbDevice::~DvbDevice() {
-  // close file
-  if (fd >= 0) {
-    close(fd);
-  }
-
   // close tuner if open
   if (tuner) {
     delete tuner;
@@ -174,27 +167,10 @@ int DvbDevice::start_recording( std::string &chan_name, FilterChain &fchain ) {
     return -1;
   }
 
-  if (fd < 0 ) {
-    // open dvr device if not open
-    string fn( file_adapter );
-    if (fn[ fn.length() - 1 ] != '/') {
-      fn.append("/");
-    }
-    fn.append("dvr0");  // TODO FIXME use constant here
-
-    printD( LOG_VERBOSE, "trying to open %s\n", fn.c_str() );
-    fd = open( fn.c_str(), O_RDONLY);
-    if (fd < 0) {
-      printD( LOG_ERROR, "open device %s failed! err=%s (%d)\n", fn.c_str(), strerror(errno), errno);
-    }
-    printD( LOG_VERBOSE, "%s opened successfully (fd=%d)\n", fn.c_str(), fd );
-  }
-
   return id;
 
   // if tuner does not exist then create one
   // search for channel and pids
-  // open fd_dvr and register to libnotifier
   // search chan_name in bouquet_list and check, if tuning is neccessary ==> then tune ==> otherwise don't
   // add pids to tuner
   // return id of filter
@@ -216,16 +192,10 @@ void DvbDevice::stop_recording( int id ) {
     // remove id from id2pid
     id2pid.erase( id2pid.find(id) );
 
-    // if no recording is active then close fd_dvr and remove tuner
+    // if no recording is active then remove tuner
     if (id2pid.empty()) {
       delete tuner;
       tuner = NULL;
-
-      if (fd >= 0) {
-	close(fd);
-	printD( LOG_VERBOSE, "fd %d closed\n", fd );
-	fd = -1;
-      }
     }
   }
 }
@@ -234,10 +204,3 @@ void DvbDevice::stop_recording( int id ) {
 const std::vector<bouquet_t> &DvbDevice::get_bouquet_list() const {
   return bouquet_list;
 }
-
-
-const std::string DvbDevice::get_card_type() const {
-  return card_type;
-}
-
-

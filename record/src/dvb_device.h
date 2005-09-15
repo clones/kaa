@@ -35,9 +35,7 @@ class DvbDevice {
 
   std::string     file_adapter;                   // path of used adapter (e.g. /dev/dvb/adapter0/)
   std::string     file_channels;                  // path of channel list (e.g. /root/.channels.conf)
-  int             fd;
   int             recording_id;
-  std::string     card_type;                      // "DVB-T", "DVB-S", "DVB-C" or "unknown"
   std::vector<bouquet_t> bouquet_list;
   Tuner          *tuner;
   std::map<int, std::vector<int> >  id2pid;       // registered filter
@@ -65,9 +63,6 @@ class DvbDevice {
   // returns: bouquet list if dvbdevice
   const std::vector<bouquet_t> &get_bouquet_list() const;
 
-  // returns: in card_type type of device ("DVB-T", "DVB-C", "DVB-S" or "unknown")
-  const std::string get_card_type() const;
-
   // get all relevant pids for given channelname
   bool get_pids( std::string channelname, 
 		 std::vector< int > &video_pids,
@@ -76,8 +71,6 @@ class DvbDevice {
 		 std::vector< int > &teletext_pids,
 		 std::vector< int > &subtitle_pids );
   
-  // returns file descriptor
-  int get_fd() { return fd; }
 };
 
 #endif
