@@ -32,6 +32,7 @@
 # -----------------------------------------------------------------------------
 
 # python imports
+import os
 import logging
 import traceback
 from types import *
@@ -79,6 +80,7 @@ class DvbDevice(Device):
         SocketDispatcher for the file descriptor. The C++ objecty will
         register and unregister from notifier.
         """
+        self.adapter = device
         self._device = _DvbDevice(device, channels);
         self._fdsplitter = None
         self.recid2chainid = { }
@@ -103,8 +105,7 @@ class DvbDevice(Device):
 
         # create FDSplitter if not existing
         if self._fdsplitter == None:
-            self._fdsplitter = FDSplitter( self._device.get_fd() )
-            self._fdsplitter.set_input_type( FDSplitter.INPUT_TS )
+            self._fdsplitter = FDSplitter( self.adapter + '/dvr0', FDSplitter.INPUT_TS )
 
         chain_id = self._fdsplitter.add_filter_chain( filter_chain )
 
@@ -130,27 +131,17 @@ class DvbDevice(Device):
         # check if last filter chain was removed
         if not self.recid2chainid:
             self._fdsplitter = None
-
+            
         # stop recording
         return self._device.stop_recording(id)
 
 
-    def get_fd(self):
+    def get_bouquet_list(self):
         """
-        Returns a file descriptor that is opened for reading from /dev/dvb/adapterX/dvr0.
-        If -1 is returned, the device is not opened.
+        Return bouquet list from C++ object.
         """
-        return self._device.get_fd()
-    
+        return self._device.get_bouquet_list()
 
-    def __getattr__(self, attr):
-        """
-        Support get_card_type and get_bouquet_list by passing the call to
-        the C++ object.
-        """
-        if attr in ('get_card_type', 'get_bouquet_list'):
-            return getattr(self._device, attr)
-        return object.__getattr__(self, attr)
 
 
 
@@ -192,14 +183,6 @@ class IVTVDevice(Device, IVTV):
 
     def start_recording(self, channel, filter_chain):
         log.info("start recording channel %s" % channel)
-
-        # If we don't know the channel, return -1
-
-        if self.get_fd() < 0:
-            log.debug('read_file is closed, opening')
-            if self.open() < 0:
-                log.error('open failed')
-                return -1
 
         self.setchannel(str(channel))
         self.assert_settings()
