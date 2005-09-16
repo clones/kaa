@@ -55,8 +55,8 @@ class Chain(list):
     """
     def __init__(self):
         list.__init__(self)
-        self.vpid = 0
-        self.apid = 0
+        self.vpid = -1
+        self.apid = -1
 
 
     def set_pids(self, vpid, apid):
@@ -75,8 +75,10 @@ class Chain(list):
         """
         log.debug('create filter chain')
         chain = _filter.Chain()
-        chain.add_pid(self.vpid)
-        chain.add_pid(self.apid)
+        if self.vpid != -1:
+            chain.add_pid(self.vpid)
+        if self.apid != -1:
+            chain.add_pid(self.apid)
         for filter in self:
             if isinstance(filter, Remux):
                 filter.vpid = self.vpid
