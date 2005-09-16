@@ -34,11 +34,12 @@
 # python imports
 import os
 import logging
+import os
 import traceback
 from types import *
 
 # kaa imports
-from kaa.notifier import SocketDispatcher, Timer
+from kaa.notifier import OneShotTimer, SocketDispatcher, Timer
 
 # kaa.record imports
 from _dvb import DvbDevice as _DvbDevice
@@ -168,28 +169,41 @@ class IVTVDevice(Device, IVTV):
 
         self._fdsplitter = None
 
-        # For IVTV we have one device that we rely on for both the ioctl
-        # commands and reading the data.  It may be beneficial to maintain
-        # seperate file descriptors for the two operations.  I am trying
-        # things both ways and will clean up the mess when satisfied.
-        # self.read_file = None
+        # End Encoding at GOP Ending Call 0=StopNOW, 1=GOPwait
+        self.GOP_END = 0
 
-        # I don't think recording_id means much for IVTV since we can only
-        # record one channel per device.
+        # The IVTV encoder needs time to flush and return a closed GOP.
+        # NOTE: Be careful how we impliment channel changes!  On the bright
+        #       side we can change channels in IVTV without closing the stream.
+        # Setting this to 0 for now but if GOP_END==1 we need to keep reading
+        # after STREAMOFF is called.  I had _some_ success with this but IMO
+        # the driver is still just too flaky :(
+        self.stop_start_delay = 0
+
+        # We can't even overlap recordings on the same channel because in order
+        # to stop with a nice stream (closed GOP at the end) we must use the
+        # STREAMOFF ioctl which will screw up the second recording.
+        self.max_recordings = 1
+
+        # Even though we can only do one recording at a time, track the 
+        # recording id and chain id.
         self.recording_id = 0
-
         self.recid2chainid = {}
 
 
     def start_recording(self, channel, filter_chain):
-        log.info("start recording channel %s" % channel)
+        log.debug('start recording channel %s' % channel)
+
+        if len(self.recid2chainid) >= self.max_recordings:
+            log.error('IVTV can only record %d thing(s) at a time' % \
+                      self.max_recordings)
 
         self.setchannel(str(channel))
         self.assert_settings()
-        self.set_gop_end()
+        self.set_gop_end(self.GOP_END)
 
         if self._fdsplitter == None:
-            self._fdsplitter = FDSplitter(self.get_fd())
+            self._fdsplitter = FDSplitter(self.devfd)
 
         self.recording_id += 1
         chain_id = self._fdsplitter.add_filter_chain(filter_chain._create())
@@ -199,13 +213,23 @@ class IVTVDevice(Device, IVTV):
 
 
     def stop_recording(self, id):
-        log.info("stop recording %s" % id)
+        log.debug('stop recording %s' % id)
 
-        # self.stop_encoding()
+        if self.GOP_END:
+            try:
+                self.stop_encoding()
+            except:
+                log.error('STREAMOFF failed')
+ 
+        OneShotTimer(self.remove_splitter, id).start(self.stop_start_delay)
+
+
+    def remove_splitter(self, id):
+        log.debug('remove splitter %s' % id)
 
         # remove filter chain
         if not self.recid2chainid.has_key(id):
-            log.error("recid %d not found" % id)
+            log.error('recid %d not found' % id)
             return None
 
         self._fdsplitter.remove_filter_chain(self.recid2chainid[id])
@@ -217,42 +241,7 @@ class IVTVDevice(Device, IVTV):
         if not self.recid2chainid:
             self._fdsplitter = None
 
-
-    def get_fd(self):
-        return self.devfd
-
-# Thinking out loud.
-#        if self.read_file is None:
-#            return -1
-#
-#        try:
-#            fd = self.read_file.fileno()
-#        except:
-#            log.error('get_fd(): closed file')
-#            traceback.print_exc()
-#            return -1
-# 
-#        log.debug('fd: %d' % fd)
-#        return fd
-
-
-#    def open(self):
-#        return self.get_fd()
-#        if type(self.read_file) is FileType:
-#            log.error('file already open: %s' % self.read_file.name)
-#            return self.get_fd()
-#
-#        try:
-#            self.read_file = open(self.device, 'r')
-#        except:
-#            log.error('failed to open: %s' % self.device)
-#            return -1
-#
-#        return self.get_fd()
-
-
-#    def close(self):
-#        IVTV.close(self)
-#        #self.read_file.close()
+        self.close()
+        self.open()
 
 
