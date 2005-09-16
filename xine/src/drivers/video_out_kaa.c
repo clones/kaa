@@ -1,67 +1,14 @@
-#include <Python.h>
-#include "buffer.h"
-#include "../xine.h"
-#include "../vo_driver.h"
-#include "yuv2rgb.h"
+#include <math.h>
 #include "../config.h"
+#include "video_out_kaa.h"
 
 #define STOPWATCH
-
-#define BUFFER_VO_COMMAND_QUERY_REQUEST 0
-#define BUFFER_VO_COMMAND_QUERY_REDRAW  1
-#define BUFFER_VO_COMMAND_SEND          2
-
-#define BUFFER_VO_REQUEST_SEND          0x01
-#define BUFFER_VO_REQUEST_PASSTHROUGH   0x02
-
 
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
     #define YUY2_SIZE_THRESHOLD   400*280
 #else
     #define YUY2_SIZE_THRESHOLD   2000*2000
 #endif
-
-
-
-
-static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);
-
-typedef struct buffer_frame_s {
-    vo_frame_t vo_frame;
-    int width, height, format;
-    double ratio;
-    int flags;
-
-    unsigned char *yv12_buffer, 
-                  *yv12_planes[3],
-                  *yuy2_buffer,
-                  *bgra_buffer;
-    int yv12_strides[3];
-    pthread_mutex_t bgra_lock;
-    vo_frame_t *passthrough_frame;
-    yuv2rgb_t *yuv2rgb;
-    // more
-} buffer_frame_t;
-
-typedef struct buffer_driver_s {
-    vo_driver_t vo_driver;
-    config_values_t *config;
-    pthread_mutex_t lock;
-    xine_t *xine;
-
-    yuv2rgb_factory_t *yuv2rgb_factory;
-    int aspect;
-
-    PyObject *callback;
-    vo_driver_t *passthrough;
-    PyObject *passthrough_pyobject;
-} buffer_driver_t;
-
-typedef struct buffer_class_s {
-    video_driver_class_t driver_class;
-    config_values_t *config;
-    xine_t *xine;
-} buffer_class_t;
 
 
 #ifdef STOPWATCH
@@ -93,115 +40,12 @@ static void stopwatch(int n, char *text, ...)
 #endif
 
 
-////////////
-
-
-PyObject *
-_unlock_frame_cb(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    buffer_frame_t *frame = (buffer_frame_t *)PyCObject_AsVoidPtr(self);
-    pthread_mutex_unlock(&frame->bgra_lock);
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-PyMethodDef unlock_frame_def = {
-    "unlock_frame_cb", (PyCFunction)_unlock_frame_cb, 
-    METH_VARARGS, NULL 
-};
-
-
-static int
-buffer_callback_command_query_redraw(buffer_driver_t *this)
-{
-    PyObject *args, *result;
-    PyGILState_STATE gstate;
-    int retval = 0;
-
-    gstate = PyGILState_Ensure();
-    args = Py_BuildValue("(i())", BUFFER_VO_COMMAND_QUERY_REDRAW);
-    result = PyEval_CallObject(this->callback, args);
-    if (result) {
-        if (PyInt_Check(result))
-            retval = PyLong_AsLong(result);
-        Py_DECREF(result);
-    }
-    if (PyErr_Occurred()) {
-        printf("Exception in buffer callback:\n");
-        PyErr_Print();
-    }
-    Py_DECREF(args);
-    PyGILState_Release(gstate);
-    return retval;
-}
-
-static int
-buffer_callback_command_query_request(buffer_driver_t *this, buffer_frame_t *frame,
-    int *request_return, int *width_return, int *height_return)
-{
-    PyObject *args, *result;
-    PyGILState_STATE gstate;
-    int retval = 1;
-
-    gstate = PyGILState_Ensure();
-    args = Py_BuildValue("(i(iid))", BUFFER_VO_COMMAND_QUERY_REQUEST,
-                         frame->width, frame->height, frame->ratio);
-    result = PyEval_CallObject(this->callback, args);
-    if (result) {
-        PyArg_ParseTuple(result, "iii", request_return, width_return, height_return);
-        Py_DECREF(result);
-    }
-    if (PyErr_Occurred()) {
-        printf("Exception in buffer callback:\n");
-        PyErr_Print();
-        retval = 0;
-    }
-    Py_DECREF(args);
-    PyGILState_Release(gstate);
-
-    return retval;
-}
-
-static int
-buffer_callback_send(buffer_driver_t *this, buffer_frame_t *frame, int w, int h)
-{
-    PyObject *args, *result, *unlock_frame_cb, *frame_pyobject;
-    PyGILState_STATE gstate;
-    int retval = 1;
-
-    gstate = PyGILState_Ensure();
-    frame_pyobject = PyCObject_FromVoidPtr((void *)frame, NULL);
-    unlock_frame_cb = PyCFunction_New(&unlock_frame_def, frame_pyobject);
-    args = Py_BuildValue("(i(iidiO))", BUFFER_VO_COMMAND_SEND, w, h, 
-                         frame->ratio, (long)frame->bgra_buffer, 
-                         unlock_frame_cb);
-    Py_DECREF(unlock_frame_cb);
-    Py_DECREF(frame_pyobject);
-    result = PyEval_CallObject(this->callback, args);
-    if (result)
-        Py_DECREF(result);
-    else {
-        printf("Exception in buffer callback:\n");
-        PyErr_Print();
-        retval = 0;
-    }
-    Py_DECREF(args);
-    PyGILState_Release(gstate);
-
-    return retval;
-}
-
-
-////////////
-
-
 int
 pthread_mutex_lock_timeout(pthread_mutex_t *lock, double timeout)
 {
     struct timespec abstime;
     abstime.tv_sec = (int)floor(timeout);
     abstime.tv_nsec = (timeout-(double)abstime.tv_sec)*1000000000;
-    //printf("Lock timeout: %d sec %d usec\n", abstime.tv_sec, abstime.tv_nsec);
     return pthread_mutex_timedlock(lock, &abstime);
 }
 
@@ -232,24 +76,24 @@ _alloc_yv12(int width, int height, unsigned char **base,
 ////////////
 
 static uint32_t 
-buffer_get_capabilities(vo_driver_t *this_gen)
+kaa_get_capabilities(vo_driver_t *this_gen)
 {
-    printf("buffer: get_capabilities\n");
+    printf("kaa: get_capabilities\n");
     return VO_CAP_YV12 | VO_CAP_YUY2;
 }
 
 static void
-buffer_frame_field(vo_frame_t *frame, int which)
+kaa_frame_field(vo_frame_t *frame, int which)
 {
     printf("frame_field %d\n", which);
     // noop
 }
 
 static void
-buffer_frame_dispose(vo_frame_t *vo_img)
+kaa_frame_dispose(vo_frame_t *vo_img)
 {
-    buffer_frame_t *frame = (buffer_frame_t *)vo_img;
-    //printf("buffer_frame_dispose\n");
+    kaa_frame_t *frame = (kaa_frame_t *)vo_img;
+    //printf("kaa_frame_dispose\n");
     pthread_mutex_destroy(&frame->vo_frame.mutex);
     pthread_mutex_destroy(&frame->bgra_lock);
     if (frame->yv12_buffer)
@@ -272,13 +116,13 @@ void vo_frame_dec_lock(vo_frame_t *img)
 
 
 static vo_frame_t *
-buffer_alloc_frame(vo_driver_t *this_gen)
+kaa_alloc_frame(vo_driver_t *this_gen)
 {
-    buffer_frame_t *frame;
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
+    kaa_frame_t *frame;
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
     
-    printf("buffer_alloc_frame: %x\n", this);
-    frame = (buffer_frame_t *)xine_xmalloc(sizeof(buffer_frame_t));
+//    printf("kaa_alloc_frame: %x\n", this);
+    frame = (kaa_frame_t *)xine_xmalloc(sizeof(kaa_frame_t));
     if (!frame)
         return NULL;
 
@@ -293,8 +137,8 @@ buffer_alloc_frame(vo_driver_t *this_gen)
 
     frame->vo_frame.proc_slice = NULL;
     frame->vo_frame.proc_frame = NULL;
-    frame->vo_frame.field = buffer_frame_field;
-    frame->vo_frame.dispose = buffer_frame_dispose;
+    frame->vo_frame.field = kaa_frame_field;
+    frame->vo_frame.dispose = kaa_frame_dispose;
     frame->vo_frame.driver = this_gen;
 
     frame->passthrough_frame = this->passthrough->alloc_frame(this->passthrough);
@@ -307,16 +151,16 @@ buffer_alloc_frame(vo_driver_t *this_gen)
 }
 
 static void 
-buffer_update_frame_format (vo_driver_t *this_gen,
+kaa_update_frame_format (vo_driver_t *this_gen,
                 vo_frame_t *frame_gen,
                 uint32_t width, uint32_t height,
                 double ratio, int format, int flags) 
 {
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
-    buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
+    kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
     int y_size, uv_size;
 
-    //printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
+    //printf("kaa_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
 
     // XXX: locking in this function risks deadlock.
 
@@ -341,7 +185,7 @@ buffer_update_frame_format (vo_driver_t *this_gen,
                 frame->yv12_buffer = NULL;
             }
             if (!frame->yv12_buffer) {
-                printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
+                printf("kaa_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
                 frame->yv12_buffer = xine_xmalloc(y_size + 2*uv_size);
             }
             frame->vo_frame.base[0] = frame->yv12_buffer;
@@ -356,7 +200,7 @@ buffer_update_frame_format (vo_driver_t *this_gen,
                 frame->yuy2_buffer = NULL;
             }
             if (!frame->yuy2_buffer) {
-                printf("buffer_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
+                printf("kaa_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
                 frame->yuy2_buffer = xine_xmalloc(frame->vo_frame.pitches[0] * height);
             }
     
@@ -376,35 +220,33 @@ buffer_update_frame_format (vo_driver_t *this_gen,
 }
 
 static int
-buffer_redraw_needed(vo_driver_t *vo)
+kaa_redraw_needed(vo_driver_t *vo)
 {
-    buffer_driver_t *this = (buffer_driver_t *)vo;
-    int redraw;
-
-    redraw = buffer_callback_command_query_redraw(this);
-    //printf("buffer_redraw_needed: %d\n", redraw);
+    kaa_driver_t *this = (kaa_driver_t *)vo;
+    int redraw = this->needs_redraw;
+    this->needs_redraw = 0;
     return redraw || this->passthrough->redraw_needed(this->passthrough);
 }
 
 static void 
-buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen) 
+kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen) 
 {
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
-    buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
+    kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
     vo_frame_t *passthrough_frame;
     int request = 0, dst_width = -1, dst_height = -1;
-    PyGILState_STATE gstate;
 
-    //printf("buffer_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
+    //printf("kaa_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
     pthread_mutex_lock(&this->lock);
-
-    buffer_callback_command_query_request(this, frame, &request, &dst_width, &dst_height);
+    //kaa_callback_command_query_request(this, frame, &request, &dst_width, &dst_height);
     if (dst_width == -1 || dst_height == -1) {
         dst_width = frame->width;
         dst_height = frame->height;
     }
 
-    if (request & BUFFER_VO_REQUEST_SEND) {
+    if (this->osd_visible)
+        memset(frame->vo_frame.base[0], 55, 640*400);
+    if (this->do_send_frame && this->send_frame_cb) {
         if (pthread_mutex_lock_timeout(&frame->bgra_lock, 0.2) != 0) {
             printf("FAILED to acquire lock\n");
             goto bail;
@@ -464,23 +306,26 @@ buffer_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
             }
             stopwatch(0, NULL);
         }
-        buffer_callback_send(this, frame, dst_width, dst_height);
+        this->send_frame_cb(dst_width, dst_height, frame->ratio, frame->bgra_buffer, &frame->bgra_lock,
+                            this->send_frame_cb_data);
     }
 
 bail:
-    if (this->passthrough && request & BUFFER_VO_REQUEST_PASSTHROUGH) {
+    if (this->passthrough && this->do_passthrough) {
         this->passthrough->display_frame(this->passthrough, frame->passthrough_frame);
     }
-
-    frame->vo_frame.free(&frame->vo_frame);
+    if (this->last_frame && this->last_frame != frame)
+        this->last_frame->vo_frame.free(&this->last_frame->vo_frame);
+    this->last_frame = frame;
+    //frame->vo_frame.free(&frame->vo_frame);
     pthread_mutex_unlock(&this->lock);
 
 }
 
 static int 
-buffer_get_property (vo_driver_t *this_gen, int property) 
+kaa_get_property (vo_driver_t *this_gen, int property) 
 {
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
     switch(property) {
         case VO_PROP_ASPECT_RATIO:
             return this->aspect;
@@ -489,11 +334,11 @@ buffer_get_property (vo_driver_t *this_gen, int property)
 }
 
 static int 
-buffer_set_property (vo_driver_t *this_gen,
+kaa_set_property (vo_driver_t *this_gen,
                 int property, int value) 
 {
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
-    printf("buffer_set_property %d=%d\n", property, value);
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
+    printf("kaa_set_property %d=%d\n", property, value);
     switch (property) {
         case VO_PROP_ASPECT_RATIO:
             if (value >= XINE_VO_ASPECT_NUM_RATIOS)
@@ -505,64 +350,56 @@ buffer_set_property (vo_driver_t *this_gen,
 }
 
 static void 
-buffer_get_property_min_max (vo_driver_t *this_gen,
+kaa_get_property_min_max (vo_driver_t *this_gen,
                      int property, int *min, int *max) 
 {
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
-    printf("buffer_get_property_min_max\n");
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
+    printf("kaa_get_property_min_max\n");
     this->passthrough->get_property_min_max(this->passthrough, property, min, max);
 }
 
 static int
-buffer_gui_data_exchange (vo_driver_t *this_gen,
+kaa_gui_data_exchange (vo_driver_t *this_gen,
                  int data_type, void *data) 
 {
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
-    printf("buffer_gui_data_exchange\n");
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
+
+    switch(data_type) {
+        case GUI_SEND_KAA_VO_SET_SEND_FRAME:
+            this->do_send_frame = (int)data;
+            break;
+
+        case GUI_SEND_KAA_VO_SET_PASSTHROUGH:
+            this->do_passthrough = (int)data;
+            break;
+
+        case GUI_SEND_KAA_VO_SET_OSD_VISIBILITY:
+            this->osd_visible = (int)data;
+            break;
+    }
     return this->passthrough->gui_data_exchange(this->passthrough, data_type, data);
 }
 
 static void
-buffer_dispose(vo_driver_t *this_gen)
+kaa_dispose(vo_driver_t *this_gen)
 {
-    PyGILState_STATE gstate;
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
-    printf("buffer_dispose\n");
-
-    gstate = PyGILState_Ensure();
-    if (this->callback)
-       Py_DECREF(this->callback);
-    Py_DECREF(this->passthrough_pyobject);
-    PyGILState_Release(gstate);
-
+    printf("kaa_dispose\n");
     this->yuv2rgb_factory->dispose(this->yuv2rgb_factory);
     free(this);
-    printf("Returning from buffer_dispose\n");
 }
 
 static vo_driver_t *
-buffer_open_plugin(video_driver_class_t *class_gen, const void *args)
+kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
 {
-    buffer_class_t *class = (buffer_class_t *)class_gen;
+    kaa_class_t *class = (kaa_class_t *)class_gen;
+    kaa_visual_t *visual = (kaa_visual_t *)visual_gen;
     config_values_t *config = class->config;
-    buffer_driver_t *this;
-    PyObject *kwargs, *callback, *passthrough;
+    kaa_driver_t *this;
     
-    kwargs = (PyObject *)args;
-    callback = PyDict_GetItemString(kwargs, "callback");
-    if (!callback) {
-        PyErr_Format(xine_error, "Specify callback for buffer driver");
-        return NULL;
-    }
-    passthrough = PyDict_GetItemString(kwargs, "passthrough");
-    if (passthrough && !Xine_VO_Driver_PyObject_Check(passthrough)) {
-        PyErr_Format(xine_error, "Passthrough must be a VODriver object");
-        return NULL;
-    }
-
-    printf("buffer_open_plugin\n");
-    this = (buffer_driver_t *)xine_xmalloc(sizeof(buffer_driver_t));
+    printf("kaa_open_plugin\n");
+    this = (kaa_driver_t *)xine_xmalloc(sizeof(kaa_driver_t));
     if (!this)
         return NULL;
 
@@ -570,63 +407,64 @@ buffer_open_plugin(video_driver_class_t *class_gen, const void *args)
     this->config = class->config;
     pthread_mutex_init(&this->lock, NULL);
     
-    this->vo_driver.get_capabilities        = buffer_get_capabilities;
-    this->vo_driver.alloc_frame             = buffer_alloc_frame;
-    this->vo_driver.update_frame_format     = buffer_update_frame_format;
+    this->vo_driver.get_capabilities        = kaa_get_capabilities;
+    this->vo_driver.alloc_frame             = kaa_alloc_frame;
+    this->vo_driver.update_frame_format     = kaa_update_frame_format;
     this->vo_driver.overlay_begin           = NULL;
     this->vo_driver.overlay_blend           = _overlay_blend;
     this->vo_driver.overlay_end             = NULL;
-    this->vo_driver.display_frame           = buffer_display_frame;
-    this->vo_driver.get_property            = buffer_get_property;
-    this->vo_driver.set_property            = buffer_set_property;
-    this->vo_driver.get_property_min_max    = buffer_get_property_min_max;
-    this->vo_driver.gui_data_exchange       = buffer_gui_data_exchange;
-    this->vo_driver.dispose                 = buffer_dispose;
-    this->vo_driver.redraw_needed           = buffer_redraw_needed;
+    this->vo_driver.display_frame           = kaa_display_frame;
+    this->vo_driver.get_property            = kaa_get_property;
+    this->vo_driver.set_property            = kaa_set_property;
+    this->vo_driver.get_property_min_max    = kaa_get_property_min_max;
+    this->vo_driver.gui_data_exchange       = kaa_gui_data_exchange;
+    this->vo_driver.dispose                 = kaa_dispose;
+    this->vo_driver.redraw_needed           = kaa_redraw_needed;
 
-    this->callback = callback;
-    Py_INCREF(this->callback);
-    this->passthrough = ((Xine_VO_Driver_PyObject *)passthrough)->driver;
-    Py_INCREF(passthrough);
-    this->passthrough_pyobject = passthrough;
+    this->passthrough           = visual->passthrough;
+    this->osd_shm_key           = visual->osd_shm_key;
+    this->send_frame_cb         = visual->send_frame_cb;
+    this->send_frame_cb_data    = visual->send_frame_cb_data;
+    this->yuv2rgb_factory       = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
+    this->last_frame            = 0;
+    this->do_passthrough        = 1;
+    this->do_send_frame         = 0;
+    this->osd_visible           = 0;
 
-    this->yuv2rgb_factory = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
-
-//    memcpy(&this->vo_driver, this->passthrough->driver, sizeof(vo_driver_t));
     return &this->vo_driver;
 }
 
 static char *
-buffer_get_identifier(video_driver_class_t *this_gen)
+kaa_get_identifier(video_driver_class_t *this_gen)
 {
-    return "buffer";
+    return "kaa";
 }
 
 static char *
-buffer_get_description(video_driver_class_t *this_gen)
+kaa_get_description(video_driver_class_t *this_gen)
 {
-    return "Output frame to memory buffer";
+    return "Output frame to memory kaa";
 }
 
 static void
-buffer_dispose_class(video_driver_class_t *this_gen)
+kaa_dispose_class(video_driver_class_t *this_gen)
 {
-    printf("buffer_dispose_class\n");
+    printf("kaa_dispose_class\n");
     free(this_gen);
 }
 
 static void *
-buffer_init_class (xine_t *xine, void *visual_gen) 
+kaa_init_class (xine_t *xine, void *visual_gen) 
 {
-    printf("buffer_init_class\n");
-    buffer_class_t *this;
+    printf("kaa_init_class\n");
+    kaa_class_t *this;
 
-    this = (buffer_class_t *)xine_xmalloc(sizeof(buffer_class_t));
+    this = (kaa_class_t *)xine_xmalloc(sizeof(kaa_class_t));
 
-    this->driver_class.open_plugin      = buffer_open_plugin;
-    this->driver_class.get_identifier   = buffer_get_identifier;
-    this->driver_class.get_description  = buffer_get_description;
-    this->driver_class.dispose          = buffer_dispose_class;
+    this->driver_class.open_plugin      = kaa_open_plugin;
+    this->driver_class.get_identifier   = kaa_get_identifier;
+    this->driver_class.get_description  = kaa_get_description;
+    this->driver_class.dispose          = kaa_dispose_class;
 
     this->config = xine->config;
     this->xine   = xine;
@@ -1052,10 +890,10 @@ void _overlay_blend_yuy2 (uint8_t * dst_img, vo_overlay_t * img_overl,
 static void
 _overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_overlay)
 {
-    buffer_driver_t *this = (buffer_driver_t *)this_gen;
-    buffer_frame_t *frame = (buffer_frame_t *)frame_gen;
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
+    kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
 
-    //printf("buffer_overlay_blend: format=%d overlay=%x\n", frame->format, vo_overlay);
+    //printf("kaa_overlay_blend: format=%d overlay=%x\n", frame->format, vo_overlay);
     if (frame->format == XINE_IMGFMT_YV12)
        _overlay_blend_yuv(frame->vo_frame.base, vo_overlay,
                       frame->width, frame->height,
@@ -1066,13 +904,13 @@ _overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_ov
                       frame->vo_frame.pitches[0]);
 }
 
-static vo_info_t buffer_vo_info = {
+static vo_info_t kaa_vo_info = {
     1,
     XINE_VISUAL_TYPE_NONE
 };
 
-plugin_info_t xine_vo_buffer_plugin_info[] = {
-    { PLUGIN_VIDEO_OUT, 20, "buffer", XINE_VERSION_CODE, &buffer_vo_info, &buffer_init_class },
+plugin_info_t xine_vo_kaa_plugin_info[] = {
+    { PLUGIN_VIDEO_OUT, 20, "kaa", XINE_VERSION_CODE, &kaa_vo_info, &kaa_init_class },
     { PLUGIN_NONE, 0, "", 0, NULL, NULL }
 };
 

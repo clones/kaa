@@ -36,9 +36,9 @@ except ImportError:
     sys.exit(1)
     
 files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
-         'src/post.c', 'src/drivers/x11.c', 'src/drivers/buffer.c',
+         'src/post.c', 'src/drivers/x11.c', 'src/drivers/video_out_kaa.c',
          'src/post_out.c', 'src/post_in.c', 'src/event.c', 'src/event_queue.c',
-         'src/utils.c', 'src/post/fork.c', 'src/vo_driver.c',
+         'src/utils.c', 'src/post/fork.c', 'src/vo_driver.c', 'src/drivers/kaa.c',
          'src/drivers/yuv2rgb.c', 'src/drivers/yuv2rgb_mmx.c'
 ]
 xineso = Extension('kaa.xine._xinemodule', files, config='src/config.h')

@@ -57,13 +57,9 @@ from constants import *
 
 XineError = _xine.XineError
 
-# Constants for buffer vo
-BUFFER_VO_COMMAND_QUERY_REQUEST = 0
-BUFFER_VO_COMMAND_QUERY_REDRAW  = 1
-BUFFER_VO_COMMAND_SEND          = 2
+# Constants for special kaa vo
+GUI_SEND_KAA_VO_GET_CONTROL     = 1000
 
-BUFFER_VO_REQUEST_SEND          = 0x01
-BUFFER_VO_REQUEST_PASSTHROUGH   = 0x02
 
 def get_version():
     return Version(_xine.get_version())
@@ -405,7 +401,7 @@ class VideoPort(Wrapper):
     def get_driver(self):
         return _wrap_xine_object(self._obj.driver)
 
-    def send_gui_data(self, type, data):
+    def send_gui_data(self, type, data = 0):
         return self._obj.send_gui_data(type, data)
 
     def _get_wire_list(self):

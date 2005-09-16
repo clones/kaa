@@ -13,6 +13,8 @@ if len(sys.argv) <= 1:
 mrl = xine.make_mrl(sys.argv[1])
 
 needs_redraw = False
+draw_osd = False
+send_frame = False
 
 def say(line):
     if line[0] != "\n":
@@ -46,6 +48,14 @@ def handle_keypress_event(key, stream, window):
         stream.send_event(xine.EVENT_INPUT_NEXT)
     elif key == "[":
         stream.send_event(xine.EVENT_INPUT_PREVIOUS)
+    elif key == "o":
+        global draw_osd
+        draw_osd = not draw_osd
+        control("set_osd_visibility", draw_osd)
+    elif key == "s":
+        global send_frame
+        send_frame = not send_frame
+        control("set_send_frame", send_frame)
     elif key == "d":
         enabled = stream.deint_post.get_parameters()["enabled"]
         stream.deint_post.set_parameters(enabled = not enabled)
@@ -71,7 +81,6 @@ def handle_keypress_event(key, stream, window):
             vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, 1)
             stream.deint_post.set_parameters(method = "LinearBlend", framerate_mode = "full", pulldown = "vektor")
             print stream.deint_post.get_parameters()
-        vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, win._window.ptr)
         print "WINDOW TOGGLE"
         needs_redraw = True
 
@@ -110,13 +119,18 @@ def handle_aspect_changed(aspect, stream, window):
         return
 
     video_width = stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH)
-    height = stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT)
+    video_height= stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT)
+    #width = video_width
+    #height = int(math.ceil(width / window.aspect))
+    height = video_height
     width = int(math.ceil(height * window.aspect))
-    print "\n\nWINDOW ASPECT\n\n\n", aspect, width, height, window.get_size()
+    print "WINDOW ASPECT: ", aspect, width, height, window.get_size()
     if width and height and (width, height) != window.get_size():
         if window.resize((width, height)):
-            say("VO: %dx%d => %dx%d\n" % (video_width, height, width, height))
-        window.show()
+            say("VO: %dx%d => %dx%d\n" % (video_width, video_height, width, height))
+        if not window.get_visible():
+            window.set_fullscreen(True)
+            window.show()
         #needs_redraw = True
 
 def output_status_line(stream, window):
@@ -136,6 +150,7 @@ def render():
 toggle=1
 c=0
 lf=0
+"""
 def buffer_vo_callback(command, data, window):
     global needs_redraw
     if command == xine.BUFFER_VO_COMMAND_QUERY_REQUEST:
@@ -161,7 +176,7 @@ def buffer_vo_callback(command, data, window):
             c=0
             lf=time.time()
         notifier.MainThreadCallback(update_evas, data, window)()
-
+"""
 def update_evas((width, height, aspect, buffer, unlock_cb), window):
     if window.movie.size_get() != (width, height) or aspect != window.movie.aspect:
         print "RESIZE EVAS", aspect, width, height, window.movie.size_get()
@@ -180,6 +195,9 @@ def update_evas((width, height, aspect, buffer, unlock_cb), window):
     unlock_cb()
     return True
 
+def new_frame(w, h, ratio, buffer, unlock_frame_cb):
+    print "Buffer vo callback", w, h
+    unlock_frame_cb()
 
 win = display.X11Window(size = (50, 50), title = "Kaa Player")
 win.set_cursor_hide_timeout(0.5)
@@ -204,11 +222,16 @@ if 0:
     win2.movie.layer_set(10)
     win2.movie.show()
 
-    cb = notifier.Callback(buffer_vo_callback, win2)
-    vo = x.open_video_driver("buffer", callback = cb, passthrough = x.load_video_output_plugin("xv", window=win))
+    #cb = notifier.Callback(buffer_vo_callback, win2)
+    vo = x.open_video_driver("buffer", passthrough = x.load_video_output_plugin("xv", window=win))
     #vo = x.open_video_driver("xv", window = win)
 else:
-    vo = x.open_video_driver(window = win)
+    #cb = notifier.Callback(buffer_vo_callback)
+    l=[]
+    vo = x.open_video_driver("kaa", control_return = l, passthrough = x.load_video_output_plugin("xv", window=win))
+    control = l[0]
+    control("set_send_frame_callback", new_frame)
+    #vo = x.open_video_driver(window = win)
 
 #x.set_config_value("video.device.xv_colorkey", 2)
 #x.set_config_value("video.device.xv_autopaint_colorkey", True)
@@ -225,29 +248,33 @@ if not isinstance(win, display.EvasX11Window):
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
 kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
-stream.deint_post = x.post_init("tvtime", video_targets = [vo])#expand.get_default_input()])
+stream.deint_post = x.post_init("tvtime", video_targets = [vo])
 stream.deint_post.set_parameters(method = "GreedyH", enabled = True)
+stream.get_video_source().wire(stream.deint_post.get_default_input())
 #stream.deint_post.set_parameters(cheap_mode = True)
 
-eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
-eq2.set_parameters(gamma = 1.2, contrast = 1.1)
+expand = x.post_init("expand", video_targets = [vo])
+stream.get_video_source().wire(expand.get_default_input())
+
+#eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
+#eq2.set_parameters(gamma = 1.2, contrast = 1.1)
 
 # Test unwire
-stream.get_video_source().wire(eq2.get_default_input())
-eq2.unwire()
+#stream.get_video_source().wire(eq2.get_default_input())
+#eq2.unwire()
 
-assert(stream.get_video_source().get_port() == stream.deint_post.get_default_input().get_port())
+#assert(stream.get_video_source().get_port() == stream.deint_post.get_default_input().get_port())
 
 xine._debug_show_chain(stream._obj)
 
 stream.open(mrl)
-win.set_fullscreen(True)
 stream.play()
 
+#stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_SLOW_4)
 
 win.show()
 kaa.main()
 win.hide()
-del stream, ao, vo, x, win, eq2
+del stream, ao, vo, x, win, expand#, eq2
 #del win2, r
 gc.collect()

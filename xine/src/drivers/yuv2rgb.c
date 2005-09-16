@@ -2278,7 +2278,6 @@ static void yuv2rgb_set_csc_levels (yuv2rgb_factory_t *this,
   switch (mode) {
   case MODE_32_RGB:
   case MODE_32_BGR:
-    printf("INIT BGR tables\n");
     if (this->table_base == NULL) {
       this->table_base = malloc ((197 + 2*682 + 256 + 132) * sizeof (uint32_t));
     }

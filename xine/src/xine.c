@@ -1,6 +1,5 @@
 #include "xine.h"
 #include "structmember.h"
-#include "drivers/x11.h"
 #include "vo_driver.h"
 #include "video_port.h"
 #include "audio_port.h"
@@ -10,8 +9,9 @@
 #include "post_in.h"
 #include "event_queue.h"
 #include "event.h"
-#include "drivers/buffer.h"
-#include "post/fork.h"
+#include "drivers/video_out_kaa.h"
+#include "drivers/kaa.h"
+#include "drivers/x11.h"
 
 PyObject *xine_error;
 extern PyObject *xine_object_to_pyobject_dict;
@@ -77,8 +77,7 @@ Xine_PyObject__init(Xine_PyObject *self, PyObject *args, PyObject *kwds)
     snprintf(cfgfile, PATH_MAX, "%s%s", xine_get_homedir(), "/.xine/config");
     xine_config_load(xine, cfgfile);
     xine_init(xine);
-    xine_register_plugins(xine, xine_vo_buffer_plugin_info);
-    xine_register_plugins(xine, xine_fork_plugin_info);
+    xine_register_plugins(xine, xine_vo_kaa_plugin_info);
     self->xine = xine;
     xine_object_to_pyobject_register(xine, (PyObject *)self);
 
@@ -173,11 +172,10 @@ Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyOb
     if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto")) {
         vo_driver = x11_open_video_driver(self, driver, kwargs, &finalize_data);
     } else if (!strcmp(driver, "none")) {
-        //vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
         vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
-    } else if (!strcmp(driver, "buffer")) {
-        //vo_port = xine_open_video_driver(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)kwargs);
-        vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)kwargs);
+    } else if (!strcmp(driver, "kaa")) {
+        //vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, (void *)kwargs);
+        vo_driver = kaa_open_video_driver(self, kwargs, &finalize_data);
     }
         
     if (!vo_driver) {
@@ -188,9 +186,11 @@ Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyOb
 
     vo_driver_pyobject = pyxine_new_vo_driver_pyobject(self, self->xine, vo_driver, 1);
 
-    if (!strcmp(driver, "xv") || !strcmp(driver, "auto") || !strcmp(driver, "xshm")) {
+    if (!strcmp(driver, "xv") || !strcmp(driver, "auto") || !strcmp(driver, "xshm"))
         x11_open_video_driver_finalize(vo_driver_pyobject, finalize_data);
-    }
+    else if (!strcmp(driver, "kaa"))
+        kaa_open_video_driver_finalize(vo_driver_pyobject, finalize_data);
+
     return (PyObject *)vo_driver_pyobject;
 }
 
