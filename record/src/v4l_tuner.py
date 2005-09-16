@@ -170,7 +170,7 @@ class V4L(object):
     
 
     def open(self):
-        self.devfd = os.open(self.device, os.O_RDONLY)
+        self.devfd = os.open(self.device, os.O_RDONLY | os.O_NONBLOCK)
         if self.devfd < 0:
             log.error('failed to open %s, fd: %d' % (self.device, self.devfd))
             return -1
