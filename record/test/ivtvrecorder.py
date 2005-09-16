@@ -9,7 +9,7 @@ from kaa.record import IVTVDevice, Filewriter, Recording
 logging.getLogger('record').setLevel(logging.DEBUG)
 
 ivtv = IVTVDevice('/dev/video0', 'NTSC', chanlist='us-cable', bitrate_mode=1, 
-                  bitrate=7000000, bitrate_peak=7000000)
+                  bitrate=4500000, bitrate_peak=4500000)
 
 
 # print some debug
@@ -17,10 +17,25 @@ ivtv.print_settings()
 # ivtv.setchannel("17")
 
 chain = kaa.record.Chain()
+chain2 = kaa.record.Chain()
     
+def next():
+    # start another
+    idB = ivtv.start_recording('14', chain2)
+
+    # change the channel after 10 seconds
+    t = OneShotTimer(ivtv.setchannel, '11').start(10)
+
+    # stop record after 20 seconds
+    t = OneShotTimer(ivtv.stop_recording, idB).start(20)
+
+    # stop test after 15 seconds
+    t = OneShotTimer(sys.exit, 0).start(15)
+
 
 if 1:
     chain.append(kaa.record.Filewriter('foo.mpg', 0))
+    chain2.append(kaa.record.Filewriter('foo2.mpg', 0))
 
     # One way of using the module is to simply start a recording
     # and stop it later.
@@ -31,8 +46,9 @@ if 1:
     # stop record after 10 seconds
     t = OneShotTimer(ivtv.stop_recording, idA).start(10)
 
-    # stop test after 15 seconds
-    t = OneShotTimer(sys.exit, 0).start(30)
+    # start another after 10 seconds
+    t = OneShotTimer(next).start(11)
+
 
 if 0:
     chain.append(kaa.record.Filewriter('foo.mpg', 0))
