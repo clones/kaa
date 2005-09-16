@@ -188,7 +188,6 @@ class IVTV(V4L):
         if codec.bitrate_peak < codec.bitrate:
             codec.bitrate_peak = codec.bitrate
 
-        log.info(codec)
         self.setCodecInfo(codec)
 
 
@@ -262,21 +261,21 @@ class IVTV(V4L):
 
         codec = self.getCodecInfo()
 
-        log.info('CODEC::aspect: %s' % codec.aspect)
-        log.info('CODEC::audio_bitmask: %s' % codec.audio_bitmask)
-        log.info('CODEC::bfrmes: %s' % codec.bframes)
-        log.info('CODEC::bitrate_mode: %s' % codec.bitrate_mode)
-        log.info('CODEC::bitrate: %s' % codec.bitrate)
-        log.info('CODEC::bitrate_peak: %s' % codec.bitrate_peak)
-        log.info('CODEC::dnr_mode: %s' % codec.dnr_mode)
-        log.info('CODEC::dnr_spatial: %s' % codec.dnr_spatial)
-        log.info('CODEC::dnr_temporal: %s' % codec.dnr_temporal)
-        log.info('CODEC::dnr_type: %s' % codec.dnr_type)
-        log.info('CODEC::framerate: %s' % codec.framerate)
-        log.info('CODEC::framespergop: %s' % codec.framespergop)
-        log.info('CODEC::gop_closure: %s' % codec.gop_closure)
-        log.info('CODEC::pulldown: %s' % codec.pulldown)
-        log.info('CODEC::stream_type: %s' % codec.stream_type)
+        log.debug('CODEC::aspect: %s' % codec.aspect)
+        log.debug('CODEC::audio_bitmask: %s' % codec.audio_bitmask)
+        log.debug('CODEC::bfrmes: %s' % codec.bframes)
+        log.debug('CODEC::bitrate_mode: %s' % codec.bitrate_mode)
+        log.debug('CODEC::bitrate: %s' % codec.bitrate)
+        log.debug('CODEC::bitrate_peak: %s' % codec.bitrate_peak)
+        log.debug('CODEC::dnr_mode: %s' % codec.dnr_mode)
+        log.debug('CODEC::dnr_spatial: %s' % codec.dnr_spatial)
+        log.debug('CODEC::dnr_temporal: %s' % codec.dnr_temporal)
+        log.debug('CODEC::dnr_type: %s' % codec.dnr_type)
+        log.debug('CODEC::framerate: %s' % codec.framerate)
+        log.debug('CODEC::framespergop: %s' % codec.framespergop)
+        log.debug('CODEC::gop_closure: %s' % codec.gop_closure)
+        log.debug('CODEC::pulldown: %s' % codec.pulldown)
+        log.debug('CODEC::stream_type: %s' % codec.stream_type)
 
 
 class IVTVCodec(object):
@@ -298,20 +297,14 @@ class IVTVCodec(object):
         self.stream_type   = args[14]
 
     def __str__(self):
-        return 'aspect:        %d\n'\
-               'audio_bitmask: %d\n'\
-               'bframes:       %d\n'\
-               'bitrate_mode:  %d\n'\
-               'bitrate:       %d\n'\
-               'bitrate_peak:  %d\n'\
-               'dnr_mode:      %d\n'\
-               'dnr_spatial:   %d\n'\
-               'dnr_temporal:  %d\n'\
-               'dnr_type:      %d\n'\
-               'framerate:     %d\n'\
-               'framespergop:  %d\n'\
-               'gop_closure:   %d\n'\
-               'pulldown:      %d\n'\
-               'stream_type:   %d' % ( self.aspect, self.audio_bitmask, self.bframes, self.bitrate_mode, self.bitrate, self.bitrate_peak, self.dnr_mode, self.dnr_spatial, self.dnr_temporal, self.dnr_type, self.framerate, self.framespergop, self.gop_closure, self.pulldown, self.stream_type)
-
+        return 'aspect: %d, audio_bitmask: %d, bframes: %d, bitrate_mode: %d, '\
+               'bitrate: %d, bitrate_peak: %d, dnr_mode: %d, dnr_spatial: %d, '\
+               'dnr_temporal: %d, dnr_type: %d, framerate: %d, '\
+               'framespergop: %d, gop_closure: %d, pulldown: %d, '\
+               'stream_type: %d' % \
+               (self.aspect, self.audio_bitmask, self.bframes, 
+                self.bitrate_mode, self.bitrate, self.bitrate_peak, 
+                self.dnr_mode, self.dnr_spatial, self.dnr_temporal, 
+                self.dnr_type, self.framerate, self.framespergop, 
+                self.gop_closure, self.pulldown, self.stream_type)
 
