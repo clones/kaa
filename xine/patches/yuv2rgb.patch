@@ -1,0 +1,71 @@
+--- /home/tack/src/xine-lib.orig/src/video_out/yuv2rgb.c	2004-04-11 08:25:35.000000000 -0400
++++ yuv2rgb.c	2005-09-16 12:35:17.000000000 -0400
+@@ -23,10 +23,10 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  *
+- * $Id$
++ * $Id$
+  */
+ 
+-#include "config.h"
++#include "../config.h"
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -41,7 +41,7 @@
+ #define LOG
+ */
+ 
+-#include "xineutils.h"
++#include <xine/xineutils.h>
+ 
+ static int prof_scale_line = -1;
+ 
+@@ -2301,7 +2301,7 @@
+     }
+ 
+     for (i = -197; i < 256+197; i++)
+-      ((uint32_t *) table_r)[i] = table_Y[i+384] << shift_r;
++      ((uint32_t *) table_r)[i] = (table_Y[i+384] << shift_r) + (255 << 24);
+     for (i = -132; i < 256+132; i++)
+       ((uint32_t *) table_g)[i] = table_Y[i+384] << shift_g;
+     for (i = -232; i < 256+232; i++)
+--- /home/tack/src/xine-lib.orig/src/video_out/yuv2rgb_mmx.c	2004-11-23 09:35:32.000000000 -0500
++++ yuv2rgb_mmx.c	2005-07-31 21:40:46.000000000 -0400
+@@ -22,7 +22,7 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  */
+ 
+-#include "config.h"
++#include "../config.h"
+ 
+ #if defined(ARCH_X86) || defined(ARCH_X86_64)
+ 
+@@ -32,7 +32,7 @@
+ #include <inttypes.h>
+ 
+ #include "yuv2rgb.h"
+-#include "xineutils.h"
++#include <xine/xineutils.h>
+ 
+ #define CPU_MMXEXT 0
+ #define CPU_MMX 1
+@@ -311,6 +311,7 @@
+      */
+ 
+     pxor_r2r (mm3, mm3);
++    pcmpeqb_r2r(mm3, mm3);
+     movq_r2r (mm0, mm6);
+ 
+     punpcklbw_r2r (mm2, mm6);
+@@ -346,8 +347,8 @@
+      * mm4 -> GB, mm5 -> AR pixel 4-7,
+      * mm6 -> GB, mm7 -> AR pixel 0-3
+      */
+-
+     pxor_r2r (mm3, mm3);
++    pcmpeqb_r2r(mm3, mm3);
+     movq_r2r (mm1, mm6);
+ 
+     punpcklbw_r2r (mm2, mm6);
