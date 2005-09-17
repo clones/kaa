@@ -159,6 +159,7 @@ class FeedParserDict(UserDict):
         keymap = {'channel': 'feed',
                   'items': 'entries',
                   'guid': 'id',
+		  'length': ['filesize','length'],
                   'date': 'modified',
                   'date_parsed': 'modified_parsed',
                   'description': ['tagline', 'summary']}
@@ -275,7 +276,11 @@ class _FeedParserMixin(object):
                   "http://purl.org/rss/1.0/modules/wiki/":                "wiki",
                   "http://schemas.xmlsoap.org/soap/envelope/":            "soap",
                   "http://www.w3.org/1999/xhtml":                         "xhtml",
-                  "http://www.w3.org/XML/1998/namespace":                 "xml"
+                  "http://www.w3.org/XML/1998/namespace":                 "xml",
+		  "http://tools.search.yahoo.com/mrss/":                  "media",
+		  "http://docs.yahoo.com/mediaModule":                    "media",
+                  "http://search.yahoo.com/mrss":                         "media",
+		  "http://participatoryculture.org/RSSModules/dtv/1.0":   "dtv"
 }
 
     can_be_relative_uri = ['link', 'id', 'wfw_comment', 'wfw_commentrss', 'docs', 'url', 'comments', 'license']
@@ -300,6 +305,7 @@ class _FeedParserMixin(object):
         self.inimage = 0
         self.inauthor = 0
         self.incontributor = 0
+	self.inenclosure = 0
         self.contentparams = FeedParserDict()
         self.namespacemap = {}
         self.elementstack = []
@@ -317,7 +323,7 @@ class _FeedParserMixin(object):
         attrs = [(k, k in ('rel', 'type') and v.lower() or v) for k, v in attrs]
         
         # track xml:base and xml:lang
-        attrsD = dict(attrs)
+        attrsD = FeedParserDict(attrs)
         baseuri = attrsD.get('xml:base', attrsD.get('base')) or self.baseuri
         self.baseuri = baseuri
         lang = attrsD.get('xml:lang', attrsD.get('lang'))
@@ -949,11 +955,13 @@ class _FeedParserMixin(object):
         cats.append((domain, None))
     _start_dc_subject = _start_category
     _start_keywords = _start_category
-        
+    _start_media_category = _start_category
+
     def _end_category(self):
         self.pop('category')
     _end_dc_subject = _end_category
     _end_keywords = _end_category
+    _end_media_category = _end_category
         
     def _start_cloud(self, attrsD):
         self.feeddata['cloud'] = FeedParserDict(attrsD)
@@ -1115,9 +1123,102 @@ class _FeedParserMixin(object):
         
     def _start_enclosure(self, attrsD):
         if self.inentry:
+	    self.inenclosure = 1
             self.entries[-1].setdefault('enclosures', [])
             self.entries[-1]['enclosures'].append(FeedParserDict(attrsD))
-            
+    _start_media_content = _start_enclosure            
+
+    def _end_enclosure(self):
+	self.inenclosure = 0
+    _end_media_content = _end_enclosure
+
+    def _start_media_thumbnail(self,attrsD):
+	self.push('media:thumbnail',1)
+	if self.inentry:
+	    if self.inenclosure:
+		self.entries[-1]['enclosures'][-1]['thumbnail']=FeedParserDict(attrsD)
+	    else:
+		self.entries[-1]['thumbnail'] = FeedParserDict(attrsD)
+
+    def _end_media_thumbnail(self):
+	self.pop('media:thumbnail')
+	
+    def _start_media_text(self,attrsD):
+	self.push('media:text',1)
+
+    def _end_media_text(self):
+	value = self.pop('media:text')
+	if self.inentry:
+	    if self.inenclosure:
+		self.entries[-1]['enclosures'][-1]['text'] = value
+	    else:
+		self.entries[-1]['text'] = value
+
+    def _start_media_people(self,attrsD):
+	self.push('media:people',1)
+	try:
+	    self.peoplerole = attrsD['role']
+	except:
+	    self.peoplerole = 'unknown'
+
+    def _end_media_people(self):
+	value = self.pop('media:people').split('|')
+	if self.inentry:
+	    if self.inenclosure:
+		self.entries[-1]['enclosures'][-1].setdefault('roles', {})
+		self.entries[-1]['enclosures'][-1].roles[self.peoplerole]=value
+	    else:
+		self.entries[-1].setdefault('roles', {})
+		self.entries[-1].roles[self.peoplerole]=value
+
+    def _start_dtv_startnback(self,attrsD):
+	self.push('dtv:startnback',1)	
+
+    def _end_dtv_startnback(self):
+	self.feeddata['startnback'] = self.pop('dtv:startnback')
+
+    def _start_dtv_librarylink(self,attrsD):
+	self.push('dtv:librarylink',1)	
+
+    def _end_dtv_librarylink(self):
+	self.feeddata['librarylink'] = self.pop('dtv:librarylink')
+
+    def _start_dtv_releasedate(self,attrsD):
+	self.push('dtv:releasedate',1)	
+
+    def _end_dtv_releasedate(self):
+	value = self.pop('dtv:releasedate')
+	if self.inentry:
+	    if self.inenclosure:
+		self.entries[-1]['enclosures'][-1]['releasedate'] = value
+		self.entries[-1]['enclosures'][-1]['releasedate_parsed'] = _parse_date(value)
+	    else:
+		self.entries[-1]['releasedate'] = value
+		self.entries[-1]['releasedate_parsed'] = _parse_date(value)
+	
+    def _start_dtv_paymentlink(self,attrsD):
+	self.incontent += 1
+	self.contentparams['mode'] = 'xml'
+	self.contentparams['type'] = 'application/xhtml+xml'
+	self.push('dtv:paymentlink',1)
+	if self.inentry:
+            if attrsD.has_key('url'):
+                if self.inenclosure:
+                    self.entries[-1]['enclosures'][-1]['payment_url'] = attrsD['url']
+                else:
+                    self.entries[-1]['payment_url'] = attrsD['url']
+
+    def _end_dtv_paymentlink(self):
+	value = _sanitizeHTML(self.pop('dtv:paymentlink'),self.encoding)
+	self.incontent -= 1
+	self.contentparams.clear()
+	if self.inentry:
+	    if self.inenclosure:
+		self.entries[-1]['enclosures'][-1]['payment_html'] = value
+	    else:
+		self.entries[-1]['payment_html'] = value
+	
+
     def _start_source(self, attrsD):
         if self.inentry:
             self.entries[-1]['source'] = FeedParserDict(attrsD)
