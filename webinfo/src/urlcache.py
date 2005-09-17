@@ -130,10 +130,12 @@ def save(file, data, version=None):
 
 class URLCache(object):
 
-    def __init__(self, cachefile, hook_fetch=None, hook_parse=None):
+    def __init__(self, cachefile, hook_fetch=None, hook_parse=None,
+                 cb_progress=None, cb_complete=None):
         self.cachefile = cachefile
 
         # items is what we cache in the pickle
+        self.items = None
         self.load_cache()
 
         if hook_fetch:
@@ -151,8 +153,6 @@ class URLCache(object):
         """
         returns an item or None if it failed
         """
-
-        print 'get_item: 1'
         save = False
         item = self.items.get(URL)
 
@@ -160,14 +160,14 @@ class URLCache(object):
             item = URLCacheItem(URL)
             self.items[URL] = item
 
-        if item.expired():
-            save = True
-            if not self.refresh_item(item):
-                log.error('failed to refresh: %s' % item.URL)
-                del(item)
+        #if item.expired():
+        #    save = True
+        #    if not self.refresh_item(item):
+        #        log.error('failed to refresh: %s' % item.URL)
+        #        del(item)
 
-        if save:
-            self.save_cache()
+        #if save:
+        #    self.save_cache()
 
         return self.items.get(URL)
 
@@ -176,14 +176,26 @@ class URLCache(object):
         """
         returns the data stored in the item or None if there's a problem
         """
-
-        print 'get: 1'
         item = self.get_item(URL)
 
         if item:
             return item.get()
 
         return None
+
+
+    def put(self, URL, stuff):
+        """
+        stores stuff in the cache for item
+        """
+        item = self.items.get(URL)
+
+        if item == None:
+            item = URLCacheItem(URL)
+            self.items[URL] = item
+
+        item.set(stuff)
+        self.save_cache()
 
 
     def refresh_item(self, item):
@@ -237,6 +249,7 @@ class URLCacheItem(object):
         self._object = None
         self.cache_time = 0
         self.cache_interval = DEFAULT_CACHE_INTERVAL
+        self.persistant = False
 
 
     def set(self, stuff):
