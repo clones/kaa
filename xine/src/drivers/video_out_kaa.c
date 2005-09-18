@@ -158,7 +158,7 @@ kaa_update_frame_format (vo_driver_t *this_gen,
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
-    int y_size, uv_size;
+    //int y_size, uv_size;
 
     //printf("kaa_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
 
@@ -233,16 +233,16 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
-    vo_frame_t *passthrough_frame;
-    int request = 0, dst_width = -1, dst_height = -1;
+    int dst_width = this->send_frame_width, 
+        dst_height = this->send_frame_height;
 
     //printf("kaa_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
     pthread_mutex_lock(&this->lock);
-    //kaa_callback_command_query_request(this, frame, &request, &dst_width, &dst_height);
-    if (dst_width == -1 || dst_height == -1) {
+
+    if (dst_width == -1)
         dst_width = frame->width;
+    if (dst_height == -1)
         dst_height = frame->height;
-    }
 
     if (this->osd_visible)
         memset(frame->vo_frame.base[0], 55, 640*400);
@@ -376,6 +376,14 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
         case GUI_SEND_KAA_VO_SET_OSD_VISIBILITY:
             this->osd_visible = (int)data;
             break;
+
+        case GUI_SEND_KAA_VO_SET_SEND_FRAME_SIZE:
+        {
+            struct { int w, h; } *size = data;
+            this->send_frame_width = size->w;
+            this->send_frame_height = size->h;
+            break;
+        }
     }
     return this->passthrough->gui_data_exchange(this->passthrough, data_type, data);
 }
@@ -395,7 +403,6 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
 {
     kaa_class_t *class = (kaa_class_t *)class_gen;
     kaa_visual_t *visual = (kaa_visual_t *)visual_gen;
-    config_values_t *config = class->config;
     kaa_driver_t *this;
     
     printf("kaa_open_plugin\n");
@@ -425,6 +432,8 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->osd_shm_key           = visual->osd_shm_key;
     this->send_frame_cb         = visual->send_frame_cb;
     this->send_frame_cb_data    = visual->send_frame_cb_data;
+    this->send_frame_width      = -1;
+    this->send_frame_height     = -1;
     this->yuv2rgb_factory       = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
     this->last_frame            = 0;
     this->do_passthrough        = 1;
@@ -443,7 +452,7 @@ kaa_get_identifier(video_driver_class_t *this_gen)
 static char *
 kaa_get_description(video_driver_class_t *this_gen)
 {
-    return "Output frame to memory kaa";
+    return "Passthrough driver with OSD and buffer output.";
 }
 
 static void
@@ -709,9 +718,6 @@ void _overlay_blend_yuy2 (uint8_t * dst_img, vo_overlay_t * img_overl,
 
   uint8_t clr = 0;
 
-  int any_line_buffered = 0;
-  uint8_t *(*blend_yuy2_data)[ 3 ] = 0;
-  
   uint8_t *dst_y = dst_img + dst_pitch * y_off + 2 * x_off;
   uint8_t *dst;
 
@@ -890,7 +896,6 @@ void _overlay_blend_yuy2 (uint8_t * dst_img, vo_overlay_t * img_overl,
 static void
 _overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_overlay)
 {
-    kaa_driver_t *this = (kaa_driver_t *)this_gen;
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
 
     //printf("kaa_overlay_blend: format=%d overlay=%x\n", frame->format, vo_overlay);

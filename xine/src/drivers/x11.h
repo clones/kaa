@@ -10,7 +10,6 @@
 
 extern PyTypeObject *X11Window_PyObject_Type;
 extern int (*x11window_object_decompose)(PyObject *, Window *, Display **);
-vo_driver_t *x11_open_video_driver(Xine_PyObject *, char *, PyObject *kwargs, void **);
-void x11_open_video_driver_finalize(Xine_VO_Driver_PyObject *, void *);
+Xine_VO_Driver_PyObject *x11_open_video_driver(Xine_PyObject *, char *, PyObject *kwargs);
 
 #endif

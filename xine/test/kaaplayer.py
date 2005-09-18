@@ -226,12 +226,11 @@ if 0:
     vo = x.open_video_driver("buffer", passthrough = x.load_video_output_plugin("xv", window=win))
     #vo = x.open_video_driver("xv", window = win)
 else:
-    #cb = notifier.Callback(buffer_vo_callback)
     l=[]
     vo = x.open_video_driver("kaa", control_return = l, passthrough = x.load_video_output_plugin("xv", window=win))
     control = l[0]
     control("set_send_frame_callback", new_frame)
-    #vo = x.open_video_driver(window = win)
+    control("set_send_frame_size", (100, 100))
 
 #x.set_config_value("video.device.xv_colorkey", 2)
 #x.set_config_value("video.device.xv_autopaint_colorkey", True)
@@ -244,7 +243,7 @@ kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream,
 if "lirc" in kaa.signals:
     kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
-if not isinstance(win, display.EvasX11Window):
+if "aspect_changed" in win.signals:
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
 kaa.signals["idle"].connect_weak(output_status_line, stream, win)
 
@@ -254,7 +253,7 @@ stream.get_video_source().wire(stream.deint_post.get_default_input())
 #stream.deint_post.set_parameters(cheap_mode = True)
 
 expand = x.post_init("expand", video_targets = [vo])
-stream.get_video_source().wire(expand.get_default_input())
+#stream.get_video_source().wire(expand.get_default_input())
 
 #eq2 = x.post_init("eq2", video_targets = [stream.deint_post.get_default_input().get_port()])
 #eq2.set_parameters(gamma = 1.2, contrast = 1.1)

@@ -9,9 +9,10 @@ extern plugin_info_t xine_vo_kaa_plugin_info[];
 
 #define GUI_SEND_KAA_VO_SET_SEND_FRAME          1001
 #define GUI_SEND_KAA_VO_SET_PASSTHROUGH         1002
-#define GUI_SEND_KAA_VO_SET_OSD_VISIBILITY      1003
-#define GUI_SEND_KAA_VO_SET_OSD_ALPHA           1004
-#define GUI_SEND_KAA_VO_SET_OSD_SHMKEY          1005
+#define GUI_SEND_KAA_VO_SET_SEND_FRAME_SIZE     1003
+#define GUI_SEND_KAA_VO_SET_OSD_VISIBILITY      1010
+#define GUI_SEND_KAA_VO_SET_OSD_ALPHA           1011
+#define GUI_SEND_KAA_VO_SET_OSD_SHMKEY          1012
 
 
 typedef struct kaa_frame_s {
@@ -39,7 +40,8 @@ typedef struct kaa_driver_s {
     vo_driver_t *passthrough;
 
     yuv2rgb_factory_t *yuv2rgb_factory;
-    int aspect, do_passthrough, do_send_frame, needs_redraw;
+    int aspect, do_passthrough, needs_redraw,
+        do_send_frame, send_frame_width, send_frame_height;
 
     void (*send_frame_cb)(int width, int height, double aspect, uint8_t *buffer, pthread_mutex_t *buffer_lock, void *data);
     void *send_frame_cb_data;

@@ -8,11 +8,6 @@ typedef struct _kaa_vo_user_data {
 } kaa_vo_user_data;
 
 
-typedef struct kaa_driver_finalize_data {
-    kaa_vo_user_data *user_data;
-} kaa_driver_finalize_data;
-
-
 PyObject *
 _unlock_frame_cb(PyObject *self, PyObject *args, PyObject *kwargs)
 {
@@ -88,6 +83,13 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
         user_data->send_frame_cb = cmd_arg;
         Py_INCREF(cmd_arg);
     }
+    else if (!strcmp(command, "set_send_frame_size")) {
+        int w, h;
+        if (!PyArg_ParseTuple(cmd_arg, "ii", &w, &h))
+            return NULL;
+        struct { int w, h; } size = { w, h };
+        gui_send(SET_SEND_FRAME_SIZE, &size);
+    }
     else if (!strcmp(command, "set_passthrough")) {
         type_check(cmd_arg, Bool, "Argument must be a boolean");
         gui_send(SET_PASSTHROUGH, PyLong_AsLong(cmd_arg));
@@ -113,14 +115,30 @@ PyMethodDef control_def = {
     "control", (PyCFunction)_control, METH_VARARGS | METH_KEYWORDS, NULL
 };
 
-vo_driver_t *
-kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs, void **driver_data)
+
+void
+kaa_driver_dealloc(void *data)
+{
+    PyGILState_STATE gstate;
+    kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
+ 
+    gstate = PyGILState_Ensure();
+    if (user_data->send_frame_cb)
+        Py_DECREF(user_data->send_frame_cb);
+    Py_DECREF(user_data->passthrough_pyobject);
+    PyGILState_Release(gstate);
+    free(user_data);
+}
+
+
+Xine_VO_Driver_PyObject *
+kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
 {
     kaa_visual_t vis;
     vo_driver_t *driver;
     kaa_vo_user_data *user_data;
-    kaa_driver_finalize_data *finalize_data;
     PyObject *passthrough = NULL, *control_return = NULL;
+    Xine_VO_Driver_PyObject *vo_driver_pyobject;
 
     passthrough = PyDict_GetItemString(kwargs, "passthrough");
     if (!passthrough || !Xine_VO_Driver_PyObject_Check(passthrough)) {
@@ -129,8 +147,6 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs, void **driver_data)
     }
 
     user_data = malloc(sizeof(kaa_vo_user_data));
-    finalize_data = malloc(sizeof(kaa_driver_finalize_data));
-
     user_data->send_frame_cb = NULL;
     user_data->passthrough_pyobject = passthrough;
     Py_INCREF(passthrough);
@@ -153,35 +169,10 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs, void **driver_data)
         Py_DECREF(py_ud);
     }
 
-    finalize_data->user_data = user_data;
-    *(kaa_driver_finalize_data **)driver_data = finalize_data;      
-    return driver;
-}
+    vo_driver_pyobject = pyxine_new_vo_driver_pyobject(xine, xine->xine, driver, 1);
+    vo_driver_pyobject->dealloc_cb = kaa_driver_dealloc;
+    vo_driver_pyobject->dealloc_data = user_data;
 
-void
-kaa_driver_dealloc(void *data)
-{
-    PyGILState_STATE gstate;
-    kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
- 
-    gstate = PyGILState_Ensure();
-    if (user_data->send_frame_cb)
-        Py_DECREF(user_data->send_frame_cb);
-    Py_DECREF(user_data->passthrough_pyobject);
-    PyGILState_Release(gstate);
-    free(user_data);
-}
-
-void 
-kaa_open_video_driver_finalize(Xine_VO_Driver_PyObject *vo, void *_finalize_data)
-{
-    kaa_driver_finalize_data *finalize_data = (kaa_driver_finalize_data *)_finalize_data;
-
-    if (!finalize_data)
-        return;
-
-    vo->dealloc_cb = kaa_driver_dealloc;
-    vo->dealloc_data = finalize_data->user_data;
-    free(finalize_data);
+    return vo_driver_pyobject;
 }
 
