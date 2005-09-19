@@ -84,6 +84,8 @@ def _get_mplayer_info(path, mtime = None):
 class MPlayerError(Exception):
     pass
 
+class MPlayerExitError(MPlayerError):
+    pass
 
 class MPlayer(object):
 
@@ -134,6 +136,9 @@ class MPlayer(object):
         self._file_info = {}
         self._position = 0.0
         self._eat_ticks = 0
+        self._filters_pre = []
+        self._filters_add = []
+        self._last_line = None
         
         self.signals = {
             "output": notifier.Signal(),
@@ -159,7 +164,7 @@ class MPlayer(object):
             self._process.signals["stdout"].connect(self._handle_line)
             self._process.signals["stderr"].connect(self._handle_line)
             self._process.signals["completed"].connect(self._exited)
-            kaa.signals["shutdown"].connect(self.quit)
+            self._process.set_stop_command(self.quit)
         return self._process
     
 
@@ -221,7 +226,7 @@ class MPlayer(object):
                      "VIDEO_ASPECT": ("aspect", float),
                      "AUDIO_CODEC": ("acodec", str),
                      "AUDIO_BITRATE": ("abitrate", int),
-                     "LENGTH": ("length", int),
+                     "LENGTH": ("length", float),
                      "FILENAME": ("filename", str) }
             if attr in info:
                 self._file_info[info[attr][0]] = info[attr][1](value)
@@ -266,19 +271,25 @@ class MPlayer(object):
             elif DEBUG == 3:
                 print line
 
+        if line.strip():
+            self.signals["output"].emit(line)
+            self._last_line = line
+
 
     def _play(self, file, user_args = ""):
         assert(self._mp_info)
 
         keyfile = self._make_dummy_input_config()
 
-        filters = []
+        filters = self._filters_pre[:]
         if self._size:
             w, h = self._size
-            filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h)]
+            filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h), "dsize=%d:%d" % (w,h) ]
 
         args = "-v -slave -osdlevel 0 -nolirc -nojoystick -nomouseinput " \
                "-nodouble -fixed-vo -identify -framedrop "
+
+        filters += self._filters_add
 
         if filters:
             args += "-vf %s " % string.join(filters, ",")
@@ -306,6 +317,8 @@ class MPlayer(object):
         self._state = MPlayer.STATE_EXITED
         kaa.signals["shutdown"].disconnect(self.quit)
         self.signals["quit"].emit()
+        if exitcode != 0:
+            raise MPlayerExitError, (exitcode, self._last_line)
 
 
     def is_alive(self):
@@ -387,3 +400,20 @@ class MPlayer(object):
 
     def get_file_info(self):
         return self._file_info
+
+    def prepend_filter(self, filter):
+        self._filters_pre.append(filter)
+
+    def append_filter(self, filter):
+        self._filters_add.append(filter)
+
+    def get_filters(self):
+        return self._filters_pre + self._filters_add
+
+    def remove_filter(self, filter):
+        for l in (self._filters_pre, self._filters_add):
+            if filter in l:
+                l.remove(filter)
+
+    def get_instance_id(self):
+        return self._instance_id
