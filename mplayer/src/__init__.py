@@ -92,14 +92,6 @@ class MPlayer(object):
     PATH = None
     _instance_count = 0
 
-    STATE_EXITED = 0
-    STATE_LOADING = 1
-    STATE_PLAYING = 2
-    STATE_PAUSED = 3
-    # Waiting for some operation to complete before playing a video;
-    # state_data contains a tuple (filename, user_args) that should be played
-    # when the operation is finished.
-    STATE_PENDING = 4
 
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
 
@@ -130,7 +122,7 @@ class MPlayer(object):
         # Size of the window as reported by MPlayer (aspect-corrected)
         self._vo_size = None 
         self._process = None
-        self._state = MPlayer.STATE_EXITED
+        self._state = "exited"
         self._state_data = None
 
         self._file_info = {}
@@ -189,7 +181,7 @@ class MPlayer(object):
             # TODO: handle me
             raise info
         self._mp_info = info
-        if self._state == MPlayer.STATE_PENDING:
+        if self._state == "pending":
             file, user_args = self._state_data
             self._state_data = None
             self._play(file, user_args)
@@ -209,8 +201,8 @@ class MPlayer(object):
                 else:
                     self.signals["tick"].emit(self._position)
 
-                if self._state == MPlayer.STATE_PAUSED:
-                    self._state = MPlayer.STATE_PLAYING
+                if self._state == "paused":
+                    self._state = "playing"
                     self.signals["pause_toggle"].emit()
                     self.signals["play"].emit()
 
@@ -245,14 +237,14 @@ class MPlayer(object):
                 self.signals["start"].emit()
 
         elif line.startswith("  =====  PAUSE"):
-            self._state = MPlayer.STATE_PAUSED
+            self._state = "paused"
             self.signals["pause_toggle"].emit()
             self.signals["pause"].emit()
             
 
         elif line.startswith("Starting playback"):
             self.signals["play"].emit()
-            self._state = MPlayer.STATE_PLAYING
+            self._state = "playing"
 
         elif line.startswith("Parsing input"):
             # Delete the temporary key input file.
@@ -304,7 +296,7 @@ class MPlayer(object):
             args += "\"%s\"" % file
 
         self._spawn(args)
-        self._state = MPlayer.STATE_LOADING
+        self._state = "loading"
 
 
     def _slave_cmd(self, cmd):
@@ -314,7 +306,7 @@ class MPlayer(object):
 
 
     def _exited(self, exitcode):
-        self._state = MPlayer.STATE_EXITED
+        self._state = "exited"
         kaa.signals["shutdown"].disconnect(self.quit)
         self.signals["quit"].emit()
         if exitcode != 0:
@@ -337,7 +329,7 @@ class MPlayer(object):
             # race condition here if we're currently in the main thread,
             # because _handle_mp_info() is guaranteed to be called in the
             # main thread.
-            self._state = MPlayer.STATE_PENDING 
+            self._state = "pending"
             self._state_data = (file, user_args) 
             return False
 
@@ -345,7 +337,7 @@ class MPlayer(object):
         return True
 
     def is_paused(self):
-        return self.get_state() == MPlayer.STATE_PAUSED
+        return self.get_state() == "paused"
 
 
     def get_state(self):
@@ -356,20 +348,20 @@ class MPlayer(object):
         if state == self._state or not self.is_alive():
             return False
 
-        if state == MPlayer.STATE_PAUSED and self.get_state() == MPlayer.STATE_PLAYING:
+        if state == "paused" and self.get_state() == "playing":
             self._slave_cmd("pause")
             self._eat_ticks += 1
-        elif state == MPlayer.STATE_PLAYING and self.get_state() == MPlayer.STATE_PAUSED:
+        elif state == "playing" and self.get_state() == "paused":
             self._slave_cmd("pause")
 
         return True
  
  
     def pause(self):
-        if self.get_state() == MPlayer.STATE_PAUSED:
-            self.set_state(MPlayer.STATE_PLAYING)
+        if self.get_state() == "paused":
+            self.set_state("playing")
         else:       
-            self.set_state(MPlayer.STATE_PAUSED)
+            self.set_state("paused")
 
 
     def seek(self, offset, rel = 0):
