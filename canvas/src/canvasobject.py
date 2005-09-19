@@ -178,8 +178,8 @@ class CanvasObject(object):
         for prop in self._supported_sync_properties:
             if prop not in changed:
                 continue
-            getattr(self, "_sync_property_" + prop)()
-            del changed[prop]
+            if getattr(self, "_sync_property_" + prop)() != False:
+                del changed[prop]
 
         self._changed_since_sync = changed
         return True
@@ -373,6 +373,7 @@ class CanvasContainer(CanvasObject):
     def _set_property_generic(self, key, value):
         super(CanvasContainer, self)._set_property_generic(key, value)
 
+        #print "Set prop generic", self, self._children, key, value
         if key not in ("name",):
             self._queue_children_sync_property(key)
 
@@ -383,6 +384,7 @@ class CanvasContainer(CanvasObject):
                 child._queue_children_sync_property(prop)
             else:
                 child._changed_since_sync[prop] = True
+                child._inc_properties_serial()
 
 
     def _inc_properties_serial(self):
@@ -417,9 +419,26 @@ class CanvasContainer(CanvasObject):
     # Public API
     #
 
-    def add_child(self, child):
+    def add_child(self, child, **kwargs):
         if child._parent:
             raise CanvasError, "Attempt to parent an adopted child."
+
+        if "pos" in kwargs:
+            child.move(kwargs["pos"])
+        if "visible" in kwargs:
+            child.set_visible(kwargs["visible"])
+        if "color" in kwargs:
+            child.set_color(*kwargs["color"])
+        if "name" in kwargs:
+            child.set_name(kwargs["name"])
+        if "layer" in kwargs:
+            child.set_layer(kwargs["layer"])
+        if "clip" in kwargs:
+            child.clip(*kwargs["clip"])
+        if "size" in kwargs:
+            child.resize(kwargs["size"])
+        if "font" in kwargs and isinstance(child, CanvasText):
+            child.set_font(kwargs["font"], kwargs.get("size"))
 
         self._children.append(child)
         child._adopted(self)
@@ -444,32 +463,18 @@ class CanvasContainer(CanvasObject):
 
     # Convenience functions for object creation.
 
-    def _add_common(self, o, kwargs):
-        if "pos" in kwargs:     o.move(kwargs["pos"])
-        if "visible" in kwargs: o.set_visible(kwargs["visible"])
-        if "color" in kwargs:   o.set_color(*kwargs["color"])
-        if "name" in kwargs:    o.set_name(kwargs["name"])
-        if "layer" in kwargs:   o.set_layer(kwargs["layer"])
-        if "clip" in kwargs:    o.clip(*kwargs["clip"])
-        if "size" in kwargs:    o.resize(kwargs["size"])
-        if "font" in kwargs and isinstance(o, CanvasText):
-            o.set_font(kwargs["font"], kwargs.get("size"))
-
-        self.add_child(o)
-        return o
-
 
     def add_container(self, **kwargs):
-        return self._add_common(CanvasContainer(), kwargs)
+        return self.add_child(CanvasContainer(), **kwargs)
 
     def add_image(self, image, **kwargs):
-        return self._add_common(CanvasImage(image), kwargs)
+        return self.add_child(CanvasImage(image), **kwargs)
 
     def add_text(self, text = None, **kwargs):
-        return self._add_common(CanvasText(text), kwargs)
+        return self.add_child(CanvasText(text), **kwargs)
 
     def add_rectangle(self, **kwargs):
-        return self._add_common(CanvasRectangle(), kwargs)
+        return self.add_child(CanvasRectangle(), **kwargs)
 
 
 class CanvasText(CanvasObject):
@@ -560,6 +565,10 @@ class CanvasImage(CanvasObject):
     def __init__(self, image_or_file = None):
         super(CanvasImage, self).__init__()
 
+        # Remove previous "size" property -- we want size property to sync
+        # after the image gets loaded (via image, filename, or pixels
+        # properties).
+        self._supported_sync_properties.remove("size")
         self._supported_sync_properties += ["image", "filename", "pixels", "dirty", "size", "has_alpha"]
 
         self._loaded = False
@@ -615,7 +624,15 @@ class CanvasImage(CanvasObject):
     def _sync_property_filename(self):
         if self._loaded:
             return
-        self._o.load(self["filename"])
+        self._o.file_set(self["filename"])
+        err = self._o.load_error_get()
+        if err:
+            raise evas.LoadError, (err, "Unable to load image", self["filename"])
+        if self["size"] == (-1, -1):
+            size = self._o.size_get()
+            self._o.fill_set( (0, 0), size )
+            self._o.resize( size )
+
         self._loaded = True
 
     def _sync_property_pixels(self):
@@ -632,6 +649,7 @@ class CanvasImage(CanvasObject):
 
     def _sync_property_size(self):
         super(CanvasImage, self)._sync_property_size()
+        self._o.resize(self.get_size())
         self._o.fill_set((0, 0), self.get_size())
     
     def _sync_property_has_alpha(self):
@@ -670,11 +688,12 @@ class CanvasImage(CanvasObject):
         if not self["image"]:
             # No existing Imlib2 image, so we need to make one.
             if self._loaded:
-                # The evas object already exists, so create an Imlib2 image
-                # from evas data and use the Imlib2 image as the buffer for
-                # thee evas object.
+                # The evas object already exists, so create a new Imlib2 image
+                # from the evas data and tell evas to use that buffer for the
+                # image instead.
                 size = self._o.size_get()
-                self["image"] = imlib2.new(size, self._o.data_get(), copy = False)
+                self["image"] = imlib2.new(size, self._o.data_get(), copy = True)
+                self._o.data_set(self["image"].get_raw_data(), copy = False)
 
             elif self["filename"]:
                 # Evas object not created yet, 
@@ -761,7 +780,6 @@ class Canvas(CanvasContainer):
         if len(self._queued_children) == 0 or not self._o:
             return
 
-        #print "Render requested"
         for child in self._queued_children.keys():
             child._sync_properties()
 
