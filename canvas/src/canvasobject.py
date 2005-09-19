@@ -3,7 +3,7 @@
 # XXX: all this stuff is in a single file right now since it's easier for
 # initial development.  I'll split it up later.
 __all__ = [ 'CanvasObject', 'CanvasError', 'CanvasContainer', 'CanvasImage', 
-            'Canvas', 'X11Canvas' ]
+            'Canvas', 'X11Canvas', 'BufferCanvas' ]
 
 import types
 import kaa
@@ -166,14 +166,14 @@ class CanvasObject(object):
 
 
     def _sync_properties(self):
-        if len(self._changed_since_sync) == 0:
+        if len(self._changed_since_sync) == 0 or not self._o:
             return False
 
         changed = self._changed_since_sync
         # Prevents reentry.
-        self._changed_since_sync = None
+        self._changed_since_sync = []
 
-        #print "SYNC PROPERTIES", self, changed
+        #print "SYNC PROPERTIES", self, self._o, changed, self._supported_sync_properties
 
         for prop in self._supported_sync_properties:
             if prop not in changed:
@@ -445,7 +445,6 @@ class CanvasContainer(CanvasObject):
     # Convenience functions for object creation.
 
     def _add_common(self, o, kwargs):
-        self.add_child(o)
         if "pos" in kwargs:     o.move(kwargs["pos"])
         if "visible" in kwargs: o.set_visible(kwargs["visible"])
         if "color" in kwargs:   o.set_color(*kwargs["color"])
@@ -453,6 +452,10 @@ class CanvasContainer(CanvasObject):
         if "layer" in kwargs:   o.set_layer(kwargs["layer"])
         if "clip" in kwargs:    o.clip(*kwargs["clip"])
         if "size" in kwargs:    o.resize(kwargs["size"])
+        if "font" in kwargs and isinstance(o, CanvasText):
+            o.set_font(kwargs["font"], kwargs.get("size"))
+
+        self.add_child(o)
         return o
 
 
@@ -485,7 +488,7 @@ class CanvasText(CanvasObject):
     def _canvased(self, canvas):
         super(CanvasText, self)._canvased(canvas)
 
-        if not self._o:
+        if not self._o and canvas.get_evas():
             o = canvas.get_evas().object_text_add()
             self._wrap(o)
 
@@ -501,7 +504,9 @@ class CanvasText(CanvasObject):
     # Public API
     #
 
-    def set_font(self, font, size):
+    def set_font(self, font, size = None):
+        if size == None:
+            size = 24
         self["font"] = (font, size)
 
 
@@ -582,7 +587,7 @@ class CanvasImage(CanvasObject):
     def _canvased(self, canvas):
         super(CanvasImage, self)._canvased(canvas)
 
-        if not self._o:
+        if not self._o and canvas.get_evas():
             o = canvas.get_evas().object_image_add()
             self._wrap(o)
 
@@ -709,35 +714,32 @@ class CanvasRectangle(CanvasObject):
    
     def _canvased(self, canvas):
         super(CanvasRectangle, self)._canvased(canvas)
-        if not self._o:
+        if not self._o and canvas.get_evas():
             o = canvas.get_evas().object_rectangle_add()
             self._wrap(o)
 
 
 class Canvas(CanvasContainer):
 
-    def __init__(self, size):
-
-        self.signals = {
-            "key_press_event": Signal()
-        }
-
+    def __init__(self):
         self._queued_children = {}
         self._names = {}
-        kaa.signals["idle"].connect_weak(self._check_render_queued)
 
         super(Canvas, self).__init__()
 
-    def __getattr__(self, attr):
-        if attr == "fontpath":
-            return self.get_evas().fontpath
-        return CanvasContainer.__getattr__(self, attr)
+        self.signals = {
+            "key_press_event": Signal(),
+            "updated": Signal()
+        }
 
-    def __setattr__(self, attr, value):
-        if attr == "fontpath":
-            self.get_evas().fontpath = value
-        else:
-            CanvasContainer.__setattr__(self, attr, value)
+        kaa.signals["idle"].connect_weak(self._check_render_queued)
+        self._supported_sync_properties += ["fontpath"]
+
+        self["fontpath"] = []
+
+
+    def _sync_property_fontpath(self):
+        self.get_evas().fontpath = self["fontpath"]
 
     def _register_object_name(self, name, object):
         # FIXME: handle cleanup
@@ -751,7 +753,6 @@ class Canvas(CanvasContainer):
     def _get_property_pos(self):
         return 0, 0
 
-
     def _queue_render(self, child = None):
         if not child:
             child = self
@@ -759,10 +760,10 @@ class Canvas(CanvasContainer):
 
 
     def _check_render_queued(self):
-        if len(self._queued_children) == 0:
+        if len(self._queued_children) == 0 or not self._o:
             return
 
-        print "Render requested"
+        #print "Render requested"
         for child in self._queued_children.keys():
             child._sync_properties()
 
@@ -775,8 +776,14 @@ class Canvas(CanvasContainer):
     #
 
     def render(self):
+        if not self._o:
+            return []
+
         self._check_render_queued()
-        self._o.render()
+        regions = self._o.render()
+        if regions:
+            self.signals["updated"].emit(regions)
+        return regions
 
 
     def get_evas(self):
@@ -794,13 +801,18 @@ class Canvas(CanvasContainer):
     def clip(self, pos = (0,0), size = (-1,-1)):
         raise CanvasError, "Can't clip whole canvases yet -- looks like a bug in evas."
 
+    def add_font_path(self, path):
+        self["fontpath"].append(path)
 
+    def remove_font_path(self, path):
+        if path in self["fontpath"]:
+            self["fontpath"].remove(path)
 
 class X11Canvas(Canvas):
 
     def __init__(self, size, use_gl = False, title = "Canvas"):
         self._window = display.EvasX11Window(use_gl, size = size, title = "Kaa Display Test")
-        super(X11Canvas, self).__init__(size)
+        super(X11Canvas, self).__init__()
         self._wrap(self._window.get_evas())
 
         self._window.signals["key_press_event"].connect_weak(self.signals["key_press_event"].emit)
@@ -831,8 +843,24 @@ class X11Canvas(Canvas):
         if vis == False:
             self._window.hide()
         print "Render canvas right now"
-        self._o.render()
+        regions = self._o.render()
         if vis == True:
             self._window.show()
 
         self._visibility_on_next_render = None
+        if regions:
+            self.signals["updated"].emit(regions)
+        return regions
+
+
+
+class BufferCanvas(Canvas):
+    def __init__(self, size = None, buffer = None):
+        super(BufferCanvas, self).__init__()
+        if size and buffer:
+            self.create(size, buffer)
+
+    def create(self, size, buffer):
+        canvas = evas.EvasBuffer(size, depth = evas.ENGINE_BUFFER_DEPTH_BGRA32, buffer = buffer)
+        self._wrap(canvas)
+        self._canvased(self)
