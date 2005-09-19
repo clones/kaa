@@ -428,7 +428,7 @@ Evas_Object_PyObject__setattro(Evas_Object_PyObject * self, PyObject *name,
     PyObject *old_value;
     char *sname = PyString_AsString(name);
 
-    fprintf(stderr, "EVAS OBJECT setattr: %s\n", sname);
+    //fprintf(stderr, "EVAS OBJECT setattr: %s\n", sname);
     orig = attrs = evas_object_data_get(self->object, "pyattrs");
 
     old_value = evas_hash_find(attrs, sname);
