@@ -842,7 +842,7 @@ class X11Canvas(Canvas):
         vis = self._visibility_on_next_render
         if vis == False:
             self._window.hide()
-        print "Render canvas right now"
+        #print "Render canvas right now"
         regions = self._o.render()
         if vis == True:
             self._window.show()
