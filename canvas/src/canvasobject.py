@@ -171,7 +171,7 @@ class CanvasObject(object):
 
         changed = self._changed_since_sync
         # Prevents reentry.
-        self._changed_since_sync = []
+        self._changed_since_sync = {}
 
         #print "SYNC PROPERTIES", self, self._o, changed, self._supported_sync_properties
 
@@ -642,12 +642,11 @@ class CanvasImage(CanvasObject):
             return
 
         self._o.pixels_dirty_set()
-        if self["image"]:
-            # Even though we're sharing the memory between the evas image buffer
-            # and the Imlib2 image's buffer, we need to call this function
-            # for canvas backends where this data gets copied again (like GL
-            # textures).
-            self._o.data_set(self["image"].get_raw_data(), copy = False)
+
+        # We need to call this function explicitly for canvas backends where
+        # this data gets copied again (like GL textures).
+        self._o.data_set(self._o.data_get(), copy = False)
+
         self["dirty"] = False
 
 
@@ -675,8 +674,7 @@ class CanvasImage(CanvasObject):
                 # from evas data and use the Imlib2 image as the buffer for
                 # thee evas object.
                 size = self._o.size_get()
-                self["image"] = imlib2.new(size, self._o.data_get())
-                self._o.data_set(self["image"].get_raw_data(), copy = False)
+                self["image"] = imlib2.new(size, self._o.data_get(), copy = False)
 
             elif self["filename"]:
                 # Evas object not created yet, 
@@ -802,11 +800,13 @@ class Canvas(CanvasContainer):
         raise CanvasError, "Can't clip whole canvases yet -- looks like a bug in evas."
 
     def add_font_path(self, path):
-        self["fontpath"].append(path)
+        self["fontpath"] = self["fontpath"] + [path]
 
     def remove_font_path(self, path):
         if path in self["fontpath"]:
-            self["fontpath"].remove(path)
+            fp = self["fontpath"]
+            fp.remove(path)
+            self["fontpath"] = fp
 
 class X11Canvas(Canvas):
 
