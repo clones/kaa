@@ -101,7 +101,6 @@ static void x11_dest_size_cb(void *data, int video_width, int video_height,
         printf("EXCEPTION in dest_size_cb!\n");
         PyErr_Print();
     }
-
     PyGILState_Release(gstate);
 
     if (!success) {

@@ -3,7 +3,7 @@
 
 typedef struct _kaa_vo_user_data {
     kaa_driver_t *driver;
-    PyObject *send_frame_cb,
+    PyObject *send_frame_cb, *osd_configure_cb,
              *passthrough_pyobject;
 } kaa_vo_user_data;
 
@@ -29,7 +29,7 @@ void send_frame_cb(int width, int height, double aspect, uint8_t *buffer, pthrea
     PyGILState_STATE gstate;
     int success = 0;
 
-    if (!Py_IsInitialized() || !user_data || !user_data->send_frame_cb) {
+    if (!user_data || !user_data->send_frame_cb || !Py_IsInitialized()) {
         pthread_mutex_unlock(buffer_lock);
         return;
     }
@@ -47,6 +47,31 @@ void send_frame_cb(int width, int height, double aspect, uint8_t *buffer, pthrea
         Py_DECREF(result);
     else {
         printf("Exception in kaa_send_frame callback:\n");
+        PyErr_Print();
+    }
+    Py_DECREF(args);
+    PyGILState_Release(gstate);
+}
+
+void 
+osd_configure_cb(int width, int height, double aspect, void *data)
+{
+    kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
+    PyObject *args, *result;
+    PyGILState_STATE gstate;
+    int success = 0;
+
+    if (!user_data || !user_data->osd_configure_cb || !Py_IsInitialized())
+        return;
+
+    gstate = PyGILState_Ensure();
+
+    args = Py_BuildValue("(iid)", width, height, aspect);
+    result = PyEval_CallObject(user_data->osd_configure_cb, args);
+    if (result)
+        Py_DECREF(result);
+    else {
+        printf("Exception in osd_configure_cb callback:\n");
         PyErr_Print();
     }
     Py_DECREF(args);
@@ -73,16 +98,6 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
         type_check(cmd_arg, Bool, "Argument must be a boolean");
         gui_send(SET_SEND_FRAME, PyLong_AsLong(cmd_arg));
     }
-    else if (!strcmp(command, "set_send_frame_callback")) {
-        if (cmd_arg == Py_None) {
-            if (user_data->send_frame_cb)
-                Py_DECREF(user_data->send_frame_cb);
-            user_data->send_frame_cb = 0;
-        }
-        type_check(cmd_arg, Callable, "Argument must be a callable");
-        user_data->send_frame_cb = cmd_arg;
-        Py_INCREF(cmd_arg);
-    }
     else if (!strcmp(command, "set_send_frame_size")) {
         int w, h;
         if (!PyArg_ParseTuple(cmd_arg, "ii", &w, &h))
@@ -96,7 +111,14 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
     }
     else if (!strcmp(command, "set_osd_visibility")) {
         type_check(cmd_arg, Bool, "Argument must be a boolean");
-        gui_send(SET_OSD_VISIBILITY, PyLong_AsLong(cmd_arg));
+        gui_send(OSD_SET_VISIBILITY, PyLong_AsLong(cmd_arg));
+    }
+    else if (!strcmp(command, "osd_invalidate_rect")) {
+        int x, y, w, h;
+        if (!PyArg_ParseTuple(cmd_arg, "ii", &w, &h))
+            return NULL;
+        struct { int x, y, w, h; } size = { x, y, w, h };
+        gui_send(OSD_INVALIDATE_RECT, PyLong_AsLong(cmd_arg));
     }
     else {
         PyErr_Format(PyExc_ValueError, "Invalid control '%s'", command);
@@ -125,7 +147,11 @@ kaa_driver_dealloc(void *data)
     gstate = PyGILState_Ensure();
     if (user_data->send_frame_cb)
         Py_DECREF(user_data->send_frame_cb);
-    Py_DECREF(user_data->passthrough_pyobject);
+    if (user_data->osd_configure_cb)
+        Py_DECREF(user_data->osd_configure_cb);
+    if (user_data->passthrough_pyobject)
+        Py_DECREF(user_data->passthrough_pyobject);
+
     PyGILState_Release(gstate);
     free(user_data);
 }
@@ -137,8 +163,10 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
     kaa_visual_t vis;
     vo_driver_t *driver;
     kaa_vo_user_data *user_data;
-    PyObject *passthrough = NULL, *control_return = NULL;
+    PyObject *o, *passthrough = NULL, *control_return = NULL, 
+             *send_frame_cb_pyobject = NULL, *osd_configure_cb_pyobject = NULL;
     Xine_VO_Driver_PyObject *vo_driver_pyobject;
+    int buflen = -1;
 
     passthrough = PyDict_GetItemString(kwargs, "passthrough");
     if (!passthrough || !Xine_VO_Driver_PyObject_Check(passthrough)) {
@@ -146,19 +174,67 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
         return NULL;
     }
 
-    user_data = malloc(sizeof(kaa_vo_user_data));
-    user_data->send_frame_cb = NULL;
-    user_data->passthrough_pyobject = passthrough;
+    memset(&vis, 0, sizeof(vis));
+    vis.send_frame_cb           = send_frame_cb;
+    vis.osd_configure_cb        = osd_configure_cb;
+    vis.passthrough             = ((Xine_VO_Driver_PyObject *)passthrough)->driver;
+
+    if (PyMapping_HasKeyString(kwargs, "osd_buffer")) {
+        o = PyDict_GetItemString(kwargs, "osd_buffer");
+        if (PyNumber_Check(o))
+            vis.osd_buffer = (uint8_t *)PyLong_AsLong(o);
+        else {
+            if (PyObject_AsWriteBuffer(o, (void **)&vis.osd_buffer, &buflen) == -1)
+                return NULL;
+        }
+    }
+
+    if (PyMapping_HasKeyString(kwargs, "osd_stride"))
+        if (!PyArg_Parse(PyDict_GetItemString(kwargs, "osd_stride"), "l", &vis.osd_stride))
+            return NULL;
+
+    if (PyMapping_HasKeyString(kwargs, "osd_rows"))
+        if (!PyArg_Parse(PyDict_GetItemString(kwargs, "osd_rows"), "l", &vis.osd_rows))
+            return NULL;
+
+    if (PyMapping_HasKeyString(kwargs, "send_frame_cb")) {
+        o = PyDict_GetItemString(kwargs, "send_frame_cb");
+        if (!PyCallable_Check(o)) {
+            PyErr_Format(PyExc_ValueError, "send_frame_cb must be callable");
+            return NULL;
+        }
+        send_frame_cb_pyobject = o;
+        Py_INCREF(o);
+    }
+
+    if (PyMapping_HasKeyString(kwargs, "osd_configure_cb")) {
+        o = PyDict_GetItemString(kwargs, "osd_configure_cb");
+        if (!PyCallable_Check(o)) {
+            PyErr_Format(PyExc_ValueError, "osd_configure_cb must be callable");
+            return NULL;
+        }
+        osd_configure_cb_pyobject = o;
+        Py_INCREF(o);
+    }
+
+    if (vis.osd_buffer && buflen != -1 && buflen != vis.osd_stride * vis.osd_rows) {
+        PyErr_Format(PyExc_ValueError, "OSD buffer length does not match supplied stride * rows");
+        return NULL;
+    }
+
     Py_INCREF(passthrough);
 
-    vis.send_frame_cb = send_frame_cb;
-    vis.send_frame_cb_data = user_data;
-    vis.passthrough = ((Xine_VO_Driver_PyObject *)passthrough)->driver;
-    vis.osd_shm_key = 0;
+    user_data = malloc(sizeof(kaa_vo_user_data));
+    memset(user_data, 0, sizeof(kaa_vo_user_data));
+    user_data->passthrough_pyobject = passthrough;
+    user_data->send_frame_cb        = send_frame_cb_pyobject;
+    user_data->osd_configure_cb     = osd_configure_cb_pyobject;
+
+    vis.send_frame_cb_data    = user_data;
+    vis.osd_configure_cb_data = user_data;
 
     driver = _x_load_video_output_plugin(xine->xine, "kaa", XINE_VISUAL_TYPE_NONE, (void *)&vis);
     user_data->driver = (kaa_driver_t *)driver;
-
     
     control_return = PyDict_GetItemString(kwargs, "control_return");
     if (control_return && PyList_Check(control_return)) {
@@ -168,6 +244,7 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
         Py_DECREF(control);
         Py_DECREF(py_ud);
     }
+
 
     vo_driver_pyobject = pyxine_new_vo_driver_pyobject(xine, xine->xine, driver, 1);
     vo_driver_pyobject->dealloc_cb = kaa_driver_dealloc;
