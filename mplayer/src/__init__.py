@@ -4,7 +4,7 @@ from kaa import notifier, display
 import kaa
 
 # 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status
-DEBUG=1
+DEBUG=0
 
 # A cache holding values specific to an MPlayer executable (version,
 # filter list, video/audio driver list, input keylist).  This dict is
@@ -201,11 +201,16 @@ class MPlayer(object):
                 else:
                     self.signals["tick"].emit(self._position)
 
+                # XXX this logic won't work with seek-while-paused patch; state
+                # will be "playing" after a seek.
                 if self._state == "paused":
-                    self._state = "playing"
                     self.signals["pause_toggle"].emit()
+                if self._state not in ("paused", "playing"):
+                    self._state = "playing"
+                    self.signals["start"].emit()
+                elif self._state != "playing":
+                    self._state = "playing"
                     self.signals["play"].emit()
-
 
         elif line.startswith("ID_") and line.find("=") != -1:
             attr, value = line.split("=")
@@ -237,17 +242,12 @@ class MPlayer(object):
                 if "aspect" not in self._file_info or self._file_info["aspect"] == 0:
                     # No aspect defined, so base it on vo size.
                     self._file_info["aspect"] = vo_w / float(vo_h)
-                self.signals["start"].emit()
 
         elif line.startswith("  =====  PAUSE"):
             self._state = "paused"
             self.signals["pause_toggle"].emit()
             self.signals["pause"].emit()
             
-
-        elif line.startswith("Starting playback"):
-            self.signals["play"].emit()
-            self._state = "playing"
 
         elif line.startswith("Parsing input"):
             # Delete the temporary key input file.
@@ -257,6 +257,9 @@ class MPlayer(object):
         elif line.startswith("File not found"):
             file = line[line.find(":")+2:]
             raise IOError, (2, "No such file or directory: %s" % file)
+
+        elif line.startswith("FATAL:"):
+            raise MPlayerError, line.strip()
 
         if DEBUG:
             if re.search("@@@|outbuf|osd", line, re.I) and DEBUG == 1:
