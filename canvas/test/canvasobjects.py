@@ -146,7 +146,7 @@ class CanvasMovie(canvas.CanvasImage):
     def _setup(self):
         if not self.get_canvas().get_evas() or self.get_mplayer().get_state() != "playing":
             # Canvas isn't ready yet.
-            return
+            return False
 
         info = self.get_mplayer().get_file_info()
         w, h = info["width"], info["height"]
@@ -170,10 +170,10 @@ class CanvasMovie(canvas.CanvasImage):
             self._shmem = None
 
     def _sync_property_size(self):
-        info = self.get_mplayer().get_file_info()
-        if "aspect" not in info:
+        if self.get_mplayer().get_state() != "playing":
             return False
 
+        info = self.get_mplayer().get_file_info()
         w, h = self["size"]
         aspect = info["aspect"]
         if w == h == -1:
