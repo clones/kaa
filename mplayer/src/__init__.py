@@ -95,7 +95,7 @@ class MPlayer(object):
 
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
 
-    def __init__(self, size = None, window = None):
+    def __init__(self, size = None, window = None, debug = 0):
         self._mp_cmd = MPlayer.PATH
         if not self._mp_cmd:
             for dir in os.getenv("PATH").split(":"):
@@ -115,6 +115,7 @@ class MPlayer(object):
         # Requested size of the video window (will be soft scaled/expanded)
         self._size = size
 
+        self._debug = debug or DEBUG
         # Used for vf_osd and vf_outbuf
         self._instance_id = "%d-%d" % (os.getpid(), MPlayer._instance_count)
         MPlayer._instance_count += 1
@@ -261,12 +262,12 @@ class MPlayer(object):
         elif line.startswith("FATAL:"):
             raise MPlayerError, line.strip()
 
-        if DEBUG:
-            if re.search("@@@|outbuf|osd", line, re.I) and DEBUG == 1:
+        if self._debug:
+            if re.search("@@@|outbuf|osd", line, re.I) and self._debug == 1:
                 print line
-            elif line[:2] not in ("A:", "V:") and DEBUG == 2:
+            elif line[:2] not in ("A:", "V:") and self._debug == 2:
                 print line
-            elif DEBUG == 3:
+            elif self._debug == 3:
                 print line
 
         if line.strip():
@@ -306,7 +307,7 @@ class MPlayer(object):
 
 
     def _slave_cmd(self, cmd):
-        if DEBUG >= 1:
+        if self._debug >= 1:
             print "SLAVE:", cmd
         self._process.write(cmd + "\n")
 
