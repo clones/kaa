@@ -4,7 +4,7 @@ from kaa import notifier, display
 import kaa
 
 # 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status
-DEBUG=0
+DEBUG=1
 
 # A cache holding values specific to an MPlayer executable (version,
 # filter list, video/audio driver list, input keylist).  This dict is
@@ -231,9 +231,12 @@ class MPlayer(object):
         elif line.startswith("VO:"):
             m = re.search("=> (\d+)x(\d+)", line)
             if m:
-                self._vo_size = int(m.group(1)), int(m.group(2))
+                self._vo_size = vo_w, vo_h = int(m.group(1)), int(m.group(2))
                 if self._window:
                     self._window.resize(self._vo_size)
+                if "aspect" not in self._file_info or self._file_info["aspect"] == 0:
+                    # No aspect defined, so base it on vo size.
+                    self._file_info["aspect"] = vo_w / float(vo_h)
                 self.signals["start"].emit()
 
         elif line.startswith("  =====  PAUSE"):
