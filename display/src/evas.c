@@ -68,7 +68,6 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
     X11Window_PyObject *win_object;
     Window win;
     XSetWindowAttributes attr;
-    XClassHint chint;
     int screen, w, h;
     char *title;
 
@@ -122,7 +121,7 @@ new_evas_software_x11(PyObject *self, PyObject *args, PyObject *kwargs)
 
     if (!PyArg_ParseTuple(args, "O!O!", Evas_PyObject_Type, &evas_pyobject,
                         &X11Display_PyObject_Type, &display))
-        return;
+        return NULL;
 
     evas = evas_object_from_pyobject(evas_pyobject);
     evas_output_method_set(evas, evas_render_method_lookup("software_x11"));
@@ -150,7 +149,7 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
 
     if (!PyArg_ParseTuple(args, "O!O!", Evas_PyObject_Type, &evas_pyobject,
                         &X11Display_PyObject_Type, &display))
-        return;
+        return NULL;
 
     evas = evas_object_from_pyobject(evas_pyobject);
 

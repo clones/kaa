@@ -297,8 +297,6 @@ _make_invisible_cursor(X11Window_PyObject *win)
 // Exported _C_API function
 int x11window_object_decompose(X11Window_PyObject *win, Window *window, Display **display)
 {
-    XWindowAttributes attrs;
-
     if (!win || !X11Window_PyObject_Check(win))
         return 0;
 

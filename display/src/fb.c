@@ -217,10 +217,10 @@ void **get_module_api(char *module)
 
     m = PyImport_ImportModule(module);
     if (m == NULL)
-       return;
+       return NULL;
     c_api = PyObject_GetAttrString(m, "_C_API");
     if (c_api == NULL || !PyCObject_Check(c_api))
-        return;
+        return NULL;
     ptrs = (void **)PyCObject_AsVoidPtr(c_api);
     Py_DECREF(c_api);
     return ptrs;
