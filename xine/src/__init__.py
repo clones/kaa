@@ -179,35 +179,32 @@ class Xine(Wrapper):
 
     def _default_frame_output_cb(self, width, height, aspect, window):
         # FIXME: be smarter
-        #print "FRAME CALLBACK", width, height, aspect, window
+        #print "FRAME OUTPUT CALLBACK", width, height, aspect
+        frame_aspect = width / float(height)
+        win_aspect = frame_aspect * aspect
         if window:
+            if window.aspect != win_aspect and win_aspect > 0:
+                window.aspect = win_aspect
+                window.signals["aspect_changed"].emit(win_aspect)
             win_w, win_h = window.get_geometry()[1]
         else:
             win_w, win_h = 640, 480
-        movie_aspect = width / float(height)
-        w = win_w
-        h = int(w / movie_aspect)
-        y = int((win_h-h)/2)
-        win_aspect = movie_aspect * aspect
-        if window.aspect != win_aspect:
-            window.aspect = win_aspect
-            window.signals["aspect_changed"].emit(win_aspect)
 
         # Return order: dst_pos, win_pos, dst_size, aspect
-        return (0, 0), (0, 0), (win_w, win_h), 1
+        return (0, 0), (0, 0), (win_w, win_h), 1.0 #win_h / float(win_w)
 
     def _default_dest_size_cb(self, width, height, aspect, window):
-        #print "DEST SIZE CB", width, height, aspect, window
+        #print "DEST SIZE CALLBACK", width, height, aspect
+        frame_aspect = width / float(height)
+        win_aspect = frame_aspect * aspect
         if window:
+            if window.aspect != win_aspect and win_aspect > 0:
+                window.aspect = win_aspect
+                window.signals["aspect_changed"].emit(win_aspect)
             win_w, win_h = window.get_geometry()[1]
         else:
             win_w, win_h = 640, 480
-        movie_aspect = width / float(height)
-        win_aspect = movie_aspect * aspect
-        if window.aspect != win_aspect:
-            window.aspect = win_aspect
-            window.signals["aspect_changed"].emit(win_aspect)
-        return (win_w, win_h), 1
+        return (win_w, win_h), 1.0# / win_aspect
 
     def load_video_output_plugin(self, driver = "auto", **kwargs):
         if "window" in kwargs:
@@ -219,7 +216,7 @@ class Xine(Wrapper):
                 kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
 
             window.signals["aspect_changed"] = notifier.Signal()
-            window.aspect = -1 
+            window.aspect = 1.0
             kwargs["window"] = window._window
 
         if "passthrough" in kwargs:

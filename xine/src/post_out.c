@@ -76,7 +76,7 @@ _post_out_set_port(Xine_Post_Out_PyObject *self)
 {
     xine_video_port_t *vo;
     xine_audio_port_t *ao;
-    PyObject *owner_pyobject, *port, *wire_list, *objid;
+    PyObject *owner_pyobject, *port = NULL, *wire_list, *objid;
 
     // Return the video/audio port that we are wired to.  Streams are special
     // cases, since the data field of the xine_post_out_t seems to point to a
@@ -102,7 +102,7 @@ _post_out_set_port(Xine_Post_Out_PyObject *self)
             port = (PyObject *)pyxine_new_audio_port_pyobject(self->xine, self->post_out, ao, 0);
         }
     }
-    else {
+    if (!port) {
         port = Py_None;
         Py_INCREF(port);
     }
@@ -176,7 +176,7 @@ static PyMemberDef Xine_Post_Out_PyObject_members[] = {
 void
 Xine_Post_Out_PyObject__dealloc(Xine_Post_Out_PyObject *self)
 {
-    printf("DEalloc Post Out: %x\n", self->post_out);
+    printf("DEalloc Post Out: %p\n", self->post_out);
     if (self->post_out && self->do_dispose) {
     }
     //Xine_Post_Out_PyObject__clear(self);

@@ -118,10 +118,12 @@ x11_driver_dealloc(void *data)
     x11_callback_user_data *user_data = (x11_callback_user_data *)data;
     
     gstate = PyGILState_Ensure();
-    if (user_data->frame_output_callback)
+    if (user_data->frame_output_callback) {
         Py_DECREF(user_data->frame_output_callback);
-    if (user_data->dest_size_callback)
+    }
+    if (user_data->dest_size_callback) {
         Py_DECREF(user_data->dest_size_callback);
+    }
     Py_DECREF(user_data->window_pyobject);
     PyGILState_Release(gstate);
     free(user_data);

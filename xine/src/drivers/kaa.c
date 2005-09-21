@@ -27,7 +27,6 @@ void send_frame_cb(int width, int height, double aspect, uint8_t *buffer, pthrea
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
     PyObject *args, *result, *unlock_frame_cb, *lock_pyobject;
     PyGILState_STATE gstate;
-    int success = 0;
 
     if (!user_data || !user_data->send_frame_cb || !Py_IsInitialized()) {
         pthread_mutex_unlock(buffer_lock);
@@ -59,7 +58,6 @@ osd_configure_cb(int width, int height, double aspect, void *data)
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
     PyObject *args, *result;
     PyGILState_STATE gstate;
-    int success = 0;
 
     if (!user_data || !user_data->osd_configure_cb || !Py_IsInitialized())
         return;
@@ -99,10 +97,9 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
         gui_send(SET_SEND_FRAME, PyLong_AsLong(cmd_arg));
     }
     else if (!strcmp(command, "set_send_frame_size")) {
-        int w, h;
-        if (!PyArg_ParseTuple(cmd_arg, "ii", &w, &h))
+        struct { int w, h; } size;
+        if (!PyArg_ParseTuple(cmd_arg, "ii", &size.w, &size.h))
             return NULL;
-        struct { int w, h; } size = { w, h };
         gui_send(SET_SEND_FRAME_SIZE, &size);
     }
     else if (!strcmp(command, "set_passthrough")) {
@@ -113,12 +110,21 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
         type_check(cmd_arg, Bool, "Argument must be a boolean");
         gui_send(OSD_SET_VISIBILITY, PyLong_AsLong(cmd_arg));
     }
+    else if (!strcmp(command, "set_osd_alpha")) {
+        type_check(cmd_arg, Number, "Argument must be an integer");
+        gui_send(OSD_SET_ALPHA, PyLong_AsLong(cmd_arg));
+    }
     else if (!strcmp(command, "osd_invalidate_rect")) {
-        int x, y, w, h;
-        if (!PyArg_ParseTuple(cmd_arg, "ii", &w, &h))
+        struct { int x, y, w, h; } r;
+        if (!PyArg_ParseTuple(cmd_arg, "iiii", &r.x, &r.y, &r.w, &r.h))
             return NULL;
-        struct { int x, y, w, h; } size = { x, y, w, h };
-        gui_send(OSD_INVALIDATE_RECT, PyLong_AsLong(cmd_arg));
+        gui_send(OSD_INVALIDATE_RECT, &r);
+    }
+    else if (!strcmp(command, "set_osd_slice")) {
+        struct { int y, h; } slice;
+        if (!PyArg_ParseTuple(cmd_arg, "ii", &slice.y, &slice.h))
+            return NULL;
+        gui_send(OSD_SET_SLICE, &slice);
     }
     else {
         PyErr_Format(PyExc_ValueError, "Invalid control '%s'", command);
@@ -145,12 +151,15 @@ kaa_driver_dealloc(void *data)
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
  
     gstate = PyGILState_Ensure();
-    if (user_data->send_frame_cb)
+    if (user_data->send_frame_cb) {
         Py_DECREF(user_data->send_frame_cb);
-    if (user_data->osd_configure_cb)
+    }
+    if (user_data->osd_configure_cb) {
         Py_DECREF(user_data->osd_configure_cb);
-    if (user_data->passthrough_pyobject)
+    }
+    if (user_data->passthrough_pyobject) {
         Py_DECREF(user_data->passthrough_pyobject);
+    }
 
     PyGILState_Release(gstate);
     free(user_data);
@@ -244,7 +253,6 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
         Py_DECREF(control);
         Py_DECREF(py_ud);
     }
-
 
     vo_driver_pyobject = pyxine_new_vo_driver_pyobject(xine, xine->xine, driver, 1);
     vo_driver_pyobject->dealloc_cb = kaa_driver_dealloc;

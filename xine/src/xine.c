@@ -102,7 +102,7 @@ static PyMemberDef Xine_PyObject_members[] = {
 void
 Xine_PyObject__dealloc(Xine_PyObject *self)
 {
-    printf("DEalloc Xine: %x\n", self->xine);
+    printf("DEalloc Xine: %p\n", self->xine);
     Py_DECREF(self->wrapper);
     Py_DECREF(self->dependencies);
     Xine_PyObject__clear(self);
@@ -172,7 +172,8 @@ Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyOb
     if (!PyArg_ParseTuple(args, "s", &driver))
         return NULL;
 
-    if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto")) {
+    if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto") ||
+        !strcmp(driver, "opengl")) {
         vo_driver_pyobject = x11_open_video_driver(self, driver, kwargs);
     } else if (!strcmp(driver, "none")) {
         vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
@@ -198,7 +199,6 @@ PyObject *
 Xine_PyObject_open_audio_driver(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     char *driver;
-    Xine_Audio_Port_PyObject *o;
     xine_audio_port_t *ao_port;
 
     if (!PyArg_ParseTuple(args, "s", &driver))
@@ -220,7 +220,6 @@ Xine_PyObject_stream_new(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     Xine_Audio_Port_PyObject *ao;
     Xine_Video_Port_PyObject *vo;
-    Xine_Stream_PyObject *o;
     xine_stream_t *stream;
     PyObject *stream_pyobject;
 
@@ -244,7 +243,7 @@ Xine_PyObject_post_init(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     char *name;
     int inputs, i;
-    PyObject *audio_targets, *video_targets, *post_pyobject;
+    PyObject *audio_targets, *video_targets, *post_pyobject = NULL;
     xine_video_port_t **vo;
     xine_audio_port_t **ao;
     xine_post_t *post;
@@ -301,7 +300,6 @@ Xine_PyObject_get_log_names(Xine_PyObject *self, PyObject *args, PyObject *kwarg
 PyObject *
 Xine_PyObject_get_log(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    char *type;
     const char *const *list;
     PyObject *pylist = NULL;
     int i, section;
@@ -696,10 +694,10 @@ void **get_module_api(char *module)
 
     m = PyImport_ImportModule(module);
     if (m == NULL)
-       return;
+       return NULL;
     c_api = PyObject_GetAttrString(m, "_C_API");
     if (c_api == NULL || !PyCObject_Check(c_api))
-        return;
+        return NULL;
     ptrs = (void **)PyCObject_AsVoidPtr(c_api);
     Py_DECREF(c_api);
     return ptrs;
@@ -715,7 +713,7 @@ void **get_module_api(char *module)
 void
 init_xine()
 {
-    PyObject *m, *c_api;
+    PyObject *m;
     void **display_api_ptrs;
 
     m = Py_InitModule("_xine", xine_methods);

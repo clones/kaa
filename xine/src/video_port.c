@@ -106,7 +106,7 @@ static PyMemberDef Xine_Video_Port_PyObject_members[] = {
 void
 Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
 {
-    printf("DEalloc Video Port: %x (self %x, owner %x), driver=%x (%d)\n", self->vo, self, self->owner,
+    printf("DEalloc Video Port: %p (self %p, owner %p), driver=%p (%d)\n", self->vo, self, self->owner,
             ((xine_video_port_t *)self->vo)->driver, self->do_dispose);
 
     if (self->vo && self->do_dispose) {

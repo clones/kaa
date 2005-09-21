@@ -95,7 +95,7 @@ static PyMemberDef Xine_Stream_PyObject_members[] = {
 void
 Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
 {
-    printf("DEalloc Stream: %x\n", self->stream);
+    printf("DEalloc Stream: %p\n", self->stream);
     if (self->stream && self->do_dispose) {
         printf("DISPOSE STREAM\n");
         self->do_dispose = 0;
@@ -103,7 +103,7 @@ Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
         xine_dispose(self->stream);
         Py_END_ALLOW_THREADS
     }
-    printf("STREAM: DISPOSED: video source=%x audio_source=%x\n", self->video_source, self->audio_source);
+    printf("STREAM: DISPOSED: video source=%p audio_source=%p\n", self->video_source, self->audio_source);
 
     Py_DECREF(self->wrapper);
     Py_DECREF(self->video_source);
@@ -205,8 +205,9 @@ Xine_Stream_PyObject_slave(Xine_Stream_PyObject *self, PyObject *args, PyObject 
         tmp = slave->master;
     slave->master = (PyObject *)self;
     Py_INCREF(self);
-    if (tmp)
+    if (tmp) {
         Py_DECREF(tmp);
+    }
 
     Py_BEGIN_ALLOW_THREADS
     result = xine_stream_master_slave(self->stream, slave->stream, affection);

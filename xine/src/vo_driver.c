@@ -97,7 +97,7 @@ static PyMemberDef Xine_VO_Driver_PyObject_members[] = {
 void
 Xine_VO_Driver_PyObject__dealloc(Xine_VO_Driver_PyObject * self)
 {
-    printf("DEalloc VO Driver: %x (owner=%d)\n", self->driver, self->do_dispose);
+    printf("DEalloc VO Driver: %p (owner=%d)\n", self->driver, self->do_dispose);
     if (self->driver && self->do_dispose) {
         Py_BEGIN_ALLOW_THREADS
         self->driver->dispose(self->driver);

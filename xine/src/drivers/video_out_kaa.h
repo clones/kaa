@@ -1,3 +1,31 @@
+/*
+ * ----------------------------------------------------------------------------
+ * Video driver for kaa.xine - provides BGRA OSD and frame-to-buffer features
+ * ----------------------------------------------------------------------------
+ * $Id$
+ *
+ * ----------------------------------------------------------------------------
+ * Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+ *
+ * Maintainer:    Jason Tackaberry <tack@sault.org>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+ * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+ * Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ * ----------------------------------------------------------------------------
+ */
+
 #include <xine.h>
 #include <xine/xineutils.h>
 #include <xine/xine_plugin.h>
@@ -12,7 +40,8 @@ extern plugin_info_t xine_vo_kaa_plugin_info[];
 #define GUI_SEND_KAA_VO_SET_SEND_FRAME_SIZE     1003
 #define GUI_SEND_KAA_VO_OSD_SET_VISIBILITY      1010
 #define GUI_SEND_KAA_VO_OSD_SET_ALPHA           1011
-#define GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT     1013
+#define GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT     1012
+#define GUI_SEND_KAA_VO_OSD_SET_SLICE           1013
 
 
 // From mplayer
@@ -33,7 +62,6 @@ typedef struct kaa_frame_s {
 
     unsigned char *yv12_buffer,
                   *yv12_planes[3],
-                  *yuy2_buffer,
                   *bgra_buffer;
     int yv12_strides[3];
     pthread_mutex_t bgra_lock;
@@ -99,9 +127,3 @@ typedef struct kaa_visual_s {
     uint8_t *osd_buffer;
     int osd_stride, osd_rows;
 } kaa_visual_t;
-
-typedef struct kaa_invalidate_rect_s {
-    int x, y, w, h;
-} kaa_invalidate_rect_t;
-
-static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);

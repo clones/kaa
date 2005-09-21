@@ -1,4 +1,5 @@
 #include "video_out_dummy.h"
+#include <malloc.h>
 
 static uint32_t 
 dummy_get_capabilities(vo_driver_t *this_gen)
@@ -35,9 +36,9 @@ static vo_frame_t *
 dummy_alloc_frame(vo_driver_t *this_gen)
 {
     dummy_frame_t *frame;
-    dummy_driver_t *this = (dummy_driver_t *)this_gen;
+    //dummy_driver_t *this = (dummy_driver_t *)this_gen;
     
-    printf("dummy_alloc_frame: %x\n", this);
+    printf("dummy_alloc_frame\n");
     frame = (dummy_frame_t *)xine_xmalloc(sizeof(dummy_frame_t));
     if (!frame)
         return NULL;
@@ -62,7 +63,7 @@ dummy_update_frame_format (vo_driver_t *this_gen, vo_frame_t *frame_gen,
                            uint32_t width, uint32_t height,
                            double ratio, int format, int flags) 
 {
-    dummy_driver_t *this = (dummy_driver_t *)this_gen;
+    //dummy_driver_t *this = (dummy_driver_t *)this_gen;
     dummy_frame_t *frame = (dummy_frame_t *)frame_gen;
 
     // Noisy.  This function gets called a lot.  Xine isn't very smart about
@@ -112,7 +113,7 @@ dummy_update_frame_format (vo_driver_t *this_gen, vo_frame_t *frame_gen,
 static int
 dummy_redraw_needed(vo_driver_t *vo)
 {
-    dummy_driver_t *this = (dummy_driver_t *)vo;
+    //dummy_driver_t *this = (dummy_driver_t *)vo;
     printf("dummy_redraw_needed\n");
     return 0;
 }
@@ -135,7 +136,7 @@ dummy_display_frame(vo_driver_t *this_gen, vo_frame_t *frame_gen)
 static int 
 dummy_get_property(vo_driver_t *this_gen, int property) 
 {
-    dummy_driver_t *this = (dummy_driver_t *)this_gen;
+    //dummy_driver_t *this = (dummy_driver_t *)this_gen;
     printf("dummy_get_property %d\n", property);
     return 0;
 }
@@ -143,7 +144,7 @@ dummy_get_property(vo_driver_t *this_gen, int property)
 static int 
 dummy_set_property(vo_driver_t *this_gen, int property, int value) 
 {
-    dummy_driver_t *this = (dummy_driver_t *)this_gen;
+    //dummy_driver_t *this = (dummy_driver_t *)this_gen;
     printf("dummy_set_property %d=%d\n", property, value);
     return 0;
 }
@@ -151,14 +152,14 @@ dummy_set_property(vo_driver_t *this_gen, int property, int value)
 static void 
 dummy_get_property_min_max(vo_driver_t *this_gen, int property, int *min, int *max) 
 {
-    dummy_driver_t *this = (dummy_driver_t *)this_gen;
+    //dummy_driver_t *this = (dummy_driver_t *)this_gen;
     printf("dummy_get_property_min_max\n");
 }
 
 static int
 dummy_gui_data_exchange(vo_driver_t *this_gen, int data_type, void *data) 
 {
-    dummy_driver_t *this = (dummy_driver_t *)this_gen;
+    //dummy_driver_t *this = (dummy_driver_t *)this_gen;
     printf("dummy_gui_data_exchange data_type=%d\n", data_type);
     return 0;
 }
@@ -175,7 +176,7 @@ dummy_dispose(vo_driver_t *this_gen)
 static void
 dummy_overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_overlay)
 {
-    dummy_frame_t *frame = (dummy_frame_t *)frame_gen;
+    //dummy_frame_t *frame = (dummy_frame_t *)frame_gen;
 
     printf("dummy_overlay_blend\n");
 }

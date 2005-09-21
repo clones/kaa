@@ -112,7 +112,7 @@ static PyMemberDef Xine_Post_In_PyObject_members[] = {
 void
 Xine_Post_In_PyObject__dealloc(Xine_Post_In_PyObject *self)
 {
-    printf("DEalloc Post In: %x\n", self->post_in);
+    printf("DEalloc Post In: %p\n", self->post_in);
     if (self->post_in && self->do_dispose) {
     }
     Xine_Post_In_PyObject__clear(self);

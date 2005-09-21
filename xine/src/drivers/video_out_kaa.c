@@ -1,9 +1,47 @@
+/*
+ * ----------------------------------------------------------------------------
+ * Video driver for kaa.xine - provides BGRA OSD and frame-to-buffer features
+ * ----------------------------------------------------------------------------
+ * $Id$
+ *
+ * ----------------------------------------------------------------------------
+ * Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+ *
+ * Maintainer:    Jason Tackaberry <tack@sault.org>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+ * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+ * Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ * ----------------------------------------------------------------------------
+ */
+
+
 #include <math.h>
+#include <malloc.h>
+#ifndef __USE_XOPEN2K
+#define __USE_XOPEN2K // for pthread_mutex_timedlock
+#endif
+#include <pthread.h>
+
 #include "../config.h"
 #include "video_out_kaa.h"
 
+//#define STOPWATCH
+
+static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);
 static int _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame);
-#define STOPWATCH
+
 
 #ifdef STOPWATCH
 static void stopwatch(int n, char *text, ...)
@@ -115,7 +153,6 @@ alloc_overlay_data(kaa_driver_t *this, int format)
     free_overlay_data(this);
 
     if (format == XINE_IMGFMT_YV12) {
-        printf("ALLOC OSD for YV12\n");
         this->osd_planes[0] = (uint8_t *)memalign(16, w * h);
         this->osd_planes[1] = (uint8_t *)memalign(16, w * h / 4);
         this->osd_planes[2] = (uint8_t *)memalign(16, w * h / 4);
@@ -154,6 +191,9 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
     unsigned int src_stride = this->osd_stride, 
                  chroma_stride = this->osd_w >> 1;
     int chroma_offset = (rx >> 1) + (ry >> 1) * chroma_stride;
+
+    if (!this->osd_planes[0]) // Not allocated yet.
+        return;
 
     stopwatch(2, "convert_bgra_to_yv12a (%d,%d %dx%d)", rx, ry, rw, rh);
 
@@ -323,6 +363,9 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
             *pre_y_ptr, *pre_u_ptr, *pre_v_ptr, *pre_a_ptr, *pre_uva_ptr;
     int luma_offset, chroma_offset;
     unsigned int x, y, chroma_stride;
+
+    if (!this->osd_planes[0]) // Not allocated yet.
+        return;
 
     stopwatch(2, "premultiply_alpha (%d,%d %dx%d)", rx, ry, rw, rh);
 
@@ -509,6 +552,9 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
     uint8_t *dst_frame_planes[3], *src_frame_planes[3], *overlay, *src, *dst, *alpha,
             *overlay_planes[3], *alpha_planes[3];
 
+    if (!this->osd_planes[0]) // Not allocated yet.
+        return;
+
     // Clip the slice to the frame image.
     slice_y = this->osd_slice_y;
     slice_h = this->osd_slice_h;
@@ -590,10 +636,6 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
 
 
 
-
-
-
-
 //////////////////////////////////////
 
 
@@ -637,8 +679,8 @@ _alloc_yv12(int width, int height, unsigned char **base,
 static uint32_t 
 kaa_get_capabilities(vo_driver_t *this_gen)
 {
-    kaa_driver_t *this = (kaa_driver_t *)this_gen;
-    printf("kaa: get_capabilities\n");
+    //kaa_driver_t *this = (kaa_driver_t *)this_gen;
+    //printf("kaa: get_capabilities\n");
     return VO_CAP_YV12 | VO_CAP_YUY2;
 }
 
@@ -646,30 +688,18 @@ static void
 kaa_frame_field(vo_frame_t *frame_gen, int which)
 {
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
-    printf("kaa_frame_field %d\n", which);
+    //printf("kaa_frame_field %d\n", which);
     frame->passthrough_frame->field(frame->passthrough_frame, which);
-}
-
-static void
-kaa_frame_proc_slice(vo_frame_t *frame_gen, uint8_t **src)
-{
-    kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
-    printf("kaa_frame_proc_slice: %x %d %d,%d %x %x %x (crop %d %d %d %d)\n", frame, frame_gen->proc_called, frame->width, frame->height, src[0], src[1], src[2], frame->vo_frame.crop_left, frame->vo_frame.crop_top, frame->vo_frame.crop_right, frame->vo_frame.crop_bottom);
-    //memset(src[0], 255, frame->width * frame->height);
-    //_kaa_blend_osd(frame->driver, frame);
-//    int *a=0;
- //   printf("%d\n", *a);
-    frame->passthrough_frame->proc_slice(frame->passthrough_frame, src);
-    frame_gen->proc_called = 1;
 }
 
 static void
 kaa_frame_proc_frame(vo_frame_t *frame_gen)
 {
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
-    printf("kaa_frame_proc_frame\n");
+    //printf("kaa_frame_proc_frame\n");
     frame->passthrough_frame->proc_frame(frame->passthrough_frame);
 }
+
 static void
 kaa_frame_dispose(vo_frame_t *vo_img)
 {
@@ -679,13 +709,12 @@ kaa_frame_dispose(vo_frame_t *vo_img)
     pthread_mutex_destroy(&frame->bgra_lock);
     if (frame->yv12_buffer)
         free(frame->yv12_buffer);
-    if (frame->yuy2_buffer)
-        free(frame->yuy2_buffer);
     if (frame->bgra_buffer)
         free(frame->bgra_buffer);
 
-//    if (frame->passthrough_frame)
-//        frame->passthrough_frame->dispose(frame->passthrough_frame);
+    // Why does this segfault?
+    //if (frame->passthrough_frame)
+    //    frame->passthrough_frame->dispose(frame->passthrough_frame);
     frame->yuv2rgb->dispose (frame->yuv2rgb);
     free(frame);
 }
@@ -705,7 +734,7 @@ kaa_alloc_frame(vo_driver_t *this_gen)
     kaa_frame_t *frame;
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
     
-    printf("kaa_alloc_frame: %x\n", this);
+    //printf("kaa_alloc_frame\n");
     frame = (kaa_frame_t *)xine_xmalloc(sizeof(kaa_frame_t));
     if (!frame)
         return NULL;
@@ -713,7 +742,7 @@ kaa_alloc_frame(vo_driver_t *this_gen)
     pthread_mutex_init(&frame->vo_frame.mutex, NULL);
     pthread_mutex_init(&frame->bgra_lock, NULL);
 
-    frame->yv12_buffer = frame->yuy2_buffer = frame->bgra_buffer = NULL;
+    frame->yv12_buffer = frame->bgra_buffer = NULL;
 
     frame->vo_frame.base[0] = NULL;
     frame->vo_frame.base[1] = NULL;
@@ -724,8 +753,6 @@ kaa_alloc_frame(vo_driver_t *this_gen)
     frame->passthrough_frame->free = vo_frame_dec_lock;
     frame->passthrough_frame->lock = vo_frame_inc_lock;
 
-//    if (frame->passthrough_frame->proc_slice)
- //      frame->vo_frame.proc_slice = kaa_frame_proc_slice;
     if (frame->passthrough_frame->proc_frame)
         frame->vo_frame.proc_frame = kaa_frame_proc_frame;
     frame->vo_frame.field = kaa_frame_field;
@@ -961,7 +988,7 @@ kaa_set_property (vo_driver_t *this_gen,
                 int property, int value) 
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
-    printf("kaa_set_property %d=%d\n", property, value);
+    //printf("kaa_set_property %d=%d\n", property, value);
 /*
     switch (property) {
         case VO_PROP_ASPECT_RATIO:
@@ -979,7 +1006,7 @@ kaa_get_property_min_max (vo_driver_t *this_gen,
                      int property, int *min, int *max) 
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
-    printf("kaa_get_property_min_max\n");
+    //printf("kaa_get_property_min_max\n");
     this->passthrough->get_property_min_max(this->passthrough, property, min, max);
 }
 
@@ -1013,6 +1040,24 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
         case GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT:
         {
             struct { int x, y, w, h; } *size = data;
+            convert_bgra_to_yv12a(this, size->x, size->y, size->w, size->h);
+            image_premultiply_alpha(this, size->x, size->y, size->w, size->h);
+            this->needs_redraw = 1;
+            break;
+        }
+        case GUI_SEND_KAA_VO_OSD_SET_ALPHA:
+        {
+            this->osd_alpha = (int)data;
+            image_premultiply_alpha(this, 0, 0, this->osd_w, this->osd_h);
+            this->needs_redraw = 1;
+            break;
+        }
+        case GUI_SEND_KAA_VO_OSD_SET_SLICE:
+        {
+            struct { int y, h; } *slice = data;
+            this->osd_slice_y = slice->y;
+            this->osd_slice_h = slice->h;
+            this->needs_redraw = 1;
             break;
         }
     }
@@ -1024,7 +1069,7 @@ kaa_dispose(vo_driver_t *this_gen)
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
-    printf("kaa_dispose\n");
+    //printf("kaa_dispose\n");
     this->yuv2rgb_factory->dispose(this->yuv2rgb_factory);
     free_overlay_data(this);
     free(this);
@@ -1037,7 +1082,7 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     kaa_visual_t *visual = (kaa_visual_t *)visual_gen;
     kaa_driver_t *this;
     
-    printf("kaa_open_plugin\n");
+    //printf("kaa_open_plugin\n");
     this = (kaa_driver_t *)xine_xmalloc(sizeof(kaa_driver_t));
     memset(this, 0, sizeof(kaa_driver_t));
     if (!this)
@@ -1079,7 +1124,7 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->osd_visible           = 0;
     this->osd_w                 = -1;
     this->osd_h                 = -1;
-    this->osd_alpha             = 190;
+    this->osd_alpha             = 255;
 
     return &this->vo_driver;
 }
@@ -1099,14 +1144,14 @@ kaa_get_description(video_driver_class_t *this_gen)
 static void
 kaa_dispose_class(video_driver_class_t *this_gen)
 {
-    printf("kaa_dispose_class\n");
+    //printf("kaa_dispose_class\n");
     free(this_gen);
 }
 
 static void *
 kaa_init_class (xine_t *xine, void *visual_gen) 
 {
-    printf("kaa_init_class\n");
+    //printf("kaa_init_class\n");
     kaa_class_t *this;
 
     this = (kaa_class_t *)xine_xmalloc(sizeof(kaa_class_t));

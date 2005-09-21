@@ -118,7 +118,7 @@ static PyMemberDef Xine_Event_Queue_PyObject_members[] = {
 void
 Xine_Event_Queue_PyObject__dealloc(Xine_Event_Queue_PyObject *self)
 {
-    printf("DEalloc Event Queue: %x\n", self->queue);
+    printf("DEalloc Event Queue: %p\n", self->queue);
     if (self->queue && self->do_dispose) {
         Py_BEGIN_ALLOW_THREADS
         xine_event_dispose_queue(self->queue);
