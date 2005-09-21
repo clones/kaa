@@ -121,6 +121,7 @@ Image_PyObject *_new_image_pyobject(Imlib_Image *image)
     Image_PyObject *o = PyObject_NEW(Image_PyObject, &Image_PyObject_Type);
     o->image = image;
     o->raw_data = NULL;
+    o->buffer = NULL;
     return o;
 }
 
