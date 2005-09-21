@@ -84,7 +84,7 @@ Evas_Object_PyObject__traverse(Evas_Object_PyObject *self, visitproc visit, void
 {
     Evas_PyObject *evas;
     Evas_Hash *attrs;
-    int ret, ref;
+    int ret;
 
     if (evas_object_data_get(self->object, "ref"))
         return 0;
@@ -282,7 +282,6 @@ Evas_Object_PyObject_clip_set(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "O!", &Evas_Object_PyObject_Type, &clip_object))
         return NULL;
 
-    printf("Setting clip for object: %x\n", clip_object);
     evas_object_clip_set(self->object, clip_object->object);
     return Py_INCREF(Py_None), Py_None;
 }
@@ -440,8 +439,9 @@ Evas_Object_PyObject__setattro(Evas_Object_PyObject * self, PyObject *name,
         if (!orig)
             evas_object_data_set(self->object, "pyattrs", attrs);
     }
-    if (old_value)
+    if (old_value) {
         Py_DECREF(old_value);
+    }
 
     return 0;
 }

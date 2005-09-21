@@ -157,7 +157,6 @@ Evas_PyObject_render(Evas_PyObject * self, PyObject * args)
 PyObject *
 Evas_PyObject_new(PyObject * self, PyObject * args, PyObject * kwargs)
 {
-    PyObject *evas_instance;
     Evas_PyObject *o;
     Evas *evas;
 

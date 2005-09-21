@@ -241,7 +241,7 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
     Evas_Pixel_Import_Source ps;
     PyObject *data;
     void *p, *planes[3] = {0,0,0};
-    int i, stride, len, plane;
+    int i, stride, plane;
 
     if (!PyArg_ParseTuple(args, "Oiii", &data, &ps.w, &ps.h, &ps.format))
         return NULL;
