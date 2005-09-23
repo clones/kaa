@@ -1,6 +1,4 @@
-import weakref
-import threading
-import os
+import weakref, threading, math, os
 
 import _xine
 import kaa
@@ -177,34 +175,45 @@ class Xine(Wrapper):
         }
         super(Xine, self).__init__(obj)
 
-    def _default_frame_output_cb(self, width, height, aspect, window):
-        # FIXME: be smarter
-        #print "FRAME OUTPUT CALLBACK", width, height, aspect
+    def _x11_set_correct_size(self, width, height, aspect, window):
         frame_aspect = width / float(height)
-        win_aspect = frame_aspect * aspect
-        if window:
-            if window.aspect != win_aspect and win_aspect > 0:
-                window.aspect = win_aspect
-                window.signals["aspect_changed"].emit(win_aspect)
-            win_w, win_h = window.get_geometry()[1]
+        if aspect == 0:
+            win_aspect = frame_aspect
         else:
-            win_w, win_h = 640, 480
+            win_aspect = frame_aspect * aspect
+
+        # Calculate the requisite display size
+        if frame_aspect > win_aspect:
+            d_width = width
+            d_height = int(math.ceil(width / win_aspect))
+        else:
+            d_width = int(math.ceil(height * win_aspect))
+            d_height = height
+
+        # Something isn't right here.
+        if not window or aspect == 0:
+            return d_width, d_height, win_aspect
+
+        # If the 
+        if abs(window._aspect - win_aspect) > 0.01:
+            print "VO: %dx%d" % (d_width, d_height)
+            window.resize((d_width, d_height))
+            window._aspect = win_aspect
+
+        return window.get_size() + (win_aspect,)
+
+    def _default_frame_output_cb(self, width, height, aspect, window):
+        w, h, a = self._x11_set_correct_size(width, height, aspect, window)
 
         # Return order: dst_pos, win_pos, dst_size, aspect
-        return (0, 0), (0, 0), (win_w, win_h), 1.0 #win_h / float(win_w)
+        return (0, 0), (0, 0), (w, h), 1.0
 
     def _default_dest_size_cb(self, width, height, aspect, window):
-        #print "DEST SIZE CALLBACK", width, height, aspect
-        frame_aspect = width / float(height)
-        win_aspect = frame_aspect * aspect
-        if window:
-            if window.aspect != win_aspect and win_aspect > 0:
-                window.aspect = win_aspect
-                window.signals["aspect_changed"].emit(win_aspect)
-            win_w, win_h = window.get_geometry()[1]
-        else:
-            win_w, win_h = 640, 480
-        return (win_w, win_h), 1.0# / win_aspect
+        #print "DEST SIZE CB", width, height, aspect
+        # XXX: I'm not sure this is correct.  I'm also not sure there's not 
+        # a bug in xine-lib.
+        w, h, a = self._x11_set_correct_size(width, height, aspect, window)
+        return (w, h), 1.0
 
     def load_video_output_plugin(self, driver = "auto", **kwargs):
         if "window" in kwargs:
@@ -215,8 +224,7 @@ class Xine(Wrapper):
             if "dest_size_cb" not in kwargs:
                 kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
 
-            window.signals["aspect_changed"] = notifier.Signal()
-            window.aspect = 1.0
+            window._aspect = -1
             kwargs["window"] = window._window
 
         if "passthrough" in kwargs:

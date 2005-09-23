@@ -37,7 +37,8 @@
 #include "../config.h"
 #include "video_out_kaa.h"
 
-//#define STOPWATCH
+// Uncomment this for profiling info.
+#define STOPWATCH
 
 static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);
 static int _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame);
@@ -86,6 +87,10 @@ static void stopwatch(int n, char *text, ...)
 #else
     #define YUY2_SIZE_THRESHOLD   2000*2000
 #endif
+
+
+
+/////////////////////////////////////////////////////////////////////////////
 
 
 #define FP_BITS 18
@@ -196,6 +201,7 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         return;
 
     stopwatch(2, "convert_bgra_to_yv12a (%d,%d %dx%d)", rx, ry, rw, rh);
+
 
     src_ptr = this->osd_buffer + (rx*4) + (ry*this->osd_stride);
     y_ptr = this->osd_planes[0] + luma_offset;
@@ -581,20 +587,6 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
         src_frame_planes[i] = frame->base[i] + ((slice_y >> c) * frame->pitches[i]);
         overlay_planes[i] += (slice_y >> c) * (this->osd_w >> c);
         alpha_planes[i] += (slice_y >> c) * (this->osd_w >> c);
-
-/*
-        if (src_mpi == dst_mpi)
-            continue;
-
-        // If we're compositing only a slice, copy the parts of the mpi
-        // above and below the slice.
-        if (slice_y > 0)
-            memcpy(dst_mpi->planes[i], src_mpi->planes[i], src_mpi->stride[i] * slice_y >> c);
-        if (slice_h >= 0 && slice_y + slice_h < src_mpi->height)
-            memcpy(dst_mpi->planes[i] + dst_mpi->stride[i] * ((slice_y+slice_h) >> c),
-                   src_mpi->planes[i] + src_mpi->stride[i] * ((slice_y+slice_h) >> c),
-                   src_mpi->stride[i] * (src_mpi->height-(slice_y+slice_h)) >> c);
-*/
     }
 
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
@@ -619,12 +611,12 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
 
         // Global alpha is 256 which means ignore per-pixel alpha. Do
         // straight memcpy.
-//        if (this->osd_alpha == 256) {
- //           memcpy_pic(dst, overlay, w, slice_h, dst_mpi->stride[plane], src_mpi->stride[plane]);
-  //      } else {
+        if (this->osd_alpha == 256) {
+            xine_fast_memcpy(dst, overlay, overlay_stride[plane] * slice_h);
+        } else {
             blend_plane(w, slice_h, dst, src, overlay, alpha,
                         frame->pitches[plane], overlay_stride[plane]);
-   //     }
+        }
     }
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
     if (xine_mm_accel() & MM_ACCEL_X86_MMX)
@@ -635,9 +627,7 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
 
 
 
-
-//////////////////////////////////////
-
+/////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -674,7 +664,7 @@ _alloc_yv12(int width, int height, unsigned char **base,
     planes[2] = *base + y_size;
 }
 
-////////////
+
 
 static uint32_t 
 kaa_get_capabilities(vo_driver_t *this_gen)
@@ -682,6 +672,7 @@ kaa_get_capabilities(vo_driver_t *this_gen)
     //kaa_driver_t *this = (kaa_driver_t *)this_gen;
     //printf("kaa: get_capabilities\n");
     return VO_CAP_YV12 | VO_CAP_YUY2;
+    //return this->passthrough->get_capabilities(this->passthrough);
 }
 
 static void
@@ -772,19 +763,19 @@ kaa_update_frame_format (vo_driver_t *this_gen,
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
-    //int y_size, uv_size;
 
     //printf("kaa_update_frame_format: %x format=%d  %dx%d\n", frame, format, width, height);
+
     // XXX: locking in this function risks deadlock.
 
     frame_gen->proc_called=0;
     this->passthrough->update_frame_format(this->passthrough,
         frame->passthrough_frame, width, height, ratio, format, flags);
 
-    memcpy(&frame->vo_frame.pitches, frame->passthrough_frame->pitches, sizeof(int)*3);
-    memcpy(&frame->vo_frame.base, frame->passthrough_frame->base, sizeof(char *)*3);
-/*
+    xine_fast_memcpy(&frame->vo_frame.pitches, frame->passthrough_frame->pitches, sizeof(int)*3);
+    xine_fast_memcpy(&frame->vo_frame.base, frame->passthrough_frame->base, sizeof(char *)*3);
 
+/*
     // Allocate memory for the desired frame format and size
     if (frame->width != width || frame->height != height || format != frame->format) {
         // Free memory from old frame configuration
@@ -810,8 +801,8 @@ kaa_update_frame_format (vo_driver_t *this_gen,
             frame->vo_frame.base[2] = NULL;
         }
     }
-
 */
+
     frame->width = width;
     frame->height = height;
     frame->format = format;
@@ -935,11 +926,15 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
 
     //printf("kaa_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
 
-/*
+
+    /*
     memcpy(frame->passthrough_frame->base[0], frame_gen->base[0], frame_gen->pitches[0] * frame->height);
     memcpy(frame->passthrough_frame->base[1], frame_gen->base[1], frame_gen->pitches[1] * (frame->height>>1));
     memcpy(frame->passthrough_frame->base[2], frame_gen->base[2], frame_gen->pitches[2] * (frame->height>>1));
-*/
+    */
+
+    this->cur_frame = frame;
+
     if (this->do_send_frame && this->send_frame_cb)
         _kaa_frame_to_buffer(this, frame);
 
@@ -974,12 +969,6 @@ static int
 kaa_get_property (vo_driver_t *this_gen, int property) 
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
-/*
-    switch(property) {
-        case VO_PROP_ASPECT_RATIO:
-            return this->aspect;
-    }
-*/
     return this->passthrough->get_property(this->passthrough, property);
 }
 
@@ -988,16 +977,22 @@ kaa_set_property (vo_driver_t *this_gen,
                 int property, int value) 
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
-    //printf("kaa_set_property %d=%d\n", property, value);
-/*
-    switch (property) {
-        case VO_PROP_ASPECT_RATIO:
-            if (value >= XINE_VO_ASPECT_NUM_RATIOS)
-                value = XINE_VO_ASPECT_AUTO;
-            this->aspect = value;
+    printf("kaa_set_property %d=%d\n", property, value);
+    /*
+    switch(property) {
+        case XINE_PARAM_VO_CROP_LEFT:
+            this->crop_left = value;
+            return value;
+
+        case XINE_PARAM_VO_CROP_TOP:
+            this->crop_top = value;
+            return value;
+
+        case XINE_PARAM_VO_CROP_RIGHT:
+        case XINE_PARAM_VO_CROP_BOTTOM:
             return value;
     }
-*/
+    */
     return this->passthrough->set_property(this->passthrough, property, value);
 }
 
@@ -1118,7 +1113,7 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->send_frame_width      = -1;
     this->send_frame_height     = -1;
     this->yuv2rgb_factory       = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
-    this->last_frame            = 0;
+    this->cur_frame             = 0;
     this->do_passthrough        = 1;
     this->do_send_frame         = 0;
     this->osd_visible           = 0;
@@ -1239,7 +1234,7 @@ static void _overlay_blend_yuv(uint8_t *dst_base[3], vo_overlay_t * img_overl, i
 
    if (!rle) return;
 
-   //printf("_overlay_blend_yuv: rle=%x w=%d h=%d x=%d y=%d\n", rle, src_width, src_height, x_off, y_off);
+   //printf("_overlay_blend_yuv: rle=%x w=%d h=%d x=%d y=%d clip=%d %d %d %d\n", rle, src_width, src_height, x_off, y_off, img_overl->clip_left, img_overl->clip_top, img_overl->clip_right, img_overl->clip_bottom);
    uint8_t *dst_y = dst_base[0] + dst_pitches[0] * y_off + x_off;
    uint8_t *dst_cr = dst_base[2] + (y_off / 2) * dst_pitches[1] + (x_off / 2) + 1;
    uint8_t *dst_cb = dst_base[1] + (y_off / 2) * dst_pitches[2] + (x_off / 2) + 1;
@@ -1592,8 +1587,9 @@ static void
 _overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_overlay)
 {
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
+    //kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
-    //printf("kaa_overlay_blend: format=%d overlay=%x\n", frame->format, vo_overlay);
+    //printf("kaa_overlay_blend: format=%d overlay=%p crop_left=%d\n", frame->format, vo_overlay, frame_gen->crop_left);
     if (frame->format == XINE_IMGFMT_YV12)
        _overlay_blend_yuv(frame->vo_frame.base, vo_overlay,
                       frame->width, frame->height,

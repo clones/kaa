@@ -81,7 +81,7 @@ typedef struct kaa_driver_s {
     pthread_mutex_t lock;
     xine_t *xine;
 
-    kaa_frame_t *last_frame;
+    kaa_frame_t *cur_frame;
     vo_driver_t *passthrough;
 
     // Frame-to-buffer members
