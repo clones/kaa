@@ -191,12 +191,14 @@ class X11Window(object):
         self._cursor_hide_timer = kaa.notifier.WeakOneShotTimer(self._cursor_hide_cb)
         self._cursor_visible = True
         self._fs_size_save = None
+        self._last_configured_size = 0, 0
 
         self.signals = {
             "key_press_event": Signal(),
             "expose_event": Signal(),
             "map_event": Signal(),
             "unmap_event": Signal(),
+            "resize_event": Signal(),
         }
         
     def get_display(self):
@@ -248,6 +250,18 @@ class X11Window(object):
 
             elif event == X11Display.XEVENT_MAP_NOTIFY:
                 self.signals["map_event"].emit()
+
+            elif event == X11Display.XEVENT_CONFIGURE_NOTIFY:
+                cur_size = self.get_size()
+                last_size = self._last_configured_size
+                if last_size != cur_size and last_size != (-1, -1):
+                    # Set this now to prevent reentry.
+                    self._last_configured_size = -1, -1
+                    self.signals["resize_event"].emit(last_size, cur_size)
+                    # Callback could change size again, so save our actual
+                    # size to prevent being called again.
+                    self._last_configured_size = self.get_size()
+                
 
         if len(expose_regions) > 0:
             self.signals["expose_event"].emit(expose_regions)

@@ -11,11 +11,17 @@ def handle_key(key, obj):
         obj.evas_get().render()
     elif key == "q":
         raise SystemExit
+    elif key == "t":
+        canvas.viewport_set((0, 0), (720, 480))
+        canvas.output_size_set((800, 600))
+        obj.evas_get().render()
         
 
-window = display.EvasX11Window(gl = False, size = (800, 600), title = "Kaa Display Test")
+window = display.EvasX11Window(gl = False, size = (1024, 768), title = "Kaa Display Test")
 window.set_cursor_hide_timeout(1)
 canvas = window.get_evas()
+canvas.viewport_set((0, 0), (640, 480))
+canvas.output_size_set((740, 480))
 bg = canvas.object_image_add("data/background.jpg")
 bg.show()
 
