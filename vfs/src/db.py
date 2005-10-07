@@ -599,6 +599,9 @@ class Database:
         pickle contained in the row, and creates a "parent" key that holds
         (parent type name, parent id).
         """
+        if len(results) == 0:
+            return []
+
         new_results = []
         # Map object type ids to names.
         object_type_ids = dict( [(b[0],a) for a,b in self._object_types.items()] )
