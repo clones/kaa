@@ -74,7 +74,7 @@ def _value_to_printable(value):
     Single quotes are escaped as ''.  This is suitable for use in SQL 
     queries.  
     """
-    if type(value) in (int, long):
+    if type(value) in (int, long, float):
         return str(value)
     elif value == None:
         return "NULL"
@@ -496,12 +496,13 @@ class Database:
             del attrs["object"]
 
         if "keywords" in attrs:
-            # If search criteria other than keywords are specified, we can't
-            # enforce a limit on the keyword search, otherwise we might miss
-            # intersections.
             # TODO: Possible optimization: do keyword search after the query
             # below only on types that have results iff all queried columns are
             # indexed.
+
+            # If search criteria other than keywords are specified, we can't
+            # enforce a limit on the keyword search, otherwise we might miss
+            # intersections.
             if len(Set(attrs).difference(("type", "limit", "keywords"))) > 0:
                 limit = None 
             else: 
@@ -513,13 +514,15 @@ class Database:
             if not kw_results:
                 return {}, []
 
-            computed_object_ids = []
+            kw_results_by_type = {}
             for tp, id in kw_results:
-                computed_object_ids.append(tp*10000000 + id)
+                if tp not in kw_results_by_type:
+                    kw_results_by_type[tp] = []
+                kw_results_by_type[tp].append(id)
 
             del attrs["keywords"]
         else:
-            kw_results = computed_object_ids = None
+            kw_results = kw_results_by_type = None
 
 
         if "type" in attrs:
@@ -558,6 +561,11 @@ class Database:
         results = []
         query_info["columns"] = {}
         for type_name, (type_id, type_attrs) in type_list:
+            if kw_results and type_id not in kw_results_by_type:
+                # If we've done a keyword search, don't bother querying 
+                # object types for which there were no keyword hits.
+                continue
+
             # List of attribute dicts for this type.
             if requested_columns:
                 columns = requested_columns
@@ -585,9 +593,9 @@ class Database:
             q = "SELECT %s '%s'%%s,%s FROM objects_%s" % \
                 (query_type, type_name, string.join(columns, ","), type_name)
 
-            if computed_object_ids != None:
+            if kw_results != None:
                 q %= ",%d+id as computed_id" % (type_id * 10000000)
-                q +=" WHERE computed_id IN %s" % _value_to_printable(computed_object_ids)
+                q +=" WHERE id IN %s" % _value_to_printable(kw_results_by_type[type_id])
             else:
                 q %= ""
 
@@ -621,7 +629,7 @@ class Database:
 
             rows = self._db_query(q, query_values)
             results.extend(rows)
-            if computed_object_ids:
+            if kw_results:
                 query_info["columns"][type_name] = ["type", "computed_id"] + columns
             else:
                 query_info["columns"][type_name] = ["type"] + columns
@@ -866,7 +874,7 @@ class Database:
         which match the query.  The list is sorted by score (with the 
         highest score first).
         """
-
+        t0=time.time()
         # Fetch number of files that are keyword indexed.  (Used in score
         # calculations.)
         row = self._db_query_row("SELECT value FROM meta WHERE attr='keywords_filecount'")
@@ -929,7 +937,6 @@ class Database:
                 for id in ids:
                     if not state[id]["more"][rank]:
                         continue
-                    t0=time.time()
 
                     q = "SELECT object_type,object_id,frequency FROM " \
                         "words_map WHERE word_id=? AND rank=? %s " \
@@ -942,7 +949,6 @@ class Database:
                         v = (id, rank, object_type, sql_limit, state[id]["offset"][rank])
 
                     rows = self._db_query(q, v)
-                    #print q, v, time.time()-t0
                     nqueries += 1
                     state[id]["more"][rank] = len(rows) == sql_limit
 
@@ -1010,7 +1016,7 @@ class Database:
         if limit > 0:
             keys = keys[:limit]
 
-        #print "* Did %d subqueries" % (nqueries)
+        #print "* Did %d subqueries" % (nqueries), time.time()-t0, len(keys)
         return keys
         #return [ (all_results[file], file) for file in keys ]
         
