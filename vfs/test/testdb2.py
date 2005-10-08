@@ -1,5 +1,5 @@
 import time, sys, os, locale
-from kaa.vfs.db import *
+from kaa.base.db import *
 from kaa.base.utils import str_to_unicode
 from kaa import metadata
 

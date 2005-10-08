@@ -3,7 +3,7 @@ import stat
 
 import kaa.metadata
 
-from db import *
+from kaa.base.db import *
 
 # TODO: put all the sql stuff in a thread and have a client server
 # model between main and thread. After that, move the thread into an
