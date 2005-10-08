@@ -3,6 +3,9 @@ from kaa.base.utils import str_to_unicode
 from sets import Set
 from pysqlite2 import dbapi2 as sqlite
 
+__all__ = ['Database', 'QExpr', 'ATTR_SIMPLE', 'ATTR_SEARCHABLE', 
+           'ATTR_INDEXED', 'ATTR_KEYWORDS', 'ATTR_KEYWORDS_FILENAME']
+
 CREATE_SCHEMA = """
     CREATE TABLE meta (
         attr        TEXT UNIQUE, 
@@ -49,7 +52,6 @@ STOP_WORDS = (
     "will", "with", "the", "www", "http", "org"
 )
 WORDS_DELIM = re.compile("[\W_]+", re.U)
-#WORDS_DELIM = re.compile("[\s_\-()/\\\\[\]\"\.,;:]", re.U)
 
 # Word length limits for keyword indexing
 MIN_WORD_LENGTH = 2
@@ -59,6 +61,61 @@ MAX_WORD_LENGTH = 30
 # these names cannot be registered.
 RESERVED_ATTRIBUTES = ("parent", "object", "keywords", "type", "limit",
                        "attrs", "distinct")
+
+
+def _value_to_printable(value):
+    """
+    Takes a list of mixed types and outputs a unicode string.  For
+    example, a list [42, 'foo', None, "foo's string"], this returns the
+    string:
+
+        (42, 'foo', NULL, 'foo''s string')
+
+    Single quotes are escaped as ''.  This is suitable for use in SQL 
+    queries.  
+    """
+    if type(value) in (int, long):
+        return str(value)
+    elif value == None:
+        return "NULL"
+    elif type(value) == unicode:
+        return "'%s'" % value.replace("'", "''")
+    elif type(value) == str:
+        return "'%s'" % str_to_unicode(value.replace("'", "''"))
+    elif type(value) in (list, tuple):
+        fixed_items = []
+        for item in value:
+            fixed_items.append(_value_to_printable(item))
+        return '(' + ','.join(fixed_items) + ')'
+    else:
+        raise Exception, "Unsupported type '%s' given to _value_to_printable" % type(value)
+
+
+
+class QExpr(object):
+    """
+    Flexible query expressions for use with Database.query()
+    """
+    def __init__(self, operator, operand):
+        assert(operator in ("=", "!=", "<", "<=", ">", ">=", "in", "not in",
+                            "range"))
+        if operator in ("in", "not in", "range"):
+            assert(type(operand) == tuple)
+            if operator == "range":
+                assert(len(operand) == 2)
+
+        self._operator = operator
+        self._operand = operand
+
+    def as_sql(self, var):
+        if self._operator == "range":
+            a, b = self._operand
+            return "%s >= ? AND %s < ?" % (var, var), \
+                   (_value_to_printable(a), _value_to_printable(b))
+        else:
+            return "%s %s ?" % (var, self._operator.upper()), \
+                   (_value_to_printable(self._operand),)
+
 
 class Database:
     def __init__(self, dbfile = None):
@@ -158,11 +215,8 @@ class Database:
             # Merge standard attributes with user attributes for this type.
             attr_list = (
                 ("id", int, ATTR_SEARCHABLE),
-                ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME),
-                ("parent_id", int, ATTR_SEARCHABLE),
                 ("parent_type", int, ATTR_SEARCHABLE),
-                ("size", int, ATTR_SIMPLE),
-                ("mtime", int, ATTR_SEARCHABLE),
+                ("parent_id", int, ATTR_SEARCHABLE),
                 ("pickle", buffer, ATTR_SEARCHABLE),
             ) + tuple(attr_list)
 
@@ -212,10 +266,6 @@ class Database:
                        (table_name, table_name))
 
 
-        # Create index for locating object by full path (i.e. parent + name)
-        self._db_query("CREATE UNIQUE INDEX %s_parent_name_idx on %s "\
-                       "(parent_id, parent_type, name)" % \
-                       (table_name, table_name))
         # Create index for locating all objects under a given parent.
         self._db_query("CREATE INDEX %s_parent_idx on %s (parent_id, "\
                        "parent_type)" % (table_name, table_name))
@@ -301,22 +351,23 @@ class Database:
                        object_type, (object_id,))
         
 
-    def add_object(self, (object_type, object_name), parent = None, **attrs):
+    def add_object(self, object_type, parent = None, **attrs):
         """
-        Adds an object to the database.   When adding, an object is identified
-        by a (type, name) tuple.  Parent is a (type, id) tuple which refers to
-        the object's parent.  In both cases, "type" is a type name as 
-        given to register_object_type_attrs().  attrs kwargs will vary based on
-        object type.  ATTR_SIMPLE attributes which a None are not added.
+        Adds an object of type 'object_type' to the database.  Parent is a
+        (type, id) tuple which refers to the object's parent.  'object_type'
+        and 'type' is a type name as given to register_object_type_attrs().
+        attrs kwargs will vary based on object type.  ATTR_SIMPLE attributes
+        which a None are not added.
 
         This method returns the dict that would be returned if this object
-        were queried by query_normalized().
+        were queried by query_normalized().  The "id" key of this dict refers
+        to the id number assigned to this object.
         """
         type_attrs = self._object_types[object_type][1]
         if parent:
             attrs["parent_type"] = self._object_types[parent[0]][0]
             attrs["parent_id"] = parent[1]
-        attrs["name"] = object_name
+        #attrs["name"] = object_name
         query, values = self._make_query_from_attrs("add", attrs, object_type)
         self._db_query(query, values)
 
@@ -503,6 +554,7 @@ class Database:
                 query_type = "DISTINCT"
             del attrs["distinct"]
 
+
         results = []
         query_info["columns"] = {}
         for type_name, (type_id, type_attrs) in type_list:
@@ -535,30 +587,34 @@ class Database:
 
             if computed_object_ids != None:
                 q %= ",%d+id as computed_id" % (type_id * 10000000)
-                q +=" WHERE computed_id IN %s" % self._list_to_printable(computed_object_ids)
+                q +=" WHERE computed_id IN %s" % _value_to_printable(computed_object_ids)
             else:
                 q %= ""
 
             query_values = []
             for attr, value in attrs.items():
-                # Coercion for numberic types
                 attr_type = type_attrs[attr][0]
-                if type(value) in (int, long, float) and attr_type in (int, long, float):
-                    value = attr_type(value)
-                if type(value) != attr_type:
+                if type(value) != QExpr:
+                    value = QExpr("=", value)
+
+                if type(value._operand) in (int, long, float) and attr_type in (int, long, float):
+                    value._operand = attr_type(value._operand)
+                if value._operator not in ("range", "in", "not in") and \
+                   type(value._operand) != attr_type:
                     raise ValueError, "Type mismatch in query: '%s' (%s) is not a %s" % \
-                                          (str(value), str(type(value)), str(attr_type))
-                if type(value) == str:
+                                          (str(value._operand), str(type(value._operand)), str(attr_type))
+                if type(value._operand) == str:
                     # Treat strings (non-unicode) as buffers.
-                    value = buffer(value)
+                    value._operand = buffer(value._operand)
 
                 if q.find("WHERE") == -1:
                     q += " WHERE "
                 else:
                     q += " AND "
 
-                q += "%s=?" % attr
-                query_values.append(value)
+                sql, values = value.as_sql(attr)
+                q += sql
+                query_values.extend(values)
             
             if result_limit != None:
                 q += " LIMIT %d" % result_limit
@@ -640,14 +696,14 @@ class Database:
         Do a quick-and-dirty list of filenames given a query results list,
         sorted by filename.
         """
-        # XXX: should be part of VFS, not database.
-        name_index = {}
-        for type, c in query_info["columns"].items():
-            name_index[type] = c.index("name")
-
-        files = [ str(row[name_index[row[0]]]) for row in results ]
-        files.sort()
-        return files
+        return []
+        # XXX: This logic needs to be in vfs, not db.
+        #name_index = {}
+        #for type, c in query_info["columns"].items():
+        #    name_index[type] = c.index("name")
+        #files = [ str(row[name_index[row[0]]]) for row in results ]
+        #files.sort()
+        #return files
 
 
     def _score_words(self, text_parts):
@@ -736,33 +792,6 @@ class Database:
             self._db_query("UPDATE meta SET value=value-1 WHERE attr='keywords_filecount'")
 
 
-    def _list_to_printable(self, items):
-        """
-        Takes a list of mixed types and outputs a unicode string.  For
-        example, a list [42, 'foo', None, "foo's string"], this returns the
-        string:
-
-            (42, 'foo', NULL, 'foo''s string')
-
-        Single quotes are escaped as ''.  This is suitable for use in SQL 
-        queries.  
-        """
-        fixed_items = []
-        for item in items:
-            if type(item) in (int, long):
-                fixed_items.append(str(item))
-            elif item == None:
-                fixed_items.append("NULL")
-            elif type(item) == unicode:
-                fixed_items.append("'%s'" % item.replace("'", "''"))
-            elif type(item) == str:
-                fixed_items.append("'%s'" % str_to_unicode(item.replace("'", "''")))
-            else:
-                raise Exception, "Unsupported type '%s' given to list_to_printable" % type(item)
-
-        return '(' + ','.join(fixed_items) + ')'
-
-
     def _add_object_keywords(self, (object_type, object_id), words):
         """
         Adds the dictionary of words (as computed by _score_words()) to the
@@ -775,7 +804,7 @@ class Database:
         # with their id and count.
         db_words_count = {}
 
-        words_list = self._list_to_printable(words.keys())
+        words_list = _value_to_printable(words.keys())
         q = "SELECT id,word,count FROM words WHERE word IN %s" % words_list
         rows = self._db_query(q)
         for row in rows:
@@ -848,7 +877,7 @@ class Database:
         # Remove words that aren't indexed (words less than MIN_WORD_LENGTH 
         # characters, or and words in the stop list).
         words = filter(lambda x: len(x) >= MIN_WORD_LENGTH and x not in STOP_WORDS, words)
-        words_list = self._list_to_printable(words)
+        words_list = _value_to_printable(words)
         nwords = len(words)
 
         if nwords == 0:

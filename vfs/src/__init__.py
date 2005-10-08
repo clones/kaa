@@ -1,4 +1,3 @@
-from db import Database, ATTR_SIMPLE, ATTR_SEARCHABLE, ATTR_INDEXED, ATTR_KEYWORDS
 from mediadb import MediaDB
 
 _db = None
