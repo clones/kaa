@@ -49,7 +49,7 @@ ATTR_KEYWORDS_FILENAME = 0x100     # Treat as filename for keywords index
 STOP_WORDS = (
     "about", "and", "are", "but", "com", "for", "from", "how", "not", 
     "some", "that", "the", "this", "was", "what", "when", "where", "who", 
-    "will", "with", "the", "www", "http", "org"
+    "will", "with", "the", "www", "http", "org", "of"
 )
 WORDS_DELIM = re.compile("[\W_]+", re.U)
 
