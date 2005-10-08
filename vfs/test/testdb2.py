@@ -1,5 +1,5 @@
 import time, sys, os, locale
-from kaa.vfs import *
+from kaa.vfs.db import *
 from kaa.base.utils import str_to_unicode
 from kaa import metadata
 
@@ -8,6 +8,7 @@ AUDIO_PATH = "/data/mp3"
 
 db = Database("testdb2.sqlite")
 db.register_object_type_attrs("audio", (
+    ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
     ("title", unicode, ATTR_KEYWORDS),
     ("artist", unicode, ATTR_KEYWORDS | ATTR_INDEXED),
     ("album", unicode, ATTR_KEYWORDS),
@@ -20,7 +21,7 @@ db.register_object_type_attrs("audio", (
 
 
 def index(dir):
-    dir_object = db.add_object(("dir", dir))
+    dir_object = db.add_object("dir", name=dir)
     for entry in os.listdir(dir):
         filepath = os.path.abspath(os.path.join(dir,entry))
         dirname, filename = os.path.split(filepath)
@@ -42,7 +43,7 @@ def index(dir):
         sys.stdout.write("Processing: %s\r" % filename)
         sys.stdout.flush()
 
-        db.add_object(("audio", filename), parent=("dir", dir_object["id"]),
+        db.add_object("audio", name=filename, parent=("dir", dir_object["id"]),
                 title=md.get("title"),
                 artist=md.get("artist"), album=md.get("album"), genre=unicode(md.get("genre")),
                 samplerate=md.get("samplerate"), length=md.get("length"), 

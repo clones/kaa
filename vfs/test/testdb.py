@@ -1,10 +1,11 @@
-from kaa.vfs import *
+from kaa.vfs.db import *
 from kaa.base.utils import str_to_unicode
 import time
 import sys
 
 db = Database()
 db.register_object_type_attrs("image", (
+    ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
     ("width", int, ATTR_SEARCHABLE),
     ("height", int, ATTR_SEARCHABLE),
     ("date", int, ATTR_SEARCHABLE),
@@ -12,6 +13,7 @@ db.register_object_type_attrs("image", (
 )
 
 db.register_object_type_attrs("audio", (
+    ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
     ("title", unicode, ATTR_KEYWORDS),
     ("artist", unicode, ATTR_KEYWORDS | ATTR_INDEXED),
     ("album", unicode, ATTR_KEYWORDS),
@@ -30,20 +32,20 @@ dir = db.query_normalized(type="dir", name="/home/freevo/mp3")
 if not dir:
     t0=time.time()
     print "* Creating (database) directory with 20000 objects"
-    dir = db.add_object(("dir", "/home/freevo/mp3"), foo=1)
+    dir = db.add_object("dir", name="/home/freevo/mp3", foo=1)
     for i in xrange(10000):
         if i < 5000:
             comment = u"Anna's birthday, June 2003"
         else:
             comment = u"My vacation to Hawaii, December 2004"
 
-        db.add_object(("image", "foobar%s.jpg" % i), parent=("dir", dir["id"]),
+        db.add_object("image", name="foobar%s.jpg" % i, parent=("dir", dir["id"]),
                       width=i, height=100, comment=comment)
-        db.add_object(("audio", "enya%s.mp3" % i), parent=("dir", dir["id"]),
+        db.add_object("audio", name="enya%s.mp3" % i, parent=("dir", dir["id"]),
                       artist=u"Enya")
 
     # This tests worst-case
-    db.add_object(("image", "other.jpg"), parent=("dir", dir["id"]), width=100, height=100, 
+    db.add_object("image", name="other.jpg", parent=("dir", dir["id"]), width=100, height=100, 
                   comment=u"birthday vacation")
 
     print "* Creation took %.03f seconds" % (time.time()-t0)
