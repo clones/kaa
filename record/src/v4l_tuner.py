@@ -97,7 +97,16 @@ FMT_ST = "L7L4x168x"
 GET_FMT_NO = IOWR ('V',  4, FMT_ST)
 SET_FMT_NO = IOWR ('V',  5, FMT_ST)
 
-TUNER_ST = "L32sLLLLLLll16x"
+FMT_VBI_ST = "12L00x"
+FMT_VBI_VARS = ('type', 'sampling_rate', 'offset', 'samples_per_line', 'sample_format',
+                'start0', 'start1', 'count0', 'count1', 'flags', 'reserved0', 'reserved1')
+GET_FMT_VBI_NO = IOWR ('V',  4, FMT_VBI_ST)
+SET_FMT_VBI_NO = IOWR ('V',  5, FMT_VBI_ST)
+
+# struct v4l2_tuner
+TUNER_ST = "L32si5L2l16x"
+TUNER_VARS = ('index', 'name', 'type', 'capabilities', 'rangelow', 'rangehigh',
+              'rxsubchans', 'audmode', 'signal', 'afc')
 GET_TUNER_NO = IOWR ('V', 29, TUNER_ST)
 SET_TUNER_NO = IOW  ('V', 30, TUNER_ST)
 
@@ -116,6 +125,21 @@ NORMS = { 'NTSC'  : 0x3000,
           'SECAM' : 0x7f0000  }
 
 
+def unpack_dict(frm, var, r):
+    r = struct.unpack( frm, r )
+    assert(len(r) == len(var))
+    d = {}
+    for i, v in enumerate(var):
+        d[v] = r[i]
+    return d
+    
+
+def pack_dict(frm, var, d):
+    l = []
+    for v in var:
+        l.append(d[v])
+    return struct.pack(frm, *l)
+    
 class V4L(object):
     def __init__(self, device, norm, chanlist=None, card_input=1, 
                  custom_frequencies=None):
@@ -156,8 +180,8 @@ class V4L(object):
         #    log.error('failed to open %s, fd: %d' % (self.device, self.devfd))
 
         cardcaps          = self.querycap()
-        self.driver       = cardcaps[0]
-        self.card         = cardcaps[1]
+        self.driver       = cardcaps[0][:cardcaps[0].find('\0')]
+        self.card         = cardcaps[1][:cardcaps[1].find('\0')]
         self.bus_info     = cardcaps[2]
         self.version      = cardcaps[3]
         self.capabilities = cardcaps[4]
@@ -281,10 +305,21 @@ class V4L(object):
         r = ioctl(self.devfd,SET_FMT_NO,val)
 
 
-    def gettuner(self,index):
+    def getvbifmt(self):  
+        val = struct.pack( FMT_VBI_ST, 3L,0,0,0,0,0,0,0,0,0,0,0)
+        r = ioctl(self.devfd,GET_FMT_NO,val)
+        return unpack_dict(FMT_VBI_ST, FMT_VBI_VARS, r)
+
+
+    def setvbifmt(self, d):  
+        val = pack_dict( FMT_VBI_ST, FMT_VBI_VARS, d)
+        r = ioctl(self.devfd,GET_FMT_NO,val)
+        return unpack_dict(FMT_VBI_ST, FMT_VBI_VARS, r)
+
+
+    def gettuner(self, index):
         val = struct.pack( TUNER_ST, index, "", 0,0,0,0,0,0,0,0)
-        r = ioctl(self.devfd,GET_TUNER_NO,val)
-        return struct.unpack( TUNER_ST, r )
+        return unpack_dict( TUNER_ST, TUNER_VARS, ioctl(self.devfd,GET_TUNER_NO,val))
 
 
     def settuner(self,index,audmode):
@@ -303,35 +338,38 @@ class V4L(object):
         r = ioctl(self.devfd,SET_AUDIO_NO,val)
 
 
-    def print_settings(self):
-        log.info('Driver: %s' % self.driver)
-        log.info('Card: %s' % self.card)
-        log.info('Version: %s' % self.version)
-        log.info('Capabilities: %s' % self.capabilities)
+    def settings_as_string(self):
+        s =  'Driver: %s\n' % self.driver
+        s += 'Card: %s\n' % self.card
+        s += 'Version: %s\n' % self.version
+        s += 'Capabilities: %s\n' % self.capabilities
 
-        log.info('Enumerating supported Standards.')
+        s += 'Enumerating supported Standards.\n'
         try:
             for i in range(0,255):
                 (index,id,name,junk,junk,junk) = self.enumstd(i)
-                log.info('  %i: 0x%x %s' % (index, id, name))
+                s += '  %i: 0x%x %s\n' % (index, id, name)
         except:
             pass
-        log.info('Current Standard is: 0x%x' % self.getstd())
+        s += 'Current Standard is: 0x%x\n' % self.getstd()
 
-        log.info('Enumerating supported Inputs.')
+        s += 'Enumerating supported Inputs.\n'
         try:
             for i in range(0,255):
                 (index,name,type,audioset,tuner,std,status) = self.enuminput(i)
-                log.info('  %i: %s' % (index, name))
+                s += '  %i: %s\n' % (index, name)
         except:
             pass
-        log.info('Input: %i' % self.getinput())
+        s += 'Input: %i\n' % self.getinput()
 
         (buf_type, width, height, pixelformat, field, bytesperline,
          sizeimage, colorspace) = self.getfmt()
-        log.info('Width: %i, Height: %i' % (width,height))
+        s += 'Width: %i, Height: %i\n' % (width,height)
 
         freq = self.getfreq()
-        log.info('Read Frequency: %d (%d)' % (freq, freq*1000/16))
+        s += 'Read Frequency: %d (%d)' % (freq, freq*1000/16)
+        return s
 
 
+    def print_settings(self):
+        log.info('Settings:\n%s' %self.settings_as_string())

@@ -50,9 +50,18 @@ files = [ 'src/fp_filewriter.cc', 'src/fp_remux.cc', 'src/fp_udpsend.cc',
           'src/remux.cc', 'src/ringbuffer.cc', 'src/filter.cc']
 filter = Extension('kaa.record._filter', files)
 
+# list of all modules
+ext_modules = [ dvb, filter, fdsplitter ]
 
-
+# vbi module
+vbi = Extension('kaa.record._vbi', ['src/vbi.cc'])
+if not vbi.check_cc(['"libzvbi.h"'], '', '-lzvbi'):
+    print 'libzvbi not found, disable vbi support'
+else:
+    vbi.libraries.append('zvbi')
+    ext_modules.append(vbi)
+    
 setup(module      = 'record',
       version     = '0.1',
-      ext_modules = [ dvb, filter, fdsplitter ]
+      ext_modules = ext_modules
 )
