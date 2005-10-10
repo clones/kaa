@@ -7,6 +7,7 @@ from kaa.record.channels import ALL_CHANNELS
 import kaa.record._vbi as vbi
 
 DEVICE   = '/dev/video0'
+VBI_DEV  = '/dev/vbi0'
 NORM     = 'pal'
 CHANLIST = 'europe-west'
 
@@ -14,7 +15,7 @@ x = kaa.record.v4l_tuner.V4L(DEVICE, NORM, CHANLIST)
 x.setinput(0)
 x.print_settings()
 
-data = vbi.VBI()
+data = vbi.VBI(VBI_DEV)
 channels = []
 
 frequencies = [ 'SE20', 'S40', 'E8', '39', 'E9']

@@ -57,7 +57,12 @@ static int VBIPyObject__init(VBIPyObject *self, PyObject *args)
     | VBI_SLICED_CAPTION_625 | VBI_SLICED_VPS
     | VBI_SLICED_WSS_625 | VBI_SLICED_WSS_CPR1204;
 
-  self->cap = vbi_capture_v4l2_new("/dev/vbi0", 16, &services, -1, &errorstr, 1);
+  char *device;
+
+  if (!PyArg_ParseTuple(args,"s", &device))
+    return -1;
+
+  self->cap = vbi_capture_v4l2_new(device, 16, &services, -1, &errorstr, 1);
   if (!self->cap) 
     return -1;
   self->par = vbi_capture_parameters(self->cap);
