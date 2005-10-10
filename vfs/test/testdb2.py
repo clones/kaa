@@ -7,16 +7,16 @@ AUDIO_PATH = "/data/mp3"
 #AUDIO_PATH = "/data/mp3/Enya - Watermark"
 
 db = Database("testdb2.sqlite")
-db.register_object_type_attrs("audio", (
-    ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
-    ("title", unicode, ATTR_KEYWORDS),
-    ("artist", unicode, ATTR_KEYWORDS | ATTR_INDEXED),
-    ("album", unicode, ATTR_KEYWORDS),
-    ("genre", unicode, ATTR_INDEXED),
-    ("samplerate", int, ATTR_SIMPLE),
-    ("length", int, ATTR_SIMPLE),
-    ("bitrate", int, ATTR_SIMPLE),
-    ("trackno", int, ATTR_SIMPLE))
+db.register_object_type_attrs("audio",
+    name = (str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
+    title = (unicode, ATTR_KEYWORDS),
+    artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
+    album = (unicode, ATTR_KEYWORDS),
+    genre = (unicode, ATTR_INDEXED),
+    samplerate = (int, ATTR_SIMPLE),
+    length = (int, ATTR_SIMPLE),
+    bitrate = (int, ATTR_SIMPLE),
+    trackno = (int, ATTR_SIMPLE)
 )
 
 

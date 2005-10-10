@@ -4,28 +4,29 @@ import time
 import sys
 
 db = Database()
-db.register_object_type_attrs("image", (
-    ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
-    ("width", int, ATTR_SEARCHABLE),
-    ("height", int, ATTR_SEARCHABLE),
-    ("date", int, ATTR_SEARCHABLE),
-    ("comment", unicode, ATTR_KEYWORDS))
+db.register_object_type_attrs("image",
+    name = (str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
+    width = (int, ATTR_SEARCHABLE),
+    height = (int, ATTR_SEARCHABLE),
+    date =  (int, ATTR_SEARCHABLE),
+    comment = (unicode, ATTR_KEYWORDS)
 )
 
-db.register_object_type_attrs("audio", (
-    ("name", str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
-    ("title", unicode, ATTR_KEYWORDS),
-    ("artist", unicode, ATTR_KEYWORDS | ATTR_INDEXED),
-    ("album", unicode, ATTR_KEYWORDS),
-    ("genre", unicode, ATTR_INDEXED),
-    ("samplerate", int, ATTR_SIMPLE),
-    ("length", int, ATTR_SIMPLE),
-    ("bitrate", int, ATTR_SIMPLE),
-    ("trackno", int, ATTR_SIMPLE))
+db.register_object_type_attrs("audio", 
+    name = (str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
+    title = (unicode, ATTR_KEYWORDS),
+    artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
+    album = (unicode, ATTR_KEYWORDS),
+    genre = (unicode, ATTR_SEARCHABLE),
+    samplerate = (int, ATTR_SIMPLE),
+    length = (int, ATTR_SIMPLE),
+    bitrate = (int, ATTR_SIMPLE),
+    trackno = (int, ATTR_SIMPLE)
 )
 
-db.register_object_type_attrs("dir", (
-    ("is_removable", int, ATTR_SEARCHABLE),)
+db.register_object_type_attrs("dir",
+    name = (str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
+    is_removable = (int, ATTR_SEARCHABLE)
 )
 
 dir = db.query_normalized(type="dir", name="/home/freevo/mp3")
@@ -61,7 +62,7 @@ rows = db.query_normalized(keywords="birthday vacation", limit=100)
 print "* Keyword query (worst case) took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
 
 t0=time.time()
-db.update_object(("image", 2000), comment=u"This is a test")
+db.update_object(("image", 200), comment=u"This is a test")
 print "* Update object (with keyword reindex) took %.03f seconds" % (time.time()-t0)
 
 t0=time.time()
@@ -77,8 +78,9 @@ rows = db.normalize_query_results(rows)
 print "* Normalize results list took took %.03f seconds" % (time.time()-t0)
 
 t0=time.time()
-db.register_object_type_attrs("audio", (
-    ("comment", unicode, ATTR_KEYWORDS),)
+db.register_object_type_attrs("audio",
+    [("genre", "artist")],
+    comment = (unicode, ATTR_KEYWORDS)
 )
 print "* Modify type took %.03f seconds" % (time.time()-t0)
 
@@ -95,3 +97,6 @@ print "--\nWords table has %d rows" % count[0]
 count = db._db_query("SELECT count(*) FROM words_map")
 print "Words map table has %d rows" % count[0]
 
+t0=time.time()
+print db.delete_by_query(object=("dir", 1))
+print "Mass delete", time.time()-t0
