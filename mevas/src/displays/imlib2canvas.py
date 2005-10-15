@@ -43,10 +43,10 @@ from bitmapcanvas import *
 
 class Imlib2Canvas(BitmapCanvas):
 
-    def __init__(self, size, dither = True, blend = False):
+    def __init__(self, size, dither = True, blend = False, title = "Mevas"):
         super(Imlib2Canvas, self).__init__(size, preserve_alpha = blend)
         self._dither, self._blend = dither, blend
-        self._window = display.X11Window(size = size, title = "Mevas")
+        self._window = display.X11Window(size = size, title = title)
         self._window.set_cursor_hide_timeout(1)
         self._window.show()
         self._window.signals["expose_event"].connect(self._expose)
