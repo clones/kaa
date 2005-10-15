@@ -76,7 +76,7 @@ typedef struct {
 
 
 class Tuner {
-  private:
+  public:
   static const Param inversion_list[];
   static const Param bw_list[];
   static const Param fec_list[];
@@ -85,6 +85,7 @@ class Tuner {
   static const Param qam_list[];
   static const Param transmissionmode_list[];
 
+  private:
   std::string                    device_frontend;
   std::string                    device_demux;
   std::string                    device_dvr;

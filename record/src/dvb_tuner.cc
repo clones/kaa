@@ -259,9 +259,27 @@ std::string Tuner::get_status () {
 
   std::string ret;
   fe_status_t status;
+  uint16_t snr, signal;
+  uint32_t ber, uncorrected_blocks;
 
   if (ioctl(fd_frontend, FE_READ_STATUS, &status) < 0) {
-    printD( LOG_ERROR, "fe get event: %s\n", strerror(errno));
+    printD( LOG_ERROR, "FE_READ_STATUS failed: %s\n", strerror(errno));
+    return "ERROR";
+  }
+  if (ioctl(fd_frontend, FE_READ_SIGNAL_STRENGTH, &signal) < 0) {
+    printD( LOG_ERROR, "FE_READ_SIGNAL_STRENGTH failed: %s\n", strerror(errno));
+    return "ERROR";
+  }
+  if (ioctl(fd_frontend, FE_READ_SNR, &snr) < 0) {
+    printD( LOG_ERROR, "FE_READ_SNR failed: %s\n", strerror(errno));
+    return "ERROR";
+  }
+  if (ioctl(fd_frontend, FE_READ_BER, &ber) < 0) {
+    printD( LOG_ERROR, "FE_READ_BER failed: %s\n", strerror(errno));
+    return "ERROR";
+  }
+  if (ioctl(fd_frontend, FE_READ_UNCORRECTED_BLOCKS, &uncorrected_blocks) < 0) {
+    printD( LOG_ERROR, "FE_READ_UNCORRECTED_BLOCKS failed: %s\n", strerror(errno));
     return "ERROR";
   }
 
@@ -294,6 +312,11 @@ std::string Tuner::get_status () {
   if (status & FE_HAS_SYNC) {
     ret.append(" FE_HAS_SYNC");
   }
+
+  ret.append("   signalstrength: ").append(to_string(signal));
+  ret.append("   snr: ").append(to_string(snr));
+  ret.append("   ber: ").append(to_string(ber));
+  ret.append("   unc: ").append(to_string(uncorrected_blocks));
 
   return ret;
 }
