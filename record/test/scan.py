@@ -5,6 +5,7 @@ import kaa.record.v4l_tuner
 import kaa.record.v4l_frequencies
 from kaa.record.channels import ALL_CHANNELS
 import kaa.record._vbi as vbi
+import kaa.record.v4l_scan
 
 try:
     DEVICE, NORM, CHANLIST = sys.argv[1:]
@@ -27,46 +28,14 @@ data = vbi.VBI(VBI_DEV)
 channels = []
 
 frequencies = [ 'SE20', 'S40', 'E8', '39', 'E9']
-frequencies = kaa.record.v4l_frequencies.CHANLIST[CHANLIST]
+#frequencies = kaa.record.v4l_frequencies.CHANLIST[CHANLIST]
 
-print
-print 'start channel scan'
-for k in frequencies:
-    x.setchannel(k)
-    time.sleep(0.5)
-    data.reset()
-    print 'scan %-5s...' % k,
-    sys.__stdout__.flush()
-
-    if x.gettuner(0)['signal']:
-        sys.__stdout__.flush()
-        time.sleep(0.25)
-        for i in range(100):
-            data.read_sliced()
-            if data.network:
-                for chanid, v4lid, dvbid in ALL_CHANNELS:
-                    if data.network[1] in v4lid:
-                        print chanid
-                        status = 'found in db'
-                        break
-                else:
-                    print 'unkown network "%s" (%s)' % data.network
-                    chanid = data.network[0]
-                    status = 'found in vbi %s' % data.network[1]
-                break
-        else:
-            print 'unkown network "%s"' % k
-            status = 'not identified'
-            chanid = k
-        freq = kaa.record.v4l_frequencies.get_frequency(k, CHANLIST)
-        channels.append((freq, chanid, status))
-    else:
-        print 'no channel'
+channels = kaa.record.v4l_scan.scan(x, data, frequencies)
 
 print
 print 'Found the following channels:'
-for freq, name, status in channels:
-    print '  %20s on freq %s (%s)' % (name, freq, status)
+for freq, name in channels:
+    print '  %20s on freq %s' % (name, freq)
 print
 print 'Please check if you get correct names and report the result'
 print 'back to the freevo-devel mailing list. Thank you.'
