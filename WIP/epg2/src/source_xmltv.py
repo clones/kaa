@@ -1,5 +1,4 @@
 import libxml2, sys, time, os, calendar
-from kaa.base.utils import str_to_unicode
 import kaa.notifier
 
 def timestr2secs_utc(timestr):
@@ -56,7 +55,7 @@ def timestr2secs_utc(timestr):
 
 
 def parse_channel(info):
-    channel_id = str_to_unicode(info.node.prop("id"))
+    channel_id = info.node.prop("id").decode("utf-8")
     channel = station = name = None
 
     child = info.node.children
@@ -69,9 +68,9 @@ def parse_channel(info):
             if not channel and child.content.isdigit():
                 channel = int(child.content)
             elif not station and child.content.isalpha():
-                station = str_to_unicode(child.content)
+                station = child.content.decode("utf-8")
             elif channel and station and not name:
-                name = str_to_unicode(child.content)
+                name = child.content.decode("utf-8")
         child = child.get_next()
 
     id = info.epg._add_channel_to_db(channel_id, channel, station, name)
@@ -79,7 +78,7 @@ def parse_channel(info):
 
 
 def parse_programme(info):
-    channel_id = str_to_unicode(info.node.prop("channel"))
+    channel_id = info.node.prop("channel").decode("utf-8")
     if channel_id not in info.channel_id_to_db_id:
         log.warning("Program exists for unknown channel '%s'" % channel_id)
         return
@@ -89,9 +88,9 @@ def parse_programme(info):
     child = info.node.children
     while child:
         if child.name == "title":
-            title = str_to_unicode(child.content)
+            title = child.content.decode("utf-8")
         elif child.name == "desc":
-            desc = str_to_unicode(child.content)
+            desc = child.content.decode("utf-8")
         elif child.name == "date":
             fmt = "%Y%m%d"
             if len(child.content) == 4:

@@ -84,6 +84,7 @@ class GuideServer(object):
 
         if cur == total:
             self._db.commit()
+            self._load()
             self.signals["updated"].emit()
             self.signals["update_progress"].disconnect(self._update_progress)
             print "\nProcessed in %.02f seconds." % (time.time()-update_start_time)
