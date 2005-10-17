@@ -1,0 +1,51 @@
+This is my WIP rewrite of kaa.epg.  It uses kaa.base.db for storage, so it
+benefits from the keyword support in kaa.base.db.  Here's a breakdown of
+improvements and other differences:
+
+  * Split into client/server (GuideClient/GuideServer) and uses
+    kaa.base.ipc for communication.  
+  * Supports fast keyword search with relevancy sorting (search 30000
+    programs in 0.01 seconds)
+  * Use libxml2 for xml parsing.  Updating from a 17MB xmltv file takes
+    95 seconds instead of 74 minutes.  Seriously.
+  * Implement zap2it datadirect backend. North America users no longer need
+    xmltv.
+  * The API is a bit different.  It avoids __getitem__ which is a clever
+    interface but perhaps a bit too clever.
+  * Updating from backend is asynchronous.  Downloading / parsing is done
+    in a thread, and the database is updated in steps within the main loop.
+  * GuideClient can used in the same process as GuideServer and will avoid
+    the unneeded IPC calls.
+
+The main interface is via the get_channel() and search() methods in
+GuideClient.  get_channel() returns a Channel object for the given channel
+number.  search() returns a list of Program objects that match the query
+given.  Some examples:
+
+
+    # Connect to the guide server (unix socket 'epg')
+    guide = epg2.GuideClient("epg")
+
+    # get Channel object for channe 515
+    ch = guide.get_channel(515)
+
+    # get Program objects playing at the current time (list of 1) for
+    # channel 515
+    program  = ch.get_programs()[0]
+
+    now = time.time()
+
+    # Get Program objects for channel 515 playing in the next 3 hours
+    programs = ch.get_programs((now, now + 3*60*60))
+
+    # Get all programs in the next 12 hours with keywords 'Simpsons'
+    programs = guide.search(keywords = "Simpsons", 
+                            time = (now, now + 12*60*60))
+
+    # Get all programs in the next 3 hours between channels 30 and 40.
+    programs = guide.search(time = (now, now + 3*60*60), channels = 
+                            (guide.get_channel(30), guide.get_channel(40))
+    
+
+See test/ for examples.
+
