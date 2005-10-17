@@ -55,11 +55,11 @@ def timestr2secs_utc(timestr):
 
 
 
-def parse_channel(epg, channel_id_to_db_id, node):
-    channel_id = str_to_unicode(node.prop("id"))
+def parse_channel(info):
+    channel_id = str_to_unicode(info.node.prop("id"))
     channel = station = name = None
 
-    child = node.children
+    child = info.node.children
     while child:
         # This logic expects that the first display-name that appears
         # after an all-numeric and an all-alpha display-name is going
@@ -74,21 +74,19 @@ def parse_channel(epg, channel_id_to_db_id, node):
                 name = str_to_unicode(child.content)
         child = child.get_next()
 
-    id = epg._add_channel_to_db(channel_id, channel, station, name)
-    channel_id_to_db_id[channel_id] = id
+    id = info.epg._add_channel_to_db(channel_id, channel, station, name)
+    info.channel_id_to_db_id[channel_id] = [id, None]
 
 
-def parse_programme(epg, channel_id_to_db_id, node):
-    channel_id = str_to_unicode(node.prop("channel"))
-    if channel_id not in channel_id_to_db_id:
-        print "UNKNOWN CHANNEL", channel_id
+def parse_programme(info):
+    channel_id = str_to_unicode(info.node.prop("channel"))
+    if channel_id not in info.channel_id_to_db_id:
+        log.warning("Program exists for unknown channel '%s'" % channel_id)
         return
 
-    start = timestr2secs_utc(node.prop("start"))
-    stop = timestr2secs_utc(node.prop("stop"))
     title = date = desc = None
 
-    child = node.children
+    child = info.node.children
     while child:
         if child.name == "title":
             title = str_to_unicode(child.content)
@@ -104,7 +102,19 @@ def parse_programme(epg, channel_id_to_db_id, node):
     if not title:
         return
 
-    epg._add_program_to_db(channel_id_to_db_id[channel_id], start, stop, title, desc)
+    start = timestr2secs_utc(info.node.prop("start"))
+    channel_db_id, last_prog = info.channel_id_to_db_id[channel_id]
+    if last_prog:
+        # There is a previous program for this channel with no stop time,
+        # so set last program stop time to this program start time.
+        last_start, last_title, last_desc = last_prog
+        info.epg._add_program_to_db(channel_db_id, last_start, start, last_title, last_desc)
+
+    if not info.node.prop("stop"):
+        info.channel_id_to_db_id[channel_id][1] = (start, title, desc)
+    else:
+        stop = timestr2secs_utc(info.node.prop("stop"))
+        info.epg._add_program_to_db(channel_db_id, start, stop, title, desc)
  
 
 class UpdateInfo:
@@ -138,9 +148,9 @@ def _update_process_step(info):
     t0 = time.time()
     while info.node:
         if info.node.name == "channel":
-            parse_channel(info.epg, info.channel_id_to_db_id, info.node)
+            parse_channel(info)
         elif info.node.name == "programme":
-            parse_programme(info.epg, info.channel_id_to_db_id, info.node)
+            parse_programme(info)
             info.cur +=1
             if info.cur % info.progress_step == 0:
                 info.epg.signals["update_progress"].emit(info.cur, info.total)
