@@ -19,8 +19,10 @@ class Listing(list):
     # True for _parse
     
     def update(self):
+        print 'start update'
         for i in self:
             i._parse()
+        print 'end update'
 
 
     def __str__(self):
@@ -128,7 +130,7 @@ class Item(object):
             self.db.update_object((type, id), **attributes)
             self.data.update(attributes)
         else:
-            self.data = self.db.add_object((type, fname), parent=parent, **attributes)
+            self.data = self.db.add_object(type, name=fname, parent=parent, **attributes)
             self.data['url'] = 'file:' + path
         return True
     
@@ -195,10 +197,10 @@ class Item(object):
         self._parse()
 
         if self.data['type'] != 'dir':
-            return self.db.query_normalized(parent = self.__id__())
+            return self.db.query(parent = self.__id__())
             
         dirname = os.path.normpath(self.data['url'][5:])
-        files = self.db.query_normalized(parent = ("dir", self.data["id"]))
+        files = self.db.query(parent = ("dir", self.data["id"]))
         fs_listing = os.listdir(dirname)
 
         # TODO: add OVERLAY_DIR support
@@ -234,36 +236,48 @@ class MediaDB(Database):
         
         Database.__init__(self, dbdir + '/db')
 
-        self.register_object_type_attrs("file", ())
+        self.register_object_type_attrs("dir",
+            name = (str, ATTR_KEYWORDS),
+            mtime = (int, ATTR_SIMPLE))
 
-        self.register_object_type_attrs("video", (
-            ("title", unicode, ATTR_KEYWORDS),
-            ("width", int, ATTR_SIMPLE),
-            ("height", int, ATTR_SIMPLE),
-            ("length", int, ATTR_SIMPLE)))
+        self.register_object_type_attrs("file",
+            name = (str, ATTR_KEYWORDS),
+            mtime = (int, ATTR_SIMPLE))
 
-        self.register_object_type_attrs("audio", (
-            ("title", unicode, ATTR_KEYWORDS),
-            ("artist", unicode, ATTR_KEYWORDS | ATTR_INDEXED),
-            ("album", unicode, ATTR_KEYWORDS),
-            ("genre", unicode, ATTR_INDEXED),
-            ("samplerate", int, ATTR_SIMPLE),
-            ("length", int, ATTR_SIMPLE),
-            ("bitrate", int, ATTR_SIMPLE),
-            ("trackno", int, ATTR_SIMPLE)))
+        self.register_object_type_attrs("video",
+            name = (str, ATTR_KEYWORDS),
+            mtime = (int, ATTR_SIMPLE),
+            title = (unicode, ATTR_KEYWORDS),
+            width = (int, ATTR_SIMPLE),
+            height = (int, ATTR_SIMPLE),
+            length = (int, ATTR_SIMPLE))
+
+        self.register_object_type_attrs("audio",
+            name = (str, ATTR_KEYWORDS),
+            mtime = (int, ATTR_SIMPLE),
+            title = (unicode, ATTR_KEYWORDS),
+            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
+            album = (unicode, ATTR_KEYWORDS),
+            genre = (unicode, ATTR_INDEXED),
+            samplerate = (int, ATTR_SIMPLE),
+            length = (int, ATTR_SIMPLE),
+            bitrate = (int, ATTR_SIMPLE),
+            trackno = (int, ATTR_SIMPLE))
         
-        self.register_object_type_attrs("image", (
-            ("width", int, ATTR_SEARCHABLE),
-            ("height", int, ATTR_SEARCHABLE),
-            ("date", int, ATTR_SEARCHABLE)))
+        self.register_object_type_attrs("image",
+            name = (str, ATTR_KEYWORDS),
+            mtime = (int, ATTR_SIMPLE),
+            width = (int, ATTR_SEARCHABLE),
+            height = (int, ATTR_SEARCHABLE),
+            date = (int, ATTR_SEARCHABLE))
 
         # TODO: add more known types
         
-        root = self.query_normalized(type="dir", name="/")
+        root = self.query(type="dir", name="/")
         if not root:
-            root = self.add_object(("dir", "/"))
+            root = self.add_object("dir", name="/")
             # FIXME: get current data from database
-            root = self.query_normalized(type='dir', name='/')[0]
+            root = self.query(type='dir', name='/')[0]
         else:
             root = root[0]
         root['url'] = 'file:/'
@@ -282,9 +296,9 @@ class MediaDB(Database):
         # as basic parent
         
         name = os.path.basename(dirname)
-        current = self.query_normalized(type="dir", name=name, parent=parent)
+        current = self.query(type="dir", name=name, parent=parent)
         if not current:
-            current = self.add_object(("dir", name), parent=parent)
+            current = self.add_object("dir", name=name, parent=parent)
         else:
             current = current[0]
         current['url'] = 'file:' + dirname
@@ -297,7 +311,7 @@ class MediaDB(Database):
     def __get_parent(self, id):
         if id in self._parent_cache:
             return self._parent_cache[id]
-        object = self.query_normalized(type=id[0], id=id[1])[0]
+        object = self.query(type=id[0], id=id[1])[0]
 
         # TODO: handle objects without parents (e.g. rom drives)
 
@@ -321,14 +335,14 @@ class MediaDB(Database):
         dirname = os.path.dirname(filename)
         basename = os.path.basename(filename)
         dir = self.__get_dir(os.path.normpath(os.path.abspath(dirname)))
-        current = self.query_normalized(name=basename, parent=dir.__id__())
+        current = self.query(name=basename, parent=dir.__id__())
         if not current:
             return Item(basename, dir, self)
         return Item(current[0], dir, self)
     
 
     def do_query(self, **args):
-        result = self.query_normalized(**args)
+        result = self.query(**args)
 
         if 'attrs' in args:
             # The user specified that only some args should be returned.
