@@ -29,7 +29,7 @@ db.register_object_type_attrs("dir",
     is_removable = (int, ATTR_SEARCHABLE)
 )
 
-dir = db.query_normalized(type="dir", name="/home/freevo/mp3")
+dir = db.query(type="dir", name="/home/freevo/mp3")
 if not dir:
     t0=time.time()
     print "* Creating (database) directory with 20000 objects"
@@ -54,11 +54,11 @@ else:
     dir = dir[0]
 
 t0=time.time()
-rows = db.query_normalized(keywords="anna", limit=100)
+rows = db.query(keywords="anna", limit=100)
 print "* Keyword query took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
 
 t0=time.time()
-rows = db.query_normalized(keywords="birthday vacation", limit=100)
+rows = db.query(keywords="birthday vacation", limit=100)
 print "* Keyword query (worst case) took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
 
 t0=time.time()
@@ -66,12 +66,8 @@ db.update_object(("image", 200), comment=u"This is a test")
 print "* Update object (with keyword reindex) took %.03f seconds" % (time.time()-t0)
 
 t0=time.time()
-rows = db.query(parent = ("dir", dir["id"]))
-print "* Query by parent took %.03f seconds" % (time.time()-t0)
-
-t0=time.time()
-files = db.list_query_results_names(rows)
-print "* Simple sorted file list took %.03f seconds, %d rows" % (time.time()-t0, len(files))
+rows = db.query_raw(parent = ("dir", dir["id"]))
+print "* Query (raw) by parent took %.03f seconds" % (time.time()-t0)
 
 t0=time.time()
 rows = db.normalize_query_results(rows)
@@ -85,7 +81,7 @@ db.register_object_type_attrs("audio",
 print "* Modify type took %.03f seconds" % (time.time()-t0)
 
 t0=time.time()
-db.query(parent = ("dir", dir["id"]), name="foobar2499.jpg")
+db.query_raw(parent = ("dir", dir["id"]), name="foobar2499.jpg")
 print "* Query for single filename took %.05f seconds" % (time.time()-t0)
 
 t0=time.time()

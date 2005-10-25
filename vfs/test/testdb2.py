@@ -7,6 +7,9 @@ AUDIO_PATH = "/data/mp3"
 #AUDIO_PATH = "/data/mp3/Enya - Watermark"
 
 db = Database("testdb2.sqlite")
+db.register_object_type_attrs("dir",
+    name = (str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED)
+)
 db.register_object_type_attrs("audio",
     name = (str, ATTR_KEYWORDS | ATTR_KEYWORDS_FILENAME | ATTR_INDEXED),
     title = (unicode, ATTR_KEYWORDS),
@@ -49,7 +52,7 @@ def index(dir):
                 samplerate=md.get("samplerate"), length=md.get("length"), 
                 bitrate=md.get("bitrate"), trackno=md.get("trackno"))
 
-dir = db.query_normalized(type="dir", name=AUDIO_PATH)
+dir = db.query(type="dir", name=AUDIO_PATH)
 if not dir:
     t0 = time.time()
     index(AUDIO_PATH)
@@ -57,8 +60,8 @@ if not dir:
     print "Indexed %d files in %.02f seconds." % (count[0], time.time()-t0)
 
 t0=time.time()
-artists = db.query(attrs=["artist"], type="audio", distinct = True)
-albums = db.query(attrs=["album"], type="audio", distinct = True)
+artists = db.query_raw(attrs=["artist"], type="audio", distinct = True)
+albums = db.query_raw(attrs=["album"], type="audio", distinct = True)
 print "There are %d artists and %d albums in database (query took %.02f seconds)" % \
       (len(artists[1]), len(albums[1]), time.time()-t0)
 print "Type some query words, CTRL-C quits:"
@@ -79,7 +82,7 @@ while 1:
                 kwargs["keywords"] += " " + term
 
     t0=time.time()
-    rows = db.query_normalized(**kwargs)
+    rows = db.query(**kwargs)
     print "* Keyword query took %.03f seconds, %d rows" % (time.time()-t0, len(rows))
     for row in rows:
         if row["type"] == "audio":
