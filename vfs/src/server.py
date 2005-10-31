@@ -1,75 +1,13 @@
 import os
 import stat
+import time
 
 from kaa.base import ipc, weakref
 from kaa.base.db import *
 from kaa.notifier import Signal, OneShotTimer, Timer
 import kaa.metadata
 
-class Item(object):
-    def __init__(self, data, parent, db):
-        self.data = data
-        self.parent = parent
-        self.db = db
-
-        # self.dirname always ends with a slash
-        # if the item is a dir, self.filename also ends with a slash
-        # self.url does not end with a slash (except root)
-        
-        # If parent is not set, this is a root node. A root node
-        # is always part of the db already
-        if not parent:
-            self.url = 'file:/' + self.data['name']
-            self.dirname = self.data['name']
-            self.filename = self.data['name']
-            self.isdir = True
-            self.basename = '/'
-            return
-
-        if isinstance(self.data, dict):
-            self.basename = self.data['name']
-        else:
-            self.basename = self.data
-
-        # check if the item s based on a file
-        if parent.filename:
-            self.url = 'file:/' + parent.filename + self.basename
-            self.dirname = parent.filename
-            self.filename = parent.filename + self.basename
-            if os.path.isdir(self.filename):
-                self.filename += '/'
-                self.isdir = True
-            else:
-                self.isdir = False
-                    
-        # TODO: handle files/parents not based on file:
-
-
-    def __id__(self):
-        return (self.data['type'], self.data["id"])
-    
-
-    def __str__(self):
-        if isinstance(self.data, str):
-            return 'new file %s' % self.data
-        return self.data['name']
-
-
-    def __getitem__(self, key):
-        if self.data.has_key(key):
-            return self.data[key]
-        if self.data.has_key('tmp:' + key):
-            return self.data['tmp:' + key]
-
-        # TODO: maybe get cover from parent (e.g. cover in a dir)
-        # Or should that be stored in each item
-        
-        return None
-
-
-#     def __del__(self):
-#         print 'del %s' % self
-
+from item import Item
 
 def get_mtime(item):
     if not item.filename:
@@ -198,9 +136,11 @@ class DirectoryQuery(Query):
         self.dir = server.get_dir(kwargs['dir'])
         
     def execute(self):
+        t1 = time.time()
         self._items = []
         dirname = os.path.normpath(self.dir['url'][5:])
         files = self._db.query(parent = ("dir", self.dir["id"]))
+        t2 = time.time()
         fs_listing = os.listdir(dirname)
 
         # TODO: add OVERLAY_DIR support
@@ -222,6 +162,8 @@ class DirectoryQuery(Query):
             
 #         for i in self._items:
 #             print i
+        t3 = time.time()
+        print 'server query took %s sec, complet op %s sec' % (t2-t1, t3-t1)
         OneShotTimer(self.check_query).start(0.01)
         return self._items
 
