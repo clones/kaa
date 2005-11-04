@@ -1,50 +1,47 @@
-import time
 from kaa.base import ipc, weakref
-from kaa.notifier import Signal, Callback
+from kaa.notifier import Signal
+
+from db import Database
 
 class Query(object):
-    def __init__(self, query, remote_object):
+    def __init__(self, notify, local_db, monitor, query):
         self._query = query
-        self.remote_object = remote_object
-        t1 = time.time()
-        self.items = remote_object.execute(__ipc_copy_result=True)
-        t2 = time.time()
-        print 'init query took %s' % (t2 - t1)
-        
-    def update(self):
-        self.remote_query.update(__ipc_oneway=True)
+        self._remote = None
+        self._result = local_db.query(**query)
+        self.id = 0
+        monitor(notify, __ipc_async=self._get_monitor, **query)
+        self._monitor = None
 
-    def notify(self, event, *args, **kwargs):
-        if event == 'progress':
-            print 'progress: %s of %s' % (args[0], args[1])
-            return
-        if event == 'changed':
-            print 'remote object changed'
-            t1 = time.time()
-            self.items = self.remote_object.execute(__ipc_copy_result=True)
-            t2 = time.time()
-            print 'update query took %s' % (t2 - t1)
+    def _get_monitor(self, (monitor, id)):
+        self._monitor = monitor
+        self.id = id
+        # FIXME: for some strange reasons, monitor is a ProxiedObject None
+        print 'monitor is', monitor, 'id', id
+        
+    def get(self):
+        return self._result.get()
+
+    def notify(self, msg, *args, **kwargs):
+        # TODO: redo the query here and emit signals
+        print msg, args, kwargs
+        
             
-        
 class Client(object):
-    def __init__(self):
-        self._ipc = ipc.IPCClient('vfs')
-        self._server = self._ipc.get_object('vfs')
-        self._active_queries = []
+    def __init__(self, db):
+        self.monitor = ipc.IPCClient('vfs').get_object('vfs')(db).monitor
+        self._db = Database(db)
+        self._db.read_only = True
+        self._queries = []
 
-    def query(self, **kwargs):
-        remote_query = self._server.query(self.notify, **kwargs)
-        query = Query(kwargs, remote_query)
-        self._active_queries.append(weakref(query))
+    def query(self, **query):
+        query = Query(self.notify, self._db, self.monitor, query)
+        # TODO: clean up dead weakrefs later
+        self._queries.append(weakref(query))
         return query
-        
-    def listdir(self, dirname):
-        return self.query(dir=dirname)
     
-    def notify(self, object, *args, **kwargs):
-        for q in self._active_queries:
-            if not q:
-                continue
-            if q.remote_object._query == object:
-                q.notify(*args, **kwargs)
-                
+    def notify(self, id, *args, **kwargs):
+        for query in self._queries:
+            if query and query.id == id:
+                query.notify(*args, **kwargs)
+                return
+        print 'not found'

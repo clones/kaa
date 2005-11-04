@@ -14,6 +14,5 @@ def do_gc():
             print g
     return True
 
-guide = kaa.vfs.server.Server("foo")
 Timer(do_gc).start(1)
 kaa.main()
