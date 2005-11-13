@@ -39,10 +39,6 @@ for a in sys.argv:
         distutils.core.setup(name="kaa", version="0.1")
         sys.exit(0)
 
-# Adding base/build/lib to the python path so that all kaa modules
-# can find the distribution file of kaa.base
-sys.path.insert(0, '../base/build/lib')
-
 if sys.argv[1] == 'clean' and len(sys.argv) == 2:
     for m in submodules:
         build = os.path.join(m, 'build')
@@ -65,10 +61,20 @@ else:
         except SystemExit:
             print 'failed to build', m
             failed.append(m)
+            if m == 'base':
+                sys.exit(1)
         else:
             build.append(m)
         os.chdir('..')
         print '[setup] Leaving kaa submodule', m
+
+        if m == 'base':
+            # Adding base/build/lib to the python path so that all kaa modules
+            # can find the distribution file of kaa.base
+            for subdir in os.listdir('base/build'):
+                if not subdir.startswith('lib'):
+                    continue
+                sys.path.insert(0, '../base/build/%s' % subdir)
 
     print
     print 'Summary:'
