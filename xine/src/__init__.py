@@ -176,6 +176,9 @@ class Xine(Wrapper):
         super(Xine, self).__init__(obj)
 
     def _x11_set_correct_size(self, width, height, aspect, window):
+        if height == 0:
+            return 0, 0, 0
+
         frame_aspect = width / float(height)
         if aspect == 0:
             win_aspect = frame_aspect
@@ -194,22 +197,22 @@ class Xine(Wrapper):
         if not window or aspect == 0:
             return d_width, d_height, win_aspect
 
-        # If the 
         if abs(window._aspect - win_aspect) > 0.01:
-            print "VO: %dx%d" % (d_width, d_height)
+            print "VO: %dx%d -> %dx%d" % (width, height, d_width, d_height)
             window.resize((d_width, d_height))
             window._aspect = win_aspect
 
         return window.get_size() + (win_aspect,)
 
     def _default_frame_output_cb(self, width, height, aspect, window):
+        #print "FRAME OUTPUT CB", width, height, aspect
         w, h, a = self._x11_set_correct_size(width, height, aspect, window)
 
         # Return order: dst_pos, win_pos, dst_size, aspect
         return (0, 0), (0, 0), (w, h), 1.0
 
     def _default_dest_size_cb(self, width, height, aspect, window):
-        #print "DEST SIZE CB", width, height, aspect
+        print "DEST SIZE CB", width, height, aspect
         # XXX: I'm not sure this is correct.  I'm also not sure there's not 
         # a bug in xine-lib.
         w, h, a = self._x11_set_correct_size(width, height, aspect, window)

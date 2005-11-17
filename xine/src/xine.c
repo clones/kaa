@@ -173,7 +173,7 @@ Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyOb
         return NULL;
 
     if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto") ||
-        !strcmp(driver, "opengl")) {
+        !strcmp(driver, "opengl") || !strcmp(driver, "sdl")) {
         vo_driver_pyobject = x11_open_video_driver(self, driver, kwargs);
     } else if (!strcmp(driver, "none")) {
         vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);

@@ -31,6 +31,7 @@
 #include <xine/xine_plugin.h>
 #include <xine/video_out.h>
 #include <xine/xine_internal.h>
+#include <xine/alphablend.h>
 #include "yuv2rgb.h"
 
 extern plugin_info_t xine_vo_kaa_plugin_info[];
@@ -83,6 +84,7 @@ typedef struct kaa_driver_s {
 
     kaa_frame_t *cur_frame;
     vo_driver_t *passthrough;
+    alphablend_t alphablend_extra_data;
 
     // Frame-to-buffer members
     yuv2rgb_factory_t *yuv2rgb_factory;
@@ -105,6 +107,7 @@ typedef struct kaa_driver_s {
     uint8_t *osd_planes[3], *osd_alpha_planes[3],
             *osd_pre_planes[3], *osd_pre_alpha_planes[3];
     struct rects *osd_invalid_rects;
+    pthread_mutex_t osd_buffer_lock;
     //
 
 } kaa_driver_t;

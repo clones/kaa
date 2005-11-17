@@ -52,6 +52,8 @@ PARAM_EQ_16000HZ                      = 27    # equalizer gains -100..100
 PARAM_AUDIO_CLOSE_DEVICE              = 28    # force closing audio device
 PARAM_AUDIO_AMP_MUTE                  = 29    # 1=>mute, 0=>unmute
 PARAM_FINE_SPEED                      = 30    # 1.000.000 => normal speed
+PARAM_EARLY_FINISHED_EVENT            = 31    # send event when demux finish
+PARAM_GAPLESS_SWITCH                  = 32    # next stream only gapless swi
 
 SPEED_PAUSE                           = 0
 SPEED_SLOW_4                          = 1
@@ -157,6 +159,31 @@ STREAM_INFO_MAX_SPU_CHANNEL           = 25
 STREAM_INFO_AUDIO_MODE                = 26
 STREAM_INFO_SKIPPED_FRAMES            = 27    # for 1000 frames delivered
 STREAM_INFO_DISCARDED_FRAMES          = 28    # for 1000 frames delivered
+STREAM_INFO_VIDEO_AFD                 = 29
+STREAM_INFO_DVD_TITLE_NUMBER          = 30
+STREAM_INFO_DVD_TITLE_COUNT           = 31
+STREAM_INFO_DVD_CHAPTER_NUMBER        = 32
+STREAM_INFO_DVD_CHAPTER_COUNT         = 33
+STREAM_INFO_DVD_ANGLE_NUMBER          = 34
+STREAM_INFO_DVD_ANGLE_COUNT           = 35
+
+VIDEO_AFD_NOT_PRESENT                 = -1
+VIDEO_AFD_RESERVED_0                  = 0
+VIDEO_AFD_RESERVED_1                  = 1
+VIDEO_AFD_BOX_16_9_TOP                = 2
+VIDEO_AFD_BOX_14_9_TOP                = 3
+VIDEO_AFD_BOX_GT_16_9_CENTRE          = 4
+VIDEO_AFD_RESERVED_5                  = 5
+VIDEO_AFD_RESERVED_6                  = 6
+VIDEO_AFD_RESERVED_7                  = 7
+VIDEO_AFD_SAME_AS_FRAME               = 8
+VIDEO_AFD_4_3_CENTRE                  = 9
+VIDEO_AFD_16_9_CENTRE                 = 10
+VIDEO_AFD_14_9_CENTRE                 = 11
+VIDEO_AFD_RESERVED_12                 = 12
+VIDEO_AFD_4_3_PROTECT_14_9            = 13
+VIDEO_AFD_16_9_PROTECT_14_9           = 14
+VIDEO_AFD_16_9_PROTECT_4_3            = 15
 
 META_INFO_TITLE                       = 0
 META_INFO_COMMENT                     = 1
@@ -218,10 +245,11 @@ EVENT_FRAME_FORMAT_CHANGE             = 5    # e.g. aspect ratio change during d
 EVENT_AUDIO_LEVEL                     = 6    # report current audio level (l/r/mute)
 EVENT_QUIT                            = 7    # last event sent when stream is disposed
 EVENT_PROGRESS                        = 8    # index creation/network connections
-EVENT_MRL_REFERENCE                   = 9    # demuxer->frontend: MRL reference(s) for the real stream
+EVENT_MRL_REFERENCE                   = 9    # (deprecated) demuxer->frontend: MRL reference(s) for the real stream
 EVENT_UI_NUM_BUTTONS                  = 10    # number of buttons for interactive menus
 EVENT_SPU_BUTTON                      = 11    # the mouse pointer enter/leave a button
 EVENT_DROPPED_FRAMES                  = 12    # number of dropped frames is too high
+EVENT_MRL_REFERENCE_EXT               = 13    # demuxer->frontend: MRL reference(s) for the real stream
 EVENT_INPUT_MOUSE_BUTTON              = 101
 EVENT_INPUT_MOUSE_MOVE                = 102
 EVENT_INPUT_MENU1                     = 103
@@ -307,6 +335,7 @@ MSG_ENCRYPTED_SOURCE                  = 9     # none
 MSG_SECURITY                          = 10    # (security message)
 MSG_AUDIO_OUT_UNAVAILABLE             = 11    # none
 MSG_PERMISSION_ERROR                  = 12    # (file name or mrl)
+MSG_FILE_EMPTY                        = 13    # file is empty
 
 TEXT_PALETTE_SIZE                     = 11
 

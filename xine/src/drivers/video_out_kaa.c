@@ -38,9 +38,7 @@
 #include "video_out_kaa.h"
 
 // Uncomment this for profiling info.
-#define STOPWATCH
-
-static void _overlay_blend(vo_driver_t *, vo_frame_t *, vo_overlay_t *);
+//#define STOPWATCH
 static int _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame);
 
 
@@ -186,6 +184,23 @@ alloc_overlay_data(kaa_driver_t *this, int format)
 }
 
 
+static int
+_check_bounds(kaa_driver_t *this, const char *func, int x, int y, int w, int h)
+{
+    if (x < 0 || y < 0 || w <= 0 || h <= 0 || 
+        x >= this->osd_w || x+w > this->osd_w || 
+        y >= this->osd_h || y+h > this->osd_h) {
+        printf("! WARNING: rect (%d,%d %dx%d) passed to %s outside bounds (%dx%d)\n", 
+           x, y, w, h, func, this->osd_w, this->osd_h);
+        return 0;
+    }
+    return 1;
+}
+
+#define check_bounds(this, x, y, w, h) _check_bounds(this, __FUNCTION__, x, y, w, h)
+
+
+
 static void
 convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 {
@@ -198,6 +213,8 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
     int chroma_offset = (rx >> 1) + (ry >> 1) * chroma_stride;
 
     if (!this->osd_planes[0]) // Not allocated yet.
+        return;
+    if (!check_bounds(this, rx, ry, rw, rh))
         return;
 
     stopwatch(2, "convert_bgra_to_yv12a (%d,%d %dx%d)", rx, ry, rw, rh);
@@ -354,8 +371,6 @@ premultiply_alpha_byte_8_MMX(uint8_t *byte, uint8_t *alpha,
 #endif
 
 
-
-
 static void
 (*premultiply_alpha_byte_8)(uint8_t *byte, uint8_t *alpha,
                             uint8_t *dst_byte, uint8_t *dst_alpha,
@@ -371,6 +386,9 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
     unsigned int x, y, chroma_stride;
 
     if (!this->osd_planes[0]) // Not allocated yet.
+        return;
+
+    if (!check_bounds(this, rx, ry, rw, rh))
         return;
 
     stopwatch(2, "premultiply_alpha (%d,%d %dx%d)", rx, ry, rw, rh);
@@ -898,12 +916,14 @@ _kaa_frame_to_buffer(kaa_driver_t *this, kaa_frame_t *frame)
 static int
 _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame)
 {
+    pthread_mutex_lock(&this->osd_buffer_lock);
     if (frame->width != this->osd_w || frame->height != this->osd_h) {
         this->osd_w = frame->width;
         this->osd_h = frame->height;
         this->osd_slice_h = frame->height;
         if (this->osd_configure_cb) {
             alloc_overlay_data(this, frame->format);
+            // XXX: could configure cb cause reentry here?  If so, will deadlock.
             this->osd_configure_cb(frame->width, frame->height, frame->ratio, this->osd_configure_cb_data);
             convert_bgra_to_yv12a(this, 0, 0, frame->width, frame->height);
             image_premultiply_alpha(this, 0, 0, frame->width, frame->height);
@@ -914,6 +934,7 @@ _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame)
     }
     if (this->osd_visible) 
         blend_image(this, &frame->vo_frame);
+    pthread_mutex_unlock(&this->osd_buffer_lock);
 
     return 1;
 }
@@ -977,8 +998,8 @@ kaa_set_property (vo_driver_t *this_gen,
                 int property, int value) 
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
-    printf("kaa_set_property %d=%d\n", property, value);
     /*
+    printf("kaa_set_property %d=%d\n", property, value);
     switch(property) {
         case XINE_PARAM_VO_CROP_LEFT:
             this->crop_left = value;
@@ -1035,15 +1056,19 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
         case GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT:
         {
             struct { int x, y, w, h; } *size = data;
+            pthread_mutex_lock(&this->osd_buffer_lock);
             convert_bgra_to_yv12a(this, size->x, size->y, size->w, size->h);
             image_premultiply_alpha(this, size->x, size->y, size->w, size->h);
+            pthread_mutex_unlock(&this->osd_buffer_lock);
             this->needs_redraw = 1;
             break;
         }
         case GUI_SEND_KAA_VO_OSD_SET_ALPHA:
         {
             this->osd_alpha = (int)data;
+            pthread_mutex_lock(&this->osd_buffer_lock);
             image_premultiply_alpha(this, 0, 0, this->osd_w, this->osd_h);
+            pthread_mutex_unlock(&this->osd_buffer_lock);
             this->needs_redraw = 1;
             break;
         }
@@ -1059,6 +1084,32 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
     return this->passthrough->gui_data_exchange(this->passthrough, data_type, data);
 }
 
+static void kaa_overlay_begin (vo_driver_t *this_gen,
+                  vo_frame_t *frame_gen, int changed) {
+  kaa_driver_t  *this  = (kaa_driver_t *) this_gen;
+
+  this->alphablend_extra_data.offset_x = frame_gen->overlay_offset_x;
+  this->alphablend_extra_data.offset_y = frame_gen->overlay_offset_y;
+}
+
+
+static void
+kaa_overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_overlay)
+{
+    kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
+    kaa_driver_t *this = (kaa_driver_t *)this_gen;
+
+    //printf("kaa_overlay_blend: format=%d overlay=%p crop_left=%d\n", frame->format, vo_overlay, frame_gen->crop_left);
+    if (frame->format == XINE_IMGFMT_YV12)
+       _x_blend_yuv(frame->vo_frame.base, vo_overlay,
+                      frame->width, frame->height,
+                      frame->vo_frame.pitches, &this->alphablend_extra_data);
+    else
+       _x_blend_yuy2(frame->vo_frame.base[0], vo_overlay,
+                      frame->width, frame->height,
+                      frame->vo_frame.pitches[0], &this->alphablend_extra_data);
+}
+
 static void
 kaa_dispose(vo_driver_t *this_gen)
 {
@@ -1067,6 +1118,8 @@ kaa_dispose(vo_driver_t *this_gen)
     //printf("kaa_dispose\n");
     this->yuv2rgb_factory->dispose(this->yuv2rgb_factory);
     free_overlay_data(this);
+    pthread_mutex_destroy(&this->lock);
+    pthread_mutex_destroy(&this->osd_buffer_lock);
     free(this);
 }
 
@@ -1086,12 +1139,13 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->xine = class->xine;
     this->config = class->config;
     pthread_mutex_init(&this->lock, NULL);
+    pthread_mutex_init(&this->osd_buffer_lock, NULL);
     
     this->vo_driver.get_capabilities        = kaa_get_capabilities;
     this->vo_driver.alloc_frame             = kaa_alloc_frame;
     this->vo_driver.update_frame_format     = kaa_update_frame_format;
-    this->vo_driver.overlay_begin           = NULL;
-    this->vo_driver.overlay_blend           = _overlay_blend;
+    this->vo_driver.overlay_begin           = kaa_overlay_begin;
+    this->vo_driver.overlay_blend           = kaa_overlay_blend;
     this->vo_driver.overlay_end             = NULL;
     this->vo_driver.display_frame           = kaa_display_frame;
     this->vo_driver.get_property            = kaa_get_property;
@@ -1171,434 +1225,6 @@ kaa_init_class (xine_t *xine, void *visual_gen)
 }
 
 
-// These rle blend functions taken from xine (src/video_out/alphablend.c)
-
-#define BLEND_BYTE(dst, src, o) (((src)*o + ((dst)*(0xf-o)))/0xf)
-
-static void mem_blend32(uint8_t *mem, uint8_t *src, uint8_t o, int len) {
-  uint8_t *limit = mem + len*4;
-  while (mem < limit) {
-    *mem = BLEND_BYTE(*mem, src[0], o);
-    mem++;
-    *mem = BLEND_BYTE(*mem, src[1], o);
-    mem++;
-    *mem = BLEND_BYTE(*mem, src[2], o);
-    mem++;
-    *mem = BLEND_BYTE(*mem, src[3], o);
-    mem++;
-  }
-}
-
-
-typedef struct {         /* CLUT == Color LookUp Table */
-  uint8_t cb    : 8;
-  uint8_t cr    : 8;
-  uint8_t y     : 8;
-  uint8_t foo   : 8;
-} __attribute__ ((packed)) clut_t;
-
-
-static void _overlay_mem_blend_8(uint8_t *mem, uint8_t val, uint8_t o, size_t sz)
-{
-   uint8_t *limit = mem + sz;
-   while (mem < limit) {
-      *mem = BLEND_BYTE(*mem, val, o);
-      mem++;
-   }
-}
-
-static void _overlay_blend_yuv(uint8_t *dst_base[3], vo_overlay_t * img_overl, int dst_width, int dst_height, int dst_pitches[3])
-{
-   clut_t *my_clut;
-   uint8_t *my_trans;
-   int src_width;
-   int src_height;
-   rle_elem_t *rle;
-   rle_elem_t *rle_limit;
-   int x_off;
-   int y_off;
-   int ymask, xmask;
-   int rle_this_bite;
-   int rle_remainder;
-   int rlelen;
-   int x, y;
-   int clip_right;
-   uint8_t clr = 0;
-
-   src_width = img_overl->width;
-   src_height = img_overl->height;
-   rle = img_overl->rle;
-   rle_limit = rle + img_overl->num_rle;
-   x_off = img_overl->x;
-   y_off = img_overl->y;
-
-   if (!rle) return;
-
-   //printf("_overlay_blend_yuv: rle=%x w=%d h=%d x=%d y=%d clip=%d %d %d %d\n", rle, src_width, src_height, x_off, y_off, img_overl->clip_left, img_overl->clip_top, img_overl->clip_right, img_overl->clip_bottom);
-   uint8_t *dst_y = dst_base[0] + dst_pitches[0] * y_off + x_off;
-   uint8_t *dst_cr = dst_base[2] + (y_off / 2) * dst_pitches[1] + (x_off / 2) + 1;
-   uint8_t *dst_cb = dst_base[1] + (y_off / 2) * dst_pitches[2] + (x_off / 2) + 1;
-   my_clut = (clut_t *) img_overl->clip_color;
-   my_trans = img_overl->clip_trans;
-
-   /* avoid wraping overlay if drawing to small image */
-   if( (x_off + img_overl->clip_right) < dst_width )
-     clip_right = img_overl->clip_right;
-   else
-     clip_right = dst_width - 1 - x_off;
-
-   /* avoid buffer overflow */
-   if( (src_height + y_off) >= dst_height )
-     src_height = dst_height - 1 - y_off;
-
-   rlelen=rle_remainder=0;
-   for (y = 0; y < src_height; y++) {
-      ymask = ((img_overl->clip_top > y) || (img_overl->clip_bottom < y));
-      xmask = 0;
-
-      for (x = 0; x < src_width;) {
-     uint16_t o;
-
-     if (rlelen == 0) {
-        rle_remainder = rlelen = rle->len;
-        clr = rle->color;
-        rle++;
-     }
-     if (rle_remainder == 0) {
-        rle_remainder = rlelen;
-     }
-     if ((rle_remainder + x) > src_width) {
-        /* Do something for long rlelengths */
-        rle_remainder = src_width - x;
-     }
-
-     if (ymask == 0) {
-        if (x <= img_overl->clip_left) {
-           /* Starts outside clip area */
-           if ((x + rle_remainder - 1) > img_overl->clip_left ) {
-          /* Cutting needed, starts outside, ends inside */
-          rle_this_bite = (img_overl->clip_left - x + 1);
-          rle_remainder -= rle_this_bite;
-          rlelen -= rle_this_bite;
-          my_clut = (clut_t *) img_overl->color;
-          my_trans = img_overl->trans;
-          xmask = 0;
-           } else {
-          /* no cutting needed, starts outside, ends outside */
-          rle_this_bite = rle_remainder;
-          rle_remainder = 0;
-          rlelen -= rle_this_bite;
-          my_clut = (clut_t *) img_overl->color;
-          my_trans = img_overl->trans;
-          xmask = 0;
-           }
-        } else if (x < clip_right) {
-           /* Starts inside clip area */
-           if ((x + rle_remainder) > clip_right ) {
-          /* Cutting needed, starts inside, ends outside */
-          rle_this_bite = (clip_right - x);
-          rle_remainder -= rle_this_bite;
-          rlelen -= rle_this_bite;
-          my_clut = (clut_t *) img_overl->clip_color;
-          my_trans = img_overl->clip_trans;
-          xmask++;
-           } else {
-          /* no cutting needed, starts inside, ends inside */
-          rle_this_bite = rle_remainder;
-          rle_remainder = 0;
-          rlelen -= rle_this_bite;
-          my_clut = (clut_t *) img_overl->clip_color;
-          my_trans = img_overl->clip_trans;
-          xmask++;
-           }
-        } else if (x >= clip_right) {
-           /* Starts outside clip area, ends outsite clip area */
-           if ((x + rle_remainder ) > src_width ) {
-          /* Cutting needed, starts outside, ends at right edge */
-          /* It should never reach here due to the earlier test of src_width */
-          rle_this_bite = (src_width - x );
-          rle_remainder -= rle_this_bite;
-          rlelen -= rle_this_bite;
-          my_clut = (clut_t *) img_overl->color;
-          my_trans = img_overl->trans;
-          xmask = 0;
-           } else {
-          /* no cutting needed, starts outside, ends outside */
-          rle_this_bite = rle_remainder;
-          rle_remainder = 0;
-          rlelen -= rle_this_bite;
-          my_clut = (clut_t *) img_overl->color;
-          my_trans = img_overl->trans;
-          xmask = 0;
-           }
-        }
-     } else {
-        /* Outside clip are due to y */
-        /* no cutting needed, starts outside, ends outside */
-        rle_this_bite = rle_remainder;
-        rle_remainder = 0;
-        rlelen -= rle_this_bite;
-        my_clut = (clut_t *) img_overl->color;
-        my_trans = img_overl->trans;
-        xmask = 0;
-     }
-     o   = my_trans[clr];
-     if (o) {
-        if(o >= 15) {
-           memset(dst_y + x, my_clut[clr].y, rle_this_bite);
-           if (y & 1) {
-          memset(dst_cr + (x >> 1), my_clut[clr].cr, (rle_this_bite+1) >> 1);
-          memset(dst_cb + (x >> 1), my_clut[clr].cb, (rle_this_bite+1) >> 1);
-           }
-        } else {
-           _overlay_mem_blend_8(dst_y + x, my_clut[clr].y, o, rle_this_bite);
-           if (y & 1) {
-          /* Blending cr and cb should use a different function, with pre -128 to each sample */
-          _overlay_mem_blend_8(dst_cr + (x >> 1), my_clut[clr].cr, o, (rle_this_bite+1) >> 1);
-          _overlay_mem_blend_8(dst_cb + (x >> 1), my_clut[clr].cb, o, (rle_this_bite+1) >> 1);
-           }
-        }
-
-     }
-     x += rle_this_bite;
-     if (rle >= rle_limit) {
-        break;
-     }
-      }
-      if (rle >= rle_limit) {
-     break;
-      }
-
-      dst_y += dst_pitches[0];
-
-      if (y & 1) {
-     dst_cr += dst_pitches[2];
-     dst_cb += dst_pitches[1];
-      }
-   }
-}
-
-
-void _overlay_blend_yuy2 (uint8_t * dst_img, vo_overlay_t * img_overl,
-                 int dst_width, int dst_height, int dst_pitch)
-{
-  clut_t *my_clut;
-  uint8_t *my_trans;
-
-  int src_width = img_overl->width;
-  int src_height = img_overl->height;
-  rle_elem_t *rle = img_overl->rle;
-  rle_elem_t *rle_limit = rle + img_overl->num_rle;
-  int x_off = img_overl->x;
-  int y_off = img_overl->y;
-  int x_odd = x_off & 1;
-  int ymask;
-  int rle_this_bite;
-  int rle_remainder;
-  int rlelen;
-  int x, y;
-  int l = 0;
-  int clip_right;
-
-  union {
-    uint32_t value;
-    uint8_t  b[4];
-    uint16_t h[2];
-  } yuy2;
-
-  uint8_t clr = 0;
-
-  uint8_t *dst_y = dst_img + dst_pitch * y_off + 2 * x_off;
-  uint8_t *dst;
-
-  my_clut = (clut_t*) img_overl->clip_color;
-  my_trans = img_overl->clip_trans;
-
-  /* avoid wraping overlay if drawing to small image */
-  if( (x_off + img_overl->clip_right) <= dst_width )
-    clip_right = img_overl->clip_right;
-  else
-    clip_right = dst_width - x_off;
-
-  /* avoid buffer overflow */
-  if( (src_height + y_off) > dst_height )
-    src_height = dst_height - y_off;
-
-  if (src_height <= 0)
-    return;
-
-  rlelen=rle_remainder=0;
-  for (y = 0; y < src_height; y++) {
-    if (rle >= rle_limit)
-      break;
-    
-    ymask = ((y < img_overl->clip_top) || (y >= img_overl->clip_bottom));
-
-    dst = dst_y;
-    for (x = 0; x < src_width;) {
-      uint16_t o;
-
-      if (rle >= rle_limit)
-        break;
-    
-      if ((rlelen < 0) || (rle_remainder < 0)) {
-      } 
-      if (rlelen == 0) {
-        rle_remainder = rlelen = rle->len;
-        clr = rle->color;
-        rle++;
-      }
-      if (rle_remainder == 0) {
-        rle_remainder = rlelen;
-      }
-      if ((rle_remainder + x) > src_width) {
-        /* Do something for long rlelengths */
-        rle_remainder = src_width - x;
-      }
-
-      if (ymask == 0) {
-        if (x < img_overl->clip_left) { 
-          /* Starts outside clip area */
-          if ((x + rle_remainder) > img_overl->clip_left ) {
-            /* Cutting needed, starts outside, ends inside */
-            rle_this_bite = (img_overl->clip_left - x);
-            rle_remainder -= rle_this_bite;
-            rlelen -= rle_this_bite;
-            my_clut = (clut_t*) img_overl->color;
-            my_trans = img_overl->trans;
-          } else {
-          /* no cutting needed, starts outside, ends outside */
-            rle_this_bite = rle_remainder;
-            rle_remainder = 0;
-            rlelen -= rle_this_bite;
-            my_clut = (clut_t*) img_overl->color;
-            my_trans = img_overl->trans;
-          }
-        } else if (x < clip_right) {
-          /* Starts inside clip area */
-          if ((x + rle_remainder) > clip_right ) {
-            /* Cutting needed, starts inside, ends outside */
-            rle_this_bite = (clip_right - x);
-            rle_remainder -= rle_this_bite;
-            rlelen -= rle_this_bite;
-            my_clut = (clut_t*) img_overl->clip_color;
-            my_trans = img_overl->clip_trans;
-          } else {
-          /* no cutting needed, starts inside, ends inside */
-            rle_this_bite = rle_remainder;
-            rle_remainder = 0;
-            rlelen -= rle_this_bite;
-            my_clut = (clut_t*) img_overl->clip_color;
-            my_trans = img_overl->clip_trans;
-          }
-        } else if (x >= clip_right) {
-          /* Starts outside clip area, ends outsite clip area */
-          if ((x + rle_remainder ) > src_width ) { 
-            /* Cutting needed, starts outside, ends at right edge */
-            /* It should never reach here due to the earlier test of src_width */
-            rle_this_bite = (src_width - x );
-            rle_remainder -= rle_this_bite;
-            rlelen -= rle_this_bite;
-            my_clut = (clut_t*) img_overl->color;
-            my_trans = img_overl->trans;
-          } else {
-          /* no cutting needed, starts outside, ends outside */
-            rle_this_bite = rle_remainder;
-            rle_remainder = 0;
-            rlelen -= rle_this_bite;
-            my_clut = (clut_t*) img_overl->color;
-            my_trans = img_overl->trans;
-          }
-        }
-      } else {
-        /* Outside clip are due to y */
-        /* no cutting needed, starts outside, ends outside */
-        rle_this_bite = rle_remainder;
-        rle_remainder = 0;
-        rlelen -= rle_this_bite;
-        my_clut = (clut_t*) img_overl->color;
-        my_trans = img_overl->trans;
-      }
-      o   = my_trans[clr];
-
-      if (x < (dst_width - x_off)) {
-        /* clip against right edge of destination area */
-        if ((x + rle_this_bite) > (dst_width - x_off)) {
-          int toClip = (x + rle_this_bite) - (dst_width - x_off);
-          
-          rle_this_bite -= toClip;
-          rle_remainder += toClip;
-          rlelen += toClip;
-        }
-
-        if (o) {
-            l = rle_this_bite>>1;
-            if( !((x_odd+x) & 1) ) {
-              yuy2.b[0] = my_clut[clr].y;
-              yuy2.b[1] = my_clut[clr].cb;
-              yuy2.b[2] = my_clut[clr].y;
-              yuy2.b[3] = my_clut[clr].cr;
-            } else {
-              yuy2.b[0] = my_clut[clr].y;
-              yuy2.b[1] = my_clut[clr].cr;
-              yuy2.b[2] = my_clut[clr].y;
-              yuy2.b[3] = my_clut[clr].cb;
-            }
-
-          if (o >= 15) {
-              while(l--) {
-                *(uint16_t *)dst = yuy2.h[0];
-                dst += 2;
-                *(uint16_t *)dst = yuy2.h[1];
-                dst += 2;
-              }
-              if(rle_this_bite & 1) {
-                *(uint16_t *)dst = yuy2.h[0];
-                dst += 2;
-              }
-          } else {
-              if( l ) {
-                mem_blend32(dst, &yuy2.b[0], o, l);
-                dst += 4*l;
-              }
-              
-              if(rle_this_bite & 1) {
-                *dst = BLEND_BYTE(*dst, yuy2.b[0], o);
-                dst++;
-                *dst = BLEND_BYTE(*dst, yuy2.b[1], o);
-                dst++;
-              }
-          }
-
-        } else {
-          dst += rle_this_bite*2;
-        }
-      }
-      
-      x += rle_this_bite;
-    }
-    
-    dst_y += dst_pitch;
-  }
-}
-
-
-static void
-_overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo_overlay)
-{
-    kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
-    //kaa_driver_t *this = (kaa_driver_t *)this_gen;
-
-    //printf("kaa_overlay_blend: format=%d overlay=%p crop_left=%d\n", frame->format, vo_overlay, frame_gen->crop_left);
-    if (frame->format == XINE_IMGFMT_YV12)
-       _overlay_blend_yuv(frame->vo_frame.base, vo_overlay,
-                      frame->width, frame->height,
-                      frame->vo_frame.pitches);
-    else
-       _overlay_blend_yuy2(frame->vo_frame.base[0], vo_overlay,
-                      frame->width, frame->height,
-                      frame->vo_frame.pitches[0]);
-}
 
 static vo_info_t kaa_vo_info = {
     1,
@@ -1606,7 +1232,7 @@ static vo_info_t kaa_vo_info = {
 };
 
 plugin_info_t xine_vo_kaa_plugin_info[] = {
-    { PLUGIN_VIDEO_OUT, 20, "kaa", XINE_VERSION_CODE, &kaa_vo_info, &kaa_init_class },
+    { PLUGIN_VIDEO_OUT, 21, "kaa", XINE_VERSION_CODE, &kaa_vo_info, &kaa_init_class },
     { PLUGIN_NONE, 0, "", 0, NULL, NULL }
 };
 
