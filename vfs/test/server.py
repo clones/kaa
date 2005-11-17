@@ -5,7 +5,6 @@ import gc
 
 def do_gc():
     g = gc.collect()
-    print g
     if g:
         print 'gc: deleted %s objects' % g
     if gc.garbage:

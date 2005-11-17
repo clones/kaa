@@ -1,3 +1,37 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# parser.py - Parser for metadata
+# -----------------------------------------------------------------------------
+# $Id: device.py 799 2005-09-16 14:27:36Z rshortt $
+#
+# TODO: handle all the FIXME and TODO comments inside this file and
+#       add docs for functions, variables and how to use this file
+#
+# -----------------------------------------------------------------------------
+# kaa-vfs - A virtual filesystem with metadata
+# Copyright (C) 2005 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dmeyer@tzi.de>
+# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+#
+# Please see the file doc/CREDITS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
 import os
 import stat
 
@@ -37,13 +71,13 @@ def parse(db, item):
     if not mtime:
         print 'oops, no mtime', item
         return
-    if isinstance(item.data, dict) and item.data['mtime'] == mtime:
+    if item.data['mtime'] == mtime:
         print 'up-to-date', item
         return
     print 'scan', item
     attributes = { 'mtime': mtime }
     metadata = kaa.metadata.parse(item.filename)
-    if isinstance(item.data, dict):
+    if item.data.has_key('type'):
         type = item.data['type']
     elif metadata and metadata['media'] and \
              db._object_types.has_key(metadata['media']):
@@ -73,6 +107,8 @@ def parse(db, item):
         item.data.update(attributes)
     else:
         # create
+        # FIXME: make sure somehow that we don't add an object that was
+        # added by a different search
         db.add_object(type, name=item.basename, parent=item.parent.dbid, **attributes)
     return True
 
@@ -86,16 +122,22 @@ class Checker(object):
         self.notify = notify
         Timer(self.check).start(0.01)
 
+
     def check(self):
+
+        # TODO: maybe put the checker itself into a thread
+
         if not self.items:
             print 'commit changes'
-            self.db.commit()
-            self.notify('changed')
+            commit = self.db.commit()
+            commit.connect(self.notify, 'changed')
+            commit.connect(self.notify, 'up-to-date')
             return False
         self.pos += 1
-        self.notify('progress', self.pos, self.max)
         item = self.items[0]
         self.items = self.items[1:]
-        parse(self.db, item)
+        if item:
+            self.notify('progress', self.pos, self.max)
+            parse(self.db, item)
         return True
 

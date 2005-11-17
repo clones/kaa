@@ -1,36 +1,73 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# db.py - Database for the VFS
+# -----------------------------------------------------------------------------
+# $Id: device.py 799 2005-09-16 14:27:36Z rshortt $
+#
+# TODO: handle all the FIXME and TODO comments inside this file and
+#       add docs for functions, variables and how to use this file
+#
+# -----------------------------------------------------------------------------
+# kaa-vfs - A virtual filesystem with metadata
+# Copyright (C) 2005 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dmeyer@tzi.de>
+# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+#
+# Please see the file doc/CREDITS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+# python imports
 import os
 import threading
 import logging
 import time
 
-import kaa
+# kaa imports
 import kaa.notifier
-import kaa.notifier.thread
 from kaa.base import db
 from kaa.base.db import *
 
+# kaa.vfs imports
 from item import Item
+import util
 
 # get logging object
 log = logging.getLogger('vfs')
 
-class DatabaseError:
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return self.msg
-    
 class Database(threading.Thread):
+    """
+    A kaa.db based database in a thread.
+    """
 
     class Query(object):
+        """
+        A query for the database with async callbacks to handle
+        the results from the thread in the main loop.
+        """
         def __init__(self, db, function):
             self.db = db
             self.function = function
             self.value = None
             self.valid = False
             self.exception = False
-            
+            self.callbacks = []
+
         def __call__(self, *args, **kwargs):
             self.db.condition.acquire()
             self.db.jobs.append((self, self.function, args, kwargs))
@@ -38,28 +75,58 @@ class Database(threading.Thread):
             self.db.condition.release()
             return self
 
+        def connect(self, function, *args, **kwargs):
+            if self.valid:
+                return function(*args, **kwargs)
+            cb = kaa.notifier.MainThreadCallback(function, *args, **kwargs)
+            self.callbacks.append(cb)
+
+        def set_value(self, value, exception=False):
+            self.value = value
+            self.exception = exception
+            self.valid = True
+            for callback in self.callbacks:
+                callback()
+
         def get(self):
             while not self.valid:
                 kaa.notifier.step()
             return self.value
 
+
     def __init__(self, dbdir):
+        """
+        Init function for the threaded database.
+        """
+        # threading setup
         threading.Thread.__init__(self)
         self.setDaemon(True)
-        self.condition = threading.Condition()
         self.stopped = False
-        self.jobs = [ None ]
+
+        # internal db dir, it contains the real db and the
+        # overlay dir for the vfs
         self.dbdir = dbdir
+
+        # list of jobs for the thread and the condition to
+        # change that list
+        self.jobs = [ None ]
+        self.condition = threading.Condition()
+
+        # flag if the db should be read only
         self.read_only = False
 
+        # handle changes in a list and add them to the database
+        # on commit. This needs a lock because objects can be added
+        # from the main loop and commit is called inside a thread
         self.changes_lock = threading.Lock()
         self.changes = []
 
+        # start thread
         self.start()
-
+        # wait for complete database setup
         self.wait()
 
-        
+
     def __getattr__(self, attr):
         if attr == '_object_types':
             return self._db._object_types
@@ -78,7 +145,7 @@ class Database(threading.Thread):
 
         # TODO: handle dirs on romdrives which don't have '/'
         # as basic parent
-        
+
         name = os.path.basename(dirname)
         current = self._db.query(type="dir", name=name, parent=parent)
         if not current and self.read_only:
@@ -104,25 +171,18 @@ class Database(threading.Thread):
             c[0](*c[1], **c[2])
         self._db.commit()
 
-        
-    def _query(self, *args, **kwargs):
-        if not 'dirname' in kwargs:
-            return self._db.query(*args, **kwargs)
-        dirname = os.path.normpath(kwargs['dirname'])
-        del kwargs['dirname']
 
+    def _query_dirname(self, *args, **kwargs):
+        dirname = kwargs['dirname']
+        del kwargs['dirname']
         parent = self.get_dir(dirname)
         if parent:
             files = self._db.query(parent = ("dir", parent["id"]))
         else:
-            print 'parent not found'
             files = []
             parent = dirname + '/'
-            
-        fs_listing = os.listdir(dirname)
 
-        # TODO: add OVERLAY_DIR support
-        # Ignore . files
+        fs_listing = util.listdir(dirname, self.dbdir)
 
         items = []
         for f in files[:]:
@@ -138,8 +198,23 @@ class Database(threading.Thread):
         for f in fs_listing:
             # new files
             items.append(Item(f, parent, self))
-            
+
+        # sort result
+        items.sort(lambda x,y: cmp(x.url, y.url))
         return items
+
+    def _query_attr(self, *args, **kwargs):
+        kwargs['distinct'] = True
+        kwargs['attrs'] = [ kwargs['attr'] ]
+        del kwargs['attr']
+        return [ x[1] for x in self._db.query_raw(**kwargs)[1] if x[1] ]
+
+    def _query(self, *args, **kwargs):
+        if 'dirname' in kwargs:
+            return self._query_dirname(*args, **kwargs)
+        if 'attr' in kwargs:
+            return self._query_attr(*args, **kwargs)
+        return self._db.query(*args, **kwargs)
 
 
     def add_object(self, *args, **kwargs):
@@ -164,13 +239,13 @@ class Database(threading.Thread):
         kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
         kwargs['mtime'] = (int, ATTR_SIMPLE)
         return Database.Query(self, self._db.register_object_type_attrs)(*args, **kwargs)
-        
+
 
     def wait(self):
         if not self.jobs:
             return
         Database.Query(self, None)().get()
-        
+
 
     def run(self):
         if not os.path.isdir(self.dbdir):
@@ -201,6 +276,8 @@ class Database(threading.Thread):
         while not self.stopped:
             self.condition.acquire()
             while not self.jobs and not self.stopped:
+                # free memory
+                callback = function = r = None
                 self.condition.wait()
             if self.stopped:
                 self.condition.release()
@@ -214,15 +291,9 @@ class Database(threading.Thread):
                     t1 = time.time()
                     r = function(*args, **kwargs)
                     t2 = time.time()
-                callback.value = r
-                callback.valid = True
+                callback.set_value(r)
                 kaa.notifier.wakeup()
-            except DatabaseError, e:
-                callback.value = e
-                callback.valid = True
-                callback.exception = True
-                kaa.notifier.wakeup()
-            except:
-                log.exception("oops")
-                callback.valid = True
+            except Exception, e:
+                log.exception("database error")
+                callback.set_value(e, True)
                 kaa.notifier.wakeup()

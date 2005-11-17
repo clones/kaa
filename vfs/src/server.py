@@ -1,7 +1,42 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# server.py - Server interface for the VFS
+# -----------------------------------------------------------------------------
+# $Id: device.py 799 2005-09-16 14:27:36Z rshortt $
+#
+# TODO: handle all the FIXME and TODO comments inside this file and
+#       add docs for functions, variables and how to use this file
+#
+# -----------------------------------------------------------------------------
+# kaa-vfs - A virtual filesystem with metadata
+# Copyright (C) 2005 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dmeyer@tzi.de>
+# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+#
+# Please see the file doc/CREDITS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
 import os
 
 from kaa.base import ipc, weakref
 from kaa.base.db import *
+from kaa.notifier import OneShotTimer
 
 from db import Database
 from monitor import Monitor
@@ -36,15 +71,17 @@ class Server(object):
         self._db.commit()
         self._db.wait()
 
+
     def register_object_type_attrs(self, *args, **kwargs):
         return self._db.register_object_type_attrs(*args, **kwargs)
 
-    def query(self, *args, **kwargs):
-        return self._db.query(*args, **kwargs)
 
     def monitor(self, callback, **query):
         monitor = Monitor(callback, self._db, query)
+        print 'create %s' % monitor
+        OneShotTimer(monitor.update).start(0)
         return monitor, monitor.id
+
 
 
 _vfs_db = {}
