@@ -32,15 +32,22 @@
 #
 # -----------------------------------------------------------------------------
 
+
+# Python imports
 import os
 import stat
+import logging
 
+# kaa imports
 from kaa.notifier import Timer
 import kaa.metadata
 
+# get logging object
+log = logging.getLogger('vfs')
+
 def get_mtime(item):
     if not item.filename:
-        print 'no filename == no mtime :('
+        log.info('no filename == no mtime :(')
         return 0
 
     mtime = 0
@@ -69,25 +76,25 @@ def get_mtime(item):
 def parse(db, item):
     mtime = get_mtime(item)
     if not mtime:
-        print 'oops, no mtime', item
+        log.info('oops, no mtime %s' % item)
         return
     if item.data['mtime'] == mtime:
-        print 'up-to-date', item
+        log.debug('up-to-date %s' % item)
         return
-    print 'scan', item
+    log.info('scan %s' % item)
     attributes = { 'mtime': mtime }
     metadata = kaa.metadata.parse(item.filename)
     if item.data.has_key('type'):
         type = item.data['type']
     elif metadata and metadata['media'] and \
-             db._object_types.has_key(metadata['media']):
+             db.object_types.has_key(metadata['media']):
         type = metadata['media']
     elif item.isdir:
         type = 'dir'
     else:
         type = 'file'
 
-    type_list = db._object_types[type]
+    type_list = db.object_types[type]
     for key in type_list[1].keys():
         if metadata and metadata.has_key(key) and metadata[key] != None:
             attributes[key] = metadata[key]
@@ -98,46 +105,54 @@ def parse(db, item):
     # - search for covers based on the file (should be done by kaa.metadata)
     # - maybe the item is now in th db so we can't add it again
 
-    # FIXME: the items are not updated yet, the changes are still in
+    # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
     if item.dbid:
-        # update
+        # Update
         db.update_object(item.dbid, **attributes)
         item.data.update(attributes)
     else:
-        # create
-        # FIXME: make sure somehow that we don't add an object that was
-        # added by a different search
+        # Create. Maybe the obejct is already in the db. This could happen because
+        # of bad timing but should not matter. Only one entry will be there after
+        # the next update
         db.add_object(type, name=item.basename, parent=item.parent.dbid, **attributes)
     return True
 
 
 class Checker(object):
-    def __init__(self, db, items, notify):
+    def __init__(self, monitor, db, items):
+        self.monitor = monitor
         self.db = db
         self.items = items
         self.max = len(items)
         self.pos = 0
-        self.notify = notify
         Timer(self.check).start(0.01)
 
 
     def check(self):
 
-        # TODO: maybe put the checker itself into a thread
+        # TODO: maybe put the checker itself into a thread. But if we do this,
+        # make sure we handle self.monitor correctly because this is a weakref
 
         if not self.items:
-            print 'commit changes'
             commit = self.db.commit()
-            commit.connect(self.notify, 'changed')
-            commit.connect(self.notify, 'up-to-date')
+            commit.connect(self.finished)
             return False
         self.pos += 1
         item = self.items[0]
         self.items = self.items[1:]
         if item:
-            self.notify('progress', self.pos, self.max)
+            self.notify('progress', self.pos, self.max, item.url)
             parse(self.db, item)
         return True
 
+
+    def notify(self, *args, **kwargs):
+        if self.monitor:
+            self.monitor.callback(*args, **kwargs)
+
+    def finished(self):
+        if self.monitor:
+            self.monitor.callback('checked')
+            self.monitor.update(False)

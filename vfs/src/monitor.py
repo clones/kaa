@@ -32,11 +32,21 @@
 #
 # -----------------------------------------------------------------------------
 
+
+# python imports
+import logging
+
+# kaa imports
 from kaa.base.weakref import weakref
 from kaa.notifier import OneShotTimer, WeakTimer
 
+# kaa.vfs imports
 import parser
 import util
+import item
+
+# get logging object
+log = logging.getLogger('vfs')
 
 class Notification(object):
     def __init__(self, remote, id):
@@ -61,7 +71,7 @@ class Monitor(object):
         self._query = query
         self._checker = None
         if self._query.has_key('dirname'):
-            # FIXME: use inotify for monitoring, this will also fix the
+            # TODO: use inotify for monitoring, this will also fix the
             # problem when files grow because they are copied right
             # now and the first time we had no real information
             WeakTimer(self.check, self._query['dirname']).start(1)
@@ -82,32 +92,33 @@ class Monitor(object):
         return True
 
 
-    def update(self, send_changed=False):
-        if not self._query.has_key('dirname'):
-            # no idea how to monitor this right now
-            self.callback('up-to-date')
-            return
+    def update(self, send_checked=True):
         to_check = []
         query = self._db.query(**self._query)
         self.items = query.get()
-        for item in self.items:
-            mtime = parser.get_mtime(item)
+        for i in self.items:
+            if not isinstance(i, item.Item):
+                # TODO: don't know how to monitor other types
+                continue
+            mtime = parser.get_mtime(i)
             if not mtime:
                 continue
-            if item.data['mtime'] == mtime:
+            if i.data['mtime'] == mtime:
                 continue
-            to_check.append(weakref(item))
+            to_check.append(weakref(i))
         if to_check:
-            self._checker = weakref(parser.Checker(self._db, to_check, self.callback))
-        elif send_changed:
-            self.callback('changed')
-            self.callback('up-to-date')
-        else:
-            self.callback('up-to-date')
+            # FIXME: a constantly growing file like a recording will result in
+            # a huge db activity on both client and server because checker calls
+            # update again and the mtime changed.
+            self._checker = weakref(parser.Checker(weakref(self), self._db, to_check))
+        elif send_checked:
+            log.info('client.checked')
+            self.callback('checked')
+
 
     def __str__(self):
         return '<vfs.Monitor for %s>' % self._query
 
 
     def __del__(self):
-        print 'del', self
+        log.debug('del %s' % self)

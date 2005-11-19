@@ -32,16 +32,27 @@
 #
 # -----------------------------------------------------------------------------
 
-import os
 
+# Python imports
+import os
+import logging
+
+# kaa imports
 from kaa.base import ipc, weakref
-from kaa.base.db import *
 from kaa.notifier import OneShotTimer
 
-from db import Database
+# kaa.vfs imports
+from db import *
 from monitor import Monitor
 
+# get logging object
+log = logging.getLogger('vfs')
+
 class Server(object):
+    """
+    Server for the virtual filesystem to handle write access to the db and
+    scanning / monitoring of queries.
+    """
     def __init__(self, dbdir):
         self._db = Database(dbdir)
 
@@ -68,35 +79,51 @@ class Server(object):
 
         # TODO: add more known types
 
-        self._db.commit()
-        self._db.wait()
+        # commit and wait for the results (there are no results,
+        # this code is only used to force waiting until the db is
+        # set up.
+        self._db.commit().get()
 
 
     def register_object_type_attrs(self, *args, **kwargs):
+        """
+        Register new attrs and types for objects. The basics are already
+        in the db by the __init__ function of this class.
+        """
         return self._db.register_object_type_attrs(*args, **kwargs)
 
 
     def monitor(self, callback, **query):
+        """
+        Create a monitor object to monitor a query for a client.
+        """
         monitor = Monitor(callback, self._db, query)
-        print 'create %s' % monitor
+        log.debug('create %s' % monitor)
         OneShotTimer(monitor.update).start(0)
         return monitor, monitor.id
 
 
-
-_vfs_db = {}
+# internal list of server
+_server = {}
 
 def connect(dbdir):
+    """
+    Connect to a server object. Each server object handles one db dir.
+    Different clients can use the same server object.
+    """
     dbdir = os.path.normpath(os.path.abspath(dbdir))
-    print 'connect to', dbdir
+    log.info('connect to %s' % dbdir)
 
     # TODO: delete databases not used anymore
 
-    if not dbdir in _vfs_db:
+    if not dbdir in _server:
         server = Server(dbdir)
-        # FIXME: use weakref
-        _vfs_db[dbdir] = server
-    return _vfs_db[dbdir]
+        # TODO: use weakref
+        _server[dbdir] = server
 
+    return _server[dbdir]
+
+
+# connect to the ipc code
 _ipc = ipc.IPCServer('vfs')
 _ipc.register_object(connect, 'vfs')

@@ -1,0 +1,27 @@
+The basic stuff is working. Some things are broken (FIXME)
+and some need more work (TODO).
+
+FIXME:
+
+monitor/checker:
+o a constantly growing file like a recording will result in
+  a huge db activity on both client and server because checker calls
+  update again and the mtime changed.
+
+
+TODO:
+
+all:
+o handle items not based on files like rom drives are tracks
+o add overlay support
+
+client:
+o reuse Query with same 'query'
+
+item:
+o cleanup variables in Item()
+
+monitor:
+o monitor all kinds of queries
+o use inotify if possible, but it should also work without
+

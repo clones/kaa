@@ -37,58 +37,29 @@ import os
 UNKNOWN = -1
 
 class Item(object):
-    def __init__(self, data, parent, db):
+    def __init__(self, dbid, url, data, parent, db):
+        self.dbid = dbid
+        self.url = url
+        self.data = data
+        self.parent = parent
         self.db = db
-        self.parent = None
 
-        # self.dirname always ends with a slash
-        # if the item is a dir, self.filename also ends with a slash
-        # self.url does not end with a slash (except root)
+        # TODO: remove this from Item, it only matters for
+        # Directory and File
+        self.dirname = ''
+        self.basename = ''
+        self.filename = ''
 
-        # If parent is not set, this is a root node.
-        # A root node is always part of the db already
-        if not parent:
-            self.data = data
-            self.url = 'file:/' + self.data['name']
-            self.dirname = self.data['name']
-            self.filename = self.data['name']
-            self.isdir = True
-            self.basename = '/'
-            self.dbid = self.data['type'], self.data["id"]
-            return
-
-        if isinstance(data, dict):
-            self.data = data
-            self.basename = self.data['name']
-            self.dbid = self.data['type'], self.data["id"]
-        else:
-            self.basename = data
-            self.dbid = None
-            self.data = { 'name': data, 'mtime': UNKNOWN }
-
-        # check if the item is based on a file
-        if not isinstance(parent, str):
-            self.parent = parent
-            parent = parent.filename
-        if parent:
-            self.url = 'file://' + parent + self.basename
-            self.dirname = parent
-            self.filename = parent + self.basename
-            if os.path.isdir(self.filename):
-                self.filename += '/'
-                self.isdir = True
-            else:
-                self.isdir = False
-
-        # TODO: handle files/parents not based on file:
-
-        # TODO: give item an os.* like iterface, e.g. add
-        # open for files and listdir for dirs
+        # TODO: remove this
+        self.isdir = False
 
         # TODO: make it possible to change an item in the client
 
 
     def __str__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
         str = '<vfs.Item %s' % self.data['name']
         if self.data['mtime'] == UNKNOWN:
             str += '(new)'
@@ -105,3 +76,100 @@ class Item(object):
         # Or should that be stored in each item
 
         return None
+
+
+class Directory(Item):
+    """
+    A directory based item.
+    """
+    def __init__(self, dbid, dirname, basename, filename, url, data, parent, db):
+        Item.__init__(self, dbid, url, data, parent, db)
+        self.dirname = dirname
+        self.basename = basename
+        self.filename = filename
+        self.isdir = True
+
+
+    def listdir(self):
+        """
+        List the directory. This returns a database object.
+        """
+        return self.db.query(dirname=self.filename)
+
+
+    def __str__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        str = '<vfs.Directory %s' % self.data['name']
+        if self.data['mtime'] == UNKNOWN:
+            str += '(new)'
+        return str + '>'
+
+
+class File(Item):
+    """
+    A file based item.
+    """
+    def __init__(self, dbid, dirname, basename, filename, url, data, parent, db):
+        Item.__init__(self, dbid, url, data, parent, db)
+        self.dirname = dirname
+        self.basename = basename
+        self.filename = filename
+
+
+    def __str__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        str = '<vfs.File %s' % self.data['name']
+        if self.data['mtime'] == UNKNOWN:
+            str += '(new)'
+        return str + '>'
+
+
+def create(data, parent, db):
+    """
+    Create an Item object or an inherted class if possible.
+    """
+    if isinstance(data, dict):
+        basename = data['name']
+        dbid = data['type'], data['id']
+    else:
+        basename = data
+        dbid = None
+        data = { 'name': data, 'mtime': UNKNOWN }
+
+    # check parent and if parent indicates a directory
+    if parent:
+        if isinstance(parent, str):
+            dirname = parent
+            parent = None
+        else:
+            dirname = parent.filename
+    else:
+        dirname = ''
+
+    # Note: dirname always ends with a slash
+    # if the item is a dir, self.filename also ends with a slash
+    # self.url does not end with a slash (except root)
+
+    if dirname:
+        # we have a dirname, that indicates the item is either
+        # a Directory or a File
+        filename = dirname + basename
+        url = 'file://' + filename
+        if os.path.isdir(filename):
+            # it is a directory
+            return Directory(dbid, dirname, basename, filename + '/',
+                             url, data, parent, db)
+        # it is a file
+        return File(dbid, dirname, basename, filename, url, data, parent, db)
+
+    # TODO: handle files/parents not based on file
+
+    # TODO: we guess it is a root dir now
+    return Directory(dbid, '/', '/', '/', 'file:///', data, parent, db)
+
+    # it is something else
+    return Item()

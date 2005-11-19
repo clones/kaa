@@ -3,6 +3,9 @@ from kaa.notifier import Timer
 import kaa
 import gc
 
+import logging
+kaa.base.create_logger(logging.INFO)
+
 def do_gc():
     g = gc.collect()
     if g:

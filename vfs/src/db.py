@@ -44,7 +44,7 @@ from kaa.base import db
 from kaa.base.db import *
 
 # kaa.vfs imports
-from item import Item
+import item
 import util
 
 # get logging object
@@ -87,6 +87,7 @@ class Database(threading.Thread):
             self.valid = True
             for callback in self.callbacks:
                 callback()
+            self.callbacks = []
 
         def get(self):
             while not self.valid:
@@ -123,59 +124,95 @@ class Database(threading.Thread):
 
         # start thread
         self.start()
-        # wait for complete database setup
-        self.wait()
+
+        # wait for complete database setup. Do this by adding an
+        # empty query to the db and wait for the retured data.
+        Database.Query(self, None)().get()
 
 
     def __getattr__(self, attr):
-        if attr == '_object_types':
+        """
+        Interface to the db. All calls to the db are wrapped into
+        Database.Query objects to be handled in a thread.
+        """
+        if attr == 'object_types':
+            # return the attribute _object_types from the db
             return self._db._object_types
         if attr in ('commit', 'query'):
+            # commit and query are not used from the db but from this
+            # class to do something special
             return Database.Query(self, getattr(self, '_' + attr))
         return Database.Query(self, getattr(self._db, attr))
 
 
-    def get_dir(self, dirname):
-        if dirname in self._dir_cache:
-            return self._dir_cache[dirname]
-        pdir = self.get_dir(os.path.dirname(dirname))
-        if not pdir:
+    def _get_dir(self, dirname):
+        """
+        Get database entry for the given directory. Called recursive to
+        find the current entry. Do not cache results, they could change.
+        """
+        if dirname == '/':
+            # we know that '/' is in the db
+            current = self._db.query(type="dir", name='/')[0]
+            return item.create(current, None, self._db)
+        parent = self._get_dir(os.path.dirname(dirname))
+        if not parent:
             return None
-        parent = ("dir", pdir["id"])
 
         # TODO: handle dirs on romdrives which don't have '/'
         # as basic parent
 
         name = os.path.basename(dirname)
-        current = self._db.query(type="dir", name=name, parent=parent)
+        current = self._db.query(type="dir", name=name, parent=parent.dbid)
         if not current and self.read_only:
             return
         if not current:
-            current = self._db.add_object("dir", name=name, parent=parent)
+            current = self._db.add_object("dir", name=name, parent=parent.dbid)
             self._db.commit()
         else:
             current = current[0]
-        current['url'] = 'file:' + dirname
-        current = Item(current, pdir, self._db)
-        self._dir_cache[dirname] = current
-        self._parent_cache[current.dbid] = current
-        return current
+        return item.create(current, parent, self._db)
 
 
     def _commit(self):
+        """
+        Commit changes to the database. All changes in the internal list
+        are done first to reduce the time the db is locked.
+        """
         self.changes_lock.acquire()
         changes = self.changes
         self.changes = []
         self.changes_lock.release()
         for c in changes:
+            # It could be possible that an item is added twice. But this is no
+            # problem because the duplicate will be removed at the
+            # next query. It can also happen that a dir is added because of
+            # _getdir and because of the parser. We can't avoid that but the
+            # db should clean itself up.
             c[0](*c[1], **c[2])
         self._db.commit()
+        log.info('db.commit')
+
+
+    def _delete(self, entry):
+        """
+        Delete item with the given id from the db and all items with that
+        items as parent (and so on). To avoid internal problems, make sure
+        commit is called just after this function is called.
+        """
+        log.debug('DELETE %s' % entry)
+        for child in self._db.query(parent = (entry['type'], entry['id'])):
+            self._delete(child)
+        self.delete_object((entry['type'], entry['id']))
 
 
     def _query_dirname(self, *args, **kwargs):
+        """
+        A query to get all files in a directory. Special keyword 'dirname' in
+        the query is used for that.
+        """
         dirname = kwargs['dirname']
         del kwargs['dirname']
-        parent = self.get_dir(dirname)
+        parent = self._get_dir(dirname)
         if parent:
             files = self._db.query(parent = ("dir", parent["id"]))
         else:
@@ -183,41 +220,96 @@ class Database(threading.Thread):
             parent = dirname + '/'
 
         fs_listing = util.listdir(dirname, self.dbdir)
+        need_commit = False
 
         items = []
         for f in files[:]:
             if f['name'] in fs_listing:
                 # file still there
                 fs_listing.remove(f['name'])
-                items.append(Item(f, parent, self))
+                items.append(item.create(f, parent, self))
             else:
                 # file deleted
                 files.remove(f)
-                # FIXME: remove from database
+                if not self.read_only:
+                    # delete from database by adding it to the internal changes
+                    # list. It will be deleted right before the next commit.
+                    self.changes_lock.acquire()
+                    self.changes.append((self._delete, [f], {}))
+                    self.changes_lock.release()
+                    need_commit = True
 
         for f in fs_listing:
             # new files
-            items.append(Item(f, parent, self))
+            items.append(item.create(f, parent, self))
+
+        if need_commit:
+            # need commit because some items were deleted from the db
+            self._commit()
 
         # sort result
         items.sort(lambda x,y: cmp(x.url, y.url))
         return items
 
+    def _query_files(self, *args, **kwargs):
+        """
+        A query to get a list of files. Special keyword 'filenames' (list) in
+        the query is used for that.
+        """
+        files = kwargs['files']
+        del kwargs['files']
+        items = []
+        for f in files:
+            dirname = os.path.dirname(f)
+            basename = os.path.basename(f)
+            # TODO: cache parents here
+            parent = self._get_dir(dirname)
+            if parent:
+                dbentry = self._db.query(parent = parent.dbid, name=basename)
+                if not dbentry:
+                    dbentry = basename
+                else:
+                    dbentry = dbentry[0]
+            else:
+                parent = dirname
+                dbentry = basename
+            items.append(item.create(dbentry, parent, self))
+        return items
+
+
     def _query_attr(self, *args, **kwargs):
+        """
+        A query to get a list of possible values of one attribute. Special
+        keyword 'attr' the query is used for that. This query will not return
+        a list of items.
+        """
         kwargs['distinct'] = True
         kwargs['attrs'] = [ kwargs['attr'] ]
         del kwargs['attr']
         return [ x[1] for x in self._db.query_raw(**kwargs)[1] if x[1] ]
 
+
     def _query(self, *args, **kwargs):
+        """
+        Internal query function inside the thread. This function will use the
+        corrent internal query function based on special keywords.
+        """
         if 'dirname' in kwargs:
             return self._query_dirname(*args, **kwargs)
+        if 'files' in kwargs:
+            return self._query_files(*args, **kwargs)
         if 'attr' in kwargs:
             return self._query_attr(*args, **kwargs)
         return self._db.query(*args, **kwargs)
 
 
     def add_object(self, *args, **kwargs):
+        """
+        Add an object to the db. If the keyword 'vfs_immediately' is set, the
+        object will be added now and the db will be locked until the next commit.
+        To avoid locking, do not se the keyword, but this means that a requery on
+        the object won't find it before the next commit.
+        """
         if 'vfs_immediately' in kwargs:
             del kwargs['vfs_immediately']
             return Database.Query(self, self._db.add_object)(*args, **kwargs)
@@ -227,6 +319,12 @@ class Database(threading.Thread):
 
 
     def update_object(self, *args, **kwargs):
+        """
+        Update an object to the db. If the keyword 'vfs_immediately' is set, the
+        object will be updated now and the db will be locked until the next commit.
+        To avoid locking, do not se the keyword, but this means that a requery on
+        the object will return the old values.
+        """
         if 'vfs_immediately' in kwargs:
             del kwargs['vfs_immediately']
             return Database.Query(self, self._db.update_object)(*args, **kwargs)
@@ -236,18 +334,20 @@ class Database(threading.Thread):
 
 
     def register_object_type_attrs(self, *args, **kwargs):
+        """
+        Register a new object with attributes. Special keywords like name and
+        mtime are added by default.
+        """
         kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
         kwargs['mtime'] = (int, ATTR_SIMPLE)
         return Database.Query(self, self._db.register_object_type_attrs)(*args, **kwargs)
 
 
-    def wait(self):
-        if not self.jobs:
-            return
-        Database.Query(self, None)().get()
-
-
     def run(self):
+        """
+        Main loop for the thread handling the db. SQLLite objects can only be used
+        in the thread they are created, that's why everything is wrapped.
+        """
         if not os.path.isdir(self.dbdir):
             os.makedirs(self.dbdir)
         self._db = db.Database(self.dbdir + '/db')
@@ -266,9 +366,7 @@ class Database(threading.Thread):
         else:
             root = root[0]
         root['url'] = 'file:/'
-        root = Item(root, None, self._db)
-        self._dir_cache = { '/': root }
-        self._parent_cache = { root.dbid: root }
+        root = item.create(root, None, self._db)
 
         # remove dummy job for startup
         self.jobs = self.jobs[1:]
