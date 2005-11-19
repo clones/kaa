@@ -50,6 +50,58 @@ import util
 # get logging object
 log = logging.getLogger('vfs')
 
+
+class Mountpoint(object):
+    """
+    Internal class for mountpoints. More a list of attributes important
+    for each mountpoint.
+    """
+    def __init__(self, device, directory):
+        self.device = device
+        self.directory = directory
+        self.name = ''
+        self._id = None
+
+
+    def set_name(self, name):
+        """
+        Set name of the mountpoint (== load new media)
+        """
+        self.name = name
+        self._id = None
+
+
+    def id(self, db, read_only):
+        """
+        Get the id of the mountpoint. This functions needs the database
+        and _must_ be called from the same thread as the db itself.
+        """
+        if self._id:
+            # id already known
+            return self._id
+        rootfs = db.query(type="media", name=self.name)
+        if not rootfs and read_only:
+            # not known but we are not allowed to write the db
+            return None
+        if rootfs:
+            # known, set internal id and return it
+            self._id = ('media', rootfs[0]['id'])
+            return self._id
+        # create media entry and root filesystem
+        log.info('create root filesystem for %s' % self.name)
+        self._id = ('media', db.add_object("media", name=self.name)['id'])
+        db.add_object("dir", name="", parent=self._id)
+        db.commit()
+        return self._id
+
+        
+    def __str__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        return '<vfs.Mountpoint for %s>' % self.directory
+
+
 class Database(threading.Thread):
     """
     A kaa.db based database in a thread.
@@ -122,6 +174,9 @@ class Database(threading.Thread):
         self.changes_lock = threading.Lock()
         self.changes = []
 
+        # internal list of mountpoints
+        self._mountpoints = []
+        
         # start thread
         self.start()
 
@@ -130,6 +185,38 @@ class Database(threading.Thread):
         Database.Query(self, None)().get()
 
 
+    def add_mountpoint(self, device, directory):
+        """
+        Add a mountpoint to the system.
+        """
+        for mountpoint in self._mountpoints:
+            if mountpoint.directory == directory:
+                return False
+        mountpoint = Mountpoint(device, directory)
+        self._mountpoints.append(mountpoint)
+        self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
+        return True
+
+
+    def get_mountpoints(self):
+        """
+        Return current list of mountpoints
+        """
+        return [ (m.device, m.directory, m.name) for m in self._mountpoints ]
+
+
+    def set_mountpoint(self, directory, name):
+        """
+        Set name of the mountpoint (load a media)
+        """
+        for mountpoint in self._mountpoints:
+            if mountpoint.directory == directory:
+                mountpoint.set_name(name)
+                return
+        else:
+            raise AttributeError('unknown mountpoint')
+
+        
     def __getattr__(self, attr):
         """
         Interface to the db. All calls to the db are wrapped into
@@ -145,16 +232,20 @@ class Database(threading.Thread):
         return Database.Query(self, getattr(self._db, attr))
 
 
-    def _get_dir(self, dirname):
+    def _get_dir(self, dirname, media, root):
         """
         Get database entry for the given directory. Called recursive to
         find the current entry. Do not cache results, they could change.
         """
-        if dirname == '/':
+        if not media:
+            # Unknown media and looks like we are read only.
+            # Return None, if the media is not known, the dir also won't
+            return None
+        if dirname == root:
             # we know that '/' is in the db
-            current = self._db.query(type="dir", name='/')[0]
-            return item.create(current, None, self._db)
-        parent = self._get_dir(os.path.dirname(dirname))
+            current = self._db.query(type="dir", name='', parent=media)[0]
+            return item.create(current, root, self._db)
+        parent = self._get_dir(os.path.dirname(dirname), media, root)
         if not parent:
             return None
 
@@ -212,7 +303,11 @@ class Database(threading.Thread):
         """
         dirname = kwargs['dirname']
         del kwargs['dirname']
-        parent = self._get_dir(dirname)
+        # find correct mountpoint
+        for m in self._mountpoints:
+            if dirname.startswith(m.directory):
+                break
+        parent = self._get_dir(dirname, m.id(self._db, self.read_only), m.directory)
         if parent:
             files = self._db.query(parent = ("dir", parent["id"]))
         else:
@@ -251,6 +346,7 @@ class Database(threading.Thread):
         items.sort(lambda x,y: cmp(x.url, y.url))
         return items
 
+
     def _query_files(self, *args, **kwargs):
         """
         A query to get a list of files. Special keyword 'filenames' (list) in
@@ -263,7 +359,11 @@ class Database(threading.Thread):
             dirname = os.path.dirname(f)
             basename = os.path.basename(f)
             # TODO: cache parents here
-            parent = self._get_dir(dirname)
+            # find correct mountpoint
+            for m in self._mountpoints:
+                if dirname.startswith(m.directory):
+                    break
+            parent = self._get_dir(dirname, m.id(self._db, self.read_only), m.directory)
             if parent:
                 dbentry = self._db.query(parent = parent.dbid, name=basename)
                 if not dbentry:
@@ -360,13 +460,8 @@ class Database(threading.Thread):
             name = (str, ATTR_KEYWORDS_FILENAME),
             mtime = (int, ATTR_SIMPLE))
 
-        root = self._db.query(type="dir", name="/")
-        if not root:
-            root = self._db.add_object("dir", name="/")
-        else:
-            root = root[0]
-        root['url'] = 'file:/'
-        root = item.create(root, None, self._db)
+        self._db.register_object_type_attrs("media",
+            name = (str, ATTR_KEYWORDS))
 
         # remove dummy job for startup
         self.jobs = self.jobs[1:]

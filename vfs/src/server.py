@@ -79,11 +79,18 @@ class Server(object):
 
         # TODO: add more known types
 
+        # list of current clients
+        self._clients = []
+
+        # add root mountpoint
+        self.add_mountpoint(None, '/')
+        self.set_mountpoint('/', 'kaa.vfs.root')
+        
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
         # set up.
         self._db.commit().get()
-
+        
 
     def register_object_type_attrs(self, *args, **kwargs):
         """
@@ -103,6 +110,34 @@ class Server(object):
         return monitor, monitor.id
 
 
+    def add_mountpoint(self, device, directory):
+        """
+        Add a mountpoint to the system.
+        """
+        if self._db.add_mountpoint(device, directory):
+            for client in self._clients:
+                client.database.add_mountpoint(device, directory)
+
+
+    def set_mountpoint(self, directory, name):
+        """
+        Set mountpoint to the given name (e.g. load media)
+        """
+        self._db.set_mountpoint(directory, name)
+        for client in self._clients:
+            client.database.set_mountpoint(directory, name)
+
+        
+    def connect(self, client):
+        """
+        Connect a new client to the server.
+        """
+        self._clients.append(client)
+        for device, directory, name in self._db.get_mountpoints():
+            client.database.add_mountpoint(device, directory)
+            client.database.set_mountpoint(directory, name)
+            
+        
 # internal list of server
 _server = {}
 
@@ -117,13 +152,16 @@ def connect(dbdir):
     # TODO: delete databases not used anymore
 
     if not dbdir in _server:
+        log.info('create server object')
         server = Server(dbdir)
         # TODO: use weakref
         _server[dbdir] = server
-
     return _server[dbdir]
 
 
+def _client_closed(client):
+    print client
+    
 # connect to the ipc code
 _ipc = ipc.IPCServer('vfs')
 _ipc.register_object(connect, 'vfs')

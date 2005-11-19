@@ -38,9 +38,12 @@ def listdir(dirname, overlay, url=False, sort=False):
 
     # TODO: add OVERLAY_DIR support
     result = []
-    for file in os.listdir(dirname):
-        if not file.startswith('.'):
-            result.append(file)
+    try:
+        for file in os.listdir(dirname):
+            if not file.startswith('.'):
+                result.append(file)
+    except OSError:
+        result = []
     if url:
         result = [ 'file://%s/%s' % (dirname, x) for x in result ]
     if sort:

@@ -101,11 +101,11 @@ class Directory(Item):
         """
         Convert object to string (usefull for debugging)
         """
-        str = '<vfs.Directory %s' % self.data['name']
+        str = '<vfs.Directory %s' % self.filename
         if self.data['mtime'] == UNKNOWN:
             str += '(new)'
         return str + '>'
-
+    
 
 class File(Item):
     """
@@ -122,7 +122,7 @@ class File(Item):
         """
         Convert object to string (usefull for debugging)
         """
-        str = '<vfs.File %s' % self.data['name']
+        str = '<vfs.File %s' % self.filename
         if self.data['mtime'] == UNKNOWN:
             str += '(new)'
         return str + '>'
@@ -141,14 +141,14 @@ def create(data, parent, db):
         data = { 'name': data, 'mtime': UNKNOWN }
 
     # check parent and if parent indicates a directory
+    dirname = ''
     if parent:
         if isinstance(parent, str):
-            dirname = parent
-            parent = None
+            if parent != '/':
+                dirname = parent
+                parent = None
         else:
             dirname = parent.filename
-    else:
-        dirname = ''
 
     # Note: dirname always ends with a slash
     # if the item is a dir, self.filename also ends with a slash
@@ -166,10 +166,12 @@ def create(data, parent, db):
         # it is a file
         return File(dbid, dirname, basename, filename, url, data, parent, db)
 
+    if parent == '/':
+        return Directory(dbid, '/', '/', '/', 'file:///', data, parent, db)
+        
     # TODO: handle files/parents not based on file
 
     # TODO: we guess it is a root dir now
-    return Directory(dbid, '/', '/', '/', 'file:///', data, parent, db)
 
     # it is something else
     return Item()

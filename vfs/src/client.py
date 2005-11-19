@@ -139,12 +139,11 @@ class Query(object):
                 changed = True
             if current and dbitem.url == current.url:
                 if current.data['mtime'] != dbitem.data['mtime'] or \
-                   current.dbid != dbitem.dbid or \
-                   current.parent != dbitem.parent:
+                   current.dbid != dbitem.dbid:
                     changed = True
                     current.data = dbitem.data
                     current.dbid = dbitem.dbid
-                    current.parent = dbitem.parent
+                current.parent = dbitem.parent
                 continue
             # change the internal db of the item to out client
             dbitem.db = self._client
@@ -206,12 +205,30 @@ class Client(object):
     """
     def __init__(self, db):
         # monitor function from the server to start a new monitor for a query
-        self.monitor = ipc.IPCClient('vfs').get_object('vfs')(db).monitor
+        self._server = ipc.IPCClient('vfs').get_object('vfs')(db)
+        self.monitor = self._server.monitor
         # read only version of the database
         self.database = Database(db)
         self.database.read_only = True
+        # connect to server notifications
+        self._server.connect(self)
         # internal list of active queries
         self._queries = []
+
+
+    def add_mountpoint(self, device, directory):
+        """
+        Add a mountpoint to the system.
+        """
+        self._server.add_mountpoint(device, directory, __ipc_oneway=True)
+
+
+    def set_mountpoint(self, directory, name):
+        """
+        Set name of the mountpoint (e.g. load a media). The should not be
+        visible on the client side.
+        """
+        self._server.set_mountpoint(directory, name)
 
 
     def query(self, **query):

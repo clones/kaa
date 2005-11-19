@@ -30,9 +30,13 @@ def show_artists_list():
             print ' ', album
         
 c = kaa.vfs.client.Client('vfsdb')
+c.add_mountpoint('/dev/cdrom', '/mnt/cdrom')
+c.set_mountpoint('/mnt/cdrom', 'testcd')
+
 t1 = time.time()
 #q = c.query(dirname='/home/dmeyer/images/intership/eemshaven/mager/')
 q = c.query(dirname='/home/dmeyer/video')
+#q = c.query(dirname='/mnt/cdrom')
 # q = c.query(files=('/home/dmeyer/video/qt/',
 #                    '/home/dmeyer/mp3/Amy_Ray-Covered_For_You.mp3',
 #                    '/home/dmeyer/../dmeyer/video/tributefullvid_300.wmv'))
@@ -44,11 +48,11 @@ t3 = time.time()
 refs = []
 for item in q.get():
     print item
-    if item.isdir:
-        x = item.listdir()
-        refs.append(x)
-        for s in x.get():
-            print '', s
+#     if item.isdir:
+#         x = item.listdir()
+#         refs.append(x)
+#         for s in x.get():
+#             print '', s
         
 print 'q took %s' % (t2 - t1), (t3 - t1)
 

@@ -32,8 +32,6 @@
 #
 # -----------------------------------------------------------------------------
 
-from mediadb import MediaDB
-
 _db = None
 
 def _error(*args, **kwargs):
