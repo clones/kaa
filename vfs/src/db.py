@@ -59,7 +59,7 @@ class Mountpoint(object):
     def __init__(self, device, directory):
         self.device = device
         self.directory = directory
-        self.name = ''
+        self.name = None
         self._id = None
 
 
@@ -67,8 +67,11 @@ class Mountpoint(object):
         """
         Set name of the mountpoint (== load new media)
         """
+        if name == self.name:
+            return False
         self.name = name
         self._id = None
+        return True
 
 
     def id(self, db, read_only):
@@ -79,18 +82,22 @@ class Mountpoint(object):
         if self._id:
             # id already known
             return self._id
-        rootfs = db.query(type="media", name=self.name)
-        if not rootfs and read_only:
+        if self.name == None:
+            # no disc
+            return self._id
+        media = db.query(type="media", name=self.name)
+        if not media and read_only:
             # not known but we are not allowed to write the db
             return None
-        if rootfs:
+        if media:
             # known, set internal id and return it
-            self._id = ('media', rootfs[0]['id'])
-            return self._id
-        # create media entry and root filesystem
-        log.info('create root filesystem for %s' % self.name)
-        self._id = ('media', db.add_object("media", name=self.name)['id'])
-        db.add_object("dir", name="", parent=self._id)
+            self._id = ('media', media[0]['id'])
+        else:
+            # create media entry and root filesystem
+            log.info('create root filesystem for %s' % self.name)
+            self._id = ('media', db.add_object("media", name=self.name)['id'])
+        if not db.query(type='dir', name='', parent=self._id) and not read_only:
+            db.add_object("dir", name="", parent=self._id)
         db.commit()
         return self._id
 
@@ -128,9 +135,9 @@ class Database(threading.Thread):
             return self
 
         def connect(self, function, *args, **kwargs):
-            if self.valid:
-                return function(*args, **kwargs)
             cb = kaa.notifier.MainThreadCallback(function, *args, **kwargs)
+            if self.valid:
+                return cb()
             self.callbacks.append(cb)
 
         def set_value(self, value, exception=False):
@@ -198,10 +205,12 @@ class Database(threading.Thread):
         return True
 
 
-    def get_mountpoints(self):
+    def get_mountpoints(self, return_objects=False):
         """
         Return current list of mountpoints
         """
+        if return_objects:
+            return self._mountpoints
         return [ (m.device, m.directory, m.name) for m in self._mountpoints ]
 
 
@@ -211,8 +220,7 @@ class Database(threading.Thread):
         """
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
-                mountpoint.set_name(name)
-                return
+                return mountpoint.set_name(name)
         else:
             raise AttributeError('unknown mountpoint')
 
@@ -240,11 +248,12 @@ class Database(threading.Thread):
         if not media:
             # Unknown media and looks like we are read only.
             # Return None, if the media is not known, the dir also won't
+            log.info('no media set')
             return None
         if dirname == root:
             # we know that '/' is in the db
             current = self._db.query(type="dir", name='', parent=media)[0]
-            return item.create(current, root, self._db)
+            return item.create(current, root)
         parent = self._get_dir(os.path.dirname(dirname), media, root)
         if not parent:
             return None
@@ -255,13 +264,14 @@ class Database(threading.Thread):
         name = os.path.basename(dirname)
         current = self._db.query(type="dir", name=name, parent=parent.dbid)
         if not current and self.read_only:
-            return
+            log.info('not in db and read only db')
+            return None
         if not current:
             current = self._db.add_object("dir", name=name, parent=parent.dbid)
             self._db.commit()
         else:
             current = current[0]
-        return item.create(current, parent, self._db)
+        return item.create(current, parent)
 
 
     def _commit(self):
@@ -319,10 +329,26 @@ class Database(threading.Thread):
 
         items = []
         for f in files[:]:
+            # FIXME: for some very very strange reason this can take about
+            # 2 seconds for 700 files. I'm not sure why. Some files are
+            # processed and then python changes the thread to a new one. Only
+            # the main thread is running right now and this thread is polling
+            # using step() and step uses a select which should release the
+            # interpreter lock. But this does not happen, the main thread is
+            # doing _blocking_ selects (nothing to read) for up to 2 seconds
+            # and this thread can't do anything. Maybe using a thread for db
+            # access is not such a good thing afterall.
+            # Note: for some more stranger reason the problem starts the same
+            # moment when the client is sending the query to the server to do
+            # the same query.
+            #
+            # Test it with a large dir and by activating this following
+            # debug:
+            # print f['name']
             if f['name'] in fs_listing:
                 # file still there
                 fs_listing.remove(f['name'])
-                items.append(item.create(f, parent, self))
+                items.append(item.create(f, parent))
             else:
                 # file deleted
                 files.remove(f)
@@ -336,7 +362,7 @@ class Database(threading.Thread):
 
         for f in fs_listing:
             # new files
-            items.append(item.create(f, parent, self))
+            items.append(item.create(f, parent))
 
         if need_commit:
             # need commit because some items were deleted from the db
@@ -373,7 +399,7 @@ class Database(threading.Thread):
             else:
                 parent = dirname
                 dbentry = basename
-            items.append(item.create(dbentry, parent, self))
+            items.append(item.create(dbentry, parent))
         return items
 
 
@@ -389,6 +415,28 @@ class Database(threading.Thread):
         return [ x[1] for x in self._db.query_raw(**kwargs)[1] if x[1] ]
 
 
+    def _query_device(self, *args, **kwargs):
+        """
+        A query to monitor a media (mountpoint). Special keyword 'media' in
+        the query is used for that.
+        """
+        device = kwargs['device']
+        del kwargs['device']
+        for m in self._mountpoints:
+            if m.device == device:
+                id = m.id(self._db, self.read_only)
+                if not id:
+                    # TODO: maybe always return one item with the result
+                    return []
+                media = self._db.query(type='media', id=id[1])
+                if media[0]['content'] == 'dir':
+                    # a simple data dir
+                    return [ self._get_dir(m.directory, id, m.directory) ]
+                # TODO: support other media
+                return [ ]
+        # TODO: raise an exception
+        return []
+    
     def _query(self, *args, **kwargs):
         """
         Internal query function inside the thread. This function will use the
@@ -400,6 +448,8 @@ class Database(threading.Thread):
             return self._query_files(*args, **kwargs)
         if 'attr' in kwargs:
             return self._query_attr(*args, **kwargs)
+        if 'device' in kwargs:
+            return self._query_device(*args, **kwargs)
         return self._db.query(*args, **kwargs)
 
 
@@ -461,7 +511,8 @@ class Database(threading.Thread):
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs("media",
-            name = (str, ATTR_KEYWORDS))
+            name = (str, ATTR_KEYWORDS),
+            content = (str, ATTR_SIMPLE))
 
         # remove dummy job for startup
         self.jobs = self.jobs[1:]
@@ -481,9 +532,7 @@ class Database(threading.Thread):
             try:
                 r = None
                 if function:
-                    t1 = time.time()
                     r = function(*args, **kwargs)
-                    t2 = time.time()
                 callback.set_value(r)
                 kaa.notifier.wakeup()
             except Exception, e:

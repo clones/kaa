@@ -48,6 +48,9 @@ from monitor import Monitor
 # get logging object
 log = logging.getLogger('vfs')
 
+# ipc debugging
+# ipc.DEBUG = 1
+
 class Server(object):
     """
     Server for the virtual filesystem to handle write access to the db and
@@ -104,7 +107,7 @@ class Server(object):
         """
         Create a monitor object to monitor a query for a client.
         """
-        monitor = Monitor(callback, self._db, query)
+        monitor = Monitor(callback, self._db, self, query)
         log.debug('create %s' % monitor)
         OneShotTimer(monitor.update).start(0)
         return monitor, monitor.id
@@ -123,9 +126,11 @@ class Server(object):
         """
         Set mountpoint to the given name (e.g. load media)
         """
-        self._db.set_mountpoint(directory, name)
-        for client in self._clients:
-            client.database.set_mountpoint(directory, name)
+        if self._db.set_mountpoint(directory, name):
+            for client in self._clients:
+                client.database.set_mountpoint(directory, name)
+            return True
+        return False
 
         
     def connect(self, client):

@@ -17,11 +17,20 @@ def foo():
 def progress(pos, max, last):
     print 'progress (%s of %s) -- %s' % (pos, max, last)
 
-def update(query):
+def update(client, query):
     print 'update'
-    items = query.get()
-    for item in items:
-        print '..', item
+    result = query.get()
+    if isinstance(result, list):
+        for item in q.get():
+            print item
+    else:
+        print 'Disc', result
+        if result and result.filename:
+            # it is a disc, scan dir (hope it's mounted)
+            print 'files on disc (needs to be mounted manually):'
+            for f in client.query(dirname=result.filename).get():
+                print '    ', f
+            print
 
 def show_artists_list():
     for artist in c.query(attr='artist', type='audio').get():
@@ -30,33 +39,36 @@ def show_artists_list():
             print ' ', album
         
 c = kaa.vfs.client.Client('vfsdb')
-c.add_mountpoint('/dev/cdrom', '/mnt/cdrom')
-c.set_mountpoint('/mnt/cdrom', 'testcd')
+# c.add_mountpoint('/dev/cdrom', '/mnt/cdrom')
+# c.add_mountpoint('/dev/dvd', '/mnt/dvd')
+
+if len(sys.argv) != 2 or sys.argv[1].find('=') <= 0:
+    print 'usage: client query'
+    print 'e.g.   client directory=/home/dmeyer/video'
+    print '       client device=/mnt/cdrom'
+    sys.exit(0)
+
+type = sys.argv[1][:sys.argv[1].find('=')]
+args = sys.argv[1][sys.argv[1].find('=')+1:]
 
 t1 = time.time()
-#q = c.query(dirname='/home/dmeyer/images/intership/eemshaven/mager/')
-q = c.query(dirname='/home/dmeyer/video')
-#q = c.query(dirname='/mnt/cdrom')
-# q = c.query(files=('/home/dmeyer/video/qt/',
-#                    '/home/dmeyer/mp3/Amy_Ray-Covered_For_You.mp3',
-#                    '/home/dmeyer/../dmeyer/video/tributefullvid_300.wmv'))
-q.signals['changed'].connect(update, weakref(q))
+q = eval('c.query(%s=\'%s\')' % (type, args))
+q.signals['changed'].connect(update, c, weakref(q))
 q.signals['progress'].connect(progress)
 t2 = time.time()
 q.get()
 t3 = time.time()
-refs = []
-for item in q.get():
-    print item
-#     if item.isdir:
-#         x = item.listdir()
-#         refs.append(x)
-#         for s in x.get():
-#             print '', s
-        
+
+result = q.get()
+# if isinstance(result, list):
+#     for item in q.get():
+#         print item
+# else:
+#     print 'Disc', result
+
 print 'q took %s' % (t2 - t1), (t3 - t1)
 
-OneShotTimer(show_artists_list).start(1)
+#OneShotTimer(show_artists_list).start(1)
 #Timer(foo).start(5)
 print 'loop'
 kaa.main()

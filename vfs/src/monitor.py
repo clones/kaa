@@ -44,6 +44,7 @@ from kaa.notifier import OneShotTimer, WeakTimer
 import parser
 import util
 import item
+import cdrom
 
 # get logging object
 log = logging.getLogger('vfs')
@@ -62,11 +63,11 @@ class Monitor(object):
     Monitor query for changes and call callback.
     """
     NEXT_ID = 1
-    def __init__(self, callback, db, query):
+    def __init__(self, callback, db, server, query):
         self.id = Monitor.NEXT_ID
         Monitor.NEXT_ID += 1
         self.callback = Notification(callback, self.id)
-
+        self._server = server
         self._db = db
         self._query = query
         self._checker = None
@@ -75,8 +76,13 @@ class Monitor(object):
             # problem when files grow because they are copied right
             # now and the first time we had no real information
             WeakTimer(self.check, self._query['dirname']).start(1)
-
-
+        if self._query.has_key('device'):
+            # monitor a media
+            # TODO: support other stuff except cdrom
+            # FIXME: support removing the monitor :)
+            cdrom.monitor(query['device'], weakref(self), db, self._server)
+            
+            
     def check(self, dirname):
         if self._checker:
             # still checking
@@ -95,7 +101,21 @@ class Monitor(object):
     def update(self, send_checked=True):
         to_check = []
         query = self._db.query(**self._query)
+        import time
+        t1 = time.time()
         self.items = query.get()
+        print 'monitor query took', time.time() - t1
+        if self._query.has_key('device'):
+            log.info('unable to update device query, just send notification here')
+            # device query, can't update it
+            if send_checked:
+                log.info('client.checked')
+                self.callback('checked')
+                return
+
+        # TODO: we should also check the parent and the parent of the parent,
+        # maybe a cover was added somewhere in the path.
+        t1 = time.time()
         for i in self.items:
             if not isinstance(i, item.Item):
                 # TODO: don't know how to monitor other types
@@ -106,6 +126,7 @@ class Monitor(object):
             if i.data['mtime'] == mtime:
                 continue
             to_check.append(weakref(i))
+        print 'mtime query took', time.time() - t1
         if to_check:
             # FIXME: a constantly growing file like a recording will result in
             # a huge db activity on both client and server because checker calls

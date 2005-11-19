@@ -49,6 +49,9 @@ import item
 # get logging object
 log = logging.getLogger('vfs')
 
+# ipc debugging
+# ipc.DEBUG = 1
+
 class Query(object):
     """
     Query object for the client. Created by Client.query()
@@ -143,6 +146,8 @@ class Query(object):
                     changed = True
                     current.data = dbitem.data
                     current.dbid = dbitem.dbid
+                # TODO: this is not 100% correct. Maybe the parent changed, or
+                # the parent of the parent and we have now a new cover
                 current.parent = dbitem.parent
                 continue
             # change the internal db of the item to out client
@@ -156,8 +161,8 @@ class Query(object):
 
         if changed:
             # send changed signal
-            log.info('db has changed for %s, send signal %s'\
-                     % (self._query, self.signals['changed']._callbacks))
+            log.debug('db has changed for %s, send signal %s'\
+                      % (self._query, self.signals['changed']._callbacks))
             self.signals['changed'].emit()
         # send up-to-date signal
         self.signals['up-to-date'].emit()
@@ -170,6 +175,11 @@ class Query(object):
         """
         if self._result_t:
             self._handle_db_return()
+        if self._query.has_key('device'):
+            if self._result:
+                return self._result[0]
+            else:
+                return None
         return self._result[:]
 
 
@@ -221,14 +231,6 @@ class Client(object):
         Add a mountpoint to the system.
         """
         self._server.add_mountpoint(device, directory, __ipc_oneway=True)
-
-
-    def set_mountpoint(self, directory, name):
-        """
-        Set name of the mountpoint (e.g. load a media). The should not be
-        visible on the client side.
-        """
-        self._server.set_mountpoint(directory, name)
 
 
     def query(self, **query):

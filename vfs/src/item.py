@@ -37,13 +37,13 @@ import os
 UNKNOWN = -1
 
 class Item(object):
-    def __init__(self, dbid, url, data, parent, db):
+    def __init__(self, dbid, url, data, parent):
         self.dbid = dbid
         self.url = url
         self.data = data
         self.parent = parent
-        self.db = db
-
+        self.db = None
+        
         # TODO: remove this from Item, it only matters for
         # Directory and File
         self.dirname = ''
@@ -82,8 +82,8 @@ class Directory(Item):
     """
     A directory based item.
     """
-    def __init__(self, dbid, dirname, basename, filename, url, data, parent, db):
-        Item.__init__(self, dbid, url, data, parent, db)
+    def __init__(self, dbid, dirname, basename, filename, url, data, parent):
+        Item.__init__(self, dbid, url, data, parent)
         self.dirname = dirname
         self.basename = basename
         self.filename = filename
@@ -94,8 +94,9 @@ class Directory(Item):
         """
         List the directory. This returns a database object.
         """
-        return self.db.query(dirname=self.filename)
-
+        if db:
+            return self.db.query(dirname=self.filename)
+        raise AttributeError('item has no db object')
 
     def __str__(self):
         """
@@ -111,8 +112,8 @@ class File(Item):
     """
     A file based item.
     """
-    def __init__(self, dbid, dirname, basename, filename, url, data, parent, db):
-        Item.__init__(self, dbid, url, data, parent, db)
+    def __init__(self, dbid, dirname, basename, filename, url, data, parent):
+        Item.__init__(self, dbid, url, data, parent)
         self.dirname = dirname
         self.basename = basename
         self.filename = filename
@@ -128,18 +129,20 @@ class File(Item):
         return str + '>'
 
 
-def create(data, parent, db):
+def create(data, parent):
     """
     Create an Item object or an inherted class if possible.
     """
     if isinstance(data, dict):
         basename = data['name']
         dbid = data['type'], data['id']
+        type = data['type']
     else:
         basename = data
         dbid = None
         data = { 'name': data, 'mtime': UNKNOWN }
-
+        type = ''
+        
     # check parent and if parent indicates a directory
     dirname = ''
     if parent:
@@ -159,19 +162,19 @@ def create(data, parent, db):
         # a Directory or a File
         filename = dirname + basename
         url = 'file://' + filename
-        if os.path.isdir(filename):
+        if (type and type == 'dir') or os.path.isdir(filename):
             # it is a directory
             return Directory(dbid, dirname, basename, filename + '/',
-                             url, data, parent, db)
+                             url, data, parent)
         # it is a file
-        return File(dbid, dirname, basename, filename, url, data, parent, db)
+        return File(dbid, dirname, basename, filename, url, data, parent)
 
     if parent == '/':
-        return Directory(dbid, '/', '/', '/', 'file:///', data, parent, db)
+        return Directory(dbid, '/', '/', '/', 'file:///', data, parent)
         
     # TODO: handle files/parents not based on file
 
     # TODO: we guess it is a root dir now
 
     # it is something else
-    return Item()
+    return Item(dbid, '', data, parent)

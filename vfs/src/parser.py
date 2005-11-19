@@ -49,6 +49,9 @@ def get_mtime(item):
     if not item.filename:
         log.info('no filename == no mtime :(')
         return 0
+    if not item.parent:
+        log.info('no parent == no mtime :(')
+        return 0
 
     mtime = 0
     if item.isdir:
@@ -67,7 +70,10 @@ def get_mtime(item):
     # and the stat results somewhere, maybe already split by ext
     # But since this is done in background, this is not so
     # important right now.
-    files = map(lambda x: item.dirname + x, os.listdir(item.dirname))
+    if not hasattr(item.parent, '_os_listdir'):
+        # FIXME: This is a bad hack, just testing!
+        item.parent._os_listdir = os.listdir(item.parent.filename)
+    files = map(lambda x: item.dirname + x, item.parent._os_listdir)
     for f in filter(lambda x: x.startswith(base), files):
         mtime += os.stat(f)[stat.ST_MTIME]
     return mtime
@@ -77,6 +83,9 @@ def parse(db, item):
     mtime = get_mtime(item)
     if not mtime:
         log.info('oops, no mtime %s' % item)
+        return
+    if not item.parent:
+        log.error('no parent %s' % item)
         return
     if item.data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
