@@ -52,6 +52,14 @@ log = logging.getLogger('vfs')
 # ipc debugging
 # ipc.DEBUG = 1
 
+# set this variable to 1 seconds and the whole code
+# will be faster for large directories (already cached)
+# With 0.1 you get the debug:
+# Query took 0.0484981536865 seconds, create nice items 0.613295078278
+# With 1.0 you get
+# Query took 0.0478708744049 seconds, create nice items 0.0785980224609
+IPC_TIMER = 0.1
+
 class Query(object):
     """
     Query object for the client. Created by Client.query()
@@ -73,7 +81,7 @@ class Query(object):
         # that way because a) ipc takes some time and b) it avoids
         # doing the same stuff at the same time
         OneShotTimer(self._client.monitor, self._client.notify,
-                     __ipc_async=self._get_monitor, **query).start(0.1)
+                     __ipc_async=self._get_monitor, **query).start(IPC_TIMER)
 
 
     def _get_monitor(self, (monitor, id)):

@@ -50,6 +50,7 @@ import util
 # get logging object
 log = logging.getLogger('vfs')
 
+MORE_DEBUG = True
 
 class Mountpoint(object):
     """
@@ -311,6 +312,8 @@ class Database(threading.Thread):
         A query to get all files in a directory. Special keyword 'dirname' in
         the query is used for that.
         """
+        if MORE_DEBUG:
+            t1 = time.time()
         dirname = kwargs['dirname']
         del kwargs['dirname']
         # find correct mountpoint
@@ -324,8 +327,14 @@ class Database(threading.Thread):
             files = []
             parent = dirname + '/'
 
+        if MORE_DEBUG:
+            t2 = time.time()
+
         fs_listing = util.listdir(dirname, self.dbdir)
         need_commit = False
+
+        if MORE_DEBUG:
+            t3 = time.time()
 
         items = []
         for f in files[:]:
@@ -359,6 +368,10 @@ class Database(threading.Thread):
                     self.changes.append((self._delete, [f], {}))
                     self.changes_lock.release()
                     need_commit = True
+
+        if MORE_DEBUG:
+            t4 = time.time()
+            print 'Query took %s seconds, create nice items %s' % (t2-t1, t4-t3)
 
         for f in fs_listing:
             # new files
