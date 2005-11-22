@@ -9,7 +9,7 @@ import time
 import logging
 kaa.base.create_logger(logging.INFO)
 
-VERBOSE = False
+VERBOSE = True
 
 def foo():
     print 'delete all'
@@ -44,8 +44,8 @@ def show_artists_list():
             print ' ', album
         
 c = kaa.vfs.client.Client('vfsdb')
-# c.add_mountpoint('/dev/cdrom', '/mnt/cdrom')
-# c.add_mountpoint('/dev/dvd', '/mnt/dvd')
+c.add_mountpoint('/dev/cdrom', '/mnt/cdrom')
+c.add_mountpoint('/dev/dvd', '/mnt/dvd')
 
 if len(sys.argv) != 2 or sys.argv[1].find('=') <= 0:
     print 'usage: client query'

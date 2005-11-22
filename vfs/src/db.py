@@ -382,7 +382,7 @@ class Database(object):
                 id = m.id(self._db, self.read_only)
                 if not id:
                     # TODO: maybe always return one item with the result
-                    return []
+                    return [ ]
                 media = self._db.query(type='media', id=id[1])
                 if media[0]['content'] == 'dir':
                     # a simple data dir

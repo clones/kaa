@@ -62,10 +62,9 @@ class Monitor(object):
     """
     Monitor query for changes and call callback.
     """
-    NEXT_ID = 1
-    def __init__(self, callback, db, server, query):
-        self.id = Monitor.NEXT_ID
-        Monitor.NEXT_ID += 1
+
+    def __init__(self, callback, db, server, id, query):
+        self.id = id
         self.callback = Notification(callback, self.id)
         self._server = server
         self._db = db
@@ -125,6 +124,7 @@ class Monitor(object):
             if i.data['mtime'] == mtime:
                 continue
             to_check.append(weakref(i))
+        # FIXME: this takes way to much time
         print 'mtime query took', time.time() - t1
         if to_check:
             # FIXME: a constantly growing file like a recording will result in

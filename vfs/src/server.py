@@ -103,15 +103,16 @@ class Server(object):
         return self._db.register_object_type_attrs(*args, **kwargs)
 
 
-    def monitor(self, callback, **query):
+    def monitor(self, callback, id, **query):
         """
         Create a monitor object to monitor a query for a client.
         """
-        monitor = Monitor(callback, self._db, self, query)
+        monitor = Monitor(callback, self._db, self, id, query)
         log.debug('create %s' % monitor)
-        OneShotTimer(monitor.update).start(0)
-        return monitor, monitor.id
-
+        callback(id, 'connect', monitor)
+        monitor.update()
+        return None
+    
 
     def add_mountpoint(self, device, directory):
         """
@@ -119,7 +120,7 @@ class Server(object):
         """
         if self._db.add_mountpoint(device, directory):
             for client in self._clients:
-                client.database.add_mountpoint(device, directory)
+                client.database.add_mountpoint(device, directory, __ipc_oneway=True)
 
 
     def set_mountpoint(self, directory, name):

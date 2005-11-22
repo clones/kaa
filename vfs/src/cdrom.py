@@ -30,7 +30,7 @@ except:
         CDS_NO_DISC = 1
         CDS_DISC_OK = 4
 
-from kaa.notifier import ThreadCallback, OneShotTimer
+from kaa.notifier import ThreadCallback, OneShotTimer, MainThreadCallback
 import kaa.metadata
 from kaa.metadata.disc.discinfo import cdrom_disc_id
 
@@ -100,15 +100,15 @@ class Device(object):
             self.finished(None)
             return
 
-        # Do a db query. We are in a thread now, nut it still works. The
-        # result will be evaluated by the main loop
-        query = self.db.query(type="media", name=id)
-        query.connect(self.db_result, query, id)
+        # close fd
         os.close(fd)
 
+        # Do a db query in the main loop now
+        MainThreadCallback(self.db_result, id)()
 
-    def db_result(self, query, id):
-        result = query.get()
+
+    def db_result(self, id):
+        result = self.db.query(type="media", name=id)
         if result:
             self.finished(result[0]['name'])
             return
@@ -117,16 +117,19 @@ class Device(object):
         tcb.signals['completed'].connect(self.scan_result)
         tcb.register('vfs.cdrom')
 
+
     def scan_result(self, info):
         # TODO: content may not be dir
         self.db.add_object("media", name=info.id, content='dir')
         self.db.commit()
         self.finished(info.id)
 
+
     def finished(self, id):
         if self.server.set_mountpoint(self.mountpoint.directory, id):
             for callback in self._callbacks:
-                callback.update()
+                if callback:
+                    callback.update()
         self.check_timer.start(2)
 
         
