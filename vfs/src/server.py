@@ -92,7 +92,7 @@ class Server(object):
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
         # set up.
-        self._db.commit().get()
+        self._db.commit()
         
 
     def register_object_type_attrs(self, *args, **kwargs):

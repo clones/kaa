@@ -9,17 +9,22 @@ import time
 import logging
 kaa.base.create_logger(logging.INFO)
 
+VERBOSE = False
+
 def foo():
     print 'delete all'
     global q
     q = None
 
 def progress(pos, max, last):
-    print 'progress (%s of %s) -- %s' % (pos, max, last)
+    if VERBOSE:
+        print 'progress (%s of %s) -- %s' % (pos, max, last)
 
 def update(client, query):
     print 'update'
     result = query.get()
+    if not VERBOSE:
+        return
     if isinstance(result, list):
         for item in q.get():
             print item
@@ -56,17 +61,16 @@ q = eval('c.query(%s=\'%s\')' % (type, args))
 q.signals['changed'].connect(update, c, weakref(q))
 q.signals['progress'].connect(progress)
 t2 = time.time()
-q.get()
-t3 = time.time()
 
 result = q.get()
-# if isinstance(result, list):
-#     for item in q.get():
-#         print item
-# else:
-#     print 'Disc', result
+if VERBOSE:
+    if isinstance(result, list):
+        for item in q.get():
+            print item
+    else:
+        print 'Disc', result
 
-print 'q took %s' % (t2 - t1), (t3 - t1)
+print 'q took %s' % (t2 - t1)
 
 #OneShotTimer(show_artists_list).start(1)
 #Timer(foo).start(5)

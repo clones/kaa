@@ -145,8 +145,10 @@ class Checker(object):
         # make sure we handle self.monitor correctly because this is a weakref
 
         if not self.items:
-            commit = self.db.commit()
-            commit.connect(self.finished)
+            self.db.commit()
+            if self.monitor:
+                self.monitor.callback('checked')
+                self.monitor.update(False)
             return False
         self.pos += 1
         item = self.items[0]
@@ -160,8 +162,3 @@ class Checker(object):
     def notify(self, *args, **kwargs):
         if self.monitor:
             self.monitor.callback(*args, **kwargs)
-
-    def finished(self):
-        if self.monitor:
-            self.monitor.callback('checked')
-            self.monitor.update(False)

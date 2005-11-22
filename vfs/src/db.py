@@ -50,7 +50,7 @@ import util
 # get logging object
 log = logging.getLogger('vfs')
 
-MORE_DEBUG = True
+MAX_BUFFER_CHANGES = 20
 
 class Mountpoint(object):
     """
@@ -110,87 +110,49 @@ class Mountpoint(object):
         return '<vfs.Mountpoint for %s>' % self.directory
 
 
-class Database(threading.Thread):
+class Database(object):
     """
-    A kaa.db based database in a thread.
+    A kaa.db based database.
     """
-
-    class Query(object):
-        """
-        A query for the database with async callbacks to handle
-        the results from the thread in the main loop.
-        """
-        def __init__(self, db, function):
-            self.db = db
-            self.function = function
-            self.value = None
-            self.valid = False
-            self.exception = False
-            self.callbacks = []
-
-        def __call__(self, *args, **kwargs):
-            self.db.condition.acquire()
-            self.db.jobs.append((self, self.function, args, kwargs))
-            self.db.condition.notify()
-            self.db.condition.release()
-            return self
-
-        def connect(self, function, *args, **kwargs):
-            cb = kaa.notifier.MainThreadCallback(function, *args, **kwargs)
-            if self.valid:
-                return cb()
-            self.callbacks.append(cb)
-
-        def set_value(self, value, exception=False):
-            self.value = value
-            self.exception = exception
-            self.valid = True
-            for callback in self.callbacks:
-                callback()
-            self.callbacks = []
-
-        def get(self):
-            while not self.valid:
-                kaa.notifier.step()
-            return self.value
-
 
     def __init__(self, dbdir):
         """
-        Init function for the threaded database.
+        Init function
         """
-        # threading setup
-        threading.Thread.__init__(self)
-        self.setDaemon(True)
-        self.stopped = False
-
         # internal db dir, it contains the real db and the
         # overlay dir for the vfs
         self.dbdir = dbdir
-
-        # list of jobs for the thread and the condition to
-        # change that list
-        self.jobs = [ None ]
-        self.condition = threading.Condition()
 
         # flag if the db should be read only
         self.read_only = False
 
         # handle changes in a list and add them to the database
-        # on commit. This needs a lock because objects can be added
-        # from the main loop and commit is called inside a thread
-        self.changes_lock = threading.Lock()
+        # on commit.
         self.changes = []
 
         # internal list of mountpoints
         self._mountpoints = []
-        
-        # start thread
-        self.start()
 
-        # wait for complete database setup. Do this by adding an
-        # empty query to the db and wait for the retured data.
-        Database.Query(self, None)().get()
+        # create db
+        if not os.path.isdir(self.dbdir):
+            os.makedirs(self.dbdir)
+        self._db = db.Database(self.dbdir + '/db')
+
+        # register basic types
+        self._db.register_object_type_attrs("dir",
+            name = (str, ATTR_KEYWORDS_FILENAME),
+            mtime = (int, ATTR_SIMPLE))
+
+        self._db.register_object_type_attrs("file",
+            name = (str, ATTR_KEYWORDS_FILENAME),
+            mtime = (int, ATTR_SIMPLE))
+
+        self._db.register_object_type_attrs("media",
+            name = (str, ATTR_KEYWORDS),
+            content = (str, ATTR_SIMPLE))
+
+        # commit
+        self._db.commit()
 
 
     def add_mountpoint(self, device, directory):
@@ -228,17 +190,12 @@ class Database(threading.Thread):
         
     def __getattr__(self, attr):
         """
-        Interface to the db. All calls to the db are wrapped into
-        Database.Query objects to be handled in a thread.
+        Interface to the db.
         """
         if attr == 'object_types':
             # return the attribute _object_types from the db
             return self._db._object_types
-        if attr in ('commit', 'query'):
-            # commit and query are not used from the db but from this
-            # class to do something special
-            return Database.Query(self, getattr(self, '_' + attr))
-        return Database.Query(self, getattr(self._db, attr))
+        raise AttributeError(attr)
 
 
     def _get_dir(self, dirname, media, root):
@@ -275,16 +232,14 @@ class Database(threading.Thread):
         return item.create(current, parent)
 
 
-    def _commit(self):
+    def commit(self):
         """
         Commit changes to the database. All changes in the internal list
-        are done first to reduce the time the db is locked.
+        are done first.
         """
-        self.changes_lock.acquire()
+        t1 = time.time()
         changes = self.changes
-        self.changes = []
-        self.changes_lock.release()
-        for c in changes:
+        for c in self.changes:
             # It could be possible that an item is added twice. But this is no
             # problem because the duplicate will be removed at the
             # next query. It can also happen that a dir is added because of
@@ -292,7 +247,8 @@ class Database(threading.Thread):
             # db should clean itself up.
             c[0](*c[1], **c[2])
         self._db.commit()
-        log.info('db.commit')
+        self.changes = []
+        log.info('db.commit took %s seconds' % (time.time() - t1))
 
 
     def _delete(self, entry):
@@ -312,8 +268,6 @@ class Database(threading.Thread):
         A query to get all files in a directory. Special keyword 'dirname' in
         the query is used for that.
         """
-        if MORE_DEBUG:
-            t1 = time.time()
         dirname = kwargs['dirname']
         del kwargs['dirname']
         # find correct mountpoint
@@ -327,14 +281,8 @@ class Database(threading.Thread):
             files = []
             parent = dirname + '/'
 
-        if MORE_DEBUG:
-            t2 = time.time()
-
         fs_listing = util.listdir(dirname, self.dbdir)
         need_commit = False
-
-        if MORE_DEBUG:
-            t3 = time.time()
 
         items = []
         for f in files[:]:
@@ -364,14 +312,8 @@ class Database(threading.Thread):
                 if not self.read_only:
                     # delete from database by adding it to the internal changes
                     # list. It will be deleted right before the next commit.
-                    self.changes_lock.acquire()
                     self.changes.append((self._delete, [f], {}))
-                    self.changes_lock.release()
                     need_commit = True
-
-        if MORE_DEBUG:
-            t4 = time.time()
-            print 'Query took %s seconds, create nice items %s' % (t2-t1, t4-t3)
 
         for f in fs_listing:
             # new files
@@ -449,8 +391,9 @@ class Database(threading.Thread):
                 return [ ]
         # TODO: raise an exception
         return []
+
     
-    def _query(self, *args, **kwargs):
+    def query(self, *args, **kwargs):
         """
         Internal query function inside the thread. This function will use the
         corrent internal query function based on special keywords.
@@ -475,10 +418,10 @@ class Database(threading.Thread):
         """
         if 'vfs_immediately' in kwargs:
             del kwargs['vfs_immediately']
-            return Database.Query(self, self._db.add_object)(*args, **kwargs)
-        self.changes_lock.acquire()
+            return self._db.add_object(*args, **kwargs)
         self.changes.append((self._db.add_object, args, kwargs))
-        self.changes_lock.release()
+        if len(self.changes) > MAX_BUFFER_CHANGES:
+            self.commit()
 
 
     def update_object(self, *args, **kwargs):
@@ -490,10 +433,10 @@ class Database(threading.Thread):
         """
         if 'vfs_immediately' in kwargs:
             del kwargs['vfs_immediately']
-            return Database.Query(self, self._db.update_object)(*args, **kwargs)
-        self.changes_lock.acquire()
+            return self._db.update_object(*args, **kwargs)
         self.changes.append((self._db.update_object, args, kwargs))
-        self.changes_lock.release()
+        if len(self.changes) > MAX_BUFFER_CHANGES:
+            self.commit()
 
 
     def register_object_type_attrs(self, *args, **kwargs):
@@ -503,52 +446,4 @@ class Database(threading.Thread):
         """
         kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
         kwargs['mtime'] = (int, ATTR_SIMPLE)
-        return Database.Query(self, self._db.register_object_type_attrs)(*args, **kwargs)
-
-
-    def run(self):
-        """
-        Main loop for the thread handling the db. SQLLite objects can only be used
-        in the thread they are created, that's why everything is wrapped.
-        """
-        if not os.path.isdir(self.dbdir):
-            os.makedirs(self.dbdir)
-        self._db = db.Database(self.dbdir + '/db')
-
-        self._db.register_object_type_attrs("dir",
-            name = (str, ATTR_KEYWORDS_FILENAME),
-            mtime = (int, ATTR_SIMPLE))
-
-        self._db.register_object_type_attrs("file",
-            name = (str, ATTR_KEYWORDS_FILENAME),
-            mtime = (int, ATTR_SIMPLE))
-
-        self._db.register_object_type_attrs("media",
-            name = (str, ATTR_KEYWORDS),
-            content = (str, ATTR_SIMPLE))
-
-        # remove dummy job for startup
-        self.jobs = self.jobs[1:]
-
-        while not self.stopped:
-            self.condition.acquire()
-            while not self.jobs and not self.stopped:
-                # free memory
-                callback = function = r = None
-                self.condition.wait()
-            if self.stopped:
-                self.condition.release()
-                continue
-            callback, function, args, kwargs = self.jobs[0]
-            self.jobs = self.jobs[1:]
-            self.condition.release()
-            try:
-                r = None
-                if function:
-                    r = function(*args, **kwargs)
-                callback.set_value(r)
-                kaa.notifier.wakeup()
-            except Exception, e:
-                log.exception("database error")
-                callback.set_value(e, True)
-                kaa.notifier.wakeup()
+        return self._db.register_object_type_attrs(*args, **kwargs)

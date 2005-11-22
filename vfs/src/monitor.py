@@ -100,10 +100,9 @@ class Monitor(object):
 
     def update(self, send_checked=True):
         to_check = []
-        query = self._db.query(**self._query)
         import time
         t1 = time.time()
-        self.items = query.get()
+        self.items = self._db.query(**self._query)
         print 'monitor query took', time.time() - t1
         if self._query.has_key('device'):
             log.info('unable to update device query, just send notification here')
