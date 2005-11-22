@@ -260,7 +260,7 @@ class Database(object):
         log.debug('DELETE %s' % entry)
         for child in self._db.query(parent = (entry['type'], entry['id'])):
             self._delete(child)
-        self.delete_object((entry['type'], entry['id']))
+        self._db.delete_object((entry['type'], entry['id']))
 
 
     def _query_dirname(self, *args, **kwargs):
@@ -321,7 +321,7 @@ class Database(object):
 
         if need_commit:
             # need commit because some items were deleted from the db
-            self._commit()
+            self.commit()
 
         # sort result
         items.sort(lambda x,y: cmp(x.url, y.url))
