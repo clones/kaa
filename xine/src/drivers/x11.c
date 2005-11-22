@@ -3,12 +3,14 @@
 PyTypeObject *X11Window_PyObject_Type;
 int (*x11window_object_decompose)(PyObject *, Window *, Display **);
 
-typedef struct _x11_callback_user_data {
+typedef struct _x11_vo_user_data {
+    driver_info_common common;
+
     PyObject *frame_output_callback, 
              *dest_size_callback;
     Display *display;
     PyObject *window_pyobject;
-} x11_callback_user_data;
+} x11_vo_user_data;
 
 
 static void x11_frame_output_cb(void *data, int video_width, int video_height,
@@ -16,7 +18,7 @@ static void x11_frame_output_cb(void *data, int video_width, int video_height,
                 int *dest_width, int *dest_height,
                 double *dest_pixel_aspect, int *win_x, int *win_y) 
 {
-    x11_callback_user_data *user_data = (x11_callback_user_data *)data;
+    x11_vo_user_data *user_data = (x11_vo_user_data *)data;
     PyObject *args, *result;
     PyGILState_STATE gstate;
     int success = 0;
@@ -69,7 +71,7 @@ static void x11_dest_size_cb(void *data, int video_width, int video_height,
                 double video_pixel_aspect, int *dest_width, int *dest_height,
                 double *dest_pixel_aspect) 
 {
-    x11_callback_user_data *user_data = (x11_callback_user_data *)data;
+    x11_vo_user_data *user_data = (x11_vo_user_data *)data;
     PyObject *args, *result;
     PyGILState_STATE gstate;
     int success = 0;
@@ -115,7 +117,7 @@ void
 x11_driver_dealloc(void *data)
 {
     PyGILState_STATE gstate;
-    x11_callback_user_data *user_data = (x11_callback_user_data *)data;
+    x11_vo_user_data *user_data = (x11_vo_user_data *)data;
     
     gstate = PyGILState_Ensure();
     if (user_data->frame_output_callback) {
@@ -129,19 +131,19 @@ x11_driver_dealloc(void *data)
     free(user_data);
 }
 
-Xine_VO_Driver_PyObject *
-x11_open_video_driver(Xine_PyObject *xine, char *id, PyObject *kwargs)
+
+int
+x11_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
+                    driver_info_common **driver_info_return)
 {
     x11_visual_t vis;
-    vo_driver_t *driver;
-    x11_callback_user_data *user_data;
+    x11_vo_user_data *user_data;
     PyObject *window, *frame_output_callback, *dest_size_callback;
-    Xine_VO_Driver_PyObject *vo_driver_pyobject;
 
     window = PyDict_GetItemString(kwargs, "window");
     if (!x11window_object_decompose(window, &vis.d, (Display **)&vis.display)) {
         PyErr_Format(xine_error, "Error in window parameter.");
-        return NULL;
+        return 0;
     }
 
     frame_output_callback = PyDict_GetItemString(kwargs, "frame_output_cb");
@@ -149,15 +151,16 @@ x11_open_video_driver(Xine_PyObject *xine, char *id, PyObject *kwargs)
 
     if (!frame_output_callback || !dest_size_callback) {
         PyErr_Format(xine_error, "Must specify frame_output_cb and dest_size_cb");
-        return NULL;
+        return 0;
     }
 
 
-    user_data = malloc(sizeof(x11_callback_user_data));
+    user_data = malloc(sizeof(x11_vo_user_data));
     user_data->frame_output_callback = frame_output_callback;
     user_data->dest_size_callback = dest_size_callback;
     user_data->display = vis.display;
     user_data->window_pyobject = window;
+    user_data->common.dealloc_cb = x11_driver_dealloc;
     Py_INCREF(window);
     if (frame_output_callback)
         Py_INCREF(frame_output_callback);
@@ -169,12 +172,8 @@ x11_open_video_driver(Xine_PyObject *xine, char *id, PyObject *kwargs)
     vis.frame_output_cb = x11_frame_output_cb;
     vis.dest_size_cb = x11_dest_size_cb;
 
-    driver = _x_load_video_output_plugin(xine->xine, id, XINE_VISUAL_TYPE_X11, (void *)&vis);
-
-    vo_driver_pyobject = pyxine_new_vo_driver_pyobject(xine, xine->xine, driver, 1);
-    vo_driver_pyobject->dealloc_cb = x11_driver_dealloc;
-    vo_driver_pyobject->dealloc_data = user_data;
-
-    return vo_driver_pyobject;
+    *visual_return = malloc(sizeof(vis));
+    memcpy(*visual_return, &vis, sizeof(vis));
+    *driver_info_return = (driver_info_common *)user_data;
+    return 1;
 }
-

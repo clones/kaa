@@ -259,7 +259,7 @@ static vo_info_t dummy_vo_info = {
 };
 
 plugin_info_t xine_vo_dummy_plugin_info[] = {
-    { PLUGIN_VIDEO_OUT, 20, "dummy", XINE_VERSION_CODE, &dummy_vo_info, &dummy_init_class },
+    { PLUGIN_VIDEO_OUT, 21, "dummy", XINE_VERSION_CODE, &dummy_vo_info, &dummy_init_class },
     { PLUGIN_NONE, 0, "", 0, NULL, NULL }
 };
 

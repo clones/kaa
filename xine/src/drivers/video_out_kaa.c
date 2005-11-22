@@ -1129,7 +1129,16 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     kaa_class_t *class = (kaa_class_t *)class_gen;
     kaa_visual_t *visual = (kaa_visual_t *)visual_gen;
     kaa_driver_t *this;
-    
+    vo_driver_t *passthrough;
+
+    // This deadlocks -- xine-lib needs fixing.  For now, caller will have to do this.
+    /*
+    passthrough = _x_load_video_output_plugin(class->xine, visual->passthrough_driver,
+                                              visual->passthrough_visual_type, visual->passthrough_visual);
+    if (!passthrough) {
+        return NULL;
+    }
+    */
     //printf("kaa_open_plugin\n");
     this = (kaa_driver_t *)xine_xmalloc(sizeof(kaa_driver_t));
     memset(this, 0, sizeof(kaa_driver_t));

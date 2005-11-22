@@ -109,8 +109,8 @@ Xine_VO_Driver_PyObject__dealloc(Xine_VO_Driver_PyObject * self)
 
     xine_object_to_pyobject_unregister(self->driver);
 
-    if (self->dealloc_cb)
-        self->dealloc_cb(self->dealloc_data);
+    if (self->driver_info && self->driver_info->dealloc_cb)
+        self->driver_info->dealloc_cb(self->driver_info);
 
     self->ob_type->tp_free((PyObject *) self);
 }

@@ -2,6 +2,8 @@
 #include "video_out_dummy.h"
 
 typedef struct _dummy_vo_user_data {
+    driver_info_common common;
+
     // Driver-specific VODriver data here ....
     PyObject *frobate;
 } dummy_vo_user_data;
@@ -21,38 +23,31 @@ dummy_driver_dealloc(void *data)
 }
 
 
-Xine_VO_Driver_PyObject *
-dummy_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
+int
+dummy_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
+                     driver_info_common **driver_info_return)
 {
     dummy_visual_t vis;
-    vo_driver_t *driver;
     dummy_vo_user_data *user_data;
     PyObject *frobate = NULL;
-    Xine_VO_Driver_PyObject *vo_driver_pyobject;
 
     // Handle driver-specific kwargs here ...
     frobate = PyDict_GetItemString(kwargs, "frobate");
     if (!frobate || !PyInt_Check(frobate)) {
         PyErr_Format(xine_error, "Dummy driver needs the frobate object and it must be int.");
-        return NULL;
+        return 0;
     }
 
     user_data = malloc(sizeof(dummy_vo_user_data));
+    user_data->common.dealloc_cb = dummy_driver_dealloc;
     user_data->frobate = frobate;
     // Hold a reference to the driver-specific objects  ...
     Py_INCREF(frobate);
 
     vis.frobate = PyLong_AsLong(frobate);
 
-    driver = _x_load_video_output_plugin(xine->xine, "dummy", XINE_VISUAL_TYPE_NONE, (void *)&vis);
-    if (!driver) {
-        PyErr_Format(xine_error, "Internal error while loading video driver");
-        return NULL;
-    }
-
-    vo_driver_pyobject = pyxine_new_vo_driver_pyobject(xine, xine->xine, driver, 1);
-    vo_driver_pyobject->dealloc_cb = dummy_driver_dealloc;
-    vo_driver_pyobject->dealloc_data = user_data;
-
-    return vo_driver_pyobject;
+    *visual_return = malloc(sizeof(vis));
+    memcpy(*visual_return, &vis, sizeof(vis));
+    *driver_info_return = (driver_info_common *)user_data;
+    return 1;
 }

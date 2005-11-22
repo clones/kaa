@@ -1,0 +1,29 @@
+#include "common.h"
+#include "x11.h"
+#include "kaa.h"
+#include "dummy.h"
+
+int
+driver_get_visual_info(Xine_PyObject *xine, char *driver, PyObject *kwargs, int *visual_type_return,
+                       void **visual_return, driver_info_common **driver_info_return)
+{
+    *visual_type_return = XINE_VISUAL_TYPE_NONE;
+    if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto") ||
+        !strcmp(driver, "opengl") || !strcmp(driver, "sdl")) {
+        *visual_type_return = XINE_VISUAL_TYPE_X11;
+        return x11_get_visual_info(xine, kwargs, visual_return, driver_info_return);
+    } else if (!strcmp(driver, "none")) {
+        *driver_info_return = 0;
+        *visual_return = 0;
+        return 1;
+    } else if (!strcmp(driver, "kaa")) {
+        *visual_type_return = XINE_VISUAL_TYPE_NONE; // make constant for kaa?
+        return kaa_get_visual_info(xine, kwargs, visual_return, driver_info_return);
+    }
+    else if (!strcmp(driver, "dummy")) {
+        return dummy_get_visual_info(xine, kwargs, visual_return, driver_info_return);
+    }
+    PyErr_Format(PyExc_ValueError, "Unknown driver: %s", driver);
+    return 0;
+}
+

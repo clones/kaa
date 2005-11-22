@@ -6,7 +6,6 @@
 #include <xine.h>
 #include <xine/xine_internal.h>
 #include <assert.h>
-
 #include "utils.h"
 
 extern PyObject *xine_error;
@@ -20,5 +19,6 @@ typedef struct {
 } Xine_PyObject;
 
 extern PyTypeObject Xine_PyObject_Type;
+
 
 #endif

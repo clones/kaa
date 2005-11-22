@@ -15,6 +15,7 @@
 #include "drivers/kaa.h"
 #include "drivers/x11.h"
 #include "drivers/dummy.h"
+#include "drivers/common.h"
 
 PyObject *xine_error;
 extern PyObject *xine_object_to_pyobject_dict;
@@ -161,36 +162,33 @@ Xine_PyObject_list_plugins(Xine_PyObject *self, PyObject *args, PyObject *kwargs
     return pylist;
 }
 
-
 PyObject *
 Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
     vo_driver_t *vo_driver = NULL;
     Xine_VO_Driver_PyObject *vo_driver_pyobject = NULL;
     char *driver;
+    void *visual;
+    int visual_type;
+    driver_info_common *driver_info;
 
     if (!PyArg_ParseTuple(args, "s", &driver))
         return NULL;
 
-    if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto") ||
-        !strcmp(driver, "opengl") || !strcmp(driver, "sdl")) {
-        vo_driver_pyobject = x11_open_video_driver(self, driver, kwargs);
-    } else if (!strcmp(driver, "none")) {
-        vo_driver = _x_load_video_output_plugin(self->xine, driver, XINE_VISUAL_TYPE_NONE, 0);
-    } else if (!strcmp(driver, "kaa")) {
-        vo_driver_pyobject = kaa_open_video_driver(self, kwargs);
-    }
-    else if (!strcmp(driver, "dummy")) {
-        vo_driver_pyobject = dummy_open_video_driver(self, kwargs);
-    }
-        
-    if (!vo_driver && !vo_driver_pyobject) {
-        if (!PyErr_Occurred())
-            PyErr_Format(xine_error, "Failed to open driver: %s", driver);
+    if (!driver_get_visual_info(self, driver, kwargs, &visual_type, &visual, &driver_info))
+        return NULL;
+
+    vo_driver = _x_load_video_output_plugin(self->xine, driver, visual_type, visual);
+    if (!vo_driver) {
+        PyErr_Format(xine_error, "Failed to open driver: %s", driver);
         return NULL;
     }
-    if (!vo_driver_pyobject)
-        vo_driver_pyobject = pyxine_new_vo_driver_pyobject(self, self->xine, vo_driver, 1);
+    if (visual)
+        free(visual);
+    driver_info->driver = vo_driver;
+
+    vo_driver_pyobject = pyxine_new_vo_driver_pyobject(self, self->xine, vo_driver, 1);
+    vo_driver_pyobject->driver_info = driver_info;
 
     return (PyObject *)vo_driver_pyobject;
 }

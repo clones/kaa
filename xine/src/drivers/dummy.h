@@ -3,8 +3,8 @@
 
 #include <Python.h>
 #include "../xine.h"
-#include "../vo_driver.h"
+#include "common.h"
 
-Xine_VO_Driver_PyObject *dummy_open_video_driver(Xine_PyObject *, PyObject *kwargs);
-
+int dummy_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
+                          driver_info_common **driver_info_return);
 #endif

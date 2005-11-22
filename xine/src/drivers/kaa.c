@@ -2,7 +2,7 @@
 #include "video_out_kaa.h"
 
 typedef struct _kaa_vo_user_data {
-    kaa_driver_t *driver;
+    driver_info_common common;
     PyObject *send_frame_cb, *osd_configure_cb,
              *passthrough_pyobject;
 } kaa_vo_user_data;
@@ -82,6 +82,7 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)PyCObject_AsVoidPtr(self);
     PyObject *cmd_arg = NULL, *retval = NULL;
+    kaa_driver_t *driver = (kaa_driver_t *)user_data->common.driver;
     char *command;
 
     if (!PyArg_ParseTuple(args, "s|O", &command, &cmd_arg))
@@ -90,7 +91,7 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
     #define type_check(var, tp, errmsg) \
         if (!var || !Py ## tp ## _Check(var)) { PyErr_Format(xine_error, errmsg); return NULL;}
     #define gui_send(cmd, val) \
-        user_data->driver->vo_driver.gui_data_exchange(&user_data->driver->vo_driver, GUI_SEND_KAA_VO_ ## cmd, (void *)val);
+        driver->vo_driver.gui_data_exchange(&driver->vo_driver, GUI_SEND_KAA_VO_ ## cmd, (void *)val);
 
     if (!strcmp(command, "set_send_frame")) {
         type_check(cmd_arg, Bool, "Argument must be a boolean");
@@ -166,27 +167,49 @@ kaa_driver_dealloc(void *data)
 }
 
 
-Xine_VO_Driver_PyObject *
-kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
+int
+kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return, 
+                    driver_info_common **driver_info_return)
 {
     kaa_visual_t vis;
-    vo_driver_t *driver;
+    vo_driver_t *passthrough_driver;
     kaa_vo_user_data *user_data;
     PyObject *o, *passthrough = NULL, *control_return = NULL, 
              *send_frame_cb_pyobject = NULL, *osd_configure_cb_pyobject = NULL;
-    Xine_VO_Driver_PyObject *vo_driver_pyobject;
-    int buflen = -1;
+    void *passthrough_visual;
+    driver_info_common *passthrough_driver_info;
+    int passthrough_visual_type, buflen = -1;
 
     passthrough = PyDict_GetItemString(kwargs, "passthrough");
-    if (!passthrough || !Xine_VO_Driver_PyObject_Check(passthrough)) {
-        PyErr_Format(xine_error, "Passthrough must be a VODriver object");
-        return NULL;
+    if (!passthrough || !PyString_Check(passthrough)) {
+        PyErr_Format(xine_error, "Passthrough must be a string");
+        return 0;
+    }
+
+    if (!driver_get_visual_info(xine, PyString_AsString(passthrough), kwargs, &passthrough_visual_type, 
+                                &passthrough_visual, &passthrough_driver_info))
+        return 0;
+
+    passthrough_driver = _x_load_video_output_plugin(xine->xine, PyString_AsString(passthrough), 
+                                                     passthrough_visual_type, passthrough_visual);
+    if (passthrough_visual)
+        free(passthrough_visual);
+    passthrough_driver_info->driver = passthrough_driver;
+
+    if (!passthrough_driver) {
+        PyErr_Format(xine_error, "Failed to initialize passthrough driver: %s", PyString_AsString(passthrough));
+        return 0;
     }
 
     memset(&vis, 0, sizeof(vis));
     vis.send_frame_cb           = send_frame_cb;
     vis.osd_configure_cb        = osd_configure_cb;
-    vis.passthrough             = ((Xine_VO_Driver_PyObject *)passthrough)->driver;
+    /*
+    vis.passthrough_driver      = PyString_AsString(passthrough);
+    vis.passthrough_visual_type = passthrough_visual_type;
+    vis.passthrough_visual      = passthrough_visual;
+    */
+    vis.passthrough             = passthrough_driver;
 
     if (PyMapping_HasKeyString(kwargs, "osd_buffer")) {
         o = PyDict_GetItemString(kwargs, "osd_buffer");
@@ -194,23 +217,23 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
             vis.osd_buffer = (uint8_t *)PyLong_AsLong(o);
         else {
             if (PyObject_AsWriteBuffer(o, (void **)&vis.osd_buffer, &buflen) == -1)
-                return NULL;
+                return 0;
         }
     }
 
     if (PyMapping_HasKeyString(kwargs, "osd_stride"))
         if (!PyArg_Parse(PyDict_GetItemString(kwargs, "osd_stride"), "l", &vis.osd_stride))
-            return NULL;
+            return 0;
 
     if (PyMapping_HasKeyString(kwargs, "osd_rows"))
         if (!PyArg_Parse(PyDict_GetItemString(kwargs, "osd_rows"), "l", &vis.osd_rows))
-            return NULL;
+            return 0;
 
     if (PyMapping_HasKeyString(kwargs, "send_frame_cb")) {
         o = PyDict_GetItemString(kwargs, "send_frame_cb");
         if (!PyCallable_Check(o)) {
             PyErr_Format(PyExc_ValueError, "send_frame_cb must be callable");
-            return NULL;
+            return 0;
         }
         send_frame_cb_pyobject = o;
         Py_INCREF(o);
@@ -220,7 +243,7 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
         o = PyDict_GetItemString(kwargs, "osd_configure_cb");
         if (!PyCallable_Check(o)) {
             PyErr_Format(PyExc_ValueError, "osd_configure_cb must be callable");
-            return NULL;
+            return 0;
         }
         osd_configure_cb_pyobject = o;
         Py_INCREF(o);
@@ -228,7 +251,7 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
 
     if (vis.osd_buffer && buflen != -1 && buflen != vis.osd_stride * vis.osd_rows) {
         PyErr_Format(PyExc_ValueError, "OSD buffer length does not match supplied stride * rows");
-        return NULL;
+        return 0;
     }
 
     Py_INCREF(passthrough);
@@ -238,13 +261,11 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
     user_data->passthrough_pyobject = passthrough;
     user_data->send_frame_cb        = send_frame_cb_pyobject;
     user_data->osd_configure_cb     = osd_configure_cb_pyobject;
+    user_data->common.dealloc_cb    = kaa_driver_dealloc;
 
     vis.send_frame_cb_data    = user_data;
     vis.osd_configure_cb_data = user_data;
 
-    driver = _x_load_video_output_plugin(xine->xine, "kaa", XINE_VISUAL_TYPE_NONE, (void *)&vis);
-    user_data->driver = (kaa_driver_t *)driver;
-    
     control_return = PyDict_GetItemString(kwargs, "control_return");
     if (control_return && PyList_Check(control_return)) {
         PyObject *py_ud = PyCObject_FromVoidPtr((void *)user_data, NULL);
@@ -254,10 +275,9 @@ kaa_open_video_driver(Xine_PyObject *xine, PyObject *kwargs)
         Py_DECREF(py_ud);
     }
 
-    vo_driver_pyobject = pyxine_new_vo_driver_pyobject(xine, xine->xine, driver, 1);
-    vo_driver_pyobject->dealloc_cb = kaa_driver_dealloc;
-    vo_driver_pyobject->dealloc_data = user_data;
-
-    return vo_driver_pyobject;
+    *(kaa_visual_t **)visual_return = malloc(sizeof(vis));
+    memcpy(*visual_return, &vis, sizeof(vis));
+    *driver_info_return = (driver_info_common *)user_data;
+    return 1;
 }
 

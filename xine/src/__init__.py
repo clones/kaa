@@ -212,7 +212,6 @@ class Xine(Wrapper):
         return (0, 0), (0, 0), (w, h), 1.0
 
     def _default_dest_size_cb(self, width, height, aspect, window):
-        print "DEST SIZE CB", width, height, aspect
         # XXX: I'm not sure this is correct.  I'm also not sure there's not 
         # a bug in xine-lib.
         w, h, a = self._x11_set_correct_size(width, height, aspect, window)
@@ -230,12 +229,6 @@ class Xine(Wrapper):
             window._aspect = -1
             kwargs["window"] = window._window
 
-        if "passthrough" in kwargs:
-            vo = kwargs["passthrough"]
-            assert(isinstance(vo, VODriver))
-            assert(vo._obj.get_owner() == None)
-            kwargs["passthrough"] = vo._obj
-        
         driver = self._obj.load_video_output_plugin(driver, **kwargs)
         return _wrap_xine_object(driver)
                     

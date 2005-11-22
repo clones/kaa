@@ -123,6 +123,11 @@ typedef struct kaa_class_s {
 typedef struct kaa_visual_s {
     void (*send_frame_cb)(int width, int height, double aspect, uint8_t *buffer, pthread_mutex_t *buffer_lock, void *data);
     void *send_frame_cb_data;
+    /*
+    char *passthrough_driver;
+    int passthrough_visual_type;
+    void *passthrough_visual;
+    */
     vo_driver_t *passthrough;
 
     void (*osd_configure_cb)(int width, int height, double aspect, void *data);

@@ -1,4 +1,4 @@
-#include "xine.h"
+#include "utils.h"
 
 // Maps xine object actresses to Xine python objects
 PyObject *xine_object_to_pyobject_dict = 0;
@@ -69,4 +69,3 @@ pyxine_gc_helper_traverse(PyObject ***list, visitproc visit, void *arg)
     }
     return 0;
 }
-

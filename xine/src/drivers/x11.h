@@ -6,10 +6,11 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include "../xine.h"
-#include "../vo_driver.h"
+#include "common.h"
 
 extern PyTypeObject *X11Window_PyObject_Type;
 extern int (*x11window_object_decompose)(PyObject *, Window *, Display **);
-Xine_VO_Driver_PyObject *x11_open_video_driver(Xine_PyObject *, char *, PyObject *kwargs);
+int x11_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
+                        driver_info_common **driver_info_return);
 
 #endif
