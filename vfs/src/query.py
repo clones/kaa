@@ -59,13 +59,16 @@ class Query(object):
         self._client = client
         self._result = self._client.database.query(**query)
 
-
     def get(self):
         """
         Get the result of the query. This could result in waiting for
         the db to finish using notifier.step().
         """
         if self._query.has_key('device'):
+
+            # TODO: return a mountpoint object for devices and maybe remove
+            # this function to let the client access the result directly
+            
             if self._result:
                 return self._result[0]
             else:

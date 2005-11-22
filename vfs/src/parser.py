@@ -122,7 +122,7 @@ def parse(db, item):
         db.update_object(item.dbid, **attributes)
         item.data.update(attributes)
     else:
-        # Create. Maybe the obejct is already in the db. This could happen because
+        # Create. Maybe the object is already in the db. This could happen because
         # of bad timing but should not matter. Only one entry will be there after
         # the next update
         db.add_object(type, name=item.basename, parent=item.parent.dbid, **attributes)
@@ -140,9 +140,6 @@ class Checker(object):
 
 
     def check(self):
-
-        # TODO: maybe put the checker itself into a thread. But if we do this,
-        # make sure we handle self.monitor correctly because this is a weakref
 
         if not self.items:
             self.db.commit()

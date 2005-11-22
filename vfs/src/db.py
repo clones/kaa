@@ -57,6 +57,12 @@ class Mountpoint(object):
     Internal class for mountpoints. More a list of attributes important
     for each mountpoint.
     """
+
+
+    # TODO: make this object visible to the client and add mount and umount
+    # functions to it. But we need different kinds of classes for client
+    # and server because the client needs to use ipc for the mounting.
+
     def __init__(self, device, directory):
         self.device = device
         self.directory = directory
@@ -281,27 +287,17 @@ class Database(object):
             files = []
             parent = dirname + '/'
 
+        # TODO: this could block for cdrom drives and network filesystems. Maybe
+        # put the listdir in a thread
         fs_listing = util.listdir(dirname, self.dbdir)
         need_commit = False
 
         items = []
         for f in files[:]:
-            # FIXME: for some very very strange reason this can take about
-            # 2 seconds for 700 files. I'm not sure why. Some files are
-            # processed and then python changes the thread to a new one. Only
-            # the main thread is running right now and this thread is polling
-            # using step() and step uses a select which should release the
-            # interpreter lock. But this does not happen, the main thread is
-            # doing _blocking_ selects (nothing to read) for up to 2 seconds
-            # and this thread can't do anything. Maybe using a thread for db
-            # access is not such a good thing afterall.
-            # Note: for some more stranger reason the problem starts the same
-            # moment when the client is sending the query to the server to do
-            # the same query.
-            #
-            # Test it with a large dir and by activating this following
-            # debug:
-            # print f['name']
+
+            # TODO; if the listdir would be sorted, this function can be made
+            # faster.
+            
             if f['name'] in fs_listing:
                 # file still there
                 fs_listing.remove(f['name'])
@@ -377,6 +373,11 @@ class Database(object):
         """
         device = kwargs['device']
         del kwargs['device']
+
+        # TODO: do not return a list of results, there is only one
+        # or None if nothing is in the drive. Maybe return a mountpoint
+        # object with functions to mount and umount
+        
         for m in self._mountpoints:
             if m.device == device:
                 id = m.id(self._db, self.read_only)
@@ -445,5 +446,9 @@ class Database(object):
         mtime are added by default.
         """
         kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
+        # TODO: mtime may not e needed for subitems like tracks
         kwargs['mtime'] = (int, ATTR_SIMPLE)
+        # TODO: add media to point to the media parent were the item is stored
+        # in to make it possible to query only in avaiable media entries
+        # (e.g. mounted discs, network filesystems online)
         return self._db.register_object_type_attrs(*args, **kwargs)

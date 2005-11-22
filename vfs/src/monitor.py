@@ -113,6 +113,9 @@ class Monitor(object):
 
         # TODO: we should also check the parent and the parent of the parent,
         # maybe a cover was added somewhere in the path.
+
+        # FIXME: this takes way to much time (see debug)
+
         t1 = time.time()
         for i in self.items:
             if not isinstance(i, item.Item):
@@ -124,8 +127,8 @@ class Monitor(object):
             if i.data['mtime'] == mtime:
                 continue
             to_check.append(weakref(i))
-        # FIXME: this takes way to much time
         print 'mtime query took', time.time() - t1
+
         if to_check:
             # FIXME: a constantly growing file like a recording will result in
             # a huge db activity on both client and server because checker calls

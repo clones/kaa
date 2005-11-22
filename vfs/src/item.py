@@ -129,6 +129,8 @@ class File(Item):
         return str + '>'
 
 
+# TODO: add media class or mountpoint
+
 def create(data, parent):
     """
     Create an Item object or an inherted class if possible.
