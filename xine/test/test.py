@@ -293,10 +293,10 @@ else:
 ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
 
-kaa.input.lirc.init()
-kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
-if "lirc" in kaa.signals:
-    kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
+# kaa.input.lirc.init()
+# kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
+# if "lirc" in kaa.signals:
+#     kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 if "aspect_changed" in win.signals:
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)

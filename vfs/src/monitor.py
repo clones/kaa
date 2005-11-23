@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------
 # monitor.py - Monitor for changes in the VFS
 # -----------------------------------------------------------------------------
-# $Id: device.py 799 2005-09-16 14:27:36Z rshortt $
+# $Id$
 #
 # TODO: handle all the FIXME and TODO comments inside this file and
 #       add docs for functions, variables and how to use this file

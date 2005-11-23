@@ -105,8 +105,8 @@ kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream,
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 
 # Enable remote control
-if kaa.input.lirc.init():
-    kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
+# if kaa.input.lirc.init():
+#     kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
 
 def handle_resize(old, new, window):
     window.show()
