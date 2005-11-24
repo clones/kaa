@@ -91,7 +91,7 @@ class Query(object):
         # to get possible updates.
         result = self._client.database.query(**self._query)
         log.info('check db results against current list of items')
-
+        
         if self._query.has_key('device'):
             self._result = result
             self.signals['changed'].emit()

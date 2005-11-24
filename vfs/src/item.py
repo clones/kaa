@@ -37,19 +37,14 @@ import os
 UNKNOWN = -1
 
 class Item(object):
-    def __init__(self, dbid, url, data, parent):
+    def __init__(self, dbid, url, data, parent, media):
         self.dbid = dbid
         self.url = url
         self.data = data
         self.parent = parent
         self.db = None
+        self.media = media
         
-        # TODO: remove this from Item, it only matters for
-        # Directory and File
-        self.dirname = ''
-        self.basename = ''
-        self.filename = ''
-
         # TODO: remove this
         self.isdir = False
 
@@ -82,19 +77,21 @@ class Directory(Item):
     """
     A directory based item.
     """
-    def __init__(self, dbid, dirname, basename, filename, url, data, parent):
-        Item.__init__(self, dbid, url, data, parent)
+    def __init__(self, dbid, dirname, basename, filename, url, data, parent,
+                 overlay, media):
+        Item.__init__(self, dbid, url, data, parent, media)
         self.dirname = dirname
         self.basename = basename
         self.filename = filename
         self.isdir = True
+        self.overlay = overlay
 
 
     def listdir(self):
         """
         List the directory. This returns a database object.
         """
-        if db:
+        if self.db:
             return self.db.query(dirname=self.filename)
         raise AttributeError('item has no db object')
 
@@ -112,11 +109,13 @@ class File(Item):
     """
     A file based item.
     """
-    def __init__(self, dbid, dirname, basename, filename, url, data, parent):
-        Item.__init__(self, dbid, url, data, parent)
+    def __init__(self, dbid, dirname, basename, filename, url, data, parent,
+                 overlay, media):
+        Item.__init__(self, dbid, url, data, parent, media)
         self.dirname = dirname
         self.basename = basename
         self.filename = filename
+        self.overlay = overlay
 
 
     def __str__(self):
@@ -131,52 +130,50 @@ class File(Item):
 
 # TODO: add media class or mountpoint
 
-def create(data, parent):
+def create(data, parent, media):
     """
     Create an Item object or an inherted class if possible.
     """
+
+    # FIXME: handle items not based on files here
+
+    if 0:
+        print 'create item for', data, parent, media
+        
     if isinstance(data, dict):
+        if parent == None:
+            # root fileystem for the media, always valid and in the db
+            dirname = media.directory
+            return Directory((data['type'], data['id']), dirname, '', dirname,
+                             'file:/%s/' % dirname, data, parent, False, media)
+    
+        # Data is based on a db entry. This means we also have
+        # a parent as db entry or None for the root dir on the media
         basename = data['name']
+        dirname = parent.filename
+        filename = dirname + basename
+        url = 'file://' + filename
         dbid = data['type'], data['id']
         type = data['type']
+        overlay = data['overlay']
     else:
-        basename = data
+        # Looks like data is string (url). This means no db entry, maybe the parent
+        # is also not set (client db read only). The media is always valid.
+        url = data
+        filename = data[7:]
+        basename = os.path.basename(filename)
+        dirname = os.path.dirname(filename) + '/'
         dbid = None
         data = { 'name': data, 'mtime': UNKNOWN }
         type = ''
-        
-    # check parent and if parent indicates a directory
-    dirname = ''
-    if parent:
-        if isinstance(parent, str):
-            if parent != '/':
-                dirname = parent
-                parent = None
-        else:
-            dirname = parent.filename
+        overlay = filename.startswith(media.overlay)
 
-    # Note: dirname always ends with a slash
-    # if the item is a dir, self.filename also ends with a slash
-    # self.url does not end with a slash (except root)
+    if 0:
+        print 'details', dirname, filename, basename, url
 
-    if dirname:
-        # we have a dirname, that indicates the item is either
-        # a Directory or a File
-        filename = dirname + basename
-        url = 'file://' + filename
-        if (type and type == 'dir') or os.path.isdir(filename):
-            # it is a directory
-            return Directory(dbid, dirname, basename, filename + '/',
-                             url, data, parent)
-        # it is a file
-        return File(dbid, dirname, basename, filename, url, data, parent)
-
-    if parent == '/':
-        return Directory(dbid, '/', '/', '/', 'file:///', data, parent)
-        
-    # TODO: handle files/parents not based on file
-
-    # TODO: we guess it is a root dir now
-
-    # it is something else
-    return Item(dbid, '', data, parent)
+    if (type and type == 'dir') or os.path.isdir(filename):
+        # it is a directory
+        return Directory(dbid, dirname, basename, filename + '/',
+                         url, data, parent, overlay, media)
+    # it is a file
+    return File(dbid, dirname, basename, filename, url, data, parent, overlay, media)

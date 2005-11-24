@@ -34,18 +34,21 @@
 
 import os
 
-def listdir(dirname, overlay, url=False, sort=False):
+def listdir(dirname, mountpoint):
 
-    # TODO: add OVERLAY_DIR support
     result = []
     try:
         for file in os.listdir(dirname):
             if not file.startswith('.'):
-                result.append(file)
+                result.append('file://%s/%s' % (dirname, file))
     except OSError:
         result = []
-    if url:
-        result = [ 'file://%s/%s' % (dirname, x) for x in result ]
-    if sort:
-        result.sort()
+    overlay = mountpoint.overlay + '/' + dirname[len(mountpoint.directory):]
+    try:
+        for file in os.listdir(overlay):
+            if not file.startswith('.') and not os.path.isdir(overlay +'/'+ file):
+                result.append('file://%s/%s' % (overlay, file))
+    except OSError:
+        pass
+    result.sort()
     return result

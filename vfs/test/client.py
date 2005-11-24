@@ -48,17 +48,23 @@ c = kaa.vfs.client.Client('vfsdb')
 c.add_mountpoint('/dev/cdrom', '/mnt/cdrom')
 c.add_mountpoint('/dev/dvd', '/mnt/dvd')
 
-if len(sys.argv) != 2 or sys.argv[1].find('=') <= 0:
+if len(sys.argv) < 2 or sys.argv[1].find('=') <= 0:
     print 'usage: client query'
     print 'e.g.   client directory=/home/dmeyer/video'
+    print '       client file=/path/to/file.mp3'
     print '       client device=/mnt/cdrom'
+    print '       client attr=album type=audio'
     sys.exit(0)
 
-type = sys.argv[1][:sys.argv[1].find('=')]
-args = sys.argv[1][sys.argv[1].find('=')+1:]
-
-t1 = time.time()
-q = eval('c.query(%s=\'%s\')' % (type, args))
+if sys.argv[1][:sys.argv[1].find('=')] == 'file':
+    t1 = time.time()
+    q = c.query(files=(sys.argv[1][sys.argv[1].find('=')+1:],))
+else:
+    query = {}
+    for attr in sys.argv[1:]:
+        query[attr[:attr.find('=')]]=attr[attr.find('=')+1:]
+    t1 = time.time()
+    q = c.query(**query)
 q.signals['changed'].connect(update, c, weakref(q))
 q.signals['progress'].connect(progress)
 t2 = time.time()

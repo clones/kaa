@@ -70,10 +70,13 @@ def get_mtime(item):
     # and the stat results somewhere, maybe already split by ext
     # But since this is done in background, this is not so
     # important right now.
+
+    # FIXME: add overlay support!!!
     if not hasattr(item.parent, '_os_listdir'):
         # FIXME: This is a bad hack, just testing!
         item.parent._os_listdir = os.listdir(item.parent.filename)
     files = map(lambda x: item.dirname + x, item.parent._os_listdir)
+    print item.dirname, "!!!", base, "!!!", files
     for f in filter(lambda x: x.startswith(base), files):
         mtime += os.stat(f)[stat.ST_MTIME]
     return mtime
@@ -125,7 +128,8 @@ def parse(db, item):
         # Create. Maybe the object is already in the db. This could happen because
         # of bad timing but should not matter. Only one entry will be there after
         # the next update
-        db.add_object(type, name=item.basename, parent=item.parent.dbid, **attributes)
+        db.add_object(type, name=item.basename, parent=item.parent.dbid,
+                      overlay=item.overlay, **attributes)
     return True
 
 

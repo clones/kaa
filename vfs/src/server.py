@@ -142,6 +142,13 @@ class Server(object):
         for device, directory, name in self._db.get_mountpoints():
             client.database.add_mountpoint(device, directory)
             client.database.set_mountpoint(directory, name)
+
+
+    def __del__(self):
+        """
+        Debug in __del__.
+        """
+        return 'del', self
             
         
 # internal list of server
@@ -152,7 +159,6 @@ def connect(dbdir):
     Connect to a server object. Each server object handles one db dir.
     Different clients can use the same server object.
     """
-    dbdir = os.path.normpath(os.path.abspath(dbdir))
     log.info('connect to %s' % dbdir)
 
     # TODO: delete databases not used anymore

@@ -56,6 +56,7 @@ class Client(object):
     the same machine doing the file scanning and changing of the db.
     """
     def __init__(self, db):
+        db = os.path.abspath(db)
         # monitor function from the server to start a new monitor for a query
         self._server = ipc.IPCClient('vfs').get_object('vfs')(db)
         self.monitor = self._server.monitor
@@ -80,10 +81,9 @@ class Client(object):
         """
         # make sure filename in a query are normalized
         if 'dirname' in query:
-            query['dirname'] = os.path.normpath(os.path.abspath(query['dirname']))
+            query['dirname'] = os.path.realpath(query['dirname'])
         if 'files' in query:
-            query['files'] = [ os.path.normpath(os.path.abspath(x)) \
-                               for x in query['files'] ]
+            query['files'] = [ os.path.realpath(x) for x in query['files'] ]
         # TODO: reuse Query with same 'query'
         result = Query(self, query)
         self._queries.append(weakref(result))
@@ -126,3 +126,10 @@ class Client(object):
         Convert object to string (usefull for debugging)
         """
         return '<vfs.Client>'
+
+
+    def __del__(self):
+        """
+        Debug in __del__.
+        """
+        return 'del', self

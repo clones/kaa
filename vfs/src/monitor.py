@@ -74,7 +74,11 @@ class Monitor(object):
             # TODO: use inotify for monitoring, this will also fix the
             # problem when files grow because they are copied right
             # now and the first time we had no real information
-            WeakTimer(self.check, self._query['dirname']).start(1)
+            dirname = self._query['dirname']
+            for m in self._db._mountpoints:
+                if dirname.startswith(m.directory):
+                    break
+            WeakTimer(self.check, dirname, m).start(1)
         if self._query.has_key('device'):
             # monitor a media
             # TODO: support other stuff except cdrom
@@ -82,11 +86,11 @@ class Monitor(object):
             cdrom.monitor(query['device'], weakref(self), db, self._server)
             
             
-    def check(self, dirname):
+    def check(self, dirname, mountpoint):
         if self._checker:
             # still checking
             return True
-        current = util.listdir(dirname, self._db.dbdir, url=True, sort=True)
+        current = util.listdir(dirname, mountpoint)
         if len(current) != len(self.items):
             OneShotTimer(self.update, True).start(0)
             return True
@@ -127,8 +131,7 @@ class Monitor(object):
             if i.data['mtime'] == mtime:
                 continue
             to_check.append(weakref(i))
-        print 'mtime query took', time.time() - t1
-
+        print 'mtime query took %s, %s items to check' % (time.time()-t1, len(to_check))
         if to_check:
             # FIXME: a constantly growing file like a recording will result in
             # a huge db activity on both client and server because checker calls

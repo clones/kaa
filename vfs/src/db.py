@@ -63,13 +63,15 @@ class Mountpoint(object):
     # functions to it. But we need different kinds of classes for client
     # and server because the client needs to use ipc for the mounting.
 
-    def __init__(self, device, directory, db, read_only):
+    def __init__(self, device, directory, vfsdir, db, read_only):
         self.device = device
         self.directory = directory
         self.name = None
         self.id = None
+        self.vfsdir = vfsdir
         self.db = db
         self.read_only = read_only
+        self.overlay = ''
 
 
     def load(self, name):
@@ -95,6 +97,12 @@ class Mountpoint(object):
                 self.db.add_object("dir", name="", parent=self.id)
             if not self.read_only:
                 self.db.commit()
+            if name:
+                self.overlay = os.path.join(self.vfsdir, name)
+                if not os.path.isdir(self.overlay):
+                    os.mkdir(self.overlay)
+            else:
+                self.overlay = ''
         return True
 
 
@@ -110,7 +118,7 @@ class Mountpoint(object):
         if media[0]['content'] == 'dir':
             # a simple data dir
             current = self.db.query(type="dir", name='', parent=self.id)[0]
-            return item.create(current, self.directory)
+            return item.create(current, None, self)
         # TODO: support other media
         return None
 
@@ -120,6 +128,10 @@ class Mountpoint(object):
         Convert object to string (usefull for debugging)
         """
         return '<vfs.Mountpoint for %s>' % self.directory
+
+
+    def __del__(self):
+        return 'del', self
 
 
 class Database(object):
@@ -153,14 +165,20 @@ class Database(object):
         # register basic types
         self._db.register_object_type_attrs("dir",
             name = (str, ATTR_KEYWORDS_FILENAME),
+            overlay = (bool, ATTR_SIMPLE),
+            media = (int, ATTR_SIMPLE),
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs("file",
             name = (str, ATTR_KEYWORDS_FILENAME),
+            overlay = (bool, ATTR_SIMPLE),
+            media = (int, ATTR_SIMPLE),
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs("media",
             name = (str, ATTR_KEYWORDS),
+            overlay = (bool, ATTR_SIMPLE),
+            media = (int, ATTR_SIMPLE),
             content = (str, ATTR_SIMPLE))
 
         # commit
@@ -174,7 +192,7 @@ class Database(object):
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
                 return False
-        mountpoint = Mountpoint(device, directory, self._db, self.read_only)
+        mountpoint = Mountpoint(device, directory, self.dbdir, self._db, self.read_only)
         self._mountpoints.append(mountpoint)
         self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
         return True
@@ -210,7 +228,7 @@ class Database(object):
         raise AttributeError(attr)
 
 
-    def _get_dir(self, dirname, media, root):
+    def _get_dir(self, dirname, media):
         """
         Get database entry for the given directory. Called recursive to
         find the current entry. Do not cache results, they could change.
@@ -218,18 +236,15 @@ class Database(object):
         if not media:
             # Unknown media and looks like we are read only.
             # Return None, if the media is not known, the dir also won't
-            log.info('no media set')
+            log.error('no media set, this should never happen')
             return None
-        if dirname == root:
+        if dirname == media.directory:
             # we know that '/' is in the db
-            current = self._db.query(type="dir", name='', parent=media)[0]
-            return item.create(current, root)
-        parent = self._get_dir(os.path.dirname(dirname), media, root)
-        if not parent:
+            current = self._db.query(type="dir", name='', parent=media.id)[0]
+            return item.create(current, None, media)
+        parent = self._get_dir(os.path.dirname(dirname), media)
+        if parent == None:
             return None
-
-        # TODO: handle dirs on romdrives which don't have '/'
-        # as basic parent
 
         name = os.path.basename(dirname)
         current = self._db.query(type="dir", name=name, parent=parent.dbid)
@@ -241,7 +256,7 @@ class Database(object):
             self._db.commit()
         else:
             current = current[0]
-        return item.create(current, parent)
+        return item.create(current, parent, media)
 
 
     def commit(self):
@@ -286,47 +301,46 @@ class Database(object):
         for m in self._mountpoints:
             if dirname.startswith(m.directory):
                 break
-        parent = self._get_dir(dirname, m.id, m.directory)
+        parent = self._get_dir(dirname, m)
+
         if parent:
-            files = self._db.query(parent = ("dir", parent["id"]))
+            items = [ item.create(f, parent, m) for f in \
+                      self._db.query(parent = ("dir", parent["id"])) ]
         else:
-            files = []
-            parent = dirname + '/'
+            items = []
+
+        items.sort(lambda x,y: cmp(x.url, y.url))
 
         # TODO: this could block for cdrom drives and network filesystems. Maybe
         # put the listdir in a thread
-        fs_listing = util.listdir(dirname, self.dbdir)
         need_commit = False
-
-        items = []
-        for f in files[:]:
-
-            # TODO; if the listdir would be sorted, this function can be made
-            # faster.
-            
-            if f['name'] in fs_listing:
-                # file still there
-                fs_listing.remove(f['name'])
-                items.append(item.create(f, parent))
-            else:
-                # file deleted
-                files.remove(f)
+        for pos, f in enumerate(util.listdir(dirname, m)):
+            if pos == len(items):
+                items.append(item.create(f, parent, m))
+                continue
+            while f > items[pos].url:
+                i = items[pos]
+                items.remove(i)
                 if not self.read_only:
                     # delete from database by adding it to the internal changes
                     # list. It will be deleted right before the next commit.
-                    self.changes.append((self._delete, [f], {}))
+                    self.changes.append((self._delete, [i], {}))
                     need_commit = True
+                # delete
+            if f == items[pos].url:
+                continue
+            items.insert(pos, item.create(f, parent, m))
 
-        for f in fs_listing:
-            # new files
-            items.append(item.create(f, parent))
+        if pos + 1 < len(items):
+            for i in items[pos+1-len(items):]:
+                self.changes.append((self._delete, [i], {}))
+            items = items[:pos+1-len(items)]
+            need_commit = True
 
         if need_commit:
             # need commit because some items were deleted from the db
             self.commit()
 
-        # sort result
-        items.sort(lambda x,y: cmp(x.url, y.url))
         return items
 
 
@@ -337,6 +351,7 @@ class Database(object):
         """
         files = kwargs['files']
         del kwargs['files']
+
         items = []
         for f in files:
             dirname = os.path.dirname(f)
@@ -346,17 +361,16 @@ class Database(object):
             for m in self._mountpoints:
                 if dirname.startswith(m.directory):
                     break
-            parent = self._get_dir(dirname, m.id, m.directory)
+            parent = self._get_dir(dirname, m)
             if parent:
                 dbentry = self._db.query(parent = parent.dbid, name=basename)
                 if not dbentry:
-                    dbentry = basename
+                    dbentry = 'file://' + f
                 else:
                     dbentry = dbentry[0]
             else:
-                parent = dirname
                 dbentry = basename
-            items.append(item.create(dbentry, parent))
+            items.append(item.create(dbentry, parent, m))
         return items
 
 
@@ -431,6 +445,8 @@ class Database(object):
         kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
         # TODO: mtime may not e needed for subitems like tracks
         kwargs['mtime'] = (int, ATTR_SIMPLE)
+        kwargs['overlay'] = (bool, ATTR_SIMPLE)
+        kwargs['media'] = (int, ATTR_SIMPLE)
         # TODO: add media to point to the media parent were the item is stored
         # in to make it possible to query only in avaiable media entries
         # (e.g. mounted discs, network filesystems online)
