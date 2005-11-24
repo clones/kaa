@@ -29,7 +29,8 @@ def update(client, query):
         for item in q.get():
             print item
     else:
-        print 'Disc', result
+        print 'Disc', result, result.item()
+        result = result.item()
         if result and result.filename:
             # it is a disc, scan dir (hope it's mounted)
             print 'files on disc (needs to be mounted manually):'

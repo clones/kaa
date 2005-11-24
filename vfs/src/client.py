@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------
 # client.py - Client interface for the VFS
 # -----------------------------------------------------------------------------
-# $Id:$
+# $Id$
 #
 # This is the client interface to the vfs. The server needs to be running.
 # To use the server a Client object must be created. Once created, it is
@@ -60,8 +60,7 @@ class Client(object):
         self._server = ipc.IPCClient('vfs').get_object('vfs')(db)
         self.monitor = self._server.monitor
         # read only version of the database
-        self.database = Database(db)
-        self.database.read_only = True
+        self.database = Database(db, True)
         # connect to server notifications
         self._server.connect(self)
         # internal list of active queries

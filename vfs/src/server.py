@@ -57,7 +57,7 @@ class Server(object):
     scanning / monitoring of queries.
     """
     def __init__(self, dbdir):
-        self._db = Database(dbdir)
+        self._db = Database(dbdir, False)
 
         self.register_object_type_attrs("video",
             title = (unicode, ATTR_KEYWORDS),

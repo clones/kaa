@@ -63,50 +63,56 @@ class Mountpoint(object):
     # functions to it. But we need different kinds of classes for client
     # and server because the client needs to use ipc for the mounting.
 
-    def __init__(self, device, directory):
+    def __init__(self, device, directory, db, read_only):
         self.device = device
         self.directory = directory
         self.name = None
-        self._id = None
+        self.id = None
+        self.db = db
+        self.read_only = read_only
 
 
-    def set_name(self, name):
+    def load(self, name):
         """
         Set name of the mountpoint (== load new media)
         """
         if name == self.name:
             return False
         self.name = name
-        self._id = None
+        self.id = None
+        # get the db id
+        if self.name != None:
+            media = self.db.query(type="media", name=self.name)
+            if media:
+                # known, set internal id and return it
+                self.id = ('media', media[0]['id'])
+            elif not self.read_only:
+                # create media entry and root filesystem
+                log.info('create root filesystem for %s' % self.name)
+                self.id = ('media', self.db.add_object("media", name=self.name)['id'])
+            if not self.db.query(type='dir', name='', parent=self.id) and \
+                   not self.read_only:
+                self.db.add_object("dir", name="", parent=self.id)
+            if not self.read_only:
+                self.db.commit()
         return True
 
 
-    def id(self, db, read_only):
+    def item(self):
         """
         Get the id of the mountpoint. This functions needs the database
         and _must_ be called from the same thread as the db itself.
+        Return the root item for the mountpoint.
         """
-        if self._id:
-            # id already known
-            return self._id
-        if self.name == None:
-            # no disc
-            return self._id
-        media = db.query(type="media", name=self.name)
-        if not media and read_only:
-            # not known but we are not allowed to write the db
-            return None
-        if media:
-            # known, set internal id and return it
-            self._id = ('media', media[0]['id'])
-        else:
-            # create media entry and root filesystem
-            log.info('create root filesystem for %s' % self.name)
-            self._id = ('media', db.add_object("media", name=self.name)['id'])
-        if not db.query(type='dir', name='', parent=self._id) and not read_only:
-            db.add_object("dir", name="", parent=self._id)
-        db.commit()
-        return self._id
+        if not self.id:
+             return None
+        media = self.db.query(type='media', id=self.id[1])
+        if media[0]['content'] == 'dir':
+            # a simple data dir
+            current = self.db.query(type="dir", name='', parent=self.id)[0]
+            return item.create(current, self.directory)
+        # TODO: support other media
+        return None
 
         
     def __str__(self):
@@ -121,7 +127,7 @@ class Database(object):
     A kaa.db based database.
     """
 
-    def __init__(self, dbdir):
+    def __init__(self, dbdir, read_only):
         """
         Init function
         """
@@ -130,7 +136,7 @@ class Database(object):
         self.dbdir = dbdir
 
         # flag if the db should be read only
-        self.read_only = False
+        self.read_only = read_only
 
         # handle changes in a list and add them to the database
         # on commit.
@@ -168,7 +174,7 @@ class Database(object):
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
                 return False
-        mountpoint = Mountpoint(device, directory)
+        mountpoint = Mountpoint(device, directory, self._db, self.read_only)
         self._mountpoints.append(mountpoint)
         self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
         return True
@@ -189,7 +195,7 @@ class Database(object):
         """
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
-                return mountpoint.set_name(name)
+                return mountpoint.load(name)
         else:
             raise AttributeError('unknown mountpoint')
 
@@ -280,7 +286,7 @@ class Database(object):
         for m in self._mountpoints:
             if dirname.startswith(m.directory):
                 break
-        parent = self._get_dir(dirname, m.id(self._db, self.read_only), m.directory)
+        parent = self._get_dir(dirname, m.id, m.directory)
         if parent:
             files = self._db.query(parent = ("dir", parent["id"]))
         else:
@@ -340,7 +346,7 @@ class Database(object):
             for m in self._mountpoints:
                 if dirname.startswith(m.directory):
                     break
-            parent = self._get_dir(dirname, m.id(self._db, self.read_only), m.directory)
+            parent = self._get_dir(dirname, m.id, m.directory)
             if parent:
                 dbentry = self._db.query(parent = parent.dbid, name=basename)
                 if not dbentry:
@@ -366,34 +372,6 @@ class Database(object):
         return [ x[1] for x in self._db.query_raw(**kwargs)[1] if x[1] ]
 
 
-    def _query_device(self, *args, **kwargs):
-        """
-        A query to monitor a media (mountpoint). Special keyword 'media' in
-        the query is used for that.
-        """
-        device = kwargs['device']
-        del kwargs['device']
-
-        # TODO: do not return a list of results, there is only one
-        # or None if nothing is in the drive. Maybe return a mountpoint
-        # object with functions to mount and umount
-        
-        for m in self._mountpoints:
-            if m.device == device:
-                id = m.id(self._db, self.read_only)
-                if not id:
-                    # TODO: maybe always return one item with the result
-                    return [ ]
-                media = self._db.query(type='media', id=id[1])
-                if media[0]['content'] == 'dir':
-                    # a simple data dir
-                    return [ self._get_dir(m.directory, id, m.directory) ]
-                # TODO: support other media
-                return [ ]
-        # TODO: raise an exception
-        return []
-
-    
     def query(self, *args, **kwargs):
         """
         Internal query function inside the thread. This function will use the
@@ -406,7 +384,12 @@ class Database(object):
         if 'attr' in kwargs:
             return self._query_attr(*args, **kwargs)
         if 'device' in kwargs:
-            return self._query_device(*args, **kwargs)
+            # A query to monitor a media (mountpoint). Special keyword 'media' in
+            # the query is used for that.
+            for m in self._mountpoints:
+                if m.device == kwargs['device']:
+                    return m
+            raise AttributeError('Unknown device' % kwargs['device'])
         return self._db.query(*args, **kwargs)
 
 

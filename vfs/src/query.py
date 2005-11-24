@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------
 # query.py - Query class for the client
 # -----------------------------------------------------------------------------
-# $Id:$
+# $Id$
 #
 # -----------------------------------------------------------------------------
 # kaa-vfs - A virtual filesystem with metadata
@@ -61,18 +61,10 @@ class Query(object):
 
     def get(self):
         """
-        Get the result of the query. This could result in waiting for
-        the db to finish using notifier.step().
+        Get the result of the query.
         """
         if self._query.has_key('device'):
-
-            # TODO: return a mountpoint object for devices and maybe remove
-            # this function to let the client access the result directly
-            
-            if self._result:
-                return self._result[0]
-            else:
-                return None
+            return self._result
         return self._result[:]
 
 
@@ -100,6 +92,11 @@ class Query(object):
         result = self._client.database.query(**self._query)
         log.info('check db results against current list of items')
 
+        if self._query.has_key('device'):
+            self._result = result
+            self.signals['changed'].emit()
+            return
+        
         changed = False
         if not result or not hasattr(result[0], 'url'):
             # normal string results
