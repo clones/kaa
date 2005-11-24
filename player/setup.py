@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# setup.py - Setup script for kaa.mplayer
+# setup.py - Setup script for kaa.player
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-mplayer - MPlayer wrapper
+# kaa-player - Wrapper for media players include Xine and MPlayer
 # Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
@@ -37,4 +37,4 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-setup(module = 'mplayer', version = '0.1')
+setup(module = 'player', version = '0.1')
