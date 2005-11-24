@@ -275,7 +275,7 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
         Py_DECREF(py_ud);
     }
 
-    *(kaa_visual_t **)visual_return = malloc(sizeof(vis));
+    *visual_return = malloc(sizeof(vis));
     memcpy(*visual_return, &vis, sizeof(vis));
     *driver_info_return = (driver_info_common *)user_data;
     return 1;

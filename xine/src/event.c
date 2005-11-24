@@ -32,6 +32,7 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
     o->type = PyInt_FromLong(event->type);
     o->xine = xine;
     o->do_dispose = do_dispose;
+    o->owner = owner;
     Py_INCREF(o->xine);
 
     switch (event->type) {

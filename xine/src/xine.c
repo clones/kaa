@@ -185,7 +185,8 @@ Xine_PyObject_load_video_output_plugin(Xine_PyObject *self, PyObject *args, PyOb
     }
     if (visual)
         free(visual);
-    driver_info->driver = vo_driver;
+    if (driver_info)
+        driver_info->driver = vo_driver;
 
     vo_driver_pyobject = pyxine_new_vo_driver_pyobject(self, self->xine, vo_driver, 1);
     vo_driver_pyobject->driver_info = driver_info;

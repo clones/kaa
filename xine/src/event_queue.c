@@ -57,6 +57,7 @@ pyxine_new_event_queue_pyobject(Xine_PyObject *xine, void *owner, xine_event_que
     o->queue = queue;
     o->do_dispose = do_dispose;
     o->xine = xine;
+    o->owner = owner;
     Py_INCREF(o->xine);
 
     //xine_event_create_listener_thread(queue, _xine_event_queue_listener_callback, o->event_callback_data);

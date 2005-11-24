@@ -729,7 +729,7 @@ class Event(Wrapper):
             return object.__getattr__(self, attr)
 
     def get_stream(self):
-        return _wrap_xine_object(self._obj.get_owner().owner)
+        return _wrap_xine_object(self._obj.get_owner().get_owner())
 
     def get_queue(self):
         return _wrap_xine_object(self._obj.get_owner())
