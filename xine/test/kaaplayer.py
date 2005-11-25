@@ -9,8 +9,7 @@ if len(sys.argv) <= 1:
     print "Usage: %s [mrl]" % sys.argv[0]
     sys.exit(1)
 
-# Make argment into mrl if not already
-mrl = xine.make_mrl(sys.argv[1])
+play_files = sys.argv[1:]
 
 def say(line):
     if line[0] != "\n":
@@ -43,14 +42,21 @@ def handle_keypress_event(key, stream, window):
     elif key == "[":
         stream.send_event(xine.EVENT_INPUT_PREVIOUS)
     elif key == "d":
-        enabled = stream.deint_post.get_parameters()["enabled"]
-        stream.deint_post.set_parameters(enabled = not enabled)
+        enabled = deint_post.get_parameters()["enabled"]
+        deint_post.set_parameters(enabled = not enabled)
         if enabled:
             say("\nDeinterlacing OFF\n")
         else:
             say("\nDeinterlacing ON\n")
+    elif key == "t":
+        pulldown = 1 - deint_post.get_parameters()["pulldown"]
+        deint_post.set_parameters(pulldown = pulldown)
+        if pulldown:
+            say("\nPulldown OFF\n")
+        else:
+            say("\nPulldown ON\n")
 
-    if title == 0 or stream.is_in_menu:
+    if stream.is_in_menu:
         d = { "up": xine.EVENT_INPUT_UP, "down": xine.EVENT_INPUT_DOWN,
               "left": xine.EVENT_INPUT_LEFT, "right": xine.EVENT_INPUT_RIGHT,
               "enter": xine.EVENT_INPUT_SELECT, "space": xine.EVENT_INPUT_SELECT }
@@ -70,7 +76,38 @@ def handle_keypress_event(key, stream, window):
         else:
             stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_PAUSE)
             say("\n ==== PAUSE ====\n")
-        
+
+    if key == "n":
+        play_next_queued()
+
+
+def play_next_queued():
+    global goom_post, play_files, stream
+
+    if len(play_files) == 0:
+        sys.exit(0)
+
+    stream.stop()
+    file = play_files.pop(0)
+    # Make argment into mrl if not already
+    mrl = xine.make_mrl(file)
+    stream.open(mrl)
+
+    if not stream.get_info(xine.STREAM_INFO_HAS_VIDEO):
+        if not goom_post:
+            goom_post = x.post_init("goom", video_targets = [vo], audio_targets=[ao])
+            if "volnorm" in x.list_post_plugins():
+                volnorm_post = x.post_init("volnorm", audio_targets=[ao])
+                goom_post.get_output("audio out").wire(volnorm_post.get_default_input())
+        stream.get_audio_source().wire(goom_post.get_default_input())
+    else:
+        stream.get_audio_source().wire(ao)
+        goom_post = None
+
+    stream.play()
+    xine._debug_show_chain(stream._obj)
+    gc.collect()
+
 
 def handle_xine_event(event):
     stream = event.get_stream()
@@ -80,6 +117,18 @@ def handle_xine_event(event):
         say("New title: %s\n" % event.data["str"])
     elif event.type == xine.EVENT_UI_NUM_BUTTONS:
         stream.is_in_menu = event.data["num_buttons"] > 0
+    elif event.type == xine.EVENT_UI_PLAYBACK_FINISHED:
+        play_next_queued()
+
+
+def seconds_to_human_readable(secs):
+    hrs = secs / 3600
+    mins = (secs % 3600) / 60
+    secs = (secs % 3600 % 60)
+    if hrs:
+        return "%02d:%02d:%02d" % (hrs, mins, secs)
+    else:
+        return "%02d:%02d" % (mins, secs)
 
 
 def output_status_line(stream, window):
@@ -90,7 +139,9 @@ def output_status_line(stream, window):
         percent = (time/length)*100
     else:
         percent = 0
-    say("Position: %.1f / %.1f (%.1f%%)" % (time, length, percent))
+    time = seconds_to_human_readable(time)
+    length = seconds_to_human_readable(length)
+    say("Position: %s / %s (%.1f%%)" % (time, length, percent))
 
 
 win = display.X11Window(size = (50, 50), title = "Kaa Player")
@@ -113,8 +164,8 @@ kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream,
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 
 # Enable remote control
-# if kaa.input.lirc.init():
-#     kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
+if kaa.input.lirc.init():
+    kaa.signals["lirc"].connect_weak(handle_lirc_event, stream, win)
 
 def handle_resize(old, new, window):
     window.show()
@@ -124,28 +175,29 @@ def handle_resize(old, new, window):
 # to the proper movie size.
 win.signals["resize_event"].connect_once(handle_resize, win)
 
-stream.deint_post = x.post_init("tvtime", video_targets = [vo])
-stream.deint_post.set_parameters(method = "GreedyH", enabled = True)
-stream.get_video_source().wire(stream.deint_post.get_default_input())
-
-#stream.deint_post.set_parameters(cheap_mode = True)
-#stream.deint_post.set_parameters(framerate_mode = "half_top")
+deint_post = x.post_init("tvtime", video_targets = [vo])
+deint_post.set_parameters(method = "GreedyH", enabled = True)
+#print deint_post.get_parameters_desc()
+#print deint_post.get_parameters()
+stream.get_video_source().wire(deint_post.get_default_input())
+#deint_post.set_parameters(cheap_mode = True)
+#deint_post.set_parameters(framerate_mode = "half_top")
 
 #expand = x.post_init("expand", video_targets = [vo])
 #stream.get_video_source().wire(expand.get_default_input())
 
-xine._debug_show_chain(stream._obj)
+#x.set_config_value("effects.goom.fps", 20)
+x.set_config_value("effects.goom.width", 512)
+x.set_config_value("effects.goom.height", 384)
+x.set_config_value("effects.goom.csc_method", "Slow but looks better")
 
-stream.open(mrl)
-stream.play()
+goom_post = None
 
-if not stream.get_info(xine.STREAM_INFO_HAS_VIDEO):
-    goom = x.post_init("goom", video_targets = [vo], audio_targets=[ao])
-    stream.get_audio_source().wire(goom.get_default_input())
+play_next_queued()
 
 kaa.main()
 win.hide()
 
 # Test garbage collection
-del stream, ao, vo, x, win
+del stream, ao, vo, x, win, goom_post, deint_post
 gc.collect()
