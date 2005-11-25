@@ -13,7 +13,7 @@ typedef struct {
 
     Xine_PyObject *xine;
     xine_video_port_t *vo;
-    void *owner; // PostIn, PostOut, Xine, or Stream
+    PyObject *owner; // PostIn, PostOut, Xine, or Stream
     int do_dispose;
 
     PyObject *driver, // VODriver or None

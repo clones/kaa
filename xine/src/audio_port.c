@@ -38,31 +38,30 @@ pyxine_new_audio_port_pyobject(Xine_PyObject *xine, void *owner, xine_audio_port
 
     o->ao = ao;
     o->do_dispose = do_dispose;
-    o->owner = owner;
+    o->owner = owner_pyobject;
     o->xine = xine;
     Py_INCREF(o->xine);
+    Py_INCREF(o->owner);
 
     xine_object_to_pyobject_register(ao, (PyObject *)o);
     return o;
 }
 
-/*
+
 static int
 Xine_Audio_Port_PyObject__clear(Xine_Audio_Port_PyObject *self)
 {
-    PyObject **list[] = {&self->wire_list, &self->owner_pyobject, NULL};
-    printf("AUDIO PORT: clear\n");
+    PyObject **list[] = {&self->owner, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
 static int
 Xine_Audio_Port_PyObject__traverse(Xine_Audio_Port_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->wire_list, &self->owner_pyobject, NULL};
-    printf("AUDIO PORT: traverse\n");
+    PyObject **list[] = {&self->owner, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
-*/
+
 
 PyObject *
 Xine_Audio_Port_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
@@ -106,9 +105,10 @@ Xine_Audio_Port_PyObject__dealloc(Xine_Audio_Port_PyObject *self)
         Py_END_ALLOW_THREADS
     }
     Py_DECREF(self->wrapper);
+    //Py_DECREF(self->owner);
     Py_DECREF(self->wire_list);
     Py_DECREF(self->xine);
-    //Xine_Audio_Port_PyObject__clear(self);
+    Xine_Audio_Port_PyObject__clear(self);
     //Py_DECREF(self->owner_pyobject);
     xine_object_to_pyobject_unregister(self->ao);
     self->ob_type->tp_free((PyObject*)self);
@@ -117,11 +117,8 @@ Xine_Audio_Port_PyObject__dealloc(Xine_Audio_Port_PyObject *self)
 PyObject *
 Xine_Audio_Port_PyObject_get_owner(Xine_Audio_Port_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    PyObject *owner = xine_object_to_pyobject_find(self->owner);
-    if (!owner)
-        owner = Py_None;
-    Py_INCREF(owner);
-    return owner;
+    Py_INCREF(self->owner);
+    return self->owner;
 }
 
 
@@ -152,10 +149,10 @@ PyTypeObject Xine_Audio_Port_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
     "Xine Audio Port Object",               /* tp_doc */
-    0, //(traverseproc)Xine_Audio_Port_PyObject__traverse,   /* tp_traverse */
-    0, //(inquiry)Xine_Audio_Port_PyObject__clear,           /* tp_clear */
+    (traverseproc)Xine_Audio_Port_PyObject__traverse,   /* tp_traverse */
+    (inquiry)Xine_Audio_Port_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

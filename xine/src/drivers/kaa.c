@@ -5,6 +5,7 @@ typedef struct _kaa_vo_user_data {
     driver_info_common common;
     PyObject *send_frame_cb, *osd_configure_cb,
              *passthrough_pyobject;
+    void *passthrough_visual;
 } kaa_vo_user_data;
 
 
@@ -161,6 +162,8 @@ kaa_driver_dealloc(void *data)
     if (user_data->passthrough_pyobject) {
         Py_DECREF(user_data->passthrough_pyobject);
     }
+    if (user_data->passthrough_visual)
+        free(user_data->passthrough_visual);
 
     PyGILState_Release(gstate);
     free(user_data);
@@ -190,10 +193,10 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
                                 &passthrough_visual, &passthrough_driver_info))
         return 0;
 
+
+
     passthrough_driver = _x_load_video_output_plugin(xine->xine, PyString_AsString(passthrough), 
                                                      passthrough_visual_type, passthrough_visual);
-    if (passthrough_visual)
-        free(passthrough_visual);
     passthrough_driver_info->driver = passthrough_driver;
 
     if (!passthrough_driver) {
@@ -204,11 +207,9 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
     memset(&vis, 0, sizeof(vis));
     vis.send_frame_cb           = send_frame_cb;
     vis.osd_configure_cb        = osd_configure_cb;
-    /*
     vis.passthrough_driver      = PyString_AsString(passthrough);
     vis.passthrough_visual_type = passthrough_visual_type;
     vis.passthrough_visual      = passthrough_visual;
-    */
     vis.passthrough             = passthrough_driver;
 
     if (PyMapping_HasKeyString(kwargs, "osd_buffer")) {
@@ -262,6 +263,7 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
     user_data->send_frame_cb        = send_frame_cb_pyobject;
     user_data->osd_configure_cb     = osd_configure_cb_pyobject;
     user_data->common.dealloc_cb    = kaa_driver_dealloc;
+    user_data->passthrough_visual   = passthrough_visual;
 
     vis.send_frame_cb_data    = user_data;
     vis.osd_configure_cb_data = user_data;

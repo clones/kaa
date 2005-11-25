@@ -12,7 +12,7 @@ typedef struct {
 
     Xine_PyObject *xine;
     xine_audio_port_t *ao;
-    void *owner;  // Post object or Xine object
+    PyObject *owner;  // Post In, Post Out, Xine, or Stream
     int do_dispose;
 
     PyObject *wrapper,

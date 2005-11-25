@@ -37,23 +37,22 @@ pyxine_new_video_port_pyobject(Xine_PyObject *xine, void *owner, xine_video_port
 
     o->vo = vo;
     o->do_dispose = do_dispose;
-    o->owner = owner;
+    o->owner = owner_pyobject;
     o->xine = xine;
     o->driver = driver ? driver : Py_None;;
     Py_INCREF(o->xine);
     Py_INCREF(o->driver);
+    Py_INCREF(o->owner);
 
     xine_object_to_pyobject_register(vo, (PyObject *)o);
     return o;
 }
 
 
-/*
 static int
 Xine_Video_Port_PyObject__clear(Xine_Video_Port_PyObject * self)
 {
-    PyObject **list[] = {&self->wire_list, &self->owner_pyobject, NULL};
-    printf("VIDEO PORT: clear\n");
+    PyObject **list[] = {&self->owner, NULL};
     return pyxine_gc_helper_clear(list);
 }
 
@@ -61,11 +60,9 @@ static int
 Xine_Video_Port_PyObject__traverse(Xine_Video_Port_PyObject * self,
                                    visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->wire_list, &self->driver, &self->owner_pyobject, NULL};
-    printf("VIDEO PORT: traverse\n");
+    PyObject **list[] = {&self->owner, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
-*/
 
 PyObject *
 Xine_Video_Port_PyObject__new(PyTypeObject * type, PyObject * args,
@@ -119,7 +116,7 @@ Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
     Py_DECREF(self->wrapper);
     Py_DECREF(self->wire_list);
     Py_DECREF(self->xine);
-    //Xine_Video_Port_PyObject__clear(self);
+    Xine_Video_Port_PyObject__clear(self);
 
     xine_object_to_pyobject_unregister(self->vo);
 
@@ -129,11 +126,8 @@ Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
 PyObject *
 Xine_Video_Port_PyObject_get_owner(Xine_Video_Port_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    PyObject *owner = xine_object_to_pyobject_find(self->owner);
-    if (!owner)
-        owner = Py_None;
-    Py_INCREF(owner);
-    return owner;
+    Py_INCREF(self->owner);
+    return self->owner;
 }
 
 PyObject *
@@ -176,10 +170,10 @@ PyTypeObject Xine_Video_Port_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
     "Xine Video Port Object",               /* tp_doc */
-    0, //(traverseproc)Xine_Video_Port_PyObject__traverse,   /* tp_traverse */
-    0, //(inquiry)Xine_Video_Port_PyObject__clear,           /* tp_clear */
+    (traverseproc)Xine_Video_Port_PyObject__traverse,   /* tp_traverse */
+    (inquiry)Xine_Video_Port_PyObject__clear,           /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

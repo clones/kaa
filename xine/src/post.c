@@ -102,7 +102,7 @@ static PyMemberDef Xine_Post_PyObject_members[] = {
 void
 Xine_Post_PyObject__dealloc(Xine_Post_PyObject *self)
 {
-    printf("DEalloc Post: %p (%d)\n", self->post, self->do_dispose);
+    printf("DEalloc Post: py=%p xine=%p (%d)\n", self, self->post, self->do_dispose);
     if (self->post && self->do_dispose) {
         // bug in xine: http://sourceforge.net/mailarchive/forum.php?thread_id=7753300&forum_id=7131
         xine_post_dispose(self->xine->xine, self->post);

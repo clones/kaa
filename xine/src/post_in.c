@@ -63,7 +63,7 @@ pyxine_new_post_in_pyobject(Xine_PyObject *xine, void *owner, xine_post_in_t *po
 static int
 Xine_Post_In_PyObject__clear(Xine_Post_In_PyObject *self)
 {
-    PyObject **list[] = {&self->post, NULL};
+    PyObject **list[] = {&self->post, &self->port, NULL};
     return pyxine_gc_helper_clear(list);
 
 }
@@ -71,7 +71,7 @@ Xine_Post_In_PyObject__clear(Xine_Post_In_PyObject *self)
 static int
 Xine_Post_In_PyObject__traverse(Xine_Post_In_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->post, NULL};
+    PyObject **list[] = {&self->post, &self->port, NULL};
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -116,7 +116,7 @@ Xine_Post_In_PyObject__dealloc(Xine_Post_In_PyObject *self)
     if (self->post_in && self->do_dispose) {
     }
     Xine_Post_In_PyObject__clear(self);
-    Py_DECREF(self->port);
+    //Py_DECREF(self->port);
     Py_DECREF(self->wrapper);
     //Py_DECREF(self->post);
     Py_DECREF(self->xine);

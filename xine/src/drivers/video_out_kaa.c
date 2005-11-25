@@ -1164,6 +1164,7 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->vo_driver.dispose                 = kaa_dispose;
     this->vo_driver.redraw_needed           = kaa_redraw_needed;
 
+    //this->passthrough           = passthrough;
     this->passthrough           = visual->passthrough;
     this->send_frame_cb         = visual->send_frame_cb;
     this->send_frame_cb_data    = visual->send_frame_cb_data;

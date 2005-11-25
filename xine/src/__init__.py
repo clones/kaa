@@ -46,11 +46,33 @@ from constants import *
 # 
 #         - and same above for AudioPort
 #
-# Reference chain looks like:
-# Xine <- Stream -> stream post out (get_port) -> port (get_owner) -> Post in (get_owner) <===>  (cycle!)
-#      Post (get_output) -> Post out (get_port) -> port [-> ... ]
+# Reference chain looks like this:
 #
-# Objects should dealloc starting with Stream.  PostIn and Post needs gc support.
+#                              
+#                   -> Post Out (Audio source) --> (same as video source)
+#                  / 
+#    Xine <- Stream 
+#                  \
+#                   > Post Out (Video source)
+#                        |
+#                        +-> Video <==> Post In
+#                            Port         ||
+#                                         +> Post -> Post Out
+#                                                     |
+#                                                     -> Video Port [<==> ...]
+#
+# Where:
+#    A -> B    means  A holds a reference to B (and therefore B will not be
+#                     dealloc'd before A)
+#    A <==> B  means  A holds a ref to B, and B holds a ref to A (cycle),
+#                     so GC support is needed in both A and B.  Dealloc order
+#                     non-deterministic.
+#
+# All objects also hold a reference to Xine object (not diagrammed for 
+# simplicity).
+#
+# Objects should dealloc starting with Stream.  (Audio|Video)Port, PostIn 
+# and Post need gc support.
 # 
 
 XineError = _xine.XineError
@@ -292,6 +314,8 @@ class Xine(Wrapper):
         assert(type(video_targets) in (list, tuple))
         ao = []
         for item in audio_targets:
+            if type(item) == PostIn:
+                item = item.get_port()
             assert(type(item) == AudioPort)
             ao.append(item._obj)
         vo = []
@@ -408,8 +432,8 @@ class VideoPort(Wrapper):
     def _get_wire_list(self):
         l = []
         for ptr in self._obj.wire_list:
-            #l.append(_xine.get_object_by_id(ptr))
-            l.append(_wrap_xine_object(_xine.get_object_by_id(ptr)))
+            l.append(_xine.get_object_by_id(ptr))
+            #l.append(_wrap_xine_object(_xine.get_object_by_id(ptr)))
         return l
 
 class AudioPort(Wrapper):
@@ -420,6 +444,12 @@ class AudioPort(Wrapper):
         # Can be Xine, Post, or Stream object
         return _wrap_xine_object(self._obj.get_owner())
 
+    def _get_wire_list(self):
+        l = []
+        for ptr in self._obj.wire_list:
+            l.append(_xine.get_object_by_id(ptr))
+            #l.append(_wrap_xine_object(_xine.get_object_by_id(ptr)))
+        return l
 
 class Stream(Wrapper):
     def __init__(self, obj):
