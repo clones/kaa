@@ -44,11 +44,6 @@ class Item(object):
         self.parent = parent
         self.db = None
         self.media = media
-        
-        # TODO: remove this
-        self.isdir = False
-
-        # TODO: make it possible to change an item in the client
 
 
     def __str__(self):
@@ -77,10 +72,9 @@ class Directory(Item):
     """
     A directory based item.
     """
-    def __init__(self, dbid, dirname, basename, filename, url, data, parent,
+    def __init__(self, dbid, basename, filename, url, data, parent,
                  overlay, media):
         Item.__init__(self, dbid, url, data, parent, media)
-        self.dirname = dirname
         self.basename = basename
         self.filename = filename
         self.isdir = True
@@ -109,13 +103,13 @@ class File(Item):
     """
     A file based item.
     """
-    def __init__(self, dbid, dirname, basename, filename, url, data, parent,
+    def __init__(self, dbid, basename, filename, url, data, parent,
                  overlay, media):
         Item.__init__(self, dbid, url, data, parent, media)
-        self.dirname = dirname
         self.basename = basename
         self.filename = filename
         self.overlay = overlay
+        self.isdir = False
 
 
     def __str__(self):
@@ -137,21 +131,17 @@ def create(data, parent, media):
 
     # FIXME: handle items not based on files here
 
-    if 0:
-        print 'create item for', data, parent, media
-        
     if isinstance(data, dict):
         if parent == None:
             # root fileystem for the media, always valid and in the db
             dirname = media.directory
-            return Directory((data['type'], data['id']), dirname, '', dirname,
+            return Directory((data['type'], data['id']), '', dirname,
                              'file:/%s/' % dirname, data, parent, False, media)
     
         # Data is based on a db entry. This means we also have
         # a parent as db entry or None for the root dir on the media
         basename = data['name']
-        dirname = parent.filename
-        filename = dirname + basename
+        filename = parent.filename + basename
         url = 'file://' + filename
         dbid = data['type'], data['id']
         type = data['type']
@@ -162,18 +152,14 @@ def create(data, parent, media):
         url = data
         filename = data[7:]
         basename = os.path.basename(filename)
-        dirname = os.path.dirname(filename) + '/'
         dbid = None
         data = { 'name': data, 'mtime': UNKNOWN }
         type = ''
         overlay = filename.startswith(media.overlay)
 
-    if 0:
-        print 'details', dirname, filename, basename, url
-
-    if (type and type == 'dir') or os.path.isdir(filename):
+    if type == 'dir' or (not type and os.path.isdir(filename)):
         # it is a directory
-        return Directory(dbid, dirname, basename, filename + '/',
+        return Directory(dbid, basename, filename + '/',
                          url, data, parent, overlay, media)
     # it is a file
-    return File(dbid, dirname, basename, filename, url, data, parent, overlay, media)
+    return File(dbid, basename, filename, url, data, parent, overlay, media)

@@ -42,6 +42,9 @@ import logging
 from kaa.notifier import Timer
 import kaa.metadata
 
+# kaa.vfs imports
+import util
+
 # get logging object
 log = logging.getLogger('vfs')
 
@@ -53,8 +56,8 @@ def get_mtime(item):
         log.info('no parent == no mtime :(')
         return 0
 
-    mtime = 0
     if item.isdir:
+        # TODO: add overlay dir to mtime
         return os.stat(item.filename)[stat.ST_MTIME]
 
     # mtime is the the mtime for all files having the same
@@ -62,23 +65,19 @@ def get_mtime(item):
     # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the
     # mtime is the sum of foo.mp3 and foo.jpg.
 
-    base = os.path.splitext(item.filename)[0]
+    base = item.url
+    if base.rfind('.') > base.rfind('/'):
+        base = base[:base.rfind('.')]
 
-    # TODO: add overlay support
-
-    # TODO: Make this much faster. We should cache the listdir
-    # and the stat results somewhere, maybe already split by ext
-    # But since this is done in background, this is not so
-    # important right now.
-
-    # FIXME: add overlay support!!!
-    if not hasattr(item.parent, '_os_listdir'):
+    if not hasattr(item.parent, '_listdir'):
         # FIXME: This is a bad hack, just testing!
-        item.parent._os_listdir = os.listdir(item.parent.filename)
-    files = map(lambda x: item.dirname + x, item.parent._os_listdir)
-    print item.dirname, "!!!", base, "!!!", files
-    for f in filter(lambda x: x.startswith(base), files):
-        mtime += os.stat(f)[stat.ST_MTIME]
+        # We should also check if the parent itself has changed
+        item.parent._listdir = util.listdir(item.parent.filename[:-1], item.parent.media)
+
+    mtime = 0
+    for f in item.parent._listdir:
+        if f.startswith(base):
+            mtime += os.stat(f[5:])[stat.ST_MTIME]
     return mtime
 
 
