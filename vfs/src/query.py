@@ -59,6 +59,7 @@ class Query(object):
         self._client = client
         self._result = self._client.database.query(**query)
 
+
     def get(self):
         """
         Get the result of the query.

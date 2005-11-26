@@ -296,48 +296,56 @@ class Database(object):
         the query is used for that.
         """
         dirname = kwargs['dirname']
-        del kwargs['dirname']
+
         # find correct mountpoint
         for m in self._mountpoints:
             if dirname.startswith(m.directory):
                 break
+
+        # get parent item (may be None for client)
         parent = self._get_dir(dirname, m)
 
         if parent:
             items = [ item.create(f, parent, m) for f in \
-                      self._db.query(parent = ("dir", parent["id"])) ]
+                      self._db.query(parent = parent.dbid) ]
         else:
             items = []
 
+        # sort items based on url. The listdir is also sorted, that makes
+        # checking much faster
         items.sort(lambda x,y: cmp(x.url, y.url))
 
         # TODO: this could block for cdrom drives and network filesystems. Maybe
         # put the listdir in a thread
-        need_commit = False
+        
         for pos, f in enumerate(util.listdir(dirname, m)):
             if pos == len(items):
+                # new file at the end
                 items.append(item.create(f, parent, m))
                 continue
             while f > items[pos].url:
+                # file deleted
                 i = items[pos]
                 items.remove(i)
                 if not self.read_only:
                     # delete from database by adding it to the internal changes
                     # list. It will be deleted right before the next commit.
                     self.changes.append((self._delete, [i], {}))
-                    need_commit = True
                 # delete
             if f == items[pos].url:
+                # same file
                 continue
+            # new file
             items.insert(pos, item.create(f, parent, m))
 
         if pos + 1 < len(items):
-            for i in items[pos+1-len(items):]:
-                self.changes.append((self._delete, [i], {}))
+            # deleted files at the end
+            if not self.read_only:
+                for i in items[pos+1-len(items):]:
+                    self.changes.append((self._delete, [i], {}))
             items = items[:pos+1-len(items)]
-            need_commit = True
 
-        if need_commit:
+        if self.changes:
             # need commit because some items were deleted from the db
             self.commit()
 

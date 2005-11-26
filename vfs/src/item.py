@@ -139,7 +139,7 @@ def create(data, parent, media):
                              'file:/%s/' % dirname, data, parent, False, media)
     
         # Data is based on a db entry. This means we also have
-        # a parent as db entry or None for the root dir on the media
+        # a parent as db entry
         basename = data['name']
         filename = parent.filename + basename
         url = 'file://' + filename
