@@ -317,7 +317,8 @@ class Database(object):
 
         # TODO: this could block for cdrom drives and network filesystems. Maybe
         # put the listdir in a thread
-        
+
+        pos = -1
         for pos, f in enumerate(util.listdir(dirname, m)):
             if pos == len(items):
                 # new file at the end
