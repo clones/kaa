@@ -29,14 +29,19 @@ def update(client, query):
         for item in q.get():
             print item
     else:
-        print 'Disc', result, result.item()
+        print 'Disc', result
         result = result.item()
-        if result and result.filename:
-            # it is a disc, scan dir (hope it's mounted)
-            print 'files on disc (needs to be mounted manually):'
-            for f in client.query(dirname=result.filename).get():
+        if isinstance(result, list):
+            for f in result:
                 print '    ', f
-            print
+        else:
+            print result
+            if result and result.filename:
+                # it is a disc, scan dir (hope it's mounted)
+                print 'files on disc (needs to be mounted manually):'
+                for f in client.query(dirname=result.filename).get():
+                    print '    ', f
+        print
 
 def show_artists_list():
     for artist in c.query(attr='artist', type='audio').get():

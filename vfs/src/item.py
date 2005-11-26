@@ -50,10 +50,7 @@ class Item(object):
         """
         Convert object to string (usefull for debugging)
         """
-        str = '<vfs.Item %s' % self.data['name']
-        if self.data['mtime'] == UNKNOWN:
-            str += '(new)'
-        return str + '>'
+        return '<vfs.Item %s>' % self.url
 
 
     def __getitem__(self, key):
@@ -137,14 +134,17 @@ def create(data, parent, media):
             dirname = media.directory
             return Directory((data['type'], data['id']), '', dirname,
                              'file:/%s/' % dirname, data, parent, False, media)
-    
         # Data is based on a db entry. This means we also have
         # a parent as db entry
+        dbid = data['type'], data['id']
+        type = data['type']
+
+        if type.startswith('track'):
+            # data is a track of a dvd/vcd/audiocd an a media or in a file
+            return Item(dbid, parent.url + '/' + data['name'], data, parent, media)
         basename = data['name']
         filename = parent.filename + basename
         url = 'file://' + filename
-        dbid = data['type'], data['id']
-        type = data['type']
         overlay = data['overlay']
     else:
         # Looks like data is string (url). This means no db entry, maybe the parent

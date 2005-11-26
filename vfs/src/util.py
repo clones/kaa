@@ -52,3 +52,9 @@ def listdir(dirname, mountpoint):
         pass
     result.sort()
     return result
+
+
+def parse_attributes(metadata, type_list, attributes):
+    for key in type_list[1].keys():
+        if metadata and metadata.has_key(key) and metadata[key] != None:
+            attributes[key] = metadata[key]

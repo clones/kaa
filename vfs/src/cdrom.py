@@ -34,6 +34,9 @@ from kaa.notifier import ThreadCallback, OneShotTimer, MainThreadCallback
 import kaa.metadata
 from kaa.metadata.disc.discinfo import cdrom_disc_id
 
+# kaa.vfs imports
+import util
+
 # get logging object
 log = logging.getLogger('vfs')
 
@@ -78,7 +81,6 @@ class Device(object):
                 CDSL_CURRENT = ( (int ) ( ~ 0 >> 1 ) )
                 s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
         except Exception, e:
-            print e
             # maybe we need to close the fd if ioctl fails, maybe
             # open fails and there is no fd
             try:
@@ -118,11 +120,24 @@ class Device(object):
         tcb.register('vfs.cdrom')
 
 
-    def scan_result(self, info):
-        # TODO: content may not be dir
-        self.db.add_object("media", name=info.id, content='dir')
+    def scan_result(self, metadata):
+        type = metadata['type'].lower()
+        if 'track_%s' % type in self.db.object_types.keys():
+            log.info('detected %s with tracks', type)
+            type_list = self.db.object_types['track_%s' % type]
+            disc = self.db.add_object("media", name=metadata.id, content=type,
+                                      vfs_immediately = True)
+            for pos, track in enumerate(metadata.tracks):
+                attributes = { 'name': str(pos),
+                               'parent': ('media', disc['id']),
+                               'media': disc['id'] }
+                util.parse_attributes(track, type_list, attributes)
+                self.db.add_object('track_%s' % type, **attributes)
+        else:
+            # "normal" disc
+            self.db.add_object("media", name=metadata.id, content='file')
         self.db.commit()
-        self.finished(info.id)
+        self.finished(metadata.id)
 
 
     def finished(self, id):

@@ -59,13 +59,15 @@ class Server(object):
     def __init__(self, dbdir):
         self._db = Database(dbdir, False)
 
-        self.register_object_type_attrs("video",
+        # files
+        
+        self.register_file_type_attrs("video",
             title = (unicode, ATTR_KEYWORDS),
             width = (int, ATTR_SIMPLE),
             height = (int, ATTR_SIMPLE),
             length = (int, ATTR_SIMPLE))
 
-        self.register_object_type_attrs("audio",
+        self.register_file_type_attrs("audio",
             title = (unicode, ATTR_KEYWORDS),
             artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
             album = (unicode, ATTR_KEYWORDS),
@@ -75,12 +77,29 @@ class Server(object):
             bitrate = (int, ATTR_SIMPLE),
             trackno = (int, ATTR_SIMPLE))
 
-        self.register_object_type_attrs("image",
+        self.register_file_type_attrs("image",
             width = (int, ATTR_SEARCHABLE),
             height = (int, ATTR_SEARCHABLE),
             date = (unicode, ATTR_SEARCHABLE))
 
-        # TODO: add more known types
+        # tracks for rom discs or iso files
+        
+        self.register_track_type_attrs("dvd",
+            audio = (list, ATTR_SIMPLE),
+            chapters = (int, ATTR_SIMPLE),
+            subtitles = (list, ATTR_SIMPLE))
+
+        self.register_track_type_attrs("vcd",
+            audio = (list, ATTR_SIMPLE))
+
+        self.register_track_type_attrs("cd",
+            title = (unicode, ATTR_KEYWORDS),
+            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
+            album = (unicode, ATTR_KEYWORDS),
+            genre = (unicode, ATTR_INDEXED))
+
+        # TODO: add more known types and support data tracks on
+        # audio cds
 
         # list of current clients
         self._clients = []
@@ -95,12 +114,20 @@ class Server(object):
         self._db.commit()
         
 
-    def register_object_type_attrs(self, *args, **kwargs):
+    def register_file_type_attrs(self, name, **kwargs):
         """
-        Register new attrs and types for objects. The basics are already
+        Register new attrs and types for files. The basics are already
         in the db by the __init__ function of this class.
         """
-        return self._db.register_object_type_attrs(*args, **kwargs)
+        return self._db.register_object_type_attrs(name, **kwargs)
+
+
+    def register_track_type_attrs(self, name, **kwargs):
+        """
+        Register new attrs and types for files. The basics are already
+        in the db by the __init__ function of this class.
+        """
+        return self._db.register_object_type_attrs('track_%s' % name, **kwargs)
 
 
     def monitor(self, callback, id, **query):

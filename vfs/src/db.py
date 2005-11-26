@@ -72,7 +72,7 @@ class Mountpoint(object):
         self.db = db
         self.read_only = read_only
         self.overlay = ''
-
+        self.url = ''
 
     def load(self, name):
         """
@@ -82,21 +82,27 @@ class Mountpoint(object):
             return False
         self.name = name
         self.id = None
+        self.url = ''
         # get the db id
         if self.name != None:
             media = self.db.query(type="media", name=self.name)
             if media:
-                # known, set internal id and return it
-                self.id = ('media', media[0]['id'])
+                # known, set internal id
+                media = media[0]
+                self.id = ('media', media['id'])
             elif not self.read_only:
                 # create media entry and root filesystem
-                log.info('create root filesystem for %s' % self.name)
-                self.id = ('media', self.db.add_object("media", name=self.name)['id'])
+                log.info('create media entry for %s' % self.name)
+                media = self.db.add_object("media", name=self.name, content='file')
+                self.id = ('media', media['id'])
             if not self.db.query(type='dir', name='', parent=self.id) and \
                    not self.read_only:
+                log.info('create root filesystem for %s' % self.name)
                 self.db.add_object("dir", name="", parent=self.id)
             if not self.read_only:
                 self.db.commit()
+            if media:
+                self.url = media['content'] + '//' + self.directory
             if name:
                 self.overlay = os.path.join(self.vfsdir, name)
                 if not os.path.isdir(self.overlay):
@@ -115,10 +121,14 @@ class Mountpoint(object):
         if not self.id:
              return None
         media = self.db.query(type='media', id=self.id[1])
-        if media[0]['content'] == 'dir':
+        content = media[0]['content']
+        if content == 'file':
             # a simple data dir
             current = self.db.query(type="dir", name='', parent=self.id)[0]
             return item.create(current, None, self)
+        # a track of something else
+        return [ item.create(x, self, self) for x in \
+                 self.db.query(type='track_%s' % content, parent=self.id) ]
         # TODO: support other media
         return None
 
@@ -177,8 +187,9 @@ class Database(object):
 
         self._db.register_object_type_attrs("media",
             name = (str, ATTR_KEYWORDS),
+            title = (unicode, ATTR_KEYWORDS),
             overlay = (bool, ATTR_SIMPLE),
-            media = (int, ATTR_SIMPLE),
+            length = (int, ATTR_SIMPLE),
             content = (str, ATTR_SIMPLE))
 
         # commit
@@ -424,6 +435,8 @@ class Database(object):
         the object won't find it before the next commit.
         """
         if 'vfs_immediately' in kwargs:
+            if len(self.changes):
+                self.commit()
             del kwargs['vfs_immediately']
             return self._db.add_object(*args, **kwargs)
         self.changes.append((self._db.add_object, args, kwargs))
@@ -439,6 +452,8 @@ class Database(object):
         the object will return the old values.
         """
         if 'vfs_immediately' in kwargs:
+            if len(self.changes):
+                self.commit()
             del kwargs['vfs_immediately']
             return self._db.update_object(*args, **kwargs)
         self.changes.append((self._db.update_object, args, kwargs))
@@ -446,17 +461,15 @@ class Database(object):
             self.commit()
 
 
-    def register_object_type_attrs(self, *args, **kwargs):
+    def register_object_type_attrs(self, type, *args, **kwargs):
         """
         Register a new object with attributes. Special keywords like name and
         mtime are added by default.
         """
         kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
         # TODO: mtime may not e needed for subitems like tracks
-        kwargs['mtime'] = (int, ATTR_SIMPLE)
         kwargs['overlay'] = (bool, ATTR_SIMPLE)
         kwargs['media'] = (int, ATTR_SIMPLE)
-        # TODO: add media to point to the media parent were the item is stored
-        # in to make it possible to query only in avaiable media entries
-        # (e.g. mounted discs, network filesystems online)
-        return self._db.register_object_type_attrs(*args, **kwargs)
+        if not type.startswith('track_'):
+            kwargs['mtime'] = (int, ATTR_SIMPLE)
+        return self._db.register_object_type_attrs(type, *args, **kwargs)
