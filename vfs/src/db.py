@@ -234,7 +234,9 @@ class Database(object):
         Interface to the db.
         """
         if attr == 'object_types':
-            # return the attribute _object_types from the db
+            # Return the attribute _object_types from the db.
+            # TODO: Make this a real variable which only contains the stuff
+            # we need here and make sure it is in sync between server and clients
             return self._db._object_types
         raise AttributeError(attr)
 
@@ -247,12 +249,14 @@ class Database(object):
         if not media:
             # Unknown media and looks like we are read only.
             # Return None, if the media is not known, the dir also won't
+            # Note: this should never happen
             log.error('no media set, this should never happen')
             return None
         if dirname == media.directory:
             # we know that '/' is in the db
             current = self._db.query(type="dir", name='', parent=media.id)[0]
             return item.create(current, None, media)
+
         parent = self._get_dir(os.path.dirname(dirname), media)
         if parent == None:
             return None
@@ -332,6 +336,9 @@ class Database(object):
         # TODO: this could block for cdrom drives and network filesystems. Maybe
         # put the listdir in a thread
 
+        # TODO: use parent mtime to check if an update is needed. Maybe call
+        # it scan time or something like that. Also make it an option so the
+        # user can turn the feature off.
         pos = -1
         for pos, f in enumerate(util.listdir(dirname, m)):
             if pos == len(items):
