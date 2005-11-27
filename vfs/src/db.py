@@ -313,6 +313,9 @@ class Database(object):
             if dirname.startswith(m.directory):
                 break
 
+        # TODO: add kwargs recursive to return all files (not directories)
+        # below the given dir. Take care of sym links to avoid endless loops.
+        
         # get parent item (may be None for client)
         parent = self._get_dir(dirname, m)
 

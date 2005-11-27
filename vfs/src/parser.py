@@ -70,8 +70,8 @@ def get_mtime(item):
         base = base[:base.rfind('.')]
 
     if not hasattr(item.parent, '_listdir'):
-        # FIXME: This is a bad hack, just testing!
-        # We should also check if the parent itself has changed
+        # FIXME: This is a bad hack, just testing! Maybe we need to make sure
+        # the parent is scanned and has such a helper function to get the listing
         item.parent._listdir = util.listdir(item.parent.filename[:-1], item.parent.media)
 
     mtime = 0
@@ -105,6 +105,8 @@ def parse(db, item):
     else:
         type = 'file'
 
+    # TODO: use the function in util or even better, add metadata parsing
+    # support to the database module
     type_list = db.object_types[type]
     for key in type_list[1].keys():
         if metadata and metadata.has_key(key) and metadata[key] != None:
@@ -114,7 +116,7 @@ def parse(db, item):
     # - check metadata for thumbnail or cover (audio) and use kaa.thumb to store it
     # - schedule thumbnail genereation with kaa.thumb
     # - search for covers based on the file (should be done by kaa.metadata)
-    # - maybe the item is now in th db so we can't add it again
+    # - add subitems like dvd tracks for dvd images on hd
 
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
