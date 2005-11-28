@@ -580,7 +580,13 @@ class Post(Wrapper):
         return self._obj.get_parameters_desc()
 
     def get_parameters(self):
-        return self._obj.get_parameters()
+        params = self._obj.get_parameters()
+        desc = self.get_parameters_desc()
+        for key, value in params.items():
+            if desc[key]["enums"]:
+                params[key] = desc[key]["enums"][params[key]]
+
+        return params
 
     def set_parameters(self, **kwargs):
         parms = self.get_parameters_desc()
