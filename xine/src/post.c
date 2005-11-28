@@ -168,6 +168,7 @@ Xine_Post_PyObject_get_parameters_desc(Xine_Post_PyObject *self, PyObject *args,
         }
         PyDict_SetItemString(dict, "type", type);
         PyDict_SetItemString_STEAL(dict, "name", PyString_FromString(parm->name));
+        PyDict_SetItemString_STEAL(dict, "description", PyString_FromString(parm->description));
         PyDict_SetItemString_STEAL(dict, "readonly", PyBool_FromLong(parm->readonly));
         if (parm->enum_values) {
             int i;
