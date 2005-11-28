@@ -38,7 +38,10 @@
 #include "video_out_kaa.h"
 
 // Uncomment this for profiling info.
-//#define STOPWATCH
+//#define STOPWATCH 3
+
+#define clamp(a,min,max) (((a)>(max))?(max):(((a)<(min))?(min):(a)))
+
 static int _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame);
 
 
@@ -52,6 +55,8 @@ static void stopwatch(int n, char *text, ...)
         char text[250];
     } t[10];
 
+    if (n < STOPWATCH)
+        return;
     gettimeofday(&t[n].tv, &tz);
     if (!text) {
         fprintf(stderr, "@@@ Stopwatch (%d): %s: %ld usec\n", n, t[n].text,
@@ -200,6 +205,31 @@ _check_bounds(kaa_driver_t *this, const char *func, int x, int y, int w, int h)
 #define check_bounds(this, x, y, w, h) _check_bounds(this, __FUNCTION__, x, y, w, h)
 
 
+static void
+calculate_slice(kaa_driver_t *this)
+{
+    int x, y, h = (this->osd_h >> 1), w = ((this->osd_w >> 1) & ~7) - 8,
+        row_stride = this->osd_w >> 1, slice_y1 = -2, slice_y2 = -2;
+    uint8_t *p = this->osd_alpha_planes[1];
+
+    stopwatch(3, "calculate_slice: %dx%d", w, h);
+    for (y = 0; y < h; y++) {
+        for (x = 0; x < w; x += 8) {
+            if (*(uint64_t *)(p + x)) {
+                if (slice_y1 == -1)
+                    slice_y1 = y;
+                else
+                    slice_y2 = y;
+                break;
+            }
+        }
+        p += row_stride;
+    }
+    stopwatch(3, NULL);
+    this->osd_slice_y = clamp((slice_y1 - 2) * 2, 0, this->osd_h);
+    this->osd_slice_h = clamp((slice_y2 + 2) * 2, 0, this->osd_h) - this->osd_slice_y;
+}
+
 
 static void
 convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
@@ -266,6 +296,7 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         uva_ptr += chroma_stride;
     }
     stopwatch(2, NULL);
+    calculate_slice(this);
 }
 
 static inline uint8_t
@@ -1072,6 +1103,7 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
             this->needs_redraw = 1;
             break;
         }
+        /*
         case GUI_SEND_KAA_VO_OSD_SET_SLICE:
         {
             struct { int y, h; } *slice = data;
@@ -1080,6 +1112,7 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
             this->needs_redraw = 1;
             break;
         }
+        */
     }
     return this->passthrough->gui_data_exchange(this->passthrough, data_type, data);
 }

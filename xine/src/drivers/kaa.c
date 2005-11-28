@@ -122,12 +122,14 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
             return NULL;
         gui_send(OSD_INVALIDATE_RECT, &r);
     }
+    /*
     else if (!strcmp(command, "set_osd_slice")) {
         struct { int y, h; } slice;
         if (!PyArg_ParseTuple(cmd_arg, "ii", &slice.y, &slice.h))
             return NULL;
         gui_send(OSD_SET_SLICE, &slice);
     }
+    */
     else {
         PyErr_Format(PyExc_ValueError, "Invalid control '%s'", command);
         return NULL;

@@ -42,7 +42,7 @@ extern plugin_info_t xine_vo_kaa_plugin_info[];
 #define GUI_SEND_KAA_VO_OSD_SET_VISIBILITY      1010
 #define GUI_SEND_KAA_VO_OSD_SET_ALPHA           1011
 #define GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT     1012
-#define GUI_SEND_KAA_VO_OSD_SET_SLICE           1013
+//#define GUI_SEND_KAA_VO_OSD_SET_SLICE           1013
 
 
 // From mplayer

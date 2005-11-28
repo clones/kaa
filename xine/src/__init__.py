@@ -562,7 +562,7 @@ class Stream(Wrapper):
         return self._seek(t)
 
     def seek_absolute(self, t):
-        t = max(0, time)
+        t = max(0, t)
         return self._seek(t)
 
     def new_event_queue(self):
