@@ -115,32 +115,33 @@ class Monitor(object):
                 self.callback('checked')
                 return
 
-        # TODO: we should also check the parent and the parent of the parent,
-        # maybe a cover was added somewhere in the path.
-
-        # FIXME: this takes way to much time (see debug)
-
+        last_parent = None
         t1 = time.time()
         for i in self.items:
             if not isinstance(i, item.Item):
                 # TODO: don't know how to monitor other types
                 continue
+
+            # check parent and parent.parent mtime. Notice. The root
+            # dir has also a parent, the media itself. So we need to stop at
+            # parent.parent == None.
             parent = i.parent
-            while parent:
-                mtime = parser.get_mtime(parser)
-                if mtime and i.data['mtime'] != mtime and not parent in to_check:
-                    to_check.append(parent)
+            while last_parent != parent and parent and parent.parent:
+                mtime = parser.get_mtime(parent)
+                if mtime and parent.data['mtime'] != mtime and not parent in to_check:
+                    to_check.append(weakref(parent))
                 parent = parent.parent
-                
-            to_check.append(weakref(i))
-                
+            last_parent = i.parent
+            
             mtime = parser.get_mtime(i)
             if not mtime:
                 continue
             if i.data['mtime'] == mtime:
                 continue
             to_check.append(weakref(i))
+
         print 'mtime query took %s, %s items to check' % (time.time()-t1, len(to_check))
+
         if to_check:
             # FIXME: a constantly growing file like a recording will result in
             # a huge db activity on both client and server because checker calls
