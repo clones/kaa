@@ -444,11 +444,20 @@ class Database(object):
         To avoid locking, do not se the keyword, but this means that a requery on
         the object won't find it before the next commit.
         """
+        if 'metadata' in kwargs:
+            metadata = kwargs['metadata']
+            if metadata:
+                for key in self._db._object_types[type][1].keys():
+                    if metadata.has_key(key) and metadata[key] != None:
+                        kwargs[key] = metadata[key]
+            del kwargs['metadata']
+
         if 'vfs_immediately' in kwargs:
             if len(self.changes):
                 self.commit()
             del kwargs['vfs_immediately']
             return self._db.add_object(*args, **kwargs)
+
         self.changes.append((self._db.add_object, args, kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
@@ -461,11 +470,20 @@ class Database(object):
         To avoid locking, do not se the keyword, but this means that a requery on
         the object will return the old values.
         """
+        if 'metadata' in kwargs:
+            metadata = kwargs['metadata']
+            if metadata:
+                for key in self._db._object_types[type][1].keys():
+                    if metadata.has_key(key) and metadata[key] != None:
+                        kwargs[key] = metadata[key]
+            del kwargs['metadata']
+
         if 'vfs_immediately' in kwargs:
             if len(self.changes):
                 self.commit()
             del kwargs['vfs_immediately']
             return self._db.update_object(*args, **kwargs)
+
         self.changes.append((self._db.update_object, args, kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()

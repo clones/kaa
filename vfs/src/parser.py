@@ -100,12 +100,9 @@ def parse(db, item):
     else:
         type = 'file'
 
-    # TODO: use the function in util or even better, add metadata parsing
-    # support to the database module
-    type_list = db.object_types[type]
-    for key in type_list[1].keys():
-        if metadata and metadata.has_key(key) and metadata[key] != None:
-            attributes[key] = metadata[key]
+    # add kaa.metadata results, the db module will add everything known
+    # to the db.
+    attributes['metadata'] = metadata
 
     # TODO: do some more stuff here:
     # - check metadata for thumbnail or cover (audio) and use kaa.thumb to store it
