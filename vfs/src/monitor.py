@@ -125,6 +125,15 @@ class Monitor(object):
             if not isinstance(i, item.Item):
                 # TODO: don't know how to monitor other types
                 continue
+            parent = i.parent
+            while parent:
+                mtime = parser.get_mtime(parser)
+                if mtime and i.data['mtime'] != mtime and not parent in to_check:
+                    to_check.append(parent)
+                parent = parent.parent
+                
+            to_check.append(weakref(i))
+                
             mtime = parser.get_mtime(i)
             if not mtime:
                 continue
