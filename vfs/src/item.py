@@ -161,7 +161,6 @@ def create(data, parent, media):
         overlay = data['overlay']
         filename = parent.filename + basename
         if overlay:
-            print media.overlay, filename
             filename = media.overlay + filename
         url = 'file://' + filename
     else:

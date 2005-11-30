@@ -329,8 +329,6 @@ class Database(object):
         else:
             items = []
 
-        for i in items:
-            print i
         # sort items based on url. The listdir is also sorted, that makes
         # checking much faster
         items.sort(lambda x,y: cmp(x.url, y.url))
