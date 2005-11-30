@@ -34,6 +34,8 @@
 
 import os
 
+import util
+
 UNKNOWN = -1
 
 class Item(object):
@@ -76,6 +78,7 @@ class Directory(Item):
         self.filename = filename
         self.isdir = True
         self.overlay = overlay
+        self._os_listdir = None
 
 
     def listdir(self):
@@ -86,6 +89,18 @@ class Directory(Item):
             return self.db.query(dirname=self.filename)
         raise AttributeError('item has no db object')
 
+
+    def os_listdir(self):
+        """
+        Return (cached) os.listdir information including the overlay dir.
+        The result is a list of basename, url.
+        """
+        if self._os_listdir == None:
+            listing = util.listdir(self.filename[:-1], self.media)
+            self._os_listdir = [ (x[x.rfind('/')+1:], x) for x in listing ]
+        return self._os_listdir
+
+        
     def __str__(self):
         """
         Convert object to string (usefull for debugging)
@@ -143,9 +158,12 @@ def create(data, parent, media):
             # data is a track of a dvd/vcd/audiocd an a media or in a file
             return Item(dbid, parent.url + '/' + data['name'], data, parent, media)
         basename = data['name']
-        filename = parent.filename + basename
-        url = 'file://' + filename
         overlay = data['overlay']
+        filename = parent.filename + basename
+        if overlay:
+            print media.overlay, filename
+            filename = media.overlay + filename
+        url = 'file://' + filename
     else:
         # Looks like data is string (url). This means no db entry, maybe the parent
         # is also not set (client db read only). The media is always valid.

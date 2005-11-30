@@ -65,19 +65,14 @@ def get_mtime(item):
     # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the
     # mtime is the sum of foo.mp3 and foo.jpg.
 
-    base = item.url
-    if base.rfind('.') > base.rfind('/'):
-        base = base[:base.rfind('.')]
-
-    if not hasattr(item.parent, '_listdir'):
-        # FIXME: This is a bad hack, just testing! Maybe we need to make sure
-        # the parent is scanned and has such a helper function to get the listing
-        item.parent._listdir = util.listdir(item.parent.filename[:-1], item.parent.media)
+    search = item.basename
+    if search.rfind('.') > 0:
+        search = search[:search.rfind('.')]
 
     mtime = 0
-    for f in item.parent._listdir:
-        if f.startswith(base):
-            mtime += os.stat(f[5:])[stat.ST_MTIME]
+    for basename, url in item.parent.os_listdir():
+        if basename.startswith(search):
+            mtime += os.stat(url[5:])[stat.ST_MTIME]
     return mtime
 
 
@@ -150,6 +145,7 @@ class Checker(object):
             self.db.commit()
             if self.monitor:
                 self.monitor.callback('checked')
+            if self.monitor:
                 self.monitor.update(False)
             return False
         self.pos += 1
