@@ -106,6 +106,7 @@ typedef struct kaa_driver_s {
     
     uint8_t *osd_planes[3], *osd_alpha_planes[3],
             *osd_pre_planes[3], *osd_pre_alpha_planes[3];
+    uint16_t osd_strides[3];
     struct rects *osd_invalid_rects;
     pthread_mutex_t osd_buffer_lock;
     //

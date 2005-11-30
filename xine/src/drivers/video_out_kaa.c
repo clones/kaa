@@ -29,6 +29,7 @@
 
 #include <math.h>
 #include <malloc.h>
+#include <assert.h>
 #ifndef __USE_XOPEN2K
 #define __USE_XOPEN2K // for pthread_mutex_timedlock
 #endif
@@ -38,7 +39,7 @@
 #include "video_out_kaa.h"
 
 // Uncomment this for profiling info.
-//#define STOPWATCH 3
+//#define STOPWATCH 1
 
 #define clamp(a,min,max) (((a)>(max))?(max):(((a)<(min))?(min):(a)))
 
@@ -141,12 +142,13 @@ free_overlay_data(kaa_driver_t *this)
     int i, p;
     uint8_t **planes[] = { 
         this->osd_planes, this->osd_pre_planes,
-        this->osd_pre_alpha_planes, this->osd_pre_alpha_planes, NULL
+        this->osd_alpha_planes, this->osd_pre_alpha_planes, NULL
     };
 
     for (p = 0; planes[p] != NULL; p++) {
         for (i = 0; i < 3; i++) {
-            if (planes[p][i] && i < 2)
+            // plane[1] == plane[2] for alpha planes, so only free one.
+            if (planes[p][i] && (p < 2 || i < 2))
                 free(planes[p][i]);
             planes[p][i] = NULL;
         }
@@ -176,13 +178,27 @@ alloc_overlay_data(kaa_driver_t *this, int format)
         this->osd_pre_alpha_planes[0] = (uint8_t *)memalign(16, w * h);
         this->osd_pre_alpha_planes[1] = (uint8_t *)memalign(16, w * h / 4);
         this->osd_pre_alpha_planes[2] = this->osd_pre_alpha_planes[1];
+
+        this->osd_strides[0] = w;
+        this->osd_strides[1] = this->osd_strides[2] = w >> 1;
     }
     else if (format == XINE_IMGFMT_YUY2) {
-        printf("YUY2 frame format not yet implemented\n");
-        this->osd_format = 0;
+        this->osd_planes[0] = (uint8_t *)memalign(16, w * h * 2);
+        this->osd_planes[1] = this->osd_planes[2] = 0;
+
+        this->osd_alpha_planes[0] = (uint8_t *)memalign(16, w * h * 2);
+        this->osd_alpha_planes[1] = this->osd_alpha_planes[2] = 0;
+
+        this->osd_pre_planes[0] = (uint8_t *)memalign(16, w * h * 2);
+        this->osd_pre_planes[1] = this->osd_pre_planes[2] = 0;
+
+        this->osd_pre_alpha_planes[0] = (uint8_t *)memalign(16, w * h * 2);
+        this->osd_pre_alpha_planes[1] = this->osd_pre_alpha_planes[2] = 0;
+
+        this->osd_strides[0] = w * 2;
+        this->osd_strides[1] = this->osd_strides[2] = 0;
     } else {
         printf("ERROR: unsupported frame format; osd disabled.\n");
-        this->osd_format = 0;
     }
 
     this->osd_format = format;
@@ -229,6 +245,47 @@ calculate_slice(kaa_driver_t *this)
     this->osd_slice_y = clamp((slice_y1 - 2) * 2, 0, this->osd_h);
     this->osd_slice_h = clamp((slice_y2 + 2) * 2, 0, this->osd_h) - this->osd_slice_y;
 }
+
+static void
+convert_bgra_to_yuy2a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
+{
+    uint8_t r1, g1, b1, a1, r2, g2, b2, a2, *src_ptr, *dst_ptr, *dst_a_ptr;
+    uint16_t x, y, dst_stride, src_stride;
+    
+    stopwatch(2, "convert_bgra_to_yuy2a (%d,%d %dx%d)", rx, ry, rw, rh);
+    src_stride = this->osd_stride;
+    dst_stride = this->osd_w * 2;
+    src_ptr = this->osd_buffer + (rx*4) + (ry*src_stride);
+    dst_ptr = this->osd_planes[0] + (rx + ry) * dst_stride;
+    dst_a_ptr = this->osd_alpha_planes[0] + (rx + ry) * dst_stride;
+    // This is not the most graceful code ...
+    for (y = 0; y < rh; y++) {
+        for (x = 0; x < rw; x+=2) {
+            b1 = src_ptr[4*x+0];
+            g1 = src_ptr[4*x+1];
+            r1 = src_ptr[4*x+2];
+            a1 = src_ptr[4*x+3];
+            b2 = src_ptr[4*x+4];
+            g2 = src_ptr[4*x+5];
+            r2 = src_ptr[4*x+6];
+            a2 = src_ptr[4*x+7];
+
+            dst_ptr[2*x] = rgb2y(r1, g1, b1);
+            dst_ptr[2*x+2] = rgb2y(r2, g2, b2);
+            dst_a_ptr[2*x] = a1;
+            dst_a_ptr[2*x+2] = a2;
+
+            dst_ptr[x*2+1] = rgb2u((r1+r2)>>1, (g1+g2)>>1, (b1+b2)>>1);
+            dst_ptr[x*2+3] = rgb2v((r1+r2)>>1, (g1+g2)>>1, (b1+b2)>>1);
+            dst_a_ptr[x*2+1] = dst_a_ptr[x*2+3] = (a1+a2)>>1;
+        }
+        dst_ptr += dst_stride;
+        dst_a_ptr += dst_stride;
+        src_ptr += src_stride;
+    }
+    stopwatch(2, NULL);
+}
+    
 
 
 static void
@@ -299,6 +356,15 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
     calculate_slice(this);
 }
 
+static void
+convert_bgra_to_frame_format(kaa_driver_t *this, int rx, int ry, int rw, int rh)
+{
+    if (this->osd_format == XINE_IMGFMT_YV12)
+        convert_bgra_to_yv12a(this, rx, ry, rw, rh);
+    else if (this->osd_format == XINE_IMGFMT_YUY2)
+        convert_bgra_to_yuy2a(this, rx, ry, rw, rh);
+}
+        
 static inline uint8_t
 multiply_alpha(uint8_t r, uint8_t a)
 {
@@ -411,10 +477,8 @@ static void
 image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 {
     int global_alpha = this->osd_alpha;
-    uint8_t *y_ptr, *u_ptr, *v_ptr, *a_ptr, *uva_ptr,
-            *pre_y_ptr, *pre_u_ptr, *pre_v_ptr, *pre_a_ptr, *pre_uva_ptr;
-    int luma_offset, chroma_offset;
-    unsigned int x, y, chroma_stride;
+    uint8_t *ptr[3], *alpha_ptr[3], *pre_ptr[3], *pre_alpha_ptr[3];
+    uint16_t i, x, y, n_planes, offset[3], stride[3];
 
     if (!this->osd_planes[0]) // Not allocated yet.
         return;
@@ -427,20 +491,25 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
     if (global_alpha > 255)
         global_alpha = 255;
 
-    luma_offset = rx + ry * this->osd_w;
-    chroma_offset = (rx >> 1) + (ry >> 1) * (this->osd_w >> 1);
+    if (this->osd_format == XINE_IMGFMT_YV12) {
+        stride[0] = this->osd_w;
+        stride[1] = stride[2] = this->osd_w >> 1;
+        offset[0] = rx + ry * stride[0];
+        offset[1] = offset[2] = (rx >> 1) + (ry >> 1) * stride[1];
+    } else {
+        stride[0] = this->osd_w * 2;
+        stride[1] = stride[2] = 0;
+        offset[0] = rx + ry * stride[0];
+        offset[1] = offset[2] = 0;
+        rw *= 2;
+    }
 
-    y_ptr = this->osd_planes[0] + luma_offset;
-    u_ptr = this->osd_planes[1] + chroma_offset;
-    v_ptr = this->osd_planes[2] + chroma_offset;
-    a_ptr = this->osd_alpha_planes[0] + luma_offset;
-    uva_ptr = this->osd_alpha_planes[1] + chroma_offset;
-
-    pre_y_ptr = this->osd_pre_planes[0]+ luma_offset;
-    pre_u_ptr = this->osd_pre_planes[1] + chroma_offset;
-    pre_v_ptr = this->osd_pre_planes[2] + chroma_offset;
-    pre_a_ptr = this->osd_pre_alpha_planes[0] + luma_offset;
-    pre_uva_ptr = this->osd_pre_alpha_planes[1] + chroma_offset;
+    for (i = 0; i < 3 && this->osd_planes[i]; i++) {
+        ptr[i] = this->osd_planes[i] + offset[i];
+        alpha_ptr[i] = this->osd_alpha_planes[i] + offset[i];
+        pre_ptr[i] = this->osd_pre_planes[i] + offset[i];
+        pre_alpha_ptr[i] = this->osd_pre_alpha_planes[i] + offset[i];
+    }
 
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
     if (xine_mm_accel() & MM_ACCEL_X86_MMX) {
@@ -453,42 +522,32 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
     }
 #endif
 
-    chroma_stride = this->osd_w >> 1;
-    for (y = 0; y < rh; y += 2) {
+    for (y = 0; y < rh; y++) {
+        n_planes = 1;
         for (x = 0; x < rw; x += 8)
-            premultiply_alpha_byte_8(&y_ptr[x], &a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
+            premultiply_alpha_byte_8(&ptr[0][x], &alpha_ptr[0][x], &pre_ptr[0][x], &pre_alpha_ptr[0][x], global_alpha);
+
         for (; x < rw; x++)
-            premultiply_alpha_byte(y_ptr[x], a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
+            premultiply_alpha_byte(ptr[0][x], alpha_ptr[0][x], &pre_ptr[0][x], &pre_alpha_ptr[0][x], global_alpha);
 
-        for (x = 0; x < (rw >> 1); x += 8) {
-            premultiply_alpha_byte_8(&u_ptr[x], &uva_ptr[x], &pre_u_ptr[x], &pre_uva_ptr[x], global_alpha);
-            premultiply_alpha_byte_8(&v_ptr[x], &uva_ptr[x], &pre_v_ptr[x], &pre_uva_ptr[x], global_alpha);
+        if (y % 2 == 0 && this->osd_format == XINE_IMGFMT_YV12) {
+            for (x = 0; x < (rw >> 1); x += 8) {
+                premultiply_alpha_byte_8(&ptr[1][x], &alpha_ptr[1][x], &pre_ptr[1][x], &pre_alpha_ptr[1][x], global_alpha);
+                premultiply_alpha_byte_8(&ptr[2][x], &alpha_ptr[1][x], &pre_ptr[2][x], &pre_alpha_ptr[1][x], global_alpha);
+            }
+            for (; x < rw >> 1; x++) {
+                premultiply_alpha_byte(ptr[1][x], alpha_ptr[1][x], &pre_ptr[1][x], &pre_alpha_ptr[1][x], global_alpha);
+                premultiply_alpha_byte(ptr[2][x], alpha_ptr[1][x], &pre_ptr[2][x], &pre_alpha_ptr[1][x], global_alpha);
+            }
+            n_planes = 3;
         }
-        for (; x < rw >> 1; x++) {
-            premultiply_alpha_byte(u_ptr[x], uva_ptr[x], &pre_u_ptr[x], &pre_uva_ptr[x], global_alpha);
-            premultiply_alpha_byte(v_ptr[x], uva_ptr[x], &pre_v_ptr[x], &pre_uva_ptr[x], global_alpha);
+
+        for (i = 0; i < n_planes; i++) {
+            ptr[i] += stride[i];
+            alpha_ptr[i] += stride[i];
+            pre_ptr[i] += stride[i];
+            pre_alpha_ptr[i] += stride[i];
         }
-        y_ptr += this->osd_w;
-        u_ptr += chroma_stride;
-        v_ptr += chroma_stride;
-        a_ptr += this->osd_w;
-        uva_ptr += chroma_stride;
-
-        pre_y_ptr += this->osd_w;
-        pre_u_ptr += chroma_stride;
-        pre_v_ptr += chroma_stride;
-        pre_a_ptr += this->osd_w;
-        pre_uva_ptr += chroma_stride;
-
-        for (x = 0; x < rw; x += 8)
-            premultiply_alpha_byte_8(&y_ptr[x], &a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
-        for (; x < rw; x++)
-            premultiply_alpha_byte(y_ptr[x], a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
-
-        y_ptr += this->osd_w;
-        a_ptr += this->osd_w;
-        pre_y_ptr += this->osd_w;
-        pre_a_ptr += this->osd_w;
     }
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
     if (xine_mm_accel() & MM_ACCEL_X86_MMX)
@@ -520,19 +579,20 @@ blend_plane_MMX(int w, int slice_h, uint8_t *dst, uint8_t *src,
                 uint8_t *overlay, uint8_t *alpha, int frame_stride,
                 int overlay_stride)
 {
-    int y, c = w / 8,
-        stride_diff = frame_stride - overlay_stride;
+    int y, q = w / 8, r = w % 8;
+
+    assert(w <= frame_stride && w <= overlay_stride);
 
     for (y = 0; y < slice_h; y++) {
-        if (c) {
+        if (q) {
             asm volatile(
                 ".balign 16 \n\t"
-                "mov %4, %%"REG_c"\n\t"
+                "xor %%"REG_c", %%"REG_c"\n\t"
 
                 "1: \n\t"
-                "movq (%1), %%mm0\n\t"        // %mm0 = mpi
+                "movq (%1, %%"REG_c"), %%mm0\n\t"        // %mm0 = mpi
                 "movq %%mm0, %%mm1\n\t"       // %mm1 = mpi
-                "movq (%3), %%mm2\n\t"        // %mm2 = %mm3 = 255 - alpha
+                "movq (%3, %%"REG_c"), %%mm2\n\t"        // %mm2 = %mm3 = 255 - alpha
                 "movq %%mm2, %%mm3\n\t"
 
                 "punpcklbw %%mm7, %%mm0\n\t"  // %mm0 = low dword of mpi
@@ -554,42 +614,31 @@ blend_plane_MMX(int w, int slice_h, uint8_t *dst, uint8_t *src,
                 "psrlw $8, %%mm1\n\t"
                 // MPI plane now alpha-multiplied. Add to premultiplied
                 // overlay plane.
-                "movq (%2), %%mm2\n\t"        // %mm2 = src image (overlay)
+                "movq (%2, %%"REG_c"), %%mm2\n\t"        // %mm2 = src image (overlay)
                 "packuswb %%mm1, %%mm0\n\t"
                 "paddb %%mm2, %%mm0\n\t"
-                "movq %%mm0, (%0)\n\t"        // Store to dst (mpi)
+                "movq %%mm0, (%0, %%"REG_c")\n\t"        // Store to dst (mpi)
 
-                "add $8, %0\n\t"
-                "add $8, %1\n\t"
-                "add $8, %2\n\t"
-                "add $8, %3\n\t"
-                "decl %%"REG_c"\n\t"
-                "jnz 1b \n\t"
-
+                "add $8, %%"REG_c"\n\t"
+                "cmp %4, %%"REG_c"\n\t"
+                "jb 1b \n\t"
             : "+r" (dst),
               "+r" (src),
               "+r" (overlay),
               "+r" (alpha)
-            : "m" (c)
+            : "m" (w)
             : "%"REG_c);
         }
         // Blend the last few pixels of this row ...
-        if (w % 8) {
-            uint8_t *end = dst + (w % 8);
+        if (r) {
+            uint8_t *end = dst + r;
             for (; dst < end; dst++, src++, alpha++, overlay++)
                 *dst = blend_byte(*src, *overlay, *alpha);
         }
-        // If the frame is bigger than overlay, move the frame buffers into
-        // the right position for the next row.
-        if (stride_diff > 0) {
-            dst += stride_diff;
-            src += stride_diff;
-        }
-        // Likewise for overlay if the overlay is bigger than frame.
-        else if (stride_diff < 0) {
-            overlay += abs(stride_diff);
-            alpha += abs(stride_diff);
-        }
+        src += frame_stride;
+        dst += frame_stride;
+        alpha += overlay_stride;
+        overlay += overlay_stride;
     }
 }
 #endif
@@ -603,7 +652,7 @@ static void
 static inline void
 blend_image(kaa_driver_t *this, vo_frame_t *frame)
 {
-    int slice_y, slice_h, w, i, c, plane, overlay_stride[3];
+    int slice_y, slice_h, w, i, c, plane;
     uint8_t *dst_frame_planes[3], *src_frame_planes[3], *overlay, *src, *dst, *alpha,
             *overlay_planes[3], *alpha_planes[3];
 
@@ -611,19 +660,8 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
         return;
 
     // Clip the slice to the frame image.
-    slice_y = this->osd_slice_y;
-    slice_h = this->osd_slice_h;
-
-    if (slice_y < 0)
-        slice_y = 0;
-    else if (slice_y > frame->height)
-        slice_y = frame->height;
-
-    if (slice_h < 0)
-        slice_h = 0;
-    else if (slice_h > frame->height - slice_y)
-        slice_h = frame->height - slice_y;
-
+    slice_y = clamp(this->osd_slice_y, 0, frame->height);
+    slice_h = clamp(this->osd_slice_h, 0, frame->height - slice_y);
 
     stopwatch(2, "blend_image (0,%d, %dx%d)",  slice_y, this->osd_w, slice_h);
 
@@ -631,7 +669,6 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
         // Setup buffer positions for overlay, mpi src and mpi dst.
         overlay_planes[i] = this->osd_pre_planes[i];
         alpha_planes[i] = this->osd_pre_alpha_planes[i];
-        overlay_stride[i] = this->osd_w >> c;
         dst_frame_planes[i] = frame->base[i] + ((slice_y >> c) * frame->pitches[i]);
         src_frame_planes[i] = frame->base[i] + ((slice_y >> c) * frame->pitches[i]);
         overlay_planes[i] += (slice_y >> c) * (this->osd_w >> c);
@@ -648,8 +685,12 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
     }
 #endif
 
-    for (w = this->osd_w, plane = 0; plane < 3; plane++) {
-        if (plane == 1) {
+    w = this->osd_w;
+    if (frame->format == XINE_IMGFMT_YUY2)
+        w *= 2;
+
+    for (plane = 0; plane < 3 && overlay_planes[plane]; plane++) {
+        if (plane == 1 && frame->format == XINE_IMGFMT_YV12) {
             w >>= 1;
             slice_h >>= 1;
         }
@@ -661,10 +702,10 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
         // Global alpha is 256 which means ignore per-pixel alpha. Do
         // straight memcpy.
         if (this->osd_alpha == 256) {
-            xine_fast_memcpy(dst, overlay, overlay_stride[plane] * slice_h);
+            xine_fast_memcpy(dst, overlay, this->osd_strides[plane] * slice_h);
         } else {
             blend_plane(w, slice_h, dst, src, overlay, alpha,
-                        frame->pitches[plane], overlay_stride[plane]);
+                        frame->pitches[plane], this->osd_strides[plane]);
         }
     }
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
@@ -948,22 +989,20 @@ static int
 _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame)
 {
     pthread_mutex_lock(&this->osd_buffer_lock);
-    if (frame->width != this->osd_w || frame->height != this->osd_h) {
+    int resized = frame->width != this->osd_w || frame->height != this->osd_h;
+    if (resized || frame->format != this->osd_format) {
         this->osd_w = frame->width;
         this->osd_h = frame->height;
         this->osd_slice_h = frame->height;
-        if (this->osd_configure_cb) {
-            alloc_overlay_data(this, frame->format);
+        alloc_overlay_data(this, frame->format);
+        if (this->osd_configure_cb && resized) {
             // XXX: could configure cb cause reentry here?  If so, will deadlock.
             this->osd_configure_cb(frame->width, frame->height, frame->ratio, this->osd_configure_cb_data);
-            convert_bgra_to_yv12a(this, 0, 0, frame->width, frame->height);
-            image_premultiply_alpha(this, 0, 0, frame->width, frame->height);
         }
-    } else if (frame->format != this->osd_format) {
-        alloc_overlay_data(this, frame->format);
-        printf("OSD: TODO: frame format change\n");
+        convert_bgra_to_frame_format(this, 0, 0, frame->width, frame->height);
+        image_premultiply_alpha(this, 0, 0, frame->width, frame->height);
     }
-    if (this->osd_visible) 
+    if (this->osd_visible && this->osd_alpha > 0) 
         blend_image(this, &frame->vo_frame);
     pthread_mutex_unlock(&this->osd_buffer_lock);
 
@@ -1088,7 +1127,7 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
         {
             struct { int x, y, w, h; } *size = data;
             pthread_mutex_lock(&this->osd_buffer_lock);
-            convert_bgra_to_yv12a(this, size->x, size->y, size->w, size->h);
+            convert_bgra_to_frame_format(this, size->x, size->y, size->w, size->h);
             image_premultiply_alpha(this, size->x, size->y, size->w, size->h);
             pthread_mutex_unlock(&this->osd_buffer_lock);
             this->needs_redraw = 1;
@@ -1096,11 +1135,14 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
         }
         case GUI_SEND_KAA_VO_OSD_SET_ALPHA:
         {
-            this->osd_alpha = (int)data;
+            int alpha = (int)data;
             pthread_mutex_lock(&this->osd_buffer_lock);
-            image_premultiply_alpha(this, 0, 0, this->osd_w, this->osd_h);
+            if (alpha != this->osd_alpha) {
+                this->osd_alpha = alpha;
+                image_premultiply_alpha(this, 0, 0, this->osd_w, this->osd_h);
+                this->needs_redraw = 1;
+            }
             pthread_mutex_unlock(&this->osd_buffer_lock);
-            this->needs_redraw = 1;
             break;
         }
         /*
@@ -1162,10 +1204,10 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     kaa_class_t *class = (kaa_class_t *)class_gen;
     kaa_visual_t *visual = (kaa_visual_t *)visual_gen;
     kaa_driver_t *this;
-    vo_driver_t *passthrough;
 
     // This deadlocks -- xine-lib needs fixing.  For now, caller will have to do this.
     /*
+    vo_driver_t *passthrough;
     passthrough = _x_load_video_output_plugin(class->xine, visual->passthrough_driver,
                                               visual->passthrough_visual_type, visual->passthrough_visual);
     if (!passthrough) {
