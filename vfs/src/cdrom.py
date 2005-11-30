@@ -127,12 +127,10 @@ class Device(object):
             type_list = self.db.object_types['track_%s' % type]
             disc = self.db.add_object("media", name=metadata.id, content=type,
                                       vfs_immediately = True)
+            parent = ('media', disc['id'])
             for pos, track in enumerate(metadata.tracks):
-                attributes = { 'name': str(pos),
-                               'parent': ('media', disc['id']),
-                               'media': disc['id'] }
-                util.parse_attributes(track, type_list, attributes)
-                self.db.add_object('track_%s' % type, **attributes)
+                self.db.add_object('track_%s' % type, name = str(pos), parent = parent,
+                                   media = disc['id'], metadata = track)
         else:
             # "normal" disc
             self.db.add_object("media", name=metadata.id, content='file')

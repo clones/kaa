@@ -287,7 +287,7 @@ class Database(object):
             # next query. It can also happen that a dir is added because of
             # _getdir and because of the parser. We can't avoid that but the
             # db should clean itself up.
-            c[0](*c[1], **c[2])
+            c[0](c[1], *c[2], **c[3])
         self._db.commit()
         self.changes = []
         log.info('db.commit took %s seconds' % (time.time() - t1))
@@ -352,7 +352,7 @@ class Database(object):
                 if not self.read_only:
                     # delete from database by adding it to the internal changes
                     # list. It will be deleted right before the next commit.
-                    self.changes.append((self._delete, [i], {}))
+                    self.changes.append((self._delete, i, [], {}))
                 # delete
             if f == items[pos].url:
                 # same file
@@ -364,7 +364,7 @@ class Database(object):
             # deleted files at the end
             if not self.read_only:
                 for i in items[pos+1-len(items):]:
-                    self.changes.append((self._delete, [i], {}))
+                    self.changes.append((self._delete, i, [], {}))
             items = items[:pos+1-len(items)]
 
         if self.changes:
@@ -437,7 +437,7 @@ class Database(object):
         return self._db.query(*args, **kwargs)
 
 
-    def add_object(self, *args, **kwargs):
+    def add_object(self, type, *args, **kwargs):
         """
         Add an object to the db. If the keyword 'vfs_immediately' is set, the
         object will be added now and the db will be locked until the next commit.
@@ -456,14 +456,14 @@ class Database(object):
             if len(self.changes):
                 self.commit()
             del kwargs['vfs_immediately']
-            return self._db.add_object(*args, **kwargs)
+            return self._db.add_object(type, *args, **kwargs)
 
-        self.changes.append((self._db.add_object, args, kwargs))
+        self.changes.append((self._db.add_object, type, args, kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
 
-    def update_object(self, *args, **kwargs):
+    def update_object(self, (type, id), *args, **kwargs):
         """
         Update an object to the db. If the keyword 'vfs_immediately' is set, the
         object will be updated now and the db will be locked until the next commit.
@@ -482,9 +482,9 @@ class Database(object):
             if len(self.changes):
                 self.commit()
             del kwargs['vfs_immediately']
-            return self._db.update_object(*args, **kwargs)
+            return self._db.update_object((type, id), *args, **kwargs)
 
-        self.changes.append((self._db.update_object, args, kwargs))
+        self.changes.append((self._db.update_object, (type, id), args, kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
