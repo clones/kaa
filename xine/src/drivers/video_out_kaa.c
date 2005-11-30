@@ -224,9 +224,14 @@ _check_bounds(kaa_driver_t *this, const char *func, int x, int y, int w, int h)
 static void
 calculate_slice(kaa_driver_t *this)
 {
-    int x, y, h = (this->osd_h >> 1), w = ((this->osd_w >> 1) & ~7) - 8,
-        row_stride = this->osd_w >> 1, slice_y1 = -2, slice_y2 = -2;
-    uint8_t *p = this->osd_alpha_planes[1];
+    int x, y, n_plane, w, h, row_stride, slice_y1 = -2, slice_y2 = -2;
+    uint8_t *p;
+
+    n_plane = this->osd_format == XINE_IMGFMT_YV12 ? 1 : 0;
+    p = this->osd_alpha_planes[n_plane];
+    row_stride = this->osd_strides[n_plane];
+    h = this->osd_h >> n_plane;
+    w = ((this->osd_w >> n_plane) & ~7) - 8;
 
     stopwatch(3, "calculate_slice: %dx%d", w, h);
     for (y = 0; y < h; y++) {
@@ -242,8 +247,8 @@ calculate_slice(kaa_driver_t *this)
         p += row_stride;
     }
     stopwatch(3, NULL);
-    this->osd_slice_y = clamp((slice_y1 - 2) * 2, 0, this->osd_h);
-    this->osd_slice_h = clamp((slice_y2 + 2) * 2, 0, this->osd_h) - this->osd_slice_y;
+    this->osd_slice_y = clamp((slice_y1 - 2) * (n_plane + 1), 0, this->osd_h);
+    this->osd_slice_h = clamp((slice_y2 + 2) * (n_plane + 1), 0, this->osd_h) - this->osd_slice_y;
 }
 
 static void
@@ -353,7 +358,6 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         uva_ptr += chroma_stride;
     }
     stopwatch(2, NULL);
-    calculate_slice(this);
 }
 
 static void
@@ -363,6 +367,7 @@ convert_bgra_to_frame_format(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         convert_bgra_to_yv12a(this, rx, ry, rw, rh);
     else if (this->osd_format == XINE_IMGFMT_YUY2)
         convert_bgra_to_yuy2a(this, rx, ry, rw, rh);
+    calculate_slice(this);
 }
         
 static inline uint8_t
