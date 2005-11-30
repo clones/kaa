@@ -237,9 +237,9 @@ calculate_slice(kaa_driver_t *this)
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x += 8) {
             if (*(uint64_t *)(p + x)) {
-                if (slice_y1 == -1)
+                if (slice_y1 == -2) {
                     slice_y1 = y;
-                else
+                } else
                     slice_y2 = y;
                 break;
             }
@@ -676,8 +676,8 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
         alpha_planes[i] = this->osd_pre_alpha_planes[i];
         dst_frame_planes[i] = frame->base[i] + ((slice_y >> c) * frame->pitches[i]);
         src_frame_planes[i] = frame->base[i] + ((slice_y >> c) * frame->pitches[i]);
-        overlay_planes[i] += (slice_y >> c) * (this->osd_w >> c);
-        alpha_planes[i] += (slice_y >> c) * (this->osd_w >> c);
+        overlay_planes[i] += (slice_y >> c) * this->osd_strides[i];
+        alpha_planes[i] += (slice_y >> c) * this->osd_strides[i];
     }
 
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
@@ -694,7 +694,7 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
     if (frame->format == XINE_IMGFMT_YUY2)
         w *= 2;
 
-    for (plane = 0; plane < 3 && overlay_planes[plane]; plane++) {
+    for (plane = 0; plane < 3 && this->osd_planes[plane]; plane++) {
         if (plane == 1 && frame->format == XINE_IMGFMT_YV12) {
             w >>= 1;
             slice_h >>= 1;
