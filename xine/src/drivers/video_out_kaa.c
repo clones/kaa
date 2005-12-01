@@ -39,7 +39,7 @@
 #include "video_out_kaa.h"
 
 // Uncomment this for profiling info.
-//#define STOPWATCH 1
+//#define STOPWATCH 4
 
 #define clamp(a,min,max) (((a)>(max))?(max):(((a)<(min))?(min):(a)))
 
@@ -56,7 +56,7 @@ static void stopwatch(int n, char *text, ...)
         char text[250];
     } t[10];
 
-    if (n < STOPWATCH)
+    if (n > STOPWATCH)
         return;
     gettimeofday(&t[n].tv, &tz);
     if (!text) {
@@ -231,15 +231,15 @@ calculate_slice(kaa_driver_t *this)
     p = this->osd_alpha_planes[n_plane];
     row_stride = this->osd_strides[n_plane];
     h = this->osd_h >> n_plane;
-    w = ((this->osd_w >> n_plane) & ~7) - 8;
+    w = row_stride & ~7; // round row stride down to nearest multiple of 8
 
     stopwatch(3, "calculate_slice: %dx%d", w, h);
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x += 8) {
             if (*(uint64_t *)(p + x)) {
-                if (slice_y1 == -2) {
+                if (slice_y1 == -2)
                     slice_y1 = y;
-                } else
+                else
                     slice_y2 = y;
                 break;
             }
@@ -255,14 +255,14 @@ static void
 convert_bgra_to_yuy2a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 {
     uint8_t r1, g1, b1, a1, r2, g2, b2, a2, *src_ptr, *dst_ptr, *dst_a_ptr;
-    uint16_t x, y, dst_stride, src_stride;
-    
+    int x, y, dst_stride, src_stride;
+ 
     stopwatch(2, "convert_bgra_to_yuy2a (%d,%d %dx%d)", rx, ry, rw, rh);
     src_stride = this->osd_stride;
-    dst_stride = this->osd_w * 2;
+    dst_stride = this->osd_strides[0];
     src_ptr = this->osd_buffer + (rx*4) + (ry*src_stride);
-    dst_ptr = this->osd_planes[0] + (rx + ry) * dst_stride;
-    dst_a_ptr = this->osd_alpha_planes[0] + (rx + ry) * dst_stride;
+    dst_ptr = this->osd_planes[0] + (rx*2 + ry * dst_stride);
+    dst_a_ptr = this->osd_alpha_planes[0] + (rx*2 + ry * dst_stride);
     // This is not the most graceful code ...
     for (y = 0; y < rh; y++) {
         for (x = 0; x < rw; x+=2) {
@@ -310,7 +310,6 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         return;
 
     stopwatch(2, "convert_bgra_to_yv12a (%d,%d %dx%d)", rx, ry, rw, rh);
-
 
     src_ptr = this->osd_buffer + (rx*4) + (ry*this->osd_stride);
     y_ptr = this->osd_planes[0] + luma_offset;
@@ -363,6 +362,7 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 static void
 convert_bgra_to_frame_format(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 {
+    printf("CONVERT: %d,%d %dx%d\n", rx, ry, rw, rh);
     if (this->osd_format == XINE_IMGFMT_YV12)
         convert_bgra_to_yv12a(this, rx, ry, rw, rh);
     else if (this->osd_format == XINE_IMGFMT_YUY2)
@@ -481,9 +481,8 @@ static void
 static void
 image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 {
-    int global_alpha = this->osd_alpha;
     uint8_t *ptr[3], *alpha_ptr[3], *pre_ptr[3], *pre_alpha_ptr[3];
-    uint16_t i, x, y, n_planes, offset[3], stride[3];
+    int i, x, y, n_planes, offset[3], global_alpha = this->osd_alpha;
 
     if (!this->osd_planes[0]) // Not allocated yet.
         return;
@@ -497,14 +496,10 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         global_alpha = 255;
 
     if (this->osd_format == XINE_IMGFMT_YV12) {
-        stride[0] = this->osd_w;
-        stride[1] = stride[2] = this->osd_w >> 1;
-        offset[0] = rx + ry * stride[0];
-        offset[1] = offset[2] = (rx >> 1) + (ry >> 1) * stride[1];
+        offset[0] = rx + ry * this->osd_strides[0];
+        offset[1] = offset[2] = (rx >> 1) + (ry >> 1) * this->osd_strides[1];
     } else {
-        stride[0] = this->osd_w * 2;
-        stride[1] = stride[2] = 0;
-        offset[0] = rx + ry * stride[0];
+        offset[0] = (rx*2) + ry * this->osd_strides[0];
         offset[1] = offset[2] = 0;
         rw *= 2;
     }
@@ -538,20 +533,20 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         if (y % 2 == 0 && this->osd_format == XINE_IMGFMT_YV12) {
             for (x = 0; x < (rw >> 1); x += 8) {
                 premultiply_alpha_byte_8(&ptr[1][x], &alpha_ptr[1][x], &pre_ptr[1][x], &pre_alpha_ptr[1][x], global_alpha);
-                premultiply_alpha_byte_8(&ptr[2][x], &alpha_ptr[1][x], &pre_ptr[2][x], &pre_alpha_ptr[1][x], global_alpha);
+                premultiply_alpha_byte_8(&ptr[2][x], &alpha_ptr[2][x], &pre_ptr[2][x], &pre_alpha_ptr[2][x], global_alpha);
             }
             for (; x < rw >> 1; x++) {
                 premultiply_alpha_byte(ptr[1][x], alpha_ptr[1][x], &pre_ptr[1][x], &pre_alpha_ptr[1][x], global_alpha);
-                premultiply_alpha_byte(ptr[2][x], alpha_ptr[1][x], &pre_ptr[2][x], &pre_alpha_ptr[1][x], global_alpha);
+                premultiply_alpha_byte(ptr[2][x], alpha_ptr[2][x], &pre_ptr[2][x], &pre_alpha_ptr[2][x], global_alpha);
             }
             n_planes = 3;
         }
 
         for (i = 0; i < n_planes; i++) {
-            ptr[i] += stride[i];
-            alpha_ptr[i] += stride[i];
-            pre_ptr[i] += stride[i];
-            pre_alpha_ptr[i] += stride[i];
+            ptr[i] += this->osd_strides[i];
+            alpha_ptr[i] += this->osd_strides[i];
+            pre_ptr[i] += this->osd_strides[i];
+            pre_alpha_ptr[i] += this->osd_strides[i];
         }
     }
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
@@ -668,7 +663,7 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
     slice_y = clamp(this->osd_slice_y, 0, frame->height);
     slice_h = clamp(this->osd_slice_h, 0, frame->height - slice_y);
 
-    stopwatch(2, "blend_image (0,%d, %dx%d)",  slice_y, this->osd_w, slice_h);
+    stopwatch(5, "blend_image (0,%d, %dx%d)",  slice_y, this->osd_w, slice_h);
 
     for (i = 0, c = 0; i < 3; i++, c = 1)  {
         // Setup buffer positions for overlay, mpi src and mpi dst.
@@ -717,7 +712,7 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
     if (xine_mm_accel() & MM_ACCEL_X86_MMX)
         asm volatile( "emms\n\t" ::: "memory" );
 #endif
-    stopwatch(2, NULL);
+    stopwatch(5, NULL);
 }
 
 
