@@ -362,7 +362,6 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 static void
 convert_bgra_to_frame_format(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 {
-    printf("CONVERT: %d,%d %dx%d\n", rx, ry, rw, rh);
     if (this->osd_format == XINE_IMGFMT_YV12)
         convert_bgra_to_yv12a(this, rx, ry, rw, rh);
     else if (this->osd_format == XINE_IMGFMT_YUY2)
