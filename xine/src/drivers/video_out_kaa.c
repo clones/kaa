@@ -205,7 +205,7 @@ alloc_overlay_data(kaa_driver_t *this, int format)
 }
 
 
-static int
+static inline int
 _check_bounds(kaa_driver_t *this, const char *func, int x, int y, int w, int h)
 {
     if (x < 0 || y < 0 || w <= 0 || h <= 0 || 
@@ -224,31 +224,39 @@ _check_bounds(kaa_driver_t *this, const char *func, int x, int y, int w, int h)
 static void
 calculate_slice(kaa_driver_t *this)
 {
-    int x, y, n_plane, w, h, row_stride, slice_y1 = -2, slice_y2 = -2;
+    int x, y, n_plane, h, row_stride, slice_y1 = -2, slice_y2 = -2;
     uint8_t *p;
 
     n_plane = this->osd_format == XINE_IMGFMT_YV12 ? 1 : 0;
     p = this->osd_alpha_planes[n_plane];
     row_stride = this->osd_strides[n_plane];
     h = this->osd_h >> n_plane;
-    w = row_stride & ~7; // round row stride down to nearest multiple of 8
 
     stopwatch(3, "calculate_slice: %dx%d", w, h);
-    for (y = 0; y < h; y++) {
-        for (x = 0; x < w; x += 8) {
-            if (*(uint64_t *)(p + x)) {
-                if (slice_y1 == -2)
-                    slice_y1 = y;
-                else
-                    slice_y2 = y;
-                break;
+
+    #define check_opaque(type) \
+            if (*(type*)(p + x)) { \
+                if (slice_y1 == -2) \
+                    slice_y1 = y; \
+                else \
+                    slice_y2 = y; \
+                x = row_stride; \
+                break; \
             }
-        }
+
+    for (y = 0; y < h; y++) {
+        for (x = 0; x < row_stride-7; x += 8) 
+            check_opaque(uint64_t);
+        for (; x < row_stride-3; x += 4) 
+            check_opaque(uint32_t);
+        for (; x < row_stride-1; x += 2) 
+            check_opaque(uint16_t);
         p += row_stride;
     }
     stopwatch(3, NULL);
     this->osd_slice_y = clamp((slice_y1 - 2) * (n_plane + 1), 0, this->osd_h);
     this->osd_slice_h = clamp((slice_y2 + 2) * (n_plane + 1), 0, this->osd_h) - this->osd_slice_y;
+    //printf("SLICE: %d %d\n", this->osd_slice_y, this->osd_slice_h);
 }
 
 static void
@@ -366,7 +374,6 @@ convert_bgra_to_frame_format(kaa_driver_t *this, int rx, int ry, int rw, int rh)
         convert_bgra_to_yv12a(this, rx, ry, rw, rh);
     else if (this->osd_format == XINE_IMGFMT_YUY2)
         convert_bgra_to_yuy2a(this, rx, ry, rw, rh);
-    calculate_slice(this);
 }
         
 static inline uint8_t
@@ -578,7 +585,7 @@ blend_plane_MMX(int w, int slice_h, uint8_t *dst, uint8_t *src,
                 uint8_t *overlay, uint8_t *alpha, int frame_stride,
                 int overlay_stride)
 {
-    int y, q = w / 8, r = w % 8;
+    int i, y, q = w / 8, r = w % 8;
 
     assert(w <= frame_stride && w <= overlay_stride);
 
@@ -630,9 +637,8 @@ blend_plane_MMX(int w, int slice_h, uint8_t *dst, uint8_t *src,
         }
         // Blend the last few pixels of this row ...
         if (r) {
-            uint8_t *end = dst + r;
-            for (; dst < end; dst++, src++, alpha++, overlay++)
-                *dst = blend_byte(*src, *overlay, *alpha);
+            for (i = 0; i < r; i++)
+                *(dst+i) = blend_byte(*(src+i), *(overlay+i), *(alpha+i));
         }
         src += frame_stride;
         dst += frame_stride;
@@ -908,6 +914,10 @@ kaa_redraw_needed(vo_driver_t *vo)
     return redraw || this->passthrough->redraw_needed(this->passthrough);
 }
 
+
+// TODO: this function should be moved out of the driver and into kaa.c and
+// a more generic callback mechanism added to the driver for pre/post 
+// OSD rendering stages.
 static int
 _kaa_frame_to_buffer(kaa_driver_t *this, kaa_frame_t *frame)
 {
@@ -1000,6 +1010,7 @@ _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame)
         }
         convert_bgra_to_frame_format(this, 0, 0, frame->width, frame->height);
         image_premultiply_alpha(this, 0, 0, frame->width, frame->height);
+        calculate_slice(this);
     }
     if (this->osd_visible && this->osd_alpha > 0) 
         blend_image(this, &frame->vo_frame);
@@ -1124,10 +1135,15 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
         }
         case GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT:
         {
-            struct { int x, y, w, h; } *size = data;
+            struct { int x, y, w, h; } *r = data;
+            int i;
+
             pthread_mutex_lock(&this->osd_buffer_lock);
-            convert_bgra_to_frame_format(this, size->x, size->y, size->w, size->h);
-            image_premultiply_alpha(this, size->x, size->y, size->w, size->h);
+            for (i = 0; r[i].w; i++) {
+                convert_bgra_to_frame_format(this, r[i].x, r[i].y, r[i].w, r[i].h);
+                image_premultiply_alpha(this, r[i].x, r[i].y, r[i].w, r[i].h);
+            }
+            calculate_slice(this);
             pthread_mutex_unlock(&this->osd_buffer_lock);
             this->needs_redraw = 1;
             break;

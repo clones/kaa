@@ -117,10 +117,19 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
         gui_send(OSD_SET_ALPHA, PyLong_AsLong(cmd_arg));
     }
     else if (!strcmp(command, "osd_invalidate_rect")) {
-        struct { int x, y, w, h; } r;
-        if (!PyArg_ParseTuple(cmd_arg, "iiii", &r.x, &r.y, &r.w, &r.h))
-            return NULL;
-        gui_send(OSD_INVALIDATE_RECT, &r);
+        struct { int x, y, w, h; } *r;
+        int nrects, i;
+        type_check(cmd_arg, List, "Argument must be a List of 4-tuples");
+        nrects = PySequence_Length(cmd_arg);
+        r = malloc(sizeof(int)*4*(nrects+1));
+        for (i = 0; i < nrects; i++) {
+            PyObject *tuple = PyList_GetItem(cmd_arg, i);
+            if (!PyArg_ParseTuple(tuple, "iiii", &r[i].x, &r[i].y, &r[i].w, &r[i].h))
+                return NULL;
+        }
+        r[i].w = 0;
+        gui_send(OSD_INVALIDATE_RECT, r);
+        free(r);
     }
     /*
     else if (!strcmp(command, "set_osd_slice")) {
