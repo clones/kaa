@@ -42,10 +42,13 @@ files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
          'src/drivers/yuv2rgb.c', 'src/drivers/yuv2rgb_mmx.c', 'src/drivers/dummy.c',
          'src/drivers/video_out_dummy.c', 'src/drivers/common.c'
 ]
-xineso = Extension('kaa.xine._xinemodule', files, config='src/config.h')
+xineso = Extension('kaa.xine._xinemodule', files, config='src/config.h', 
+                   libraries = ["X11"], 
+                   # FIXME: don't hardcode this path
+                   library_dirs = ["/usr/X11R6/lib"])
 
-if not xineso.check_library('xine', '1.0.0'):
-    print 'xine >= 1.0.0 not found'
+if not xineso.check_library('xine', '1.1.1'):
+    print 'xine >= 1.1.1 not found'
     print 'Download from http://xinehq.de'
     sys.exit(1)
 
@@ -56,6 +59,6 @@ elif arch == "i386":
     xineso.config('#define ARCH_X86')
 
 setup(module      = 'xine',
-      version     = '0.1',
+      version     = '0.9', # We're almost feature complete :)
       ext_modules = [ xineso ]
 )
