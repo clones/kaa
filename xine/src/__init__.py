@@ -197,8 +197,8 @@ class Xine(Wrapper):
         }
         super(Xine, self).__init__(obj)
 
-    def _x11_set_correct_size(self, width, height, aspect, window):
-        if height == 0:
+    def _get_vo_display_size(self, width, height, aspect):
+        if width == 0 or height == 0:
             return 0, 0, 0
 
         frame_aspect = width / float(height)
@@ -215,20 +215,17 @@ class Xine(Wrapper):
             d_width = int(math.ceil(height * win_aspect))
             d_height = height
 
-        # Something isn't right here.
-        if not window or aspect == 0:
-            return d_width, d_height, win_aspect
-
-        if abs(window._aspect - win_aspect) > 0.01:
-            print "VO: %dx%d -> %dx%d" % (width, height, d_width, d_height)
-            window.resize((d_width, d_height))
-            window._aspect = win_aspect
-
-        return window.get_size() + (win_aspect,)
+        return d_width, d_height, win_aspect
 
     def _default_frame_output_cb(self, width, height, aspect, window):
         #print "FRAME OUTPUT CB", width, height, aspect
-        w, h, a = self._x11_set_correct_size(width, height, aspect, window)
+        w, h, a = self._get_vo_display_size(width, height, aspect)
+        if abs(window._aspect - a) > 0.01:
+            print "VO: %dx%d -> %dx%d" % (width, height, w, h)
+            window.resize((w, h))
+            window._aspect = a
+        if window:
+            w, h = window.get_size()
 
         # Return order: dst_pos, win_pos, dst_size, aspect
         return (0, 0), (0, 0), (w, h), 1.0
@@ -236,20 +233,29 @@ class Xine(Wrapper):
     def _default_dest_size_cb(self, width, height, aspect, window):
         # XXX: I'm not sure this is correct.  I'm also not sure there's not 
         # a bug in xine-lib.
-        w, h, a = self._x11_set_correct_size(width, height, aspect, window)
+        w, h, a = self._get_vo_display_size(width, height, aspect)
+        if abs(window._aspect - a) > 0.01:
+            print "VO: %dx%d -> %dx%d" % (width, height, w, h)
+            window.resize((w, h))
+            window._aspect = a
         return (w, h), 1.0
 
     def load_video_output_plugin(self, driver = "auto", **kwargs):
-        if "window" in kwargs:
-            window = kwargs["window"]
-            assert(isinstance(window, display.X11Window))
-            if "frame_output_cb" not in kwargs:
-                kwargs["frame_output_cb"] = notifier.WeakCallback(self._default_frame_output_cb, window)
-            if "dest_size_cb" not in kwargs:
-                kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
+        if driver in ("xv", "xshm", "opengl", "sdl", "kaa"):
+            if "window" in kwargs:
+                window = kwargs["window"]
+                assert(isinstance(window, display.X11Window))
+                if "frame_output_cb" not in kwargs:
+                    kwargs["frame_output_cb"] = notifier.WeakCallback(self._default_frame_output_cb, window)
+                if "dest_size_cb" not in kwargs:
+                    kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
+                window._aspect = -1
+                kwargs["window"] = window._window
 
-            window._aspect = -1
-            kwargs["window"] = window._window
+            if "wid" in kwargs:
+                if type(kwargs["wid"]) == str and kwargs["wid"][:2] == "0x":
+                    kwargs["wid"] = int(kwargs["wid"], 16)
+
 
         driver = self._obj.load_video_output_plugin(driver, **kwargs)
         return _wrap_xine_object(driver)

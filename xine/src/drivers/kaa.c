@@ -6,6 +6,7 @@ typedef struct _kaa_vo_user_data {
     PyObject *send_frame_cb, *osd_configure_cb,
              *passthrough_pyobject;
     void *passthrough_visual;
+    driver_info_common *passthrough_driver_info;
 } kaa_vo_user_data;
 
 
@@ -127,7 +128,7 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
             if (!PyArg_ParseTuple(tuple, "iiii", &r[i].x, &r[i].y, &r[i].w, &r[i].h))
                 return NULL;
         }
-        r[i].w = 0;
+        r[i].w = 0; // sentinel
         gui_send(OSD_INVALIDATE_RECT, r);
         free(r);
     }
@@ -173,10 +174,13 @@ kaa_driver_dealloc(void *data)
     if (user_data->passthrough_pyobject) {
         Py_DECREF(user_data->passthrough_pyobject);
     }
+    PyGILState_Release(gstate);
+
+    if (user_data->passthrough_driver_info && user_data->passthrough_driver_info->dealloc_cb)
+        user_data->passthrough_driver_info->dealloc_cb(user_data->passthrough_driver_info);
     if (user_data->passthrough_visual)
         free(user_data->passthrough_visual);
 
-    PyGILState_Release(gstate);
     free(user_data);
 }
 
@@ -270,11 +274,12 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
 
     user_data = malloc(sizeof(kaa_vo_user_data));
     memset(user_data, 0, sizeof(kaa_vo_user_data));
-    user_data->passthrough_pyobject = passthrough;
-    user_data->send_frame_cb        = send_frame_cb_pyobject;
-    user_data->osd_configure_cb     = osd_configure_cb_pyobject;
-    user_data->common.dealloc_cb    = kaa_driver_dealloc;
-    user_data->passthrough_visual   = passthrough_visual;
+    user_data->passthrough_pyobject    = passthrough;
+    user_data->send_frame_cb           = send_frame_cb_pyobject;
+    user_data->osd_configure_cb        = osd_configure_cb_pyobject;
+    user_data->common.dealloc_cb       = kaa_driver_dealloc;
+    user_data->passthrough_visual      = passthrough_visual;
+    user_data->passthrough_driver_info = passthrough_driver_info;
 
     vis.send_frame_cb_data    = user_data;
     vis.osd_configure_cb_data = user_data;
