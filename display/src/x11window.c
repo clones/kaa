@@ -45,6 +45,7 @@ int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
     memset(&ev, 0, sizeof(ev));
 
     XLockDisplay(o->display);
+    XUngrabPointer(o->display, CurrentTime);
     ev.xclient.type = ClientMessage;
     ev.xclient.send_event = True;
     ev.xclient.message_type = XInternAtom(o->display, type, False);
@@ -84,10 +85,11 @@ X11Window_PyObject__traverse(X11Window_PyObject *self, visitproc visit,
 PyObject *
 X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
 {
-    X11Window_PyObject *self;
+    X11Window_PyObject *self, *py_parent;
     X11Display_PyObject *display;
+    Window parent;
     int w, h, screen;
-    char *window_title;
+    char *window_title = NULL;
     XSetWindowAttributes attr;
 
     self = (X11Window_PyObject *)type->tp_alloc(type, 0);
@@ -95,13 +97,22 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
         // args is NULL it means we're being called from __wrap()
         return (PyObject *)self;
 
-    if (!PyArg_ParseTuple(args, "O!(ii)s", &X11Display_PyObject_Type, &display,
-                          &w, &h, &window_title))
+    if (!PyArg_ParseTuple(args, "O!(ii)", &X11Display_PyObject_Type, &display, &w, &h))
         return NULL;
+
+    py_parent = (X11Window_PyObject *)PyDict_GetItemString(kwargs, "parent");
+    if (PyMapping_HasKeyString(kwargs, "title"))
+        window_title = PyString_AsString(PyDict_GetItemString(kwargs, "title"));
 
     self->display_pyobject = (PyObject *)display;
     Py_INCREF(display);
     self->display = display->display;
+
+    if (py_parent)
+        parent = py_parent->window;
+    else
+        parent = DefaultRootWindow(self->display);
+
     XLockDisplay(self->display);
 
     screen = DefaultScreen(self->display);
@@ -109,21 +120,20 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     attr.border_pixel = 0;
     attr.background_pixmap = None;
     attr.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-        StructureNotifyMask | PointerMotionMask | 
-        KeyPressMask | SubstructureRedirectMask;
-    attr.bit_gravity = ForgetGravity;
+        StructureNotifyMask | PointerMotionMask | KeyPressMask;
+    attr.bit_gravity = StaticGravity;
+    attr.win_gravity = StaticGravity;
     attr.override_redirect = False;
     attr.colormap = DefaultColormap(self->display, screen);
 
-    self->window = XCreateWindow(self->display, DefaultRootWindow(self->display), 0, 0,
+    self->window = XCreateWindow(self->display, parent, 0, 0,
                         w, h, 0, DefaultDepth(self->display, screen), InputOutput, 
                         DefaultVisual(self->display, screen),
-                        CWBackingStore | CWColormap | CWBackPixmap |
+                        CWBackingStore | CWColormap | CWBackPixmap | CWWinGravity |
                         CWBitGravity | CWEventMask | CWOverrideRedirect, &attr);
 
-    XStoreName(self->display, self->window, window_title);
-//    XSelectInput(self->display, self->window, ExposureMask | KeyPressMask |
- //                PointerMotionMask | SubstructureRedirectMask);
+    if (window_title)
+        XStoreName(self->display, self->window, window_title);
     self->ptr = PyInt_FromLong(self->window);
     _make_invisible_cursor(self);
     XUnlockDisplay(self->display);

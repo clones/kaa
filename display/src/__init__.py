@@ -185,10 +185,13 @@ class X11Window(object):
             self._window = window
         else:
             assert("size" in kwargs)
-            if "title" not in kwargs:
-                kwargs["title"] = "Kaa Window"
-            self._window = _Display.X11Window(display._display,
-                                              kwargs["size"], kwargs["title"])
+            if "title" in kwargs:
+                assert(type(kwargs["title"]) == str)
+            if "parent" in kwargs:
+                assert(type(kwargs["parent"]) == X11Window)
+                kwargs["parent"] = kwargs["parent"]._window
+
+            self._window = _Display.X11Window(display._display, kwargs["size"], **kwargs)
 
         self._display = display
         display._windows[self._window.ptr] = weakref.ref(self)
