@@ -121,6 +121,11 @@ class X11Display(object):
             if wid:
                 if wid not in window_events:
                     window_events[wid] = []
+                if event == X11Display.XEVENT_CONFIGURE_NOTIFY:
+                    # Remove any existing configure events in the list (only
+                    # the last one applies)
+                    window_events[wid] = [ x for x in window_events[wid] if x[0] != 
+                                           X11Display.XEVENT_CONFIGURE_NOTIFY ]
                 window_events[wid].append((event, data))
 
         for wid, events in window_events.items():
@@ -199,6 +204,7 @@ class X11Window(object):
             "map_event": Signal(),
             "unmap_event": Signal(),
             "resize_event": Signal(),
+            "configure_event": Signal(),
         }
         
     def get_display(self):
@@ -261,6 +267,7 @@ class X11Window(object):
                     # Callback could change size again, so save our actual
                     # size to prevent being called again.
                     self._last_configured_size = self.get_size()
+                self.signals["configure_event"].emit(data["pos"], data["size"])
                 
 
         if len(expose_regions) > 0:
@@ -325,7 +332,7 @@ class X11Window(object):
         return self._fs_size_save != None
      
     def get_id(self):
-        return hex(self._window.ptr)
+        return self._window.ptr
 
 class EvasX11Window(X11Window):
     def __init__(self, gl = False, display = None, size = (640, 480), 
