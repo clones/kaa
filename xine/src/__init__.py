@@ -220,7 +220,7 @@ class Xine(Wrapper):
     def _default_frame_output_cb(self, width, height, aspect, window):
         #print "FRAME OUTPUT CB", width, height, aspect
         w, h, a = self._get_vo_display_size(width, height, aspect)
-        if abs(window._aspect - a) > 0.01:
+        if aspect > 0 and abs(window._aspect - a) > 0.01:
             print "VO: %dx%d -> %dx%d" % (width, height, w, h)
             window.resize((w, h))
             window._aspect = a
@@ -231,13 +231,11 @@ class Xine(Wrapper):
         return (0, 0), (0, 0), (w, h), 1.0
 
     def _default_dest_size_cb(self, width, height, aspect, window):
-        # XXX: I'm not sure this is correct.  I'm also not sure there's not 
-        # a bug in xine-lib.
-        w, h, a = self._get_vo_display_size(width, height, aspect)
-        if abs(window._aspect - a) > 0.01:
-            print "VO: %dx%d -> %dx%d" % (width, height, w, h)
-            window.resize((w, h))
-            window._aspect = a
+        #print "DEST SIZE CB", width, height, aspect, window.get_size()
+        if not window.get_visible():
+            w, h, a = self._get_vo_display_size(width, height, aspect)
+        else:
+            w, h = window.get_size()
         return (w, h), 1.0
 
     def load_video_output_plugin(self, driver = "auto", **kwargs):

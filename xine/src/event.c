@@ -34,7 +34,14 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
     o->do_dispose = do_dispose;
     o->owner = owner;
     Py_INCREF(o->xine);
+    PyDict_SetItemString_STEAL(o->data, "data", PyString_FromStringAndSize(event->data, event->data_length));
+    if (event->data_length == sizeof(int)) {
+        // Assume that data is an integer and include that value in the data dict.
+        PyDict_SetItemString_STEAL(o->data, "int", PyInt_FromLong(*(int *)event->data));
+    }
 
+    // Interpret specific event types.  Python space could use struct.unpack
+    // to parse the data, but this is for convenience.
     switch (event->type) {
         case XINE_EVENT_FRAME_FORMAT_CHANGE: {
             xine_format_change_data_t *d = (xine_format_change_data_t *)event->data;

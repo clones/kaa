@@ -331,7 +331,9 @@ Xine_Post_PyObject_set_parameters(Xine_Post_PyObject *self, PyObject *args, PyOb
         parm++;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     api->set_parameters(self->post, (void *)data);
+    Py_END_ALLOW_THREADS
     free(data);
     if (PyErr_Occurred())
         return NULL;
