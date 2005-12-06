@@ -260,6 +260,9 @@ class X11Window(object):
             elif event == X11Display.XEVENT_MAP_NOTIFY:
                 self.signals["map_event"].emit()
 
+            elif event == X11Display.XEVENT_UNMAP_NOTIFY:
+                self.signals["unmap_event"].emit()
+
             elif event == X11Display.XEVENT_CONFIGURE_NOTIFY:
                 cur_size = self.get_size()
                 last_size = self._last_configured_size
