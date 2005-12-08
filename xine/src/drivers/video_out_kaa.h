@@ -36,13 +36,17 @@
 
 extern plugin_info_t xine_vo_kaa_plugin_info[];
 
-#define GUI_SEND_KAA_VO_SET_SEND_FRAME          1001
 #define GUI_SEND_KAA_VO_SET_PASSTHROUGH         1002
-#define GUI_SEND_KAA_VO_SET_SEND_FRAME_SIZE     1003
 #define GUI_SEND_KAA_VO_OSD_SET_VISIBILITY      1010
 #define GUI_SEND_KAA_VO_OSD_SET_ALPHA           1011
 #define GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT     1012
 //#define GUI_SEND_KAA_VO_OSD_SET_SLICE           1013
+
+#define KAA_VO_HANDLE_FRAME_ALLOC               1
+#define KAA_VO_HANDLE_FRAME_UPDATE              2
+#define KAA_VO_HANDLE_FRAME_DISPOSE             3
+#define KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD     4
+#define KAA_VO_HANDLE_FRAME_DISPLAY_POST_OSD    5
 
 
 // From mplayer
@@ -61,20 +65,9 @@ typedef struct kaa_frame_s {
     double ratio;
     int flags;
 
-    unsigned char *yv12_buffer,
-                  *yv12_planes[3],
-                  *bgra_buffer;
-    int yv12_strides[3];
-    pthread_mutex_t bgra_lock;
     vo_frame_t *passthrough_frame;
-    yuv2rgb_t *yuv2rgb;
+    void *user_data;
 } kaa_frame_t;
-
-struct rects {
-    int x, y, w, h, type;
-    struct rects *next;
-};
-
 
 typedef struct kaa_driver_s {
     vo_driver_t vo_driver;
@@ -82,32 +75,27 @@ typedef struct kaa_driver_s {
     pthread_mutex_t lock;
     xine_t *xine;
 
-    kaa_frame_t *cur_frame;
+    kaa_frame_t *last_frame;
     vo_driver_t *passthrough;
     alphablend_t alphablend_extra_data;
+    int aspect, needs_redraw, do_passthrough;
 
-    // Frame-to-buffer members
-    yuv2rgb_factory_t *yuv2rgb_factory;
-    int aspect, do_passthrough, needs_redraw,
-        do_send_frame, send_frame_width, send_frame_height;
-
-    void (*send_frame_cb)(int width, int height, double aspect, uint8_t *buffer, pthread_mutex_t *buffer_lock, void *data);
-    void *send_frame_cb_data;
-    //
-
+    // Custom frame handlers
+    int (*handle_frame_cb)(int cmd, vo_frame_t *frame, void **frame_user_data, void *data);
+    void *handle_frame_cb_data;
 
     // OSD members
-    void (*osd_configure_cb)(int width, int height, double aspect, void *data);
+    void (*osd_configure_cb)(int width, int height, double aspect, void *data, 
+                             uint8_t **buffer_return, int *buffer_stride_return);
     uint8_t *osd_configure_cb_data;
 
     int osd_alpha, osd_visible, osd_slice_y, osd_slice_h;
     uint8_t *osd_buffer;
-    int osd_stride, osd_rows, osd_format, osd_w, osd_h;
+    int osd_stride, osd_format, osd_w, osd_h;
     
     uint8_t *osd_planes[3], *osd_alpha_planes[3],
             *osd_pre_planes[3], *osd_pre_alpha_planes[3];
     uint16_t osd_strides[3];
-    struct rects *osd_invalid_rects;
     pthread_mutex_t osd_buffer_lock;
     //
 
@@ -122,16 +110,15 @@ typedef struct kaa_class_s {
 
 
 typedef struct kaa_visual_s {
-    void (*send_frame_cb)(int width, int height, double aspect, uint8_t *buffer, pthread_mutex_t *buffer_lock, void *data);
-    void *send_frame_cb_data;
-
     char *passthrough_driver;
     int passthrough_visual_type;
     void *passthrough_visual;
     vo_driver_t *passthrough;
 
-    void (*osd_configure_cb)(int width, int height, double aspect, void *data);
+    void (*osd_configure_cb)(int width, int height, double aspect, void *data, 
+                             uint8_t **buffer_return, int *buffer_stride_return);
     void *osd_configure_cb_data;
-    uint8_t *osd_buffer;
-    int osd_stride, osd_rows;
+
+    int (*handle_frame_cb)(int cmd, vo_frame_t *frame, void **frame_user_data, void *data);
+    void *handle_frame_cb_data;
 } kaa_visual_t;

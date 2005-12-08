@@ -1,65 +1,196 @@
 #include "kaa.h"
 #include "video_out_kaa.h"
+#include <malloc.h>
+#include "../config.h"
+
+#if defined(ARCH_X86) || defined(ARCH_X86_64)
+    #define YUY2_SIZE_THRESHOLD   400*280
+#else
+    #define YUY2_SIZE_THRESHOLD   2000*2000
+#endif
+
 
 typedef struct _kaa_vo_user_data {
     driver_info_common common;
-    PyObject *send_frame_cb, *osd_configure_cb,
+    PyObject *osd_configure_cb,
              *passthrough_pyobject;
     void *passthrough_visual;
+
+    int yv12_width, yv12_height;
+    uint8_t *yv12_planes[3];
+    int yv12_strides[3];
+
+    yuv2rgb_factory_t *yuv2rgb_factory;
+    uint8_t *frame_buffer;
+    int do_notify_frame, notify_frame_width, notify_frame_height;
     driver_info_common *passthrough_driver_info;
+
 } kaa_vo_user_data;
 
+typedef struct _kaa_frame_user_data {
 
-PyObject *
-_unlock_frame_cb(PyObject *self, PyObject *args, PyObject *kwargs)
+    yuv2rgb_t *yuv2rgb;
+} kaa_frame_user_data;
+
+
+static void
+_alloc_yv12(kaa_vo_user_data *user_data, int width, int height)
 {
-    pthread_mutex_t *lock = (pthread_mutex_t *)PyCObject_AsVoidPtr(self);
-    pthread_mutex_unlock(lock);
-    Py_INCREF(Py_None);
-    return Py_None;
+    int i;
+
+    user_data->yv12_strides[0] = 8*((width + 7) / 8);
+    user_data->yv12_strides[1] = 8*((width + 15) / 16);
+    user_data->yv12_strides[2] = 8*((width + 15) / 16);
+
+    for (i = 0; i < 3; i++) {
+        if (user_data->yv12_planes[i])
+            free(user_data->yv12_planes[i]);
+
+        user_data->yv12_planes[i] = (uint8_t *)memalign(16, user_data->yv12_strides[i] * (height >> (i > 0)));
+    }
+    user_data->yv12_width = width;
+    user_data->yv12_height = height;
 }
 
-PyMethodDef unlock_frame_def = {
-    "unlock_frame_cb", (PyCFunction)_unlock_frame_cb, METH_VARARGS, NULL
-};
 
+static void
+_kaa_frame_to_buffer(kaa_vo_user_data *user_data, vo_frame_t *frame, kaa_frame_user_data *frame_user_data, 
+                     int dst_width, int dst_height)
+{
 
-void send_frame_cb(int width, int height, double aspect, uint8_t *buffer, pthread_mutex_t *buffer_lock, void *data)
+    if (frame->width != frame_user_data->yuv2rgb->source_width ||
+        frame->height != frame_user_data->yuv2rgb->source_height ||
+        frame->pitches[0] != frame_user_data->yuv2rgb->y_stride ||
+        frame->pitches[1] != frame_user_data->yuv2rgb->uv_stride ||
+        dst_width != frame_user_data->yuv2rgb->dest_width ||
+        dst_height != frame_user_data->yuv2rgb->dest_height) {
+            int y_stride = frame->pitches[0],
+                uv_stride = frame->pitches[1];
+
+        if (frame->format == XINE_IMGFMT_YUY2 && dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
+            y_stride = 8*((frame->width + 7) / 8);
+            uv_stride = 8*((frame->width + 15) / 16);
+        }
+        frame_user_data->yuv2rgb->configure(frame_user_data->yuv2rgb, frame->width, frame->height,
+            y_stride, uv_stride, dst_width, dst_height, 4*dst_width);
+
+    }
+
+    if (frame->format == XINE_IMGFMT_YV12) {
+        frame_user_data->yuv2rgb->yuv2rgb_fun(frame_user_data->yuv2rgb,
+                user_data->frame_buffer + 16, frame->base[0], frame->base[1], frame->base[2]);
+    } else {
+        if (dst_width * dst_height > YUY2_SIZE_THRESHOLD) {
+            // Naive optimization: yuv2rgb has an accelerated version
+            // but yuy22rgb doesn't.  So when the area of the image is
+            // greater than the size threshold (determined empirically)
+            // first convert the yuy2 image to yv12 and then convert
+            // yv12 to rgb, both operations of which are accelerated.
+            if (user_data->yv12_width != frame->width || user_data->yv12_height != frame->height)
+                _alloc_yv12(user_data, frame->width, frame->height);
+
+            yuy2_to_yv12(frame->base[0], frame->pitches[0],
+                         user_data->yv12_planes[0], user_data->yv12_strides[0],
+                         user_data->yv12_planes[1], user_data->yv12_strides[1],
+                         user_data->yv12_planes[2], user_data->yv12_strides[2],
+                         frame->width, frame->height);
+            frame_user_data->yuv2rgb->yuv2rgb_fun (frame_user_data->yuv2rgb, user_data->frame_buffer + 16,
+                                         user_data->yv12_planes[0],
+                                         user_data->yv12_planes[1],
+                                         user_data->yv12_planes[2]);
+        } else {
+            frame_user_data->yuv2rgb->yuy22rgb_fun(frame_user_data->yuv2rgb, user_data->frame_buffer + 16,
+                                            frame->base[0]);
+        }
+    }
+}
+static int
+handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *data)
 {
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
-    PyObject *args, *result, *unlock_frame_cb, *lock_pyobject;
-    PyGILState_STATE gstate;
+    kaa_frame_user_data *frame_user_data = *(kaa_frame_user_data **)frame_user_data_gen;
 
-    if (!user_data || !user_data->send_frame_cb || !Py_IsInitialized()) {
-        pthread_mutex_unlock(buffer_lock);
-        return;
+    switch (cmd) {
+        case KAA_VO_HANDLE_FRAME_ALLOC:
+            *frame_user_data_gen = malloc(sizeof(kaa_frame_user_data));
+            frame_user_data = *(kaa_frame_user_data **)frame_user_data_gen;
+            memset(frame_user_data, 0, sizeof(kaa_frame_user_data));
+            frame_user_data->yuv2rgb = user_data->yuv2rgb_factory->create_converter(user_data->yuv2rgb_factory);
+            break;
+
+
+        case KAA_VO_HANDLE_FRAME_DISPOSE:
+            frame_user_data->yuv2rgb->dispose(frame_user_data->yuv2rgb);
+            free(*frame_user_data_gen);
+            break;
+
+
+        case KAA_VO_HANDLE_FRAME_DISPLAY_POST_OSD: {
+            struct { short lock, width, height; double aspect; } header = { .lock = 0x10 };
+            struct timeval curtime;
+            struct timezone tz;
+            double start_time, now;
+            int dst_width = user_data->notify_frame_width, 
+                dst_height = user_data->notify_frame_height;
+
+            if (!user_data->frame_buffer || !user_data->do_notify_frame)
+                break;
+
+            // Wait at most 0.1 seconds for the client to unlock the buffer.
+            gettimeofday(&curtime, &tz);
+            start_time = now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
+            while (user_data->frame_buffer[0] == 0x20 && now - start_time < 0.1) {
+                gettimeofday(&curtime, &tz);
+                now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
+                usleep(1);
+            }
+            
+            if (dst_width == -1)
+                dst_width = frame->width;
+            if (dst_height == -1)
+                dst_height = frame->height;
+
+            _kaa_frame_to_buffer(user_data, frame, frame_user_data, dst_width, dst_height);
+
+            header.width = dst_width;
+            header.height = dst_height;
+            header.aspect = frame->ratio;
+            memcpy(user_data->frame_buffer, &header, sizeof(header));
+            *user_data->frame_buffer = 0x20;
+            break;
+        }
     }
+    return 0;
+}
 
-    gstate = PyGILState_Ensure();
+static void *
+_get_ptr_from_pyobject(PyObject *o, int *buflen)
+{
+    void *data = 0;
+    int len;
 
-    lock_pyobject = PyCObject_FromVoidPtr((void *)buffer_lock, NULL);
-    unlock_frame_cb = PyCFunction_New(&unlock_frame_def, lock_pyobject);
-
-    args = Py_BuildValue("(iidiO)", width, height, aspect, (long)buffer, unlock_frame_cb);
-    Py_DECREF(unlock_frame_cb);
-    Py_DECREF(lock_pyobject);
-    result = PyEval_CallObject(user_data->send_frame_cb, args);
-    if (result)
-        Py_DECREF(result);
-    else {
-        printf("Exception in kaa_send_frame callback:\n");
-        PyErr_Print();
+    if (PyNumber_Check(o)) {
+        data = (void *) PyLong_AsLong(o);
+        if (buflen)
+            *buflen = -1;
+    } else {
+        if (PyObject_AsWriteBuffer(o, (void **) &data, &len) == -1)
+            return NULL;
+        if (buflen)
+            *buflen = len;
     }
-    Py_DECREF(args);
-    PyGILState_Release(gstate);
+    return data;
 }
 
 void 
-osd_configure_cb(int width, int height, double aspect, void *data)
+osd_configure_cb(int width, int height, double aspect, void *data, uint8_t **buffer_return, int *buffer_stride_return)
 {
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
     PyObject *args, *result;
     PyGILState_STATE gstate;
+
+    *buffer_return = 0;
+    *buffer_stride_return = 0;
 
     if (!user_data || !user_data->osd_configure_cb || !Py_IsInitialized())
         return;
@@ -68,9 +199,37 @@ osd_configure_cb(int width, int height, double aspect, void *data)
 
     args = Py_BuildValue("(iid)", width, height, aspect);
     result = PyEval_CallObject(user_data->osd_configure_cb, args);
-    if (result)
+    if (result) {
+        PyObject *py_osd_buffer, *py_frame_buffer = 0;
+        uint8_t *frame_buffer;
+        int buflen = -1;
+
+        if (!PyArg_ParseTuple(result, "Oi|O", &py_osd_buffer, buffer_stride_return, &py_frame_buffer))
+            goto bail;
+
+        if ((*buffer_return = _get_ptr_from_pyobject(py_osd_buffer, &buflen)) == 0)
+            goto bail;
+        if (buflen != -1 && buflen < width * height * 4) {
+            PyErr_Format(PyExc_ValueError, "OSD buffer is not big enough");
+            goto bail;
+        }
+
+        if (py_frame_buffer && (frame_buffer = _get_ptr_from_pyobject(py_frame_buffer, &buflen)))
+            user_data->frame_buffer = frame_buffer;
+/*
+        if (buflen != -1 && buflen < width * height * 4) {
+            PyErr_Format(PyExc_ValueError, "Frame buffer is not big enough");
+            goto bail;
+        }
+*/
+    }
+
+bail:
+    if (result) {
         Py_DECREF(result);
-    else {
+    }
+
+    if (PyErr_Occurred()) {
         printf("Exception in osd_configure_cb callback:\n");
         PyErr_Print();
     }
@@ -95,15 +254,13 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
     #define gui_send(cmd, val) \
         driver->vo_driver.gui_data_exchange(&driver->vo_driver, GUI_SEND_KAA_VO_ ## cmd, (void *)val);
 
-    if (!strcmp(command, "set_send_frame")) {
+    if (!strcmp(command, "set_notify_frame")) {
         type_check(cmd_arg, Bool, "Argument must be a boolean");
-        gui_send(SET_SEND_FRAME, PyLong_AsLong(cmd_arg));
+        user_data->do_notify_frame = PyLong_AsLong(cmd_arg);
     }
-    else if (!strcmp(command, "set_send_frame_size")) {
-        struct { int w, h; } size;
-        if (!PyArg_ParseTuple(cmd_arg, "ii", &size.w, &size.h))
+    else if (!strcmp(command, "set_notify_frame_size")) {
+        if (!PyArg_ParseTuple(cmd_arg, "ii", &user_data->notify_frame_width, &user_data->notify_frame_height))
             return NULL;
-        gui_send(SET_SEND_FRAME_SIZE, &size);
     }
     else if (!strcmp(command, "set_passthrough")) {
         type_check(cmd_arg, Bool, "Argument must be a boolean");
@@ -163,11 +320,10 @@ kaa_driver_dealloc(void *data)
 {
     PyGILState_STATE gstate;
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
+    int i;
  
     gstate = PyGILState_Ensure();
-    if (user_data->send_frame_cb) {
-        Py_DECREF(user_data->send_frame_cb);
-    }
+
     if (user_data->osd_configure_cb) {
         Py_DECREF(user_data->osd_configure_cb);
     }
@@ -181,6 +337,13 @@ kaa_driver_dealloc(void *data)
     if (user_data->passthrough_visual)
         free(user_data->passthrough_visual);
 
+    user_data->yuv2rgb_factory->dispose(user_data->yuv2rgb_factory);
+     for (i = 0; i < 3; i++) {
+         if (user_data->yv12_planes[i])
+             free(user_data->yv12_planes[i]);
+     }
+
+
     free(user_data);
 }
 
@@ -193,10 +356,10 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
     vo_driver_t *passthrough_driver;
     kaa_vo_user_data *user_data;
     PyObject *o, *passthrough = NULL, *control_return = NULL, 
-             *send_frame_cb_pyobject = NULL, *osd_configure_cb_pyobject = NULL;
+             *osd_configure_cb_pyobject = NULL;
     void *passthrough_visual;
     driver_info_common *passthrough_driver_info;
-    int passthrough_visual_type, buflen = -1;
+    int passthrough_visual_type;
 
     passthrough = PyDict_GetItemString(kwargs, "passthrough");
     if (!passthrough || !PyString_Check(passthrough)) {
@@ -220,40 +383,12 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
     }
 
     memset(&vis, 0, sizeof(vis));
-    vis.send_frame_cb           = send_frame_cb;
     vis.osd_configure_cb        = osd_configure_cb;
     vis.passthrough_driver      = PyString_AsString(passthrough);
     vis.passthrough_visual_type = passthrough_visual_type;
     vis.passthrough_visual      = passthrough_visual;
     vis.passthrough             = passthrough_driver;
-
-    if (PyMapping_HasKeyString(kwargs, "osd_buffer")) {
-        o = PyDict_GetItemString(kwargs, "osd_buffer");
-        if (PyNumber_Check(o))
-            vis.osd_buffer = (uint8_t *)PyLong_AsLong(o);
-        else {
-            if (PyObject_AsWriteBuffer(o, (void **)&vis.osd_buffer, &buflen) == -1)
-                return 0;
-        }
-    }
-
-    if (PyMapping_HasKeyString(kwargs, "osd_stride"))
-        if (!PyArg_Parse(PyDict_GetItemString(kwargs, "osd_stride"), "l", &vis.osd_stride))
-            return 0;
-
-    if (PyMapping_HasKeyString(kwargs, "osd_rows"))
-        if (!PyArg_Parse(PyDict_GetItemString(kwargs, "osd_rows"), "l", &vis.osd_rows))
-            return 0;
-
-    if (PyMapping_HasKeyString(kwargs, "send_frame_cb")) {
-        o = PyDict_GetItemString(kwargs, "send_frame_cb");
-        if (!PyCallable_Check(o)) {
-            PyErr_Format(PyExc_ValueError, "send_frame_cb must be callable");
-            return 0;
-        }
-        send_frame_cb_pyobject = o;
-        Py_INCREF(o);
-    }
+    vis.handle_frame_cb         = handle_frame_cb;
 
     if (PyMapping_HasKeyString(kwargs, "osd_configure_cb")) {
         o = PyDict_GetItemString(kwargs, "osd_configure_cb");
@@ -265,24 +400,22 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
         Py_INCREF(o);
     }
 
-    if (vis.osd_buffer && buflen != -1 && buflen != vis.osd_stride * vis.osd_rows) {
-        PyErr_Format(PyExc_ValueError, "OSD buffer length does not match supplied stride * rows");
-        return 0;
-    }
-
     Py_INCREF(passthrough);
 
     user_data = malloc(sizeof(kaa_vo_user_data));
     memset(user_data, 0, sizeof(kaa_vo_user_data));
     user_data->passthrough_pyobject    = passthrough;
-    user_data->send_frame_cb           = send_frame_cb_pyobject;
     user_data->osd_configure_cb        = osd_configure_cb_pyobject;
     user_data->common.dealloc_cb       = kaa_driver_dealloc;
     user_data->passthrough_visual      = passthrough_visual;
     user_data->passthrough_driver_info = passthrough_driver_info;
+    user_data->notify_frame_width      = -1;
+    user_data->notify_frame_height     = -1;
+    user_data->do_notify_frame         = 0;
+    user_data->yuv2rgb_factory         = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
 
-    vis.send_frame_cb_data    = user_data;
     vis.osd_configure_cb_data = user_data;
+    vis.handle_frame_cb_data  = user_data;
 
     control_return = PyDict_GetItemString(kwargs, "control_return");
     if (control_return && PyList_Check(control_return)) {

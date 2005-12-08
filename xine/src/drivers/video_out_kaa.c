@@ -39,7 +39,7 @@
 #include "video_out_kaa.h"
 
 // Uncomment this for profiling info.
-//#define STOPWATCH 4
+//#define STOPWATCH 5
 
 #define clamp(a,min,max) (((a)>(max))?(max):(((a)<(min))?(min):(a)))
 
@@ -78,8 +78,6 @@ static void stopwatch(int n, char *text, ...)
 
 
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
-    #define YUY2_SIZE_THRESHOLD   400*280
-
     #define C64(x) ((uint64_t)((x)|(x)<<16))<<32 | (uint64_t)(x) | (uint64_t)(x)<<16
     static uint64_t  __attribute__((used)) __attribute__((aligned(8))) MM_global_alpha;
     static uint64_t  __attribute__((used)) __attribute__((aligned(8))) MM_ROUND = C64(0x80);
@@ -88,8 +86,6 @@ static void stopwatch(int n, char *text, ...)
     #else
         #define REG_c  "ecx"
     #endif
-#else
-    #define YUY2_SIZE_THRESHOLD   2000*2000
 #endif
 
 
@@ -232,7 +228,7 @@ calculate_slice(kaa_driver_t *this)
     row_stride = this->osd_strides[n_plane];
     h = this->osd_h >> n_plane;
 
-    stopwatch(3, "calculate_slice: %dx%d", w, h);
+    stopwatch(3, "calculate_slice");
 
     #define check_opaque(type) \
             if (*(type*)(p + x)) { \
@@ -312,11 +308,6 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
                  chroma_stride = this->osd_w >> 1;
     int chroma_offset = (rx >> 1) + (ry >> 1) * chroma_stride;
 
-    if (!this->osd_planes[0]) // Not allocated yet.
-        return;
-    if (!check_bounds(this, rx, ry, rw, rh))
-        return;
-
     stopwatch(2, "convert_bgra_to_yv12a (%d,%d %dx%d)", rx, ry, rw, rh);
 
     src_ptr = this->osd_buffer + (rx*4) + (ry*this->osd_stride);
@@ -370,6 +361,11 @@ convert_bgra_to_yv12a(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 static void
 convert_bgra_to_frame_format(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 {
+    if (!this->osd_planes[0]) // Not allocated yet.
+        return;
+    if (!check_bounds(this, rx, ry, rw, rh))
+        return;
+
     if (this->osd_format == XINE_IMGFMT_YV12)
         convert_bgra_to_yv12a(this, rx, ry, rw, rh);
     else if (this->osd_format == XINE_IMGFMT_YUY2)
@@ -725,49 +721,12 @@ blend_image(kaa_driver_t *this, vo_frame_t *frame)
 /////////////////////////////////////////////////////////////////////////////
 
 
-
-int
-pthread_mutex_lock_timeout(pthread_mutex_t *lock, double timeout)
-{
-    struct timespec abstime;
-    abstime.tv_sec = (int)floor(timeout);
-    abstime.tv_nsec = (timeout-(double)abstime.tv_sec)*1000000000;
-    return pthread_mutex_timedlock(lock, &abstime);
-}
-
-
-static void
-_alloc_yv12(int width, int height, unsigned char **base, 
-            unsigned char *planes[3], int strides[3])
-{
-    int y_size, uv_size;
-
-    strides[0] = 8*((width + 7) / 8);
-    strides[1] = 8*((width + 15) / 16);
-    strides[2] = 8*((width + 15) / 16);
-    
-    y_size  = strides[0] * height;
-    uv_size = strides[1] * ((height+1)/2);
- 
-    if (*base)
-        free(*base);
-           
-    *base = (unsigned char *)xine_xmalloc(y_size + 2*uv_size);
-    
-    planes[0] = *base;
-    planes[1] = *base + y_size + uv_size;
-    planes[2] = *base + y_size;
-}
-
-
-
 static uint32_t 
 kaa_get_capabilities(vo_driver_t *this_gen)
 {
     //kaa_driver_t *this = (kaa_driver_t *)this_gen;
     //printf("kaa: get_capabilities\n");
     return VO_CAP_YV12 | VO_CAP_YUY2;
-    //return this->passthrough->get_capabilities(this->passthrough);
 }
 
 static void
@@ -792,16 +751,13 @@ kaa_frame_dispose(vo_frame_t *vo_img)
     kaa_frame_t *frame = (kaa_frame_t *)vo_img;
     //printf("kaa_frame_dispose\n");
     pthread_mutex_destroy(&frame->vo_frame.mutex);
-    pthread_mutex_destroy(&frame->bgra_lock);
-    if (frame->yv12_buffer)
-        free(frame->yv12_buffer);
-    if (frame->bgra_buffer)
-        free(frame->bgra_buffer);
 
     // Why does this segfault?
     //if (frame->passthrough_frame)
     //    frame->passthrough_frame->dispose(frame->passthrough_frame);
-    frame->yuv2rgb->dispose (frame->yuv2rgb);
+    if (frame->driver->handle_frame_cb)
+        frame->driver->handle_frame_cb(KAA_VO_HANDLE_FRAME_DISPOSE, vo_img, &frame->user_data, frame->driver->handle_frame_cb_data);
+
     free(frame);
 }
 
@@ -826,14 +782,11 @@ kaa_alloc_frame(vo_driver_t *this_gen)
         return NULL;
 
     pthread_mutex_init(&frame->vo_frame.mutex, NULL);
-    pthread_mutex_init(&frame->bgra_lock, NULL);
 
-    frame->yv12_buffer = frame->bgra_buffer = NULL;
 
     frame->vo_frame.base[0] = NULL;
     frame->vo_frame.base[1] = NULL;
     frame->vo_frame.base[2] = NULL;
-
 
     frame->passthrough_frame = this->passthrough->alloc_frame(this->passthrough);
     frame->passthrough_frame->free = vo_frame_dec_lock;
@@ -844,9 +797,12 @@ kaa_alloc_frame(vo_driver_t *this_gen)
     frame->vo_frame.field = kaa_frame_field;
     frame->vo_frame.dispose = kaa_frame_dispose;
     frame->vo_frame.driver = this_gen;
-
-    frame->yuv2rgb = this->yuv2rgb_factory->create_converter(this->yuv2rgb_factory);
     frame->driver = this;
+
+
+    if (this->handle_frame_cb)
+        this->handle_frame_cb(KAA_VO_HANDLE_FRAME_ALLOC, (vo_frame_t *)frame, &frame->user_data, this->handle_frame_cb_data);
+
     return (vo_frame_t *)frame;
 }
 
@@ -870,33 +826,8 @@ kaa_update_frame_format (vo_driver_t *this_gen,
     xine_fast_memcpy(&frame->vo_frame.pitches, frame->passthrough_frame->pitches, sizeof(int)*3);
     xine_fast_memcpy(&frame->vo_frame.base, frame->passthrough_frame->base, sizeof(char *)*3);
 
-/*
-    // Allocate memory for the desired frame format and size
-    if (frame->width != width || frame->height != height || format != frame->format) {
-        // Free memory from old frame configuration
-        if (frame->vo_frame.base[0])
-            free(frame->vo_frame.base[0]);
-        if (frame->vo_frame.base[1]) {
-            free(frame->vo_frame.base[1]);
-            free(frame->vo_frame.base[2]);
-        }
-
-        frame->vo_frame.pitches[0] = frame->passthrough_frame->pitches[0];
-        frame->vo_frame.pitches[1] = frame->passthrough_frame->pitches[1];
-        frame->vo_frame.pitches[2] = frame->passthrough_frame->pitches[2];
-
-        if (format == XINE_IMGFMT_YV12) {
-            // Align pitch to 16 byte multiple.
-            frame->vo_frame.base[0] = (uint8_t *)memalign(16, frame->vo_frame.pitches[0] * height);
-            frame->vo_frame.base[1] = (uint8_t *)memalign(16, frame->vo_frame.pitches[1] * height);
-            frame->vo_frame.base[2] = (uint8_t *)memalign(16, frame->vo_frame.pitches[2] * height);
-        } else if (format == XINE_IMGFMT_YUY2) {
-            frame->vo_frame.base[0] = (uint8_t *)memalign(16, frame->vo_frame.pitches[0] * height);
-            frame->vo_frame.base[1] = NULL;
-            frame->vo_frame.base[2] = NULL;
-        }
-    }
-*/
+    if (this->handle_frame_cb)
+        this->handle_frame_cb(KAA_VO_HANDLE_FRAME_UPDATE, frame_gen, &frame->user_data, this->handle_frame_cb_data);
 
     frame->width = width;
     frame->height = height;
@@ -915,105 +846,32 @@ kaa_redraw_needed(vo_driver_t *vo)
 }
 
 
-// TODO: this function should be moved out of the driver and into kaa.c and
-// a more generic callback mechanism added to the driver for pre/post 
-// OSD rendering stages.
-static int
-_kaa_frame_to_buffer(kaa_driver_t *this, kaa_frame_t *frame)
-{
-    int dst_width = this->send_frame_width == -1 ? frame->width : this->send_frame_width, 
-        dst_height = this->send_frame_height == -1 ? frame->height : this->send_frame_height;
-        dst_height = this->send_frame_height;
-
-    if (dst_width == -1)
-        dst_width = frame->width;
-    if (dst_height == -1)
-        dst_height = frame->height;
-
-    if (pthread_mutex_lock_timeout(&frame->bgra_lock, 0.2) != 0) {
-        printf("FAILED to acquire lock\n");
-        return 0;
-    }
-    if (!frame->bgra_buffer || 
-         frame->width != frame->yuv2rgb->source_width || 
-         frame->height != frame->yuv2rgb->source_height ||
-         frame->vo_frame.pitches[0] != frame->yuv2rgb->y_stride ||
-         frame->vo_frame.pitches[1] != frame->yuv2rgb->uv_stride ||
-         frame->yuv2rgb->dest_width != dst_width ||
-         frame->yuv2rgb->dest_height != dst_height) {
-
-        int y_stride = frame->vo_frame.pitches[0],
-            uv_stride = frame->vo_frame.pitches[1];
-        if (frame->bgra_buffer)
-            free(frame->bgra_buffer);
-        frame->bgra_buffer = malloc(frame->width*frame->height*4);
-
-        if (frame->format == XINE_IMGFMT_YUY2 && dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
-            _alloc_yv12(frame->width, frame->height, &frame->yv12_buffer,
-                        frame->yv12_planes, frame->yv12_strides);
-            y_stride = frame->yv12_strides[0];
-            uv_stride = frame->yv12_strides[1];
-        }
-
-        frame->yuv2rgb->configure(frame->yuv2rgb, frame->width, frame->height,
-                                  y_stride, uv_stride,
-                                  dst_width, dst_height, 4*(dst_width));
-    }
-    if (frame->format == XINE_IMGFMT_YV12) {
-        stopwatch(0, "yv12 to bgra32");
-        frame->yuv2rgb->yuv2rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
-                                     frame->vo_frame.base[0],  
-                                     frame->vo_frame.base[1],  
-                                     frame->vo_frame.base[2]);
-        stopwatch(0, NULL);
-    } else {
-        stopwatch(0, "yuy2 to bgra32");
-        if (dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
-            // Naive optimization: yuv2rgb has an accelerated version
-            // but yuy22rgb doesn't.  So when the area of the image is
-            // greater than the size threshold (determined empirically)
-            // first convert the yuy2 image to yv12 and then convert
-            // yv12 to rgb, both operations of which are accelerated.
-            yuy2_to_yv12(frame->vo_frame.base[0], frame->vo_frame.pitches[0],
-                         frame->yv12_planes[0], frame->yv12_strides[0],
-                         frame->yv12_planes[1], frame->yv12_strides[1],
-                         frame->yv12_planes[2], frame->yv12_strides[2],
-                         frame->width, frame->height);
-            frame->yuv2rgb->yuv2rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
-                                         frame->yv12_planes[0],
-                                         frame->yv12_planes[1],
-                                         frame->yv12_planes[2]);
-        } else {
-            frame->yuv2rgb->yuy22rgb_fun (frame->yuv2rgb, frame->bgra_buffer,
-                                          frame->vo_frame.base[0]);
-        }
-        stopwatch(0, NULL);
-    }
-    this->send_frame_cb(dst_width, dst_height, frame->ratio, frame->bgra_buffer, &frame->bgra_lock,
-                        this->send_frame_cb_data);
-    return 1;
-}
-
 static int
 _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame)
 {
     pthread_mutex_lock(&this->osd_buffer_lock);
     int resized = frame->width != this->osd_w || frame->height != this->osd_h;
     if (resized || frame->format != this->osd_format) {
-        this->osd_w = frame->width;
-        this->osd_h = frame->height;
-        this->osd_slice_h = frame->height;
-        alloc_overlay_data(this, frame->format);
         if (this->osd_configure_cb && resized) {
             // XXX: could configure cb cause reentry here?  If so, will deadlock.
-            this->osd_configure_cb(frame->width, frame->height, frame->ratio, this->osd_configure_cb_data);
+            this->osd_configure_cb(frame->width, frame->height, frame->ratio, this->osd_configure_cb_data,
+                                   &this->osd_buffer, &this->osd_stride);
         }
-        convert_bgra_to_frame_format(this, 0, 0, frame->width, frame->height);
-        image_premultiply_alpha(this, 0, 0, frame->width, frame->height);
-        calculate_slice(this);
+        if (this->osd_buffer && this->osd_stride > 0) {
+            this->osd_w = frame->width;
+            this->osd_h = frame->height;
+            this->osd_slice_h = frame->height;
+            alloc_overlay_data(this, frame->format);
+            convert_bgra_to_frame_format(this, 0, 0, frame->width, frame->height);
+            image_premultiply_alpha(this, 0, 0, frame->width, frame->height);
+            calculate_slice(this);
+        } else {
+            printf("OSD CONFIGURE FAILED\n");
+        }
     }
-    if (this->osd_visible && this->osd_alpha > 0) 
+    if (this->osd_visible && this->osd_alpha > 0 && this->osd_buffer) 
         blend_image(this, &frame->vo_frame);
+
     pthread_mutex_unlock(&this->osd_buffer_lock);
 
     return 1;
@@ -1034,14 +892,15 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     memcpy(frame->passthrough_frame->base[2], frame_gen->base[2], frame_gen->pitches[2] * (frame->height>>1));
     */
 
-    this->cur_frame = frame;
 
-    if (this->do_send_frame && this->send_frame_cb)
-        _kaa_frame_to_buffer(this, frame);
+    if (this->handle_frame_cb)
+        this->handle_frame_cb(KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD, frame_gen, &frame->user_data, this->handle_frame_cb_data);
 
-    if (this->osd_buffer)
+    if (this->osd_configure_cb)
         _kaa_blend_osd(this, frame);
 
+    if (this->handle_frame_cb)
+        this->handle_frame_cb(KAA_VO_HANDLE_FRAME_DISPLAY_POST_OSD, frame_gen, &frame->user_data, this->handle_frame_cb_data);
     if (frame->passthrough_frame->proc_slice) {
         // Serious kludge!  For passthrough drivers that do slices, we delay
         // processing them until now so that we have a chance to blend the 
@@ -1060,6 +919,7 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     if (this->passthrough && this->do_passthrough) 
         this->passthrough->display_frame(this->passthrough, frame->passthrough_frame);
 
+    this->last_frame = frame;
     frame->vo_frame.free(&frame->vo_frame);
 
     pthread_mutex_unlock(&this->lock);
@@ -1078,22 +938,6 @@ kaa_set_property (vo_driver_t *this_gen,
                 int property, int value) 
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
-    /*
-    printf("kaa_set_property %d=%d\n", property, value);
-    switch(property) {
-        case XINE_PARAM_VO_CROP_LEFT:
-            this->crop_left = value;
-            return value;
-
-        case XINE_PARAM_VO_CROP_TOP:
-            this->crop_top = value;
-            return value;
-
-        case XINE_PARAM_VO_CROP_RIGHT:
-        case XINE_PARAM_VO_CROP_BOTTOM:
-            return value;
-    }
-    */
     return this->passthrough->set_property(this->passthrough, property, value);
 }
 
@@ -1113,10 +957,6 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
     switch(data_type) {
-        case GUI_SEND_KAA_VO_SET_SEND_FRAME:
-            this->do_send_frame = (int)data;
-            break;
-
         case GUI_SEND_KAA_VO_SET_PASSTHROUGH:
             this->do_passthrough = (int)data;
             break;
@@ -1126,13 +966,6 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
             this->needs_redraw = 1;
             break;
 
-        case GUI_SEND_KAA_VO_SET_SEND_FRAME_SIZE:
-        {
-            struct { int w, h; } *size = data;
-            this->send_frame_width = size->w;
-            this->send_frame_height = size->h;
-            break;
-        }
         case GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT:
         {
             struct { int x, y, w, h; } *r = data;
@@ -1189,7 +1022,6 @@ kaa_overlay_blend(vo_driver_t *this_gen, vo_frame_t *frame_gen, vo_overlay_t *vo
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
-    //printf("kaa_overlay_blend: format=%d overlay=%p crop_left=%d\n", frame->format, vo_overlay, frame_gen->crop_left);
     if (frame->format == XINE_IMGFMT_YV12)
        _x_blend_yuv(frame->vo_frame.base, vo_overlay,
                       frame->width, frame->height,
@@ -1206,7 +1038,7 @@ kaa_dispose(vo_driver_t *this_gen)
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
     //printf("kaa_dispose\n");
-    this->yuv2rgb_factory->dispose(this->yuv2rgb_factory);
+    //this->yuv2rgb_factory->dispose(this->yuv2rgb_factory);
     free_overlay_data(this);
     pthread_mutex_destroy(&this->lock);
     pthread_mutex_destroy(&this->osd_buffer_lock);
@@ -1256,20 +1088,14 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
 
     //this->passthrough           = passthrough;
     this->passthrough           = visual->passthrough;
-    this->send_frame_cb         = visual->send_frame_cb;
-    this->send_frame_cb_data    = visual->send_frame_cb_data;
-    this->osd_buffer            = visual->osd_buffer;
-    this->osd_stride            = visual->osd_stride;
-    this->osd_rows              = visual->osd_rows;
+    this->osd_buffer            = 0;
+    this->osd_stride            = 0;
+    this->handle_frame_cb       = visual->handle_frame_cb;
+    this->handle_frame_cb_data  = visual->handle_frame_cb_data;
     this->osd_configure_cb      = visual->osd_configure_cb;
     this->osd_configure_cb_data = visual->osd_configure_cb_data;
 
-    this->send_frame_width      = -1;
-    this->send_frame_height     = -1;
-    this->yuv2rgb_factory       = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
-    this->cur_frame             = 0;
     this->do_passthrough        = 1;
-    this->do_send_frame         = 0;
     this->osd_visible           = 0;
     this->osd_w                 = -1;
     this->osd_h                 = -1;
