@@ -20,8 +20,8 @@ def handle_key(key, obj):
 window = display.EvasX11Window(gl = False, size = (1024, 768), title = "Kaa Display Test")
 window.set_cursor_hide_timeout(1)
 canvas = window.get_evas()
-canvas.viewport_set((0, 0), (640, 480))
-canvas.output_size_set((740, 480))
+canvas.viewport_set((0, 0), (800, 600))
+canvas.output_size_set((1024, 768))
 bg = canvas.object_image_add("data/background.jpg")
 bg.show()
 

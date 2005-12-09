@@ -188,7 +188,7 @@ class X11Window(object):
             if "title" in kwargs:
                 assert(type(kwargs["title"]) == str)
             if "parent" in kwargs:
-                assert(type(kwargs["parent"]) == X11Window)
+                assert(isinstance(kwargs["parent"], X11Window))
                 kwargs["parent"] = kwargs["parent"]._window
 
             self._window = _Display.X11Window(display._display, kwargs["size"], **kwargs)
@@ -213,8 +213,16 @@ class X11Window(object):
     def get_display(self):
         return self._display
 
-    def show(self):
-        self._window.show()
+    def raise_window(self):
+        self._window.raise_window()
+        self._display.handle_events()
+
+    def lower_window(self):
+        self._window.lower_window()
+        self._display.handle_events()
+
+    def show(self, raised = False):
+        self._window.show(raised)
         self._display.handle_events()
 
     def hide(self):
@@ -350,13 +358,18 @@ class EvasX11Window(X11Window):
         else:
             f = _Display.new_evas_gl_x11
 
+        if "parent" in kwargs:
+            assert(isinstance(kwargs["parent"], X11Window))
+            kwargs["parent"] = kwargs["parent"]._window
+
         assert(type(size) == tuple)
         display = _get_display(display)
         self._evas = kaa.evas.Evas()
         window = f(self._evas._evas, display._display, size = size,
-                   title = title)
+                   title = title, **kwargs)
         self._evas.output_size_set(size)
         self._evas.viewport_set((0, 0), size)
+
         # Ensures the display remains alive until after Evas gets deallocated
         # during garbage collection.
         self._evas._dependencies.append(display._display)
@@ -369,12 +382,12 @@ class EvasX11Window(X11Window):
             if event == X11Display.XEVENT_EXPOSE:
                 self._evas.damage_rectangle_add((data["pos"], data["size"]))
                 needs_render = True
-            elif event == X11Display.XEVENT_CONFIGURE_NOTIFY:
-                if data["size"] != self._evas.output_size_get():
-                    # This doesn't act right for gl.
-                    self._evas.output_size_set(data["size"])
-                    self._evas.viewport_set((0, 0), data["size"])
-                    needs_render = True
+            #elif event == X11Display.XEVENT_CONFIGURE_NOTIFY:
+            #    if data["size"] != self._evas.output_size_get():
+            #        # This doesn't act right for gl.
+            #        self._evas.output_size_set(data["size"])
+            #        #self._evas.viewport_set((0, 0), data["size"])
+            #        needs_render = True
 
         super(EvasX11Window, self).handle_events(events)
 

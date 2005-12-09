@@ -65,15 +65,24 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
     Display **ei_display, Drawable *ei_drawable, Visual **ei_visual,
     Colormap *ei_colormap, int *ei_depth)
 {
-    X11Window_PyObject *win_object;
-    Window win;
+    X11Window_PyObject *win_object, *py_parent;
+    Window win, parent;
     XSetWindowAttributes attr;
     int screen, w, h;
-    char *title;
+    char *title = NULL;
 
     if (!PyArg_ParseTuple(PyDict_GetItemString(kwargs, "size"), "ii", &w, &h))
         return NULL;
-    title = PyString_AsString(PyDict_GetItemString(kwargs, "title"));
+    py_parent = (X11Window_PyObject *)PyDict_GetItemString(kwargs, "parent");
+    if (PyMapping_HasKeyString(kwargs, "title"))
+        title = PyString_AsString(PyDict_GetItemString(kwargs, "title"));
+
+    if (py_parent) {
+        parent = py_parent->window;
+        printf("PARENTED subwindow\n");
+    }
+    else
+        parent = DefaultRootWindow(disp->display);
 
     attr.backing_store = NotUseful;
     attr.border_pixel = 0;
@@ -90,13 +99,14 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
     *ei_colormap = attr.colormap = best_colormap_get(disp->display, screen);
     *ei_depth = best_depth_get(disp->display, screen);
 
-    win = XCreateWindow(disp->display, DefaultRootWindow(disp->display), 0, 0,
+    win = XCreateWindow(disp->display, parent, 0, 0,
                         w, h, 0, *ei_depth, InputOutput, *ei_visual,
                         CWBackingStore | CWColormap | CWBackPixmap |
                         CWBitGravity | CWEventMask, &attr);
 
     *ei_drawable = win;
-    XStoreName(disp->display, win, title);
+    if (title)
+        XStoreName(disp->display, win, title);
     XUnlockDisplay(disp->display);
 
     win_object = X11Window_PyObject__wrap((PyObject *)disp, win);
@@ -155,6 +165,10 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
 
     evas_output_method_set(evas, evas_render_method_lookup("gl_x11"));
     einfo = (Evas_Engine_Info_GL_X11 *)evas_engine_info_get(evas);
+    if (!einfo) {
+        PyErr_Format(PyExc_SystemError, "Unable to initialize GL canvas");
+        return NULL;
+    }
 
     x11 = ENGINE_COMMON_X11_SETUP(evas, kwargs, display, einfo->func,
                                   einfo->info);

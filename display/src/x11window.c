@@ -167,8 +167,15 @@ X11Window_PyObject__dealloc(X11Window_PyObject * self)
 PyObject *
 X11Window_PyObject__show(X11Window_PyObject * self, PyObject * args)
 {
+    int raise;
+    if (!PyArg_ParseTuple(args, "i", &raise))
+        return NULL;
+
     XLockDisplay(self->display);
-    XMapRaised(self->display, self->window);
+    if (raise)
+        XMapRaised(self->display, self->window);
+    else
+        XMapWindow(self->display, self->window);
     XSync(self->display, False);
     XUnlockDisplay(self->display);
     return Py_INCREF(Py_None), Py_None;
@@ -179,6 +186,27 @@ X11Window_PyObject__hide(X11Window_PyObject * self, PyObject * args)
 {
     XLockDisplay(self->display);
     XUnmapWindow(self->display, self->window);
+    XSync(self->display, False);
+    XUnlockDisplay(self->display);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+X11Window_PyObject__raise(X11Window_PyObject * self, PyObject * args)
+{
+    XLockDisplay(self->display);
+    XRaiseWindow(self->display, self->window);
+    XSync(self->display, False);
+    XUnlockDisplay(self->display);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+
+PyObject *
+X11Window_PyObject__lower(X11Window_PyObject * self, PyObject * args)
+{
+    XLockDisplay(self->display);
+    XLowerWindow(self->display, self->window);
     XSync(self->display, False);
     XUnlockDisplay(self->display);
     return Py_INCREF(Py_None), Py_None;
@@ -260,6 +288,8 @@ X11Window_PyObject__get_visible(X11Window_PyObject * self, PyObject * args)
 PyMethodDef X11Window_PyObject_methods[] = {
     { "show", (PyCFunction)X11Window_PyObject__show, METH_VARARGS },
     { "hide", (PyCFunction)X11Window_PyObject__hide, METH_VARARGS },
+    { "raise_window", (PyCFunction)X11Window_PyObject__raise, METH_VARARGS },
+    { "lower_window", (PyCFunction)X11Window_PyObject__lower, METH_VARARGS },
     { "set_geometry", (PyCFunction)X11Window_PyObject__set_geometry, METH_VARARGS },
     { "get_geometry", (PyCFunction)X11Window_PyObject__get_geometry, METH_VARARGS },
     { "set_cursor_visible", (PyCFunction)X11Window_PyObject__set_cursor_visible, METH_VARARGS },
