@@ -57,20 +57,28 @@ static void
 _kaa_frame_to_buffer(kaa_vo_user_data *user_data, vo_frame_t *frame, kaa_frame_user_data *frame_user_data, 
                      int dst_width, int dst_height)
 {
+    int y_stride = frame->pitches[0],
+        uv_stride = frame->pitches[1];
+    if (dst_width <= 0 || dst_height <= 0)
+        return;
+
+    if (frame->format == XINE_IMGFMT_YUY2 && dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
+        y_stride = 8*((frame->width + 7) / 8);
+        uv_stride = 8*((frame->width + 15) / 16);
+    }
 
     if (frame->width != frame_user_data->yuv2rgb->source_width ||
         frame->height != frame_user_data->yuv2rgb->source_height ||
-        frame->pitches[0] != frame_user_data->yuv2rgb->y_stride ||
-        frame->pitches[1] != frame_user_data->yuv2rgb->uv_stride ||
+        (frame->format == XINE_IMGFMT_YV12 && (
+             y_stride != frame_user_data->yuv2rgb->y_stride ||
+             uv_stride != frame_user_data->yuv2rgb->uv_stride)
+        ) ||
+        (frame->format == XINE_IMGFMT_YUY2 &&
+             y_stride != frame_user_data->yuv2rgb->y_stride
+        ) ||
         dst_width != frame_user_data->yuv2rgb->dest_width ||
         dst_height != frame_user_data->yuv2rgb->dest_height) {
-            int y_stride = frame->pitches[0],
-                uv_stride = frame->pitches[1];
 
-        if (frame->format == XINE_IMGFMT_YUY2 && dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
-            y_stride = 8*((frame->width + 7) / 8);
-            uv_stride = 8*((frame->width + 15) / 16);
-        }
         frame_user_data->yuv2rgb->configure(frame_user_data->yuv2rgb, frame->width, frame->height,
             y_stride, uv_stride, dst_width, dst_height, 4*dst_width);
 
@@ -104,6 +112,7 @@ _kaa_frame_to_buffer(kaa_vo_user_data *user_data, vo_frame_t *frame, kaa_frame_u
         }
     }
 }
+
 static int
 handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *data)
 {
@@ -125,7 +134,7 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
             break;
 
 
-        case KAA_VO_HANDLE_FRAME_DISPLAY_POST_OSD: {
+        case KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD: {
             struct { short lock, width, height; double aspect; } header = { .lock = 0x10 };
             struct timeval curtime;
             struct timezone tz;

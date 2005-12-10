@@ -842,7 +842,7 @@ kaa_redraw_needed(vo_driver_t *vo)
     kaa_driver_t *this = (kaa_driver_t *)vo;
     int redraw = this->needs_redraw;
     this->needs_redraw = 0;
-    return redraw || this->passthrough->redraw_needed(this->passthrough);
+    return redraw || (this->do_passthrough && this->passthrough->redraw_needed(this->passthrough));
 }
 
 

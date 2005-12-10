@@ -62,6 +62,25 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
             PyDict_SetItemString_STEAL(o->data, "str", PyString_FromString(d->str));
             break;
         }
+        case XINE_EVENT_UI_MESSAGE: {
+            xine_ui_message_data_t *d = (xine_ui_message_data_t *)event->data;
+            PyDict_SetItemString_STEAL(o->data, "type", PyInt_FromLong(d->type));
+            if (d->explanation)
+                PyDict_SetItemString_STEAL(o->data, "explanation", PyString_FromString((char *)(event->data + d->explanation)));
+            if (d->num_parameters) {
+                PyObject *params = PyList_New(0);
+                int i;
+                char *ptr = event->data + d->parameters;
+                for (i = 0; i < d->num_parameters; i++, ptr += strlen(ptr) + 1) {
+                    PyObject *str = PyString_FromString(ptr);
+                    PyList_Append(params, str);
+                    Py_DECREF(str);
+                }
+                PyDict_SetItemString_STEAL(o->data, "parameters", params);
+
+            }
+        }
+
     }
 
     xine_object_to_pyobject_register(event, (PyObject *)o);
