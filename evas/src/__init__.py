@@ -392,7 +392,6 @@ class EvasBuffer(Evas):
             kwargs["stride"] = size[0] * bpp
         if "buffer" not in kwargs:
             kwargs["buffer"] = array.array('c', '\0'*size[0]*size[1]*bpp)
-        #self._buffer = kwargs["buffer"]
         kwargs["size"] = size
         assert type(kwargs["buffer"]) in (array.array, buffer, int)
 
@@ -401,6 +400,7 @@ class EvasBuffer(Evas):
         if not viewport:
             viewport = (0, 0), size
         self.viewport_set(viewport[0], viewport[1])
+        self._buffer = kwargs["buffer"]
 
     def buffer_get(self):
         return self._buffer

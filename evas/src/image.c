@@ -165,12 +165,11 @@ Evas_Object_PyObject_image_data_set(Evas_Object_PyObject * self, PyObject * args
             return NULL;
     }
 
-    // printf("DATA SET buf=%x is_write_buffer=%d copy=%d\n", data,
-    // is_write_buffer, copy);
-    if (copy == 0 || is_write_buffer)
-        evas_object_image_data_set(self->object, data);
-    else if (copy == 1 || !is_write_buffer)
+    //printf("DATA SET buf=%x is_write_buffer=%d copy=%d\n", data, is_write_buffer, copy);
+    if (copy == 1 || !is_write_buffer)
         evas_object_image_data_copy_set(self->object, data);
+    else
+        evas_object_image_data_set(self->object, data);
     return Py_INCREF(Py_None), Py_None;
 }
 
