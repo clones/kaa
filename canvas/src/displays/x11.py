@@ -18,7 +18,7 @@ class X11Canvas(Canvas):
 
         self._canvas_window.signals["key_press_event"].connect_weak(self.signals["key_press_event"].emit)
         self._window.signals["resize_event"].connect_weak(self._handle_resize_event)
-        self._window.set_cursor_hide_timeout(1)
+        self._canvas_window.set_cursor_hide_timeout(1)
 
 
     def _handle_resize_event(self, old_size, size):

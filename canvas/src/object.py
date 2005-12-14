@@ -13,7 +13,7 @@ class Object(object):
     def __init__(self):
         # Properties will be synchronized to canvas in order.  "pos" should
         # be listed after "size" since pos may depend on size.
-        self._supported_sync_properties = ["visible", "layer", "color", "size", "pos", "name", "clip"]
+        self._supported_sync_properties = ["name", "visible", "layer", "color", "size", "pos", "clip"]
         self._properties = {}
         self._changed_since_sync = {}
         self._properties_serial = 0
@@ -102,6 +102,7 @@ class Object(object):
         if self["name"]:
             self._canvas._register_object_name(self["name"], self)
 
+
     def _uncanvased(self):
         if self["name"] and self._canvas:
             self._canvas._unregister_object_name(self["name"])
@@ -118,6 +119,32 @@ class Object(object):
     def _get_actual_size(self):
         return self._o.geometry_get()[1]
 
+    def _compute_expr_re_cb_get_object_value(self, match):
+        # FIXME: object A that depends on values from object B needs
+        # to get reflowed if B changes.  Currently this still works
+        # because when any object changes pos/size, the whole canvas
+        # gets reflowed.  But eventually that will get fixed, and when
+        # it does, this will need to get fixed.  (Will need to
+        # maintain an object dependency tree.)
+        name, value = match.group(1), match.group(2)
+        o = self.get_canvas().find_object(name)
+        if not o:
+            raise ValueError, "Unknown object '%s' referenced in expression" % name
+        if value == "width":
+            return str(o.get_computed_size()[0])
+        elif value == "height":
+            return str(o.get_computed_size()[1])
+        elif value == "left":
+            return str(o.get_computed_pos()[0])
+        elif value == "top":
+            return str(o.get_computed_pos()[1])
+        elif value == "right":
+            return str(o.get_computed_pos()[0] + o.get_computed_size()[0])
+        elif value == "bottom":
+            return str(o.get_computed_pos()[1] + o.get_computed_size()[1])
+        else:
+            raise ValueError, "Unknown object value '%s' referenced in expression" % value
+                       
     def _compute_size(self, parent_val, val):
         if not (type(parent_val[0]) == type(parent_val[1]) == int):
             raise CanvasError, "Invalid size for parent; ensure canvas has fixed size."
@@ -131,7 +158,9 @@ class Object(object):
                     p = int(match.group(1)[:-1]) / 100.0 * parent_val[index]
                     return str(int(p))
                 val[index] = re.sub("([\d.]+%)", calc_percent, val[index])
-            elif val[index] == "auto":
+            if "." in val[index]:
+                val[index] = re.sub("(\w+)\.(\w+)", self._compute_expr_re_cb_get_object_value, val[index])
+            if val[index] == "auto":
                 val[index] = self._get_actual_size()[index]
                 continue
 
@@ -164,10 +193,15 @@ class Object(object):
             if type(pos[index]) == int:
                 continue
 
-            locals = {"top": 0, "left": 0, "center": int((parent_size[index] - computed_size[index]) / 2.0),
-                      "bottom": parent_size[index] - computed_size[index], "width": computed_size[0],
-                      "height": computed_size[1] }
-            locals["right"] = locals["bottom"]
+            locals = {
+                "top": 0, 
+                "left": 0, 
+                "center": int((parent_size[index] - computed_size[index]) / 2.0),
+                "right": parent_size[index] - computed_size[index], 
+                "bottom": parent_size[index] - computed_size[index], 
+                "width": computed_size[0],
+                "height": computed_size[1] 
+            }
 
             if "%" in pos[index]:
                 def calc_percent(match):
@@ -175,33 +209,7 @@ class Object(object):
                     return str(int(p))
                 pos[index] = re.sub("([\d.]+%)", calc_percent, pos[index])
             if "." in pos[index]:
-                # FIXME: object A that depends on values from object B needs
-                # to get reflowed if B changes.  Currently this still works
-                # because when any object changes pos/size, the whole canvas
-                # gets reflowed.  But eventually that will get fixed, and when
-                # it does, this will need to get fixed.  (Will need to
-                # maintain an object dependency tree.)
-                def get_object_value(match):
-                    name, value = match.group(1), match.group(2)
-                    o = self.get_canvas().find_object(name)
-                    if not o:
-                        raise ValueError, "Unknown object '%s' referenced in expression" % name
-                    if value == "width":
-                        return str(o.get_computed_size()[0])
-                    elif value == "height":
-                        return str(o.get_computed_size()[1])
-                    elif value == "left":
-                        return str(o.get_computed_pos()[0])
-                    elif value == "top":
-                        return str(o.get_computed_pos()[1])
-                    elif value == "right":
-                        return str(o.get_computed_pos()[0] + o.get_computed_size()[0])
-                    elif value == "bottom":
-                        return str(o.get_computed_pos()[1] + o.get_computed_size()[1])
-                    else:
-                        raise ValueError, "Unknown object value '%s' referenced in expression" % value
-                       
-                pos[index] = re.sub("(\w+)\.(\w+)", get_object_value, pos[index])
+                pos[index] = re.sub("(\w+)\.(\w+)", self._compute_expr_re_cb_get_object_value, pos[index])
 
 
             pos[index] = eval(pos[index], locals, {})
