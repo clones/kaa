@@ -164,20 +164,37 @@ class Container(Object):
 
         return child
 
+
     def remove_child(self, child):
         if child not in self._children:
             return False
         self._children.remove(child)
         if child._o:
             child._o.hide()
-        # FIXME: shouldn't access _queued_children directly
+        # FIXME: shouldn't access _queued_children directly (create an 
+        # unqueue method)
         if child._canvas and child in child._canvas._queued_children:
             del child._canvas._queued_children[child]
         child._orphaned()
         if self._clip_object and not self._children:
+            # Hide clip object if there are no children (otherwise it will
+            # just be rendered as a visible white rectangle.)
             self._clip_object.hide()
         return True
 
+
+    def kidnap(self, child):
+        """
+        Forces a child to be added even if it's adopted by another parent.
+        """
+        if child.get_parent():
+            child.get_parent().remove_child(child)
+        if child.get_canvas() != self.get_canvas():
+            child._uncanvased()
+            child._reset()
+        self.add_child(child)
+     
+        
     # Convenience functions for object creation.
 
 

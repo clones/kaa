@@ -10,10 +10,9 @@ class BufferCanvas(Canvas):
         super(BufferCanvas, self).__init__()
         if size != None:
             self["size"] = size
-            if buffer:
-                self.create(size, buffer)
+            self.create(size, buffer)
 
-    def create(self, size, buffer):
+    def create(self, size, buffer = None):
         canvas = evas.EvasBuffer(size, depth = evas.ENGINE_BUFFER_DEPTH_BGRA32, buffer = buffer)
         if self["size"] == ("100%", "100%"):
             self["size"] = size

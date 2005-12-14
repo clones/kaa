@@ -77,7 +77,7 @@ class Object(object):
         if not self._o:
             return
 
-        self._o._canvas_object = weakref(self)
+        #self._o._canvas_object = weakref(self)
         self._sync_properties()
         self._apply_parent_clip()
         self._queue_render()
@@ -89,11 +89,15 @@ class Object(object):
 
     def _adopted(self, parent):
         self._parent = weakref(parent)
+        self._force_sync_all_properties()
 
     def _orphaned(self):
         self._parent = None
 
     def _canvased(self, canvas):
+        if canvas == self._canvas:
+            return
+
         self._canvas = weakref(canvas)
         if self["name"]:
             self._canvas._register_object_name(self["name"], self)
@@ -398,18 +402,23 @@ class Object(object):
 
     def _reset(self):
         self._o = self._clip_object = None
+        self._force_sync_all_properties()
+
+    def _force_sync_all_properties(self):
         for prop in self._supported_sync_properties:
             if prop in self:
                 self._changed_since_sync[prop] = True
+        self._inc_properties_serial()
         self._queue_render()
 
     def _force_sync_property(self, prop):
         assert(prop in self._supported_sync_properties)
-        if prop in ("pos", "layer", "color", "visible"):
+        if prop in ("pos", "layer", "color", "visible", "size"):
             # If we're forcing resync of one of these properties, it means
             # they need to be recalculated, so void the cache.
             self._inc_properties_serial()
-        self._changed_since_sync[prop] = True
+        if prop in self:
+            self._changed_since_sync[prop] = True
         self._queue_render()
 
 

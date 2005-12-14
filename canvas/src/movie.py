@@ -1,6 +1,7 @@
 __all__ = ['PlayerOSDCanvas', 'Movie' ]
 
 from displays.buffer import BufferCanvas
+from displays.x11 import X11Canvas
 from image import *
 import kaa.player
 from kaa import notifier, display, evas, base
@@ -190,7 +191,7 @@ class Movie(Image):
 
     def _create_canvas_subwindow(self):
         canvas = self.get_canvas()
-        if not canvas:
+        if not isinstance(canvas, X11Canvas):
             return
         if not isinstance(canvas.get_window(), display.X11Window):
             return

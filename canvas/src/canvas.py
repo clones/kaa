@@ -77,8 +77,8 @@ class Canvas(Container):
 
 
     def _render(self):
-        print "@@@ render evas right now"
         regions = self._o.render()
+        #print "@@@ render evas right now", self, regions
         if regions:
             self.signals["updated"].emit(regions)
         return regions

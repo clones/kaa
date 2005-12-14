@@ -21,11 +21,11 @@ class Image(Object):
         # Remove previous "size" property -- we want size property to sync
         # _after_ the image gets loaded (via image, filename, or pixels
         # properties).  And since pos can depend on size, we move pos
-        # property as well.
-        self._supported_sync_properties.remove("size")
-        self._supported_sync_properties.remove("pos")
+        # property as well.  And since clip depends on pos, same thing. :)
+        for prop in ("size", "pos", "clip"):
+            self._supported_sync_properties.remove(prop)
         self._supported_sync_properties += ["image", "filename", "pixels", "data", "dirty", 
-                                            "size", "pos", "has_alpha", "border"]
+                                            "size", "pos", "clip", "has_alpha", "border"]
 
         self._loaded = False
         self["has_alpha"] = True
