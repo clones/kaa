@@ -959,6 +959,8 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
     switch(data_type) {
         case GUI_SEND_KAA_VO_SET_PASSTHROUGH:
             this->do_passthrough = (int)data;
+            if (this->do_passthrough)
+                this->needs_redraw = 1;
             break;
 
         case GUI_SEND_KAA_VO_OSD_SET_VISIBILITY:
