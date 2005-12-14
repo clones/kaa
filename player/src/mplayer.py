@@ -1,24 +1,28 @@
-import os, re, string, tempfile, time, stat, threading, md5, shm
+import os, re, string, tempfile, time, stat, threading, md5, shm, struct
 from kaa import notifier, display
 import kaa
 from base import *
 
 # 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status
-DEBUG=1
+DEBUG=0
+
+BUFFER_UNLOCKED = 0x10
+BUFFER_LOCKED = 0x20
+
 
 # A cache holding values specific to an MPlayer executable (version,
 # filter list, video/audio driver list, input keylist).  This dict is
 # keyed on the full path of the MPlayer binary.
 _cache = {}
 
-def _get_mplayer_info(path, callback, mtime = None):
+def _get_mplayer_info(path, callback = None, mtime = None):
     """
     Fetches info about the given MPlayer executable.  If the values are
     cached and the cache is fresh, it returns a dict immediately.  If it
-    needs to load MPlayer to fetch the values, it returns a Signal object
-    that the caller can connect to to receive the result once it's complete.
-    The value passed to the signal callback is either the values dict, or an
-    Exception object if an error occurred.
+    needs to load MPlayer to fetch the values and callback is specified,
+    it does so in a thread, and calls callback with the results on
+    completion.  If callback is None and no information is in the cache,
+    this function blocks.
 
     If 'mtime' is not None, it means we've called ourself as a thread.
     """
@@ -31,14 +35,15 @@ def _get_mplayer_info(path, callback, mtime = None):
             # Cache isn't stale, so return that.
             return _cache[path]
 
-        # We need to run MPlayer to get these values.  Create a signal, call
-        # ourself as a thread, and return the signal back to the caller.
-        thread = notifier.Thread(_get_mplayer_info, path, None, mtime)
-        # Thread class ensures the callbacks get invoked in the main thread.
-        thread.signals["completed"].connect(callback)
-        thread.signals["exception"].connect(callback)
-        thread.start()
-        return None
+        if callback:
+            # We need to run MPlayer to get these values.  Create a signal, call
+            # ourself as a thread, and return the signal back to the caller.
+            thread = notifier.Thread(_get_mplayer_info, path, None, mtime)
+            # Thread class ensures the callbacks get invoked in the main thread.
+            thread.signals["completed"].connect(callback)
+            thread.signals["exception"].connect(callback)
+            thread.start()
+            return None
 
     # At this point we're running in a thread.
 
@@ -80,6 +85,13 @@ def _get_mplayer_info(path, callback, mtime = None):
     return info       
 
 
+def find_mplayer_path():
+    for dir in os.getenv("PATH").split(":"):
+        cmd = os.path.join(dir, "mplayer")
+        if os.path.exists(cmd):
+            return cmd
+
+
 class MPlayerError(Exception):
     pass
 
@@ -91,21 +103,13 @@ class MPlayer(MediaPlayer):
     PATH = None
     _instance_count = 0
 
-    OVERLAY_BUFFER_UNLOCKED = 0x10
-    OVERLAY_BUFFER_LOCKED = 0x20
-
-
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
 
     def __init__(self):
         super(MPlayer, self).__init__()
         self._mp_cmd = MPlayer.PATH
         if not self._mp_cmd:
-            for dir in os.getenv("PATH").split(":"):
-                cmd = os.path.join(dir, "mplayer")
-                if os.path.exists(cmd):
-                    self._mp_cmd = cmd
-                    break
+            self._mp_cmd = find_mplayer_path()
 
         if not self._mp_cmd:
             raise MPlayerError, "No MPlayer executable found in PATH"
@@ -122,10 +126,10 @@ class MPlayer(MediaPlayer):
         self._state_data = None
         self._overlay_shmem = None
         self._outbuf_shmem = None
+        self._file = self._file_args = None
 
         self._file_info = {}
         self._position = 0.0
-        self._eat_ticks = 0
         self._filters_pre = []
         self._filters_add = []
         self._last_line = None
@@ -135,16 +139,19 @@ class MPlayer(MediaPlayer):
         })
 
         self._mp_info = _get_mplayer_info(self._mp_cmd, self._handle_mp_info)
+        self._check_new_frame_timer = notifier.WeakTimer(self._check_new_frame)
+        self._cur_outbuf_mode = [True, False, None] # vo, shmem, size
 
 
     def _spawn(self, args, hook_notifier = True):
+        print "SPAWN", self._process, args
         self._process = notifier.Process(self._mp_cmd)
         self._process.start(args)
         if hook_notifier:
             self._process.signals["stdout"].connect_weak(self._handle_line)
             self._process.signals["stderr"].connect_weak(self._handle_line)
             self._process.signals["completed"].connect_weak(self._exited)
-            self._process.set_stop_command(self.stop)
+            self._process.set_stop_command(notifier.WeakCallback(self._end_child))
         return self._process
     
 
@@ -171,9 +178,9 @@ class MPlayer(MediaPlayer):
             raise info
         self._mp_info = info
         if self._state_data:
-            file, user_args = self._state_data
+            file, args = self._state_data
             self._state_data = None
-            self._start(file, user_args)
+            self._start(file, args)
 
 
     def _handle_line(self, line):
@@ -185,11 +192,6 @@ class MPlayer(MediaPlayer):
                 if self._position - old_pos < 0 or self._position - old_pos > 1:
                     self.signals["seek"].emit(self._position)
 
-                if self._eat_ticks > 0:
-                    self._eat_ticks -= 1
-                #else:
-                #    self.signals["tick"].emit(self._position)
-
                 # XXX this logic won't work with seek-while-paused patch; state
                 # will be "playing" after a seek.
                 if self._state == STATE_PAUSED:
@@ -197,6 +199,7 @@ class MPlayer(MediaPlayer):
                 if self._state not in (STATE_PAUSED, STATE_PLAYING):
                     self._state = STATE_PLAYING
                     self.signals["start"].emit()
+                    self.signals["stream_changed"].emit()
                 elif self._state != STATE_PLAYING:
                     self._state = STATE_PLAYING
                     self.signals["play"].emit()
@@ -242,14 +245,31 @@ class MPlayer(MediaPlayer):
             m = re.search("(\d+)x(\d+)", line)
             if m:
                 width, height = int(m.group(1)), int(m.group(2))
-                if self._overlay_shmem:
-                    self._overlay_shmem.detach()
+                try:
+                    if self._overlay_shmem:
+                        self._overlay_shmem.detach()
+                except shm.error:
+                    pass
                 self._overlay_shmem = shm.memory(shm.getshmid(self._get_overlay_shm_key()))
                 self._overlay_shmem.attach()
 
                 self.signals["osd_configure"].emit(width, height, self._overlay_shmem.addr + 16,
                                                    width, height)
 
+        elif line.startswith("outbuf:") and line.find("shmem key") != -1:
+            try:
+                if self._outbuf_shmem:
+                    self._outbuf_shmem.detach()
+            except shm.error:
+                pass
+            self._outbuf_shmem = shm.memory(shm.getshmid(self._get_outbuf_shm_key()))
+            self._outbuf_shmem.attach()
+            self.set_frame_output_mode()  # Sync
+
+        elif line.startswith("EOF code"):
+            if self._state in (STATE_PLAYING, STATE_PAUSED):
+                self.signals["end"].emit()
+                self._state = STATE_IDLE
 
         elif line.startswith("Parsing input"):
             # Delete the temporary key input file.
@@ -280,23 +300,32 @@ class MPlayer(MediaPlayer):
         name = "mplayer-overlay.%s" % self._instance_id
         return int(md5.md5(name).hexdigest()[:7], 16)
 
+    def _get_outbuf_shm_key(self):
+        name = "mplayer-outbuf.%s" % self._instance_id
+        return int(md5.md5(name).hexdigest()[:7], 16)
 
-    def _start(self, file, user_args = ""):
+
+    def _start(self, file, user_args = None):
         assert(self._mp_info)
 
         keyfile = self._make_dummy_input_config()
 
         filters = self._filters_pre[:]
+        filters += ["outbuf=%s:yv12" % self._get_outbuf_shm_key()]
+
+        # FIXME: hardcoded
+        #self._size = 800, 600
+        #self._size = 854, 640
+
         if self._size:
             w, h = self._size
             filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h), "dsize=%d:%d" % (w,h) ]
 
         args = "-v -slave -osdlevel 0 -nolirc -nojoystick -nomouseinput " \
-               "-nodouble -fixed-vo -identify -framedrop "
+               "-nodouble -fixed-vo -identify -framedrop -idle "
 
-        #filters += ["outbuf=4342321:1"]
         filters += self._filters_add
-        filters += ["expand=:::::4/3"]
+        filters += ["expand=:::::4/3"]  # XXX: unstable!
         filters += ["overlay=%s" % self._get_overlay_shm_key()]
 
         if filters:
@@ -307,7 +336,8 @@ class MPlayer(MediaPlayer):
             args += "-display %s " % self._window.get_display().get_string()
             args += "-input conf=%s " % keyfile
 
-        args += "%s " % user_args
+        if user_args:
+            args += "%s " % user_args
         if file:
             args += "\"%s\"" % file
 
@@ -325,9 +355,11 @@ class MPlayer(MediaPlayer):
 
 
     def _exited(self, exitcode):
+        if self._state in (STATE_PLAYING, STATE_PAUSED):
+            self.signals["end"].emit()
+
         self._state = STATE_NOT_RUNNING
-        kaa.signals["shutdown"].disconnect(self.stop)
-        self.signals["end"].emit()
+        self.signals["quit"].emit()
         if exitcode != 0:
             raise MPlayerExitError, (exitcode, self._last_line)
 
@@ -336,38 +368,67 @@ class MPlayer(MediaPlayer):
         return self._process and self._process.is_alive()
 
     def open(self, mrl):
-        # FIXME: parse mrl form
-        self._mrl = mrl
+        schemes = self.get_supported_schemes()
+        scheme, path = parse_mrl(mrl)
+
+        if scheme not in schemes:
+            raise ValueError, "Unsupported mrl scheme '%s'" % scheme
+
+        self._file_args = None
+        if scheme in ("file", "fifo"):
+            self._file = path
+        elif scheme == "dvd":
+            file, title = re.search("(.*?)(\/\d+)?$", path).groups()
+            if file not in ("/", "//"):
+                if not os.path.isfile(file):
+                    raise ValueError, "Invalid ISO file: %s" % file
+                self._file_args = "-dvd-device \"%s\"" % file
+
+            self._file = "dvd://"
+            if title:
+                self._file += title[1:]
+        else:
+            self._file = mrl
+
+        self.signals["open"].emit()
+        print "*** MPlayer open:", self._file, self._file_args
+
+
+
+    def play(self):
+        state = self.get_state()
+        if state == STATE_PAUSED:
+            self._slave_cmd("pause")
+        elif state == STATE_IDLE:
+            # FIXME: DVD ISO files will require a restart (for -dvd-device)
+            #self._slave_cmd("loadfile \"%s\"" % self._file)
+            return
+
+        if state != STATE_NOT_RUNNING:
+            return
+
         if self._window == None:
             # Use the user specified size, or some sensible default.
             win_size = self._size or (640, 480)
             self._window = display.X11Window(size = win_size, title = "MPlayer Window")
 
+        if not self._mp_info:
+            # We're probably waiting for _get_mplayer_info() to finish; set
+            # state so that _handle_mp_info() will call _start().  There's no
+            # race condition here if we're currently in the main thread,
+            # because _handle_mp_info() is guaranteed to be called in the
+            # main thread.
+            self._state = STATE_OPENING
+            self._state_data = self._file, self._file_args
+            return False
 
-    def play(self):
-        if self.get_state() == STATE_PAUSED:
-            self._slave_cmd("pause")
-        elif self.get_state() == STATE_NOT_RUNNING:
-            file = self._mrl
-            user_args = ""
+        self._start(self._file, self._file_args)
+        return True
 
-            if not self._mp_info:
-                # We're probably waiting for _get_mplayer_info() to finish; set
-                # state so that _handle_mp_info() will call _start().  There's no
-                # race condition here if we're currently in the main thread,
-                # because _handle_mp_info() is guaranteed to be called in the
-                # main thread.
-                self._state = STATE_OPENING
-                self._state_data = (file, user_args) 
-                return False
-
-            self._start(file, user_args)
-            return True
 
     def pause(self):
         if self.get_state() == STATE_PLAYING:
             self._slave_cmd("pause")
-            self._eat_ticks += 1
 
     def pause_toggle(self):
         if self.get_state() == STATE_PAUSED:
@@ -385,13 +446,22 @@ class MPlayer(MediaPlayer):
     def seek_percentage(self, percent):
         self._slave_cmd("seek %f 1" % percent)
 
-
     def stop(self):
-        # TODO: maybe look at -idle
+        #self._slave_cmd("pt_step + 1")
+        #self._state = STATE_IDLE
+        self.die()
+        self._state = STATE_NOT_RUNNING
+
+    def _end_child(self):
+        print "Mplayer END CHILD"
         self._slave_cmd("quit")
         # Could be paused, try sending again.
         self._slave_cmd("quit")
 
+    def die(self):
+        if self._process:
+            print "Mplayer die"
+            self._process.stop()
 
     def get_vo_size(self):
         return self._vo_size
@@ -426,12 +496,15 @@ class MPlayer(MediaPlayer):
             for (x, y, w, h) in invalid_regions:
                 cmd.append("invalidate=%d:%d:%d:%d" % (x, y-1, w, h+1))
         self._slave_cmd("overlay %s" % ",".join(cmd))
-        self._overlay_set_lock(MPlayer.OVERLAY_BUFFER_LOCKED)
+        self._overlay_set_lock(BUFFER_LOCKED)
 
 
-    def osd_can_update(self, byte):
+    def osd_can_update(self):
+        if not self._overlay_shmem:
+            return False
+
         try:
-            if ord(self._overlay_shmem.read(1)) == MPlayerOSDCanvas.BUFFER_UNLOCKED:
+            if ord(self._overlay_shmem.read(1)) == BUFFER_UNLOCKED:
                 return True
         except:
             self._overlay_shmem = None
@@ -440,21 +513,80 @@ class MPlayer(MediaPlayer):
 
 
     def _overlay_set_lock(self, byte):
-        if self._overlay_shmem and self._overlay_shmem.attached:
-            self._overlay_shmem.write(chr(byte))
+        try:
+            if self._overlay_shmem and self._overlay_shmem.attached:
+                self._overlay_shmem.write(chr(byte))
+        except shm.error:
+            self._overlay_shmem = None
+
+
+    def _check_new_frame(self):
+        if not self._outbuf_shmem:
+            return
+
+        try:
+            lock, width, height, aspect = struct.unpack("hhhd", self._outbuf_shmem.read(16))
+        except:
+            self._outbuf_shmem = None
+            return
+
+        if lock & BUFFER_UNLOCKED:
+            return
+
+        if width > 0 and height > 0 and aspect > 0:
+            self.signals["frame"].emit(width, height, aspect, self._outbuf_shmem.addr + 16, "yv12")
+
+    def _unlock_frame(self):
+        try:
+            self._outbuf_shmem.write(chr(BUFFER_UNLOCKED))
+        except shm.error:
+            self._outbuf_shmem = None
+
+
+    def set_frame_output_mode(self, vo = None, notify = None, size = None):
+        if vo != None:
+            self._cur_outbuf_mode[0] = vo
+        if notify != None:
+            self._cur_outbuf_mode[1] = notify
+            if notify:
+                self._check_new_frame_timer.start(0.01)
+            else:
+                self._check_new_frame_timer.stop()
+        if size != None:
+            self._cur_outbuf_mode[2] = size
+
+        mode = { (False, False): 0, (True, False): 1,
+                 (False, True): 2, (True, True): 3 }[tuple(self._cur_outbuf_mode[:2])]
+
+        size = self._cur_outbuf_mode[2]
+        if size == None:
+            self._slave_cmd("outbuf %d" % mode)
+        else:
+            self._slave_cmd("outbuf %d %d %d" % (mode, size[0], size[1]))
+
+    def nav_command(self, input):
+        return False
 
 
     def get_player_id(self):
         return "mplayer"
 
 
+
+
 def get_capabilities():
-    capabilities = CAP_VIDEO | CAP_AUDIO | CAP_VARIABLE_SPEED
-    # FIXME: we don't know if these caps exist until _get_mplayer_info()
-    # returns.
-    capabilities |= CAP_OSD | CAP_CANVAS
+    capabilities = [CAP_VIDEO, CAP_AUDIO, CAP_VARIABLE_SPEED, CAP_DVD,
+                   CAP_VARIABLE_SPEED]
+    info = _get_mplayer_info(find_mplayer_path())
+    if "overlay" in info["video_filters"]:
+        capabilities.append(CAP_OSD)
+    if "outbuf" in info["video_filters"]:
+        capabilities.append(CAP_CANVAS)
+
     schemes = ["file", "vcd", "cdda", "cue", "tivo", "http", "mms", "rtp",
-                "rtsp", "ftp", "udp", "sdp"]
-    return capabilities, schemes
+                "rtsp", "ftp", "udp", "sdp", "dvd", "fifo"]
+
+    exts = ["avi", "wmv", "mkv", "asf"]  # FIXME: complete.
+    return capabilities, schemes, exts
 
 register_player("mplayer", MPlayer, get_capabilities)
