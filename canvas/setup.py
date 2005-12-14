@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-mevas - MeBox Canvas System
+# kaa-canvas - Second generation Canvas System using Evas as backend
 # Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
@@ -37,4 +37,4 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-setup(module = 'canvas', version = '0.1')
+setup(module = 'canvas', version = '0.5')
