@@ -371,8 +371,11 @@ class EvasX11Window(X11Window):
         self._evas.viewport_set((0, 0), size)
 
         # Ensures the display remains alive until after Evas gets deallocated
-        # during garbage collection.
+        # during garbage collection.  
         self._evas._dependencies.append(display._display)
+        self._evas._dependencies.append(window)
+        if "parent" in kwargs:
+            self._evas._dependencies.append(kwargs["parent"])
         super(EvasX11Window, self).__init__(display, window)
 
 

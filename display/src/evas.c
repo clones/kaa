@@ -79,7 +79,6 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
 
     if (py_parent) {
         parent = py_parent->window;
-        printf("PARENTED subwindow\n");
     }
     else
         parent = DefaultRootWindow(disp->display);
@@ -91,23 +90,23 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
         StructureNotifyMask | PointerMotionMask | KeyPressMask;
     attr.bit_gravity = ForgetGravity;
 
-    XLockDisplay(disp->display);
-    screen = DefaultScreen(disp->display);
+    *ei_display = disp->display; //XOpenDisplay(XDisplayString(disp->display));
+    XLockDisplay(*ei_display);
+    screen = DefaultScreen(*ei_display);
 
-    *ei_display = disp->display;
-    *ei_visual = best_visual_get(disp->display, screen);
-    *ei_colormap = attr.colormap = best_colormap_get(disp->display, screen);
-    *ei_depth = best_depth_get(disp->display, screen);
+    *ei_visual = best_visual_get(*ei_display, screen);
+    *ei_colormap = attr.colormap = best_colormap_get(*ei_display, screen);
+    *ei_depth = best_depth_get(*ei_display, screen);
 
-    win = XCreateWindow(disp->display, parent, 0, 0,
+    win = XCreateWindow(*ei_display, parent, 0, 0,
                         w, h, 0, *ei_depth, InputOutput, *ei_visual,
                         CWBackingStore | CWColormap | CWBackPixmap |
                         CWBitGravity | CWEventMask, &attr);
 
     *ei_drawable = win;
     if (title)
-        XStoreName(disp->display, win, title);
-    XUnlockDisplay(disp->display);
+        XStoreName(*ei_display, win, title);
+    XUnlockDisplay(*ei_display);
 
     win_object = X11Window_PyObject__wrap((PyObject *)disp, win);
     return win_object;

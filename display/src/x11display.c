@@ -76,7 +76,8 @@ X11Display_PyObject__dealloc(X11Display_PyObject * self)
 {
     printf("X11Display dealloc: %p\n", self);
     if (self->display) {
-        XCloseDisplay(self->display);
+        // FIXME
+        //XCloseDisplay(self->display);
     }
     Py_XDECREF(self->socket);
     self->ob_type->tp_free((PyObject*)self);
