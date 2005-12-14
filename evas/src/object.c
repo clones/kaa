@@ -4,6 +4,7 @@
 #include "object.h"
 #include "image.h"
 #include "text.h"
+#include "gradient.h"
 
 PyObject *
 Evas_Object_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
@@ -380,6 +381,10 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"image_pixels_dirty_set", (PyCFunction) Evas_Object_PyObject_image_pixels_dirty_set, METH_VARARGS},
     {"image_pixels_dirty_get", (PyCFunction) Evas_Object_PyObject_image_pixels_dirty_get, METH_VARARGS},
     {"image_pixels_import", (PyCFunction) Evas_Object_PyObject_image_pixels_import, METH_VARARGS},
+    {"image_border_set", (PyCFunction) Evas_Object_PyObject_image_border_set, METH_VARARGS},
+    {"image_border_get", (PyCFunction) Evas_Object_PyObject_image_border_get, METH_VARARGS},
+    {"image_border_center_fill_get", (PyCFunction) Evas_Object_PyObject_image_border_center_fill_get, METH_VARARGS},
+    {"image_border_center_fill_set", (PyCFunction) Evas_Object_PyObject_image_border_center_fill_set, METH_VARARGS},
 
     // text.c
     {"text_font_set", (PyCFunction) Evas_Object_PyObject_text_font_set, METH_VARARGS},
@@ -397,6 +402,12 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"text_inset_get", (PyCFunction) Evas_Object_PyObject_text_inset_get, METH_VARARGS},
     {"text_char_pos_get", (PyCFunction) Evas_Object_PyObject_text_char_pos_get, METH_VARARGS},
     {"text_char_coords_get", (PyCFunction) Evas_Object_PyObject_text_char_coords_get, METH_VARARGS},
+
+    // gradient.c
+    {"gradient_color_add", (PyCFunction) Evas_Object_PyObject_gradient_color_add, METH_VARARGS},
+    {"gradient_colors_clear", (PyCFunction) Evas_Object_PyObject_gradient_colors_clear, METH_VARARGS},
+    {"gradient_angle_set", (PyCFunction) Evas_Object_PyObject_gradient_angle_set, METH_VARARGS},
+    {"gradient_angle_get", (PyCFunction) Evas_Object_PyObject_gradient_angle_get, METH_VARARGS},
 
     {NULL, NULL}
 };

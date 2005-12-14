@@ -52,6 +52,50 @@ Evas_Object_PyObject_image_fill_get(Evas_Object_PyObject * self, PyObject * args
 /****************************************************************************/
 
 PyObject *
+Evas_Object_PyObject_image_border_set(Evas_Object_PyObject * self, PyObject * args)
+{
+    int l, r, t, b;
+
+    if (!PyArg_ParseTuple(args, "iiii", &l, &r, &t, &b))
+        return NULL;
+
+    evas_object_image_border_set(self->object, l, r, t, b);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_image_border_get(Evas_Object_PyObject * self, PyObject * args)
+{
+    int l, r, t, b;
+
+    evas_object_image_border_get(self->object, &l, &r, &t, &b);
+    return Py_BuildValue("(iiii)", l, r, t, b);
+}
+
+/****************************************************************************/
+
+PyObject *
+Evas_Object_PyObject_image_border_center_fill_set(Evas_Object_PyObject * self, PyObject * args)
+{
+    int fill;
+
+    if (!PyArg_ParseTuple(args, "i", &fill))
+        return NULL;
+
+    evas_object_image_border_center_fill_set(self->object, fill);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_image_border_center_fill_get(Evas_Object_PyObject * self, PyObject * args)
+{
+    if (evas_object_image_border_center_fill_get(self->object))
+        return Py_INCREF(Py_True), Py_True;
+    return Py_INCREF(Py_False), Py_False;
+}
+/****************************************************************************/
+
+PyObject *
 Evas_Object_PyObject_image_size_set(Evas_Object_PyObject * self, PyObject * args)
 {
     int w, h;

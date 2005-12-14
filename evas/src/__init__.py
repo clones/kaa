@@ -54,6 +54,8 @@ def _wrap_evas_object(obj):
         return Rectangle(obj)
     elif obj_type == "text":
         return Text(obj)
+    elif obj_type == "gradient":
+        return Gradient(obj)
     else:
         raise ValueError, "Unable to wrap unknown object type (%s)" % obj_type
 
@@ -156,10 +158,29 @@ class Object(object):
             list.append(_wrap_evas_object(o))
         return list
 
+
+
 class Rectangle(Object):
     def __init__(self, evas_object):
         super(Rectangle, self).__init__(evas_object)
 
+
+
+class Gradient(Object):
+    def __init__(self, evas_object):
+        super(Gradient, self).__init__(evas_object)
+
+    def color_add(self, r, g, b, a, distance):
+        return self._object.gradient_color_add(r, g, b, a, distance)
+
+    def colors_clear(self):
+        return self._object.gradient_colors_clear()
+
+    def angle_set(self, angle):
+        return self._object.gradient_angle_set(angle)
+
+    def angle_get(self):
+        return self._object.gradient_angle_get()
 
 
 class Image(Object):
@@ -225,6 +246,19 @@ class Image(Object):
 
     def pixels_import(self, data, w, h, format):
         return self._object.image_pixels_import(data, w, h, format)
+
+    def border_set(self, l, r, t, b):
+        return self._object.image_border_set(l, r, t, b)
+
+    def border_get(self):
+        return self._object.image_border_get()
+
+    def border_center_fill_set(self, fill):
+        return self._object.image_border_center_fill_set(fill)
+        
+    def border_center_fill_get(self):
+        return self._object.image_border_center_fill_get()
+
 
 class Text(Object):
     def __init__(self, evas_object):
@@ -357,6 +391,9 @@ class Evas(object):
 
     def object_rectangle_add(self):
         return Rectangle(self._evas.object_rectangle_add())
+
+    def object_gradient_add(self):
+        return Gradient(self._evas.object_gradient_add())
 
     def object_image_add(self, filename = None):
         img = Image(self._evas.object_image_add())

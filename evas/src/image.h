@@ -4,6 +4,11 @@ PyObject *Evas_Object_PyObject_image_file_get(Evas_Object_PyObject *, PyObject *
 PyObject *Evas_Object_PyObject_image_fill_set(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_fill_get(Evas_Object_PyObject *, PyObject *);
 
+PyObject *Evas_Object_PyObject_image_border_set(Evas_Object_PyObject *, PyObject *);
+PyObject *Evas_Object_PyObject_image_border_get(Evas_Object_PyObject *, PyObject *);
+PyObject *Evas_Object_PyObject_image_border_center_fill_set(Evas_Object_PyObject *, PyObject *);
+PyObject *Evas_Object_PyObject_image_border_center_fill_get(Evas_Object_PyObject *, PyObject *);
+
 PyObject *Evas_Object_PyObject_image_size_set(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_size_get(Evas_Object_PyObject *, PyObject *);
 

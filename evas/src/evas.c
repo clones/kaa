@@ -235,6 +235,13 @@ Evas_PyObject_object_rectangle_add(Evas_PyObject * self, PyObject * args)
 }
 
 PyObject *
+Evas_PyObject_object_gradient_add(Evas_PyObject * self, PyObject * args)
+{
+    return (PyObject *)
+        wrap_evas_object(evas_object_gradient_add(self->evas), self);
+}
+
+PyObject *
 Evas_PyObject_object_image_add(Evas_PyObject * self, PyObject * args)
 {
     if (!check_evas(self->evas))
@@ -322,6 +329,7 @@ PyMethodDef Evas_PyObject_methods[] = {
     {"object_rectangle_add", (PyCFunction) Evas_PyObject_object_rectangle_add, METH_VARARGS},
     {"object_image_add", (PyCFunction) Evas_PyObject_object_image_add, METH_VARARGS},
     {"object_text_add", (PyCFunction) Evas_PyObject_object_text_add, METH_VARARGS},
+    {"object_gradient_add", (PyCFunction) Evas_PyObject_object_gradient_add, METH_VARARGS},
 /* TODO:
     top_at_xy_get
     top_at_pointer_get
