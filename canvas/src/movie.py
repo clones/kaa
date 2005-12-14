@@ -30,7 +30,7 @@ class PlayerOSDCanvas(BufferCanvas):
 
 
     def _check_render_queued(self):
-        if not self._player.osd_can_update():
+        if not self._player or self._player.osd_can_update():
             return
 
         return super(PlayerOSDCanvas, self)._check_render_queued()
@@ -334,7 +334,7 @@ class Movie(Image):
 
 
     def _sync(self, regions):
-        self._player._unlock_frame()
+        self._player.unlock_frame_buffer()
 
     def _stream_changed(self):
         d_width, d_height = self._get_computed_size()

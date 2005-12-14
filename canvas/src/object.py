@@ -141,6 +141,9 @@ class Object(object):
         Returns the computed size of the object, or for the child object 
         if specified (used for Containers).
         """
+        # TODO: this function gets called a LOT.  Cache this value.  This
+        # value varies based on child paramter, so need to keep a dict that
+        # maps child -> size.
         #print "Computing new size", self, self["size"]
         if self._parent:
             # Determine the size of our container (ask parent).
@@ -152,6 +155,7 @@ class Object(object):
 
     def _compute_pos(self, pos, computed_size, parent_size):
         pos = list(pos)
+        #print "Computing pos for", self, pos, computed_size, parent_size
         for index in range(2):
             if type(pos[index]) == int:
                 continue
@@ -166,6 +170,35 @@ class Object(object):
                     p = int(match.group(1)[:-1]) / 100.0 * parent_size[index]
                     return str(int(p))
                 pos[index] = re.sub("([\d.]+%)", calc_percent, pos[index])
+            if "." in pos[index]:
+                # FIXME: object A that depends on values from object B needs
+                # to get reflowed if B changes.  Currently this still works
+                # because when any object changes pos/size, the whole canvas
+                # gets reflowed.  But eventually that will get fixed, and when
+                # it does, this will need to get fixed.  (Will need to
+                # maintain an object dependency tree.)
+                def get_object_value(match):
+                    name, value = match.group(1), match.group(2)
+                    o = self.get_canvas().find_object(name)
+                    if not o:
+                        raise ValueError, "Unknown object '%s' referenced in expression" % name
+                    if value == "width":
+                        return str(o.get_computed_size()[0])
+                    elif value == "height":
+                        return str(o.get_computed_size()[1])
+                    elif value == "left":
+                        return str(o.get_computed_pos()[0])
+                    elif value == "top":
+                        return str(o.get_computed_pos()[1])
+                    elif value == "right":
+                        return str(o.get_computed_pos()[0] + o.get_computed_size()[0])
+                    elif value == "bottom":
+                        return str(o.get_computed_pos()[1] + o.get_computed_size()[1])
+                    else:
+                        raise ValueError, "Unknown object value '%s' referenced in expression" % value
+                       
+                pos[index] = re.sub("(\w+)\.(\w+)", get_object_value, pos[index])
+
 
             pos[index] = eval(pos[index], locals, {})
 
@@ -250,10 +283,10 @@ class Object(object):
     def _reflow(self):
         if self._parent:
             self._parent._reflow()
-
-        self._inc_properties_serial()
-        self._force_sync_property("pos")
-        self._force_sync_property("size")
+        else:
+            self._inc_properties_serial()
+            self._force_sync_property("pos")
+            self._force_sync_property("size")
         
     def _set_property_size(self, size):
         self._reflow()
@@ -372,6 +405,10 @@ class Object(object):
 
     def _force_sync_property(self, prop):
         assert(prop in self._supported_sync_properties)
+        if prop in ("pos", "layer", "color", "visible"):
+            # If we're forcing resync of one of these properties, it means
+            # they need to be recalculated, so void the cache.
+            self._inc_properties_serial()
         self._changed_since_sync[prop] = True
         self._queue_render()
 

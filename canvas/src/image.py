@@ -78,7 +78,6 @@ class Image(Object):
 
 
     def _canvased(self, canvas):
-        print "Canvased image", self["filename"], self._o, self
         super(Image, self)._canvased(canvas)
 
         if not self._o and canvas.get_evas():

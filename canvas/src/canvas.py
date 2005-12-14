@@ -1,13 +1,11 @@
 __all__ = [ 'Canvas' ]
 
-from container import *
-
 import os
 import _weakref
 import kaa
 from kaa.base import weakref
 from kaa.notifier import Signal
-
+from container import *
 
 class Canvas(Container):
 
@@ -124,3 +122,8 @@ class Canvas(Container):
             fp = self["fontpath"]
             fp.remove(path)
             self["fontpath"] = fp
+
+    def from_xml(self, filename = None, string = None, path = []):
+        xml.create_canvas_tree(self, filename, string, path)
+
+import xml
