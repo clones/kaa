@@ -425,9 +425,9 @@ class EvasBuffer(Evas):
         if "depth" not in kwargs:
             kwargs["depth"] = ENGINE_BUFFER_DEPTH_BGR24
         bpp = (4, 4, 3, 3)[ kwargs["depth"] ]
-        if "stride" not in kwargs:
+        if not kwargs.get("stride"):
             kwargs["stride"] = size[0] * bpp
-        if "buffer" not in kwargs:
+        if not kwargs.get("buffer"):
             kwargs["buffer"] = array.array('c', '\0'*size[0]*size[1]*bpp)
         kwargs["size"] = size
         assert type(kwargs["buffer"]) in (array.array, buffer, int)
