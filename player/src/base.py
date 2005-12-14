@@ -26,17 +26,14 @@ def register_player(player_id, cls, get_caps_callback):
     if player_id in _players:
         raise ValueError, "Player '%s' already registered" % name
 
-    # FIXME: could block, so should call this in a thread
-    caps, schemes, exts = get_caps_callback()
+    # FIXME: we just defer calling get_caps_callback until the first time
+    # a player is needed, but we should do this in a thread when the system
+    # is idle.
     _players[player_id] = {
         "class": cls,
-        "caps": caps,
-        "schemes": schemes,
-        # Prefer this player for these extensions.  (It's not a list of
-        # all supported extensions.)
-        "extensions": exts
+        "callback": get_caps_callback,
+        "loaded": False
     }
-
 
 def parse_mrl(mrl):
     """
@@ -78,6 +75,23 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
     the given mrl).  The player's class object is returned if a suitable
     player is found, otherwise None.
     """
+
+    # Ensure all players have their capabilities fetched.
+    for player_id in _players:
+        if _players[player_id]["loaded"]:
+            continue
+
+        caps, schemes, exts = _players[player_id]["callback"]()
+        _players[player_id].update({
+            "caps": caps,
+            "schemes": schemes,
+            # Prefer this player for these extensions.  (It's not a list of
+            # all supported extensions.)
+            "extensions": exts,
+            "loaded": True,
+        })
+
+
     if player == mrl == caps == None:
         # FIXME: return default player?
         return _players.values()[0]["class"]
@@ -261,6 +275,12 @@ class MediaPlayer(object):
         frame available.  size is a 2-tuple containing the target size of the
         frame as given to the "frame" signal callback.  If any are None, do 
         not alter the status since last call.
+        """
+        pass
+
+    def unlock_frame_buffer(self):
+        """
+        Unlocks the frame buffer provided by "frame" signal.
         """
         pass
 

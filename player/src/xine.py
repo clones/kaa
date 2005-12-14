@@ -114,11 +114,6 @@ class XinePlayerChild(object):
         self._send_command("osd_configure", width, height, aspect, 2000, 2000)
         return self._osd_shmem.addr + 16, 2000 * 4, self._frame_shmem.addr
 
-    def _send_frame_cb(self, width, height, aspect, buffer, unlock_frame_cb):
-        #print "RECEIVED FRAME", width, height, aspect, buffer
-        unlock_frame_cb()
-        if self._frame_shmem:
-            self._frame_shmem.write(struct.pack("bII", BUFFER_LOCKED, width, height))
 
     def _handle_command_setup(self, wid):
         if self._stream:
@@ -130,7 +125,6 @@ class XinePlayerChild(object):
         control_return = []
         self._vo = self._xine.open_video_driver("kaa", control_return = control_return,
                     passthrough = "xv", wid = wid, osd_configure_cb = notifier.WeakCallback(self._osd_configure),
-                    send_frame_cb = notifier.WeakCallback(self._send_frame_cb),
 #                    osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4, osd_rows = 2000,
 #        self._vo = self._xine.open_video_driver("xv", wid = wid,
                     frame_output_cb = notifier.WeakCallback(self._x11_frame_output_cb),
@@ -589,7 +583,7 @@ class XinePlayer(MediaPlayer):
         if width > 0 and height > 0 and aspect > 0:
             self.signals["frame"].emit(width, height, aspect, self._frame_shmem.addr + 16, "bgr32")
 
-    def _unlock_frame(self):
+    def unlock_frame_buffer(self):
         try:
             self._frame_shmem.write(chr(BUFFER_UNLOCKED))
         except shm.error:

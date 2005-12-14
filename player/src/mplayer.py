@@ -536,7 +536,7 @@ class MPlayer(MediaPlayer):
         if width > 0 and height > 0 and aspect > 0:
             self.signals["frame"].emit(width, height, aspect, self._outbuf_shmem.addr + 16, "yv12")
 
-    def _unlock_frame(self):
+    def unlock_frame_buffer(self):
         try:
             self._outbuf_shmem.write(chr(BUFFER_UNLOCKED))
         except shm.error:
