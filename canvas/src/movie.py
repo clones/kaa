@@ -31,7 +31,7 @@ class PlayerOSDCanvas(BufferCanvas):
 
 
     def _check_render_queued(self):
-        if not self._player or self._player.osd_can_update():
+        if not self._player or not self._player.osd_can_update():
             return
 
         return super(PlayerOSDCanvas, self)._check_render_queued()
@@ -69,7 +69,7 @@ class PlayerOSDCanvas(BufferCanvas):
 
     def _osd_configure(self, width, height, buffer, buffer_width, buffer_height):
         if self._o:
-            if  buffer != self.get_buffer():
+            if buffer != self.get_buffer():
                 self._reset()
             else:
                 self._o.output_size_set((width, height))
@@ -304,7 +304,7 @@ class Movie(Image):
             # If our aspect ratio has changed, our size has probably changed,
             # so cause a reflow.
             self._aspect = aspect
-            self._reflow()
+            self._notify_parent_property_changed("size")
 
         if format == "yv12":
             self.import_pixels(ptr, width, height, evas.PIXEL_FORMAT_YUV420P_601)

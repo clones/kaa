@@ -20,7 +20,7 @@ class Canvas(Container):
             "updated": Signal()
         }
 
-        kaa.signals["idle"].connect_weak(self._check_render_queued)
+        kaa.signals["idle"].connect(self._check_render_queued)
         self._supported_sync_properties += ["fontpath"]
 
         font_path = []
@@ -32,6 +32,8 @@ class Canvas(Container):
         self["fontpath"] = font_path
 
 
+    def __del__(self):
+        print "===================== CANVAS DELETED ================", self
     def _sync_property_fontpath(self):
         self.get_evas().fontpath = self["fontpath"]
 
@@ -69,7 +71,7 @@ class Canvas(Container):
             child = child()
             if not child:
                 continue
-            if child._sync_properties():
+            if child._sync_properties(pre_render = True):
                 needs_render = True
 
         if needs_render:
@@ -78,7 +80,7 @@ class Canvas(Container):
 
     def _render(self):
         regions = self._o.render()
-        #print "@@@ render evas right now", self, regions
+        print "@@@ render evas right now", self, regions
         if regions:
             self.signals["updated"].emit(regions)
         return regions

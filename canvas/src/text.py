@@ -7,13 +7,18 @@ class Text(Object):
     def __init__(self, text = None, font = None, size = None, color = None):
         super(Text, self).__init__()
 
-        self._supported_sync_properties += [ "text", "font" ]
+        for prop in ("size", "pos", "clip"):
+            self._supported_sync_properties.remove(prop)
+        self._supported_sync_properties += [ "text", "font", "size", "pos", "clip" ]
 
         self.set_font(font, size)
         if text != None:
             self.set_text(text)
         if color != None:
             self.set_color(*color)
+
+    def __repr__(self):
+        return "<canvas.Text object at 0x%x: \"%s\">" % (id(self), self["text"])
 
     def _canvased(self, canvas):
         super(Text, self)._canvased(canvas)
@@ -24,10 +29,16 @@ class Text(Object):
 
 
     def _sync_property_font(self):
+        old_size = self._o.geometry_get()[1]
         self._o.font_set(*self["font"])
+        if old_size != self._o.geometry_get()[1]:
+            self._notify_parent_property_changed("size")
 
     def _sync_property_text(self):
+        old_size = self._o.geometry_get()[1]
         self._o.text_set(self["text"])
+        if old_size != self._o.geometry_get()[1]:
+            self._notify_parent_property_changed("size")
 
     def _sync_property_size(self):
         # FIXME: if size specified for text, clip to size.

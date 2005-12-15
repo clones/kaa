@@ -104,7 +104,7 @@ class Image(Object):
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
         self._o.data_set(self["image"].get_raw_data(), copy = False)
-        self._reflow()
+        self._notify_parent_property_changed("size")
         self._loaded = True
 
     def _sync_property_filename(self):
@@ -123,7 +123,7 @@ class Image(Object):
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
 
-        self._reflow()
+        self._notify_parent_property_changed("size")
         self._loaded = True
 
     def _sync_property_pixels(self):
@@ -131,6 +131,7 @@ class Image(Object):
             return
 
         data, w, h, format = self["pixels"]
+        old_size = self._o.geometry_get()[1]
         self._o.size_set((w, h))
         self._o.pixels_import(data, w, h, format)
 
@@ -138,10 +139,14 @@ class Image(Object):
             size = w, h
         else:
             size = self._get_computed_size()
+
+        self._o.pixels_dirty_set()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
-        self._o.pixels_dirty_set()
-        self._reflow()
+
+        if size != old_size:
+            # Only need to reflow if target size has changed.
+            self._notify_parent_property_changed("size")
 
         self._loaded = True
 

@@ -1,6 +1,7 @@
 __all__ = [ 'CanvasError', 'Object' ]
 
 import types, re
+import _weakref
 from kaa import evas
 from kaa.base import weakref
 
@@ -16,8 +17,7 @@ class Object(object):
         self._supported_sync_properties = ["name", "visible", "layer", "color", "size", "pos", "clip"]
         self._properties = {}
         self._changed_since_sync = {}
-        self._properties_serial = 0
-        self._relative_values_cache = { "serial": -1 }
+        self._values_cache = {}
 
         self._o = self._canvas = self._parent = None
         self._clip_object = None
@@ -46,17 +46,17 @@ class Object(object):
         if self[key] == value:
             return False
 
-        if key in ("pos", "visible", "color", "layer", "size"):
-            self._inc_properties_serial()
+        self._dirty_cached_value(key)
+        if key == "pos":
+            self._dirty_cached_value("computed_pos")
+        self._notify_parent_property_changed(key)
+        #if key in ("pos", "visible", "color", "layer", "size"):
+        #    self._inc_properties_serial()
 
         if hasattr(self, "_set_property_" + key):
             getattr(self, "_set_property_" + key)(value)
         else:
             self._set_property_generic(key, value)
-
-
-    def _inc_properties_serial(self):
-        self._properties_serial += 1
 
 
     def _set_property_generic(self, key, value):
@@ -77,7 +77,8 @@ class Object(object):
         if not self._o:
             return
 
-        #self._o._canvas_object = weakref(self)
+        self._o._canvas_object = weakref(self)
+        self._force_sync_all_properties()
         self._sync_properties()
         self._apply_parent_clip()
         self._queue_render()
@@ -178,12 +179,19 @@ class Object(object):
         # value varies based on child paramter, so need to keep a dict that
         # maps child -> size.
         #print "Computing new size", self, self["size"]
+        size = self._get_cached_value("size", child)
+        if size:
+            return size
+
+        #print "XXX Computing size", self, child
         if self._parent:
             # Determine the size of our container (ask parent).
             psize = self._parent._get_computed_size(child = self)
-            return self._compute_size(psize, self["size"])
+            size = self._compute_size(psize, self["size"])
         else:
-            return self._compute_size(self["size"], self["size"])
+            size = self._compute_size(self["size"], self["size"])
+        self._set_cached_value("size", child, size)
+        return size
 
 
     def _compute_pos(self, pos, computed_size, parent_size):
@@ -216,36 +224,58 @@ class Object(object):
 
         return pos
 
+    def _get_cached_value(self, prop, child):
+        if child:
+            child = _weakref.ref(child)
+
+        if prop in self._values_cache:
+            if child in self._values_cache[prop]:
+                #print "CACHE HIT", self, prop, child, self._values_cache[prop][child]
+                return self._values_cache[prop][child]
+
+        #print "CACHE MISS", self, prop, child
+
+    def _dirty_cached_value(self, prop):
+        #self._values_cache = {}
+        if prop in self._values_cache:
+            del self._values_cache[prop]
+
+
+    def _set_cached_value(self, prop, child, value):
+        if child:
+            child = _weakref.ref(child)
+        if prop not in self._values_cache:
+            self._values_cache[prop] = {}
+        self._values_cache[prop][child] = value
+        
 
     def _get_computed_pos(self, child = None):
-        if self._properties_serial <= self._relative_values_cache["serial"] and \
-            "computed_pos" in self._relative_values_cache:
-            #print "_get_computed_pos CACHED VALUE", self, self._relative_values_cache["computed_pos"]
-            return self._relative_values_cache["computed_pos"]
+        pos = self._get_cached_value("computed_pos", child)
+        if pos:
+            return pos
 
+        #print "XXX Computing pos", self, child
         size = self._get_computed_size()
         if self._parent:
             parent_size = self._parent._get_computed_size(child = self)
         else:
             parent_size = None
-        #print "_get_computed_pos NEW VALUE", self, " - size - ",self["size"], size, " - parent size - ", parent_size
         pos = self._compute_pos(self["pos"], size, parent_size)
-        self._relative_values_cache["computed_pos"] = pos
+        #print "_get_computed_pos NEW VALUE", self, " - size - ",self["size"], size, " - parent size - ", parent_size, " - calculated pos", pos
+        self._set_cached_value("computed_pos", child, pos)
         #print "Returned computed pos", self, pos
         return pos
 
 
     def _get_relative_values(self, prop, child = None):
-        if self._properties_serial <= self._relative_values_cache["serial"] and \
-           prop in self._relative_values_cache:
-            return self._relative_values_cache[prop]
-
-        if self._properties_serial > self._relative_values_cache["serial"]:
-            self._relative_values_cache = {"serial": self._properties_serial }
+        value = self._get_cached_value(prop, child)
+        if value:
+            return value
 
         assert(prop in ("pos", "layer", "color", "visible"))
+
         if prop == "pos":
-            v = self._get_computed_pos()
+            v = self._get_computed_pos(child)
         else:
             v = self[prop]
 
@@ -274,8 +304,7 @@ class Object(object):
                 v = map(_blend_pixel, v, p)
 
 
-        self._relative_values_cache[prop] = v
-        self._relative_values_cache["serial"] = self._properties_serial
+        self._set_cached_value(prop, child, v)
         return v
         
             
@@ -292,18 +321,9 @@ class Object(object):
             self._set_property_generic("color", color)
         return True
 
-    def _reflow(self):
+    def _notify_parent_property_changed(self, prop):
         if self._parent:
-            self._parent._reflow()
-        else:
-            self._inc_properties_serial()
-            self._force_sync_property("pos")
-            self._force_sync_property("size")
-        
-    def _set_property_size(self, size):
-        self._reflow()
-        return self._set_property_generic("size", size)
-
+            self._parent._child_property_changed(self, prop)
 
     def _can_sync_property(self, property):
         if property == "name":
@@ -312,22 +332,22 @@ class Object(object):
         return self._o != None
 
 
-    def _sync_properties(self):
+    def _sync_properties(self, pre_render = False):
         # Note: Container relies on this function, so don't abort if 
         # self._o == None.  This function will only get called when the
         # object belongs to a canvas (but not necessarily when the underlying
         # Evas canvas has been created, as in the case of BufferCanvas)
+        # XXX: this function is a performance hotspot; needs some work.
         if len(self._changed_since_sync) == 0:
             return True
 
         retval = False
         changed = self._changed_since_sync
-        #print "SYNC PROPS", self, changed
         # Prevents reentry.
         self._changed_since_sync = {}
-
+        #print "SYNC PROPS", self, changed
         for prop in self._supported_sync_properties:
-            if prop not in changed:
+            if prop not in changed or (not pre_render and prop in ("pos", "size", "clip")):
                 continue
             if self._can_sync_property(prop) != False and \
                getattr(self, "_sync_property_" + prop)() != False:
@@ -336,7 +356,7 @@ class Object(object):
             #else:
             #    print "Sync failure:", prop, self, self._o, self._can_sync_property(prop)
 
-        self._changed_since_sync = changed
+        self._changed_since_sync.update(changed)
         if changed:
             # There are still some properties that haven't been synced.
             # Requeue this object for rendering.
@@ -346,6 +366,7 @@ class Object(object):
 
     def _sync_property_pos(self):
         abs_pos = self._get_relative_values("pos")
+        print "SYNC POS", self, abs_pos
         self._o.move(abs_pos)
         if self._clip_object:
             clip_pos = map(lambda x,y: x+y, self["clip"][0], abs_pos)
@@ -370,7 +391,7 @@ class Object(object):
     def _sync_property_clip(self):
         if self["clip"] == None:
             if self._clip_object:
-                if isinstance(self._o, evas.Object):
+                if isinstance(sef._o, evas.Object):
                     self._o.clip_unset()
                 self._clip_object = None
                 self._apply_parent_clip()
@@ -416,15 +437,12 @@ class Object(object):
         for prop in self._supported_sync_properties:
             if prop in self:
                 self._changed_since_sync[prop] = True
-        self._inc_properties_serial()
+                self._dirty_cached_value(prop)
         self._queue_render()
 
     def _force_sync_property(self, prop):
         assert(prop in self._supported_sync_properties)
-        if prop in ("pos", "layer", "color", "visible", "size"):
-            # If we're forcing resync of one of these properties, it means
-            # they need to be recalculated, so void the cache.
-            self._inc_properties_serial()
+        self._dirty_cached_value(prop)
         if prop in self:
             self._changed_since_sync[prop] = True
         self._queue_render()

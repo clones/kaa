@@ -13,7 +13,7 @@ class Container(Object):
     def __init__(self):
         self._children = []
         super(Container, self).__init__()
-        self["size"] = ("100%", "100%")
+        self["size"] = ("auto", "auto")
 
 
     def _canvased(self, canvas):
@@ -36,7 +36,6 @@ class Container(Object):
             self._force_sync_property(key)
 
 
-
     def _force_sync_property(self, prop):
         super(Container, self)._force_sync_property(prop)
         for child in self._children:
@@ -44,16 +43,25 @@ class Container(Object):
         self._queue_render()
 
 
-    def _inc_properties_serial(self):
-        super(Container, self)._inc_properties_serial()
-        for child in self._children:
-            child._properties_serial += 1
+    def _child_property_changed(self, child, prop):
+        if prop in ("size",):
+            # TODO: be smarter about reflow.
+            print "REFLOW CAUSED", self, child, prop
+            self._notify_parent_property_changed(prop)
+            self._force_sync_property("pos")
+            self._force_sync_property("size")
+            self._dirty_cached_value("computed_pos")
    
 
-    def _sync_properties(self):
-        retval = super(Container, self)._sync_properties()
+    def _dirty_cached_value(self, prop):
+        super(Container, self)._dirty_cached_value(prop)
         for child in self._children:
-            if child._sync_properties():
+            child._dirty_cached_value(prop)
+
+    def _sync_properties(self, pre_render = False):
+        retval = super(Container, self)._sync_properties(pre_render)
+        for child in self._children:
+            if child._sync_properties(pre_render):
                 retval = True
         return retval
 
