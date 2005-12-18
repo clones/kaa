@@ -8,7 +8,7 @@ from rectangle import *
 from text import *
 import random
 
-DEBUG = 1
+DEBUG = 0
 
 class Container(Object):
 
