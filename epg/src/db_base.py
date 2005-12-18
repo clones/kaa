@@ -115,7 +115,7 @@ class Database(object):
         """
         while 1:
             try:
-                self.cursor.execute(query)
+                self.cursor.execute(Unicode(query))
                 return self.cursor.fetchall()
             except self.OperationalError, e:
                 # keep main loop alive
