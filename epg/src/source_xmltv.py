@@ -36,6 +36,7 @@ import time
 import os
 import calendar
 import logging
+import string
 import _strptime as strptime
 
 # kaa.epg imports
@@ -159,7 +160,7 @@ def update(guide, XMLTV_FILE):
             tunerid, displayname = id.split(' ')
         else:
             displayname = chan['display-name'][0][0]
-            if ' ' in displayname and len(id.split(' ')) == 2:
+            if ' ' in displayname and len(displayname.split(' ')) == 2:
                 tunerid, displayname = displayname.split(' ')
 
         if tunerid and not tunerid[-1] in string.digits:
