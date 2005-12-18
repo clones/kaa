@@ -88,7 +88,6 @@ class XinePlayerChild(object):
 
 
     def _x11_dest_size_cb(self, width, height, aspect):
-        print "Dest size cb"
         # TODO:
         #if not self._x11_window_visibile:
         #    w, h, a = self._get_vo_display_size(width, height, aspect)
@@ -307,7 +306,6 @@ class XinePlayer(MediaPlayer):
 
 
     def _remove_shmem(self):
-        print "REMOVING SHMEM"
         if self._osd_shmem:
             try:
                 self._osd_shmem.detach()
@@ -361,7 +359,6 @@ class XinePlayer(MediaPlayer):
             command, args = eval(line[1:])
             getattr(self, "_handle_command_" + command)(*args)
         else:
-        #elif line.find("@@@") != -1:
             print "CHILD[%d]: %s" % (self._process.child.pid, line)
 
 
@@ -399,7 +396,6 @@ class XinePlayer(MediaPlayer):
                 self._osd_shmem = shm.memory(shmid)
                 self._osd_shmem.attach()
         if not self._frame_shmem:
-            print "ATTACH TO FRAME SHMEM"
             shmid = shm.getshmid(self._frame_shmkey)
             if shmid:
                 self._frame_shmem = shm.memory(shmid)
@@ -541,7 +537,6 @@ class XinePlayer(MediaPlayer):
         else:
             self._check_new_frame_timer.stop()
 
-        print "Set frame output mode", vo, notify, size
         self._send_command("frame_output", vo, notify, size)
 
 

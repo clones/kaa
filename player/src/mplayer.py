@@ -144,7 +144,6 @@ class MPlayer(MediaPlayer):
 
 
     def _spawn(self, args, hook_notifier = True):
-        print "SPAWN", self._process, args
         self._process = notifier.Process(self._mp_cmd)
         self._process.start(args)
         if hook_notifier:
@@ -391,7 +390,6 @@ class MPlayer(MediaPlayer):
             self._file = mrl
 
         self.signals["open"].emit()
-        print "*** MPlayer open:", self._file, self._file_args
 
 
 
@@ -453,14 +451,12 @@ class MPlayer(MediaPlayer):
         self._state = STATE_NOT_RUNNING
 
     def _end_child(self):
-        print "Mplayer END CHILD"
         self._slave_cmd("quit")
         # Could be paused, try sending again.
         self._slave_cmd("quit")
 
     def die(self):
         if self._process:
-            print "Mplayer die"
             self._process.stop()
 
     def get_vo_size(self):
