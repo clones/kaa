@@ -11,8 +11,10 @@ class Box(Container):
 
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
-        self._force_sync_property("pos")#, exclude = child_asking)
-        self._force_sync_property("size")#, exclude = child_asking)
+        #print "[BOX REFLOW]", self, child_asking, what_changed, old, new
+        #self._force_sync_property("pos")#, exclude = child_asking)
+        #self._force_sync_property("size")#, exclude = child_asking)
+        super(Box, self)._request_reflow(what_changed, old, new, child_asking)
         if what_changed == "size" and old and old[self._dimension] == new[self._dimension]:
             return
 
@@ -22,16 +24,13 @@ class Box(Container):
     def _request_expand(self, child_asking):
         self._request_reflow()
 
-    #def _sync_property_size(self):
-    #    self._calculate_child_offsets()
-    #    return super(Box, self)._sync_property_size()
-
 
     def _calculate_child_offsets(self):
         self._child_sizes = []
         self._child_offsets = []
         allocated_size = n_expanded = expand_size = 0
 
+        #print "[OFFSETS]:", self
         size = self._get_computed_size()[self._dimension]
         for child in self._children:
             if child["expand"] == True:
@@ -53,6 +52,7 @@ class Box(Container):
             else:
                 self._child_offsets.append(self._child_offsets[i-1] + self._child_sizes[i-1])
 
+        # print " < ", self, self._child_sizes, " - offsets", self._child_offsets
         
 
     def _get_computed_pos(self, child_asking = None):
@@ -75,6 +75,7 @@ class Box(Container):
 
     def _get_extents(self, child_asking = None):
         size = list(super(Box, self)._get_extents(child_asking))
+        #print "[EXTENTS]: ", self, child_asking
         if child_asking:
             min_dim = 0
             n_expanded = n_not_expanded = 0
@@ -99,6 +100,7 @@ class Box(Container):
             else:
                 size[self._dimension] = available
 
+        #print "< extents", self, child_asking, size
         return size
         
 

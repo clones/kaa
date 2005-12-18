@@ -135,32 +135,6 @@ class Object(object):
             return 0, 0
         return self._o.geometry_get()[1]
 
-    def _compute_expr_re_cb_get_object_value(self, match):
-        raise Exception, "Don't use this"
-        # FIXME: object A that depends on values from object B needs
-        # to get reflowed if B changes.  Currently this still works
-        # because when any object changes pos/size, the whole canvas
-        # gets reflowed.  But eventually that will get fixed, and when
-        # it does, this will need to get fixed.  (Will need to
-        # maintain an object dependency tree.)
-        name, value = match.group(1), match.group(2)
-        o = self.get_canvas().find_object(name)
-        if not o:
-            raise ValueError, "Unknown object '%s' referenced in expression" % name
-        if value == "width":
-            return str(o.get_computed_size()[0])
-        elif value == "height":
-            return str(o.get_computed_size()[1])
-        elif value == "left":
-            return str(o.get_computed_pos()[0])
-        elif value == "top":
-            return str(o.get_computed_pos()[1])
-        elif value == "right":
-            return str(o.get_computed_pos()[0] + o.get_computed_size()[0])
-        elif value == "bottom":
-            return str(o.get_computed_pos()[1] + o.get_computed_size()[1])
-        else:
-            raise ValueError, "Unknown object value '%s' referenced in expression" % value
                        
     def _compute_size(self, size, child_asking, extents = None):
         size = list(size)
@@ -175,12 +149,9 @@ class Object(object):
                     p = int(match.group(1)[:-1]) / 100.0 * extents[index]
                     return str(int(p))
                 size[index] = int(_percent_re.sub(calc_percent, size[index]))
-            #elif "." in size[index]:
-            #    size[index] = re.sub("(\w+)\.(\w+)", self._compute_expr_re_cb_get_object_value, size[index])
             elif size[index] == "auto":
                 size[index] = self._get_actual_size()[index]
 
-            #size[index] = eval(size[index], {}, {})
 
         return tuple(size)
 
@@ -339,6 +310,7 @@ class Object(object):
         return True
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
+        #print "[OBJECT REFLOW]", self, child_asking, what_changed, old, new
         if what_changed == "size":
             # TODO: only need to resync pos if pos depends on size.
             self._force_sync_property("pos")

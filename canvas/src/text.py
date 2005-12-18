@@ -38,7 +38,7 @@ class Text(Object):
         self._o.font_set(*self["font"])
         new_size = self._o.geometry_get()[1]
         if old_size != new_size:
-            print "[TEXT REFLOW]: font change", old_size, new_size
+            #print "[TEXT REFLOW]: font change", old_size, new_size
             self._request_reflow("size", old_size, new_size)
 
     def _sync_property_text(self):
@@ -46,7 +46,7 @@ class Text(Object):
         self._o.text_set(self["text"])
         new_size = self._o.geometry_get()[1]
         if old_size != new_size:
-            print "[TEXT REFLOW]: text change", old_size, new_size
+            #print "[TEXT REFLOW]: text change", old_size, new_size
             self._request_reflow("size", old_size, new_size)
 
     #def _sync_property_size(self):
