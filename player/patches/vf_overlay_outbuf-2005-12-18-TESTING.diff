@@ -1,0 +1,2190 @@
+--- main.orig/libmpcodecs/vf_overlay.c	1969-12-31 19:00:00.000000000 -0500
++++ main/libmpcodecs/vf_overlay.c	2005-12-13 18:02:47.000000000 -0500
+@@ -0,0 +1,1378 @@
++/* Copyright 2005 Jason Tackaberry <tack@sault.org>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation; either version 2 of the License, or (at your option)
++ * any later version.
++ */
++
++/**
++ * \file vf_overlay.c
++ *
++ * \brief Shared memory image overlay with alpha compositing.
++ *
++ * See DOCS/tech/vf_overlay.txt for full documentation.
++ */
++
++#include "../config.h"
++
++#ifdef HAVE_SHM
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <stdarg.h>
++#ifdef HAVE_MALLOC_H
++#include <malloc.h>
++#endif
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <sys/param.h>
++#include <sys/time.h>
++#include <sys/ipc.h>
++#include <sys/shm.h>
++#ifdef HAVE_SYS_MMAN_H
++#include <sys/mman.h>
++#endif
++#include <inttypes.h>
++
++#include "mp_msg.h"
++#include "libvo/fastmemcpy.h"
++#include "libvo/video_out.h"
++#include "postproc/swscale.h"
++#include "input/input.h"
++#include "osdep/timer.h"
++#include "cpudetect.h"
++#include "mangle.h"
++
++#include "mp_image.h"
++#include "vf.h"
++#include "img_format.h"
++#include "vf_scale.h"
++
++
++/// If defined will output some timing data. Useful for profiling.
++//#define STOPWATCH
++/// Turn off MMX for debugging.
++//#undef HAVE_MMX
++
++
++/// \name Convenience macros.
++//@{
++#define C64(x) ((uint64_t)((x)|(x)<<16))<<32 | (uint64_t)(x) | (uint64_t)(x)<<16
++//@}
++
++
++/** \name Overlay image buffer lock flags
++ *  \brief Lock flags for controlling the state of the overlay shmem buffer.
++ *
++ * The first byte of the overlay shared memory buffer is set to one of the
++ * following:
++ */
++//@{
++/** Overlay buffer is available for writing. vf_overlay sets this flag when it
++ *  is finished reading from the shared buffer and when it first initializes.
++ */
++#define BUFFER_UNLOCKED 0x10
++/** Overlay buffer is locked. Application sets this flag and mustn't write to
++ *  the buffer again until vf_overlay clears it by setting BUFFER_UNLOCKED.
++ */
++#define BUFFER_LOCKED 0x20
++//@}
++
++
++
++/** \name Rectangle invalidation type flags.
++ *  \brief Indicates the type of invalidation that has occurred for a
++ *         given region.
++ *
++ * When the Overlay buffer is updated by a client, the invalidation type will
++ * be RECT_CONVERT | RECT_PREMULTIPLY. When only the global alpha is changed,
++ * however, there is no need to do a colorspace conversion, but alpha pre-
++ * multiplication is needed, so in that event, only RECT_PREMULTIPLY is
++ * used.
++ */
++//@{
++/// Region of the overlay buffer requires conversion to YV12A.
++#define RECT_CONVERT      0x01
++/// Region requires alpha premultiplication.
++#define RECT_PREMULTIPLY  0x02
++//@}
++
++
++
++/** Singly linked list of rectangles, specified by left/top coordinate and
++ *  width/height.
++ */
++struct rects {
++    int x, y, w, h, type;
++    struct rects *next;
++};
++
++
++
++/// Per-instance private data.
++struct vf_priv_s {
++    // Memory allocated by alloc_overlay_data() for the YV12 converted state of
++    // the overlay image.
++    uint8_t *y,       ///< Luma plane
++            *u,       ///< Chroma (Cb) plane
++            *v,       ///< Chroma (Cr) plane
++            *a,       ///< Alpha plane for luma channel
++            *uva,     ///< Alpha plane for chroma channel
++            *pre_y,   ///< Luma plane with pre-alpha-multiplied pixels
++            *pre_u,   ///< Chroma (Cb) plane with pre-alpha-multiplied pixels
++            *pre_v,   ///< Chroma (Cr) plane with pre-alpha-multiplied pixels
++            *pre_a,   /**< Alpha plane for luma channel where pixels are
++                           averaged with global alpha */
++            *pre_uva; /**< Alpha plane for chroma channel where pixels are
++                           averaged with global alpha */
++
++    /** Lockbyte points to the first byte of the shared memory buffer which
++     *  is used for synchronization. See \a BUFFER_LOCKED and \a
++     *  BUFFER_UNLOCKED flags above.
++     */
++    volatile uint8_t *lockbyte;
++    /// Points to the BGRA image in shared memory (which is simply (lockbyte+16).
++    uint8_t *bgra_imgbuf;
++    /// BGR24 version of \a bgra_imgbuf
++    uint8_t *bgr24_imgbuf;
++    /// The alpha plane of \a bgra_imgbuf
++    uint8_t *alpha_imgbuf;
++
++    /// The shared memory id as gotten from shm_get().
++    int shm_id;
++    /// The shared memory key as given to vf_config (via command line).
++    key_t shm_key;
++
++    int w,           ///< Width of the overlay image
++        h,           ///< Height of the overlay image
++        mpi_w,       ///< Width of the mpi image
++        mpi_h,       ///< Height of the mpi image
++        mpi_stride,  ///< Stride of the mpi image
++        slice_y,     ///< Y-offset of overlay where compositing will begin
++        slice_h,     ///< Height of the overlay buffer to composite
++        alpha,       ///< "Global" alpha level of overlay (0 <= alpha <= 256)
++        visible,     ///< Whether or not the overlay is visible
++        dirty,       ///< Whether or not the overlay buffer has changed.
++        is_paused;   ///< 1 if the video is paused, 0 otherwise.
++
++    /** List of regions in the overlay image which have been updated and therefore
++     *  need to be converted from BGRA to YV12.
++     */
++    struct rects *invalid_rects;
++    /** Keep track of last update timestamp; we update the overlay up to about
++     *  30 times a second.
++     */
++    unsigned int last_update_time;
++    struct SwsContext *sws_bgr24,  ///< Scaler for BGR24 to YV12
++                      *sws_y800_l, ///< Scaler for luma alpha plane
++                      *sws_y800_c; ///< Scaler for chroma alpha plane
++    /// The last mpi that was given to put_image().
++    mp_image_t *last_mpi;
++};
++
++
++
++/**
++ * \brief Array of all vf_overlay instances private data.
++ *
++ * Keep track of filter instances private data because the overlay buffer
++ * should be able to survive a loadfile or loop, so when the filter is
++ * initialized, we first check to see if we have an existing filter
++ * associated with the specified shared memory key and use that instead.
++ *
++ * As a result, vf_overlay instances are "persistent" (i.e., they don't get
++ * uninitialized). Consequently, the global variables below apply to all
++ * vf_overlay instances.
++ */
++static struct vf_priv_s **vf_overlay_priv = NULL;
++/// Number of vf_overlay instances
++static int num_instances = 0;
++
++#ifdef HAVE_MMX
++static uint64_t attribute_used __attribute__((aligned(8))) MM_global_alpha;
++static uint64_t attribute_used __attribute__((aligned(8))) MM_ROUND = C64(0x80);
++#endif
++
++
++
++#ifdef STOPWATCH
++/**
++ * \brief Simple timer for profiling and debugging.
++ *
++ * \param n Identifier of this stopwatch, where 0 < n < 10.
++ * \param text NULL to start the stopwatch, and a printf-style formatted
++ *             string to stop the stopwatch.
++ */
++static void
++stopwatch(int n, char *text, ...)
++{
++    va_list ap;
++    static struct {
++        unsigned int time, last_time;
++        char text[250];
++    } t[10];
++
++    t[n].time = GetTimer();
++    if (!text) {
++        fprintf(stderr, "@@@ Stopwatch (%d): %s: %d usec\n", n, t[n].text,
++                t[n].time - t[n].last_time);
++    } else {
++        t[n].last_time = t[n].time;
++
++        va_start(ap, text);
++        vsprintf(t[n].text, text, ap);
++        va_end(ap);
++    }
++}
++#else
++#define stopwatch(n, text, ...)
++#endif
++
++
++
++/**
++ * \brief Allocate buffer to hold YV12 version of the overlay image.
++ *
++ * \param priv Private data for this filter instance.
++ *
++ * priv->buffer is allocated based on the requested overlay width and height
++ * with all bytes set to 0.
++ */
++static void
++alloc_overlay_data(struct vf_priv_s *priv)
++{
++    int w = priv->mpi_stride, h = priv->mpi_h;
++
++    priv->y = (uint8_t *)memalign(16, w * h);
++    priv->u = (uint8_t *)memalign(16, w * h / 4);
++    priv->v = (uint8_t *)memalign(16, w * h / 4);
++    priv->a = (uint8_t *)memalign(16, w * h);
++    priv->uva = (uint8_t *)memalign(16, w * h / 4);
++
++    // Buffers for alpha-multiplied pixels
++    priv->pre_y = (uint8_t *)memalign(16, w * h);
++    priv->pre_u = (uint8_t *)memalign(16, w * h / 4);
++    priv->pre_v = (uint8_t *)memalign(16, w * h / 4);
++    priv->pre_a = (uint8_t *)memalign(16, w * h);
++    priv->pre_uva = (uint8_t *)memalign(16, w * h / 4);
++
++    priv->alpha_imgbuf = (uint8_t *)memalign(16, priv->w * priv->h);
++
++    /* Holds BGR24 version of the image buffer. We hold one extra byte
++     * because in convert_bgra_to_yv12a() we copy 4 bytes at a time, but
++     * offset only 3 bytes. This is faster than 3 (or 2) copies, but means
++     * we need an extra byte so we're staying within the allocated buffer.
++     */
++    priv->bgr24_imgbuf = (uint8_t *)memalign(16, priv->w * priv->h * 3 + 1);
++}
++
++
++
++/**
++ * \brief Detach and delete shared memory segment and free overlay buffers.
++ *
++ * \param priv Private data for this filter instance.
++ */
++static void
++free_overlay_data(struct vf_priv_s *priv)
++{
++    struct shmid_ds shmemds;
++
++    if (priv->y) {
++        free(priv->y);
++        free(priv->u);
++        free(priv->v);
++        free(priv->a);
++        free(priv->uva);
++        free(priv->pre_y);
++        free(priv->pre_u);
++        free(priv->pre_v);
++        free(priv->pre_a);
++        free(priv->pre_uva);
++
++        free(priv->alpha_imgbuf);
++        free(priv->bgr24_imgbuf);
++        priv->y = 0;
++    }
++
++    if (priv->sws_bgr24) {
++        // Scaler contexts were created, so free them.
++        sws_freeContext(priv->sws_bgr24);
++        sws_freeContext(priv->sws_y800_l);
++        sws_freeContext(priv->sws_y800_c);
++        priv->sws_bgr24 = 0;
++    }
++
++    if (priv->shm_id > 0 && priv->lockbyte) {
++        shmctl(priv->shm_id, IPC_RMID, &shmemds);
++        shmdt((uint8_t *)priv->lockbyte);
++        priv->lockbyte = 0;
++    }
++}
++
++
++
++/** \brief Free all buffers for all overlay filter instances.
++ *
++ * Because vf_overlay instances must survive a loadfile or loop, vf_uninit is
++ * not specified. Therefore, when the first vf_overlay instance is created,
++ * this function is registered with atexit(3), so that the shared memory
++ * segment allocated in vf_config is properly deleted. The overlay buffers are
++ * also freed in the call to free_overlay_data. (Although this is not strictly
++ * necessary since we are shutting down at this point, it is called for
++ * correctness.)
++ */
++static void
++free_all_overlay()
++{
++    int i;
++
++    if (vf_overlay_priv)
++        for (i = 0; i < num_instances; i++)
++            free_overlay_data(vf_overlay_priv[i]);
++}
++
++
++
++/**
++ * \brief Determines if it's ok for the overlay to update based on a rough
++ *        update rate of about 30 times a second.
++ *
++ * \param priv Private data for this filter instance.
++ * \param set If 1, it means the caller intends to update the overlay if this
++ *            function returns 1, in which case last_update_time is set
++ *            to the current time.
++ */
++static int
++should_update(struct vf_priv_s *priv, int set)
++{
++    unsigned int time = GetTimerMS();
++
++    // This results in updates about 30 times a second, give or take.
++    if (time - priv->last_update_time > 27 || time < priv->last_update_time) {
++        if (set)
++            priv->last_update_time = time;
++        return 1;
++    }
++    return 0;
++}
++
++
++
++/**
++ * \brief Checks to see if the next filter accepts YV12 images.
++ */
++static int
++query_format(struct vf_instance_s* vf, unsigned int fmt)
++{
++    if (fmt == IMGFMT_YV12)
++        return vf_next_query_format(vf, fmt);
++    return 0;
++}
++
++
++
++/**
++ * \brief Configure the filter and call the next filter's config function.
++ */
++static int
++config(struct vf_instance_s* vf, int width, int height, int d_width, int d_height,
++       unsigned int flags, unsigned int fmt)
++{
++    struct vf_priv_s *priv = vf->priv;
++    char *accel_str;
++    uint8_t *imgbuf;
++    int bufsize;
++
++    priv->is_paused = 0;
++
++    if (priv->bgra_imgbuf) {
++        // Already initialized; doing a loadfile or a loop.
++        if (priv->w == d_width && priv->h == d_height && priv->mpi_w == width && priv->mpi_h == height) {
++            mp_msg(MSGT_VFILTER, MSGL_INFO, "overlay: reusing existing buffer (%dx%d BGRA)\n", priv->w, priv->h);
++            return vf_next_config(vf, width, height, d_width, d_height, flags, fmt);
++        }
++        // Overlay size is different, so we need to resize. First free existing
++        // buffers.
++        free_overlay_data(priv);
++    }
++
++    priv->w = (d_width + 1) & ~1;
++    priv->h = (d_height + 1) & ~1;
++    priv->slice_y = 0;
++    priv->slice_h = priv->h;
++    priv->mpi_w = (width + 1) & ~1;
++    priv->mpi_h = (height + 1) & ~1;
++    priv->mpi_stride = priv->mpi_w;
++
++    priv->sws_bgr24 = sws_getContext(priv->w, priv->h, IMGFMT_BGR24, priv->mpi_w, priv->mpi_h, IMGFMT_YV12,
++                                     get_sws_cpuflags() | SWS_FAST_BILINEAR, NULL, NULL, NULL);
++    priv->sws_y800_l = sws_getContext(priv->w, priv->h, IMGFMT_Y800, priv->mpi_w, priv->mpi_h, IMGFMT_Y800,
++                                      get_sws_cpuflags() | SWS_FAST_BILINEAR, NULL, NULL, NULL);
++    priv->sws_y800_c = sws_getContext(priv->w, priv->h, IMGFMT_Y800, priv->mpi_w >> 1, priv->mpi_h >> 1, IMGFMT_Y800,
++                                      get_sws_cpuflags() | SWS_FAST_BILINEAR, NULL, NULL, NULL);
++
++    // 1 lock byte + 15 padding bytes + 32bpp
++    bufsize = 16 + priv->w * priv->h * 4;
++
++    priv->shm_id = shmget(priv->shm_key, bufsize, IPC_CREAT | 0600);
++    if (priv->shm_id < 0) {
++        mp_msg(MSGT_VFILTER, MSGL_ERR, "overlay: ERROR: unable to open shmem (%d): %s\n", 
++               priv->shm_key, strerror(errno));
++        return 0;
++    }
++    imgbuf = shmat(priv->shm_id, NULL, 0);
++    if (!imgbuf) {
++        mp_msg(MSGT_VFILTER, MSGL_ERR, "overlay: ERROR: couldn't mmap %d bytes from shmem (%d): %s\n", 
++               bufsize, priv->shm_key, strerror(errno));
++        return 0;
++    }
++
++    // Start with overlay hidden.
++    priv->visible = 0;
++    priv->alpha = 255;
++    priv->lockbyte = imgbuf;
++    priv->bgra_imgbuf = imgbuf + 16;
++    *priv->lockbyte = BUFFER_UNLOCKED;
++    alloc_overlay_data(priv);
++
++    accel_str = "no acceleration";
++#ifdef HAVE_MMX
++    if (gCpuCaps.hasMMX)
++        accel_str = "MMX accelerated";
++#endif
++
++    mp_msg(MSGT_VFILTER, MSGL_INFO, "overlay: %dx%d BGRA (frame %dx%d); shmem key: %u; %s.\n",
++           priv->w, priv->h, width, height, vf->priv->shm_key, accel_str);
++
++    return vf_next_config(vf, priv->mpi_w, priv->mpi_h, priv->w, priv->h, flags, fmt);
++}
++
++
++
++/**
++ * \brief Translates coordinates from overlay image to mpi.
++ *
++ * \param x Pointer to left coordinate of overlay
++ * \param y Pointer to top coordinate of overlay
++ * \param w Pointer to width relative to overlay
++ * \param h Pointer to height relative to overlay
++ *
++ * This function maps the passed coordinates from overlay to mpi. The new
++ * values are returned through the pointers. Any of the parameters may
++ * safely be NULL.
++ */
++static inline void
++translate_coords(struct vf_priv_s *priv, int *x, int *y, int *w, int *h)
++{
++    float xdiff = (float)priv->w / priv->mpi_w,
++          ydiff = (float)priv->h / priv->mpi_h;
++
++    if (x) *x = (int)((float)*x / xdiff);
++    if (w) { 
++        *w = (int)((float)*w / xdiff);
++        if (*w > priv->mpi_w)
++            *w = priv->mpi_w;
++    }
++    if (y) *y = (int)((float)*y / ydiff);
++    if (h) {
++        *h = (int)((float)*h / ydiff);
++        if (*h > priv->mpi_h)
++            *h = priv->mpi_h;
++    }
++
++}
++
++
++
++/**
++ * \brief Do colorspace conversion from BGRA to "YV12A".
++ *
++ * \param priv Private data for this filter instance.
++ * \param ry Top of region to convert.
++ * \param rh Height of the region to convert.
++ *
++ * Converts an BGRA image to YV12 plus two alpha planes representing the alpha
++ * for the luma and chroma planes, scaling the overlay image to fit the frame
++ * size if necessary.
++ */
++static void
++convert_bgra_to_yv12a(struct vf_priv_s *priv, int ry, int rh)
++{
++    int i, dst_y = ry, dst_h = rh, src_strides[3], dst_strides[3];
++    uint8_t *p_alpha, *p_bgr24, *p_bgr32, *src[3], *dst[3];
++
++    stopwatch(5, "convert_bgra_to_yv12a (%d - %d) -> (%d - %d)", ry, rh, dst_y, dst_h);
++
++    translate_coords(priv, 0, &dst_y, 0, &dst_h);
++
++    // Decompose BGR32 into BGR24 plus alpha plane.
++    stopwatch(6, "decompose");
++    p_alpha = priv->alpha_imgbuf + (ry * priv->w);
++    p_bgr24 = priv->bgr24_imgbuf + (ry * priv->w * 3);
++    p_bgr32 = priv->bgra_imgbuf + (ry * priv->w * 4);
++
++    for (i = priv->w * rh; i > 0; i--, p_bgr32 += 4, p_alpha++, p_bgr24 += 3) {
++        // Moving 32 bits is faster than 3 separate assignments (or one 16
++        // bit and and one 8 bit move). The BGR24 buffer has one extra byte
++        // allocated to prevent an overrun.
++        *(uint32_t *)p_bgr24 = *(uint32_t *)p_bgr32;
++        *p_alpha = p_bgr32[3];
++    }
++
++    stopwatch(6, NULL);
++
++    // Source is BGR24 overlay image offset to top of slice.
++    src[0] = priv->bgr24_imgbuf + (ry * priv->w * 3);
++    src[1] = src[2] = 0;
++    src_strides[0] = priv->w * 3;
++    src_strides[1] = src_strides[2] = 0;
++
++    // Dest is YV12 buffers offset to top of slice.
++    dst[0] = priv->y + (dst_y * priv->mpi_stride);
++    dst[1] = priv->u + ((dst_y * priv->mpi_stride) >> 2);
++    dst[2] = priv->v + ((dst_y * priv->mpi_stride) >> 2);
++    dst_strides[0] = priv->mpi_stride;
++    dst_strides[1] = priv->mpi_stride >> 1;
++    dst_strides[2] = priv->mpi_stride >> 1;
++
++    // Scale BGR24 -> YV12 overlay image (without alpha)
++    sws_scale_ordered(priv->sws_bgr24, src, src_strides, 0, rh, dst, dst_strides);
++
++    // Source is overlay-sized alpha plane offset to top of slice.
++    src[0] = priv->alpha_imgbuf + (ry * priv->w);
++    src[1] = src[2] = 0;
++    src_strides[0] = priv->w;
++    src_strides[1] = src_strides[2] = 0;
++
++    // Dest is mpi-sized alpha for luma plane offset to top of slice.
++    dst[0] = priv->a + (dst_y * priv->mpi_stride);
++    dst[1] = dst[2] = 0;
++    dst_strides[0] = priv->mpi_stride;
++    dst_strides[1] = dst_strides[2] = 0;
++
++    // Scale Y800 -> Y800 (luma alpha)
++    sws_scale_ordered(priv->sws_y800_l, src, src_strides, 0, rh, dst, dst_strides);
++
++    // Dest is mpi-sized alpha for chroma plane offset to top of slice.
++    dst[0] = priv->uva + ((dst_y * priv->mpi_stride) >> 2);
++    dst_strides[0] = priv->mpi_stride >> 1;
++
++    // Scale Y800 -> Y800 (chroma alpha)
++    sws_scale_ordered(priv->sws_y800_c, src, src_strides, 0, rh, dst, dst_strides);
++
++    stopwatch(5, NULL);
++}
++
++
++
++/**
++ * \brief Adds a rectangle to the list of invalid regions for the overlay.
++ *
++ * \param priv Private data for this filter instance.
++ * \param x,y Top left coordinate of the invalid region
++ * \param w,h Width and height of the invalid region.
++ * \param type Type of invalidation. Can be a one or both of RECT_CONVERT
++ *             and RECT_PREMULTIPLY.
++ */
++static void
++invalidate_rect(struct vf_priv_s *priv, int x, int y, int w, int h, int type)
++{
++    struct rects *r, *p;
++
++    r = (struct rects *)malloc(sizeof(struct rects));
++    r->x = x; r->y = y;
++    r->w = w; r->h = h;
++    r->type = type;
++    r->next = NULL;
++
++    // Ensure coordinates are within the overlay image boundaries
++    if (r->x < 0)
++        r->x = 0;
++    else if (r->x > priv->w)
++        r->x = priv->w;
++    if (r->y < 0)
++        r->y = 0;
++    else if (r->y > priv->h)
++        r->y = priv->h;
++    if (r->w < 0)
++        r->w = 0;
++    else if (r->w > priv->w - r->x)
++        r->w = priv->w - r->x;
++    if (r->h < 0)
++        r->h = 0;
++    else if (r->h > priv->h - r->y)
++        r->h = priv->h - r->y;
++
++    if (!priv->invalid_rects) {
++        priv->invalid_rects = r;
++        return;
++    }
++
++    // Update any existing invalidated region to reflect the new type
++    for (p = priv->invalid_rects; p != NULL; p = p->next) {
++        if (p->x == x && p->y == y && p->w == w && p->h == h) {
++            p->type |= type;
++            return;
++        }
++    }
++    // Insert new rect at the front
++    r->next = priv->invalid_rects;
++    priv->invalid_rects = r;
++}
++
++
++
++/**
++ * \brief Alpha multiplication (approximates division by 255).
++ *
++ * \param r The color value.
++ * \param a The alpha level (0 <= a <= 255).
++ *
++ * \return The alpha-multiplied value.
++ */
++static inline uint8_t
++multiply_alpha(uint8_t r, uint8_t a)
++{
++    int temp = (r * a) + 0x80;
++    return ((temp + (temp >> 8)) >> 8);
++}
++
++
++
++/// Blends src on top of dst at the given alpha level.
++#define blend_byte(dst, src, alpha) multiply_alpha(dst, alpha) + src;
++
++
++/**
++ * \brief Alpha-multiplies a byte and stores the result.
++ *
++ * \param byte The byte to be multiplied.
++ * \param alpha The alpha level of byte.
++ * \param dst_byte Pointer to where the alpha-mulplied byte will be stored.
++ * \param dst_alpha Pointer to where the alpha value for that byte will be stored.
++ * \param global_alpha The global alpha level (for the whole overlay image).
++ *
++ * This function calculates the average of the per-pixel alpha and the global
++ * alpha, stores that resulting average in dst_alpha, alpha-multiplies the
++ * byte with that averaged alpha, and stores the alpha-multiplied byte into
++ * dst_byte.
++ */
++static inline void
++premultiply_alpha_byte(uint8_t byte, uint8_t alpha,
++                       uint8_t *dst_byte, uint8_t *dst_alpha,
++                       int global_alpha)
++{
++    uint8_t a = (global_alpha < 255) ? alpha * global_alpha >> 8 : alpha;
++    *dst_byte = multiply_alpha(byte, a);
++    *dst_alpha = 255-a;
++}
++
++
++
++/**
++ * \brief Alpha-multiplies 8 consecutive bytes. C version.
++ */
++static inline void
++premultiply_alpha_byte_8_C(uint8_t *byte, uint8_t *alpha,
++                           uint8_t *dst_byte, uint8_t *dst_alpha,
++                           int global_alpha)
++{
++    int i;
++    for (i = 0; i < 8; i++)
++        premultiply_alpha_byte(*(byte++), *(alpha++), dst_byte++, dst_alpha++, global_alpha);
++}
++
++
++
++#ifdef HAVE_MMX
++/**
++ * \brief Alpha-multiplies 8 consecutive bytes. MMX version.
++ */
++static inline void
++premultiply_alpha_byte_8_MMX(uint8_t *byte, uint8_t *alpha,
++                             uint8_t *dst_byte, uint8_t *dst_alpha,
++                             int global_alpha)
++{
++    asm volatile(
++        ".balign 16 \n\t"
++
++        "movq (%3), %%mm5\n\t"        // %mm5 = alpha
++        "cmp $255, %4\n\t"           // don't apply layer alpha if it's 100% opaque
++        "je 42f\n\t"
++
++        // Modify alpha from image with layer alpha
++        "movq %%mm5, %%mm6\n\t"       // %mm6 = %mm5 = alpha
++        "punpcklbw %%mm7, %%mm5\n\t"  // %mm5 = low dword of alpha
++        "punpckhbw %%mm7, %%mm6\n\t"  // %mm6 = hi dword of alpha
++        "pmullw "MANGLE(MM_global_alpha)", %%mm5\n\t"  // alpha * global_alpha
++        "pmullw "MANGLE(MM_global_alpha)", %%mm6\n\t"
++        "psrlw $8, %%mm5\n\t"         // Divide by 256
++        "psrlw $8, %%mm6\n\t"
++        "packuswb %%mm6, %%mm5\n\t"   // Pack back into %mm5
++
++        "42: \n\t"
++        "movq %%mm4, %%mm6\n\t"       // %mm4 = %mm6 = 255
++        "psubb %%mm5, %%mm6\n\t"      // %mm6 = 255 - alpha
++        "movq %%mm6, (%1)\n\t"        // save modified alpha
++
++        // Do alpha * bytes
++        "movq (%2), %%mm0\n\t"        // %mm0 = byte
++        "movq %%mm0, %%mm1\n\t"       // %mm1 = byte
++        "punpcklbw %%mm7, %%mm0\n\t"  // %mm0 = low dword of bytes
++        "punpckhbw %%mm7, %%mm1\n\t"  // %mm1 = hi dword of bytes
++        "movq %%mm5, %%mm6\n\t"       // %mm5 = %mm6 = alpha
++        "punpcklbw %%mm7, %%mm5\n\t"  // %mm5 = low dword alpha
++        "punpckhbw %%mm7, %%mm6\n\t"  // %mm6 = hi dword alpha
++        "pmullw %%mm5, %%mm0\n\t"     // alpha * bytes = (r*a)
++        "pmullw %%mm6, %%mm1\n\t"
++        // approximate division by 255
++        "movq "MANGLE(MM_ROUND)", %%mm6\n\t"   // %mm4 = round
++        "paddw %%mm6, %%mm0\n\t"      // (r*a) + 0x80
++        "paddw %%mm6, %%mm1\n\t"
++        "movq %%mm0, %%mm2\n\t"       // temp = (r*a) + 0x80
++        "movq %%mm1, %%mm3\n\t"
++        "psrlw $8, %%mm0\n\t"         // temp >> 8
++        "psrlw $8, %%mm1\n\t"
++        "paddw %%mm2, %%mm0\n\t"      // temp + (temp >> 8)
++        "paddw %%mm3, %%mm1\n\t"
++        "psrlw $8, %%mm0\n\t"         // (temp+(temp>>8))>>8
++        "psrlw $8, %%mm1\n\t"
++
++        "packuswb %%mm1, %%mm0\n\t"
++        "movq %%mm0, (%0)\n\t"
++    :  "+r" (dst_byte),             // %0
++       "+r" (dst_alpha)             // %1
++    :  "r" (byte),                  // %2
++       "r" (alpha),                 // %3
++       "r" (global_alpha));         // %4
++}
++#endif
++
++
++
++/**
++ * \brief Alpha-multiplies 8 consecutive bytes.
++ *
++ * This function pointer is set during vf_open and is set to either
++ * premultiply_alpha_byte_8_C or premultiply_alpha_byte_8_MMX depending
++ * on CPU capabilities.
++ */
++static void
++(*premultiply_alpha_byte_8)(uint8_t *byte, uint8_t *alpha,
++                            uint8_t *dst_byte, uint8_t *dst_alpha,
++                            int global_alpha);
++
++
++
++/**
++ * \brief Pre-alpha-multiply all pixels of the YV12A overlay image in the
++ *        specified region.
++ *
++ * \param priv Private data for this filter instance.
++ * \param rx,ry Top left coordinate of region to premultiply.
++ * \param rw,rh Width and height of region to premultiply.
++ */
++static void
++image_premultiply_alpha(struct vf_priv_s *priv, int rx, int ry, int rw, int rh)
++{
++    int w = priv->mpi_stride, global_alpha = priv->alpha;
++    uint8_t *y_ptr, *u_ptr, *v_ptr, *a_ptr, *uva_ptr,
++            *pre_y_ptr, *pre_u_ptr, *pre_v_ptr, *pre_a_ptr, *pre_uva_ptr;
++    int luma_offset, chroma_offset;
++    unsigned int x, y, chroma_stride;
++
++    stopwatch(2, "premultiply_alpha (%d,%d %dx%d)", rx, ry, rw, rh);
++
++    translate_coords(priv, &rx, &ry, &rw, &rh);
++
++    if (global_alpha > 255)
++        global_alpha = 255;
++
++    luma_offset = rx + ry*w;
++    chroma_offset = (rx>>1) + (ry>>1)*(w>>1);
++
++    y_ptr = priv->y + luma_offset;
++    u_ptr = priv->u + chroma_offset;
++    v_ptr = priv->v + chroma_offset;
++    a_ptr = priv->a + luma_offset;
++    uva_ptr = priv->uva + chroma_offset;
++
++    pre_y_ptr = priv->pre_y + luma_offset;
++    pre_u_ptr = priv->pre_u + chroma_offset;
++    pre_v_ptr = priv->pre_v + chroma_offset;
++    pre_a_ptr = priv->pre_a + luma_offset;
++    pre_uva_ptr = priv->pre_uva + chroma_offset;
++
++#ifdef HAVE_MMX
++    if (gCpuCaps.hasMMX) {
++        MM_global_alpha = C64(global_alpha);
++        asm volatile(
++            "pxor %%mm7, %%mm7\n\t"                // zero out %mm7
++            "pcmpeqb %%mm4, %%mm4\n\t"             // %mm4 = 255's
++            ::: "memory"
++        );
++    }
++#endif
++
++    chroma_stride = w >> 1;
++    for (y = 0; y < rh; y += 2) {
++        for (x = 0; x < rw; x += 8)
++            premultiply_alpha_byte_8(&y_ptr[x], &a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
++        for (; x < rw; x++)
++            premultiply_alpha_byte(y_ptr[x], a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
++
++        for (x = 0; x < (rw >> 1); x += 8) {
++            premultiply_alpha_byte_8(&u_ptr[x], &uva_ptr[x], &pre_u_ptr[x], &pre_uva_ptr[x], global_alpha);
++            premultiply_alpha_byte_8(&v_ptr[x], &uva_ptr[x], &pre_v_ptr[x], &pre_uva_ptr[x], global_alpha);
++        }
++        for (; x < rw >> 1; x++) {
++            premultiply_alpha_byte(u_ptr[x], uva_ptr[x], &pre_u_ptr[x], &pre_uva_ptr[x], global_alpha);
++            premultiply_alpha_byte(v_ptr[x], uva_ptr[x], &pre_v_ptr[x], &pre_uva_ptr[x], global_alpha);
++        }
++        y_ptr += w;
++        u_ptr += chroma_stride;
++        v_ptr += chroma_stride;
++        a_ptr += w;
++        uva_ptr += chroma_stride;
++
++        pre_y_ptr += w;
++        pre_u_ptr += chroma_stride;
++        pre_v_ptr += chroma_stride;
++        pre_a_ptr += w;
++        pre_uva_ptr += chroma_stride;
++
++        for (x = 0; x < rw; x += 8)
++            premultiply_alpha_byte_8(&y_ptr[x], &a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
++        for (; x < rw; x++)
++            premultiply_alpha_byte(y_ptr[x], a_ptr[x], &pre_y_ptr[x], &pre_a_ptr[x], global_alpha);
++
++        y_ptr += w;
++        a_ptr += w;
++        pre_y_ptr += w;
++        pre_a_ptr += w;
++    }
++#ifdef HAVE_MMX
++    if (gCpuCaps.hasMMX)
++        asm volatile( "emms\n\t" ::: "memory" );
++#endif
++    stopwatch(2, NULL);
++}
++
++
++
++/**
++ * \brief Blends one plane of the overlay onto the mpi in the given slice.
++ *        C version.
++ *
++ * \param w Width to blend (either the width of the overlay or the width of the
++ *          mpi, whichever is smaller).
++ * \param slice_h Number of rows to blend.
++ * \param dst Pointer to the buffer that will receive all blended bytes
++ *            for this plane.
++ * \param src Pointer to the mpi plane buffer.
++ * \param overlay Pointer to the overlay plane buffer.
++ * \param alpha Pointer to the alpha for this plane.
++ * \param mpi_stride Stride for src
++ * \param dst_stride Stride for overlay
++ *
++ * No bounds checking is performed, so the caller is responsible for ensuring
++ * that all pointers are properly positioned and are sufficiently large.
++ */
++static inline void
++blend_plane_C(int w, int slice_h, uint8_t *dst, uint8_t *src,
++              uint8_t *overlay, uint8_t *alpha, int mpi_stride,
++              int overlay_stride)
++{
++    int x, y;
++    for (y = 0; y < slice_h; y++) {
++        for (x = 0; x < w; x++)
++            *(dst + x) = blend_byte(*(src+x), *(overlay+x), *(alpha+x));
++        dst += mpi_stride;
++        src += mpi_stride;
++        overlay += overlay_stride;
++        alpha += overlay_stride;
++    }
++}
++
++
++
++#ifdef HAVE_MMX
++/**
++ * \brief Blends one plane of the overlay onto the mpi in the given slice.
++ *        MMX version.
++ * \see blend_plane_C for parameter details
++ */
++static inline void
++blend_plane_MMX(int w, int slice_h, uint8_t *dst, uint8_t *src,
++                uint8_t *overlay, uint8_t *alpha, int mpi_stride,
++                int overlay_stride)
++{
++    int y, c = w / 8,
++        stride_diff = mpi_stride - overlay_stride;
++
++    for (y = 0; y < slice_h; y++) {
++        if (c) {
++            asm volatile(
++                ".balign 16 \n\t"
++                "mov %4, %%"REG_c"\n\t"
++
++                "1: \n\t"
++                "movq (%1), %%mm0\n\t"        // %mm0 = mpi
++                "movq %%mm0, %%mm1\n\t"       // %mm1 = mpi
++                "movq (%3), %%mm2\n\t"        // %mm2 = %mm3 = 255 - alpha
++                "movq %%mm2, %%mm3\n\t"
++
++                "punpcklbw %%mm7, %%mm0\n\t"  // %mm0 = low dword of mpi
++                "punpckhbw %%mm7, %%mm1\n\t"  // %mm1 = hi dword of mpi
++                "punpcklbw %%mm7, %%mm2\n\t"  // %mm0 = low dword of 255-a
++                "punpckhbw %%mm7, %%mm3\n\t"  // %mm1 = hi dword of 255-a
++                "pmullw %%mm2, %%mm0\n\t"     // (255-a) * mpi = (r*a)
++                "pmullw %%mm3, %%mm1\n\t"
++                // approximate division by 255
++                "paddw %%mm5, %%mm0\n\t"      // (r*a) + 0x80
++                "paddw %%mm5, %%mm1\n\t"
++                "movq %%mm0, %%mm2\n\t"       // temp = (r*a) + 0x80
++                "movq %%mm1, %%mm3\n\t"
++                "psrlw $8, %%mm0\n\t"         // temp >> 8
++                "psrlw $8, %%mm1\n\t"
++                "paddw %%mm2, %%mm0\n\t"      // temp + (temp >> 8)
++                "paddw %%mm3, %%mm1\n\t"
++                "psrlw $8, %%mm0\n\t"         // (temp+(temp>>8))>>8
++                "psrlw $8, %%mm1\n\t"
++
++                // MPI plane now alpha-multiplied. Add to premultiplied
++                // overlay plane.
++                "movq (%2), %%mm2\n\t"        // %mm2 = src image (overlay)
++                "packuswb %%mm1, %%mm0\n\t"
++                "paddb %%mm2, %%mm0\n\t"
++                "movq %%mm0, (%0)\n\t"        // Store to dst (mpi)
++
++                "add $8, %0\n\t"
++                "add $8, %1\n\t"
++                "add $8, %2\n\t"
++                "add $8, %3\n\t"
++                "dec %%"REG_c"\n\t"
++                "jnz 1b \n\t"
++
++            : "+r" (dst),
++              "+r" (src),
++              "+r" (overlay),
++              "+r" (alpha)
++            : "m" (c)
++            : "%"REG_c);
++        }
++        // Blend the last few pixels of this row ...
++        if (w % 8) {
++            uint8_t *end = dst + (w % 8);
++            for (; dst < end; dst++, src++, alpha++, overlay++)
++                *dst = blend_byte(*src, *overlay, *alpha);
++        }
++        // If the mpi is bigger than overlay, move the mpi buffers into
++        // the right position for the next row.
++        if (stride_diff > 0) {
++            dst += stride_diff;
++            src += stride_diff;
++        }
++        // Likewise for overlay if the overlay is bigger than mpi.
++        else if (stride_diff < 0) {
++            overlay += abs(stride_diff);
++            alpha += abs(stride_diff);
++        }
++    }
++}
++#endif
++
++
++
++/**
++ * \brief Blends one plane of the overlay onto the mpi.
++ * \see blend_plane_C for parameter details.
++ *
++ * This function pointer is set during vf_open and is set to either
++ * blend_plane_C or blend_plane_MMX depending on CPU capabilities.
++ */
++static void
++(*blend_plane)(int w, int slice_h, uint8_t *dst, uint8_t *src,
++               uint8_t *overlay, uint8_t *alpha, int mpi_stride,
++               int overlay_stride);
++
++
++
++/**
++ * \brief Blends the overlay onto the mpi.
++ *
++ * \param priv Private data for this filter instance.
++ * \param src_mpi The source mpi (as given the vf_put_image)
++ * \param dst_mpi The destination mpi.
++ *
++ * This function composites the overlay over the video mpi in the slice
++ * region specified in a slave command. (If no slice region has been
++ * explicitly set, it defaults to the whole overlay image.) If the global
++ * alpha is 256, the overlay is simply memcpy'd to the dst_mpi in the slice
++ * region, thus ignoring the per-pixel alpha values of the overlay (in that
++ * slice). (Pixels outside the slice are copied from src_mpi). If the global
++ * alpha is 255 or less, then each pixel of the overlay is composited over
++ * the src_mpi.
++ *
++ * The overlay is clipped to the dimensions of the mpi.
++ */
++static inline void
++blend_image(struct vf_priv_s *priv, mp_image_t *src_mpi, mp_image_t *dst_mpi)
++{
++    int slice_y, slice_h, w, i, c, plane, overlay_stride[3];
++    uint8_t *dst_mpi_planes[3], *src_mpi_planes[3], *overlay, *src, *dst, *alpha,
++            *overlay_planes[3] = { priv->pre_y, priv->pre_u, priv->pre_v },
++            *alpha_planes[3] = { priv->pre_a, priv->pre_uva, priv->pre_uva };
++
++    // Clip the slice to the mpi image.
++    slice_y = priv->slice_y;
++    slice_h = priv->slice_h;
++    translate_coords(priv, 0, &slice_y, 0, &slice_h);
++
++    if (slice_y < 0)
++        slice_y = 0;
++    else if (slice_y > src_mpi->height)
++        slice_y = src_mpi->height;
++
++    if (slice_h < 0)
++        slice_h = 0;
++    else if (slice_h > src_mpi->height - slice_y)
++        slice_h = src_mpi->height - slice_y;
++
++
++    stopwatch(2, "blend_image (0,%d, %dx%d)",  slice_y, priv->mpi_w, slice_h);
++
++    for (i = 0, c = 0; i < 3; i++, c = 1)  {
++        // Setup buffer positions for overlay, mpi src and mpi dst.
++        overlay_stride[i] = priv->mpi_stride >> c;
++        dst_mpi_planes[i] = dst_mpi->planes[i] + ((slice_y >> c) * dst_mpi->stride[i]);
++        src_mpi_planes[i] = src_mpi->planes[i] + ((slice_y >> c) * src_mpi->stride[i]);
++        overlay_planes[i] += (slice_y >> c) * (priv->w >> c);
++        alpha_planes[i] += (slice_y >> c) * (priv->w >> c);
++
++        if (src_mpi == dst_mpi)
++            continue;
++
++        // If we're compositing only a slice, copy the parts of the mpi
++        // above and below the slice.
++        if (slice_y > 0)
++            memcpy(dst_mpi->planes[i], src_mpi->planes[i], src_mpi->stride[i] * slice_y >> c);
++        if (slice_h >= 0 && slice_y + slice_h < src_mpi->height)
++            memcpy(dst_mpi->planes[i] + dst_mpi->stride[i] * ((slice_y+slice_h) >> c),
++                   src_mpi->planes[i] + src_mpi->stride[i] * ((slice_y+slice_h) >> c),
++                   src_mpi->stride[i] * (src_mpi->height-(slice_y+slice_h)) >> c);
++    }
++
++#ifdef HAVE_MMX
++    if(gCpuCaps.hasMMX) {
++        asm volatile(
++            "pxor %%mm7, %%mm7\n\t"                // zero out %mm7
++            "movq "MANGLE(MM_ROUND)", %%mm5\n\t"   // %mm5 = round
++            ::: "memory"
++        );
++    }
++#endif
++
++    for (w = priv->mpi_stride, plane = 0; plane < 3; plane++) {
++        if (plane == 1) {
++            w >>= 1;
++            slice_h >>= 1;
++        }
++        overlay = overlay_planes[plane];
++        alpha = alpha_planes[plane];
++        src = src_mpi_planes[plane];
++        dst = dst_mpi_planes[plane];
++
++        // Global alpha is 256 which means ignore per-pixel alpha. Do
++        // straight memcpy.
++        if (priv->alpha == 256) {
++            memcpy_pic(dst, overlay, w, slice_h, dst_mpi->stride[plane], src_mpi->stride[plane]);
++        } else {
++            blend_plane(w, slice_h, dst, src, overlay, alpha,
++                        src_mpi->stride[plane], overlay_stride[plane]);
++        }
++    }
++
++#ifdef HAVE_MMX
++    if(gCpuCaps.hasMMX)
++        asm volatile( "emms\n\t" ::: "memory" );
++#endif
++    stopwatch(2, NULL);
++}
++
++
++
++/**
++ * \brief Process a frame.
++ *
++ * \param vf Instance of this filter.
++ * \param mpi The image sent by the previous filter (or decoder).
++ *
++ * \return The return code of the next filter, or 0 on error.
++ *
++ * This function is called when a new video frame is to be drawn or when the
++ * overlay needs updating. If the lockbyte of the overlay shared memory
++ * buffer is set to BUFFER_LOCKED, it means the controlling application has
++ * made changes that need processing. All invalidated rectangles are
++ * converted from BGRA to YV12(A) and those regions are pre-alpha-multiplied.
++ * Subsequently, if the overlay is visible, it is composited over the mpi.
++ */
++static int
++put_image(struct vf_instance_s* vf, mp_image_t* mpi)
++{
++    mp_image_t *dmpi = NULL;
++
++    // Remember last mp image.
++    vf->priv->last_mpi = mpi;
++
++    /* If the controlling application has locked the buffer and issued a
++     * slave command (which causes dirty to be 1) and it's time to update
++     * (i.e. more than 1/30th of a second has elapsed), then we process the
++     * invalidated regions by doing BGRA -> YV12A conversion and pre-
++     * alpha-multiply those areas.
++     */
++     //fprintf(stderr, "@@@ putimage lock=%d dirty=%d shouldupdate=%d\n",
++     //*vf->priv->lockbyte, vf->priv->dirty, should_update(vf->priv, 0));
++    if (*vf->priv->lockbyte & BUFFER_LOCKED && vf->priv->dirty && should_update(vf->priv, 1)) {
++        stopwatch(1, "putimage (convert)");
++        struct rects *r, *next;
++        r = vf->priv->invalid_rects;
++        while (r) {
++            if (r->type & RECT_CONVERT)
++                convert_bgra_to_yv12a(vf->priv, r->y, r->h);
++            if (r->type & RECT_PREMULTIPLY)
++                image_premultiply_alpha(vf->priv, r->x, r->y, r->w, r->h);
++            next = r->next;
++            free(r);
++            r = next;
++        }
++        vf->priv->invalid_rects = 0;
++        // YV12A version is fully up-to-date now, we can unlock the BGRA
++        // buffer.
++        *vf->priv->lockbyte = BUFFER_UNLOCKED;
++        vf->priv->dirty = 0;
++    } else
++        stopwatch(1, "putimage (no convert)");
++
++    if (vf->priv->visible != 0 && vf->priv->alpha > 0) {
++        // Overlay is visible.
++        dmpi = vf_get_image(vf->next, mpi->imgfmt, mpi->type, mpi->flags, mpi->w, mpi->h);
++        blend_image(vf->priv, mpi, dmpi);
++    } else if (!dmpi){
++        // Overlay is hidden, no swscaling, so do a shallow copy.
++        dmpi = vf_get_image(vf->next, mpi->imgfmt, MP_IMGTYPE_EXPORT, MP_IMGFLAG_PRESERVE, mpi->width, mpi->height);
++        dmpi->planes[0] = mpi->planes[0];
++        dmpi->stride[0] = mpi->stride[0];
++        if (dmpi->flags & MP_IMGFLAG_PLANAR) {
++            dmpi->planes[1] = mpi->planes[1];
++            dmpi->stride[1] = mpi->stride[1];
++            dmpi->planes[2] = mpi->planes[2];
++            dmpi->stride[2] = mpi->stride[2];
++        }
++    }
++    stopwatch(1, NULL);
++    return vf_next_put_image(vf, dmpi);
++}
++
++
++
++/**
++ * \brief Handle a slave command.
++ *
++ * \param cmd Structure holding the data for this command.
++ * \param paused The paused state of the video.
++ * \param priv Private data for this filter instance.
++ *
++ * This function is registered with a call to mp_input_add_cmd_filter() in
++ * vf_open and is used to handle MP_CMD_VF_OVERLAY (the "overlay" slave command),
++ * as well as track the pause state of the video.
++ *
++ * Slave command argument is a string in the form: cmd=args[,cmd=args[, ... ]]
++ * Possible commands are:
++ *
++ *     invalidate=x:y:w:h
++ *        Cause the specified rectangle to be updated on the overlay.
++ *        (Internally this forces BGRA->YV12A colorspace conversion.)
++ *     slice=y:h
++ *        Draw only the specified slice (top / height) of the overlay.
++ *     visible=val
++ *        Draw overlay if val is 1, or don't draw overlay if val is 0
++ *     alpha=val
++ *        Sets the global alpha level for the overlay. val==0 is
++ *        semantically equivalent to visible=0
++ *
++ * See DOCS/tech/vf_overlay.txt for more details.
++ */
++static int
++cmd_filter(mp_cmd_t *cmd, int paused, struct vf_priv_s *priv)
++{
++    if (cmd->id == MP_CMD_VF_OVERLAY) {
++        char *p1, *p2, *args = cmd->args[0].v.s;
++        while (args && (p1 = strsep(&args, ","))) {
++            p2 = strpbrk(p1, "=,");
++            if (!p2 || *(p2+1) == 0)
++               // Command with no arguments, must be malformed.
++                continue;
++            *p2 = 0;
++
++            if (!strcasecmp(p1, "invalidate")) {
++                int x, y, w, h;
++                if (sscanf(p2+1, "%d:%d:%d:%d", &x, &y, &w, &h) == 4)
++                    invalidate_rect(priv, x, y, w, h, RECT_CONVERT | RECT_PREMULTIPLY);
++            }
++            else if (!strcasecmp(p1, "slice")) {
++                int y, h;
++                if (sscanf(p2+1, "%d:%d", &y, &h) == 2) {
++                    priv->slice_y = y;
++                    priv->slice_h = h;
++                }
++            }
++            else if (!strcasecmp(p1, "alpha")) {
++                int alpha;
++                if (sscanf(p2+1, "%d", &alpha) == 1 && alpha != priv->alpha) {
++                    priv->alpha = alpha;
++                    invalidate_rect(priv, 0, 0, priv->w, priv->h, RECT_PREMULTIPLY);
++                }
++            }
++            else if (!strcasecmp(p1, "visible")) {
++                sscanf(p2+1, "%d", &priv->visible);
++            }
++            priv->dirty = 1;
++        }
++        // This command is handled, so return 1.  This causes mp_input_get_cmd
++        // to return NULL and if we're paused, it keeps us paused.
++        return 1;
++   }
++
++    return 0;
++}
++
++
++
++/**
++ * \brief Handle VFCTRL commands.
++ *
++ * \param vf Instance of this filter.
++ * \param request The VFCTRL_* request to handle.
++ * \param data The data for the given VFCTRL command.
++ *
++ * \return The return value of the next filter.
++ *
++ * This function handles VFCTRL_PAUSE_UPDATE which is called inside the pause
++ * and sleep loops in mplayer.c.
++ */
++static int
++control(struct vf_instance_s *vf, int request, void *data)
++{
++    switch(request) {
++        case VFCTRL_PERIODIC_UPDATE: 
++        {
++            float time_avail = *(float *)data;
++            if (time_avail < 0.001) // FIXME: be smarter
++                break;
++            if (vf->priv->last_mpi && *vf->priv->lockbyte & BUFFER_LOCKED && should_update(vf->priv, 0)) {
++                // Process pending slave commands if we're not paused.
++                mp_input_get_cmd(0,0,1);
++                if (vf->priv->dirty)
++                    put_image(vf, vf->priv->last_mpi);
++                return CONTROL_OK;
++            }
++        }
++    }
++    return vf_next_control(vf, request, data);
++}
++
++
++
++/**
++ * \brief Initialize the overlay filter.
++ *
++ * \param vf Instance of this filter.
++ * \param args The arguments passed from the command line for this instance.
++ *             The only argment is an integer representing the shared memory
++ *             key.
++ *
++ * vf_overlay instances are intended to be "persistent"; in other words, they
++ * never get ununitialized. This is to allow overlay buffers to survive
++ * loadfile or a loop.
++ */
++static int
++open(vf_instance_t* vf, char* args)
++{
++    int i = 0;
++    key_t shm_key;
++
++    vf->config = config;
++    vf->put_image = put_image;
++    vf->query_format = query_format;
++    vf->control = control;
++    vf->uninit = NULL;  // persistent
++
++    if(!args || sscanf(args, "%u", &shm_key) < 1 ) {
++        mp_msg(MSGT_VFILTER, MSGL_ERR, "vf_overlay: bad args; usage: overlay=shmkey\n");
++        return 0;
++    }
++
++    // Check to see if we've already initialized a filter with this shmkey. If
++    // we have, then we reuse the private data, which allows image layers to
++    // survive a loadfile or a loop.
++    if (vf_overlay_priv) {
++        struct vf_priv_s *p;
++        for (i = 0, p = vf_overlay_priv[i]; i < num_instances; p = vf_overlay_priv[++i]) {
++            if (p->shm_key == shm_key) {
++                vf->priv = p;
++                return 1;
++            }
++        }
++    }
++    else {
++        /* Initial load; setup colorspace conversion tables and register with
++         * atexit to handle unlinking shmem objects. We don't do this with
++         * the filter's uninit because uninit gets called during a loadfile
++         * and we don't want to lose overlay data during loadfiles.
++         */
++        premultiply_alpha_byte_8 = premultiply_alpha_byte_8_C;
++        blend_plane = blend_plane_C;
++#ifdef HAVE_MMX
++        if(gCpuCaps.hasMMX) {
++            premultiply_alpha_byte_8 = premultiply_alpha_byte_8_MMX;
++            blend_plane = blend_plane_MMX;
++        }
++#endif
++        atexit(free_all_overlay);
++    }
++
++    // New filter, so create and initialize the private data
++    vf->priv = calloc(1, sizeof(struct vf_priv_s));
++    vf->priv->shm_key = shm_key;
++
++    mp_input_add_cmd_filter((mp_input_cmd_filter)cmd_filter, vf->priv);
++
++    // Grow the arrays and keep track of the private data, as well as the instance
++    // structs, used for handling the pause loop.
++    vf_overlay_priv = (struct vf_priv_s **)realloc(vf_overlay_priv, i + 1);
++    vf_overlay_priv[i] = vf->priv;
++    num_instances = i + 1;
++    return 1;
++}
++
++
++
++/**
++ * \brief Info about this filter for registering with vf.
++ */
++vf_info_t vf_info_overlay = {
++    "Shared memory image overlay with alpha compositing",
++    "overlay",
++    "Jason Tackaberry",
++    "",
++    open,
++    NULL
++};
++
++#endif
+--- main.orig/libmpcodecs/vf_outbuf.c	1969-12-31 19:00:00.000000000 -0500
++++ main/libmpcodecs/vf_outbuf.c	2005-12-14 19:45:23.000000000 -0500
+@@ -0,0 +1,255 @@
++#include "../config.h"
++
++#ifdef HAVE_SHM
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <sys/param.h>
++#include <sys/time.h>
++#include <sys/shm.h>
++#include <sys/ipc.h>
++#include <fcntl.h>
++#include "mp_image.h"
++#include "vf.h"
++#include "img_format.h"
++
++#include <sys/mman.h>
++
++#include "../mp_msg.h"
++#include "../libvo/fastmemcpy.h"
++#include "../libvo/video_out.h"
++#include "../postproc/swscale.h"
++#include "../input/input.h"
++#include "../osdep/timer.h"
++#include "vf_scale.h"
++
++
++// Lock flags.
++//
++#define BUFFER_UNLOCKED 0x10
++#define BUFFER_LOCKED 0x20
++
++
++struct vf_priv_s {
++    int mpi_w, mpi_h, active, mpifmt, buffmt,
++        dst_w, dst_h;
++    double aspect;
++    uint8_t *shmem;
++    int shm_id;
++    key_t shm_key;
++    struct SwsContext *sws;
++};
++
++static void setup_sws(struct vf_priv_s *priv)
++{
++    if (priv->sws)
++        sws_freeContext(priv->sws);
++
++    priv->sws = sws_getContext(priv->mpi_w, priv->mpi_h, priv->mpifmt, 
++                               priv->dst_w, priv->dst_h, priv->buffmt,
++                               get_sws_cpuflags()|SWS_PRINT_INFO|SWS_BILINEAR,
++                               NULL, NULL, NULL);
++}
++
++
++static int
++config(struct vf_instance_s* vf, int width, int height,
++       int d_width, int d_height, unsigned int flags, unsigned int mpifmt)
++{
++    int fd, size;
++    vf->priv->dst_w = vf->priv->mpi_w = (width+15) & ~15;
++    vf->priv->dst_h = vf->priv->mpi_h = (height+15) & ~15;
++    size = vf->priv->dst_w * vf->priv->dst_h * 4 + 16;
++
++    vf->priv->shm_id = shmget(vf->priv->shm_key, size, IPC_CREAT | 0600);
++    if (vf->priv->shm_id < 0) {
++        mp_msg(MSGT_VFILTER, MSGL_ERR, "\noutbuf: ERROR: unable to open shmem (key %d)\n", vf->priv->shm_key);
++        return 0;
++    }
++    vf->priv->shmem = shmat(vf->priv->shm_id, NULL, 0);
++    if (!vf->priv->shmem) {
++        mp_msg(MSGT_VFILTER, MSGL_ERR, "\noutbuf: ERROR: couldn't mmap %d bytes from shmem (%d)\n", size, vf->priv->shm_key);
++        return 0;
++    }
++
++    vf->priv->mpifmt = mpifmt;
++    vf->priv->active = 1;
++    vf->priv->aspect = (double)d_width/d_height;
++    mp_msg(MSGT_VFILTER, MSGL_INFO, "outbuf: %dx%d %s; shmem key: %u.\n",
++           width, height, vo_format_name(vf->priv->buffmt), vf->priv->shm_key);
++
++    setup_sws(vf->priv);
++    return vf_next_config(vf, width, height, d_width, d_height, flags, mpifmt);
++}
++
++
++static int
++query_format(struct vf_instance_s* vf, unsigned int fmt)
++{
++    if (fmt == IMGFMT_YV12)
++        return vf_next_query_format(vf, fmt);
++    return 0;
++}
++
++
++static int
++put_image(struct vf_instance_s* vf, mp_image_t* mpi) 
++{
++    struct { 
++        short lock, width, height;
++        double aspect;
++    } header = { 
++        .lock = BUFFER_UNLOCKED, 
++        .width = vf->priv->dst_w, 
++        .height = vf->priv->dst_h,
++        .aspect = vf->priv->aspect
++    };
++
++    struct timeval curtime;
++    struct timezone tz;
++    double start_time, now;
++
++    if (vf->priv->active == 0)
++        return 0;
++
++    if (vf->priv->active == 1) {
++        return vf_next_put_image(vf, mpi);
++    }
++
++    if (vf->priv->mpi_w != mpi->width || vf->priv->mpi_h != mpi->height) {
++        vf->priv->mpi_w = mpi->width;
++        vf->priv->mpi_h = mpi->height;
++        setup_sws(vf->priv);
++    }
++
++    // Wait at most 0.1 seconds for the client to unlock the buffer.
++    gettimeofday(&curtime, &tz);
++    start_time = now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
++    while (*vf->priv->shmem & BUFFER_LOCKED && now - start_time < 0.1) {
++        gettimeofday(&curtime, &tz);
++        now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
++        usec_sleep(1);
++    }
++
++    if (now - start_time < 0.1) {
++        switch (vf->priv->buffmt) {
++            case IMGFMT_BGR32: {
++                uint8_t *dst[3]= {vf->priv->shmem + 16, NULL, NULL};
++                int dst_stride[3]= {vf->priv->dst_w * 4, 0, 0};
++                sws_scale_ordered(vf->priv->sws, mpi->planes, mpi->stride, 0, vf->priv->mpi_h, dst, dst_stride);
++                break;
++            }
++            case IMGFMT_YV12: {
++                uint8_t *dst[3];
++                int dst_stride[3], i, stride = vf->priv->dst_w, h = vf->priv->dst_h;
++                unsigned char *p = vf->priv->shmem + 16;
++
++                for (i = 0; i < 3; p += stride * h, i++) {
++                    if (i == 1) { stride >>= 1; h >>= 1;}
++                    dst[i] = p;
++                    dst_stride[i] = stride;
++                }
++                sws_scale_ordered(vf->priv->sws, mpi->planes, mpi->stride, 0, vf->priv->mpi_h, dst, dst_stride);
++                break;
++            }
++        }
++        memcpy(vf->priv->shmem, &header, sizeof(header));
++        *vf->priv->shmem = BUFFER_LOCKED;
++    } 
++
++    if (vf->priv->active == 3)
++        return vf_next_put_image(vf, mpi);
++
++    return 0;
++
++}
++        
++static int 
++cmd_filter(mp_cmd_t* cmd, int paused, struct vf_priv_s * priv) 
++{
++    if (cmd->id == MP_CMD_VF_OUTBUF) {
++        int w = priv->dst_w, h = priv->dst_h;
++        priv->active = cmd->args[0].v.i;
++        if (cmd->nargs > 1)
++            w = cmd->args[1].v.i ? cmd->args[1].v.i : priv->mpi_w;
++        if (cmd->nargs > 2)
++            h = cmd->args[2].v.i ? cmd->args[2].v.i : priv->mpi_h;
++
++        w = (w > priv->mpi_w) ? priv->mpi_w : w;
++        h = (h > priv->mpi_h) ? priv->mpi_h : h;
++        if (w != priv->dst_w || h != priv->dst_h) {
++            priv->dst_w = w & ~1;
++            priv->dst_h = h & ~1;
++            setup_sws(priv);
++        }
++
++        return 1;
++    }
++    return 0;
++}
++
++static void uninit(struct vf_instance_s *vf)
++{
++    struct shmid_ds shmemds;
++
++    sws_freeContext(vf->priv->sws);
++    shmctl(vf->priv->shm_id, IPC_RMID, &shmemds);
++    shmdt(vf->priv->shmem);
++
++    free(vf->priv);
++}
++
++
++static int
++vf_open(vf_instance_t* vf, char* args)
++{
++    char *p;
++    int argn = 0;
++
++    vf->config = config;
++    vf->put_image = put_image;
++    vf->query_format = query_format;
++    vf->uninit = uninit;
++
++    vf->priv = calloc(1, sizeof(struct vf_priv_s));
++    vf->priv->active = 1;
++    vf->priv->buffmt = IMGFMT_YV12;
++
++    while ((p = strsep(&args, ":"))) {
++        //if (argn == 0) strcpy(vf->priv->shmem_name, p);
++        if (argn == 0) vf->priv->shm_key = atoi(p);
++        else if (argn == 1) {
++            if (!strcasecmp(p, "bgr32"))
++                vf->priv->buffmt = IMGFMT_BGR32;
++            else if (!strcasecmp(p, "yv12"))
++                vf->priv->buffmt = IMGFMT_YV12;
++            else {
++                mp_msg(MSGT_VFILTER, MSGL_ERR, "\noutbuf: ERROR: invalid format '%s'\n", p);
++                return 0;
++            }
++        }
++        else if (argn == 2) 
++            vf->priv->active = atoi(p);
++        argn++;
++    }
++        
++    mp_input_add_cmd_filter((mp_input_cmd_filter)cmd_filter, vf->priv);
++    return 1;
++}
++
++
++vf_info_t vf_info_outbuf = {
++    "Write video frame to shared memory",
++    "outbuf",
++    "Jason Tackaberry",
++    "",
++    vf_open,
++    NULL
++};
++
++#endif
+--- main.orig/mplayer.c	2005-12-09 23:32:48.000000000 -0500
++++ main/mplayer.c	2005-12-09 23:33:02.000000000 -0500
+@@ -348,7 +348,7 @@
+ 
+ static stream_t* stream=NULL;
+ static demuxer_t *demuxer=NULL;
+-static sh_audio_t *sh_audio=NULL;
++static sh_audio_t *sh_audio=NULL, *sh_audio_save=NULL;
+ static sh_video_t *sh_video=NULL;
+ 
+ char* current_module=NULL; // for debugging
+@@ -1006,6 +1006,29 @@
+   return result;
+ }
+ 
++/**
++ * \brief send a VFCTRL_PERIODIC_UPDATE through the filter chain
++ * \param vf first video filter to receive the control
++ * \param vo needed to flip if requested
++ * \param time_avail time available, might decide not to send the
++ *         control if this is too small
++ * \return 1 if the event was consumed or not sent, 0 otherwise
++ * 
++ * When the filter chain returns CONTROL_TRUE, a flip_page
++ * will be performed, a value < 0 means it was not consumed,
++ * causing less events to be produced in the future
++ */
++static int periodic_update(vf_instance_t *vf, vo_functions_t *vo,
++                           float time_avail) {
++  int res;
++  if (!vf) return 0;
++//  if (time_avail < 0.01) return 1;
++  res = vf->control(vf, VFCTRL_PERIODIC_UPDATE, &time_avail);
++  if (res == CONTROL_OK && vo_config_count)
++    vo->flip_page();
++  return res >= 0;
++}
++
+ #ifdef USE_SUB
+ /**
+  * \brief Log the currently displayed subtitle to a file
+@@ -2784,6 +2807,8 @@
+ // flag 256 means: libvo driver does its timing (dvb card)
+ if(time_frame>0.001 && !(vo_flags&256)){
+ 
++    periodic_update(sh_video->vfilter, video_out, time_frame);
++    time_frame-=GetRelativeTime();
+ #ifdef HAVE_RTC
+     if(rtc_fd>=0){
+ 	// -------- RTC -----------
+@@ -2793,6 +2818,8 @@
+ 	    if (read (rtc_fd, &rtc_ts, sizeof(rtc_ts)) <= 0)
+ 		    mp_msg(MSGT_CPLAYER, MSGL_ERR, MSGTR_LinuxRTCReadError, strerror(errno));
+     	    time_frame-=GetRelativeTime();
++	    periodic_update(sh_video->vfilter, video_out, time_frame);
++	    time_frame-=GetRelativeTime();
+ 	}
+     } else
+ #endif
+@@ -2802,6 +2829,8 @@
+         while(time_frame>0.005) {
+ 			usec_sleep(1000000*time_frame);
+ 			time_frame-=GetRelativeTime();
++	    periodic_update(sh_video->vfilter, video_out, time_frame);
++	    time_frame-=GetRelativeTime();
+         }
+ 	}
+ #else
+@@ -2815,6 +2844,8 @@
+           else
+              usec_sleep(1000000*(time_frame-0.020));
+           time_frame-=GetRelativeTime();
++          periodic_update(sh_video->vfilter, video_out, time_frame);
++          time_frame-=GetRelativeTime();
+         }
+ 	if(softsleep){
+ 	    current_module="sleep_soft";
+@@ -2833,7 +2864,11 @@
+ 	if(vo_config_count) video_out->check_events();
+ 
+         current_module="flip_page";
+-        if (!frame_time_remaining) {
++	// When seeking in pause, this section gets passed over twice:
++	// once with osd_function == OSD_FFW, and the other with OSD_PAUSE.
++	// We only want to flip the page once, so we do this on the second
++	// pass (since it's more accurate).
++        if (!frame_time_remaining && (!sh_audio_save || osd_function == OSD_PAUSE)) {
+          if(blit_frame){
+ 	   unsigned int t2=GetTimer();
+ 	   double tt;
+@@ -3016,7 +3051,7 @@
+       if (audio_out && sh_audio)
+          audio_out->pause();	// pause audio, keep data if possible
+ 
+-      while( (cmd = mp_input_get_cmd(20,1,1)) == NULL) {
++      while( (cmd = mp_input_get_cmd(3,1,1)) == NULL) {
+ 	     if(sh_video && video_out && vo_config_count) video_out->check_events();
+ #ifdef HAVE_NEW_GUI
+              if(use_gui){
+@@ -3029,8 +3064,30 @@
+ 	     if(vf_menu)
+ 	       vf_menu_pause_update(vf_menu);
+ #endif
++           if (sh_video && periodic_update(sh_video->vfilter, video_out, 1))
++             usec_sleep(1000);
++           else
+              usec_sleep(20000);
+          }
++/*
++      switch (cmd->id) {
++            // Handle commands while paused.
++            case MP_CMD_SEEK:
++                GetRelativeTime();
++            case MP_CMD_LOADFILE:
++                cmd = mp_input_get_cmd(0,1,0);
++                mp_input_queue_cmd(cmd);
++                goto handle_cmd;
++            case MP_CMD_PAUSE:
++                cmd = mp_input_get_cmd(0,1,0);
++                mp_cmd_free(cmd);
++      }
++*/
++      if (sh_audio_save) {
++          sh_audio = sh_audio_save;
++          sh_audio_save = NULL;
++      }
++
+       if (cmd && cmd->id == MP_CMD_PAUSE) {
+       cmd = mp_input_get_cmd(0,1,0);
+       mp_cmd_free(cmd);
+@@ -3093,6 +3150,7 @@
+ 
+   current_module="key_events";
+ 
++handle_cmd:
+ {
+   mp_cmd_t* cmd;
+   int brk_cmd = 0;
+@@ -3101,6 +3159,8 @@
+     case MP_CMD_SEEK : {
+       float v;
+       int abs;
++      if (osd_function == OSD_PAUSE)
++          mp_input_queue_cmd(mp_input_parse_cmd("PAUSE"));
+       if(sh_video)
+         osd_show_percentage = sh_video->fps;
+       v = cmd->args[0].v.f;
+@@ -3165,6 +3225,9 @@
+     } break;
+     case MP_CMD_FRAME_STEP :
+     case MP_CMD_PAUSE : {
++      if (sh_audio && sh_video) {
++         sh_audio_save = sh_audio; sh_audio=NULL;
++      }
+       cmd->pausing = 1;
+       brk_cmd = 1;
+     } break;
+@@ -3323,6 +3386,8 @@
+       eof = PT_NEXT_SRC;
+       }
+       brk_cmd = 1;
++      if (sh_audio_save) { sh_audio = sh_audio_save; sh_audio_save = NULL; }
++      if (osd_function == OSD_PAUSE) osd_function=OSD_PLAY;
+     } break;
+     case MP_CMD_LOADLIST : {
+       play_tree_t* e = parse_playlist_file(cmd->args[0].v.s);
+--- main.orig/libmpcodecs/vf.c	2005-12-18 15:04:41.000000000 -0500
++++ main/libmpcodecs/vf.c	2005-12-18 15:05:21.000000000 -0500
+@@ -25,6 +25,10 @@
+ 
+ extern vf_info_t vf_info_vo;
+ extern vf_info_t vf_info_rectangle;
++#ifdef HAVE_SHM
++extern vf_info_t vf_info_overlay;
++extern vf_info_t vf_info_outbuf;
++#endif
+ #ifndef HAVE_NO_POSIX_SELECT
+ extern vf_info_t vf_info_bmovl;
+ #endif
+@@ -104,6 +108,10 @@
+ // list of available filters:
+ static vf_info_t* filter_list[]={
+     &vf_info_rectangle,
++#ifdef HAVE_SHM
++    &vf_info_overlay,
++    &vf_info_outbuf,
++#endif
+ #ifndef HAVE_NO_POSIX_SELECT
+     &vf_info_bmovl,
+ #endif
+--- main.orig/libmpcodecs/vf.h	2005-09-11 02:41:04.000000000 -0400
++++ main/libmpcodecs/vf.h	2005-11-30 17:09:33.000000000 -0500
+@@ -75,6 +75,7 @@
+ #define VFCTRL_SKIP_NEXT_FRAME 12 /* For encoding - drop the next frame that passes thru */
+ #define VFCTRL_FLUSH_FRAMES    13 /* For encoding - flush delayed frames */
+ #define VFCTRL_SCREENSHOT      14 /* Make a screenshot */
++#define VFCTRL_PERIODIC_UPDATE    15 /* Called whenever MPlayer is idle */
+ 
+ #include "vfcap.h"
+ 
+--- main.orig/libmpcodecs/Makefile	2005-12-09 23:32:50.000000000 -0500
++++ main/libmpcodecs/Makefile	2005-12-09 21:41:03.000000000 -0500
+@@ -107,6 +107,8 @@
+              vf_mirror.c \
+              vf_noformat.c \
+              vf_noise.c \
++             vf_overlay.c \
++             vf_outbuf.c \
+              vf_palette.c \
+              vf_perspective.c \
+              vf_phase.c \
+--- main.orig/input/input.h	2005-11-10 17:25:54.000000000 -0500
++++ main/input/input.h	2005-11-30 17:10:24.000000000 -0500
+@@ -69,6 +69,9 @@
+ #define MP_CMD_SUB_REMOVE 65
+ #define MP_CMD_KEYDOWN_EVENTS 66
+ #define MP_CMD_VO_BORDER 67
++#define MP_CMD_VF_OVERLAY 68
++#define MP_CMD_VF_OUTBUF 69
++
+ 
+ #define MP_CMD_GUI_EVENTS       5000
+ #define MP_CMD_GUI_LOADFILE     5001
+--- main.orig/input/input.c	2005-11-11 08:25:48.000000000 -0500
++++ main/input/input.c	2005-11-30 17:09:33.000000000 -0500
+@@ -144,6 +144,10 @@
+   { MP_CMD_GET_VO_FULLSCREEN, "get_vo_fullscreen", 0, { {-1,{0}} } },
+   { MP_CMD_GET_SUB_VISIBILITY, "get_sub_visibility", 0, { {-1,{0}} } },
+   { MP_CMD_KEYDOWN_EVENTS, "key_down_event", 1, { {MP_CMD_ARG_INT,{0}}, {-1,{0}} } },
++#ifdef HAVE_SHM
++  { MP_CMD_VF_OVERLAY, "overlay", 1, { {MP_CMD_ARG_STRING,{0}}, {-1,{0}}}},
++  { MP_CMD_VF_OUTBUF, "outbuf", 1, { {MP_CMD_ARG_INT,{0}}, {MP_CMD_ARG_INT,{0}}, {MP_CMD_ARG_INT,{0}}, {-1,{0}}}},
++#endif
+   
+   { 0, NULL, 0, {} }
+ };
+--- main.orig/DOCS/tech/vf_overlay.txt	1969-12-31 19:00:00.000000000 -0500
++++ main/DOCS/tech/vf_overlay.txt	2005-11-30 17:09:33.000000000 -0500
+@@ -0,0 +1,261 @@
++vf_overlay - Shared memory overlay image buffer
++===============================================
++
++Introduction
++------------
++
++vf_overlay allows an application controlling MPlayer in slave mode (referred
++to as "the application") to overlay an arbitrary image on top of the video.
++Its features and interface are similar to the on-screen display (OSD)
++functionality found in hardware such as the Hauppauge PVR-350. Here is a
++brief list of features:
++
++   * Image buffer stored in 32bpp BGRA.
++   * Supports both per-pixel alpha and global alpha.
++   * Compositing is MMX accelerated and performs quite well. On a 2GHz
++     Sempron, it is possible to render a translucent video on the overlay
++     with no frame loss in either video (and with CPU to spare). For an
++     unchanging overlay image, vf_overlay can composite an 800x600 overlay
++     at 24 fps with about a 7% CPU usage overhead (on the same 2GHz CPU).
++   * Fixed overlay update frame rate (of about 30 fps), irrespective of the
++     video's frame rate or pause state.
++   * Overlay buffer accessible over shared memory.
++   * Overlay controlled via slave commands, rather than a fifo.
++   * Filter state maintained across 'loadfile' commands and loops.
++   * A slice region can be defined to limit what portion of the overlay
++     image is drawn. (This will improve performance for an overlay with
++     little content, such as a line of text.)
++
++
++Technical Details
++-----------------
++
++The filter is initialized with a single integer argument that is used as the
++key for the shared memory object.
++
++The dimensions of the overlay image are those of the display size at the
++point in the filter chain vf_overlay appears. If the display dimensions are
++different than the frame dimensions, the overlay will be scaled to fit when
++it is composited. For example, an anamorphic widescreen NTSC DVD has a frame
++size of 720x480 and a display size of 854x480. The overlay image will
++therefore be 854x480, and will be implicitly scaled to 720x480.
++
++If the application requires a fixed or predictable overlay image size, it can
++use the scale, expand, and/or dsize filters before specifying overlay in the
++filter chain. Otherwise, the application should parse MPlayer's output to
++determine the overlay size. In this case, if the filter is reinitialized (due
++to a loadfile command) and the display size is different than the previous
++file, the previous shared memory segment will be destroyed and a new one
++created.
++
++For example, consider this command line:
++
++   mplayer -vf overlay=1234567 movie.avi
++
++vf_overlay will create a System V shared memory buffer with the key 1234567
++that holds a BGRA image whose size is the display size of movie.avi. The
++application will then access this buffer using the given key. In order to
++determine the dimensions of the overlay image, the application will need to look
++for a line in MPlayer's output such as:
++
++   overlay: 854x480 BGRA; shmem key: 1234567; MMX accelerated.
++
++Applications that intend to use the overlay for more complicated displays
++(such as menus) may require a fixed and predictable overlay image size,
++regardless of the video's display size. In this situation, it makes more
++sense for the controlling application to explicitly use software scaling:
++
++   mplayer -vf scale=800:-2,expand=800:600,dsize=800:600,overlay=1234567 movie.avi
++
++When the overlay filter is initialized, it will output a line such as:
++
++   overlay: 800x600 BGRA; shmem key: 1234567; MMX accelerated.
++
++At this point, the application can attach to the shared memory and render to
++the overlay image. The actual buffer will be (16 + width * height * 4) bytes,
++corresponding to 1 byte for locking (the "lock byte"), 15 bytes of padding,
++followed by 4 bytes (32bpp) for each pixel of the overlay's BGRA image.
++
++The lock byte is used as a very simple synchronization mechanism. It can
++hold 2 possible values depending on the state of the buffer, and its purpose
++is to ensure that the application does not alter the buffer while vf_overlay is
++in the middle of reading from it. The possible values for the lock byte
++are:
++
++   BUFFER_UNLOCKED (0x10)
++
++     The application is free to write to the overlay buffer. vf_overlay sets
++     this byte when it is not reading from the buffer. The overlay buffer is
++     initialized to this state.
++
++   BUFFER_LOCKED (0x20)
++
++     The application is not free to write to the overlay buffer. When the app
++     writes to the overlay buffer, it sets this flag. Then it must wait for
++     vf_overlay to clear this flag with BUFFER_UNLOCKED before writing to it
++     again. After the application writes to the buffer and sets this flag,
++     it must follow with an "overlay invalidate" slave command. (See below.)
++
++
++Internally, vf_overlay maintains two buffers. The first buffer is the shared
++BGRA buffer, which the application will render to. The second buffer is a
++planar YUVA (YV12 plus alpha channel). The "YV12A" buffer is what is read by
++vf_overlay when compositing. Therefore, an application merely writing to the
++shared BGRA buffer isn't sufficient for the overlay to be updated. The
++application must follow up with an "overlay invalidate" slave command to
++cause vf_overlay to synchronize its internal YV12A buffer with the BGRA
++buffer.
++
++NOTE: Currently, the only time the overlay update rate is independent of the
++video frame rate is when double buffering is disabled (with the -nodouble
++switch). When double buffering is enabled (which is the default behaviour
++in MPlayer) and the video is playing, the overlay can only be updated as fast
++as the video frame rate.
++
++
++
++Slave Command
++-------------
++
++In addition to modifying the overlay image buffer, the application will control
++the overlay by issuing an "overlay" slave command, which takes the following
++form:
++
++   overlay cmd=args[,cmd=args[,cmd=args[, ...]]]
++
++Multiple overlay commands "cmd" can be specified using only one "overlay" slave
++command. Only one "overlay" slave command is evaluated between each pair of
++adjacent video frames, so if you want to perform multiple operations to the
++overlay before the next frame is drawn (such as, for example, invalidating two
++different rectangles and adjusting the global alpha) you must list those
++operations, separated by commas, with one "overlay" slave command. Otherwise,
++if you had specified N "overlay" commands, it would take N frames to update
++those changes.
++
++The values for "args" are dependent on "cmd". Below are the supported
++commands "cmd" for the "overlay" slave command.
++
++   invalidate=x:y:w:h
++
++      Indicates that the specified rectangle of the overlay image has been
++      updated by the application, and therefore this region of the overlay
++      as it is currently displayed is invalid. This forces an internal
++      BGRA -> YV12A colorspace conversion and will cause any changes made
++      to that region of the overlay image to be updated the next time the
++      overlay is drawn.
++
++      Arguments are specified in pixels, and refer to the left, top,
++      width, and height respectively.
++
++   slice=y:h
++
++      Clip the overlay viewport to the specified slice where y is the top of
++      the slice and h is the height. The arguments are specified in pixels
++      and are relative to the whole overlay image.
++
++      This causes only the specified region of the overlay buffer to be
++      composited onto the video. If there are only small regions of the
++      overlay used, the application can use this as a hint to vf_overlay to
++      speed up rendering.
++
++      vf_overlay is initialized with a slice region covering the entire
++      overlay image.
++
++   visible=[0|1]
++
++      Draw overlay if 1, or don't draw overlay if 0.
++
++      vf_overlay is initialized with visible=0, so in order to display the
++      overlay, the application will first have to set visible=1.
++
++   alpha=[0..256]
++
++      Sets the global alpha level for the overlay. A value of 0 is
++      semantically equivalent to setting visible=0. 255 is fully opaque.
++      A value of 256 is a special value that forces vf_overlay to ignore the
++      per-pixel alpha channel of the overlay image, thus causing the video to
++      be fully obstructed within the defined slice region.
++      
++      For an overlay that is fully opaque and fully obstructs the video,
++      setting the global alpha to 256 will improve performance.
++
++      vf_overlay is initialized to alpha=255.
++
++
++Here are some examples:
++
++   overlay visible=1,invalidate=0:0:640:480
++
++      Sets the overlay visible, and causes the region of the BGRA buffer
++      starting at coordinates (0,0) (top left corner) with a width of
++      640 pixels and a height of 480 pixels to be updated on the next
++      frame draw.
++
++   overlay invalidate=10:10:50:25,invalidate=200:200:50,25
++
++      Causes the two regions (10,10 50x25) and (200,200 50x25) to be
++      updated on the next frame draw.
++
++   overlay alpha=255
++   overlay alpha=200
++   overlay alpha=150
++   overlay alpha=75
++   overlay alpha=0
++
++      Causes the overlay to fade out in 5 frames, starting at 255 (fully
++      opaque) and progressing to fully translucent.
++
++   overlay alpha=255,alpha=200,alpha=150,alpha=75,alpha=0
++
++      Causes the overlay to become immediately transparent. Because these
++      commands are chained together, they are all evaluated before the next
++      frame is drawn, and therefore only the last alpha applies.
++
++   overlay alpha=150,invalidate=0:0:640:100,slice=0:100
++
++      Sets the global overlay alpha to 150, causes the overlay to be updated
++      at the region (0,0 640x100), and causes the overlay to render only at
++      the same region. Any subsequent pixels changed outside this slice
++      region will not be drawn to the overlay until the slice region is
++      expanded to include those pixels.
++
++   overlay visible=0,invalidate=0:0:640:480
++
++     Hides the overlay and updates the region at (0,0 640x480). Note that
++     "updating" only means an internal synchronization between BGRA and
++     YV12A colorspaces. Even though the overlay is hidden and this update
++     won't be seen (until visible=1 is later called), the colorspace
++     conversion is still performed.
++
++
++Example
++-------
++
++Here is a small example in Python that demonstrates how to use vf_overlay:
++
++
++   import shm, os, sys
++
++   p = os.popen("mplayer -slave -vf scale=640:-2,expand=640:480," + \
++                "dsize=640:480,overlay=123456 movie.avi &>/dev/null", "w", 0)
++   print "Hit ENTER once the movie is playing ..."
++   sys.stdin.readline()
++
++   # Set up the shared memory with key 123456.
++   mem = shm.memory(shm.getshmid(123456))
++   mem.attach()
++
++   # The first byte is the lock byte, which is BUFFER_LOCKED, followed by
++   # 15 padding bytes. The remaining bytes represent the BGRA pixels and
++   # are multiplied over the whole overlay.
++   mem.write("\x20" + "\x00" * 15 + "\xa8\x77\x80\x88" * 640*480)
++   p.write("overlay visible=1,invalidate=0:0:640:480\n")
++
++   print "Overlay (translucent filled blue box) should be visible; ENTER to quit."
++   sys.stdin.readline()
++
++   p.write("quit\n")
++
++
++This example is quick and dirty. Of course, a real application would want
++to use an image library to render images and/or text to the buffer.
+--- main.orig/DOCS/tech/slave.txt	2005-12-18 15:04:40.000000000 -0500
++++ main/DOCS/tech/slave.txt	2005-12-18 15:05:20.000000000 -0500
+@@ -131,6 +131,10 @@
+ osd_show_text <string>
+     Show <string> on the OSD.
+ 
++overlay <command>
++    Manipulate the overlay filter.  See DOCS/tech/vf_overlay.txt for a
++    detailed description of what commands are available.
++
+ panscan <-1.0 - 1.0> | <0.0 - 1.0> <absolute>
+     Increase or decrease the pan-and-scan range by <value>, 1.0 is the maximum.
+     Negative values decrease the pan-and-scan range.
+--- main.orig/DOCS/man/en/mplayer.1	2005-12-18 15:04:40.000000000 -0500
++++ main/DOCS/man/en/mplayer.1	2005-12-18 15:05:20.000000000 -0500
+@@ -5854,6 +5854,35 @@
+ .PD 1
+ .
+ .TP
++.B overlay=shmkey
++Provides an overlay image buffer that can be accessed via shared memory.
++This filter can be used by applications controlling MPlayer to provide a
++custom on-screen display.
++The overlay image is composited over the running video and supports global 
++and per-pixel alpha blending.
++Pixels are specified in BGRA format, and the size of the overlay image is the
++video display size.
++In order to have a specific overlay image size, you can precede this filter
++with the scale, expand, and/or dsize filters.
++.sp 1
++The filter is controlled by the overlay slave command, and it may be used
++even when the video is paused.
++This slave command can be used to update regions of the overlay image, toggle
++visibility, adjust the global alpha level, etc.
++.sp 1
++.PD 0
++.RSs
++.IPs <shmkey>
++an integer that will be used as the key for the SysV shared memory segment
++.RE
++.PD 1
++.sp 1
++.RS
++See DOCS/tech/vf_overlay.txt for more details about how this filter works and
++how to control it with the slave command.
++.REss
++.
++.TP
+ .B framestep=I|[i]step
+ Renders only every nth frame or every intra frame (keyframe).
+ .sp 1
