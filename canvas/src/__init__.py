@@ -6,3 +6,4 @@ from container import *
 from canvas import *
 from movie import *
 from displays import *
+from box import *

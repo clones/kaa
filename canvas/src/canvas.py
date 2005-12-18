@@ -11,6 +11,7 @@ class Canvas(Container):
 
     def __init__(self):
         self._queued_children = {}
+        #self._queued_children = []
         self._names = {}
 
         super(Canvas, self).__init__()
@@ -20,7 +21,7 @@ class Canvas(Container):
             "updated": Signal()
         }
 
-        kaa.signals["idle"].connect(self._check_render_queued)
+        kaa.signals["idle"].connect(self._render_queued)
         self._supported_sync_properties += ["fontpath"]
 
         font_path = []
@@ -32,16 +33,21 @@ class Canvas(Container):
         self["fontpath"] = font_path
 
 
-    def __del__(self):
-        print "===================== CANVAS DELETED ================", self
+    def __str__(self):
+        clsname = self.__class__.__name__
+        return "<canvas.%s size=%s>" % (clsname, self["size"])
+
+
     def _sync_property_fontpath(self):
         self.get_evas().fontpath = self["fontpath"]
 
 
     def _sync_property_size(self):
-        self._o.viewport_set((0, 0), self["size"])
-        self._queue_render()
-
+        super(Canvas, self)._sync_property_size()
+        if self["size"] != self._o.viewport_get()[1]:
+            self._o.viewport_set((0, 0), self["size"])
+            self._queue_render()
+        return True
 
     def _register_object_name(self, name, object):
         # FIXME: handle cleanup
@@ -57,30 +63,23 @@ class Canvas(Container):
     def _queue_render(self, child = None):
         if not child:
             child = self
-        self._queued_children[_weakref.ref(child)] = 1
+        super(Canvas, self)._queue_render(child)
 
 
-    def _check_render_queued(self):
-        if len(self._queued_children) == 0 or not self._o:
+    def _render_queued(self):
+        if not self._o:
             return
+        import time
+        t0=time.time()
+        if super(Canvas, self)._render_queued():
+            t1=time.time()
+            regions = self._render()
+            #print "@@@ render evas right now", time.time()-t0, self, regions, " - inside evas", time.time()-t1
 
-        needs_render = _weakref.ref(self) in self._queued_children
-        queued_children = self._queued_children
-        self._queued_children = {}
-        for child in queued_children.keys():
-            child = child()
-            if not child:
-                continue
-            if child._sync_properties(pre_render = True):
-                needs_render = True
-
-        if needs_render:
-            self._render()
 
 
     def _render(self):
         regions = self._o.render()
-        print "@@@ render evas right now", self, regions
         if regions:
             self.signals["updated"].emit(regions)
         return regions
@@ -91,12 +90,18 @@ class Canvas(Container):
 
     def _get_actual_size(self):
         return self["size"]
+
+    def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
+        # Direct children of the root object (canvas) can't affect each other.
+        return
+
+    
     #
     # Public API
     #
 
     def render(self):
-        self._check_render_queued()
+        self._render_queued()
 
 
     def get_evas(self):

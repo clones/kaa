@@ -47,6 +47,11 @@ def _create_object_from_node(node, parent, path):
     elif node.name == "rectangle":
         o = kaa.canvas.Rectangle()
 
+    elif node.name == "vbox":
+        o = kaa.canvas.VBox()
+    elif node.name == "hbox":
+        o = kaa.canvas.HBox()
+
     elif node.name == "movie":
         o = kaa.canvas.Movie()
 
@@ -56,20 +61,37 @@ def _create_object_from_node(node, parent, path):
     size = list(o.get_size())
     if node.hasProp("width"):
         size[0] = node.prop("width")
+        if size[0].isdigit():
+            size[0] = int(size[0])
     if node.hasProp("height"):
         size[1] = node.prop("height")
+        if size[1].isdigit():
+            size[1] = int(size[1])
     o.set_size(size)
 
     pos = list(o.get_pos())
-    if node.hasProp("left"):
-        pos[0] = node.prop("left")
-    if node.hasProp("top"):
-        pos[1] = node.prop("top")
+    if node.hasProp("x"):
+        pos[0] = node.prop("x")
+        if pos[0].replace("-", "").isdigit():
+            pos[0] = int(pos[0])
+    if node.hasProp("y"):
+        pos[1] = node.prop("y")
+        if pos[1].replace("-", "").isdigit():
+            pos[1] = int(pos[1])
     o.set_pos(pos)
 
     if node.hasProp("visible"):
         if node.prop("visible").lower() in ("0", "no", "false"):
             o.set_visible(False)
+
+    if node.hasProp("expand"):
+        expand = node.prop("expand").lower()
+        if expand in ("0", "no", "false"):
+            o.set_expand(False)
+        elif expand in ("1", "yes", "true"):
+            o.set_expand(True)
+        elif "%" in expand:
+            o.set_expand(expand)
 
     if node.hasProp("color"):
         color = tuple(node["color"])
@@ -95,6 +117,10 @@ def _create_object_from_node(node, parent, path):
 def _process_node(node, parent, path):
     child = node.children
     while child:
+        if child.name == "comment":
+            child = child.next
+            continue
+
         obj = None
         if not child.isText():
             obj = _create_object_from_node(child, parent, path)

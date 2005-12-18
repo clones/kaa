@@ -1,19 +1,43 @@
 __all__ = [ 'Container' ]
 
 
+import _weakref
 from object import *
 from image import *
 from rectangle import *
 from text import *
-#from canvas import *
+import random
 
+DEBUG = 1
 
 class Container(Object):
 
     def __init__(self):
         self._children = []
+        self._queued_children = {}
         super(Container, self).__init__()
         self["size"] = ("auto", "auto")
+        self._debug_rect = None
+
+    def __str__(self):
+        s = "<canvas.%s size=%s nchildren=%d>" % \
+            (self.__class__.__name__, str(self["size"]), len(self._children))
+        return s
+
+    def _update_debug_rectangle(self):
+        if not DEBUG or not self.get_evas():
+            return
+        if not self._debug_rect:
+            self._debug_rect = self.get_evas().object_rectangle_add()
+            self._debug_rect.show()
+            self._debug_rect.color_set(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 190)
+
+        # For debugging, to be able to see the extents of the container.
+        computed_size = self._get_computed_size()
+        abs_pos = self._get_relative_values("pos")
+        self._debug_rect.resize(computed_size)
+        self._debug_rect.move(abs_pos)
+        self._debug_rect.layer_set(self._get_relative_values("layer"))
 
 
     def _canvased(self, canvas):
@@ -35,35 +59,70 @@ class Container(Object):
             #self._queue_children_sync_property(key)
             self._force_sync_property(key)
 
-
-    def _force_sync_property(self, prop):
+    def _force_sync_property(self, prop, exclude = None):
         super(Container, self)._force_sync_property(prop)
         for child in self._children:
-            child._force_sync_property(prop)
+            if exclude != child:
+                child._force_sync_property(prop)
         self._queue_render()
 
 
-    def _child_property_changed(self, child, prop):
-        if prop in ("size",):
-            # TODO: be smarter about reflow.
-            print "REFLOW CAUSED", self, child, prop
-            self._notify_parent_property_changed(prop)
-            self._force_sync_property("pos")
-            self._force_sync_property("size")
-            self._dirty_cached_value("computed_pos")
-   
+    def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
+        # TODO: only need to sync children whose pos or size are relative to
+        # our size.
+        self._force_sync_property("pos", exclude = child_asking)
+        self._force_sync_property("size", exclude = child_asking)
+        # TODO: if our size changes as a result, need to propage reflow to parent
+        if self._parent:
+            self._parent._request_reflow(child_asking = self)
 
-    def _dirty_cached_value(self, prop):
-        super(Container, self)._dirty_cached_value(prop)
-        for child in self._children:
-            child._dirty_cached_value(prop)
 
-    def _sync_properties(self, pre_render = False):
-        retval = super(Container, self)._sync_properties(pre_render)
-        for child in self._children:
-            if child._sync_properties(pre_render):
-                retval = True
-        return retval
+    def _request_expand(self, child_asking):
+        pass
+    
+    def _queue_render(self, child = None):
+        if child:
+            #w = _weakref.ref(child)
+            w = child
+            if w in self._queued_children:
+                return
+
+            self._queued_children[w] = 1
+
+        super(Container, self)._queue_render(child)
+
+
+    def _render_queued(self):
+        #print "[render queued]", self, self._queued_children
+        if len(self._queued_children) == 0:
+            return False
+
+        needs_render = False
+        updated_properties = []
+        while self._queued_children:
+            #print "[render loop]", self, self._queued_children
+            queued_children = self._queued_children
+            self._queued_children = {}
+            if self._sync_properties(updated_properties):
+                needs_render = True
+
+            changed = False
+            for child in queued_children.keys():
+                if isinstance(child, Container) and child != self:
+                    if child._render_queued():
+                        changed = needs_render = True
+                if child._sync_properties():
+                    changed = needs_render = True
+
+            if not changed:
+                break
+
+        if "size" in updated_properties or "pos" in updated_properties:
+            self._update_debug_rectangle()
+
+        #print "[render exit]", self, self._queued_children, needs_render
+        return needs_render
+        
 
 
     def _sync_property_clip(self):
@@ -80,6 +139,7 @@ class Container(Object):
         return self.get_canvas() != None
 
     def _sync_property_pos(self):
+        self._sync_property_size()
         return True
 
     def _sync_property_color(self):
@@ -93,6 +153,12 @@ class Container(Object):
 
     def _sync_property_size(self):
         return True
+
+    def _set_property_size(self, size):
+        self._set_property_generic("size", size)
+        # Position of children may also depend on our size, so recalculate
+        # and sync positions of children.
+        self._force_sync_property("pos")
 
     def _apply_clip_to_children(self):
         for child in self._children:
@@ -108,10 +174,18 @@ class Container(Object):
             child._reset()
 
 
-    def _get_actual_size(self):
+    def _get_actual_size(self, child_asking = None):
         w, h = 0, 0
         for child in self._children:
-            pos = child._get_computed_pos()
+            if child_asking:
+                pos = [0, 0]
+                if type(child["pos"][0]) == int:
+                    pos[0] = child["pos"][0]
+                if type(child["pos"][1]) == int:
+                    pos[1] = child["pos"][1]
+            else:
+                pos = child._get_computed_pos()
+
             size = child._get_actual_size()
             if pos[0] + size[0] > w:
                 w = pos[0] + size[0]
@@ -120,22 +194,63 @@ class Container(Object):
 
         return w, h
 
-    def _get_computed_size(self, child = None):
-        if self._parent:
-            # Determine the size of our container (ask parent).
-            psize = self._parent._get_computed_size(child = self)
-        else:
-            psize = self["size"]
+    def _get_minimum_size(self):
+        if type(self["size"][0]) == type(self["size"][1]) == int:
+            return self["size"]
+
+        w, h = 0, 0
+        for child in self._children:
+            pos = [0, 0]
+            if type(child["size"][0]) == int:
+                pos[0] = child["size"][0]
+            if type(child["size"][1]) == int:
+                pos[1] = child["size"][1]
+            #pos = child._get_computed_pos()
+            size = child._get_minimum_size()
+            if pos[0] + size[0] > w:
+                w = pos[0] + size[0]
+            if pos[1] + size[1] > h:
+                h = pos[1] + size[1]
+        
+        if type(self["size"][0]) == int:
+            w = self["size"][0]   
+        if type(self["size"][1]) == int:
+            h = self["size"][1]   
+        return w,h
+
+
+    def _compute_size(self, size, child_asking, extents = None):
+        if child_asking:
+            if "auto" in size:
+                size = list(size)  # copy
+                actual_size = self._get_actual_size(child_asking)
+                if size[0] == "auto":
+                    size[0] = actual_size[0]
+                if size[1] == "auto":
+                    size[1] = actual_size[1]
+
+        return super(Container, self)._compute_size(size, child_asking, extents)
+
+
+    def _get_extents(self, child_asking = None):
+        if not child_asking:
+            return super(Container, self)._get_extents()
 
         size = list(self["size"])
-        for index in range(2):
-            # If one of our children is asking our size, and a dimension
-            # is set to auto, inherit our parent's size.
-            if size[index] == "auto" and child:
-                size[index] = psize[index]
+        if type(size[0]) == type(size[1]) == int:
+            return size
+        if "auto" in size:
+            if self._parent:
+                extents = self._parent._get_extents(child_asking = self)
+            else:
+                extents = 0, 0
 
-        size = self._compute_size(psize, size)
-        return size
+            if size[0] == "auto":
+                size[0] = extents[0]
+            if size[1] == "auto":
+                size[1] = extents[1]
+
+        return self._compute_size(size, child_asking)
 
 
     #
@@ -162,10 +277,13 @@ class Container(Object):
             child.resize(kwargs["size"])
         if ("font" in kwargs or "size" in kwargs) and isinstance(child, Text):
             child.set_font(kwargs.get("font"), kwargs.get("size"))
+        if "expand" in kwargs:
+            child.expand(kwargs["expand"])
 
         self._children.append(child)
         child._adopted(self)
-        child._canvased(self.get_canvas())
+        if self.get_canvas():
+            child._canvased(self.get_canvas())
 
         if self._clip_object:
             self._clip_object.show()
@@ -175,10 +293,13 @@ class Container(Object):
 
     def remove_child(self, child):
         if child not in self._children:
-            return False
+            raise ValueError, "Child not found"
         self._children.remove(child)
-        if child._o:
-            child._o.hide()
+        child.hide()
+        child._queue_render()
+        if isinstance(child, Container):
+            child._queued_children = {}
+
         # FIXME: shouldn't access _queued_children directly (create an 
         # unqueue method)
         if child._canvas and child in child._canvas._queued_children:
@@ -188,6 +309,9 @@ class Container(Object):
             # Hide clip object if there are no children (otherwise it will
             # just be rendered as a visible white rectangle.)
             self._clip_object.hide()
+            
+        self._request_reflow()
+
         return True
 
 

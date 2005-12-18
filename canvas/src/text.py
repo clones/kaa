@@ -9,7 +9,7 @@ class Text(Object):
 
         for prop in ("size", "pos", "clip"):
             self._supported_sync_properties.remove(prop)
-        self._supported_sync_properties += [ "text", "font", "size", "pos", "clip" ]
+        self._supported_sync_properties += [ "font", "text", "size", "pos", "clip" ]
 
         self.set_font(font, size)
         if text != None:
@@ -17,8 +17,9 @@ class Text(Object):
         if color != None:
             self.set_color(*color)
 
-    def __repr__(self):
-        return "<canvas.Text object at 0x%x: \"%s\">" % (id(self), self["text"])
+    def __str__(self):
+        clsname = self.__class__.__name__
+        return "<canvas.%s text=\"%s\">" % (clsname, self["text"])
 
     def _canvased(self, canvas):
         super(Text, self)._canvased(canvas)
@@ -27,22 +28,39 @@ class Text(Object):
             o = canvas.get_evas().object_text_add()
             self._wrap(o)
 
+    def _get_actual_size(self, child_asking = None):
+        return self._o.geometry_get()[1]
+        metrics = self._o.metrics_get()
+        return metrics["horiz_advance"], metrics["max_ascent"]
 
     def _sync_property_font(self):
         old_size = self._o.geometry_get()[1]
         self._o.font_set(*self["font"])
-        if old_size != self._o.geometry_get()[1]:
-            self._notify_parent_property_changed("size")
+        new_size = self._o.geometry_get()[1]
+        if old_size != new_size:
+            print "[TEXT REFLOW]: font change", old_size, new_size
+            self._request_reflow("size", old_size, new_size)
 
     def _sync_property_text(self):
         old_size = self._o.geometry_get()[1]
         self._o.text_set(self["text"])
-        if old_size != self._o.geometry_get()[1]:
-            self._notify_parent_property_changed("size")
+        new_size = self._o.geometry_get()[1]
+        if old_size != new_size:
+            print "[TEXT REFLOW]: text change", old_size, new_size
+            self._request_reflow("size", old_size, new_size)
 
-    def _sync_property_size(self):
+    #def _sync_property_size(self):
         # FIXME: if size specified for text, clip to size.
-        return True
+    #    return True
+
+    def _compute_size(self, size, child_asking, extents = None):
+        # Currently text cannot scale or clip; computed size is always 
+        # actual size, so force to auto.
+        size = ("auto", "auto")
+        return super(Text, self)._compute_size(size, child_asking, extents)
+
+    def _get_minimum_size(self):
+        return self._get_actual_size()
 
     #
     # Public API

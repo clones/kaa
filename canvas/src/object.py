@@ -5,6 +5,8 @@ import _weakref
 from kaa import evas
 from kaa.base import weakref
 
+_percent_re = re.compile("([\d.]+%)")
+
 class CanvasError(Exception):
     pass
 
@@ -14,10 +16,11 @@ class Object(object):
     def __init__(self):
         # Properties will be synchronized to canvas in order.  "pos" should
         # be listed after "size" since pos may depend on size.
-        self._supported_sync_properties = ["name", "visible", "layer", "color", "size", "pos", "clip"]
+        self._supported_sync_properties = ["name", "expand", "visible", "layer", "color", "size", "pos", "clip"]
         self._properties = {}
         self._changed_since_sync = {}
         self._values_cache = {}
+        self._in_sync_properties = False
 
         self._o = self._canvas = self._parent = None
         self._clip_object = None
@@ -28,6 +31,7 @@ class Object(object):
         self["visible"] = True
         self["layer"] = 0
         self["clip"] = None
+        self["expand"] = False  # can be False/True, or a percentage.
 
 
     def __contains__(self, key):
@@ -47,9 +51,7 @@ class Object(object):
             return False
 
         self._dirty_cached_value(key)
-        if key == "pos":
-            self._dirty_cached_value("computed_pos")
-        self._notify_parent_property_changed(key)
+        #self._notify_parent_property_changed(key)
         #if key in ("pos", "visible", "color", "layer", "size"):
         #    self._inc_properties_serial()
 
@@ -63,8 +65,8 @@ class Object(object):
         self._properties[key] = value
         if self._changed_since_sync != None:
             self._changed_since_sync[key] = True
-            if self.get_evas():
-                self._sync_properties()
+            #if self.get_evas():
+            #    self._sync_properties()
         self._queue_render()
 
     def __delitem__(self, key):
@@ -79,14 +81,15 @@ class Object(object):
 
         self._o._canvas_object = weakref(self)
         self._force_sync_all_properties()
-        self._sync_properties()
+        #self._sync_properties()
         self._apply_parent_clip()
         self._queue_render()
 
 
-    def _queue_render(self):
-        if self._canvas:
-            self._canvas._queue_render(self)
+    def _queue_render(self, child = None):
+        if self._parent:
+            self._parent._queue_render(self)
+
 
     def _adopted(self, parent):
         self._parent = weakref(parent)
@@ -117,10 +120,23 @@ class Object(object):
     #      width, height, and valid python expr, e.g. 50%-(width/2) which
     #      means "center", also available: "top", "bottom"
 
+    def _get_extents(self):
+        if not self._parent:
+            return 0, 0
+        # Ask our parent our extents.
+        return self._parent._get_extents(child_asking = self)
+
+    def _get_minimum_size(self):
+        # Must be implemented by subclass.
+        return 0, 0
+
     def _get_actual_size(self):
+        if not self._o:
+            return 0, 0
         return self._o.geometry_get()[1]
 
     def _compute_expr_re_cb_get_object_value(self, match):
+        raise Exception, "Don't use this"
         # FIXME: object A that depends on values from object B needs
         # to get reflowed if B changes.  Currently this still works
         # because when any object changes pos/size, the whole canvas
@@ -146,83 +162,99 @@ class Object(object):
         else:
             raise ValueError, "Unknown object value '%s' referenced in expression" % value
                        
-    def _compute_size(self, parent_val, val):
-        if not (type(parent_val[0]) == type(parent_val[1]) == int):
-            raise CanvasError, "Invalid size for parent; ensure canvas has fixed size."
-        val = list(val)
+    def _compute_size(self, size, child_asking, extents = None):
+        size = list(size)
         for index in range(2):
-            if type(val[index]) == int:
+            if type(size[index]) == int:
                 continue
 
-            if "%" in val[index]:
+            if "%" in size[index]:
+                if not extents:
+                    extents = self._get_extents()
                 def calc_percent(match):
-                    p = int(match.group(1)[:-1]) / 100.0 * parent_val[index]
+                    p = int(match.group(1)[:-1]) / 100.0 * extents[index]
                     return str(int(p))
-                val[index] = re.sub("([\d.]+%)", calc_percent, val[index])
-            if "." in val[index]:
-                val[index] = re.sub("(\w+)\.(\w+)", self._compute_expr_re_cb_get_object_value, val[index])
-            if val[index] == "auto":
-                val[index] = self._get_actual_size()[index]
-                continue
+                size[index] = int(_percent_re.sub(calc_percent, size[index]))
+            #elif "." in size[index]:
+            #    size[index] = re.sub("(\w+)\.(\w+)", self._compute_expr_re_cb_get_object_value, size[index])
+            elif size[index] == "auto":
+                size[index] = self._get_actual_size()[index]
 
-            val[index] = eval(val[index], {}, {})
+            #size[index] = eval(size[index], {}, {})
 
-        return tuple(val)
+        return tuple(size)
 
 
-    def _get_computed_size(self, child = None):
+    def _get_computed_size(self, child_asking = None):
         """
-        Returns the computed size of the object, or for the child object 
-        if specified (used for Containers).
+        Returns our computed size.  If child is specified, it is our size that
+        as far as the child is concerned.  (Used for containers.)
         """
-        # TODO: this function gets called a LOT.  Cache this value.  This
-        # value varies based on child paramter, so need to keep a dict that
-        # maps child -> size.
-        #print "Computing new size", self, self["size"]
-        size = self._get_cached_value("size", child)
+        size = self._get_cached_value("size", child_asking)
         if size:
             return size
 
-        #print "XXX Computing size", self, child
-        if self._parent:
-            # Determine the size of our container (ask parent).
-            psize = self._parent._get_computed_size(child = self)
-            size = self._compute_size(psize, self["size"])
-        else:
-            size = self._compute_size(self["size"], self["size"])
-        self._set_cached_value("size", child, size)
+        if type(self["size"][0]) == type(self["size"][1]) == int:
+            return self["size"]
+
+        #print "[SIZE]:", self
+        #print "    for child", child_asking
+        #print "        Compute %s " % str(self["size"])
+        size = self._compute_size(self["size"], child_asking)
+        self._set_cached_value("size", child_asking, size)
+        #print "        Size Result: %s" % str(size)
         return size
 
 
-    def _compute_pos(self, pos, computed_size, parent_size):
+    def _compute_pos(self, pos, child_asking):#computed_size, parent_size):
         pos = list(pos)
-        #print "Computing pos for", self, pos, computed_size, parent_size
+        computed_size = extents = None
         for index in range(2):
             if type(pos[index]) == int:
                 continue
 
-            locals = {
-                "top": 0, 
-                "left": 0, 
-                "center": int((parent_size[index] - computed_size[index]) / 2.0),
-                "right": parent_size[index] - computed_size[index], 
-                "bottom": parent_size[index] - computed_size[index], 
-                "width": computed_size[0],
-                "height": computed_size[1] 
-            }
+            if pos[index] in ("bottom", "right", "center"):
+                if not extents:
+                    extents = self._parent._get_computed_size(child_asking = self)
+                    #print "        Container: %s" % str(extents), self, child_asking, self._parent
+                if not computed_size:
+                    computed_size = self._get_computed_size()
+                    #print "        Computed size: %s" % str(computed_size)
 
             if "%" in pos[index]:
+                if not extents:
+                    extents = self._parent._get_computed_size(child_asking = self)
                 def calc_percent(match):
-                    p = int(match.group(1)[:-1]) / 100.0 * parent_size[index]
+                    p = int(match.group(1)[:-1]) / 100.0 * extents[index]
                     return str(int(p))
-                pos[index] = re.sub("([\d.]+%)", calc_percent, pos[index])
-            if "." in pos[index]:
-                pos[index] = re.sub("(\w+)\.(\w+)", self._compute_expr_re_cb_get_object_value, pos[index])
-
-
-            pos[index] = eval(pos[index], locals, {})
+                pos[index] = int(_percent_re.sub(calc_percent, pos[index]))
+            elif pos[index] in ("top", "left"):
+                pos[index] = 0
+            elif pos[index] in ("bottom", "right"):
+                pos[index] = extents[index] - computed_size[index]
+            elif pos[index] == "center":
+                pos[index] = int((extents[index] - computed_size[index]) / 2.0)
+            else:
+                raise ValueError, "Unsupported position '%s'" % pos[index]
 
         return pos
+
+    def _get_computed_pos(self, child_asking = None):
+        pos = self._get_cached_value("computed_pos", child_asking)
+        if pos:
+            return pos
+
+        if type(self["pos"][0]) == type(self["pos"][1]) == int:
+            return self["pos"]
+
+        #print "[POS]:", self
+        #print "    for child", child_asking
+        #print "        Compute %s" % str(self["pos"])
+        pos = self._compute_pos(self["pos"], child_asking)
+        #print "        Pos Result: %s" % str(pos)
+        self._set_cached_value("computed_pos", child_asking, pos)
+        return pos
+
 
     def _get_cached_value(self, prop, child):
         if child:
@@ -237,6 +269,7 @@ class Object(object):
 
     def _dirty_cached_value(self, prop):
         #self._values_cache = {}
+        #print "< DIRTY CACHED VALUE", self, prop
         if prop in self._values_cache:
             del self._values_cache[prop]
 
@@ -249,33 +282,17 @@ class Object(object):
         self._values_cache[prop][child] = value
         
 
-    def _get_computed_pos(self, child = None):
-        pos = self._get_cached_value("computed_pos", child)
-        if pos:
-            return pos
-
-        #print "XXX Computing pos", self, child
-        size = self._get_computed_size()
-        if self._parent:
-            parent_size = self._parent._get_computed_size(child = self)
-        else:
-            parent_size = None
-        pos = self._compute_pos(self["pos"], size, parent_size)
-        #print "_get_computed_pos NEW VALUE", self, " - size - ",self["size"], size, " - parent size - ", parent_size, " - calculated pos", pos
-        self._set_cached_value("computed_pos", child, pos)
-        #print "Returned computed pos", self, pos
-        return pos
 
 
-    def _get_relative_values(self, prop, child = None):
-        value = self._get_cached_value(prop, child)
+    def _get_relative_values(self, prop, child_asking = None):
+        value = self._get_cached_value(prop, child_asking)
         if value:
             return value
 
         assert(prop in ("pos", "layer", "color", "visible"))
 
         if prop == "pos":
-            v = self._get_computed_pos(child)
+            v = self._get_computed_pos(child_asking)
         else:
             v = self[prop]
 
@@ -284,7 +301,7 @@ class Object(object):
             return (tmp + (tmp >> 8)) >> 8
 
         if self._parent:
-            p = self._parent._get_relative_values(prop, child = self)
+            p = self._parent._get_relative_values(prop, child_asking = self)
 
             # We're not interested in most properties of the canvas itself,
             # because it usually maps to a physical window.  For example,
@@ -297,14 +314,14 @@ class Object(object):
                 elif prop == "visible":
                     v = v and p
                 elif prop == "layer":
-                    v += p
+                    v += p + 1
 
             if prop == "color":
             # ... except for color, which is a special case.
                 v = map(_blend_pixel, v, p)
 
 
-        self._set_cached_value(prop, child, v)
+        self._set_cached_value(prop, child_asking, v)
         return v
         
             
@@ -321,9 +338,15 @@ class Object(object):
             self._set_property_generic("color", color)
         return True
 
-    def _notify_parent_property_changed(self, prop):
+    def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
+        if what_changed == "size":
+            # TODO: only need to resync pos if pos depends on size.
+            self._force_sync_property("pos")
+            # Size changed, so cached value is dirty.
+            self._dirty_cached_value("size")
         if self._parent:
-            self._parent._child_property_changed(self, prop)
+            self._parent._request_reflow(what_changed, old, new, child_asking = self)
+
 
     def _can_sync_property(self, property):
         if property == "name":
@@ -332,41 +355,44 @@ class Object(object):
         return self._o != None
 
 
-    def _sync_properties(self, pre_render = False):
+    def _sync_properties(self, updated_properties = []):
         # Note: Container relies on this function, so don't abort if 
         # self._o == None.  This function will only get called when the
         # object belongs to a canvas (but not necessarily when the underlying
         # Evas canvas has been created, as in the case of BufferCanvas)
         # XXX: this function is a performance hotspot; needs some work.
-        if len(self._changed_since_sync) == 0:
-            return True
+        if len(self._changed_since_sync) == 0 or self._in_sync_properties:
+            return False #True
 
-        retval = False
-        changed = self._changed_since_sync
+        #print "SYNC PROPS", self, self._changed_since_sync
+        needs_render = False
+        #changed = self._changed_since_sync
+        self._in_sync_properties = True
         # Prevents reentry.
-        self._changed_since_sync = {}
-        #print "SYNC PROPS", self, changed
+        #self._changed_since_sync = {}
         for prop in self._supported_sync_properties:
-            if prop not in changed or (not pre_render and prop in ("pos", "size", "clip")):
+            if prop not in self._changed_since_sync:# or (not pre_render and prop in ("pos", "size", "clip")):
                 continue
             if self._can_sync_property(prop) != False and \
                getattr(self, "_sync_property_" + prop)() != False:
-                retval = True
-                del changed[prop]
-            #else:
-            #    print "Sync failure:", prop, self, self._o, self._can_sync_property(prop)
+                needs_render = True
+                del self._changed_since_sync[prop]
+                updated_properties.append(prop)
+                #del changed[prop]
+                #if prop in self._changed_since_sync:
+                #    del self._changed_since_sync[prop]
 
-        self._changed_since_sync.update(changed)
-        if changed:
+        if self._changed_since_sync:
             # There are still some properties that haven't been synced.
             # Requeue this object for rendering.
+            #print "Queueing rendering because", self._changed_since_sync
             self._queue_render()
-        return retval
+        self._in_sync_properties = False
+        return needs_render
 
 
     def _sync_property_pos(self):
         abs_pos = self._get_relative_values("pos")
-        print "SYNC POS", self, abs_pos
         self._o.move(abs_pos)
         if self._clip_object:
             clip_pos = map(lambda x,y: x+y, self["clip"][0], abs_pos)
@@ -383,7 +409,11 @@ class Object(object):
 
     def _sync_property_size(self):
         s = self._get_computed_size()
+        # TODO: if s > size extents, add clip.
+        old_size = self._o.geometry_get()[1]
         self._o.resize(s)
+        if s != old_size:
+            self._request_reflow("size", old_size, s)
 
     def _sync_property_name(self):
         self._canvas._register_object_name(self["name"], self)
@@ -410,6 +440,9 @@ class Object(object):
         self._clip_object.move(clip_pos)
         self._clip_object.resize(clip_size)
 
+    def _sync_property_expand(self):
+        if self._parent:
+            self._parent._request_expand(self)
 
     def _apply_parent_clip(self):
         if not self._o and not self._clip_object:
@@ -443,6 +476,8 @@ class Object(object):
     def _force_sync_property(self, prop):
         assert(prop in self._supported_sync_properties)
         self._dirty_cached_value(prop)
+        if prop == "pos":
+            self._dirty_cached_value("computed_pos")
         if prop in self:
             self._changed_since_sync[prop] = True
         self._queue_render()
@@ -529,4 +564,13 @@ class Object(object):
 
     def set_name(self, name):
         self["name"] = name
+
+    def set_expand(self, expand):
+        self["expand"] = expand
+
+    def expand(self, expand):
+        self.set_expand(expand)
+
+    def get_expand(self):
+        return self["expand"]
 

@@ -24,6 +24,7 @@ class X11Canvas(Canvas):
     def _handle_resize_event(self, old_size, size):
         self._canvas_window.resize(size)
         self._o.output_size_set(size)
+        #self.resize(size)
         self._queue_render()
 
     def _set_property_visible(self, vis):

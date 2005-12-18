@@ -33,6 +33,20 @@ class Image(Object):
         if image_or_file:
             self.set_image(image_or_file)
 
+    def __str__(self):
+        s = "<canvas.%s " % self.__class__.__name__
+        if self["filename"]:
+            s += "file=\"%s\" " % self["filename"]
+        elif self["pixels"]:
+            s += "imported "
+        elif self["data"]:
+            s += "custom "
+        s += "size=%s " % str(self["size"])
+        if self._o:
+            s += "asize=%s imgsize=%s" % (str(self._o.geometry_get()[1]), str(self._o.size_get()))
+        return s + ">"
+
+
 
     def _reset(self):
         super(Image, self)._reset()
@@ -41,24 +55,37 @@ class Image(Object):
 
     def _get_aspect_ratio(self):
         orig = self.get_image_size()
-        aspect = orig[0] / float(orig[1])
-        return aspect
-     
-        
-    def _compute_size(self, parent_val, val):
-        val = list(super(Image, self)._compute_size(parent_val, val))
-        aspect = self._get_aspect_ratio()
-        orig = self.get_image_size()
-        for index in range(2):
-            if val[index] == 0:
-                val[index] = orig[index]
-            elif val[index] == -1:
-                if index == 0:
-                    val[index] = int(val[1] * aspect)
-                else:
-                    val[index] = int(val[0] / aspect)
+        if orig[1] == 0:
+            return 1.0
 
-        return tuple(val)
+        return orig[0] / float(orig[1])
+ 
+    def _get_minimum_size(self):
+        image_size = list(self.get_image_size())
+        size = self._apply_aspect_to_size(list(self["size"]))
+        # If either dimension is fixed (i.e. not a percentage) then our min
+        # size must reflect that.
+        if type(size[0]) == int:
+            image_size[0] = size[0]
+        if type(size[1]) == int:
+            image_size[1] = size[1]
+        return image_size
+        
+    def _compute_size(self, size, child_asking, extents = None):
+        size = list(super(Image, self)._compute_size(size, child_asking, extents))
+        return self._apply_aspect_to_size(size)
+
+    def _apply_aspect_to_size(self, size):
+        aspect = self._get_aspect_ratio()
+        for index in range(2):
+            # We can only keep aspect if the other dimension is known.
+            if size[index] == "aspect" and type(size[1-index]) == int:
+                if index == 0:
+                    size[index] = int(size[1] * aspect)
+                else:
+                    size[index] = int(size[0] / aspect)
+
+        return tuple(size)
 
 
 
@@ -84,6 +111,18 @@ class Image(Object):
             o = canvas.get_evas().object_image_add()
             self._wrap(o)
 
+    def _can_sync_property(self, prop):
+        if self._loaded and prop in ("image", "filename", "pixels", "data"):
+            return False
+
+        # Don't sync position until an image is loaded, since position could 
+        # depend on our size (center, bottom); don't sync size until loaded 
+        # because size could require image size for aspect ratio.
+        if not self._loaded and prop in ("pos", "size"):
+            return False
+
+        return super(Image, self)._can_sync_property(prop)
+
 
     def _set_property_filename(self, filename):
         assert(type(filename) == str)
@@ -96,87 +135,69 @@ class Image(Object):
 
 
     def _sync_property_image(self):
-        if self._loaded:
-            return
-
         size = self["image"].size
         self._o.size_set(size)
+        self._o.data_set(self["image"].get_raw_data(), copy = False)
+
+        # Computed size may depend on new image size, so dirty cached size.
+        self._dirty_cached_value("size")
+        size = self._get_computed_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
-        self._o.data_set(self["image"].get_raw_data(), copy = False)
-        self._notify_parent_property_changed("size")
         self._loaded = True
+        # TODO reflow if image size changed.
+
 
     def _sync_property_filename(self):
-        if self._loaded:
-            return
-
+        old_size = self._o.geometry_get()[1]
         self._o.file_set(self["filename"])
         err = self._o.load_error_get()
         if err:
             raise evas.LoadError, (err, "Unable to load image", self["filename"])
 
-        if self["size"] == ("auto", "auto"):
-            size = self._o.size_get()
-        else:
-            size = self._get_computed_size()
+        # Computed size may depend on new image size, so dirty cached size.
+        self._dirty_cached_value("size")
+        size = self._get_computed_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
 
-        self._notify_parent_property_changed("size")
         self._loaded = True
 
-    def _sync_property_pixels(self):
-        if self._loaded:
-            return
+        if old_size != size:
+            self._request_reflow("size", old_size, size)
 
-        data, w, h, format = self["pixels"]
+    def _sync_property_pixels(self):
         old_size = self._o.geometry_get()[1]
+        data, w, h, format = self["pixels"]
         self._o.size_set((w, h))
         self._o.pixels_import(data, w, h, format)
-
-        if self["size"] == ("auto", "auto"):
-            size = w, h
-        else:
-            size = self._get_computed_size()
-
         self._o.pixels_dirty_set()
+
+        # Computed size may depend on new image size, so dirty cached size.
+        self._dirty_cached_value("size")
+        size = self._get_computed_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
+        self._loaded = True
 
         if size != old_size:
             # Only need to reflow if target size has changed.
-            self._notify_parent_property_changed("size")
+            self._request_reflow("size", old_size, size)
 
-        self._loaded = True
 
     def _sync_property_data(self):
-        if self._loaded:
-            return
-
         data, copy = self["data"]
         self._o.data_set(data, copy)
         self._loaded = True
 
     def _sync_property_pos(self):
-        # For images, delay computing pos until we have an image loaded,
-        # since position could depend on size, and we don't know size until
-        # we're loaded.
-        if not self._loaded:
-            return False
         return super(Image, self)._sync_property_pos()
 
 
     def _sync_property_size(self):
-        # If the image isn't loaded, we won't know how to calculate the size
-        # if 0 or -1 are given for image size.
-        if not self._loaded:
-            return False
-
         # Calculates size and resizes the object.
         super(Image, self)._sync_property_size()
         self._o.fill_set((0, 0), self._o.geometry_get()[1])
-        #self.get_size())
     
     def _sync_property_has_alpha(self):
         self._o.alpha_set(self["has_alpha"])
