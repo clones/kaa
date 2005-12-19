@@ -56,6 +56,8 @@ def _wrap_evas_object(obj):
         return Text(obj)
     elif obj_type == "gradient":
         return Gradient(obj)
+    elif obj_type == "textblock":
+        return TextBlock(obj)
     else:
         raise ValueError, "Unable to wrap unknown object type (%s)" % obj_type
 
@@ -260,6 +262,25 @@ class Image(Object):
         return self._object.image_border_center_fill_get()
 
 
+
+class TextBlock(Object):
+    def __init__(self, evas_object):
+        super(TextBlock, self).__init__(evas_object)
+
+    def markup_set(self, markup):
+        return self._object.textblock_markup_set(markup)
+
+    def markup_get(self):
+        return self._object.textblock_markup_get()
+
+    def clear(self):
+        return self._object.textblock_clear()
+
+    def style_set(self, style):
+        return self._object.textblock_style_set(style)
+
+
+
 class Text(Object):
     def __init__(self, evas_object):
         super(Text, self).__init__(evas_object)
@@ -320,6 +341,10 @@ class Text(Object):
 
     def char_coords_get(self, (x, y)):
         return self._object.text_char_coords_get(x, y)
+
+    def style_pad_get(self):
+        return self._object.text_style_pad_get()
+
 
 class Evas(object):
     def __init__(self, wrap = None, **kwargs):
@@ -408,6 +433,10 @@ class Evas(object):
         if text:
             o.text_set(text)
         return o
+
+    def object_textblock_add(self):
+        return TextBlock(self._evas.object_textblock_add())
+        
 
     def damage_rectangle_add(self, ((x, y), (w, h))):
         self._evas.damage_rectangle_add(x, y, w, h)

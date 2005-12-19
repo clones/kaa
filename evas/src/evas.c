@@ -254,8 +254,14 @@ Evas_PyObject_object_image_add(Evas_PyObject * self, PyObject * args)
 PyObject *
 Evas_PyObject_object_text_add(Evas_PyObject * self, PyObject * args)
 {
-    evas_font_path_prepend(self->evas, ".");
     return (PyObject *) wrap_evas_object(evas_object_text_add(self->evas),
+                                         self);
+}
+
+PyObject *
+Evas_PyObject_object_textblock_add(Evas_PyObject * self, PyObject * args)
+{
+    return (PyObject *) wrap_evas_object(evas_object_textblock_add(self->evas),
                                          self);
 }
 
@@ -329,6 +335,7 @@ PyMethodDef Evas_PyObject_methods[] = {
     {"object_rectangle_add", (PyCFunction) Evas_PyObject_object_rectangle_add, METH_VARARGS},
     {"object_image_add", (PyCFunction) Evas_PyObject_object_image_add, METH_VARARGS},
     {"object_text_add", (PyCFunction) Evas_PyObject_object_text_add, METH_VARARGS},
+    {"object_textblock_add", (PyCFunction) Evas_PyObject_object_textblock_add, METH_VARARGS},
     {"object_gradient_add", (PyCFunction) Evas_PyObject_object_gradient_add, METH_VARARGS},
 /* TODO:
     top_at_xy_get

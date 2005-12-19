@@ -4,6 +4,7 @@
 #include "object.h"
 #include "image.h"
 #include "text.h"
+#include "textblock.h"
 #include "gradient.h"
 
 PyObject *
@@ -402,6 +403,13 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"text_inset_get", (PyCFunction) Evas_Object_PyObject_text_inset_get, METH_VARARGS},
     {"text_char_pos_get", (PyCFunction) Evas_Object_PyObject_text_char_pos_get, METH_VARARGS},
     {"text_char_coords_get", (PyCFunction) Evas_Object_PyObject_text_char_coords_get, METH_VARARGS},
+    {"text_style_pad_get", (PyCFunction) Evas_Object_PyObject_text_style_pad_get, METH_VARARGS},
+
+    // textblock.c
+    {"textblock_clear", (PyCFunction) Evas_Object_PyObject_textblock_clear, METH_VARARGS},
+    {"textblock_style_set", (PyCFunction) Evas_Object_PyObject_textblock_style_set, METH_VARARGS},
+    {"textblock_markup_set", (PyCFunction) Evas_Object_PyObject_textblock_markup_set, METH_VARARGS},
+    {"textblock_markup_get", (PyCFunction) Evas_Object_PyObject_textblock_markup_get, METH_VARARGS},
 
     // gradient.c
     {"gradient_color_add", (PyCFunction) Evas_Object_PyObject_gradient_color_add, METH_VARARGS},

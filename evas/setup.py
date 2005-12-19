@@ -35,7 +35,8 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-files = ["src/evas.c", "src/object.c", "src/image.c", "src/text.c", 'src/gradient.c', "src/engine_buffer.c"]
+files = ["src/evas.c", "src/object.c", "src/image.c", "src/text.c", 
+         'src/gradient.c', "src/engine_buffer.c", 'src/textblock.c']
 evasso = Extension('kaa.evas._evasmodule', files, config='src/config.h')
 
 

@@ -119,3 +119,14 @@ Evas_Object_PyObject_text_char_coords_get(Evas_Object_PyObject * self,
 }
 
 /****************************************************************************/
+
+PyObject *
+Evas_Object_PyObject_text_style_pad_get(Evas_Object_PyObject * self,
+                                   PyObject * args)
+{
+    int l, r, t, b;
+
+    evas_object_text_style_pad_get(self->object, &l, &r, &t, &b);
+    return Py_BuildValue("(iiii)", l, r, t, b);
+}
+

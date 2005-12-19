@@ -17,3 +17,4 @@ PyObject *Evas_Object_PyObject_text_vert_advance_get(Evas_Object_PyObject *, PyO
 PyObject *Evas_Object_PyObject_text_inset_get(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_text_char_pos_get(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_text_char_coords_get(Evas_Object_PyObject *, PyObject *);
+PyObject *Evas_Object_PyObject_text_style_pad_get(Evas_Object_PyObject *, PyObject *);
