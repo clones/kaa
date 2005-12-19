@@ -38,6 +38,10 @@ class Box(Container):
                 n_expanded += 1
             else:
                 child_size = child.get_computed_size()[self._dimension]
+                # Children with fixed coordinates adjust the size they occupy
+                # in the box.
+                if type(child["pos"][self._dimension]) == int:
+                    child_size += child["pos"][self._dimension]
                 allocated_size += child_size
                 self._child_sizes.append(child_size)
 
@@ -88,6 +92,8 @@ class Box(Container):
                     continue
                 child_size = child._get_minimum_size()
                 min_dim += child_size[self._dimension]
+                if type(child["pos"][self._dimension]) == int:
+                    min_dim += child["pos"][self._dimension]
 
             available = size[self._dimension] - min_dim
             if n_expanded > 0:
@@ -104,22 +110,28 @@ class Box(Container):
         return size
         
 
-    def _get_actual_size(self, child_asking = None):
+    def _get_size_common(self, sizefunc):
         size = [0, 0]
         for child in self._children:
-            child_size = child._get_computed_size()
+            child_size = list(getattr(child, sizefunc)())
+            # Children with fixed coordinates adjust the size they occupy
+            # in the box.
+            if type(child["pos"][0]) == int:
+                child_size[0] += child["pos"][0]
+            if type(child["pos"][1]) == int:
+                child_size[1] += child["pos"][1]
+
             size[self._dimension] += child_size[self._dimension]
             size[1 - self._dimension] = max(size[1 - self._dimension], child_size[1 - self._dimension])
         return size
+
+
+    def _get_actual_size(self, child_asking = None):
+        return self._get_size_common("_get_computed_size")
+
 
     def _get_minimum_size(self):
-        size = [0, 0]
-        for child in self._children:
-            child_size = child._get_minimum_size()
-            size[self._dimension] += child_size[self._dimension]
-            size[1 - self._dimension] = max(size[1 - self._dimension], child_size[1 - self._dimension])
-        return size
-
+        return self._get_size_common("_get_minimum_size")
 
 
 class HBox(Box):

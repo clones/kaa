@@ -177,7 +177,7 @@ class Object(object):
         return size
 
 
-    def _compute_pos(self, pos, child_asking):#computed_size, parent_size):
+    def _compute_pos(self, pos, child_asking):
         pos = list(pos)
         computed_size = extents = None
         for index in range(2):

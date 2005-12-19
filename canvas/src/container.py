@@ -202,11 +202,11 @@ class Container(Object):
         w, h = 0, 0
         for child in self._children:
             pos = [0, 0]
-            if type(child["size"][0]) == int:
-                pos[0] = child["size"][0]
-            if type(child["size"][1]) == int:
-                pos[1] = child["size"][1]
-            #pos = child._get_computed_pos()
+            if type(child["pos"][0]) == int:
+                pos[0] = child["pos"][0]
+            if type(child["pos"][1]) == int:
+                pos[1] = child["pos"][1]
+
             size = child._get_minimum_size()
             if pos[0] + size[0] > w:
                 w = pos[0] + size[0]

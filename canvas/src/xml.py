@@ -1,4 +1,4 @@
-__all__ = ["create_canvas_tree"]
+__all__ = ["create_canvas_tree", "get_object_from_xml"]
 
 import libxml2
 import kaa.canvas
@@ -22,7 +22,7 @@ def _get_full_path(filename, path):
 def _create_object_from_node(node, parent, path):
     o = None
 
-    if node.name == "canvas":
+    if node.name in ("canvas", "classes"):
         return parent
 
     elif node.name == "container":
@@ -110,11 +110,12 @@ def _create_object_from_node(node, parent, path):
     if node.hasProp("layer"):
         o.set_layer(int(node.prop("layer")))
 
-    parent.add_child(o)
+    if parent:
+        parent.add_child(o)
     return o
 
 
-def _process_node(node, parent, path):
+def _process_node(node, parent, path, clsname):
     child = node.children
     while child:
         if child.name == "comment":
@@ -122,23 +123,42 @@ def _process_node(node, parent, path):
             continue
 
         obj = None
-        if not child.isText():
+        if not child.isText() and (not clsname or clsname == child.prop("class")):
+            if child.name == "canvas" and clsname and not parent:
+                raise Exception, "Use Canvas.from_xml to get canvas objects."
+
             obj = _create_object_from_node(child, parent, path)
             assert(obj)
 
         if child.children:
-            _process_node(child, obj, path)
+            c = clsname
+            if obj:
+                c = None
+            else:
+                obj = parent
+            obj = _process_node(child, obj, path, c)
+
+        if obj and clsname:
+            return obj
+
         child = child.next
-    
 
-def create_canvas_tree(canvas_object, filename = None, string  = None, path = []):
-    if filename:
-        doc = libxml2.parseFile(filename)
-    elif string:
-        doc = libxml2.parseMemory(string, len(string))
+    return parent
+
+
+def _get_doc(filename_or_string):
+    if "<" in filename_or_string:
+        return libxml2.parseMemory(filename_or_string, len(string))
     else:
-        raise ValueError, "No xml source specified"
-
-    _process_node(doc, canvas_object, path)
+        return libxml2.parseFile(filename_or_string)
 
 
+def create_canvas_tree(filename_or_string, canvas_object, classname = None, path = []):
+    doc = _get_doc(filename_or_string)
+    _process_node(doc, canvas_object, path, classname)
+
+
+def get_object_from_xml(filename_or_string, classname, path = []):
+    doc = _get_doc(filename_or_string)
+    return _process_node(doc, None, path, classname)
+    

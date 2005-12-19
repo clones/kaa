@@ -28,10 +28,15 @@ class Text(Object):
             o = canvas.get_evas().object_text_add()
             self._wrap(o)
 
+    #def _compute_pos(self, pos, child_asking):
+    #    pos = super(Text, self)._compute_pos(pos, child_asking)
+    #    return pos
+
+
     def _get_actual_size(self, child_asking = None):
-        return self._o.geometry_get()[1]
         metrics = self._o.metrics_get()
-        return metrics["horiz_advance"], metrics["max_ascent"]
+        #print "TEXT SIZE", self, self._o.geometry_get()[1], metrics
+        return metrics["horiz_advance"] - metrics["inset"], metrics["max_ascent"] + metrics["max_descent"]
 
     def _sync_property_font(self):
         old_size = self._o.geometry_get()[1]
@@ -49,9 +54,9 @@ class Text(Object):
             #print "[TEXT REFLOW]: text change", old_size, new_size
             self._request_reflow("size", old_size, new_size)
 
-    #def _sync_property_size(self):
+    def _sync_property_size(self):
         # FIXME: if size specified for text, clip to size.
-    #    return True
+        return True
 
     def _compute_size(self, size, child_asking, extents = None):
         # Currently text cannot scale or clip; computed size is always 
@@ -114,7 +119,7 @@ class Text(Object):
             return self._o.horiz_advance_get()
         elif metric == "vert_advance":
             return self._o.vert_advance_get()
-        elif metric == "insert":
+        elif metric == "inset":
             return self._o.inset_get()
 
     def get_metrics(self):

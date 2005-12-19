@@ -38,6 +38,10 @@ class Canvas(Container):
         return "<canvas.%s size=%s>" % (clsname, self["size"])
 
 
+    def _update_debug_rectangle(self):
+        # Don't draw debug rectangle for canvases
+        return
+
     def _sync_property_fontpath(self):
         self.get_evas().fontpath = self["fontpath"]
 
@@ -130,7 +134,7 @@ class Canvas(Container):
             fp.remove(path)
             self["fontpath"] = fp
 
-    def from_xml(self, filename = None, string = None, path = []):
-        xml.create_canvas_tree(self, filename, string, path)
+    def from_xml(self, filename_or_string, classname = None, path = []):
+        xml.create_canvas_tree(filename_or_string, self, classname, path)
 
 import xml
