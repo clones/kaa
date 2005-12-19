@@ -37,6 +37,7 @@ import logging
 import os
 import traceback
 from types import *
+import urllib
 
 # kaa imports
 from kaa.notifier import OneShotTimer, SocketDispatcher, Timer
@@ -45,6 +46,7 @@ from kaa.notifier import OneShotTimer, SocketDispatcher, Timer
 from _dvb import DvbDevice as _DvbDevice
 from ivtv_tuner import IVTV
 from fdsplitter import FDSplitter
+from v4l_frequencies import get_frequency
 
 # get logging object
 log = logging.getLogger('record')
@@ -145,14 +147,13 @@ class DvbDevice(Device):
 
 
 
-
 class IVTVDevice(Device, IVTV):
     """
     Class for IVTV devices.
     I'm still contemplating weather to keep this object extending IVTV
     or to use a _device line DvbDevice.
     """
-    def __init__(self, device, norm, chanlist=None, card_input=4,
+    def __init__(self, device, norm, chanlist=None, channels=None, card_input=4,
                  custom_frequencies=None, resolution=None, aspect=None,
                  audio_bitmask=None, bframes=None, bitrate_mode=None,
                  bitrate=None, bitrate_peak=None, dnr_mode=None,
@@ -160,7 +161,7 @@ class IVTVDevice(Device, IVTV):
                  framerate=None, framespergop=None, gop_closure=1,
                  pulldown=None, stream_type=None):
 
-        IVTV.__init__(self, device, norm, chanlist, card_input,
+        IVTV.__init__(self, device, norm, chanlist, channels, card_input,
                       custom_frequencies, resolution, aspect,
                       audio_bitmask, bframes, bitrate_mode,
                       bitrate, bitrate_peak, dnr_mode, dnr_spatial,
@@ -243,5 +244,156 @@ class IVTVDevice(Device, IVTV):
 
         self.close()
         self.open()
+
+
+class URLDevice(Device):
+    class _URLChannel:
+        def __init__(self, name, id, bouquet, URL):
+            self.name    = name
+            self.id      = id
+            self.bouquet = bouquet
+            self.URL     = URL
+            self._object = None
+            self._fdsplitter = None
+
+        def get_fd(self):
+            if self._object:
+                return self._object.fileno()
+            else:
+                return -1
+
+        def connect(self):
+            self._object = urllib.urlopen(self.URL)
+
+        def start_recording(self, filter_chain):
+            # create FDSplitter if not existing
+            if self._fdsplitter == None:
+                self._fdsplitter = FDSplitter(self.get_fd())
+
+            return self._fdsplitter.add_filter_chain(filter_chain._create())
+
+        def stop_recording(self, chain_id):
+            self._fdsplitter.remove_filter_chain(chain_id)
+            self._fdsplitter = None
+            self._object.close()
+            self._object = None
+
+        def __str__(self):
+            s = '%s:%s:%s:%s (fd=%d)' % (self.name, self.id, self.bouquet,
+                                         self.URL, self.get_fd())
+            return s
+
+
+    def __init__(self, channels):
+        """
+        channels can be a list of channel entries or the path to
+        a channels.conf file
+        """
+        self.bouquets_dict = {}
+        self.channels = {}
+        self.recordings = {}
+        self.recording_id = 0
+        self.recid2chainid = {}
+
+        if type(channels) == ListType:
+            self.parse_channels(channels)
+        elif os.path.exists(channels):
+            self.load_channels(channels)
+
+
+    def get_bouquet_list(self):
+        """
+        Return bouquets as a list
+        """
+        bl = []
+        for b in self.bouquets_dict.values():
+            bl.append([])
+            for c in b.values():
+                bl[-1].append(c.id)
+
+        return bl
+
+
+    def load_channels(self, channels_conf):
+        channels = []
+
+        try:
+            cfile = open(channels_conf, 'r')
+        except Exception, e:
+            log.error('failed to read channels.conf (%s): %s' % (channels, e))
+            return
+
+        for line in cfile.readlines():
+            good = line.split('#', 1)[0].rstrip('\n')
+            if good.count(':') < 3: continue
+            channels.append(good) 
+
+        cfile.close()
+
+        self.parse_channels(channels)
+
+
+    def parse_channels(self, channels):
+        if type(channels) is not ListType:
+            log.error('Error parsing channels: not a list')
+            return False
+
+        for chan in channels:
+            log.debug('  %s' % chan)
+            c = chan.split(':', 3)
+            uc = self._URLChannel(c[0], c[1], c[2], c[3])
+            self._add_channel(uc)
+            
+
+    def _add_channel(self, channel):
+        self.channels[channel.id] = channel
+
+        b = self.bouquets_dict.get(channel.bouquet)
+        if type(b) is not DictType:
+            self.bouquets_dict[channel.bouquet] = {}
+
+        self.bouquets_dict[channel.bouquet][channel.id] = channel
+
+
+    def start_recording(self, channel, filter_chain):
+        log.debug('start recording channel %s' % channel)
+
+        # lookup the channel object
+        c = self.channels[channel]
+
+        # establish a connection for the stream
+        try:
+            c.connect()
+        except:
+            log.error('problem making connection for channel %s' % c.id)
+            return -1
+
+        log.debug(c)
+
+        self.recording_id += 1
+        chain_id = c.start_recording(filter_chain)
+        self.recid2chainid[self.recording_id] = chain_id
+
+        self.recordings[self.recording_id] = c
+
+        return self.recording_id
+
+
+    def stop_recording(self, id):
+        log.debug('stop recording %s' % id)
+
+        # remove filter chain
+        if not self.recid2chainid.has_key(id):
+            log.error('recid %d not found' % id)
+            return None
+
+        # stop the stream
+        self.recordings.get(id).stop_recording(self.recid2chainid[id])
+
+        # remove from recordings
+        del self.recordings[id]
+
+        # remove id from map
+        del self.recid2chainid[id]
 
 
