@@ -329,6 +329,11 @@ class Guide(object):
         if len(episode) > 255: episode = episode[:255]
         if len(description) > 4095: episode = episode[:4095]
 
+        title = Unicode(title.replace("'", "''"))
+        subtitle = Unicode(subtitle.replace("'", "''"))
+        description = Unicode(description.replace("'", "''"))
+        episode = Unicode(episode.replace("'", "''"))
+
         # get possible overlapping programs
         query = "select * from programs where channel_id='%s' " % channel_id +\
                 "and start>%s and start<%s" % (start, stop)
@@ -355,15 +360,15 @@ class Guide(object):
                 # that we should update
                 if old[SUBTITLE] != subtitle:
                     query = "update programs set subtitle='%s' where id=%d"
-                    self.db.execute(query % (subtitle.replace("'", "''"), old[ID]))
+                    self.db.execute(query % (subtitle, old[ID]))
                     self.db.commit()
                 if old[DESCRIPTION] != description:
                     query = "update programs set description='%s' where id=%d"
-                    self.db.execute(query % (description.replace("'", "''"), old[ID]))
+                    self.db.execute(query % (description, old[ID]))
                     self.db.commit()
                 if old[EPISODE] != episode:
                     query = "update programs set episode='%s' where id=%d"
-                    self.db.execute(query % (episode.replace("'", "''"), old[ID]))
+                    self.db.execute(query % (episode, old[ID]))
                     self.db.commit()
                 return
 
@@ -390,10 +395,6 @@ class Guide(object):
         # If we got this far all we need to do now is insert a new
         # program row.
         #
-        title = title.replace("'", "''")
-        subtitle = subtitle.replace("'", "''")
-        description = description.replace("'", "''")
-        episode = episode.replace("'", "''")
 
         query = "insert into programs (channel_id, title, start, stop, "\
                 "subtitle, episode, description)" \
