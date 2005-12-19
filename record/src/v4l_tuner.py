@@ -140,8 +140,20 @@ def pack_dict(frm, var, d):
         l.append(d[v])
     return struct.pack(frm, *l)
     
+
 class V4L(object):
-    def __init__(self, device, norm, chanlist=None, card_input=1, 
+    class _V4LChannel:
+        def __init__(self, tunerid, name, frequency):
+            self.tunerid   = tunerid
+            self.name      = name
+            self.frequency = frequency
+
+        def __str__(self):
+            s = '%s:%s:%s' % (self.tunerid, self.name, self.frequency)
+            return s
+
+
+    def __init__(self, device, norm, chanlist=None, channels=None, card_input=1, 
                  custom_frequencies=None):
         """
         """
@@ -160,6 +172,15 @@ class V4L(object):
                 self.chanlist = 'unknown'
             else:
                 self.chanlist = chanlist
+
+        # Keep a dict of the channels we care about.
+        self.channels = {}
+
+        if channels:
+            if type(channels) == ListType:
+                self.parse_channels(channels)
+            elif os.path.exists(channels):
+                self.load_channels(channels)
 
         if not type(norm) is StringType or norm.upper() not in NORMS.keys():
             log.error('bad norm "%s", using NTSC as default' % norm)
@@ -192,6 +213,70 @@ class V4L(object):
         # XXX TODO: make a good way of setting the capture resolution
         # self.setfmt(int(width), int(height))
     
+
+    def load_channels(self, channels_conf):
+        channels = []
+
+        try:
+            cfile = open(channels_conf, 'r')
+        except Exception, e:
+            log.error('failed to read channels.conf (%s): %s' % (channels, e))
+            return
+
+        for line in cfile.readlines():
+            good = line.split('#', 1)[0].rstrip('\n')
+            if len(good.strip()) == 0: continue
+            channels.append(good)
+
+        cfile.close()
+
+        self.parse_channels(channels)
+
+
+    def parse_channels(self, channels):
+        if type(channels) is not ListType:
+            log.error('Error parsing channels: not a list')
+            return False
+
+        for channel in channels:
+            c = channel.split(':', 2)
+
+            # first field: tunerid
+            tunerid = c[0]
+
+            if len(c) > 1:
+                # second field: name
+                name = c[1]
+            else:
+                name = 'undefined'
+
+            if len(c) > 2:
+                # third field: frequency
+                frequency = c[2]
+            else:
+                # no frequency specified, look it up
+                frequency = get_frequency(tunerid, self.chanlist)
+
+            if frequency == 0:
+                log.error('no frequency for %s, either specify in config or check your chanlist' % tunerid)
+                continue
+
+            chan = self._V4LChannel(tunerid, name, frequency) 
+            log.info('adding channel: %s' % chan)
+            self.channels[chan.tunerid] = chan
+
+
+    def get_bouquet_list(self):
+        """
+        Return bouquets as a list
+        """
+        bl = []
+        for c in self.channels.values():
+            bl.append([])
+            bl[-1].append(c.tunerid)
+
+        return bl
+
 
     def open(self):
         self.devfd = os.open(self.device, os.O_RDONLY | os.O_NONBLOCK)
