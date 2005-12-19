@@ -32,4 +32,5 @@
 from filter import *
 from device import DvbDevice
 from device import IVTVDevice
+from device import URLDevice
 from recording import Recording
