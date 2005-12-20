@@ -154,16 +154,14 @@ class IVTVDevice(Device, IVTV):
     or to use a _device line DvbDevice.
     """
     def __init__(self, device, norm, chanlist=None, channels=None, card_input=4,
-                 custom_frequencies=None, resolution=None, aspect=None,
-                 audio_bitmask=None, bframes=None, bitrate_mode=None,
-                 bitrate=None, bitrate_peak=None, dnr_mode=None,
+                 resolution=None, aspect=None, audio_bitmask=None, bframes=None,
+                 bitrate_mode=None, bitrate=None, bitrate_peak=None, dnr_mode=None,
                  dnr_spatial=None, dnr_temporal=None, dnr_type=None,
                  framerate=None, framespergop=None, gop_closure=1,
                  pulldown=None, stream_type=None):
 
         IVTV.__init__(self, device, norm, chanlist, channels, card_input,
-                      custom_frequencies, resolution, aspect,
-                      audio_bitmask, bframes, bitrate_mode,
+                      resolution, aspect, audio_bitmask, bframes, bitrate_mode,
                       bitrate, bitrate_peak, dnr_mode, dnr_spatial,
                       dnr_temporal, dnr_type, framerate, framespergop,
                       gop_closure, pulldown, stream_type)

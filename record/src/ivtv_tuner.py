@@ -84,9 +84,8 @@ IVTV_IOC_S_MSP_MATRIX = IOW('@', 210, MSP_MATRIX_ST)
 class IVTV(V4L):
 
     def __init__(self, device, norm, chanlist=None, channels=None, card_input=None,
-                 custom_frequencies=None, resolution=None, aspect=None,
-                 audio_bitmask=None, bframes=None, bitrate_mode=None,
-                 bitrate=None, bitrate_peak=None, dnr_mode=None,
+                 resolution=None, aspect=None, audio_bitmask=None, bframes=None, 
+                 bitrate_mode=None, bitrate=None, bitrate_peak=None, dnr_mode=None,
                  dnr_spatial=None, dnr_temporal=None, dnr_type=None, framerate=None,
                  framespergop=None, gop_closure=None, pulldown=None, stream_type=None):
         """
@@ -112,7 +111,7 @@ class IVTV(V4L):
             self.pulldown = 0
             self.stream_type = 14
         """
-        V4L.__init__(self, device, norm, chanlist, channels, card_input, custom_frequencies)
+        V4L.__init__(self, device, norm, chanlist, channels, card_input)
 
         self.resolution = resolution
         self.aspect = aspect

@@ -153,18 +153,16 @@ class V4L(object):
             return s
 
 
-    def __init__(self, device, norm, chanlist=None, channels=None, card_input=1, 
-                 custom_frequencies=None):
+    def __init__(self, device, norm, chanlist=None, channels=None, card_input=1):
         """
         """
         self.device = device
         self.card_input = card_input
 
         if not chanlist:
-            if not custom_frequencies:
-                log.error('no chanlist or custom_frequencies supplied')
-                log.error('you must specify at least one to tune channels')
-                self.chanlist = 'unknown'
+            # TODO: this will be removed, we have channels.conf now
+            log.error('no chanlist supplied')
+            self.chanlist = 'unknown'
             
         else:
             if not chanlist in CHANLIST.keys():
@@ -187,11 +185,6 @@ class V4L(object):
             self.norm = 'NTSC'
         else:
             self.norm = norm.upper()
-
-        if not type(custom_frequencies) == DictType:
-            self.custom_frequencies = {}
-        else:
-            self.custom_frequencies = custom_frequencies
 
         self.devfd = -1
         self.open()
@@ -303,12 +296,7 @@ class V4L(object):
 
 
     def setchannel(self, channel):
-        freq = self.custom_frequencies.get(channel)
-
-        if freq:
-            log.debug('using custom frequency %d for channel %s' % (freq, channel)) 
-        else:
-            freq = get_frequency(channel, self.chanlist)
+        freq = get_frequency(channel, self.chanlist)
 
         log.debug('setting channel to %s (%d)' % (channel, freq))
 
