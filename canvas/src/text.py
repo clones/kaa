@@ -88,6 +88,10 @@ class Text(Object):
 
     def _get_actual_size(self, child_asking = None):
         if self._o.type_get() == "image":
+            if self._font:
+                metrics = self._font.get_text_size(self["text"])
+                return metrics[0] + 2, metrics[1]
+
             return self._o.geometry_get()[1]
 
         metrics = self._o.metrics_get()
