@@ -18,6 +18,7 @@ class Container(Object):
         super(Container, self).__init__()
         self["size"] = ("auto", "auto")
         self._debug_rect = None
+        self._last_reflow_size = None
 
     def __str__(self):
         s = "<canvas.%s size=%s nchildren=%d>" % \
@@ -72,9 +73,14 @@ class Container(Object):
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
         #print "[CONTAINER REFLOW]", self, child_asking, what_changed, old, new
-        # TODO: only need force sync size/clip if our size has changed due to
-        # child resize/move.  (Need to remember previous actual size for this.)
-        # size = self._get_actual_size()
+        size = self._get_actual_size()
+        size_changed = size != self._last_reflow_size
+        self._last_reflow_size = size
+
+        # Only need to reflow if our size has changed.
+        if not size_changed:
+            return False
+
         self._force_sync_property("size", update_children = False)
         self._force_sync_property("clip", update_children = False)
         if type(self["pos"][0]) != int or type(self["pos"][1]) != int:
@@ -97,6 +103,7 @@ class Container(Object):
         if self._parent:
             self._parent._request_reflow(child_asking = self)
 
+        return True
 
     def _request_expand(self, child_asking):
         pass

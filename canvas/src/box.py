@@ -12,13 +12,20 @@ class Box(Container):
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
         #print "[BOX REFLOW]", self, child_asking, what_changed, old, new
-        super(Box, self)._request_reflow(what_changed, old, new, child_asking)
+        if not super(Box, self)._request_reflow(what_changed, old, new, child_asking):
+            # Box._request_reflow will return False if our size hasn't 
+            # changed, in which case we don't need to respond to this reflow
+            # request.
+            return False
+
         if what_changed == "size" and child_asking and old and old[self._dimension] == new[self._dimension]:
-            return
+            return True
 
         if self.get_canvas():
             self._force_sync_property("pos")
             self._calculate_child_offsets()
+
+        return True
 
     def _request_expand(self, child_asking):
         self._request_reflow()
@@ -78,34 +85,50 @@ class Box(Container):
 
     def _get_extents(self, child_asking = None):
         size = list(super(Box, self)._get_extents(child_asking))
-        #print "[EXTENTS]: ", self, child_asking
-        if child_asking:
-            min_dim = 0
-            n_expanded = n_not_expanded = 0
-            for child in self._children:
-                if child["expand"] == True:
-                    n_expanded += 1
-                    #continue
-                    
-                if child == child_asking:
-                    continue
-                child_size = child._get_minimum_size()
-                min_dim += child_size[self._dimension]
-                if type(child["pos"][self._dimension]) == int:
-                    min_dim += child["pos"][self._dimension]
+        if not child_asking:
+            return size
 
-            available = size[self._dimension] - min_dim
-            min_required = child_asking._get_minimum_size()[self._dimension]
-            if n_expanded > 0:
-                if not child_asking["expand"]:
-                    size[self._dimension] = child_asking._get_minimum_size()[self._dimension]
-                else:
-                    # FIXME: could end up offering an extent less than min
-                    # size; should borrow space from another expanded child 
-                    # if possible.
-                    size[self._dimension] = max(min_required, available / n_expanded)
-            else:
-                size[self._dimension] = max(min_required, available)
+        #print "[EXTENTS]: ", self, child_asking, size
+        minimal_size = 0
+        size_requested = 0
+        n_expanded = 0
+        sizes = {}
+        for child in self._children:
+            min_child_size = list(child._get_minimum_size())
+            req_child_size = list(child._compute_size(child["size"], None, size))
+            if type(child["pos"][self._dimension]) == int:
+                min_child_size[self._dimension] += child["pos"][self._dimension]
+                req_child_size[self._dimension] += child["pos"][self._dimension]
+
+            sizes[child] = (min_child_size, req_child_size)
+
+            if child["expand"] == True:
+                n_expanded += 1
+                continue
+
+            if child == child_asking:
+                continue
+
+            minimal_size += min(min_child_size[self._dimension], req_child_size[self._dimension])
+            size_requested += req_child_size[self._dimension]
+
+
+        if n_expanded == 0:
+            # No children are expanded.
+            if size_requested <= size[self._dimension]:
+                # We have enough size to accommodate them.
+                return size
+            # FIXME: children asking for more size than is available, need to
+            # handle this.  For now, just let them use what they want.
+            return size
+
+        if not child_asking["expand"]:
+            # FIXME: child could be asking for too much size here as well.
+            return size
+        else:
+            available = size[self._dimension] - size_requested
+            # Split available size among number of expanded children.
+            size[self._dimension] = available / n_expanded
 
         #print "< extents", self, child_asking, size
         return size

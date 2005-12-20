@@ -52,7 +52,7 @@ class Text(Object):
             self._wrap(o)
 
 
-    def _render_text_to_image(self):
+    def _render_text_to_image(self, force = True):
         if not self._font:
             return
 
@@ -70,6 +70,9 @@ class Text(Object):
 
         assert(w > 0 and h > 0)
         if self._img and (w, h) == self._img.size:
+            if not force:
+                return
+
             i = self._img
             i.clear()
             self._dirty_cached_value("size")
@@ -97,7 +100,7 @@ class Text(Object):
 
     def _get_actual_size(self, child_asking = None):
         if self._o.type_get() == "image":
-            if self._font:
+            if not self._img and self._font:
                 metrics = self._font.get_text_size(self["text"])
                 return metrics[0] + 2, metrics[1]
 
@@ -143,13 +146,15 @@ class Text(Object):
     def _sync_property_clip(self):
         # We do our own clipping, no need to create the clip object.
         if self._o.type_get() == "image":
-            self._render_text_to_image()
+            self._render_text_to_image(force = False)
 
         return True
 
 
     def _sync_property_size(self):
-        return True
+        if self._o.type_get() == "image":
+            # Rerender text image to new size.
+            self._render_text_to_image(force = False)
 
 
     def _compute_size(self, size, child_asking, extents = None):

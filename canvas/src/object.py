@@ -416,11 +416,15 @@ class Object(object):
 
     def _sync_property_pos(self):
         abs_pos = self._get_relative_values("pos")
+        old_pos = self._o.geometry_get()[0]
         self._o.move(abs_pos)
         if self._clip_object:
             clip_pos = self._get_computed_clip()[0]
             abs_clip_pos = map(lambda x,y: x+y, clip_pos, abs_pos)
             self._clip_object.move(clip_pos)
+        new_pos = self._o.geometry_get()[0]
+        if old_pos != new_pos:
+            self._request_reflow("pos", old_pos, new_pos)
 
     def _sync_property_visible(self):
         self._o.visible_set(self._get_relative_values("visible"))
