@@ -55,6 +55,16 @@ def _create_object_from_node(node, parent, path):
     elif node.name == "movie":
         o = kaa.canvas.Movie()
 
+    elif node.name == "textblock":
+        lines = []
+        child = node.children
+        # There's probably a more elegant way to do this with libxml2,
+        # but I'm far too lazy to actually RTFM.
+        while child:
+            lines.append(str(child))
+            child = child.next
+        o = kaa.canvas.TextBlock("".join(lines))
+
     else:
         raise ValueError, "Unknown canvas object '%s'" % node.name
 
@@ -142,7 +152,7 @@ def _process_node(node, parent, path, clsname):
             obj = _create_object_from_node(child, parent, path)
             assert(obj)
 
-        if child.children:
+        if child.children and not isinstance(obj, (kaa.canvas.Text, kaa.canvas.TextBlock)):
             c = clsname
             if obj:
                 c = None

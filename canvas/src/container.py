@@ -8,7 +8,7 @@ from rectangle import *
 from text import *
 import random
 
-DEBUG = 0
+DEBUG = 1
 
 class Container(Object):
 
@@ -37,7 +37,7 @@ class Container(Object):
         abs_pos = self._get_relative_values("pos")
         self._debug_rect.resize(computed_size)
         self._debug_rect.move(abs_pos)
-        self._debug_rect.layer_set(self._get_relative_values("layer"))
+        self._debug_rect.layer_set(self._get_relative_values("layer")+1)
 
 
     def _canvased(self, canvas):
