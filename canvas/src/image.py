@@ -250,7 +250,7 @@ class Image(Object):
 
         if not self["image"]:
             # No existing Imlib2 image, so we need to make one.
-            if self._loaded:
+            if (self["filename"] and not self._loaded) or (not self["filename"] and self._o):
                 # The evas object already exists, so create a new Imlib2 image
                 # from the evas data and tell evas to use that buffer for the
                 # image instead.

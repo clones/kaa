@@ -44,8 +44,7 @@ class PlayerOSDCanvas(BufferCanvas):
 
 
     def _set_property_color(self, color):
-        if None in color:
-            color = tuple(map(lambda x, y: (x,y)[x==None], color, self["color"]))
+        color = self._parse_color(color)
         r, g, b, a = color
         # vf_overlay does not support color filters, only alpha.
         assert(r == g == b == 255)

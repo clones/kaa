@@ -3,9 +3,7 @@ __all__ = ["create_canvas_tree", "get_object_from_xml"]
 import libxml2
 import kaa.canvas
 import os
-
-# XXX !!! WARNING !!!  It is not safe to parse untrusted xml files with this
-# code.  (Shameless use of eval())
+import re
 
 def _get_full_path(filename, path):
     if filename[0] == "/":
@@ -33,12 +31,14 @@ def _create_object_from_node(node, parent, path):
         if node.hasProp("file"):
             o.set_image(_get_full_path(node.prop("file"), path))
         if node.hasProp("border"):
-            border = eval(node.prop("border"))
+            border = [ int(x) for x in node.prop("border").split() ]
+            assert(len(border) == 4)
             o.set_border(*border)
 
     elif node.name == "text" and not node.isText():
         o = kaa.canvas.Text()
-        o.set_text(node.content)
+        text = re.sub("\s+|\n", " ", node.content).strip()
+        o.set_text(text)
         if node.hasProp("font"):
             o.set_font(font = node.prop("font"))
         if node.hasProp("size"):
@@ -94,8 +94,11 @@ def _create_object_from_node(node, parent, path):
             o.set_expand(expand)
 
     if node.hasProp("color"):
-        color = tuple(node["color"])
-        o.set_color(*color)
+        color = node.prop("color")
+        if color[0] == "#":
+            o.set_color(color)
+        else:
+            o.set_color(*tuple(color))
     if node.hasProp("alpha"):
         o.set_color(a = int(node.prop("alpha")))
     if node.hasProp("name"):
@@ -106,7 +109,16 @@ def _create_object_from_node(node, parent, path):
             if parent.get_name():
                 name = "%s.%s" % (parent.get_name(), name)
         o.set_name(name)
-            
+         
+    if node.hasProp("clip"):   
+        clip = node.prop("clip")
+        if clip == "auto":
+            o.clip("auto")
+        else:
+            clip = clip.split()
+            assert(len(clip) == 4)
+            o.clip(clip[:2], clip[2:])
+
     if node.hasProp("layer"):
         o.set_layer(int(node.prop("layer")))
 

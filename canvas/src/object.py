@@ -145,10 +145,7 @@ class Object(object):
             if "%" in size[index]:
                 if not extents:
                     extents = self._get_extents()
-                def calc_percent(match):
-                    p = int(match.group(1)[:-1]) / 100.0 * extents[index]
-                    return str(int(p))
-                size[index] = int(_percent_re.sub(calc_percent, size[index]))
+                size[index] = int(int(size[index].replace("%", "")) / 100.0 * extents[index])
             elif size[index] == "auto":
                 size[index] = self._get_actual_size()[index]
 
@@ -226,6 +223,35 @@ class Object(object):
         self._set_cached_value("computed_pos", child_asking, pos)
         return pos
 
+    def _compute_clip(self, clip, child_asking):
+        if clip == "auto":
+            pos = 0, 0
+            size = "100%", "100%"
+        else:
+            pos, size = clip
+
+        def resolve(val):
+            if type(val) == str and val.replace("-", "").isdigit():
+                return int(val)
+            return val
+        pos = [ resolve(x) for x in pos ]
+        size = [ resolve(x) for x in size ]
+
+        computed_size = self._get_computed_size()
+        for i in range(2):
+            if type(size[i]) == int and size[i] <= 0:
+                size[i] = computed_size[i] + size[i]
+            elif type(size[i]) == str and "%" in size[i]:
+                size[i] = int(int(size[i].replace("%", "")) / 100.0 * computed_size[i])
+
+        return pos, size
+
+
+    def _get_computed_clip(self, child_asking = None):
+        # TODO: cache
+        clip = self._compute_clip(self["clip"], child_asking)
+        return clip
+
 
     def _get_cached_value(self, prop, child):
         if child:
@@ -294,17 +320,39 @@ class Object(object):
 
         self._set_cached_value(prop, child_asking, v)
         return v
-        
-            
 
+    def _parse_color(self, color):
+        """
+        Parse a color that is either a 3- or 4-tuple of integers, or an
+        html-style spec like #rrggbb or #rrggbbaa.
+        """
+        if isinstance(color, basestring):
+            assert(color[0] == "#" and len(color) in (7, 9))
+            r = int(color[1:3], 16)
+            g = int(color[3:5], 16)
+            b = int(color[5:7], 16)
+            if len(color) > 7:
+                a = int(color[7:9], 16)
+            else:
+                a = self["color"][3]
+            color = r, g, b, a
+        elif type(color) in (list, tuple):
+            # If color element is None, use the existing value.
+            if None in color:
+                color = tuple(map(lambda x, y: (x,y)[x==None], color, self["color"]))
+
+            # Clamp color values to 0-255 range.
+            color = [ max(0, min(255, c)) for c in color ]
+            r,g,b,a = color
+            assert(type(r) == type(g) == type(b) == type(a) == int)
+        else:
+            raise ValueError, "Color must be 3- or 4-tuple, or #rrggbbaa"
+
+        return color
+
+    
     def _set_property_color(self, color):
-        # If color element is None, use the existing value.
-        if None in color:
-            color = tuple(map(lambda x, y: (x,y)[x==None], color, self["color"]))
-        # Clamp color values to 0-255 range.
-        color = [ max(0, min(255, c)) for c in color ]
-        r,g,b,a = color
-        assert(type(r) == type(g) == type(b) == type(a) == int)
+        color = self._parse_color(color)
         if color != self["color"]:
             self._set_property_generic("color", color)
         return True
@@ -312,8 +360,9 @@ class Object(object):
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
         #print "[OBJECT REFLOW]", self, child_asking, what_changed, old, new
         if what_changed == "size":
-            # TODO: only need to resync pos if pos depends on size.
+            # TODO: only need to resync pos/clip if they depend on size.
             self._force_sync_property("pos")
+            self._force_sync_property("clip")
             # Size changed, so cached value is dirty.
             self._dirty_cached_value("size")
         if self._parent:
@@ -343,7 +392,7 @@ class Object(object):
         # Prevents reentry.
         #self._changed_since_sync = {}
         for prop in self._supported_sync_properties:
-            if prop not in self._changed_since_sync:# or (not pre_render and prop in ("pos", "size", "clip")):
+            if prop not in self._changed_since_sync:
                 continue
             if self._can_sync_property(prop) != False and \
                getattr(self, "_sync_property_" + prop)() != False:
@@ -367,7 +416,8 @@ class Object(object):
         abs_pos = self._get_relative_values("pos")
         self._o.move(abs_pos)
         if self._clip_object:
-            clip_pos = map(lambda x,y: x+y, self["clip"][0], abs_pos)
+            clip_pos = self._get_computed_clip()[0]
+            abs_clip_pos = map(lambda x,y: x+y, clip_pos, abs_pos)
             self._clip_object.move(clip_pos)
 
     def _sync_property_visible(self):
@@ -393,20 +443,23 @@ class Object(object):
     def _sync_property_clip(self):
         if self["clip"] == None:
             if self._clip_object:
+                # Object has been unclipped.
                 if isinstance(sef._o, evas.Object):
                     self._o.clip_unset()
                 self._clip_object = None
                 self._apply_parent_clip()
             return
 
+        # Object is clipped.
         if not self._clip_object:
+            # Create new clip rectangle.
             self._clip_object = self.get_evas().object_rectangle_add()
             self._clip_object.show()
             self._apply_parent_clip()
             if isinstance(self._o, evas.Object):
                 self._o.clip_set(self._clip_object)
 
-        clip_pos, clip_size = self["clip"]
+        clip_pos, clip_size = self._get_computed_clip()
         clip_pos = map(lambda x,y: x+y, clip_pos, self._get_relative_values("pos"))
 
         self._clip_object.move(clip_pos)
@@ -483,7 +536,11 @@ class Object(object):
         return self["pos"]
 
     def set_color(self, r = None, g = None, b = None, a = None):
-        self["color"] = (r, g, b, a)
+        # Handle the form set_color("#rrggbbaa")
+        if isinstance(r, basestring):
+            self["color"] = r
+        else:
+            self["color"] = (r, g, b, a)
 
     def get_color(self):
         return self["color"]
@@ -523,13 +580,15 @@ class Object(object):
     def get_computed_pos(self):
         return self._get_computed_pos()
 
-    def clip(self, pos = (0, 0), size = (-1, -1)):
-        assert( -1 not in size )
-        self["clip"] = (pos, size)
+    def clip(self, pos = (0, 0), size = (0, 0)):
+        if pos == "auto":
+            self["clip"] = "auto"
+        else:
+            assert( 0 not in size )
+            self["clip"] = (pos, size)
 
     def unclip(self):
         self["clip"] = None
-
 
     def get_name(self):
         return self["name"]

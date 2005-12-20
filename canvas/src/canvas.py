@@ -6,6 +6,10 @@ import kaa
 from kaa.base import weakref
 from kaa.notifier import Signal
 from container import *
+try:
+    from kaa import imlib2
+except ImportError:
+    imlib2 = None
 
 class Canvas(Container):
 
@@ -44,6 +48,9 @@ class Canvas(Container):
 
     def _sync_property_fontpath(self):
         self.get_evas().fontpath = self["fontpath"]
+        if imlib2:
+            for path in self["fontpath"]:
+                imlib2.add_font_path(path)
 
 
     def _sync_property_size(self):

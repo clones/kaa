@@ -1,6 +1,19 @@
 __all__ = [ 'Text' ]
 
 from object import *
+import time
+try:
+    from kaa import imlib2
+    # Construct a 26x100 gradient (white to black) image used for fading
+    # out text that has clip set.
+    line = ""
+    for b in range(255, 0, -10) + [0]:
+        line += chr(b)*4
+    _text_fadeout_mask = imlib2.new((len(line)/4, 100), line * 100)
+    del line
+except ImportError:
+    imlib2 = None
+
 
 class Text(Object):
 
@@ -10,6 +23,10 @@ class Text(Object):
         for prop in ("size", "pos", "clip"):
             self._supported_sync_properties.remove(prop)
         self._supported_sync_properties += [ "font", "text", "size", "pos", "clip" ]
+    
+        # Clip to parent by default.
+        self["clip"] = "auto"
+        self._font = self._img = None
 
         self.set_font(font, size)
         if text != None:
@@ -25,38 +42,102 @@ class Text(Object):
         super(Text, self)._canvased(canvas)
 
         if not self._o and canvas.get_evas():
-            o = canvas.get_evas().object_text_add()
+            # Use Imlib2 to draw Text objects for now, since Evas doesn't
+            # support gradients as clip objects, we use Imlib2 and draw_mask
+            # to kluge that effect.
+            o = canvas.get_evas().object_image_add()
+            #o = canvas.get_evas().object_text_add()
             self._wrap(o)
 
-    #def _compute_pos(self, pos, child_asking):
-    #    pos = super(Text, self)._compute_pos(pos, child_asking)
-    #    return pos
 
+    def _render_text_to_image(self):
+        t0=time.time()
+        metrics = self._font.get_text_size(self["text"])
+        w, h = metrics[0] + 2, metrics[1]
+
+        draw_mask = False
+        if self["clip"] == "auto":
+            extents = self._get_extents()
+            if extents[0] < w:
+                w = extents[0]
+                draw_mask = True
+            h = min(h, extents[1])
+
+        if self._img and (w, h) == self._img.size:
+            i = self._img
+            i.clear()
+            self._dirty_cached_value("size")
+        else:
+            i = imlib2.new((w, h))
+
+        i.draw_text((0, 0), self["text"] + " ", (255,255,255,255), self._font)
+        if draw_mask:
+            for y in range(0, i.size[1], _text_fadeout_mask.size[1]):
+                i.draw_mask(_text_fadeout_mask, (i.size[0] -  _text_fadeout_mask.size[0], y))
+
+        self._o.size_set(i.size)
+        self._o.data_set(i.get_raw_data(), copy = False)
+        self._o.resize(i.size)
+        self._o.fill_set((0, 0), i.size)
+        self._o.alpha_set(True)
+        self._o.pixels_dirty_set()
+        self._img = i
+
+        #print "RENDER", self["text"], i.size, time.time()-t0, self._get_extents(), self._get_actual_size()
+        
 
     def _get_actual_size(self, child_asking = None):
+        if self._o.type_get() == "image":
+            return self._o.geometry_get()[1]
+
         metrics = self._o.metrics_get()
-        #print "TEXT SIZE", self, self._o.geometry_get()[1], metrics
         return metrics["horiz_advance"] - metrics["inset"], metrics["max_ascent"] + metrics["max_descent"]
 
     def _sync_property_font(self):
         old_size = self._o.geometry_get()[1]
-        self._o.font_set(*self["font"])
+
+        if self._o.type_get() == "image":
+            # Imlib2 uses points instead of pixels?
+            self._font = imlib2.load_font(self["font"][0], self["font"][1] * 0.80)
+            self._render_text_to_image()
+        else:
+            self._o.font_set(*self["font"])
+
         new_size = self._o.geometry_get()[1]
         if old_size != new_size:
             #print "[TEXT REFLOW]: font change", old_size, new_size
             self._request_reflow("size", old_size, new_size)
 
+
     def _sync_property_text(self):
         old_size = self._o.geometry_get()[1]
-        self._o.text_set(self["text"])
+        if self._o.type_get() == "image":
+            self._render_text_to_image()
+        else:
+            self._o.text_set(self["text"])
         new_size = self._o.geometry_get()[1]
         if old_size != new_size:
             #print "[TEXT REFLOW]: text change", old_size, new_size
             self._request_reflow("size", old_size, new_size)
 
-    def _sync_property_size(self):
-        # FIXME: if size specified for text, clip to size.
+
+    def _set_property_clip(self, clip):
+        if clip not in ("auto", None):
+            raise ValueError, "Text objects only support clip 'auto' or None"
+        self._set_property_generic("clip", clip)
+
+
+    def _sync_property_clip(self):
+        # We do our own clipping, no need to create the clip object.
+        if self._o.type_get() == "image":
+            self._render_text_to_image()
+
         return True
+
+
+    def _sync_property_size(self):
+        return True
+
 
     def _compute_size(self, size, child_asking, extents = None):
         # Currently text cannot scale or clip; computed size is always 
@@ -64,8 +145,10 @@ class Text(Object):
         size = ("auto", "auto")
         return super(Text, self)._compute_size(size, child_asking, extents)
 
+
     def _get_minimum_size(self):
         return self._get_actual_size()
+
 
     #
     # Public API

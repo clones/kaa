@@ -68,11 +68,12 @@ class Container(Object):
 
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
-        # TODO: only need to sync children whose pos or size are relative to
-        # our size.
+        # TODO: only need to sync children whose pos or size or clip are
+        # relative to our size.
         #print "[CONTAINER REFLOW]", self, child_asking, what_changed, old, new
         self._force_sync_property("pos", exclude = child_asking)
         self._force_sync_property("size", exclude = child_asking)
+        self._force_sync_property("clip", exclude = child_asking)
         # TODO: if our size changes as a result, need to propage reflow to parent
         if self._parent:
             self._parent._request_reflow(child_asking = self)

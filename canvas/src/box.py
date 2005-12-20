@@ -12,8 +12,6 @@ class Box(Container):
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
         #print "[BOX REFLOW]", self, child_asking, what_changed, old, new
-        #self._force_sync_property("pos")#, exclude = child_asking)
-        #self._force_sync_property("size")#, exclude = child_asking)
         super(Box, self)._request_reflow(what_changed, old, new, child_asking)
         if what_changed == "size" and old and old[self._dimension] == new[self._dimension]:
             return
@@ -86,7 +84,7 @@ class Box(Container):
             for child in self._children:
                 if child["expand"] == True:
                     n_expanded += 1
-                    continue
+                    #continue
                     
                 if child == child_asking:
                     continue
@@ -101,7 +99,8 @@ class Box(Container):
                     size[self._dimension] = child_asking._get_minimum_size()[self._dimension]
                 else:
                     # FIXME: could end up offering an extent less than min
-                    # size; should borrow space from another child if possible.
+                    # size; should borrow space from another expanded child 
+                    # if possible.
                     size[self._dimension] = available / n_expanded
             else:
                 size[self._dimension] = available
