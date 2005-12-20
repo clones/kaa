@@ -394,14 +394,16 @@ class Object(object):
         for prop in self._supported_sync_properties:
             if prop not in self._changed_since_sync:
                 continue
+            #print "  - prop", prop
             if self._can_sync_property(prop) != False and \
                getattr(self, "_sync_property_" + prop)() != False:
                 needs_render = True
-                del self._changed_since_sync[prop]
+                # Prop could have been removed if sync handler called
+                # _remove_sync_property()
+                if prop in self._changed_since_sync:
+                    del self._changed_since_sync[prop]
+
                 updated_properties.append(prop)
-                #del changed[prop]
-                #if prop in self._changed_since_sync:
-                #    del self._changed_since_sync[prop]
 
         if self._changed_since_sync:
             # There are still some properties that haven't been synced.
@@ -433,6 +435,7 @@ class Object(object):
         s = self._get_computed_size()
         # TODO: if s > size extents, add clip.
         old_size = self._o.geometry_get()[1]
+        #print "[RESIZE OBJECT]", self, s
         self._o.resize(s)
         if s != old_size:
             self._request_reflow("size", old_size, s)
@@ -506,6 +509,10 @@ class Object(object):
         if prop in self:
             self._changed_since_sync[prop] = True
         self._queue_render()
+
+    def _remove_sync_property(self, prop):
+        if prop in self._changed_since_sync:
+            del self._changed_since_sync[prop]
 
 
     def _assert_canvased(self):
@@ -584,7 +591,6 @@ class Object(object):
         if pos == "auto":
             self["clip"] = "auto"
         else:
-            assert( 0 not in size )
             self["clip"] = (pos, size)
 
     def unclip(self):

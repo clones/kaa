@@ -13,10 +13,11 @@ class Box(Container):
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
         #print "[BOX REFLOW]", self, child_asking, what_changed, old, new
         super(Box, self)._request_reflow(what_changed, old, new, child_asking)
-        if what_changed == "size" and old and old[self._dimension] == new[self._dimension]:
+        if what_changed == "size" and child_asking and old and old[self._dimension] == new[self._dimension]:
             return
 
         if self.get_canvas():
+            self._force_sync_property("pos")
             self._calculate_child_offsets()
 
     def _request_expand(self, child_asking):
@@ -54,7 +55,7 @@ class Box(Container):
             else:
                 self._child_offsets.append(self._child_offsets[i-1] + self._child_sizes[i-1])
 
-        # print " < ", self, self._child_sizes, " - offsets", self._child_offsets
+        #print " < ", self, self._child_sizes, " - offsets", self._child_offsets
         
 
     def _get_computed_pos(self, child_asking = None):
@@ -94,6 +95,7 @@ class Box(Container):
                     min_dim += child["pos"][self._dimension]
 
             available = size[self._dimension] - min_dim
+            min_required = child_asking._get_minimum_size()[self._dimension]
             if n_expanded > 0:
                 if not child_asking["expand"]:
                     size[self._dimension] = child_asking._get_minimum_size()[self._dimension]
@@ -101,9 +103,9 @@ class Box(Container):
                     # FIXME: could end up offering an extent less than min
                     # size; should borrow space from another expanded child 
                     # if possible.
-                    size[self._dimension] = available / n_expanded
+                    size[self._dimension] = max(min_required, available / n_expanded)
             else:
-                size[self._dimension] = available
+                size[self._dimension] = max(min_required, available)
 
         #print "< extents", self, child_asking, size
         return size

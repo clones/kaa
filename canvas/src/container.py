@@ -8,7 +8,7 @@ from rectangle import *
 from text import *
 import random
 
-DEBUG = 1
+DEBUG = 0
 
 class Container(Object):
 
@@ -39,6 +39,8 @@ class Container(Object):
         self._debug_rect.move(abs_pos)
         self._debug_rect.layer_set(self._get_relative_values("layer")+1)
 
+        print "DRAW DEBUG RECT", self, abs_pos, computed_size
+
 
     def _canvased(self, canvas):
         super(Container, self)._canvased(canvas)
@@ -59,22 +61,39 @@ class Container(Object):
             #self._queue_children_sync_property(key)
             self._force_sync_property(key)
 
-    def _force_sync_property(self, prop, exclude = None):
+    def _force_sync_property(self, prop, exclude = None, update_children = True):
         super(Container, self)._force_sync_property(prop)
-        for child in self._children:
-            if exclude != child:
-                child._force_sync_property(prop)
+        if update_children:
+            for child in self._children:
+                if exclude != child:
+                    child._force_sync_property(prop)
         self._queue_render()
 
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
-        # TODO: only need to sync children whose pos or size or clip are
-        # relative to our size.
         #print "[CONTAINER REFLOW]", self, child_asking, what_changed, old, new
-        self._force_sync_property("pos", exclude = child_asking)
-        self._force_sync_property("size", exclude = child_asking)
-        self._force_sync_property("clip", exclude = child_asking)
-        # TODO: if our size changes as a result, need to propage reflow to parent
+        # TODO: only need force sync size/clip if our size has changed due to
+        # child resize/move.  (Need to remember previous actual size for this.)
+        # size = self._get_actual_size()
+        self._force_sync_property("size", update_children = False)
+        self._force_sync_property("clip", update_children = False)
+        if type(self["pos"][0]) != int or type(self["pos"][1]) != int:
+            # Our position depends on our size, so we need to resync our
+            # pos.
+            self._force_sync_property("pos", update_children = False)
+
+        for child in self._children:
+            if type(child["pos"][0]) == str or type(child["pos"][1]) == str:
+                # Child position depends on our size, so update its pos.
+                child._force_sync_property("pos")
+
+            if (type(child["size"][0]) == str and child["size"][0] != "auto") or \
+               (type(child["size"][1]) == str and child["size"][1] != "auto"):
+                # Child's size depends on our size, so update its size.
+                child._force_sync_property("size")
+                child._force_sync_property("clip")
+
+        # TODO: only if our size changes as a result, need to propage reflow to parent
         if self._parent:
             self._parent._request_reflow(child_asking = self)
 

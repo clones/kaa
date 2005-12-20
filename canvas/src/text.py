@@ -4,10 +4,10 @@ from object import *
 import time
 try:
     from kaa import imlib2
-    # Construct a 26x100 gradient (white to black) image used for fading
+    # Construct a gradient (white to black) image used for fading
     # out text that has clip set.
     line = ""
-    for b in range(255, 0, -10) + [0]:
+    for b in range(255, 0, -7) + [0]:
         line += chr(b)*4
     _text_fadeout_mask = imlib2.new((len(line)/4, 100), line * 100)
     del line
@@ -22,7 +22,7 @@ class Text(Object):
 
         for prop in ("size", "pos", "clip"):
             self._supported_sync_properties.remove(prop)
-        self._supported_sync_properties += [ "font", "text", "size", "pos", "clip" ]
+        self._supported_sync_properties += [ "clip", "font", "text", "size", "pos" ]
     
         # Clip to parent by default.
         self["clip"] = "auto"
@@ -45,12 +45,17 @@ class Text(Object):
             # Use Imlib2 to draw Text objects for now, since Evas doesn't
             # support gradients as clip objects, we use Imlib2 and draw_mask
             # to kluge that effect.
-            o = canvas.get_evas().object_image_add()
-            #o = canvas.get_evas().object_text_add()
+            if imlib2:
+                o = canvas.get_evas().object_image_add()
+            else:
+                o = canvas.get_evas().object_text_add()
             self._wrap(o)
 
 
     def _render_text_to_image(self):
+        if not self._font:
+            return
+
         t0=time.time()
         metrics = self._font.get_text_size(self["text"])
         w, h = metrics[0] + 2, metrics[1]
@@ -63,6 +68,7 @@ class Text(Object):
                 draw_mask = True
             h = min(h, extents[1])
 
+        assert(w > 0 and h > 0)
         if self._img and (w, h) == self._img.size:
             i = self._img
             i.clear()
@@ -83,6 +89,9 @@ class Text(Object):
         self._o.pixels_dirty_set()
         self._img = i
 
+        self._remove_sync_property("font")
+        self._remove_sync_property("text")
+        self._remove_sync_property("clip")
         #print "RENDER", self["text"], i.size, time.time()-t0, self._get_extents(), self._get_actual_size()
         
 
@@ -102,7 +111,7 @@ class Text(Object):
 
         if self._o.type_get() == "image":
             # Imlib2 uses points instead of pixels?
-            self._font = imlib2.load_font(self["font"][0], self["font"][1] * 0.80)
+            self._font = imlib2.load_font(self["font"][0], self["font"][1] * 0.79)
             self._render_text_to_image()
         else:
             self._o.font_set(*self["font"])

@@ -2,6 +2,7 @@ __all__ = [ 'TextBlock' ]
 
 from object import *
 import libxml2, re
+from box import *
 
 class TextBlock(Object):
 
@@ -11,21 +12,25 @@ class TextBlock(Object):
         for prop in ("size", "pos", "clip"):
             self._supported_sync_properties.remove(prop)
         self._supported_sync_properties += [ "markup", "size", "pos", "clip" ]
+        #self._supported_sync_properties = [ "markup" ] + self._supported_sync_properties
     
         self._template_vars = {}
         self._processed_markup = None
 
-        # Default size will grow to fill its container.
-        #self["size"] = ("100%", "100%")
+        # Default size is its extents
+        self["size"] = ("100%", "100%")
         if markup != None:
             self.set_markup(markup)
 
     def __str__(self):
         clsname = self.__class__.__name__
-        markup = self["markup"]
+        markup = self["markup"].replace("\n", "").strip()
         if len(markup) > 30:
             markup = markup[:30] + "..."
         return "<canvas.%s markup=\"%s\">" % (clsname, markup)
+
+    def _adopted(self, parent):
+        super(TextBlock, self)._adopted(parent)
 
     def _canvased(self, canvas):
         super(TextBlock, self)._canvased(canvas)
@@ -48,7 +53,12 @@ class TextBlock(Object):
                 return self._template_vars[key]
             return "@%s@" % key
         markup = re.sub("@(\w+)@", replace_variables, self._processed_markup)
+
+        old_size = self._o.size_formatted_get()
         self._o.markup_set(markup)
+        new_size = self._o.size_formatted_get()
+        if new_size != old_size:
+            self._request_reflow("size", old_size, new_size)
 
 
     def _sync_property_clip(self):
@@ -59,6 +69,20 @@ class TextBlock(Object):
         return self._o.size_formatted_get()
 
     def _compute_size(self, size, child_asking, extents = None):
+        size = list(size)
+        for i in range(2):
+            if size[i] == "100%":
+                # If height is 100% and we're a child of a VBox, then
+                # adjust the dimension to "auto" instead so that the 
+                # textblock uses only as much height as necessary.  Same
+                # idea for width and HBox.  TODO: it's ugly to name 
+                # HBox/VBox explicitly here; find a better way (implement
+                # sizing policy attribute or something).
+                if isinstance(self._parent, VBox) and i == 1:
+                    size[i] = "auto"
+                elif isinstance(self._parent, HBox) and i == 0:
+                    size[i] = "auto"
+
         if "auto" in size:
             size = list(size)
             formatted_size = self._o.size_formatted_get()
@@ -89,7 +113,7 @@ class TextBlock(Object):
                              "align", "valign"):
                     if child.hasProp(prop):
                         vars[prop] = child.prop(prop)
-                        text.append("%s=%s" % (prop, vars[prop]))
+                        text.append("%s=%s " % (prop, vars[prop]))
 
                 text.append(">")
                 end_tag = "</>"
@@ -110,8 +134,9 @@ class TextBlock(Object):
         return text
 
     def _set_property_markup(self, markup):
-        self._processed_markup = self._parse_markup_xml("<style>%s</style>" % markup)
+        self._processed_markup = self._parse_markup_xml("<style>%s</style>" % markup.strip())
         self._set_property_generic("markup", markup)
+
 
     #
     # Public API
