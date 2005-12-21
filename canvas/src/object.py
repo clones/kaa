@@ -239,10 +239,10 @@ class Object(object):
 
         computed_size = self._get_computed_size()
         for i in range(2):
+            if type(size[i]) == str and "%" in size[i]:
+                size[i] = int(int(size[i].replace("%", "")) / 100.0 * computed_size[i])
             if type(size[i]) == int and size[i] <= 0:
                 size[i] = computed_size[i] + size[i]
-            elif type(size[i]) == str and "%" in size[i]:
-                size[i] = int(int(size[i].replace("%", "")) / 100.0 * computed_size[i])
 
         return pos, size
 
@@ -430,7 +430,11 @@ class Object(object):
         self._o.visible_set(self._get_relative_values("visible"))
     
     def _sync_property_layer(self):
-        self._o.layer_set(self._get_relative_values("layer"))
+        old_layer = self._o.layer_get()
+        new_layer = self._get_relative_values("layer")
+        if old_layer != new_layer:
+            self._o.layer_set(new_layer)
+            self._request_reflow("layer", old_layer, new_layer)
 
     def _sync_property_color(self):
         self._o.color_set(*self._get_relative_values("color"))
@@ -599,6 +603,12 @@ class Object(object):
 
     def unclip(self):
         self["clip"] = None
+
+    def get_clip(self):
+        return self["clip"]
+
+    def set_clip(self, pos = (0, 0), size = (0, 0)):
+        return self.clip(pos, size)
 
     def get_name(self):
         return self["name"]

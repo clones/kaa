@@ -103,7 +103,9 @@ class Canvas(Container):
         return self["size"]
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
-        # Direct children of the root object (canvas) can't affect each other.
+        if what_changed == "layer":
+            return super(Canvas, self)._request_reflow(what_changed, old, new, child_asking)
+        # Size of direct children of the root object (canvas) can't affect each other.
         return
 
     

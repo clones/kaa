@@ -68,7 +68,9 @@ class Text(Object):
                 draw_mask = True
             h = min(h, extents[1])
 
-        assert(w > 0 and h > 0)
+        if w <= 0 or h <= 0:
+            return
+
         if self._img and (w, h) == self._img.size:
             if not force:
                 return

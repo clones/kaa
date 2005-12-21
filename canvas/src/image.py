@@ -88,22 +88,6 @@ class Image(Object):
         return tuple(size)
 
 
-
-    def set_image(self, image_or_file):
-        del self["filename"], self["image"], self["pixels"]
-        if type(image_or_file) in types.StringTypes:
-            self["filename"] = image_or_file
-        elif imlib2 and type(image_or_file) == imlib2.Image:
-            self["image"] = image_or_file
-            # Use weakref connection because we already hold a ref to the
-            # image: avoids cycle.
-            self["image"].signals["changed"].connect_weak(self.set_dirty)
-        else:
-            raise ValueError, "Unsupported argument to set_image: " + repr(type(image_or_file))
-
-        self._loaded = False
-
-
     def _canvased(self, canvas):
         super(Image, self)._canvased(canvas)
 
@@ -230,6 +214,22 @@ class Image(Object):
     #
     # Public API
     #
+
+
+    def set_image(self, image_or_file):
+        del self["filename"], self["image"], self["pixels"]
+        if type(image_or_file) in types.StringTypes:
+            self["filename"] = image_or_file
+        elif imlib2 and type(image_or_file) == imlib2.Image:
+            self["image"] = image_or_file
+            # Use weakref connection because we already hold a ref to the
+            # image: avoids cycle.
+            self["image"].signals["changed"].connect_weak(self.set_dirty)
+        else:
+            raise ValueError, "Unsupported argument to set_image: " + repr(type(image_or_file))
+
+        self._loaded = False
+
 
     def set_dirty(self, dirty = True):
         self["dirty"] = dirty

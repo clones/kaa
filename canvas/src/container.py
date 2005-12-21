@@ -49,6 +49,14 @@ class Container(Object):
             child._canvased(canvas)
 
 
+    def _restack_children(self):
+        last_object = None
+        for child in self._children:
+            if child._o:
+                if last_object:
+                    child._o.stack_above(last_object)
+                last_object = child._o
+
     def _uncanvased(self):
         super(Container, self)._uncanvased()
         for child in self._children:
@@ -72,6 +80,11 @@ class Container(Object):
 
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
+        if what_changed == "layer":
+            self._restack_children()
+            return
+
+            
         #print "[CONTAINER REFLOW]", self, child_asking, what_changed, old, new
         size = self._get_actual_size()
         size_changed = size != self._last_reflow_size
