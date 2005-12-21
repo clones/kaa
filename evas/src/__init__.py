@@ -160,6 +160,18 @@ class Object(object):
             list.append(_wrap_evas_object(o))
         return list
 
+    def object_raise(self):
+        self._object.object_raise()
+
+    def object_lower(self):
+        self._object.object_lower()
+
+    def stack_above(self, above):
+        self._object.stack_above(above._object)
+
+    def stack_below(self, below):
+        self._object.stack_above(below._object)
+
 
 
 class Rectangle(Object):
@@ -279,6 +291,11 @@ class TextBlock(Object):
     def style_set(self, style):
         return self._object.textblock_style_set(style)
 
+    def size_formatted_get(self):
+        return self._object.textblock_size_formatted_get()
+
+    def size_native_get(self):
+        return self._object.textblock_size_native_get()
 
 
 class Text(Object):

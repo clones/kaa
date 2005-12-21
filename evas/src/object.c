@@ -330,6 +330,45 @@ Evas_Object_PyObject_clipees_get(Evas_Object_PyObject * self, PyObject * args)
     return list;
 }
 
+PyObject *
+Evas_Object_PyObject_raise(Evas_Object_PyObject * self, PyObject * args)
+{
+    evas_object_raise(self->object);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_lower(Evas_Object_PyObject * self, PyObject * args)
+{
+    evas_object_lower(self->object);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_stack_above(Evas_Object_PyObject * self, PyObject * args)
+{
+    Evas_Object_PyObject *above;
+
+    if (!PyArg_ParseTuple(args, "O!", &Evas_Object_PyObject_Type, &above))
+        return NULL;
+
+    evas_object_stack_above(self->object, above->object);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_stack_below(Evas_Object_PyObject * self, PyObject * args)
+{
+    Evas_Object_PyObject *below;
+
+    if (!PyArg_ParseTuple(args, "O!", &Evas_Object_PyObject_Type, &below))
+        return NULL;
+
+    evas_object_stack_below(self->object, below->object);
+    return Py_INCREF(Py_None), Py_None;
+}
+
+
 /**************************************************************************
  * IMAGE objects
  **************************************************************************/
@@ -353,9 +392,13 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"clip_get", (PyCFunction) Evas_Object_PyObject_clip_get, METH_VARARGS},
     {"clip_unset", (PyCFunction) Evas_Object_PyObject_clip_unset, METH_VARARGS},
     {"clipees_get", (PyCFunction) Evas_Object_PyObject_clipees_get, METH_VARARGS},
+
+    // stacking
+    {"object_raise", (PyCFunction) Evas_Object_PyObject_raise, METH_VARARGS},
+    {"object_lower", (PyCFunction) Evas_Object_PyObject_lower, METH_VARARGS},
+    {"stack_above", (PyCFunction) Evas_Object_PyObject_stack_above, METH_VARARGS},
+    {"stack_below", (PyCFunction) Evas_Object_PyObject_stack_below, METH_VARARGS},
 /* TODO:
-	raise / lower
-	stack_*
 	above_get / below_get / bottom_get / top_get
 	clip_*
 	focus_*
@@ -410,6 +453,8 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"textblock_style_set", (PyCFunction) Evas_Object_PyObject_textblock_style_set, METH_VARARGS},
     {"textblock_markup_set", (PyCFunction) Evas_Object_PyObject_textblock_markup_set, METH_VARARGS},
     {"textblock_markup_get", (PyCFunction) Evas_Object_PyObject_textblock_markup_get, METH_VARARGS},
+    {"textblock_size_formatted_get", (PyCFunction) Evas_Object_PyObject_textblock_size_formatted_get, METH_VARARGS},
+    {"textblock_size_native_get", (PyCFunction) Evas_Object_PyObject_textblock_size_native_get, METH_VARARGS},
 
     // gradient.c
     {"gradient_color_add", (PyCFunction) Evas_Object_PyObject_gradient_color_add, METH_VARARGS},
