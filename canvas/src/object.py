@@ -240,7 +240,7 @@ class Object(object):
         elif vcenter != None:
             computed_pos.append(calc_value(vcenter, parent_size[1]) - computed_size[1] / 2)
 
-        print "[CALC POS]", child_asking, pos, computed_pos
+        #print "[CALC POS]", self, computed_size, parent_size, pos, computed_pos
         return computed_pos
 
 
@@ -505,7 +505,7 @@ class Object(object):
         s = self._get_computed_size()
         # TODO: if s > size extents, add clip.
         old_size = self._o.geometry_get()[1]
-        print "[RESIZE OBJECT]", self, s
+        #print "[RESIZE OBJECT]", self, s
         self._o.resize(s)
         if s != old_size:
             self._request_reflow("size", old_size, s)

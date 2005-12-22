@@ -302,10 +302,6 @@ class Container(Object):
                    hcenter = kwargs.get("hcenter"), vcenter = kwargs.get("vcenter"))
         child.resize(kwargs.get("width"), kwargs.get("height"))
 
-        #if "pos" in kwargs:
-        #    child.move(kwargs["pos"])
-
-
         if "visible" in kwargs:
             child.set_visible(kwargs["visible"])
         if "color" in kwargs:
@@ -322,10 +318,13 @@ class Container(Object):
                 child.clip(*kwargs["clip"])
             else:  # "auto" or None
                 child.clip(kwargs["clip"])
-        if ("font" in kwargs or "size" in kwargs) and isinstance(child, Text):
-            child.set_font(kwargs.get("font"), kwargs.get("size"))
         if "expand" in kwargs:
             child.expand(kwargs["expand"])
+
+        if ("font" in kwargs or "size" in kwargs) and isinstance(child, Text):
+            child.set_font(kwargs.get("font"), kwargs.get("size"))
+        if "aspect" in kwargs and isinstance(child, Image):
+            child.set_aspect(kwargs["aspect"])
 
         self._children.append(child)
         child._adopted(self)

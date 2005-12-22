@@ -102,6 +102,7 @@ class Movie(Image):
         }
 
         self["detached"] = False
+        self["aspect"] = "preserve"
         self.set_has_alpha(False)
         # Holds the number of frames received at the current frame size
         self._frame_output_size_count = 0
@@ -236,7 +237,7 @@ class Movie(Image):
             self._player.set_frame_output_mode(vo = False)
 
  
-    def _get_aspect_ratio(self):
+    def _get_aspect_ratio2(self):
         if not self._player:
             return 1.0
 
@@ -298,16 +299,16 @@ class Movie(Image):
 
 
     def _new_frame(self, width, height, aspect, ptr, format):
-    
         if self["color"][3] <= 0 or not self["visible"]:
             return
 
         if self._aspect != aspect:
             # If our aspect ratio has changed, our size has probably changed,
             # so cause a reflow.
+            #self._force_sync_property("size")
+            #self._request_reflow(what_changed = "size")
+            self.set_aspect(aspect)
             self._aspect = aspect
-            self._force_sync_property("size")
-            self._request_reflow(what_changed = "size")
 
         if format == "yv12":
             self.import_pixels(ptr, width, height, evas.PIXEL_FORMAT_YUV420P_601)
@@ -341,7 +342,7 @@ class Movie(Image):
 
     def _stream_changed(self):
         d_width, d_height = self._get_computed_size()
-        if (d_width, d_height) != self.get_size():
+        if (d_width, d_height) != self._o.size_get():
             self._o.resize((d_width, d_height))
             self._o.fill_set((0, 0), (d_width, d_height))
 

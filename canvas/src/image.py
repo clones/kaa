@@ -87,7 +87,6 @@ class Image(Object):
         else:
             aspect = 0
 
-        print "COMPUTE ASPECT", self, size, aspect
         for index in range(2):
             # We can only keep aspect if the other dimension is known.
             if size[index] == -1 and type(size[1-index]) == int and size[1-index] != -1:
@@ -135,6 +134,7 @@ class Image(Object):
         if aspect not in ("preserve", "ignore") and type(aspect) not in (int, float):
             raise ValueError, "Aspect property must be 'preserve', 'ignore', or numeric."
 
+        self._force_sync_property("size")
         self._set_property_generic("aspect", aspect)
 
 
