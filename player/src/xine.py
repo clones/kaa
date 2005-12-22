@@ -450,6 +450,7 @@ class XinePlayer(MediaPlayer):
             raise ValueError, "Unsupported mrl scheme '%s'" % scheme
 
         self._mrl = "%s:%s" % (scheme, path)
+        # Open with kaa.metadata
         self.signals["open"].emit()
 
 

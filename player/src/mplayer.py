@@ -571,8 +571,7 @@ class MPlayer(MediaPlayer):
 
 
 def get_capabilities():
-    capabilities = [CAP_VIDEO, CAP_AUDIO, CAP_VARIABLE_SPEED, CAP_DVD,
-                   CAP_VARIABLE_SPEED]
+    capabilities = [CAP_VIDEO, CAP_AUDIO, CAP_DVD, CAP_VARIABLE_SPEED]
     info = _get_mplayer_info(find_mplayer_path())
     if "overlay" in info["video_filters"]:
         capabilities.append(CAP_OSD)

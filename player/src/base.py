@@ -5,13 +5,13 @@ CAP_NONE  = 0
 CAP_VIDEO = 1
 CAP_AUDIO = 2
 CAP_OSD   = 3
-CAP_CANVAS = 3
 CAP_DVD = 4
 CAP_DVD_MENUS = 5
 CAP_DYNAMIC_FILTERS = 6
 CAP_VARIABLE_SPEED = 7
 CAP_VISUALIZATION = 8
 CAP_DEINTERLACE = 9
+CAP_CANVAS = 10
 
 STATE_NOT_RUNNING = 0
 STATE_IDLE = 1
@@ -81,9 +81,9 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
         if _players[player_id]["loaded"]:
             continue
 
-        caps, schemes, exts = _players[player_id]["callback"]()
+        player_caps, schemes, exts = _players[player_id]["callback"]()
         _players[player_id].update({
-            "caps": caps,
+            "caps": player_caps,
             "schemes": schemes,
             # Prefer this player for these extensions.  (It's not a list of
             # all supported extensions.)
@@ -126,7 +126,7 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
                CAP_DVD_MENUS not in player["caps"]:
                 # If the mrl is dvd, make sure we prefer the player that
                 # supports CAP_DVD_MENUS
-               continue
+                continue
             if mrl and choice and ext in choice["extensions"] and \
                ext not in player["extensions"]:
                 continue
@@ -167,9 +167,6 @@ class MediaPlayer(object):
         self._state = STATE_NOT_RUNNING
         self._window = None
         self._size = None
-
-    def __del__(self):
-        print "@@@@@@@@@@@@@@@@@@ Death of", self
 
 
     def get_capabilities(self):
