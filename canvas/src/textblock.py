@@ -18,7 +18,7 @@ class TextBlock(Object):
         self._processed_markup = None
 
         # Default size is its extents
-        self["size"] = ("100%", "100%")
+        self["size"] = ("100%", "auto")
         if markup != None:
             self.set_markup(markup)
 
@@ -101,12 +101,23 @@ class TextBlock(Object):
     def _process_markup_node(self, node, vars = {}):
         child = node.children
         text = []
+        if "__last_content" not in vars:
+            vars["__last_content"] = ""
+        if "__needs_space" not in vars:
+            vars["__needs_space"] = False
+
         while child:
             end_tag = None
-            if child.isText() and not child.children:
-                text.append(child.content)
+            if child.isText() and not child.children and child.content.strip():
+                if vars["__needs_space"] and (child.content.startswith(" ") or vars["__last_content"].endswith(" ")):
+                    text.append(" ")
+                text.append(child.content.strip())
+                vars["__last_content"] = child.content
+                vars["__needs_space"] = True
             elif child.name == "br":
                 text.append("<br>")
+                vars["__needs_space"] = False
+                vars["__last_content"] = ""
             elif child.name == "format":
                 text.append("<")
                 for prop in ("color", "font", "style", "font_size", "shadow_color", "outline_color",

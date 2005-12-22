@@ -24,11 +24,15 @@ class Image(Object):
         # property as well.  And since clip depends on pos, same thing. :)
         for prop in ("size", "pos", "clip"):
             self._supported_sync_properties.remove(prop)
-        self._supported_sync_properties += ["image", "filename", "pixels", "data", "dirty", 
-                                            "size", "pos", "clip", "has_alpha", "border"]
+
+        self._supported_sync_properties += [
+            "image", "filename", "pixels", "data", "dirty", "size", "pos", 
+            "clip", "has_alpha", "border", "aspect"
+        ]
 
         self._loaded = False
         self["has_alpha"] = True
+        self["aspect"] = "ignore"
 
         if image_or_file:
             self.set_image(image_or_file)
@@ -76,10 +80,17 @@ class Image(Object):
         return self._apply_aspect_to_size(size)
 
     def _apply_aspect_to_size(self, size):
-        aspect = self._get_aspect_ratio()
+        if self["aspect"] == "preserve":
+            aspect = self._get_aspect_ratio()
+        elif self["aspect"] != "ignore":
+            aspect = self["aspect"]
+        else:
+            aspect = 0
+
+        print "COMPUTE ASPECT", self, size, aspect
         for index in range(2):
             # We can only keep aspect if the other dimension is known.
-            if size[index] == "aspect" and type(size[1-index]) == int:
+            if size[index] == -1 and type(size[1-index]) == int and size[1-index] != -1:
                 if index == 0:
                     size[index] = int(size[1] * aspect)
                 else:
@@ -116,6 +127,15 @@ class Image(Object):
     def _set_property_image(self, image):
         assert(imlib2 and type(image) == imlib2.Image)
         self._set_property_generic("image", image)
+
+    def _set_property_aspect(self, aspect):
+        if type(aspect) == str and aspect.replace(".", "").isdigit():
+            aspect = float(aspect)
+
+        if aspect not in ("preserve", "ignore") and type(aspect) not in (int, float):
+            raise ValueError, "Aspect property must be 'preserve', 'ignore', or numeric."
+
+        self._set_property_generic("aspect", aspect)
 
 
     def _sync_property_image(self):
@@ -174,8 +194,8 @@ class Image(Object):
         self._o.data_set(data, copy)
         self._loaded = True
 
-    def _sync_property_pos(self):
-        return super(Image, self)._sync_property_pos()
+    #def _sync_property_pos(self):
+    #    return super(Image, self)._sync_property_pos()
 
 
     def _sync_property_size(self):
@@ -202,6 +222,9 @@ class Image(Object):
     def _sync_property_border(self):
         self._o.border_set(*self["border"])
 
+    def _sync_property_aspect(self):
+        return True
+
     def _get_actual_size(self):
         if not self._loaded:
             # At this point we actually are loaded, but self._loaded hasn't
@@ -214,6 +237,18 @@ class Image(Object):
     #
     # Public API
     #
+
+    def resize(self, width = None, height = None):
+        if width != None and height != None and self["aspect"] != "ignore":
+            raise ValueError, "Can't set both width and height when aspect property is not 'ignore'"
+
+        if self["aspect"] != "ignore":
+            if width != None:
+                height = -1
+            elif height != None:
+                width = -1
+
+        super(Image, self).resize(width, height)
 
 
     def set_image(self, image_or_file):
@@ -285,3 +320,9 @@ class Image(Object):
 
     def get_border(self):
         return self["border"]
+
+    def set_aspect(self, aspect):
+        self["aspect"] = aspect
+
+    def get_aspect(self):
+        return self["aspect"]

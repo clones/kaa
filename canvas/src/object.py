@@ -25,7 +25,8 @@ class Object(object):
         self._o = self._canvas = self._parent = None
         self._clip_object = None
 
-        self["pos"] = (0, 0)
+        # Position tuple: left, top, right, bottom, hcenter, vcenter
+        self["pos"] = (0, 0, None, None, None, None)
         self["size"] = ("auto", "auto")
         self["color"] = (255, 255, 255, 255)
         self["visible"] = True
@@ -114,12 +115,6 @@ class Object(object):
         self._canvas = None
 
 
-    # Sizes: (expr, expr) where expr is: constant integer N, "N%", for images,
-    #        if N is 0: orig value, -1: keep aspect
-    # Pos: (expr, expr) where expr is constant integer N, "N%", variables:
-    #      width, height, and valid python expr, e.g. 50%-(width/2) which
-    #      means "center", also available: "top", "bottom"
-
     def _get_extents(self):
         if not self._parent:
             return 0, 0
@@ -134,6 +129,47 @@ class Object(object):
         if not self._o:
             return 0, 0
         return self._o.geometry_get()[1]
+
+    def _get_fixed_pos(self):
+        """
+        Returns the top left coordinates of the object's position only if
+        it is a fixed position, and not a relative position.  If the 
+        coordinate is relative (i.e. dependent on the parent size), then None
+        is returned.  Otherwise an integer is returned for that coordinate.
+        """
+        pos = [None, None]
+        # TODO: handle fixed coords for right/bottom/[vh]center
+        if type(self["pos"][0]) == int:
+            pos[0] = self["pos"][0]
+        if type(self["pos"][1]) == int:
+            pos[1] = self["pos"][1]
+
+        return pos
+
+    def _get_fixed_size(self, resolve_auto = True):
+        """
+        Returns the width and height of the object only if they are fixed
+        sizes, and not relative sizes.  If the dimension is relative (i.e.
+        dependent on the parent size), then None is returned.  Otherwise an
+        integer is returned for that dimension.  If the dimension is set to
+        "auto" and resolve_auto is True, the actual value will be returned,
+        otherwise "auto" will be returned.  (This is useful if the caller is
+        only interested whether or not the object's size is fixed, not exactly
+        what that fixed size is.)
+        """
+        size = [None, None]
+        if "auto" in self["size"]:
+            if resolve_auto:
+                actual_size = self._get_actual_size()
+            else:
+                actual_size = ("auto", "auto")
+        for i in range(2):
+            if self["size"][i] == "auto":
+                size[i] = actual_size[i]
+            elif type(self["size"][i]) == int:
+                size[i] = self["size"][i]
+
+        return size
 
                        
     def _compute_size(self, size, child_asking, extents = None):
@@ -175,37 +211,38 @@ class Object(object):
 
 
     def _compute_pos(self, pos, child_asking):
-        pos = list(pos)
-        computed_size = extents = None
-        for index in range(2):
-            if type(pos[index]) == int:
-                continue
+        computed_pos = []
+        left, top, right, bottom, hcenter, vcenter = pos
+        if None in pos[:2]:
+            computed_size = self._get_computed_size()
+            parent_size = self._parent._get_computed_size(child_asking = self)
+        elif type(left) == str or type(top) == str:
+            parent_size = self._parent._get_computed_size(child_asking = self)
+        else:
+            parent_size = [0, 0]  # dummy values
 
-            if pos[index] in ("bottom", "right", "center"):
-                if not extents:
-                    extents = self._parent._get_computed_size(child_asking = self)
-                    #print "        Container: %s" % str(extents), self, child_asking, self._parent
-                if not computed_size:
-                    computed_size = self._get_computed_size()
-                    #print "        Computed size: %s" % str(computed_size)
+        def calc_value(value, total):
+            if type(value) == int:
+                return value
+            return int(int(value.replace("%", "")) / 100.0 * total)
+        
+        if left != None:
+            computed_pos.append(calc_value(left, parent_size[0]))
+        elif right != None:
+            computed_pos.append(calc_value(right, parent_size[0]) - computed_size[0])
+        elif hcenter != None:
+            computed_pos.append(calc_value(hcenter, parent_size[0]) - computed_size[0] / 2)
+            
+        if top != None:
+            computed_pos.append(calc_value(top, parent_size[1]))
+        elif bottom != None:
+            computed_pos.append(calc_value(bottom, parent_size[1]) - computed_size[1])
+        elif vcenter != None:
+            computed_pos.append(calc_value(vcenter, parent_size[1]) - computed_size[1] / 2)
 
-            if "%" in pos[index]:
-                if not extents:
-                    extents = self._parent._get_computed_size(child_asking = self)
-                def calc_percent(match):
-                    p = int(match.group(1)[:-1]) / 100.0 * extents[index]
-                    return str(int(p))
-                pos[index] = int(_percent_re.sub(calc_percent, pos[index]))
-            elif pos[index] in ("top", "left"):
-                pos[index] = 0
-            elif pos[index] in ("bottom", "right"):
-                pos[index] = extents[index] - computed_size[index]
-            elif pos[index] == "center":
-                pos[index] = int((extents[index] - computed_size[index]) / 2.0)
-            else:
-                raise ValueError, "Unsupported position '%s'" % pos[index]
+        print "[CALC POS]", child_asking, pos, computed_pos
+        return computed_pos
 
-        return pos
 
     def _get_computed_pos(self, child_asking = None):
         pos = self._get_cached_value("computed_pos", child_asking)
@@ -213,7 +250,7 @@ class Object(object):
             return pos
 
         if type(self["pos"][0]) == type(self["pos"][1]) == int:
-            return self["pos"]
+            return self["pos"][0:2]
 
         #print "[POS]:", self
         #print "    for child", child_asking
@@ -221,6 +258,7 @@ class Object(object):
         pos = self._compute_pos(self["pos"], child_asking)
         #print "        Pos Result: %s" % str(pos)
         self._set_cached_value("computed_pos", child_asking, pos)
+        #print "Computed pos", self, pos
         return pos
 
     def _compute_clip(self, clip, child_asking):
@@ -234,6 +272,7 @@ class Object(object):
             if type(val) == str and val.replace("-", "").isdigit():
                 return int(val)
             return val
+
         pos = [ resolve(x) for x in pos ]
         size = [ resolve(x) for x in size ]
 
@@ -357,6 +396,29 @@ class Object(object):
             self._set_property_generic("color", color)
         return True
 
+    def _validate_relative_value(self, val):
+        """
+        For _set_property_pos and _set_property_size, ensures the parameter
+        is a valid value: either an integer, a percentage value, or "auto".
+        If it is a stringified integer, it will convert to int type.
+        """
+        if type(val) == str:
+            if val.replace("-", "").isdigit():
+                val = int(val)
+            elif not val.replace("%", "").isdigit() and val != "auto":
+                raise ValueError, "Invalid relative value '%s'" % val
+
+        return val
+
+    def _set_property_pos(self, pos):
+        pos = [ self._validate_relative_value(x) for x in pos ]
+        self._set_property_generic("pos", tuple(pos))
+
+    def _set_property_size(self, size):
+        size = [ self._validate_relative_value(x) for x in size ]
+        self._set_property_generic("size", tuple(size))
+
+
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
         #print "[OBJECT REFLOW]", self, child_asking, what_changed, old, new
         if what_changed == "size":
@@ -443,7 +505,7 @@ class Object(object):
         s = self._get_computed_size()
         # TODO: if s > size extents, add clip.
         old_size = self._o.geometry_get()[1]
-        #print "[RESIZE OBJECT]", self, s
+        print "[RESIZE OBJECT]", self, s
         self._o.resize(s)
         if s != old_size:
             self._request_reflow("size", old_size, s)
@@ -541,14 +603,74 @@ class Object(object):
         if self._canvas:
             return self._canvas.get_evas()
 
-    def move(self, (x, y)):
-        self["pos"] = (x, y)
+    #
+    # Position property methods
+    #
 
-    def set_pos(self, pos):
-        self.move(pos)
+    def move(self, left = None, top = None, right = None, bottom = None, hcenter = None, vcenter = None):
+        if len([x for x in (left, right, hcenter) if x != None]) > 1:
+            raise ValueError, "Only one of left, right, or hcenter may be specified."
+        if len([y for y in (top, bottom, vcenter) if y != None]) > 1:
+            raise ValueError, "Only one of top, bottom, or vcenter may be specified."
 
-    def get_pos(self):
-        return self["pos"]
+        if left == right == hcenter == None:
+            # No x position specified, so use old values.
+            left, right, hcenter = self["pos"][0::2]
+        if top == bottom == vcenter == None:
+            # No y position specified, so use old values.
+            top, bottom, vcenter = self["pos"][1::2]
+
+        self["pos"] = left, top, right, bottom, hcenter, vcenter
+
+
+    def get_computed_pos(self):
+        return self._get_computed_pos()
+
+    #
+    # Getters and setters for position pseudo-properties.
+    #
+
+
+    def set_left(self, left):
+        self.move(left = left)
+
+    def get_left(self):
+        return self["pos"][0]
+    
+    def set_top(self, top):
+        self.move(top = top)
+
+    def get_top(self):
+        return self["pos"][1]
+
+    def set_right(self, right):
+        self.move(right = right)
+
+    def get_right(self):
+        return self["pos"][2]
+
+    def set_bottom(self, bottom):
+        self.move(bottom = bottom)
+
+    def get_bottom(self):
+        return self["pos"][3]
+
+    def set_hcenter(self, hcenter):
+        self.move(hcenter = hcenter)
+
+    def get_hcenter(self):
+        return self["pos"][4]
+
+    def set_vcenter(self, vcenter):
+        self.move(vcenter = vcenter)
+
+    def get_vcenter(self):
+        return self["pos"][5]
+
+
+    #
+    # color property methods
+    #
 
     def set_color(self, r = None, g = None, b = None, a = None):
         # Handle the form set_color("#rrggbbaa")
@@ -559,6 +681,11 @@ class Object(object):
 
     def get_color(self):
         return self["color"]
+
+
+    #
+    # visible property methods
+    #
 
     def show(self):
         self.set_visible(True)
@@ -572,32 +699,52 @@ class Object(object):
     def get_visible(self):
         return self["visible"]
 
+
+    #
+    # layerproperty methods
+    #
+
     def set_layer(self, layer):
         self["layer"] = layer
 
     def get_layer(self):
         return self["layer"]
 
-    def resize(self, size):
-        assert(type(size) in (list, tuple) and len(size) == 2)
+
+    #
+    # size property methods
+    #
+
+    def resize(self, width = None, height = None):
+        size = list(self["size"])
+        assert(type(width) not in (list, tuple))
+        assert(type(height) not in (list, tuple))
+        if width != None:
+            size[0] = width
+        if height != None:
+            size[1] = height
+        
         self["size"] = size
 
-    def set_size(self, size):
-        assert(type(size) in (list, tuple) and len(size) == 2)
-        self.resize(size)
+    def set_width(self, width):
+        self.resize(width = width)
 
-    def get_size(self):
-        return self["size"]
+    def set_height(self, height):
+        self.resize(height = height)
 
     def get_computed_size(self):
         return self._get_computed_size()
 
-    def get_computed_pos(self):
-        return self._get_computed_pos()
+
+    #
+    # clip property methods
+    #
 
     def clip(self, pos = (0, 0), size = (0, 0)):
         if pos == "auto":
             self["clip"] = "auto"
+        elif pos == None:
+            self["clip"] = None
         else:
             self["clip"] = (pos, size)
 
@@ -610,11 +757,21 @@ class Object(object):
     def set_clip(self, pos = (0, 0), size = (0, 0)):
         return self.clip(pos, size)
 
+
+    #
+    # name property methods
+    #
+
     def get_name(self):
         return self["name"]
 
     def set_name(self, name):
         self["name"] = name
+
+
+    #
+    # expand property methods
+    #
 
     def set_expand(self, expand):
         self["expand"] = expand

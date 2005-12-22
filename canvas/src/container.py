@@ -96,18 +96,17 @@ class Container(Object):
 
         self._force_sync_property("size", update_children = False)
         self._force_sync_property("clip", update_children = False)
-        if type(self["pos"][0]) != int or type(self["pos"][1]) != int:
+        if None in self._get_fixed_pos():
             # Our position depends on our size, so we need to resync our
             # pos.
             self._force_sync_property("pos", update_children = False)
 
         for child in self._children:
-            if type(child["pos"][0]) == str or type(child["pos"][1]) == str:
+            if None in child._get_fixed_pos():
                 # Child position depends on our size, so update its pos.
                 child._force_sync_property("pos")
 
-            if (type(child["size"][0]) == str and child["size"][0] != "auto") or \
-               (type(child["size"][1]) == str and child["size"][1] != "auto"):
+            if None in child._get_fixed_size(resolve_auto = False):
                 # Child's size depends on our size, so update its size.
                 child._force_sync_property("size")
                 child._force_sync_property("clip")
@@ -196,7 +195,7 @@ class Container(Object):
         return True
 
     def _set_property_size(self, size):
-        self._set_property_generic("size", size)
+        super(Container, self)._set_property_size(size)
         # Position of children may also depend on our size, so recalculate
         # and sync positions of children.
         self._force_sync_property("pos")
@@ -219,11 +218,9 @@ class Container(Object):
         w, h = 0, 0
         for child in self._children:
             if child_asking:
-                pos = [0, 0]
-                if type(child["pos"][0]) == int:
-                    pos[0] = child["pos"][0]
-                if type(child["pos"][1]) == int:
-                    pos[1] = child["pos"][1]
+                pos = child._get_fixed_pos()
+                # Replace None values with 0 in fixed pos
+                pos = [ (x, 0)[x == None] for x in pos ]
             else:
                 pos = child._get_computed_pos()
 
@@ -241,11 +238,9 @@ class Container(Object):
 
         w, h = 0, 0
         for child in self._children:
-            pos = [0, 0]
-            if type(child["pos"][0]) == int:
-                pos[0] = child["pos"][0]
-            if type(child["pos"][1]) == int:
-                pos[1] = child["pos"][1]
+            pos = child._get_fixed_pos()
+            # Replace None values with 0 in fixed pos
+            pos = [ (x, 0)[x == None] for x in pos ]
 
             size = child._get_minimum_size()
             if pos[0] + size[0] > w:
@@ -302,20 +297,31 @@ class Container(Object):
         if child._parent:
             raise CanvasError, "Attempt to parent an adopted child."
 
-        if "pos" in kwargs:
-            child.move(kwargs["pos"])
+        child.move(left = kwargs.get("left"), top = kwargs.get("top"),
+                   right = kwargs.get("right"), bottom = kwargs.get("bottom"),
+                   hcenter = kwargs.get("hcenter"), vcenter = kwargs.get("vcenter"))
+        child.resize(kwargs.get("width"), kwargs.get("height"))
+
+        #if "pos" in kwargs:
+        #    child.move(kwargs["pos"])
+
+
         if "visible" in kwargs:
             child.set_visible(kwargs["visible"])
         if "color" in kwargs:
-            child.set_color(*kwargs["color"])
+            if type(kwargs["color"]) == str:  # html-style color spec
+                child.set_color(kwargs["color"])
+            else:
+                child.set_color(*kwargs["color"])
         if "name" in kwargs:
             child.set_name(kwargs["name"])
         if "layer" in kwargs:
             child.set_layer(kwargs["layer"])
         if "clip" in kwargs:
-            child.clip(*kwargs["clip"])
-        if "size" in kwargs and not isinstance(child, Text):
-            child.resize(kwargs["size"])
+            if type(kwargs["clip"]) in (tuple, list):
+                child.clip(*kwargs["clip"])
+            else:  # "auto" or None
+                child.clip(kwargs["clip"])
         if ("font" in kwargs or "size" in kwargs) and isinstance(child, Text):
             child.set_font(kwargs.get("font"), kwargs.get("size"))
         if "expand" in kwargs:

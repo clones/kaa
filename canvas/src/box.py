@@ -16,6 +16,10 @@ class Box(Container):
             # Box._request_reflow will return False if our size hasn't 
             # changed, in which case we don't need to respond to this reflow
             # request.
+
+            # FIXME: technically not true: if child A grows by 5 and child B
+            # shinks by 5, our size hasn't changed, but we do need to
+            # recalculate offsets.
             return False
 
         if what_changed == "size" and child_asking and old and old[self._dimension] == new[self._dimension]:
@@ -43,11 +47,12 @@ class Box(Container):
                 self._child_sizes.append(None)
                 n_expanded += 1
             else:
-                child_size = child.get_computed_size()[self._dimension]
+                child_size = child._get_computed_size()[self._dimension]
                 # Children with fixed coordinates adjust the size they occupy
                 # in the box.
-                if type(child["pos"][self._dimension]) == int:
-                    child_size += child["pos"][self._dimension]
+                child_pos = child._get_fixed_pos()[self._dimension]
+                if child_pos != None:
+                    child_size += child_pos
                 allocated_size += child_size
                 self._child_sizes.append(child_size)
 
@@ -96,9 +101,10 @@ class Box(Container):
         for child in self._children:
             min_child_size = list(child._get_minimum_size())
             req_child_size = list(child._compute_size(child["size"], None, size))
-            if type(child["pos"][self._dimension]) == int:
-                min_child_size[self._dimension] += child["pos"][self._dimension]
-                req_child_size[self._dimension] += child["pos"][self._dimension]
+            child_pos = child._get_fixed_pos()[self._dimension]
+            if child_pos != None:
+                min_child_size[self._dimension] += child_pos
+                req_child_size[self._dimension] += child_pos
 
             sizes[child] = (min_child_size, req_child_size)
 
@@ -140,10 +146,11 @@ class Box(Container):
             child_size = list(getattr(child, sizefunc)())
             # Children with fixed coordinates adjust the size they occupy
             # in the box.
-            if type(child["pos"][0]) == int:
-                child_size[0] += child["pos"][0]
-            if type(child["pos"][1]) == int:
-                child_size[1] += child["pos"][1]
+            child_pos = child._get_fixed_pos()
+            if child_pos[0] != None:
+                child_size[0] += child_pos[0]
+            if child_pos[1] != None:
+                child_size[1] += child_pos[1]
 
             size[self._dimension] += child_size[self._dimension]
             size[1 - self._dimension] = max(size[1 - self._dimension], child_size[1 - self._dimension])
