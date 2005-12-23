@@ -420,6 +420,7 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"image_smooth_scale_get", (PyCFunction) Evas_Object_PyObject_image_smooth_scale_get, METH_VARARGS},
     {"image_data_set", (PyCFunction) Evas_Object_PyObject_image_data_set, METH_VARARGS},
     {"image_data_get", (PyCFunction) Evas_Object_PyObject_image_data_get, METH_VARARGS},
+    {"image_data_update_add", (PyCFunction) Evas_Object_PyObject_image_data_update_add, METH_VARARGS},
     {"image_load_error_get", (PyCFunction) Evas_Object_PyObject_image_load_error_get, METH_VARARGS},
     {"image_reload", (PyCFunction) Evas_Object_PyObject_image_reload, METH_VARARGS},
     {"image_pixels_dirty_set", (PyCFunction) Evas_Object_PyObject_image_pixels_dirty_set, METH_VARARGS},

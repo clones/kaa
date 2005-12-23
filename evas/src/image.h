@@ -20,6 +20,7 @@ PyObject *Evas_Object_PyObject_image_smooth_scale_get(Evas_Object_PyObject *, Py
 
 PyObject *Evas_Object_PyObject_image_data_set(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_data_get(Evas_Object_PyObject *, PyObject *);
+PyObject *Evas_Object_PyObject_image_data_update_add(Evas_Object_PyObject *, PyObject *);
 
 PyObject *Evas_Object_PyObject_image_load_error_get(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_reload(Evas_Object_PyObject *, PyObject *);

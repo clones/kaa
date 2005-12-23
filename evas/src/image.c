@@ -236,6 +236,18 @@ Evas_Object_PyObject_image_data_get(Evas_Object_PyObject * self, PyObject * args
         return PyBuffer_FromMemory(data, w * h * 4);
 }
 
+PyObject *
+Evas_Object_PyObject_image_data_update_add(Evas_Object_PyObject * self, PyObject * args)
+{
+    int x, y, w, h;
+
+    if (!PyArg_ParseTuple(args, "iiii", &x, &y, &w, &h))
+        return NULL;
+
+    evas_object_image_data_update_add(self->object, x, y, w, h);
+    return Py_INCREF(Py_None), Py_None;
+}
+
 /****************************************************************************/
 
 PyObject *

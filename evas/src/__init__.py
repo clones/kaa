@@ -252,6 +252,9 @@ class Image(Object):
     def data_get(self, for_writing = True):
         return self._object.image_data_get(for_writing)
 
+    def data_update_add(self, x, y, w, h):
+        return self._object.image_data_update_add(x, y, w, h)
+
     def pixels_dirty_set(self, dirty = True):
         return self._object.image_pixels_dirty_set(dirty)
 
