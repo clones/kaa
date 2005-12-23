@@ -4,7 +4,7 @@ import os
 import _weakref
 import kaa
 from kaa.base import weakref
-from kaa.notifier import Signal
+from kaa.notifier import Signal, WeakCallback
 from container import *
 try:
     from kaa import imlib2
@@ -25,7 +25,7 @@ class Canvas(Container):
             "updated": Signal()
         }
 
-        kaa.signals["idle"].connect(self._render_queued)
+        kaa.signals["idle"].connect(WeakCallback(self._render_queued))
         self._supported_sync_properties += ["fontpath"]
 
         font_path = []
@@ -36,6 +36,8 @@ class Canvas(Container):
 
         self["fontpath"] = font_path
 
+    def __del__(self):
+        print "CANVAS DEL"
 
     def __str__(self):
         clsname = self.__class__.__name__

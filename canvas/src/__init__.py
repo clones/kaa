@@ -1,5 +1,6 @@
 from object import *
 from image import *
+from animation import *
 from rectangle import *
 from text import *
 from textblock import *

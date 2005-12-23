@@ -32,9 +32,18 @@ import sys
 
 try:
     # kaa base imports
-    from kaa.base.distribution import setup
+    from kaa.base.distribution import Extension, setup
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-setup(module = 'canvas', version = '0.5')
+ext_modules = []
+mng = Extension("kaa.canvas._mng", ['src/extensions/mng.c'])
+if mng.check_cc(["<libmng.h>"], "", "-lmng"):
+    ext_modules.append(mng)
+    mng.libraries.append("mng")
+    print "+ mng support enabled"
+else:
+    print "- mng support disabled"
+
+setup(module = 'canvas', version = '0.5', ext_modules = ext_modules)

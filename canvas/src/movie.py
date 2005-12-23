@@ -315,7 +315,7 @@ class Movie(Image):
         else:
             if self._o.size_get() != (width, height):
                 self._o.size_set((width, height))
-            self.set_data(ptr)
+            self.set_data(width, height, ptr)
 
         # If we receive more than 5 frames of size that is different than
         # the current display size (on the canvas), ask the player to do the

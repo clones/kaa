@@ -32,6 +32,7 @@ class Image(Object):
 
         self._loaded = False
         self["has_alpha"] = True
+        self["dirty"] = False
         self["aspect"] = "ignore"
 
         if image_or_file:
@@ -190,12 +191,21 @@ class Image(Object):
 
 
     def _sync_property_data(self):
-        data, copy = self["data"]
+        old_size = self._o.geometry_get()[1]
+        width, height, data, copy = self["data"]
+        self._o.size_set((width, height))
         self._o.data_set(data, copy)
+
+        # Computed size may depend on new image size, so dirty cached size.
+        self._dirty_cached_value("size")
+        size = self._get_computed_size()
+        self._o.resize(size)
+        self._o.fill_set((0, 0), size)
+
         self._loaded = True
 
-    #def _sync_property_pos(self):
-    #    return super(Image, self)._sync_property_pos()
+        if old_size != size:
+            self._request_reflow("size", old_size, size)
 
 
     def _sync_property_size(self):
@@ -210,10 +220,15 @@ class Image(Object):
         if not self["dirty"]:
             return
 
-        self._o.pixels_dirty_set()
+        if type(self["dirty"]) == list:
+            for (x, y, w, h) in self["dirty"]:
+                self._o.data_update_add(x, y, w, h)
+        else:
+            self._o.pixels_dirty_set()
 
         # We need to call this function explicitly for canvas backends where
-        # this data gets copied again (like GL textures).
+        # this data gets copied again (like GL textures).  It's essentially a
+        # bug in evas.
         self._o.data_set(self._o.data_get(), copy = False)
 
         self["dirty"] = False
@@ -266,18 +281,33 @@ class Image(Object):
         self._loaded = False
 
 
-    def set_dirty(self, dirty = True):
-        self["dirty"] = dirty
+    def set_dirty(self, region = True):
+        if self["dirty"] == True:
+            # Entire region is already dirty.
+            return
+
+        if region == True:
+            # Region can be True, which indicates the entire image needs
+            # updating.
+            self["dirty"] = dirty
+            return
+        # Otherwise it should be a sequence (x, y, w, h)
+        assert(type(region) in (list, tuple) and len(region) == 4)
+        if type(self["dirty"]) != list:
+            self["dirty"] = [region]
+        else:
+            self["dirty"] = self["dirty"] + [region]
+
 
     def import_pixels(self, data, w, h, format):
         del self["filename"], self["image"], self["pixels"], self["data"]
         self._loaded = False
         self["pixels"] = (data, w, h, format)
 
-    def set_data(self, data, copy = False):
+    def set_data(self, width, height, data, copy = False):
         del self["filename"], self["image"], self["pixels"], self["data"]
         self._loaded = False
-        self["data"] = (data, copy)
+        self["data"] = (width, height, data, copy)
 
     def as_image(self):
         if not imlib2:

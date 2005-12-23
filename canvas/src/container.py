@@ -122,8 +122,8 @@ class Container(Object):
     
     def _queue_render(self, child = None):
         if child:
-            #w = _weakref.ref(child)
-            w = child
+            w = _weakref.ref(child)
+            #w = child
             if w in self._queued_children:
                 return
 
@@ -148,6 +148,10 @@ class Container(Object):
 
             changed = False
             for child in queued_children.keys():
+                child = child()  # Resolve weakref
+                if not child:
+                    continue
+
                 if isinstance(child, Container) and child != self:
                     if child._render_queued():
                         changed = needs_render = True
