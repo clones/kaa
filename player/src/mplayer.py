@@ -581,7 +581,7 @@ def get_capabilities():
     schemes = ["file", "vcd", "cdda", "cue", "tivo", "http", "mms", "rtp",
                 "rtsp", "ftp", "udp", "sdp", "dvd", "fifo"]
 
-    exts = ["avi", "wmv", "mkv", "asf"]  # FIXME: complete.
+    exts = ["avi", "wmv", "mkv", "asf", "mov"]  # FIXME: complete.
     return capabilities, schemes, exts
 
 register_player("mplayer", MPlayer, get_capabilities)

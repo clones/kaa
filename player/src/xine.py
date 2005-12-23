@@ -138,8 +138,8 @@ class XinePlayerChild(object):
         # FIXME: plugin stuff should be exposed via api, or configurable
         # somehow.
 
-        self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
-        self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
+        #self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
+        #self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
         #self._stream.get_video_source().wire(self._noise_post.get_default_input())
 
         #self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
