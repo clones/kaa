@@ -46,4 +46,12 @@ if mng.check_cc(["<libmng.h>"], "", "-lmng"):
 else:
     print "- mng support disabled"
 
+svg = Extension("kaa.canvas._svg", ['src/extensions/svg.c'])
+if svg.check_library("librsvg-2.0", "0.15.0"):
+    ext_modules.append(svg)
+    print "+ svg support enabled"
+else:
+    print "- svg support disabled"
+
+
 setup(module = 'canvas', version = '0.5', ext_modules = ext_modules)
