@@ -39,8 +39,19 @@ typedef struct _size_cb_data {
 void size_cb(gint *width, gint *height, gpointer user_data)
 {
     size_cb_data *data = (size_cb_data *)user_data;
-    *width = data->w;
-    *height = data->h;
+    double aspect = (double)*width / *height;
+    if (data->w <= 0 && data->h <= 0)
+        return;
+    if (data->h <= 0) {
+        *width = data->w;
+        *height = (int)(data->w / aspect);
+    } else if (data->w <= 0) {
+        *height = data->h;
+        *width = (int)(data->h * aspect);
+    } else {
+        *width = data->w;
+        *height = data->h;
+    }
 }
 
 
@@ -72,6 +83,9 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     pixbuf = rsvg_handle_get_pixbuf(svg);
     rsvg_handle_free(svg);
 
+    w = gdk_pixbuf_get_width(pixbuf);
+    h = gdk_pixbuf_get_height(pixbuf);
+
     buffer = PyBuffer_New(w*h*4);
     PyObject_AsWriteBuffer(buffer, (void **)&buffer_ptr, &len);
     memcpy(buffer_ptr, gdk_pixbuf_get_pixels(pixbuf), w*h*4);
@@ -83,7 +97,7 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
         buffer_ptr[i+2] = buffer_ptr[i];
         buffer_ptr[i] = save;
     }
-    return buffer;
+    return Py_BuildValue("(iiO)", w, h, buffer);
 }
    
 

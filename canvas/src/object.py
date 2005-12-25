@@ -198,9 +198,6 @@ class Object(object):
         if size:
             return size
 
-        if type(self["size"][0]) == type(self["size"][1]) == int:
-            return self["size"]
-
         #print "[SIZE]:", self
         #print "    for child", child_asking
         #print "        Compute %s " % str(self["size"])

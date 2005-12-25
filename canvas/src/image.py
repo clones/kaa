@@ -8,6 +8,11 @@ try:
 except ImportError:
     imlib2 = None
 
+try:
+    from kaa.canvas import _svg
+except ImportError:
+    _svg = None
+
 
 class Image(Object):
 
@@ -154,6 +159,24 @@ class Image(Object):
 
 
     def _sync_property_filename(self):
+        ext = os.path.splitext(self["filename"])[1]
+        if ext.lower() == ".svg":
+            if not _svg:
+                raise ValueError, "SVG support has not been enabled"
+            bytes = file(self["filename"]).read()
+            if bytes.find("<svg") == -1:
+                raise ValueError, "'%s' is not a valid SVG" % self["filename"]
+
+            # Compute size, but bypass the aspect calculations, since we 
+            # don't know the image's native size yet.  Substitute "auto"
+            # in the size property for -1 for loading the SVG.
+            size = [ (x, -1)[x == "auto"] for x in self["size"] ]
+            w, h = super(Image, self)._compute_size(size, None, None)
+            # Render the SVG to a buffer, returning actual size.
+            w, h, buf = _svg.render_svg_to_buffer(w, h, bytes)
+            self["data"] = w, h, buf, False
+            return
+                
         old_size = self._o.geometry_get()[1]
         self._o.file_set(self["filename"])
         err = self._o.load_error_get()
@@ -264,6 +287,18 @@ class Image(Object):
                 width = -1
 
         super(Image, self).resize(width, height)
+
+        if self._loaded and os.path.splitext(self["filename"])[1].lower() == ".svg":
+            # If file is a SVG and the requested size is more than two times
+            # (in area) greater than the image's native size, rerender the SVG
+            # at the new size.  (XXX: the 2X factor could use some empirical 
+            # testing, or perhaps we should reload on all upscaling?  Or 
+            # never?)
+            actual = self.get_image_size()
+            size = self._get_computed_size()
+            if float(size[0]*size[1]) / (actual[0]*actual[1]) > 2.0:
+                self._loaded = False
+                self._force_sync_property("filename")
 
 
     def set_image(self, image_or_file):
