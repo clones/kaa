@@ -726,8 +726,14 @@ class Object(object):
     def set_width(self, width):
         self.resize(width = width)
 
+    def get_width(self):
+        return self["size"][0]
+
     def set_height(self, height):
         self.resize(height = height)
+
+    def get_height(self):
+        return self["size"][1]
 
     def get_computed_size(self):
         return self._get_computed_size()

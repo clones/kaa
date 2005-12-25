@@ -38,7 +38,8 @@ class Image(Object):
         self._loaded = False
         self["has_alpha"] = True
         self["dirty"] = False
-        self["aspect"] = "ignore"
+        self["aspect"] = "preserve"
+        self["size"] = (-1, -1)
 
         if image_or_file:
             self.set_image(image_or_file)
@@ -277,10 +278,16 @@ class Image(Object):
     #
 
     def resize(self, width = None, height = None):
-        if width != None and height != None and self["aspect"] != "ignore":
-            raise ValueError, "Can't set both width and height when aspect property is not 'ignore'"
+        if width not in (None, -1) and height not in (None, -1) and self["aspect"] != "ignore":
+            # We're set to preserve some aspect, but the user has specified
+            # both dimensions, so we silently change the aspect to "ignore"
+            # since this is probably what the user wants.
+            self["aspect"] = "ignore"
 
         if self["aspect"] != "ignore":
+            # Otherwise, we're preserving an aspect and only one dimension
+            # has been specified, set the other one to -1, which will cause
+            # _compute_size() to compute that dimension based on the aspect.
             if width != None:
                 height = -1
             elif height != None:
@@ -350,7 +357,7 @@ class Image(Object):
 
         if not self["image"]:
             # No existing Imlib2 image, so we need to make one.
-            if (self["filename"] and not self._loaded) or (not self["filename"] and self._o):
+            if (self["filename"] and self._loaded) or (not self["filename"] and self._o):
                 # The evas object already exists, so create a new Imlib2 image
                 # from the evas data and tell evas to use that buffer for the
                 # image instead.
