@@ -89,6 +89,7 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     buffer = PyBuffer_New(w*h*4);
     PyObject_AsWriteBuffer(buffer, (void **)&buffer_ptr, &len);
     memcpy(buffer_ptr, gdk_pixbuf_get_pixels(pixbuf), w*h*4);
+    g_object_unref(pixbuf);
 
     // RGBA to BGRA conversion.
     // FIXME: MMXify.
