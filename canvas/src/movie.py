@@ -102,10 +102,11 @@ class Movie(Image):
         }
 
         self["detached"] = False
-        self["aspect"] = "preserve"
         self.set_has_alpha(False)
-        # Holds the number of frames received at the current frame size
+
+        # Holds the number of frames received at the saved frame size
         self._frame_output_size_count = 0
+        self._frame_output_size = (0, 0)
         self.osd = PlayerOSDCanvas()
 
         if mrl:
@@ -198,6 +199,7 @@ class Movie(Image):
 
         if not self._window:
             self._window = display.X11Window(size = (320, 200), parent = canvas.get_window())
+            self._window.set_cursor_hide_timeout(1)
 
         self._window.show()
         if not self["detached"]:
@@ -237,23 +239,6 @@ class Movie(Image):
             self._player.set_frame_output_mode(vo = False)
 
  
-    def _get_aspect_ratio2(self):
-        if not self._player:
-            return 1.0
-
-        info = self._player.get_info()
-        aspect = 0
-        if self._aspect:
-            aspect = self._aspect
-        elif "aspect" in info:
-            aspect = info["aspect"]
-
-        if aspect == 0:
-            aspect = 1.0
-
-        return aspect
-               
-
 
     def _set_frame_output_size(self):
         info = self._player.get_info()
@@ -316,23 +301,26 @@ class Movie(Image):
             if self._o.size_get() != (width, height):
                 self._o.size_set((width, height))
             self.set_data(width, height, ptr)
+            self.set_dirty()
 
-        # If we receive more than 5 frames of size that is different than
-        # the current display size (on the canvas), ask the player to do the
-        # scaling for us (to width multiples of 2)
+        # If we receive more than 5 frames of a certain size, ask the player
+        # to do the scaling for us (to width multiples of 2)
         d_width, d_height = self._get_computed_size()
         d_width, d_height = d_width & ~1, d_height & ~1
         info = self._player.get_info()
         frame_w, frame_h = info["width"], info["height"]
         if (d_width, d_height) != (width, height) and d_width*d_height < frame_w*frame_h:# and \
             #d_width*d_height > 320*200:
-            self._frame_output_size_count += 1
+            if self._frame_output_size == (d_width, d_height):
+                self._frame_output_size_count += 1
+            else:
+                self._frame_output_size = (d_width, d_height)
+                self._frame_output_size_count = 0
+
             if self._frame_output_size_count >= 5:
                 self._set_frame_output_size()
                 self._frame_output_size_count = 0
 
-        self._o.pixels_dirty_set()
-        self._queue_render()
         self.get_canvas().signals["updated"].disconnect(self._sync)
         self.get_canvas().signals["updated"].connect_once(self._sync)
 

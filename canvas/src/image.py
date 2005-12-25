@@ -340,7 +340,7 @@ class Image(Object):
         if self._mng:
             self._mng_update()
         else:
-            self.stop()
+            self._update_frame_timer.stop()
 
 
     #
@@ -402,7 +402,7 @@ class Image(Object):
         if region == True:
             # Region can be True, which indicates the entire image needs
             # updating.
-            self["dirty"] = dirty
+            self["dirty"] = True
             return
         # Otherwise it should be a sequence (x, y, w, h)
         assert(type(region) in (list, tuple) and len(region) == 4)

@@ -265,19 +265,21 @@ class Object(object):
         else:
             pos, size = clip
 
-        def resolve(val):
-            if type(val) == str and val.replace("-", "").isdigit():
-                return int(val)
+        def resolve(val, max):
+            if type(val) == str:
+                if val.replace("-", "").isdigit():
+                    return int(val)
+                elif "%" in val:
+                 return int(int(val.replace("%", "")) / 100.0 * max)
+                    
             return val
 
-        pos = [ resolve(x) for x in pos ]
-        size = [ resolve(x) for x in size ]
-
         computed_size = self._get_computed_size()
+        pos = [ resolve(x,max) for x,max in zip(pos, computed_size) ]
+        size = [ resolve(x,max) for x,max in zip(size, computed_size) ]
+
         for i in range(2):
-            if type(size[i]) == str and "%" in size[i]:
-                size[i] = int(int(size[i].replace("%", "")) / 100.0 * computed_size[i])
-            if type(size[i]) == int and size[i] <= 0:
+            if size[i] <= 0:
                 size[i] = computed_size[i] + size[i]
 
         return pos, size
@@ -734,6 +736,9 @@ class Object(object):
 
     def get_height(self):
         return self["size"][1]
+
+    def get_size(self):
+        return self["size"]
 
     def get_computed_size(self):
         return self._get_computed_size()
