@@ -2,7 +2,8 @@ __all__ = [ 'Image' ]
 
 from object import *
 import types, os, re
-from kaa import evas
+from kaa import evas, notifier
+
 try:
     from kaa import imlib2
 except ImportError:
@@ -12,6 +13,13 @@ try:
     from kaa.canvas import _svg
 except ImportError:
     _svg = None
+
+try:
+    from kaa.canvas import _mng
+except ImportError:
+    _mng = None
+
+MNG_MAGIC = "\x8aMNG\x0d\x0a\x1a\x0a"
 
 
 class Image(Object):
@@ -41,8 +49,13 @@ class Image(Object):
         self["aspect"] = "preserve"
         self["size"] = (-1, -1)
 
+        # For animated images
+        self._mng = None
+        self._update_frame_timer = notifier.WeakTimer(self._update_frame)
+
         if image_or_file:
             self.set_image(image_or_file)
+
 
     def __str__(self):
         s = "<canvas.%s " % self.__class__.__name__
@@ -146,6 +159,7 @@ class Image(Object):
 
 
     def _sync_property_image(self):
+        old_size = self._o.geometry_get()[1]
         size = self["image"].size
         self._o.size_set(size)
         self._o.data_set(self["image"].get_raw_data(), copy = False)
@@ -155,11 +169,16 @@ class Image(Object):
         size = self._get_computed_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
+
         self._loaded = True
-        # TODO reflow if image size changed.
+
+        if old_size != size:
+            # Only need to reflow if target size has changed.
+            self._request_reflow("size", old_size, size)
 
 
     def _sync_property_filename(self):
+        self._mng = None
         ext = os.path.splitext(self["filename"])[1]
         if ext.lower() == ".svg":
             if not _svg:
@@ -177,7 +196,21 @@ class Image(Object):
             w, h, buf = _svg.render_svg_to_buffer(w, h, bytes)
             self["data"] = w, h, buf, False
             return
-                
+
+        elif ext.lower() == ".mng":
+            bytes = file(self["filename"]).read()
+            if bytes[:len(MNG_MAGIC)] != MNG_MAGIC:
+                raise ValueError, "File '%s' is not a MNG file" % file
+
+            if not _mng:
+                raise ValueError, "MNG support has not been enabled"
+
+            self._mng = _mng.MNG(notifier.WeakCallback(self._mng_refresh))
+            width, height, delay, buffer = self._mng.open(bytes)
+            self["data"] = width, height, buffer, False
+            return
+
+
         old_size = self._o.geometry_get()[1]
         self._o.file_set(self["filename"])
         err = self._o.load_error_get()
@@ -193,6 +226,7 @@ class Image(Object):
         self._loaded = True
 
         if old_size != size:
+            # Only need to reflow if target size has changed.
             self._request_reflow("size", old_size, size)
 
     def _sync_property_pixels(self):
@@ -207,6 +241,7 @@ class Image(Object):
         size = self._get_computed_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
+
         self._loaded = True
 
         if size != old_size:
@@ -231,14 +266,18 @@ class Image(Object):
         if old_size != size:
             self._request_reflow("size", old_size, size)
 
+        self._update_frame()
+
 
     def _sync_property_size(self):
         # Calculates size and resizes the object.
         super(Image, self)._sync_property_size()
         self._o.fill_set((0, 0), self._o.geometry_get()[1])
     
+    
     def _sync_property_has_alpha(self):
         self._o.alpha_set(self["has_alpha"])
+    
     
     def _sync_property_dirty(self):
         if not self["dirty"]:
@@ -273,6 +312,37 @@ class Image(Object):
             return self.get_image_size()
         return super(Image, self)._get_actual_size()
 
+
+
+    # For animation
+
+
+    def _mng_refresh(self, x, y, w, h):
+        self.set_dirty((x, y, w, h))
+
+
+    def _mng_update(self):
+        delay = self._mng.update()
+        while delay == 1:
+            delay = self._mng.update()
+
+        if delay == 0:
+            self._update_frame_timer.stop()
+            return
+
+        delay /= 1000.0
+        cur_interval = self._update_frame_timer.get_interval()
+        if cur_interval and abs(delay - cur_interval) > 0.02 or \
+           not self._update_frame_timer.active():
+            self._update_frame_timer.start(delay)
+
+    def _update_frame(self):
+        if self._mng:
+            self._mng_update()
+        else:
+            self.stop()
+
+
     #
     # Public API
     #
@@ -295,7 +365,8 @@ class Image(Object):
 
         super(Image, self).resize(width, height)
 
-        if self._loaded and os.path.splitext(self["filename"])[1].lower() == ".svg":
+        if self._loaded and self["filename"] and \
+           os.path.splitext(self["filename"])[1].lower() == ".svg":
             # If file is a SVG and the requested size is more than two times
             # (in area) greater than the image's native size, rerender the SVG
             # at the new size.  (XXX: the 2X factor could use some empirical 
@@ -346,10 +417,12 @@ class Image(Object):
         self._loaded = False
         self["pixels"] = (data, w, h, format)
 
+
     def set_data(self, width, height, data, copy = False):
         del self["filename"], self["image"], self["pixels"], self["data"]
         self._loaded = False
         self["data"] = (width, height, data, copy)
+
 
     def as_image(self):
         if not imlib2:
@@ -398,3 +471,16 @@ class Image(Object):
 
     def get_aspect(self):
         return self["aspect"]
+
+
+    # These public methods only apply to animated images
+
+    def stop(self):
+        self._update_frame_timer.stop()
+
+    def start(self):
+        self._update_frame()
+
+    def is_playing(self):
+        return self._update_frame_timer.active()
+
