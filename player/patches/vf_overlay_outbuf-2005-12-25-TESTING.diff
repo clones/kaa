@@ -1,6 +1,6 @@
 --- main.orig/libmpcodecs/vf_overlay.c	1969-12-31 19:00:00.000000000 -0500
-+++ main/libmpcodecs/vf_overlay.c	2005-12-13 18:02:47.000000000 -0500
-@@ -0,0 +1,1378 @@
++++ main/libmpcodecs/vf_overlay.c	2005-12-25 23:07:56.000000000 -0500
+@@ -0,0 +1,1437 @@
 +/* Copyright 2005 Jason Tackaberry <tack@sault.org>
 + *
 + * This program is free software; you can redistribute it and/or modify it
@@ -57,7 +57,7 @@
 +
 +
 +/// If defined will output some timing data. Useful for profiling.
-+//#define STOPWATCH
++//#define STOPWATCH 5
 +/// Turn off MMX for debugging.
 +//#undef HAVE_MMX
 +
@@ -65,6 +65,7 @@
 +/// \name Convenience macros.
 +//@{
 +#define C64(x) ((uint64_t)((x)|(x)<<16))<<32 | (uint64_t)(x) | (uint64_t)(x)<<16
++#define clamp(a,min,max) (((a)>(max))?(max):(((a)<(min))?(min):(a)))
 +//@}
 +
 +
@@ -157,6 +158,7 @@
 +        mpi_stride,  ///< Stride of the mpi image
 +        slice_y,     ///< Y-offset of overlay where compositing will begin
 +        slice_h,     ///< Height of the overlay buffer to composite
++        auto_slice,  ///< 1 if slice region should be calculated automatically
 +        alpha,       ///< "Global" alpha level of overlay (0 <= alpha <= 256)
 +        visible,     ///< Whether or not the overlay is visible
 +        dirty,       ///< Whether or not the overlay buffer has changed.
@@ -218,6 +220,9 @@
 +        unsigned int time, last_time;
 +        char text[250];
 +    } t[10];
++
++    if (n > STOPWATCH)
++        return;
 +
 +    t[n].time = GetTimer();
 +    if (!text) {
@@ -406,8 +411,8 @@
 +
 +    priv->w = (d_width + 1) & ~1;
 +    priv->h = (d_height + 1) & ~1;
-+    priv->slice_y = 0;
-+    priv->slice_h = priv->h;
++    // Automatically calculate slice by default.
++    priv->auto_slice = 1;
 +    priv->mpi_w = (width + 1) & ~1;
 +    priv->mpi_h = (height + 1) & ~1;
 +    priv->mpi_stride = priv->mpi_w;
@@ -488,6 +493,51 @@
 +            *h = priv->mpi_h;
 +    }
 +
++}
++
++/**
++ * \brief Automatically determines slice region.
++ * 
++ * This function uses the chroma alpha plane to determine the slice region
++ * for blending the overlay.  Rather than blending the entire overlay, only
++ * the calculated slice is blended.  Autoslice is enabled by default, but the
++ * user may manually specify a slice region, in which case this function will
++ * not be called.
++ */
++static void
++calculate_slice(struct vf_priv_s *priv)
++{
++    int x, y, h, row_stride, slice_y1 = -2, slice_y2 = -2;
++    uint8_t *p;
++
++    p = priv->uva;
++    row_stride = priv->mpi_stride >> 1;
++    h = priv->h >> 1;
++
++    stopwatch(3, "calculate_slice");
++
++    #define check_opaque(type) \
++            if (*(type*)(p + x)) { \
++                if (slice_y1 == -2) \
++                    slice_y1 = y; \
++                else \
++                    slice_y2 = y; \
++                x = row_stride; \
++                break; \
++            }
++
++    for (y = 0; y < h; y++) {
++        for (x = 0; x < row_stride-7; x += 8)
++            check_opaque(uint64_t);
++        for (; x < row_stride-3; x += 4)
++            check_opaque(uint32_t);
++        for (; x < row_stride-1; x += 2)
++            check_opaque(uint16_t);
++        p += row_stride;
++    }
++    stopwatch(3, NULL);
++    priv->slice_y = clamp((slice_y1 - 2) * 2, 0, priv->h);
++    priv->slice_h = clamp((slice_y2 + 2) * 2, 0, priv->h) - priv->slice_y;
 +}
 +
 +
@@ -588,8 +638,10 @@
 +    struct rects *r, *p;
 +
 +    r = (struct rects *)malloc(sizeof(struct rects));
-+    r->x = x; r->y = y;
-+    r->w = w; r->h = h;
++    // Round coordinates down to multiples of 2.
++    r->x = x & ~1; r->y = y & ~1;
++    // Round sizes up to multiples of 2.
++    r->w = (w + 1) & ~1; r->h = (h + 1) & ~1;
 +    r->type = type;
 +    r->next = NULL;
 +
@@ -1035,7 +1087,7 @@
 +    // Clip the slice to the mpi image.
 +    slice_y = priv->slice_y;
 +    slice_h = priv->slice_h;
-+    translate_coords(priv, 0, &slice_y, 0, &slice_h);
++    //translate_coords(priv, 0, &slice_y, 0, &slice_h);
 +
 +    if (slice_y < 0)
 +        slice_y = 0;
@@ -1047,7 +1099,7 @@
 +    else if (slice_h > src_mpi->height - slice_y)
 +        slice_h = src_mpi->height - slice_y;
 +
-+
++    //printf("@@@ blend_image (0,%d, %dx%d)",  slice_y, priv->mpi_w, slice_h);
 +    stopwatch(2, "blend_image (0,%d, %dx%d)",  slice_y, priv->mpi_w, slice_h);
 +
 +    for (i = 0, c = 0; i < 3; i++, c = 1)  {
@@ -1055,8 +1107,8 @@
 +        overlay_stride[i] = priv->mpi_stride >> c;
 +        dst_mpi_planes[i] = dst_mpi->planes[i] + ((slice_y >> c) * dst_mpi->stride[i]);
 +        src_mpi_planes[i] = src_mpi->planes[i] + ((slice_y >> c) * src_mpi->stride[i]);
-+        overlay_planes[i] += (slice_y >> c) * (priv->w >> c);
-+        alpha_planes[i] += (slice_y >> c) * (priv->w >> c);
++        overlay_planes[i] += (slice_y >> c) * overlay_stride[i];
++        alpha_planes[i] += (slice_y >> c) * overlay_stride[i];
 +
 +        if (src_mpi == dst_mpi)
 +            continue;
@@ -1139,8 +1191,6 @@
 +     * invalidated regions by doing BGRA -> YV12A conversion and pre-
 +     * alpha-multiply those areas.
 +     */
-+     //fprintf(stderr, "@@@ putimage lock=%d dirty=%d shouldupdate=%d\n",
-+     //*vf->priv->lockbyte, vf->priv->dirty, should_update(vf->priv, 0));
 +    if (*vf->priv->lockbyte & BUFFER_LOCKED && vf->priv->dirty && should_update(vf->priv, 1)) {
 +        stopwatch(1, "putimage (convert)");
 +        struct rects *r, *next;
@@ -1159,6 +1209,9 @@
 +        // buffer.
 +        *vf->priv->lockbyte = BUFFER_UNLOCKED;
 +        vf->priv->dirty = 0;
++
++        if (vf->priv->auto_slice)
++            calculate_slice(vf->priv);
 +    } else
 +        stopwatch(1, "putimage (no convert)");
 +
@@ -1231,8 +1284,14 @@
 +            else if (!strcasecmp(p1, "slice")) {
 +                int y, h;
 +                if (sscanf(p2+1, "%d:%d", &y, &h) == 2) {
-+                    priv->slice_y = y;
-+                    priv->slice_h = h;
++                    if (y == -1 || h == -1)
++                        priv->auto_slice = 1;
++                    else {
++                        translate_coords(priv, 0, &y, 0, &h);
++                        priv->slice_y = y;
++                        priv->slice_h = h;
++                        priv->auto_slice = 0;
++                    }
 +                }
 +            }
 +            else if (!strcasecmp(p1, "alpha")) {
@@ -1637,8 +1696,8 @@
 +};
 +
 +#endif
---- main.orig/mplayer.c	2005-12-09 23:32:48.000000000 -0500
-+++ main/mplayer.c	2005-12-09 23:33:02.000000000 -0500
+--- main.orig/mplayer.c	2005-12-25 23:09:00.000000000 -0500
++++ main/mplayer.c	2005-12-25 23:10:34.000000000 -0500
 @@ -348,7 +348,7 @@
  
  static stream_t* stream=NULL;
@@ -1648,7 +1707,7 @@
  static sh_video_t *sh_video=NULL;
  
  char* current_module=NULL; // for debugging
-@@ -1006,6 +1006,29 @@
+@@ -1005,6 +1005,29 @@
    return result;
  }
  
@@ -1767,7 +1826,7 @@
        if (cmd && cmd->id == MP_CMD_PAUSE) {
        cmd = mp_input_get_cmd(0,1,0);
        mp_cmd_free(cmd);
-@@ -3093,6 +3150,7 @@
+@@ -3094,6 +3151,7 @@
  
    current_module="key_events";
  
@@ -1775,7 +1834,7 @@
  {
    mp_cmd_t* cmd;
    int brk_cmd = 0;
-@@ -3101,6 +3159,8 @@
+@@ -3102,6 +3160,8 @@
      case MP_CMD_SEEK : {
        float v;
        int abs;
@@ -1784,7 +1843,7 @@
        if(sh_video)
          osd_show_percentage = sh_video->fps;
        v = cmd->args[0].v.f;
-@@ -3165,6 +3225,9 @@
+@@ -3166,6 +3226,9 @@
      } break;
      case MP_CMD_FRAME_STEP :
      case MP_CMD_PAUSE : {
@@ -1794,7 +1853,7 @@
        cmd->pausing = 1;
        brk_cmd = 1;
      } break;
-@@ -3323,6 +3386,8 @@
+@@ -3324,6 +3387,8 @@
        eof = PT_NEXT_SRC;
        }
        brk_cmd = 1;
@@ -1860,8 +1919,8 @@
  
  #define MP_CMD_GUI_EVENTS       5000
  #define MP_CMD_GUI_LOADFILE     5001
---- main.orig/input/input.c	2005-11-11 08:25:48.000000000 -0500
-+++ main/input/input.c	2005-11-30 17:09:33.000000000 -0500
+--- main.orig/input/input.c	2005-12-25 23:09:00.000000000 -0500
++++ main/input/input.c	2005-12-25 23:10:35.000000000 -0500
 @@ -144,6 +144,10 @@
    { MP_CMD_GET_VO_FULLSCREEN, "get_vo_fullscreen", 0, { {-1,{0}} } },
    { MP_CMD_GET_SUB_VISIBILITY, "get_sub_visibility", 0, { {-1,{0}} } },
@@ -2137,9 +2196,9 @@
 +
 +This example is quick and dirty. Of course, a real application would want
 +to use an image library to render images and/or text to the buffer.
---- main.orig/DOCS/tech/slave.txt	2005-12-18 15:04:40.000000000 -0500
-+++ main/DOCS/tech/slave.txt	2005-12-18 15:05:20.000000000 -0500
-@@ -131,6 +131,10 @@
+--- main.orig/DOCS/tech/slave.txt	2005-12-25 23:09:00.000000000 -0500
++++ main/DOCS/tech/slave.txt	2005-12-25 23:10:35.000000000 -0500
+@@ -134,6 +134,10 @@
  osd_show_text <string>
      Show <string> on the OSD.
  
@@ -2150,9 +2209,9 @@
  panscan <-1.0 - 1.0> | <0.0 - 1.0> <absolute>
      Increase or decrease the pan-and-scan range by <value>, 1.0 is the maximum.
      Negative values decrease the pan-and-scan range.
---- main.orig/DOCS/man/en/mplayer.1	2005-12-18 15:04:40.000000000 -0500
-+++ main/DOCS/man/en/mplayer.1	2005-12-18 15:05:20.000000000 -0500
-@@ -5854,6 +5854,35 @@
+--- main.orig/DOCS/man/en/mplayer.1	2005-12-25 23:09:00.000000000 -0500
++++ main/DOCS/man/en/mplayer.1	2005-12-25 23:10:35.000000000 -0500
+@@ -5851,6 +5851,35 @@
  .PD 1
  .
  .TP
