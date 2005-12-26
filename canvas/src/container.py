@@ -2,6 +2,7 @@ __all__ = [ 'Container' ]
 
 
 import _weakref
+from kaa.notifier import Signal
 from object import *
 from image import *
 from rectangle import *
@@ -19,6 +20,10 @@ class Container(Object):
         self["size"] = ("auto", "auto")
         self._debug_rect = None
         self._last_reflow_size = None
+
+        self.signals.update({
+            "reflowed": Signal()
+        })
 
     def __str__(self):
         s = "<canvas.%s size=%s nchildren=%d>" % \
@@ -79,12 +84,11 @@ class Container(Object):
         self._queue_render()
 
 
-    def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
+    def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None, signal = True):
         if what_changed == "layer":
             self._restack_children()
             return
 
-            
         #print "[CONTAINER REFLOW]", self, child_asking, what_changed, old, new
         size = self._get_actual_size()
         size_changed = size != self._last_reflow_size
@@ -111,6 +115,8 @@ class Container(Object):
                 child._force_sync_property("size")
                 child._force_sync_property("clip")
 
+        if signal:
+            self.signals["reflowed"].emit()
         # TODO: only if our size changes as a result, need to propage reflow to parent
         if self._parent:
             self._parent._request_reflow(child_asking = self)
@@ -206,7 +212,7 @@ class Container(Object):
 
     def _apply_clip_to_children(self):
         for child in self._children:
-            if type(child) == Container:
+            if isinstance(child, Container):
                 child._apply_clip_to_children()
             else:
                 child._apply_parent_clip()
@@ -298,6 +304,7 @@ class Container(Object):
     #
 
     def add_child(self, child, **kwargs):
+        assert(isinstance(child, Object))
         if child._parent:
             raise CanvasError, "Attempt to parent an adopted child."
 
@@ -375,7 +382,10 @@ class Container(Object):
             child._uncanvased()
             child._reset()
         self.add_child(child)
-     
+ 
+ 
+    #def get_child_position(self, child):
+        
         
     # Convenience functions for object creation.
 

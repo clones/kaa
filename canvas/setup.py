@@ -47,7 +47,7 @@ else:
     print "- mng support disabled"
 
 svg = Extension("kaa.canvas._svg", ['src/extensions/svg.c'])
-if svg.check_library("librsvg-2.0", "0.15.0"):
+if svg.check_library("librsvg-2.0", "2.10.0"):
     ext_modules.append(svg)
     print "+ svg support enabled"
 else:

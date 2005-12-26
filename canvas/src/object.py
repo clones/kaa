@@ -4,6 +4,8 @@ import types, re
 import _weakref
 from kaa import evas
 from kaa.base import weakref
+from kaa.notifier import Signal
+import animation
 
 _percent_re = re.compile("([\d.]+%)")
 
@@ -14,6 +16,12 @@ class CanvasError(Exception):
 class Object(object):
 
     def __init__(self):
+        self.signals = {
+            "moved": Signal(),
+            "resized": Signal(),
+            "wrapped": Signal()
+        }
+
         # Properties will be synchronized to canvas in order.  "pos" should
         # be listed after "size" since pos may depend on size.
         self._supported_sync_properties = ["name", "expand", "visible", "layer", "color", "size", "pos", "clip"]
@@ -52,6 +60,8 @@ class Object(object):
             return False
 
         self._dirty_cached_value(key)
+        if key == "pos":
+            self._dirty_cached_value("computed_pos")
         #self._notify_parent_property_changed(key)
         #if key in ("pos", "visible", "color", "layer", "size"):
         #    self._inc_properties_serial()
@@ -86,6 +96,8 @@ class Object(object):
         self._apply_parent_clip()
         self._queue_render()
 
+        self.signals["wrapped"].emit()
+
 
     def _queue_render(self, child = None):
         if self._parent:
@@ -106,6 +118,7 @@ class Object(object):
         self._canvas = weakref(canvas)
         if self["name"]:
             self._canvas._register_object_name(self["name"], self)
+
 
 
     def _uncanvased(self):
@@ -178,13 +191,12 @@ class Object(object):
             if type(size[index]) == int:
                 continue
 
-            if "%" in size[index]:
+            if type(size[index]) == str and "%" in size[index]:
                 if not extents:
                     extents = self._get_extents()
-                size[index] = int(int(size[index].replace("%", "")) / 100.0 * extents[index])
+                size[index] = int(float(size[index].replace("%", "")) / 100.0 * extents[index])
             elif size[index] == "auto":
                 size[index] = self._get_actual_size()[index]
-
 
         return tuple(size)
 
@@ -208,7 +220,7 @@ class Object(object):
 
 
     def _compute_pos(self, pos, child_asking):
-        computed_pos = []
+        computed_pos = [None, None]
         left, top, right, bottom, hcenter, vcenter = pos
         if None in pos[:2]:
             computed_size = self._get_computed_size()
@@ -221,21 +233,21 @@ class Object(object):
         def calc_value(value, total):
             if type(value) == int:
                 return value
-            return int(int(value.replace("%", "")) / 100.0 * total)
+            return int(float(value.replace("%", "")) / 100.0 * total)
         
         if left != None:
-            computed_pos.append(calc_value(left, parent_size[0]))
+            computed_pos[0] = calc_value(left, parent_size[0])
         elif right != None:
-            computed_pos.append(calc_value(right, parent_size[0]) - computed_size[0])
+            computed_pos[0] = calc_value(right, parent_size[0]) - computed_size[0]
         elif hcenter != None:
-            computed_pos.append(calc_value(hcenter, parent_size[0]) - computed_size[0] / 2)
+            computed_pos[0] = calc_value(hcenter, parent_size[0]) - computed_size[0] / 2
             
         if top != None:
-            computed_pos.append(calc_value(top, parent_size[1]))
+            computed_pos[1] = calc_value(top, parent_size[1])
         elif bottom != None:
-            computed_pos.append(calc_value(bottom, parent_size[1]) - computed_size[1])
+            computed_pos[1] = calc_value(bottom, parent_size[1]) - computed_size[1]
         elif vcenter != None:
-            computed_pos.append(calc_value(vcenter, parent_size[1]) - computed_size[1] / 2)
+            computed_pos[1] = calc_value(vcenter, parent_size[1]) - computed_size[1] / 2
 
         #print "[CALC POS]", self, computed_size, parent_size, pos, computed_pos
         return computed_pos
@@ -270,7 +282,7 @@ class Object(object):
                 if val.replace("-", "").isdigit():
                     return int(val)
                 elif "%" in val:
-                 return int(int(val.replace("%", "")) / 100.0 * max)
+                    return int(float(val.replace("%", "")) / 100.0 * max)
                     
             return val
 
@@ -404,7 +416,7 @@ class Object(object):
         if type(val) == str:
             if val.replace("-", "").isdigit():
                 val = int(val)
-            elif not val.replace("%", "").isdigit() and val != "auto":
+            elif not val.replace("%", "").replace(".", "").isdigit() and val != "auto":
                 raise ValueError, "Invalid relative value '%s'" % val
 
         return val
@@ -426,6 +438,9 @@ class Object(object):
             self._force_sync_property("clip")
             # Size changed, so cached value is dirty.
             self._dirty_cached_value("size")
+            self.signals["resized"].emit(old, new)
+        elif what_changed == "pos":
+            self.signals["moved"].emit(old, new)
         if self._parent:
             self._parent._request_reflow(what_changed, old, new, child_asking = self)
 
@@ -790,3 +805,6 @@ class Object(object):
     def get_expand(self):
         return self["expand"]
 
+
+    def animate(self, method, **kwargs):
+        return animation.animate(self, method, **kwargs)

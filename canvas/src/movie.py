@@ -9,13 +9,14 @@ from kaa import notifier, display, evas, base
 
 class PlayerOSDCanvas(BufferCanvas):
 
-    def __init__(self, player = None, size = (800, 600)):
+    def __init__(self, player = None, size = (640, 480)):
         super(PlayerOSDCanvas, self).__init__(size)
 
         self._alpha = self._osd_alpha = 255
         self._osd_visible = 0
         self.hide()
         self._player = None
+        self["visible"] = False
 
         if player:
             self.set_player(player)
@@ -185,7 +186,7 @@ class Movie(Image):
         if not self._window:
             self._window = self._player.get_window()
         if not self["detached"]:
-            self._window.hide()
+            self._window.lower_window()
         else:
             self._window.show(raised = True)
             self._window.resize(self.get_canvas().get_size())
@@ -201,7 +202,7 @@ class Movie(Image):
             self._window = display.X11Window(size = (320, 200), parent = canvas.get_window())
             self._window.set_cursor_hide_timeout(1)
 
-        self._window.show()
+        self._window.show(raised = True)
         if not self["detached"]:
             self._window.lower_window()
         self._player.set_window(self._window)
@@ -235,7 +236,7 @@ class Movie(Image):
             alpha = self._get_relative_values("color")[3]
             self._player.set_frame_output_mode(notify = (visible and alpha > 0))
             if self._window:
-                self._window.hide()
+                self._window.lower_window()
             self._player.set_frame_output_mode(vo = False)
 
  
@@ -288,18 +289,12 @@ class Movie(Image):
             return
 
         if self._aspect != aspect:
-            # If our aspect ratio has changed, our size has probably changed,
-            # so cause a reflow.
-            #self._force_sync_property("size")
-            #self._request_reflow(what_changed = "size")
             self.set_aspect(aspect)
             self._aspect = aspect
 
         if format == "yv12":
             self.import_pixels(ptr, width, height, evas.PIXEL_FORMAT_YUV420P_601)
         else:
-            if self._o.size_get() != (width, height):
-                self._o.size_set((width, height))
             self.set_data(width, height, ptr)
             self.set_dirty()
 

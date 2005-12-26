@@ -20,10 +20,10 @@ class Canvas(Container):
 
         super(Canvas, self).__init__()
 
-        self.signals = {
+        self.signals.update({
             "key_press_event": Signal(),
             "updated": Signal()
-        }
+        })
 
         kaa.signals["idle"].connect(WeakCallback(self._render_queued))
         self._supported_sync_properties += ["fontpath"]

@@ -10,9 +10,9 @@ class Box(Container):
         self._child_sizes = []
 
 
-    def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):
+    def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None, signal = True):
         #print "[BOX REFLOW]", self, child_asking, what_changed, old, new
-        if not super(Box, self)._request_reflow(what_changed, old, new, child_asking):
+        if not super(Box, self)._request_reflow(what_changed, old, new, child_asking, False):
             # Box._request_reflow will return False if our size hasn't 
             # changed, in which case we don't need to respond to this reflow
             # request.
@@ -23,12 +23,16 @@ class Box(Container):
             return False
 
         if what_changed == "size" and child_asking and old and old[self._dimension] == new[self._dimension]:
+            if signal:
+                self.signals["reflowed"].emit()
             return True
 
         if self.get_canvas():
             self._force_sync_property("pos")
             self._calculate_child_offsets()
 
+        if signal:
+            self.signals["reflowed"].emit()
         return True
 
     def _request_expand(self, child_asking):

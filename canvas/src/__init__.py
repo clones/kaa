@@ -1,6 +1,5 @@
 from object import *
 from image import *
-from animation import *
 from rectangle import *
 from text import *
 from textblock import *
@@ -10,3 +9,4 @@ from movie import *
 from displays import *
 from box import *
 from xml import get_object_from_xml
+from animation import *

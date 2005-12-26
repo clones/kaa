@@ -47,7 +47,6 @@ class Image(Object):
         self["has_alpha"] = True
         self["dirty"] = False
         self["aspect"] = "preserve"
-        self["size"] = (-1, -1)
 
         # For animated images
         self._mng = None
@@ -96,24 +95,40 @@ class Image(Object):
         return image_size
         
     def _compute_size(self, size, child_asking, extents = None):
+        if "auto" in size:
+            # Object._compute_size will replace "auto" with the object's
+            # canvas geometry.  For images, "auto" means the image's native
+            # size, so we replace "auto" here, before passing the size to
+            # Object._compute_size.
+            image_size = self.get_image_size()
+            size = list(size)
+            for i in range(2):
+                if size[i] == "auto":
+                    size[i] = image_size[i]
+
         size = list(super(Image, self)._compute_size(size, child_asking, extents))
         return self._apply_aspect_to_size(size)
 
     def _apply_aspect_to_size(self, size):
-        if self["aspect"] == "preserve":
-            aspect = self._get_aspect_ratio()
-        elif self["aspect"] != "ignore":
+        if self["aspect"] not in ("ignore", "preserve"):
             aspect = self["aspect"]
         else:
-            aspect = 0
+            aspect = self._get_aspect_ratio()
 
+        if size[0] == size[1] == -1 and self._loaded:
+            return self.get_image_size()
+        
         for index in range(2):
-            # We can only keep aspect if the other dimension is known.
-            if size[index] == -1 and type(size[1-index]) == int and size[1-index] != -1:
-                if index == 0:
-                    size[index] = int(size[1] * aspect)
-                else:
-                    size[index] = int(size[0] / aspect)
+            if size[index] == -1:
+                if self["aspect"] == "ignore":
+                    size[index] = self.get_image_size()[index]
+
+                # We can only keep aspect if the other dimension is known.
+                elif type(size[1-index]) == int and size[1-index] != -1:
+                    if index == 0:
+                        size[index] = int(size[1] * aspect)
+                    else:
+                        size[index] = int(size[0] / aspect)
 
         return tuple(size)
 
@@ -302,15 +317,6 @@ class Image(Object):
 
     def _sync_property_aspect(self):
         return True
-
-    def _get_actual_size(self):
-        if not self._loaded:
-            # At this point we actually are loaded, but self._loaded hasn't
-            # been set to True yet.  We'll be called here for size dimensions
-            # set to "auto" in which case we want to return the actual image
-            # size.
-            return self.get_image_size()
-        return super(Image, self)._get_actual_size()
 
 
 
