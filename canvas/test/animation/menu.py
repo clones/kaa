@@ -1,5 +1,12 @@
 from kaa import canvas, input
-import kaa
+import kaa, sys
+
+
+# 1 = all menu items are visible, scrolls as if it were a list.
+# 2 = works like an option list.
+MENU_STYLE = 1
+if len(sys.argv) > 1 and sys.argv[1].isdigit():
+    MENU_STYLE = max(1, min(2, int(sys.argv[1]))) 
 
 menu_items = []        # List of Text objects for menu items
 watermark_items = []   # List of Image objects for watermarks
@@ -45,9 +52,13 @@ def set_menu_item(new_item):
 
     # Move the menu item selector to the new position, decelerating as it
     # approaches its new position.  It will also bounce a little bit.
-    pos = menu_items[cur_item]._get_relative_values("pos")
-    selector_box.animate("move", left=pos[0] - 10, top=pos[1] - 5, duration = 0.1, 
-                     bounce = True, decelerate = True)
+    if MENU_STYLE == 1:
+        pos = menu_items[cur_item]._get_relative_values("pos")
+        selector_box.animate("move", left=pos[0] - 10, top=pos[1] - 5, duration = 0.1, 
+                             bounce = True, decelerate = True)
+    elif MENU_STYLE == 2:
+        pos = menu.get_child_position(menu_items[cur_item])
+        menu.animate("move", top = -pos[1], duration = 0.2, bounce = True, decelerate = True, bounce_factor = 0.2)
 
 
 def menu_reflow():
@@ -61,12 +72,15 @@ def menu_reflow():
     pos = item._get_relative_values("pos")
     selector.resize(200, size[1] + 10)
     streak.resize(height = size[1] + 10)
-    selector_box.move(pos[0] - 10, pos[1] - 5)
+    if MENU_STYLE == 1:
+        selector_box.move(pos[0] - 10, pos[1] - 5)
+    elif MENU_STYLE == 2:
+        menu_box.resize(height = size[1])
     set_menu_item(cur_item)
 
 
 # If you have a GL capable card, set use_gl=True for smoother performance.
-c = canvas.X11Canvas((640,480), use_gl=True)
+c = canvas.X11Canvas((640,480), use_gl=False)
 c.add_child(kaa.canvas.Image("royale/background.jpg"), width="100%", height="100%")
 
 
@@ -93,17 +107,25 @@ streak = selector_box.add_child(kaa.canvas.Image("royale/list_selector_streak.pn
                                 vcenter="50%", right=0, color=(255,255,255,160))
 
 # Now create the text items for the menu.
-menu = c.add_child(canvas.VBox(), vcenter="50%", left="20%", width = 180)
+menu_box = kaa.canvas.Container() #, top = 3)#, clip = "auto")
+if MENU_STYLE == 1:
+    c.add_child(menu_box, vcenter = "50%", left = "20%")
+elif MENU_STYLE == 2:
+    selector_box.move(hcenter = "40%", vcenter = "30%")
+    selector_box.add_child(menu_box, left = 10, top = 3, clip = "auto")
+
+menu = menu_box.add_child(canvas.VBox(), width = 180)
+offset = (15, 5)[MENU_STYLE-1]
 for item in ("Television", "Videos", "Music", "Photos", "Play DVD", "Settings"):
     # If you don't have Trebuchet installed, change this font name.
     # Offset the item 15 pixels from the top (gives each item a bit of 
     # padding)
-    menu_items.append(menu.add_child(canvas.Text(item, font="trebuc"), top=15))
+    menu_item = menu_items.append(menu.add_child(canvas.Text(item, font="trebuc"), top=offset))
 
 # We want to know when the menu item changes position or size, so we can
 # update the selector image.
 menu.signals["reflowed"].connect(menu_reflow)
-menu.signals["moved"].connect(lambda old, new: menu_reflow())
+#menu.signals["moved"].connect(lambda old, new: menu_reflow())
 
 # Allow key presses both in console and on the window.
 kaa.signals["stdin_key_press_event"].connect(handle_key)
