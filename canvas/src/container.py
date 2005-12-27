@@ -191,6 +191,7 @@ class Container(Object):
     def _sync_property_pos(self):
         self._sync_property_size()
         self._sync_property_clip()
+        self.signals["moved"].emit(None, None)
         return True
 
     def _sync_property_color(self):
