@@ -8,10 +8,12 @@ from kaa import evas
 class X11Canvas(Canvas):
 
     def __init__(self, size, use_gl = None, title = "Canvas"):
-        if use_gl == None:
-            use_gl = "gl_x11" in evas.render_method_list()
-
         self._window = display.X11Window(size = size, title = "Kaa Display Test")
+
+        if use_gl == None:
+            use_gl = "gl_x11" in evas.render_method_list() and \
+                     self._window.get_display().glx_supported()
+
         self._canvas_window = display.EvasX11Window(use_gl, size = size, parent = self._window)
         self._canvas_window.show()
         super(X11Canvas, self).__init__()
