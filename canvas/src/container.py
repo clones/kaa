@@ -91,8 +91,7 @@ class Container(Object):
         if "auto" not in self["size"]:
             # TODO: with fixed dimensions, there shouldn't be any need to
             # reflow.  Check into this.
-            raise Exception
-            pass
+            return
 
         last = self._last_reflow_size
         size = self._get_actual_size()

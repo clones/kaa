@@ -257,7 +257,6 @@ class ColorAnimator(Animator):
         self._target = kwargs.get("r"), kwargs.get("g"), kwargs.get("b"), kwargs.get("a")
 
 
-
     def _get_state(self):
         return self._object.get_color()
 
