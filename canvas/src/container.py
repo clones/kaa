@@ -1,6 +1,5 @@
 __all__ = [ 'Container' ]
 
-
 import _weakref
 from kaa.notifier import Signal
 from object import *
@@ -89,7 +88,13 @@ class Container(Object):
             self._restack_children()
             return
 
-        #print "[CONTAINER REFLOW]", self, child_asking, what_changed, old, new
+        if "auto" not in self["size"]:
+            # TODO: with fixed dimensions, there shouldn't be any need to
+            # reflow.  Check into this.
+            raise Exception
+            pass
+
+        last = self._last_reflow_size
         size = self._get_actual_size()
         size_changed = size != self._last_reflow_size
         self._last_reflow_size = size
@@ -98,6 +103,8 @@ class Container(Object):
         if not size_changed:
             return False
 
+        #print "[CONTAINER REFLOW]: size_changed=%s lastsize=%s cursize=%s, size=%s " % \
+        # (str(size_changed), str(last), str(size), str(self["size"])), self, child_asking, what_changed, old, new
         self._force_sync_property("size", update_children = False)
         self._force_sync_property("clip", update_children = False)
         if None in self._get_fixed_pos():
@@ -117,7 +124,7 @@ class Container(Object):
 
         if signal:
             self.signals["reflowed"].emit()
-        # TODO: only if our size changes as a result, need to propage reflow to parent
+
         if self._parent:
             self._parent._request_reflow(child_asking = self)
 
@@ -227,44 +234,43 @@ class Container(Object):
 
 
     def _get_actual_size(self, child_asking = None):
-        w, h = 0, 0
+        size = [0, 0]
         for child in self._children:
             if child_asking:
-                pos = child._get_fixed_pos()
+                child_pos = child._get_fixed_pos()
                 # Replace None values with 0 in fixed pos
-                pos = [ (x, 0)[x == None] for x in pos ]
+                child_pos = [ (x, 0)[x == None] for x in child_pos ]
             else:
-                pos = child._get_computed_pos()
+                child_pos = child._get_computed_pos()
 
-            size = child._get_actual_size()
-            if pos[0] + size[0] > w:
-                w = pos[0] + size[0]
-            if pos[1] + size[1] > h:
-                h = pos[1] + size[1]
+            child_size = child._get_actual_size()
+            for i in range(2):
+                if child_pos[i] + child_size[i] > size[i]:
+                    size[i] = child_pos[i] + child_size[i]
 
-        return w, h
+        # If container has a fixed dimension, override calculated dimension.
+        for i in range(2):
+            if type(self["size"][i]) == int:
+                size[i] = self["size"][i]
+        return size
 
     def _get_minimum_size(self):
-        if type(self["size"][0]) == type(self["size"][1]) == int:
-            return self["size"]
-
-        w, h = 0, 0
+        size = [0, 0]
         for child in self._children:
-            pos = child._get_fixed_pos()
+            child_pos = child._get_fixed_pos()
             # Replace None values with 0 in fixed pos
-            pos = [ (x, 0)[x == None] for x in pos ]
+            child_pos = [ (x, 0)[x == None] for x in child_pos ]
+            child_size = child._get_minimum_size()
 
-            size = child._get_minimum_size()
-            if pos[0] + size[0] > w:
-                w = pos[0] + size[0]
-            if pos[1] + size[1] > h:
-                h = pos[1] + size[1]
-        
-        if type(self["size"][0]) == int:
-            w = self["size"][0]   
-        if type(self["size"][1]) == int:
-            h = self["size"][1]   
-        return w,h
+            for i in range(2):
+                if child_pos[i] + child_size[i] > size[i]:
+                    size[i] = child_pos[i] + child_size[i]
+ 
+        # If container has a fixed dimension, override calculated dimension.
+        for i in range(2):
+            if type(self["size"][i]) == int:
+                size[i] = self["size"][i]
+        return size
 
 
     def _compute_size(self, size, child_asking, extents = None):
@@ -309,6 +315,14 @@ class Container(Object):
         assert(isinstance(child, Object))
         if child._parent:
             raise CanvasError, "Attempt to parent an adopted child."
+
+        supported_kwargs = "visible", "color", "name", "layer", "clip",  \
+                           "expand", "font", "aspect", "size", "left", "top", \
+                           "right", "bottom", "vcenter", "hcenter", "width", \
+                           "height"
+        for kwarg in kwargs.keys():
+            if kwarg not in supported_kwargs:
+                raise ValueError, "Unsupported kwarg '%s'" % kwarg
 
         child.move(left = kwargs.get("left"), top = kwargs.get("top"),
                    right = kwargs.get("right"), bottom = kwargs.get("bottom"),
@@ -386,7 +400,15 @@ class Container(Object):
         self.add_child(child)
  
  
-    #def get_child_position(self, child):
+    def get_child_position(self, child):
+        """
+        Returns the child's position relative to the container.
+        """
+        # Not the most efficient way to calculate this ...
+        abs_child_pos = child._get_relative_values("pos")
+        abs_pos = self._get_relative_values("pos")
+        return abs_child_pos[0] - abs_pos[0], abs_child_pos[1] - abs_pos[1]
+
         
         
     # Convenience functions for object creation.

@@ -158,6 +158,12 @@ class Box(Container):
 
             size[self._dimension] += child_size[self._dimension]
             size[1 - self._dimension] = max(size[1 - self._dimension], child_size[1 - self._dimension])
+
+        # If container has a fixed dimension, override calculated dimension.
+        for i in range(2):
+            if type(self["size"][i]) == int:
+                size[i] = self["size"][i]
+
         return size
 
 
