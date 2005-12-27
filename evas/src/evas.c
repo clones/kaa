@@ -395,8 +395,23 @@ PyTypeObject Evas_PyObject_Type = {
     Evas_PyObject__new,        /* tp_new */
 };
 
+PyObject *
+render_method_list(PyObject *module, PyObject *args)
+{
+    PyObject *pylist;
+    Evas_List *list, *p;
+    
+    pylist = PyList_New(0);
+
+    list = evas_render_method_list();
+    for (p = list; p; p = p->next)
+        PyList_Append(pylist, PyString_FromString((char *)p->data));
+    evas_render_method_list_free(list);
+    return pylist;
+}
 
 PyMethodDef evas_methods[] = {
+    {"render_method_list", (PyCFunction) render_method_list, METH_VARARGS},
     {NULL}
 };
 

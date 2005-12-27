@@ -20,6 +20,10 @@ LOAD_ERROR_RESOURCE_ALLOCATION_FAILED = 4
 LOAD_ERROR_CORRUPT_FILE               = 5
 LOAD_ERROR_UNKNOWN_FORMAT             = 6
 
+def render_method_list():
+    return _evas.render_method_list()
+
+
 class LoadError(Exception):
     def __init__(self, errno, str = None, extra = None):
         self.data = (errno, str, extra)
