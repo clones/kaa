@@ -361,7 +361,7 @@ class Object(object):
                 elif prop == "visible":
                     v = v and p
                 elif prop == "layer":
-                    v += p + 1
+                    v += p# + 1
 
             if prop == "color":
             # ... except for color, which is a special case.
@@ -494,12 +494,9 @@ class Object(object):
         abs_pos = self._get_relative_values("pos")
         old_pos = self._o.geometry_get()[0]
         self._o.move(abs_pos)
-        if self._clip_object:
-            clip_pos = self._get_computed_clip()[0]
-            abs_clip_pos = map(lambda x,y: x+y, clip_pos, abs_pos)
-            self._clip_object.move(clip_pos)
         new_pos = self._o.geometry_get()[0]
         if old_pos != new_pos:
+            self._sync_property_clip()
             self._request_reflow("pos", old_pos, new_pos)
 
     def _sync_property_visible(self):

@@ -190,6 +190,7 @@ class Container(Object):
 
     def _sync_property_pos(self):
         self._sync_property_size()
+        self._sync_property_clip()
         return True
 
     def _sync_property_color(self):
