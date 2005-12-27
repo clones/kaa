@@ -71,6 +71,7 @@ def menu_reflow():
     size = item.get_computed_size()
     pos = item._get_relative_values("pos")
     selector.resize(200, size[1] + 10)
+    selector_box.resize(200, size[1] + 10)
     streak.resize(height = size[1] + 10)
     if MENU_STYLE == 1:
         selector_box.move(pos[0] - 10, pos[1] - 5)
@@ -112,7 +113,7 @@ if MENU_STYLE == 1:
     c.add_child(menu_box, vcenter = "50%", left = "20%")
 elif MENU_STYLE == 2:
     selector_box.move(hcenter = "40%", vcenter = "30%")
-    selector_box.add_child(menu_box, left = 10, top = 3, clip = "auto")
+    selector_box.add_child(menu_box, left = 10, top = 5, clip = "auto")
 
 menu = menu_box.add_child(canvas.VBox(), width = 180)
 offset = (15, 5)[MENU_STYLE-1]
