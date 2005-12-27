@@ -39,6 +39,11 @@ import os
 # the display module
 import _Display
 
+# import Framebuffer support
+from fb import Framebuffer, EvasFramebuffer, PAL_768x576, PAL_800x600, \
+     NTSC_640x480, NTSC_768x576, NTSC_800x600
+
+
 # kaa notifier for the socket callback
 import kaa.notifier
 from kaa.notifier import Signal
