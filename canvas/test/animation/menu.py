@@ -14,6 +14,10 @@ def handle_key(key):
         new_item = min(len(menu_items)-1, cur_item + 1)
     elif key == "up":
         new_item = max(0, cur_item - 1)
+    elif key == "enter":
+        streak.move(right = 0)
+        streak.animate("move", left="100%", duration = 0.25)
+
     if new_item != cur_item:
         set_menu_item(new_item)
 
@@ -35,7 +39,7 @@ def set_menu_item(new_item):
     # Move the menu item selector to the new position, decelerating as it
     # approaches its new position.  It will also bounce a little bit.
     pos = menu_items[cur_item]._get_relative_values("pos")
-    selector.animate("move", left=pos[0] - 10, top=pos[1] - 5, duration = 0.1, 
+    selector_box.animate("move", left=pos[0] - 10, top=pos[1] - 5, duration = 0.1, 
                      bounce = True, decelerate = True)
 
 
@@ -49,7 +53,8 @@ def menu_reflow():
     size = item.get_computed_size()
     pos = item._get_relative_values("pos")
     selector.resize(200, size[1] + 10)
-    selector.move(pos[0] - 10, pos[1] - 5)
+    streak.resize(height = size[1] + 10)
+    selector_box.move(pos[0] - 10, pos[1] - 5)
     set_menu_item(cur_item)
 
 
@@ -67,13 +72,18 @@ for item in ("tv", "videos", "music", "photos", "dvd", "settings"):
     img.set_color(a = 0)
     watermark_items.append(img)
 
+selector_box = c.add_child(kaa.canvas.Container(), width = 200, clip = "auto")
 # Load the menu item selector image.
-selector = c.add_child(kaa.canvas.Image("royale/list_selector.png"))
+selector = selector_box.add_child(kaa.canvas.Image("royale/list_selector.png"))
 # Set the border to 10 pixels in all directions, so that scaling the selector
 # won't distort its edges.
 selector.set_border(10, 10, 10, 10)
 # Slightly transparent, so we can see the watermarks through the selector.
 selector.set_color(a = 200)
+
+
+streak = selector_box.add_child(kaa.canvas.Image("royale/list_selector_streak.png"), 
+                                vcenter="50%", right=0, color=(255,255,255,160))
 
 # Now create the text items for the menu.
 menu = c.add_child(canvas.VBox(), vcenter="50%", left="20%", width = 180)
@@ -94,6 +104,6 @@ c.signals["key_press_event"].connect(handle_key)
 
 kaa.base.create_logger()
 
-print "Use up/down arrows; q to quit."
+print "Use up/down arrows; enter selects; q to quit."
 kaa.main()
 
