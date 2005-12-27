@@ -2,11 +2,15 @@ __all__ = [ 'X11Canvas' ]
 
 from kaa.canvas import Canvas
 from kaa import display
+from kaa import evas
 
 
 class X11Canvas(Canvas):
 
-    def __init__(self, size, use_gl = False, title = "Canvas"):
+    def __init__(self, size, use_gl = None, title = "Canvas"):
+        if use_gl == None:
+            use_gl = "gl_x11" in evas.render_method_list()
+
         self._window = display.X11Window(size = size, title = "Kaa Display Test")
         self._canvas_window = display.EvasX11Window(use_gl, size = size, parent = self._window)
         self._canvas_window.show()
