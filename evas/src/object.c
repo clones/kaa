@@ -51,9 +51,9 @@ Evas_Object_PyObject__clear(Evas_Object_PyObject *self)
 {
     Evas_PyObject *evas;
     Evas_Hash *attrs;
-    int ref;
+    long ref;
 
-    ref = (int)evas_object_data_get(self->object, "ref") - 1;
+    ref = (long)evas_object_data_get(self->object, "ref") - 1;
     evas_object_data_set(self->object, "ref", (void *)ref);
 
     //printf("Object refcount: %d\n", ref);
@@ -125,7 +125,7 @@ Evas_Object_PyObject *
 wrap_evas_object(Evas_Object * evas_object, Evas_PyObject * evas)
 {
     Evas_Object_PyObject *o;
-    int ref;
+    long ref;
 
     o = (Evas_Object_PyObject *)Evas_Object_PyObject__new(&Evas_Object_PyObject_Type, NULL, NULL);
     if (evas && !evas_object_data_get(evas_object, "evas_pyobject")) {
@@ -135,7 +135,7 @@ wrap_evas_object(Evas_Object * evas_object, Evas_PyObject * evas)
 
     // It's possible for multiple Evas_Object_PyObjects to wrap one
     // Evas_Object, so we maintain a refcount.
-    ref = (int)evas_object_data_get(evas_object, "ref");
+    ref = (long)evas_object_data_get(evas_object, "ref");
     evas_object_data_set(evas_object, "ref", (void *)ref+1);
     o->object = evas_object;
     return o;
