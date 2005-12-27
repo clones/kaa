@@ -167,6 +167,10 @@ class X11Display(object):
     def get_string(self):
         return self._display.get_string()
 
+    def glx_supported(self):
+        return self._display.glx_supported()
+
+
 
 X11Display.XEVENT_WINDOW_EVENTS_LIST = filter(lambda x: x.find("XEVENT_") != -1, dir(X11Display))
 X11Display.XEVENT_WINDOW_EVENTS = map(lambda x: getattr(X11Display, x), X11Display.XEVENT_WINDOW_EVENTS_LIST)
@@ -352,6 +356,7 @@ class X11Window(object):
      
     def get_id(self):
         return self._window.ptr
+
 
 class EvasX11Window(X11Window):
     def __init__(self, gl = False, display = None, size = (640, 480), 

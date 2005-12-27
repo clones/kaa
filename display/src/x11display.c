@@ -33,6 +33,7 @@
 #include <Python.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <GL/glx.h>
 #include "x11display.h"
 #include "structmember.h"
 
@@ -195,6 +196,18 @@ X11Display_PyObject__get_string(X11Display_PyObject * self, PyObject * args)
     return Py_BuildValue("s", DisplayString(self->display));
 }
 
+PyObject *
+X11Display_PyObject__glx_supported(X11Display_PyObject * self, PyObject * args)
+{
+    static int attribs[] = { GLX_RGBA, None };
+    if (glXChooseVisual(self->display, XDefaultScreen(self->display), attribs)) {
+        Py_INCREF(Py_True);
+        return Py_True;
+    }
+    Py_INCREF(Py_False);
+    return Py_False;
+}
+
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
     { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
@@ -202,6 +215,7 @@ PyMethodDef X11Display_PyObject_methods[] = {
     { "unlock", ( PyCFunction ) X11Display_PyObject__unlock, METH_VARARGS },
     { "get_size", ( PyCFunction ) X11Display_PyObject__get_size, METH_VARARGS },
     { "get_string", ( PyCFunction ) X11Display_PyObject__get_string, METH_VARARGS },
+    { "glx_supported", ( PyCFunction ) X11Display_PyObject__glx_supported, METH_VARARGS },
     { NULL, NULL }
 };
 
