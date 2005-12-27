@@ -68,7 +68,7 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     size_cb_data cbdata;
 
     PyObject *buffer;
-    guchar *buffer_ptr, *pixbuf_ptr;
+    guchar *buffer_ptr;
     
     if (!PyArg_ParseTuple(args, "iis#", &w, &h, &svgdata, &len))
         return NULL;

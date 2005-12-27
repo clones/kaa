@@ -36,13 +36,13 @@
 extern PyTypeObject MNG_PyObject_Type;
 
 static mng_ptr 
-_mng_alloc(mng_uint32 size)
+_mng_alloc(mng_size_t size)
 {
     return (mng_ptr)calloc(1, size);
 }
 
 static void 
-_mng_free(mng_ptr p, mng_uint32 size)
+_mng_free(mng_ptr p, mng_size_t size)
 {
     free(p);
 }
