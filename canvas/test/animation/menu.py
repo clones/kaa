@@ -1,10 +1,16 @@
-from kaa import canvas
+from kaa import canvas, input
 import kaa
 
 menu_items = []        # List of Text objects for menu items
 watermark_items = []   # List of Image objects for watermarks
 cur_item = 0           # Current menu item index
 
+
+def handle_lirc_event(code):
+    lirc_map = { "exit": "q", "select": "enter", "down": "down", "up": "up" }
+    code = code.lower()
+    if code in lirc_map:
+        handle_key(lirc_map[code])
 
 def handle_key(key):
     new_item = cur_item
@@ -20,6 +26,7 @@ def handle_key(key):
 
     if new_item != cur_item:
         set_menu_item(new_item)
+
 
 
 def set_menu_item(new_item):
@@ -59,7 +66,7 @@ def menu_reflow():
 
 
 # If you have a GL capable card, set use_gl=True for smoother performance.
-c = canvas.X11Canvas((640,480), use_gl=False)
+c = canvas.X11Canvas((640,480), use_gl=True)
 c.add_child(kaa.canvas.Image("royale/background.jpg"), width="100%", height="100%")
 
 
@@ -73,8 +80,8 @@ for item in ("tv", "videos", "music", "photos", "dvd", "settings"):
     watermark_items.append(img)
 
 selector_box = c.add_child(kaa.canvas.Container(), width = 200, clip = "auto")
-# Load the menu item selector image.
-selector = selector_box.add_child(kaa.canvas.Image("royale/list_selector.png"))
+# Load the menu item selector animation.
+selector = selector_box.add_child(kaa.canvas.Image("royale/list_selector.mng"))
 # Set the border to 10 pixels in all directions, so that scaling the selector
 # won't distort its edges.
 selector.set_border(10, 10, 10, 10)
@@ -101,6 +108,8 @@ menu.signals["moved"].connect(lambda old, new: menu_reflow())
 # Allow key presses both in console and on the window.
 kaa.signals["stdin_key_press_event"].connect(handle_key)
 c.signals["key_press_event"].connect(handle_key)
+if input.lirc.init():
+    kaa.signals["lirc"].connect_weak(handle_lirc_event)
 
 kaa.base.create_logger()
 
