@@ -129,6 +129,10 @@ if display.check_library('evas', '0.9.9.010'):
             elif engine == 'fb':
                 display.config("#define ENABLE_ENGINE_FB\n")
                 evas_engines += " fb"
+                # FIXME: This is ugly. Find a better way to add
+                # the evas libs to the fb module
+                fb.libraries += display.libraries
+                fb.library_dirs += display.library_dirs
         os.unlink(out)
 
 if evas_engines == "":
