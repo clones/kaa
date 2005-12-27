@@ -84,6 +84,13 @@ def parse(db, item):
     if not item.parent:
         log.error('no parent %s' % item)
         return
+    if not item.parent.dbid:
+        # There is a parent without id, update the parent now. We know that the
+        # parent should be in the db, so commit and it should work
+        db.commit()
+        if not item.parent.dbid:
+            # this should never happen
+            raise AttributeError('parent for %s has no dbid' % item)
     if item.data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
         return
@@ -122,7 +129,7 @@ def parse(db, item):
         # of bad timing but should not matter. Only one entry will be there after
         # the next update
         db.add_object(type, name=item.basename, parent=item.parent.dbid,
-                      overlay=item.overlay, **attributes)
+                      overlay=item.overlay, callback=item.set_data, **attributes)
     return True
 
 

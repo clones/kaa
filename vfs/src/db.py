@@ -281,13 +281,18 @@ class Database(object):
         """
         t1 = time.time()
         changes = self.changes
-        for c in self.changes:
+        for function, arg1, args, kwargs in self.changes:
             # It could be possible that an item is added twice. But this is no
             # problem because the duplicate will be removed at the
             # next query. It can also happen that a dir is added because of
             # _getdir and because of the parser. We can't avoid that but the
             # db should clean itself up.
-            c[0](c[1], *c[2], **c[3])
+            if 'callback' in kwargs:
+                callback = kwargs['callback']
+                del kwargs['callback']
+                callback(function(arg1, *args, **kwargs))
+            else:
+                function(arg1, *args, **kwargs)
         self._db.commit()
         self.changes = []
         log.info('db.commit took %s seconds' % (time.time() - t1))
@@ -305,25 +310,27 @@ class Database(object):
         self._db.delete_object((entry['type'], entry['id']))
 
 
-    def _query_dirname(self, *args, **kwargs):
+    def _query_dirname(self, **query):
         """
         A query to get all files in a directory. Special keyword 'dirname' in
         the query is used for that.
         """
-        dirname = kwargs['dirname']
+        dirname = query['dirname']
 
         # find correct mountpoint
         for m in self._mountpoints:
             if dirname.startswith(m.directory):
                 break
 
-        # TODO: add kwargs recursive to return all files (not directories)
-        # below the given dir. Take care of sym links to avoid endless loops.
-        
         # get parent item (may be None for client)
-        parent = self._get_dir(dirname, m)
+        parent = None
+        if 'parent' in query:
+            parent = query['parent']
 
-        if parent:
+        if not parent:
+            parent = self._get_dir(dirname, m)
+
+        if parent and parent.dbid:
             items = [ item.create(f, parent, m) for f in \
                       self._db.query(parent = parent.dbid) ]
         else:
@@ -371,6 +378,20 @@ class Database(object):
             # need commit because some items were deleted from the db
             self.commit()
 
+        if 'recursive' in query and query['recursive']:
+            # recursive, replace the directories with the content of the dir
+            # This can take a long time on a big hd, so we need to step to keep
+            # the main loop alive.
+            # FIXME: both the step() and the fact that this can take several
+            # minutes is very bad. This should not be used at all. It can also
+            # block the server in the monitoring when checking all mtimes.
+            subdirs = [ x for x in items if x.isdir ]
+            items = [ x for x in items if not x.isdir ]
+            for subdir in subdirs:
+                items += self._query_dirname(dirname=subdir.filename[:-1],
+                                             parent=subdir, recursive=True)
+            # step now
+            kaa.notifier.step(False)
         return items
 
 

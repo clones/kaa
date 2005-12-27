@@ -55,6 +55,15 @@ class Item(object):
         return '<vfs.Item %s>' % self.url
 
 
+    def set_data(self, data):
+        """
+        Callback for add_object.
+        """
+        # TODO: do we need to set more attributes?
+        self.data = data
+        self.dbid = data['type'], data['id']
+
+
     def __getitem__(self, key):
         if self.data.has_key(key):
             return self.data[key]

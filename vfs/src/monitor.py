@@ -64,13 +64,15 @@ class Monitor(object):
     """
 
     def __init__(self, callback, db, server, id, query):
+        log.info('create new monitor %s', id)
         self.id = id
         self.callback = Notification(callback, self.id)
         self._server = server
         self._db = db
         self._query = query
         self._checker = None
-        if self._query.has_key('dirname'):
+        if self._query.has_key('dirname') and \
+           (not self._query.has_key('recursive') or not self._query['recursive']):
             # TODO: use inotify for monitoring, this will also fix the
             # problem when files grow because they are copied right
             # now and the first time we had no real information
@@ -118,6 +120,9 @@ class Monitor(object):
         last_parent = None
         t1 = time.time()
         for i in self.items:
+            # FIXME: this does not scale very good. For many items like a
+            # recursive dir search it can take several seconds to scan all mtimes
+            # and this is not an option.
             if not isinstance(i, item.Item):
                 # TODO: don't know how to monitor other types
                 continue
@@ -126,11 +131,15 @@ class Monitor(object):
             # dir has also a parent, the media itself. So we need to stop at
             # parent.parent == None.
             parent = i.parent
+            parent_check = []
             while last_parent != parent and parent and parent.parent:
                 mtime = parser.get_mtime(parent)
                 if mtime and parent.data['mtime'] != mtime and not parent in to_check:
-                    to_check.append(weakref(parent))
+                    parent_check.append(weakref(parent))
                 parent = parent.parent
+            if parent_check:
+                parent_check.reverse()
+                to_check += parent_check
             last_parent = i.parent
             
             mtime = parser.get_mtime(i)
