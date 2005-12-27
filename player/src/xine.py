@@ -1,6 +1,11 @@
 import sys, os, md5, shm, time, fcntl, struct
 import kaa
-from kaa import notifier, display, xine
+from kaa import notifier, display
+try:
+    from kaa import xine
+except ImportError:
+    xine = None
+
 # player base
 from base import *
 
@@ -651,5 +656,6 @@ if __name__ == "__main__":
 
 
 else:
-    register_player("xine", XinePlayer, get_capabilities)
+    if xine:
+        register_player("xine", XinePlayer, get_capabilities)
 
