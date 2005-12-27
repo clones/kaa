@@ -15,15 +15,7 @@ class FBCanvas(Canvas):
         self._wrap(self._fb.get_evas())
 
     def _render(self):
-        print 'a'
         regions = self._o.render()
-#         if vis == True:
-#             self._window.show()
-
-#         self._visibility_on_next_render = None
         if regions:
             self.signals["updated"].emit(regions)
         return regions
-
-#     def get_window(self):
-#         return self._window
