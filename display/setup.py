@@ -126,6 +126,9 @@ if display.check_library('evas', '0.9.9.010'):
             elif engine == "gl_x11":
                 display.config("#define ENABLE_ENGINE_GL_X11\n")
                 evas_engines += " gl_x11"
+            elif engine == 'fb':
+                display.config("#define ENABLE_ENGINE_FB\n")
+                evas_engines += " fb"
         os.unlink(out)
 
 if evas_engines == "":
