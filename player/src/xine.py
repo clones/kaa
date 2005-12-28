@@ -563,6 +563,8 @@ class XinePlayer(MediaPlayer):
             window.signals["unmap_event"].connect_weak(self._handle_window_visibility_event)
             window.signals["expose_event"].connect_weak(self._handle_window_expose_event)
 
+    def get_position(self):
+        return self._position
 
     def get_player_id(self):
         return "xine"
@@ -583,6 +585,7 @@ class XinePlayer(MediaPlayer):
  
         if width > 0 and height > 0 and aspect > 0:
             self.signals["frame"].emit(width, height, aspect, self._frame_shmem.addr + 16, "bgr32")
+
 
     def unlock_frame_buffer(self):
         try:

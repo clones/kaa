@@ -315,6 +315,7 @@ class MPlayer(MediaPlayer):
         # FIXME: hardcoded
         #self._size = 800, 600
         #self._size = 854, 640
+        self._size = 640, 480
 
         if self._size:
             w, h = self._size
@@ -324,7 +325,8 @@ class MPlayer(MediaPlayer):
                "-nodouble -fixed-vo -identify -framedrop -idle "
 
         filters += self._filters_add
-        filters += ["expand=:::::4/3"]  # XXX: unstable!
+        if not self._size:
+            filters += ["expand=:::::4/3"]
         filters += ["overlay=%s" % self._get_overlay_shm_key()]
 
         if filters:

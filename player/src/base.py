@@ -110,7 +110,6 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
     if exclude != None and type(exclude) not in (tuple, list):
         exclude  = (exclude,)
 
-
     choice = None
     for player_id, player in _players.items():
         if mrl != None and scheme not in player["schemes"]:
@@ -127,9 +126,9 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
                 # If the mrl is dvd, make sure we prefer the player that
                 # supports CAP_DVD_MENUS
                 continue
-            if mrl and choice and ext in choice["extensions"] and \
-               ext not in player["extensions"]:
-                continue
+        if mrl and choice and ext in choice["extensions"] and \
+           ext not in player["extensions"]:
+            continue
 
         choice = player
         
