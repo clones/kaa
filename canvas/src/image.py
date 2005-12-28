@@ -56,7 +56,7 @@ class Image(Object):
             self.set_image(image_or_file)
 
 
-    def __str__(self):
+    def __repr__(self):
         s = "<canvas.%s " % self.__class__.__name__
         if self["filename"]:
             s += "file=\"%s\" " % self["filename"]

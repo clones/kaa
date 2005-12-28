@@ -24,7 +24,7 @@ class Container(Object):
             "reflowed": Signal()
         })
 
-    def __str__(self):
+    def __repr__(self):
         s = "<canvas.%s size=%s nchildren=%d>" % \
             (self.__class__.__name__, str(self["size"]), len(self._children))
         return s

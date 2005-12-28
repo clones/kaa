@@ -22,7 +22,7 @@ class TextBlock(Object):
         if markup != None:
             self.set_markup(markup)
 
-    def __str__(self):
+    def __repr__(self):
         clsname = self.__class__.__name__
         markup = self["markup"].replace("\n", "").strip()
         if len(markup) > 30:

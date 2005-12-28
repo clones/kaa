@@ -1,5 +1,5 @@
 from kaa import notifier
-import time, math
+import time, math, _weakref
 
 __all__ = ["animate", "register_animator_method"]
 
@@ -52,7 +52,7 @@ def _calc_step_value_exp(begin_val, end_val, time_offset, duration):
 class Animator(object):
     def __init__(self, o, **kwargs):
         self._running = False
-        self._object = o
+        self._object = _weakref.ref(o)
         self._end_callback = kwargs.get("end_callback")
         self._duration = kwargs.get("duration")
         self._accelerate = kwargs.get("accelerate")
@@ -151,6 +151,11 @@ class Animator(object):
         self.stop()
 
     def step(self):
+        if not self._object():
+            # Weakref is dead.
+            self.stop()
+            return
+
         if self._start_time == None:
             # First step
             self._start_time = time.time()
@@ -207,13 +212,13 @@ class SizeAnimator(Animator):
         self._target = kwargs.get("width"), kwargs.get("height")
 
     def _get_state(self):
-        return self._object._get_actual_size()
+        return self._object()._get_actual_size()
 
     def _apply_state(self, state):
-        self._object.resize(*state)
+        self._object().resize(*state)
 
     def _compute_target(self, target):
-        computed_target = list(self._object._compute_size(target, None))
+        computed_target = list(self._object()._compute_size(target, None))
         for i in range(2):
             if target[i] == -1:
                 computed_target[i] = None
@@ -239,13 +244,13 @@ class PositionAnimator(Animator):
 
 
     def _get_state(self):
-        return self._object._get_computed_pos()
+        return self._object()._get_computed_pos()
 
     def _apply_state(self, state):
-        self._object.move(*state)
+        self._object().move(*state)
 
     def _compute_target(self, target):
-        return list(self._object._compute_pos(target, None))
+        return list(self._object()._compute_pos(target, None))
         
 
 
@@ -258,10 +263,10 @@ class ColorAnimator(Animator):
 
 
     def _get_state(self):
-        return self._object.get_color()
+        return self._object().get_color()
 
     def _apply_state(self, state):
-        self._object.set_color(*state)
+        self._object().set_color(*state)
 
     def _compute_target(self, target):
         return list(target)

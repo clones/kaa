@@ -34,7 +34,7 @@ class Text(Object):
         if color != None:
             self.set_color(*color)
 
-    def __str__(self):
+    def __repr__(self):
         clsname = self.__class__.__name__
         return "<canvas.%s text=\"%s\">" % (clsname, self["text"])
 

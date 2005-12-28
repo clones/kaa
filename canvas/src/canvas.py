@@ -36,7 +36,7 @@ class Canvas(Container):
 
         self["fontpath"] = font_path
 
-    def __str__(self):
+    def __repr__(self):
         clsname = self.__class__.__name__
         return "<canvas.%s size=%s>" % (clsname, self["size"])
 
