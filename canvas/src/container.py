@@ -183,6 +183,8 @@ class Container(Object):
 
     def _sync_property_clip(self):
         super(Container, self)._sync_property_clip()
+        if not self._clip_object:
+            return
         if not self._children:
             # Hide clip object if there are no children (otherwise it will
             # just be rendered as a visible white rectangle.)

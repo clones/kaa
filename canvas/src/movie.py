@@ -90,7 +90,7 @@ class Movie(Image):
         self._window = None
         self.osd = None
 
-        self.signals = {
+        self.signals.update({
             "pause": notifier.Signal(),
             "play": notifier.Signal(),
             "pause_toggle": notifier.Signal(),
@@ -100,7 +100,7 @@ class Movie(Image):
             # Stream ended (either stopped by user or finished)
             "end": notifier.Signal(),
             "stream_changed": notifier.Signal()
-        }
+        })
 
         self["detached"] = False
         self.set_has_alpha(False)
