@@ -115,7 +115,7 @@ Evas_Object_PyObject__traverse(Evas_Object_PyObject *self, visitproc visit, void
 void
 Evas_Object_PyObject__dealloc(Evas_Object_PyObject * self)
 {
-    printf("Evas object dealloc: %s\n", evas_object_type_get(self->object));
+    //printf("Evas object dealloc: %s\n", evas_object_type_get(self->object));
     Evas_Object_PyObject__clear(self);
     evas_object_del(self->object);
     self->ob_type->tp_free((PyObject*)self);
