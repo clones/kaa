@@ -142,7 +142,7 @@ if display.check_library('evas', '0.9.9.010'):
                 # the evas libs to the fb module
                 fb.libraries += display.libraries
                 fb.library_dirs += display.library_dirs
-            elif engine == 'directfb':
+            elif engine == 'directfb' and dfb:
                 display.config("#define ENABLE_ENGINE_DFB\n")
                 evas_engines += " dfb"
                 # FIXME: This is ugly. Find a better way to add
