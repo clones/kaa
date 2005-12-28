@@ -51,6 +51,15 @@ else:
     print "+ FB support disabled"
     fb = None
 
+# the framebuffer so module
+dfb = Extension('kaa.display._DFBmodule', [ 'src/dfb.c'] )
+
+if dfb.check_library('directfb', '0.9.20'):
+    print "+ DFB support enabled"
+else:
+    print "+ DFB support disabled"
+    dfb = None
+
 # the display so module
 display = Extension('kaa.display._Displaymodule',
                     [ 'src/display.c', 'src/sdl.c', 'src/x11display.c',
@@ -133,6 +142,13 @@ if display.check_library('evas', '0.9.9.010'):
                 # the evas libs to the fb module
                 fb.libraries += display.libraries
                 fb.library_dirs += display.library_dirs
+            elif engine == 'directfb':
+                display.config("#define ENABLE_ENGINE_DFB\n")
+                evas_engines += " dfb"
+                # FIXME: This is ugly. Find a better way to add
+                # the evas libs to the fb module
+                dfb.libraries += display.libraries
+                dfb.library_dirs += display.library_dirs
         os.unlink(out)
 
 if evas_engines == "":
@@ -144,6 +160,8 @@ else:
 ext_modules = [ display ]
 if fb:
     ext_modules.append(fb)
+if dfb:
+    ext_modules.append(dfb)
     
 setup(module  = 'display',
       version = '0.1',
