@@ -33,10 +33,12 @@
 
 #include <directfb/directfb.h>
 
+#include "config.h"
+
+#ifdef ENABLE_ENGINE_DFB
 #include "Evas.h"
 #include "Evas_Engine_DirectFB.h"
-
-#include "config.h"
+#endif
 
 /* macro for a safe call to DirectFB functions */
 #define DFBCHECK(err, err_string) \
@@ -52,9 +54,11 @@ IDirectFBDisplayLayer *layer = NULL;
 DFBSurfaceDescription  dsc;
 DFBDisplayLayerConfig  layer_config;
 
+#ifdef ENABLE_ENGINE_DFB
 /* Evas stuff */
 PyTypeObject *Evas_PyObject_Type;
 Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
+#endif
 
 /* open dfb and create base surface */
 PyObject *dfb_open(PyObject *self, PyObject *args)
@@ -112,7 +116,7 @@ PyObject *dfb_size(PyObject *self, PyObject *args)
 }
 
 
-#ifdef ENABLE_ENGINE_FB
+#ifdef ENABLE_ENGINE_DFB
 PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     Evas_Engine_Info_DirectFB *einfo;
@@ -151,7 +155,7 @@ PyMethodDef dfb_methods[] = {
     { "open", (PyCFunction) dfb_open, METH_VARARGS },
     { "close", (PyCFunction) dfb_close, METH_VARARGS },
     { "size", (PyCFunction) dfb_size, METH_VARARGS },
-#ifdef USE_EVAS
+#ifdef ENABLE_ENGINE_DFB
     { "new_evas_dfb", (PyCFunction) new_evas_dfb, METH_VARARGS | METH_KEYWORDS },
 #endif
     { NULL }
