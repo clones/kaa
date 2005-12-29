@@ -182,7 +182,7 @@ void init_DFBmodule() {
     void **imlib2_api_ptrs, **evas_api_ptrs;
     (void) Py_InitModule("_DFBmodule", dfb_methods);
 
-#ifdef USE_EVAS
+#ifdef ENABLE_ENGINE_DFB
     // Import kaa-evas's C api
     evas_api_ptrs = get_module_api("kaa.evas._evas");
     if (evas_api_ptrs == NULL)
