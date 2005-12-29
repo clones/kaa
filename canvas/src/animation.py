@@ -150,10 +150,16 @@ class Animator(object):
     def _animation_ended(self):
         self.stop()
 
+    def _can_animate(self):
+        return True
+
     def step(self):
         if not self._object():
             # Weakref is dead.
             self.stop()
+            return
+
+        if not self._can_animate():
             return
 
         if self._start_time == None:
@@ -211,6 +217,9 @@ class SizeAnimator(Animator):
         super(SizeAnimator, self)._set_end_point(**kwargs)
         self._target = kwargs.get("width"), kwargs.get("height")
 
+    def _can_animate(self):
+        return "size" not in self._object()._changed_since_sync
+
     def _get_state(self):
         return self._object()._get_actual_size()
 
@@ -250,6 +259,10 @@ class PositionAnimator(Animator):
         self._computed_target = self._compute_target(self._target)
 
 
+    def _can_animate(self):
+        return "pos" not in self._object()._changed_since_sync
+
+
     def _set_end_point(self, **kwargs):
         super(PositionAnimator, self)._set_end_point(**kwargs)
         self._target = kwargs.get("left"), kwargs.get("top"), \
@@ -275,6 +288,8 @@ class ColorAnimator(Animator):
         super(ColorAnimator, self)._set_end_point(**kwargs)
         self._target = kwargs.get("r"), kwargs.get("g"), kwargs.get("b"), kwargs.get("a")
 
+    def _can_animate(self):
+        return "color" not in self._object()._changed_since_sync
 
     def _get_state(self):
         return self._object().get_color()

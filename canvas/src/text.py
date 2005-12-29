@@ -204,7 +204,7 @@ class Text(Object):
 
 
     def get_text(self):
-        if self._o:
+        if self._o and self._o.type_get() == "text":
             return self._o.text_get()
         return self["text"]
 
