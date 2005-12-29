@@ -153,15 +153,8 @@ class Animator(object):
     def _can_animate(self):
         return True
 
-    def step(self):
-        if not self._object():
-            # Weakref is dead.
-            self.stop()
-            return
 
-        if not self._can_animate():
-            return
-
+    def _step(self):
         if self._start_time == None:
             # First step
             self._start_time = time.time()
@@ -175,6 +168,18 @@ class Animator(object):
             self._animation_ended()
             if self._end_callback:
                 self._end_callback()
+
+
+    def step(self):
+        if not self._object():
+            # Weakref is dead.
+            self.stop()
+            return
+
+        if not self._can_animate():
+            return
+
+        self._step()
 
 
     def start(self):
@@ -257,6 +262,7 @@ class PositionAnimator(Animator):
         # Object has been resized, so recompute new target position in case
         # the target depends on the size.
         self._computed_target = self._compute_target(self._target)
+        self._step()
 
 
     def _can_animate(self):
