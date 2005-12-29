@@ -120,7 +120,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
     attr.border_pixel = 0;
     attr.background_pixmap = None;
     attr.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-        StructureNotifyMask | PointerMotionMask | KeyPressMask;
+        StructureNotifyMask | PointerMotionMask | KeyPressMask | FocusChangeMask;
     attr.bit_gravity = StaticGravity;
     attr.win_gravity = StaticGravity;
     attr.override_redirect = False;
@@ -285,6 +285,17 @@ X11Window_PyObject__get_visible(X11Window_PyObject * self, PyObject * args)
     return Py_BuildValue("i", attrs.map_state);
 }
 
+PyObject *
+X11Window_PyObject__focus(X11Window_PyObject * self, PyObject * args)
+{
+    XLockDisplay(self->display);
+    XSetInputFocus(self->display, self->window, RevertToParent, CurrentTime);
+    XUnlockDisplay(self->display);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 PyMethodDef X11Window_PyObject_methods[] = {
     { "show", (PyCFunction)X11Window_PyObject__show, METH_VARARGS },
     { "hide", (PyCFunction)X11Window_PyObject__hide, METH_VARARGS },
@@ -295,6 +306,7 @@ PyMethodDef X11Window_PyObject_methods[] = {
     { "set_cursor_visible", (PyCFunction)X11Window_PyObject__set_cursor_visible, METH_VARARGS },
     { "set_fullscreen", (PyCFunction)X11Window_PyObject__set_fullscreen, METH_VARARGS },
     { "get_visible", (PyCFunction)X11Window_PyObject__get_visible, METH_VARARGS },
+    { "focus", (PyCFunction)X11Window_PyObject__focus, METH_VARARGS },
     { NULL, NULL }
 };
 

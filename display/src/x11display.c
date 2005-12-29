@@ -144,6 +144,12 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             PyList_Append(events, o);
             Py_DECREF(o);
         }
+        else if (ev.type == FocusIn || ev.type == FocusOut) {
+            o = Py_BuildValue("(i{s:i})", ev.xfocus.type,
+                              "window", ev.xfocus.window);
+            PyList_Append(events, o);
+            Py_DECREF(o);
+        }
     }
     XUnlockDisplay(self->display);
 //    printf("END HANDL EVENTS\n");

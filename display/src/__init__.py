@@ -107,6 +107,8 @@ class X11Display(object):
     XEVENT_EXPOSE = 12
     XEVENT_BUTTON_PRESS = 4
     XEVENT_KEY_PRESS = 2
+    XEVENT_FOCUS_IN = 9
+    XEVENT_FOCUS_OUT = 10
     XEVENT_EXPOSE = 12
     XEVENT_UNMAP_NOTIFY = 18
     XEVENT_MAP_NOTIFY = 19
@@ -220,6 +222,8 @@ class X11Window(object):
 
         self.signals = {
             "key_press_event": Signal(),
+            "focus_in_event": Signal(),
+            "focus_out_event": Signal(),
             "expose_event": Signal(),
             "map_event": Signal(),
             "unmap_event": Signal(),
@@ -299,6 +303,10 @@ class X11Window(object):
                     # size to prevent being called again.
                     self._last_configured_size = self.get_size()
                 self.signals["configure_event"].emit(data["pos"], data["size"])
+            elif event == X11Display.XEVENT_FOCUS_IN:
+                self.signals["focus_in_event"].emit()
+            elif event == X11Display.XEVENT_FOCUS_OUT:
+                self.signals["focus_out_event"].emit()
                 
 
         if len(expose_regions) > 0:
@@ -364,6 +372,9 @@ class X11Window(object):
      
     def get_id(self):
         return self._window.ptr
+
+    def focus(self):
+        return self._window.focus()
 
 
 class EvasX11Window(X11Window):
