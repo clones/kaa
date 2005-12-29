@@ -37,6 +37,8 @@
 #include "x11display.h"
 #include "structmember.h"
 
+#include "config.h"
+
 extern PyTypeObject X11Display_PyObject_Type;
 
 
@@ -199,11 +201,13 @@ X11Display_PyObject__get_string(X11Display_PyObject * self, PyObject * args)
 PyObject *
 X11Display_PyObject__glx_supported(X11Display_PyObject * self, PyObject * args)
 {
+#ifdef ENABLE_ENGINE_GL_X11
     static int attribs[] = { GLX_RGBA, None };
     if (glXChooseVisual(self->display, XDefaultScreen(self->display), attribs)) {
         Py_INCREF(Py_True);
         return Py_True;
     }
+#endif
     Py_INCREF(Py_False);
     return Py_False;
 }
