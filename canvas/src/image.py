@@ -307,7 +307,7 @@ class Image(Object):
         # We need to call this function explicitly for canvas backends where
         # this data gets copied again (like GL textures).  It's essentially a
         # bug in evas.
-        self._o.data_set(self._o.data_get(), copy = False)
+        #self._o.data_set(self._o.data_get(), copy = False)
 
         self["dirty"] = False
 

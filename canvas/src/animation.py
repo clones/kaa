@@ -235,6 +235,20 @@ class SizeAnimator(Animator):
 
 
 class PositionAnimator(Animator):
+    def __init__(self, o, **kwargs):
+        super(PositionAnimator, self).__init__(o, **kwargs)
+        
+        # We want to know if the object is resized since our target position
+        # may depend on it.  With a weak ref, when the animator is done and
+        # deleted, the callback will be automatically disconnected.
+        o.signals["resized"].connect_weak(self._object_resized)
+
+
+    def _object_resized(self, old_pos, new_pos):
+        # Object has been resized, so recompute new target position in case
+        # the target depends on the size.
+        self._computed_target = self._compute_target(self._target)
+
 
     def _set_end_point(self, **kwargs):
         super(PositionAnimator, self)._set_end_point(**kwargs)
