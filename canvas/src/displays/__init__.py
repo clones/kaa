@@ -1,4 +1,16 @@
-from x11 import *
 from buffer import *
-from fb import *
-from dfb import *
+
+try:
+    from x11 import *
+except ImportError:
+    pass
+
+try:
+    from fb import *
+except ImportError:
+    pass
+
+try:
+    from dfb import *
+except ImportError:
+    pass
