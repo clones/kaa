@@ -23,6 +23,8 @@ class X11Canvas(Canvas):
         self._wrap(self._canvas_window.get_evas())
 
         self._canvas_window.signals["key_press_event"].connect_weak(self.signals["key_press_event"].emit)
+        # When main window gets first focus, pass have the evas window grab focus.
+        self._window.signals["focus_in_event"].connect_weak_once(self._canvas_window.focus)
         self._window.signals["resize_event"].connect_weak(self._handle_resize_event)
         self._canvas_window.set_cursor_hide_timeout(1)
 
