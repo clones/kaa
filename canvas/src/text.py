@@ -53,7 +53,7 @@ class Text(Object):
 
 
     def _render_text_to_image(self, force = True):
-        if not self._font:
+        if not self._font or self["text"] == None:
             return
 
         t0=time.time()
@@ -102,7 +102,7 @@ class Text(Object):
 
     def _get_actual_size(self, child_asking = None):
         if self._o.type_get() == "image":
-            if not self._img and self._font:
+            if not self._img and self._font and self["text"] != None:
                 metrics = self._font.get_text_size(self["text"])
                 return metrics[0] + 2, metrics[1]
 
