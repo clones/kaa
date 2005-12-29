@@ -189,8 +189,6 @@ void init_DFBmodule() {
         return;
     evas_object_from_pyobject = evas_api_ptrs[0];
     Evas_PyObject_Type = evas_api_ptrs[1];
-#else
-    Evas_PyObject_Type = NULL;
 #endif
 
 }
