@@ -49,6 +49,7 @@ def set_menu_item(new_item):
     watermark_items[new_item].animate("size", width="30%", duration = 0.2, 
                                       bounce = True, bounce_factor = 0.3)
     cur_item = new_item
+    section_text.set_text(menu_items[cur_item].get_text())
 
     # Move the menu item selector to the new position, decelerating as it
     # approaches its new position.  It will also bounce a little bit.
@@ -81,9 +82,27 @@ def menu_reflow():
 
 
 # If you have a GL capable card, set use_gl=True for smoother performance.
-c = canvas.X11Canvas((640,480), use_gl=False)
-c.add_child(kaa.canvas.Image("royale/background.jpg"), width="100%", height="100%")
+c = canvas.X11Canvas((640,480), use_gl=None)
+bg = c.add_child(kaa.canvas.Image("royale/background.jpg"), width="100%", height="100%")
 
+marquee_box = c.add_child(canvas.Container(), width="100%")
+title_text = marquee_box.add_child(canvas.Text("Kaa Demo", "trebuc", 92), right="100%")
+section_text = marquee_box.add_child(canvas.Text(font="trebuc", size=72), vcenter="50%")
+
+def start_animate_title_text():
+    title_text.set_color(a = 80)
+    title_text.move(left = "100%")
+    title_text.animate("move", left="30%", duration=17, end_callback = start_animate_title_text)
+    title_text.animate("color", a=0, duration=17)
+
+def start_animate_section_text():
+    section_text.set_color(a = 80)
+    section_text.move(right = 0)
+    section_text.animate("move", right="70%", duration=13, end_callback = start_animate_section_text)
+    section_text.animate("color", a=0, duration=13)
+
+start_animate_title_text()
+start_animate_section_text()
 
 # Create the watermark images for each of the menu items.
 for item in ("tv", "videos", "music", "photos", "dvd", "settings"):
@@ -108,7 +127,7 @@ streak = selector_box.add_child(kaa.canvas.Image("royale/list_selector_streak.pn
                                 vcenter="50%", right=0, color=(255,255,255,160))
 
 # Now create the text items for the menu.
-menu_box = kaa.canvas.Container() #, top = 3)#, clip = "auto")
+menu_box = kaa.canvas.Container()
 if MENU_STYLE == 1:
     c.add_child(menu_box, vcenter = "50%", left = "20%")
 elif MENU_STYLE == 2:
@@ -121,7 +140,7 @@ for item in ("Television", "Videos", "Music", "Photos", "Play DVD", "Settings"):
     # If you don't have Trebuchet installed, change this font name.
     # Offset the item 15 pixels from the top (gives each item a bit of 
     # padding)
-    menu_item = menu_items.append(menu.add_child(canvas.Text(item, font="trebuc"), top=offset))
+    menu_items.append(menu.add_child(canvas.Text(item, font="trebuc"), top=offset))
 
 # We want to know when the menu item changes position or size, so we can
 # update the selector image.
@@ -136,6 +155,7 @@ if input.lirc.init():
 
 kaa.base.create_logger()
 
+
 print "Use up/down arrows; enter selects; q to quit."
 kaa.main()
-
+#del c, menu, menu_box, selector, selector_box, streak, menu_items, watermark_items, img
