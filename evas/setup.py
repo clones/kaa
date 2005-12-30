@@ -40,8 +40,8 @@ files = ["src/evas.c", "src/object.c", "src/image.c", "src/text.c",
 evasso = Extension('kaa.evas._evasmodule', files, config='src/config.h')
 
 
-if not evasso.check_library('evas', '0.9.9.010'):
-    print 'Evas >= 0.9.9.010 not found'
+if not evasso.check_library('evas', '0.9.9.022'):
+    print 'Evas >= 0.9.9.022 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
