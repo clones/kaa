@@ -58,7 +58,7 @@ class Text(Object):
 
         t0=time.time()
         metrics = self._font.get_text_size(self["text"])
-        w, h = metrics[0] + 2, metrics[1]
+        w, h = metrics[2], metrics[1]
 
         draw_mask = False
         if self["clip"] == "auto":
