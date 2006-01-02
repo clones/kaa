@@ -1,6 +1,6 @@
 import time, sys, os, locale
 from kaa.base.db import *
-from kaa.base.utils import str_to_unicode
+from kaa.base.strutils import str_to_unicode
 from kaa import metadata
 
 AUDIO_PATH = "/data/mp3"

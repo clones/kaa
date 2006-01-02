@@ -1,4 +1,4 @@
-from kaa.base.utils import str_to_unicode
+from kaa.base.strutils import str_to_unicode
 import weakref, time
 
 class Channel(object):
