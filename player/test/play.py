@@ -54,5 +54,4 @@ kaa.signals["stdin_key_press_event"].connect(handle_key, player)
 if player.get_window():
     player.get_window().signals["key_press_event"].connect(handle_key, player)
 
-kaa.base.create_logger()
 kaa.main()

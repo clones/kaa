@@ -7,7 +7,6 @@ from kaa.base.weakref import weakref
 import time
 
 import logging
-kaa.base.create_logger(logging.INFO)
 
 VERBOSE = True
 

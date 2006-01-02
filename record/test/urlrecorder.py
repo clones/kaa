@@ -7,7 +7,6 @@ import kaa
 from kaa.notifier import OneShotTimer
 from kaa.record import URLDevice, Filewriter, Recording
 
-kaa.base.create_logger()
 logging.getLogger('record').setLevel(logging.DEBUG)
 
 dev = URLDevice('channels-url0.conf')

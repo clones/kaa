@@ -256,7 +256,6 @@ goom_post = None
 
 play_next_queued()
 
-kaa.base.create_logger()
 kaa.main()
 win.hide()
 

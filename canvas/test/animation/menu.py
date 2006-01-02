@@ -153,8 +153,6 @@ c.signals["key_press_event"].connect(handle_key)
 if input.lirc.init():
     kaa.signals["lirc"].connect_weak(handle_lirc_event)
 
-kaa.base.create_logger()
-
 
 print "Use up/down arrows; enter selects; q to quit."
 kaa.main()

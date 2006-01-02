@@ -641,7 +641,6 @@ if __name__ == "__main__":
     # We're being called as a child.
     import gc
     #gc.set_debug(gc.DEBUG_COLLECTABLE | gc.DEBUG_UNCOLLECTABLE | gc.DEBUG_INSTANCES | gc.DEBUG_OBJECTS)
-    kaa.base.create_logger()
     player = XinePlayerChild(sys.argv[1])
     kaa.main()
 
