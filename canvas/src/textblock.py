@@ -65,7 +65,6 @@ class TextBlock(Object):
         return True
 
     def _get_minimum_size(self):
-        size = self._get_actual_size()
         return self._o.size_formatted_get()
 
     def _compute_size(self, size, child_asking, extents = None):

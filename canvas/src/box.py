@@ -47,6 +47,11 @@ class Box(Container):
         #print "[OFFSETS]:", self
         size = self._get_computed_size()[self._dimension]
         for child in self._children:
+            if not child["display"]:
+                self._child_sizes.append(0)
+                self._child_offsets.append(0)
+                continue
+
             if child["expand"] == True:
                 self._child_sizes.append(None)
                 n_expanded += 1
@@ -55,6 +60,7 @@ class Box(Container):
                 # Children with fixed coordinates adjust the size they occupy
                 # in the box.
                 child_pos = child._get_fixed_pos()[self._dimension]
+                child_size += child["margin"][self._dimension] + child["margin"][self._dimension + 2]
                 if child_pos != None:
                     child_size += child_pos
                 allocated_size += child_size
@@ -76,7 +82,6 @@ class Box(Container):
 
     def _get_computed_pos(self, child_asking = None):
         pos = list(super(Box, self)._get_computed_pos(child_asking))
-        #self._calculate_child_offsets()
         if child_asking:
             index = self._children.index(child_asking)
             if index < len(self._child_offsets):
@@ -103,8 +108,14 @@ class Box(Container):
         n_expanded = 0
         sizes = {}
         for child in self._children:
+            if not child["display"]:
+                continue
             min_child_size = list(child._get_minimum_size())
             req_child_size = list(child._compute_size(child["size"], None, size))
+            for i in range(2):
+                min_child_size[i] += child["margin"][i] + child["margin"][i+2]
+                req_child_size[i] += child["margin"][i] + child["margin"][i+2]
+
             child_pos = child._get_fixed_pos()[self._dimension]
             if child_pos != None:
                 min_child_size[self._dimension] += child_pos
@@ -147,7 +158,12 @@ class Box(Container):
     def _get_size_common(self, sizefunc):
         size = [0, 0]
         for child in self._children:
+            if not child["display"]:
+                continue
             child_size = list(getattr(child, sizefunc)())
+            child_size[0] += child["margin"][0] + child["margin"][2]
+            child_size[1] += child["margin"][1] + child["margin"][3]
+
             # Children with fixed coordinates adjust the size they occupy
             # in the box.
             child_pos = child._get_fixed_pos()

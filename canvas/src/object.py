@@ -24,7 +24,10 @@ class Object(object):
 
         # Properties will be synchronized to canvas in order.  "pos" should
         # be listed after "size" since pos may depend on size.
-        self._supported_sync_properties = ["name", "expand", "visible", "layer", "color", "size", "pos", "clip"]
+        self._supported_sync_properties = [
+            "name", "expand", "visible", "display", "layer", 
+            "color", "size", "pos", "clip", "margin"
+        ]
         self._properties = {}
         self._changed_since_sync = {}
         self._values_cache = {}
@@ -36,11 +39,13 @@ class Object(object):
         # Position tuple: left, top, right, bottom, hcenter, vcenter
         self["pos"] = (0, 0, None, None, None, None)
         self["size"] = ("auto", "auto")
-        self["color"] = (255, 255, 255, 255)
+        self["color"] = [255, 255, 255, 255]
         self["visible"] = True
         self["layer"] = 0
         self["clip"] = None
         self["expand"] = False  # can be False/True, or a percentage.
+        self["display"] = True
+        self["margin"] = (0, 0, 0, 0)
 
 
     def __contains__(self, key):
@@ -139,8 +144,6 @@ class Object(object):
         return 0, 0
 
     def _get_actual_size(self):
-        if not self._o:
-            return 0, 0
         return self._o.geometry_get()[1]
 
     def _get_fixed_pos(self):
@@ -184,9 +187,30 @@ class Object(object):
 
         return size
 
-                       
+    def _is_size_calculated_from_pos(self):
+        ret = [False, False]
+        if self["pos"][0] != None and self["pos"][2] != None:
+            ret[0] = True
+        if self["pos"][1] != None and self["pos"][3] != None:
+            ret[1] = True
+        return ret
+
     def _compute_size(self, size, child_asking, extents = None):
         size = list(size)
+        if True in self._is_size_calculated_from_pos():
+            size_from_pos = self._compute_pos(self["pos"], child_asking)[1]
+            if None not in size_from_pos:
+                # Both dimensions computed from position, return right away.
+                return size_from_pos
+
+            # Substitute those dimensions that are computed from position in
+            # size list and resume computation.
+            if size_from_pos[0] != None:
+                size[0] = size_from_pos[0]
+            if size_from_pos[1] != None:
+                size[1] = size_from_pos[1]
+
+
         for index in range(2):
             if type(size[index]) == int:
                 continue
@@ -221,12 +245,13 @@ class Object(object):
 
     def _compute_pos(self, pos, child_asking):
         computed_pos = [None, None]
-        computed_size = None
+        computed_size = [None, None]
         left, top, right, bottom, hcenter, vcenter = pos
         if None in pos[:2]:
             computed_size = self._get_computed_size()
             parent_size = self._parent._get_computed_size(child_asking = self)
-        elif type(left) == str or type(top) == str:
+        elif type(left) == str or type(top) == str or (left != None and right != None) or \
+             (top != None and bottom != None):
             parent_size = self._parent._get_computed_size(child_asking = self)
         else:
             parent_size = [0, 0]  # dummy values
@@ -234,16 +259,28 @@ class Object(object):
         def calc_value(value, total):
             if type(value) == int:
                 return value
-            return int(float(value.replace("%", "")) / 100.0 * total)
+            def calc_percent(m):
+                return str(int(int(m.group(2)) / 100.0 * total))
+            value = re.sub("((\d+)%)", calc_percent, value)
+            # TODO: rewrite not to use eval.
+            return eval(value)
         
-        if left != None:
+        if left != None and right != None:
+            computed_pos[0] = calc_value(left, parent_size[0])
+            r = calc_value(right, parent_size[0])
+            computed_size[0] = r - computed_pos[0]
+        elif left != None:
             computed_pos[0] = calc_value(left, parent_size[0])
         elif right != None:
             computed_pos[0] = calc_value(right, parent_size[0]) - computed_size[0]
         elif hcenter != None:
             computed_pos[0] = calc_value(hcenter, parent_size[0]) - computed_size[0] / 2
             
-        if top != None:
+        if top != None and bottom != None:
+            computed_pos[1] = calc_value(left, parent_size[1])
+            b = calc_value(bottom, parent_size[1])
+            computed_size[1] = b - computed_pos[1]
+        elif top != None:
             computed_pos[1] = calc_value(top, parent_size[1])
         elif bottom != None:
             computed_pos[1] = calc_value(bottom, parent_size[1]) - computed_size[1]
@@ -251,7 +288,7 @@ class Object(object):
             computed_pos[1] = calc_value(vcenter, parent_size[1]) - computed_size[1] / 2
 
         #print "[CALC POS]", self, computed_size, parent_size, pos, computed_pos
-        return computed_pos
+        return computed_pos, computed_size
 
 
     def _get_computed_pos(self, child_asking = None):
@@ -265,7 +302,7 @@ class Object(object):
         #print "[POS]:", self
         #print "    for child", child_asking
         #print "        Compute %s" % str(self["pos"])
-        pos = self._compute_pos(self["pos"], child_asking)
+        pos = self._compute_pos(self["pos"], child_asking)[0]
         #print "        Pos Result: %s" % str(pos)
         self._set_cached_value("computed_pos", child_asking, pos)
         return pos
@@ -339,7 +376,11 @@ class Object(object):
         assert(prop in ("pos", "layer", "color", "visible"))
 
         if prop == "pos":
-            v = self._get_computed_pos(child_asking)
+            v = list(self._get_computed_pos(child_asking))
+            v[0] += self["margin"][0]
+            v[1] += self["margin"][1]
+        elif prop == "visible":
+            v = self["visible"] and self["display"]
         else:
             v = self[prop]
 
@@ -416,7 +457,7 @@ class Object(object):
         if type(val) == str:
             if val.replace("-", "").isdigit():
                 val = int(val)
-            elif not val.replace("%", "").replace(".", "").isdigit() and val != "auto":
+            elif re.sub("[\d%\-+]", "", val) and val != "auto":
                 raise ValueError, "Invalid relative value '%s'" % val
 
         return val
@@ -507,6 +548,16 @@ class Object(object):
 
     def _sync_property_visible(self):
         self._o.visible_set(self._get_relative_values("visible"))
+
+    def _sync_property_display(self):
+        self._sync_property_visible()
+        if self["display"]:
+            old_size = 0, 0
+            new_size = self._get_computed_size()
+        else:
+            old_size = self._get_computed_size()
+            new_size = 0, 0
+        self._request_reflow("size", old_size, new_size)
     
     def _sync_property_layer(self):
         old_layer = self._o.layer_get()
@@ -558,6 +609,9 @@ class Object(object):
     def _sync_property_expand(self):
         if self._parent:
             self._parent._request_expand(self)
+
+    def _sync_property_margin(self):
+        pass
 
     def _apply_parent_clip(self):
         if not self._o and not self._clip_object:
@@ -625,11 +679,12 @@ class Object(object):
     #
 
     def move(self, left = None, top = None, right = None, bottom = None, hcenter = None, vcenter = None):
-        if len([x for x in (left, right, hcenter) if x != None]) > 1:
-            raise ValueError, "Only one of left, right, or hcenter may be specified."
-        if len([y for y in (top, bottom, vcenter) if y != None]) > 1:
-            raise ValueError, "Only one of top, bottom, or vcenter may be specified."
+        if hcenter != None and (left != None or right != None):
+            raise ValueError, "hcenter cannot be specified with left or right."
+        if vcenter != None and (top != None or bottom != None):
+            raise ValueError, "vcenter cannot be specified with top or bottom."
 
+        # FIXME: right/bottom can be specified after left/top now.
         if left == right == hcenter == None:
             # No x position specified, so use old values.
             left, right, hcenter = self["pos"][0::2]
@@ -699,6 +754,15 @@ class Object(object):
     def get_color(self):
         return self["color"]
 
+    def set_opacity(self, opacity):
+        # Opacity can be 0-255 or 0.0-1.0
+        if type(opacity) == float:
+            opacity = int(opacity * 255)
+        self["color"] = self["color"][:3] + [opacity]
+
+    def get_opacity(self):
+        return self["color"][3]
+
 
     #
     # visible property methods
@@ -716,6 +780,11 @@ class Object(object):
     def get_visible(self):
         return self["visible"]
 
+    def set_display(self, display):
+        self["display"] = display
+
+    def get_display(self):
+        return self["display"]
 
     #
     # layerproperty methods
@@ -811,3 +880,17 @@ class Object(object):
 
     def animate(self, method, **kwargs):
         return animation.animate(self, method, **kwargs)
+
+
+    #
+    # margin property methods
+    #
+
+    def set_margin(self, left = None, top = None, right = None, bottom = None):
+        margin = left, top, right, bottom
+        if None in margin:
+            margin = tuple(map(lambda x, y: (x,y)[x==None], margin, self["margin"]))
+        self["margin"] = margin
+
+    def get_margin(self):
+        return self["margin"]

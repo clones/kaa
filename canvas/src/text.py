@@ -58,6 +58,7 @@ class Text(Object):
 
         t0=time.time()
         metrics = self._font.get_text_size(self["text"])
+        # Create image size based on horizontal advance and vertical height.
         w, h = metrics[2], metrics[1]
 
         draw_mask = False
@@ -81,6 +82,8 @@ class Text(Object):
         else:
             i = imlib2.new((w, h))
 
+        # Need to append " " to work around a bug in Imlib2 1.2.1.004 and 
+        # earlier.
         i.draw_text((0, 0), self["text"] + " ", (255,255,255,255), self._font)
         if draw_mask:
             for y in range(0, i.size[1], _text_fadeout_mask.size[1]):

@@ -78,7 +78,7 @@ class Container(Object):
         super(Container, self)._force_sync_property(prop)
         if update_children:
             for child in self._children:
-                if exclude != child:
+                if exclude != child and child["display"]:
                     child._force_sync_property(prop)
         self._queue_render()
 
@@ -88,9 +88,10 @@ class Container(Object):
             self._restack_children()
             return
 
-        if "auto" not in self["size"]:
-            # TODO: with fixed dimensions, there shouldn't be any need to
-            # reflow.  Check into this.
+        t = self._is_size_calculated_from_pos()
+        if (self["size"][0] != "auto" or t[0]) and (self["size"][1] != "auto" or t[1]):
+            # XXX: with fixed dimensions, there shouldn't be any need to
+            # reflow.  Verify this idea is correct.
             return
 
         last = self._last_reflow_size
@@ -108,14 +109,10 @@ class Container(Object):
         self._force_sync_property("clip", update_children = False)
         if None in self._get_fixed_pos():
             # Our position depends on our size, so we need to resync our
-            # pos.
-            self._force_sync_property("pos", update_children = False)
+            # pos (which includes our children)
+            self._force_sync_property("pos", update_children = True)
 
         for child in self._children:
-            if None in child._get_fixed_pos():
-                # Child position depends on our size, so update its pos.
-                child._force_sync_property("pos")
-
             if None in child._get_fixed_size(resolve_auto = False):
                 # Child's size depends on our size, so update its size.
                 child._force_sync_property("size")
@@ -208,10 +205,16 @@ class Container(Object):
     def _sync_property_visible(self):
         return True
 
+    def _sync_property_display(self):
+        return True
+
     def _sync_property_layer(self):
         return True
 
     def _sync_property_size(self):
+        return True
+
+    def _sync_property_margin(self):
         return True
 
     def _set_property_size(self, size):
@@ -237,6 +240,9 @@ class Container(Object):
     def _get_actual_size(self, child_asking = None):
         size = [0, 0]
         for child in self._children:
+            if not child["display"]:
+                continue
+
             if child_asking:
                 child_pos = child._get_fixed_pos()
                 # Replace None values with 0 in fixed pos
@@ -244,7 +250,10 @@ class Container(Object):
             else:
                 child_pos = child._get_computed_pos()
 
-            child_size = child._get_actual_size()
+            child_size = list(child._get_actual_size())
+            child_size[0] += child["margin"][0] + child["margin"][2]
+            child_size[1] += child["margin"][1] + child["margin"][3]
+
             for i in range(2):
                 if child_pos[i] + child_size[i] > size[i]:
                     size[i] = child_pos[i] + child_size[i]
@@ -258,10 +267,15 @@ class Container(Object):
     def _get_minimum_size(self):
         size = [0, 0]
         for child in self._children:
+            if not child["display"]:
+                continue
             child_pos = child._get_fixed_pos()
             # Replace None values with 0 in fixed pos
             child_pos = [ (x, 0)[x == None] for x in child_pos ]
-            child_size = child._get_minimum_size()
+
+            child_size = list(child._get_minimum_size())
+            child_size[i] += child["margin"][i]
+            child_size[1] += child["margin"][i]
 
             for i in range(2):
                 if child_pos[i] + child_size[i] > size[i]:
@@ -292,21 +306,24 @@ class Container(Object):
             return super(Container, self)._get_extents()
 
         size = list(self["size"])
-        if type(size[0]) == type(size[1]) == int:
-            return size
-        if "auto" in size:
-            if self._parent:
-                extents = self._parent._get_extents(child_asking = self)
-            else:
-                extents = 0, 0
+        if type(size[0]) != int or type(size[1]) != int:
+            if "auto" in size:
+                if self._parent:
+                    extents = self._parent._get_extents(child_asking = self)
+                else:
+                    extents = 0, 0
+    
+                if size[0] == "auto":
+                    size[0] = extents[0]
+                if size[1] == "auto":
+                    size[1] = extents[1]
+    
+            size = list(self._compute_size(size, child_asking))
 
-            if size[0] == "auto":
-                size[0] = extents[0]
-            if size[1] == "auto":
-                size[1] = extents[1]
-
-        return self._compute_size(size, child_asking)
-
+        ml, mt, mr, mb = child_asking["margin"]
+        size[0] -= ml + mr
+        size[1] -= mt + mb
+        return size
 
     #
     # Public API
@@ -320,7 +337,7 @@ class Container(Object):
         supported_kwargs = "visible", "color", "name", "layer", "clip",  \
                            "expand", "font", "aspect", "size", "left", "top", \
                            "right", "bottom", "vcenter", "hcenter", "width", \
-                           "height"
+                           "height", "display", "opacity"
         for kwarg in kwargs.keys():
             if kwarg not in supported_kwargs:
                 raise ValueError, "Unsupported kwarg '%s'" % kwarg
@@ -332,6 +349,10 @@ class Container(Object):
 
         if "visible" in kwargs:
             child.set_visible(kwargs["visible"])
+        if "display" in kwargs:
+            child.set_display(kwargs["display"])
+        if "opacity" in kwargs:
+            child.set_opacity(kwargs["opacity"])
         if "color" in kwargs:
             if type(kwargs["color"]) == str:  # html-style color spec
                 child.set_color(kwargs["color"])
