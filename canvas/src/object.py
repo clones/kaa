@@ -222,7 +222,7 @@ class Object(object):
             elif size[index] == "auto":
                 size[index] = self._get_actual_size()[index]
 
-        return tuple(size)
+        return size
 
 
     def _get_computed_size(self, child_asking = None):
@@ -263,6 +263,8 @@ class Object(object):
                 return str(int(int(m.group(2)) / 100.0 * total))
             value = re.sub("((\d+)%)", calc_percent, value)
             # TODO: rewrite not to use eval.
+            # XXX: or, just remove this expression stuff (again) since this
+            # be possible with using margins.
             return eval(value)
         
         #print "COMPUTE POS", self, pos, computed_size, parent_size

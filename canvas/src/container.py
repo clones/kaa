@@ -302,7 +302,13 @@ class Container(Object):
                 if size[1] == "auto":
                     size[1] = actual_size[1]
 
-        return super(Container, self)._compute_size(size, child_asking, extents)
+        size = super(Container, self)._compute_size(size, child_asking, extents)
+        if child_asking:
+            # Reduce child's margin from the size we're about to offer them.
+            ml, mt, mr, mb = child_asking["margin"]
+            size[0] -= ml + mr
+            size[1] -= mt + mb
+        return size
 
 
     def _get_extents(self, child_asking = None):
@@ -324,10 +330,12 @@ class Container(Object):
     
             size = list(self._compute_size(size, child_asking))
 
+        # Reduce child's margin from the size we're about to offer them.
         ml, mt, mr, mb = child_asking["margin"]
         size[0] -= ml + mr
         size[1] -= mt + mb
         return size
+
 
     #
     # Public API
