@@ -265,6 +265,7 @@ class Object(object):
             # TODO: rewrite not to use eval.
             return eval(value)
         
+        #print "COMPUTE POS", self, pos, computed_size, parent_size
         if left != None and right != None:
             computed_pos[0] = calc_value(left, parent_size[0])
             r = calc_value(right, parent_size[0])

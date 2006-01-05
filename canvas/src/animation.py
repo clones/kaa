@@ -262,7 +262,8 @@ class PositionAnimator(Animator):
         # Object has been resized, so recompute new target position in case
         # the target depends on the size.
         self._computed_target = self._compute_target(self._target)
-        self._step()
+        if self._can_animate():
+            self._step()
 
 
     def _can_animate(self):
@@ -283,7 +284,7 @@ class PositionAnimator(Animator):
         self._object().move(*state)
 
     def _compute_target(self, target):
-        return list(self._object()._compute_pos(target, None))
+        return list(self._object()._compute_pos(target, None)[0])
         
 
 

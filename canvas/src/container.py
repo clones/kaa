@@ -113,6 +113,10 @@ class Container(Object):
             self._force_sync_property("pos", update_children = True)
 
         for child in self._children:
+            if None in child._get_fixed_pos():
+                # Child's position depends on our size, so update its pos.
+                child._force_sync_property("pos")
+
             if None in child._get_fixed_size(resolve_auto = False):
                 # Child's size depends on our size, so update its size.
                 child._force_sync_property("size")
@@ -337,7 +341,7 @@ class Container(Object):
         supported_kwargs = "visible", "color", "name", "layer", "clip",  \
                            "expand", "font", "aspect", "size", "left", "top", \
                            "right", "bottom", "vcenter", "hcenter", "width", \
-                           "height", "display", "opacity"
+                           "height", "display", "opacity", "margin"
         for kwarg in kwargs.keys():
             if kwarg not in supported_kwargs:
                 raise ValueError, "Unsupported kwarg '%s'" % kwarg
@@ -369,6 +373,8 @@ class Container(Object):
                 child.clip(kwargs["clip"])
         if "expand" in kwargs:
             child.expand(kwargs["expand"])
+        if "margin" in kwargs:
+            child.set_margin(*kwargs["margin"])
 
         if ("font" in kwargs or "size" in kwargs) and isinstance(child, Text):
             child.set_font(kwargs.get("font"), kwargs.get("size"))
