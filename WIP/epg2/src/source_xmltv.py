@@ -56,7 +56,7 @@ def timestr2secs_utc(timestr):
 
 def parse_channel(info):
     channel_id = info.node.prop("id").decode("utf-8")
-    channel = station = name = None
+    channel = station = name = display = None
 
     child = info.node.children
     while child:
@@ -71,7 +71,17 @@ def parse_channel(info):
                 station = child.content.decode("utf-8")
             elif channel and station and not name:
                 name = child.content.decode("utf-8")
+            else:
+                # something else, just remeber it in case we
+                # don't have a name later
+                display = child.content.decode("utf-8")
         child = child.get_next()
+
+    if not name:
+        # set name to something. XXX: this is needed for the german xmltv
+        # stuff, maybe others work different. Maybe check the <tv> tag
+        # for the used grabber somehow.
+        name = display or station
 
     id = info.epg._add_channel_to_db(channel_id, channel, station, name)
     info.channel_id_to_db_id[channel_id] = [id, None]
@@ -106,9 +116,11 @@ def parse_programme(info):
     if last_prog:
         # There is a previous program for this channel with no stop time,
         # so set last program stop time to this program start time.
+        # XXX This only works in sorted files. I guess it is ok to force the
+        # user to run tv_sort to fix this. And IIRC tv_sort also takes care of
+        # this problem.
         last_start, last_title, last_desc = last_prog
         info.epg._add_program_to_db(channel_db_id, last_start, start, last_title, last_desc)
-
     if not info.node.prop("stop"):
         info.channel_id_to_db_id[channel_id][1] = (start, title, desc)
     else:
