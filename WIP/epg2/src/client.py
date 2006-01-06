@@ -35,7 +35,7 @@ class GuideClient(object):
         self._channels_by_number = {}
         self._channels_by_id = {}
         self._channels_list = []
-        data = self._server.query(type="channel", __ipc_copy_result = True)
+        data = self._server.query(type="channel", __ipc_noproxy_result = True)
         for row in db.iter_raw_data(data, ("id", "channel", "station", "name")):
             id, channel, station, name = row
             chan = Channel(channel, station, name, self)
@@ -85,7 +85,7 @@ class GuideClient(object):
             del kwargs["time"]
 
         kwargs["type"] = "program"
-        data = self._server.query(__ipc_copy_result = True, **kwargs)
+        data = self._server.query(__ipc_noproxy_result = True, **kwargs)
         if not data[1]:
             return []
         return self._program_rows_to_objects(data)
