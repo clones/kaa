@@ -26,7 +26,7 @@ class Object(object):
         # be listed after "size" since pos may depend on size.
         self._supported_sync_properties = [
             "name", "expand", "visible", "display", "layer", 
-            "color", "size", "pos", "clip", "margin"
+            "color", "size", "pos", "clip", "margin", "padding"
         ]
         self._properties = {}
         self._changed_since_sync = {}
@@ -46,6 +46,7 @@ class Object(object):
         self["expand"] = False  # can be False/True, or a percentage.
         self["display"] = True
         self["margin"] = (0, 0, 0, 0)
+        self["padding"] = (0, 0, 0, 0)
 
 
     def __contains__(self, key):
@@ -65,8 +66,9 @@ class Object(object):
             return False
 
         self._dirty_cached_value(key)
-        if key == "pos":
-            self._dirty_cached_value("computed_pos")
+        #if key == "pos":
+        #    self._dirty_cached_value("computed_pos")
+
         #self._notify_parent_property_changed(key)
         #if key in ("pos", "visible", "color", "layer", "size"):
         #    self._inc_properties_serial()
@@ -199,10 +201,6 @@ class Object(object):
         size = list(size)
         if True in self._is_size_calculated_from_pos():
             size_from_pos = self._compute_pos(self["pos"], child_asking)[1]
-            if None not in size_from_pos:
-                # Both dimensions computed from position, return right away.
-                return size_from_pos
-
             # Substitute those dimensions that are computed from position in
             # size list and resume computation.
             if size_from_pos[0] != None:
@@ -220,7 +218,7 @@ class Object(object):
                     extents = self._get_extents()
                 size[index] = int(float(size[index].replace("%", "")) / 100.0 * extents[index])
             elif size[index] == "auto":
-                size[index] = self._get_actual_size()[index]
+                size[index] = self._get_actual_size(child_asking)[index]
 
         return size
 
@@ -234,18 +232,38 @@ class Object(object):
         if size:
             return size
 
+
         #print "[SIZE]:", self
         #print "    for child", child_asking
         #print "        Compute %s " % str(self["size"])
-        size = self._compute_size(self["size"], child_asking)
-        self._set_cached_value("size", child_asking, size)
+        size = self._compute_size(self["size"], child_asking, None)
         #print "        Size Result: %s" % str(size)
+
+        self._set_cached_value("size", child_asking, size)
         return size
 
 
-    def _compute_pos(self, pos, child_asking):
+    def _get_computed_inner_size(self, child_asking = None):
+        size = list(self._get_computed_size(child_asking))
+        size[0] -= self["padding"][0] + self["padding"][2]
+        size[1] -= self["padding"][1] + self["padding"][3]
+        return size
+
+
+    def _get_computed_outer_size(self, child_asking = None):
+        size = list(self._get_computed_size(child_asking))
+        size[0] += self["margin"][0] + self["margin"][2]
+        size[1] += self["margin"][1] + self["margin"][3]
+
+
+    def _compute_pos(self, pos, child_asking, with_margin = True):
         computed_pos = [None, None]
         computed_size = [None, None]
+        if with_margin:
+            margin = self["margin"]
+        else:
+            margin = 0, 0, 0, 0
+
         left, top, right, bottom, hcenter, vcenter = pos
         if None in pos[:2]:
             computed_size = self._get_computed_size()
@@ -269,45 +287,52 @@ class Object(object):
         
         #print "COMPUTE POS", self, pos, computed_size, parent_size
         if left != None and right != None:
-            computed_pos[0] = calc_value(left, parent_size[0])
+            l = calc_value(left, parent_size[0])
             r = calc_value(right, parent_size[0])
-            computed_size[0] = r - computed_pos[0]
+            computed_pos[0] = l + margin[0]
+            computed_size[0] = r - l
         elif left != None:
-            computed_pos[0] = calc_value(left, parent_size[0])
+            computed_pos[0] = calc_value(left, parent_size[0]) + margin[0]
         elif right != None:
-            computed_pos[0] = calc_value(right, parent_size[0]) - computed_size[0]
+            computed_pos[0] = calc_value(right, parent_size[0]) - computed_size[0] - margin[2]
         elif hcenter != None:
             computed_pos[0] = calc_value(hcenter, parent_size[0]) - computed_size[0] / 2
             
         if top != None and bottom != None:
-            computed_pos[1] = calc_value(left, parent_size[1])
+            t = calc_value(left, parent_size[1])
             b = calc_value(bottom, parent_size[1])
-            computed_size[1] = b - computed_pos[1]
+            computed_pos[1] = t + margin[1]
+            computed_size[1] = b - t
         elif top != None:
-            computed_pos[1] = calc_value(top, parent_size[1])
+            computed_pos[1] = calc_value(top, parent_size[1]) + margin[1]
         elif bottom != None:
-            computed_pos[1] = calc_value(bottom, parent_size[1]) - computed_size[1]
+            computed_pos[1] = calc_value(bottom, parent_size[1]) - computed_size[1] - margin[3]
         elif vcenter != None:
             computed_pos[1] = calc_value(vcenter, parent_size[1]) - computed_size[1] / 2
 
+        #if child_asking:
+        #    computed_pos[0] += self["padding"][0]
+        #    computed_pos[1] += self["padding"][1]
         #print "[CALC POS]", self, computed_size, parent_size, pos, computed_pos
         return computed_pos, computed_size
 
 
-    def _get_computed_pos(self, child_asking = None):
-        pos = self._get_cached_value("computed_pos", child_asking)
+    def _get_computed_pos(self, child_asking = None, with_margin = True):
+        pos = self._get_cached_value("pos", child_asking, ("computed", with_margin))
         if pos:
             return pos
 
-        if type(self["pos"][0]) == type(self["pos"][1]) == int:
-            return self["pos"][0:2]
+        #if type(self["pos"][0]) == type(self["pos"][1]) == int and self["margin"][:2] == (0, 0):
+            # Simple case optimization: fixed coords and no margin.
+        #    return self["pos"][0:2]
 
         #print "[POS]:", self
         #print "    for child", child_asking
         #print "        Compute %s" % str(self["pos"])
-        pos = self._compute_pos(self["pos"], child_asking)[0]
+        pos = self._compute_pos(self["pos"], child_asking, with_margin)[0]
         #print "        Pos Result: %s" % str(pos)
-        self._set_cached_value("computed_pos", child_asking, pos)
+        self._set_cached_value("pos", child_asking, pos, ("computed", with_margin))
+
         return pos
 
     def _compute_clip(self, clip, child_asking):
@@ -326,7 +351,7 @@ class Object(object):
                     
             return val
 
-        computed_size = self._get_computed_size()
+        computed_size = self._get_computed_inner_size()
         pos = [ resolve(x,max) for x,max in zip(pos, computed_size) ]
         size = [ resolve(x,max) for x,max in zip(size, computed_size) ]
 
@@ -343,30 +368,26 @@ class Object(object):
         return clip
 
 
-    def _get_cached_value(self, prop, child):
+    def _get_cached_value(self, prop, child, otherkey = None):
         if child:
             child = _weakref.ref(child)
 
-        if prop in self._values_cache:
-            if child in self._values_cache[prop]:
-                #print "CACHE HIT", self, prop, child, self._values_cache[prop][child]
-                return self._values_cache[prop][child]
+        if (prop, child, otherkey) in self._values_cache:
+            #print "CACHE HIT", self, prop, child, otherkey
+            return self._values_cache[(prop, child, otherkey)]
 
-        #print "CACHE MISS", self, prop, child
+
 
     def _dirty_cached_value(self, prop):
-        #self._values_cache = {}
-        #print "< DIRTY CACHED VALUE", self, prop
-        if prop in self._values_cache:
-            del self._values_cache[prop]
+        for key in self._values_cache.keys():
+            if key[0] == prop:
+                del self._values_cache[key]
 
 
-    def _set_cached_value(self, prop, child, value):
+    def _set_cached_value(self, prop, child, value, otherkey = None):
         if child:
             child = _weakref.ref(child)
-        if prop not in self._values_cache:
-            self._values_cache[prop] = {}
-        self._values_cache[prop][child] = value
+        self._values_cache[(prop, child, otherkey)] = value
         
 
 
@@ -380,8 +401,6 @@ class Object(object):
 
         if prop == "pos":
             v = list(self._get_computed_pos(child_asking))
-            v[0] += self["margin"][0]
-            v[1] += self["margin"][1]
         elif prop == "visible":
             v = self["visible"] and self["display"]
         else:
@@ -573,7 +592,7 @@ class Object(object):
         self._o.color_set(*self._get_relative_values("color"))
 
     def _sync_property_size(self):
-        s = self._get_computed_size()
+        s = self._get_computed_inner_size()
         # TODO: if s > size extents, add clip.
         old_size = self._o.geometry_get()[1]
         #print "[RESIZE OBJECT]", self, s
@@ -614,7 +633,13 @@ class Object(object):
             self._parent._request_expand(self)
 
     def _sync_property_margin(self):
-        pass
+        self._force_sync_property("pos")
+        self._force_sync_property("size")
+
+    def _sync_property_padding(self):
+        self._force_sync_property("pos")
+        self._force_sync_property("size")
+
 
     def _apply_parent_clip(self):
         if not self._o and not self._clip_object:
@@ -833,6 +858,12 @@ class Object(object):
     def get_computed_size(self):
         return self._get_computed_size()
 
+    def get_computed_inner_size(self):
+        return self._get_computed_inner_size()
+
+    def get_computed_outer_size(self):
+        return self._get_computed_outer_size()
+
 
     #
     # clip property methods
@@ -897,3 +928,18 @@ class Object(object):
 
     def get_margin(self):
         return self["margin"]
+
+
+    #
+    # padding property methods
+    #
+
+    def set_padding(self, left = None, top = None, right = None, bottom = None):
+        padding = left, top, right, bottom
+        if None in padding:
+            padding = tuple(map(lambda x, y: (x,y)[x==None], padding, self["padding"]))
+        self["padding"] = padding
+
+    def get_padding(self):
+        return self["padding"]
+

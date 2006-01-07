@@ -97,7 +97,7 @@ class Image(Object):
     def _compute_size(self, size, child_asking, extents = None):
         if "auto" in size:
             # Object._compute_size will replace "auto" with the object's
-            # canvas geometry.  For images, "auto" means the image's native
+            # container's geometry.  For images, "auto" means the image's native
             # size, so we replace "auto" here, before passing the size to
             # Object._compute_size.
             image_size = self.get_image_size()
@@ -107,7 +107,21 @@ class Image(Object):
                     size[i] = image_size[i]
 
         size = list(super(Image, self)._compute_size(size, child_asking, extents))
-        return self._apply_aspect_to_size(size)
+        size = self._apply_aspect_to_size(size)
+        #print "IMAGE size", self, size, child_asking
+        #if child_asking:
+        #    size[0] -= self["padding"][0] + self["padding"][2]
+        #    size[1] -= self["padding"][1] + self["padding"][3]
+        return size
+
+    def _get_computed_pos(self, child_asking = None, with_margin = True):
+        pos = list(super(Image, self)._get_computed_pos(child_asking, with_margin))
+        # The image will be scaled down to compensate for any padding, so here
+        # we adjust the position of the image to account for the padding.
+        pos[0] += self["padding"][0]
+        pos[1] += self["padding"][1]
+        return pos
+
 
     def _apply_aspect_to_size(self, size):
         if self["aspect"] not in ("ignore", "preserve"):
@@ -130,7 +144,7 @@ class Image(Object):
                     else:
                         size[index] = int(size[0] / aspect)
 
-        return tuple(size)
+        return size
 
 
     def _canvased(self, canvas):
@@ -181,7 +195,7 @@ class Image(Object):
 
         # Computed size may depend on new image size, so dirty cached size.
         self._dirty_cached_value("size")
-        size = self._get_computed_size()
+        size = self._get_computed_inner_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
 
@@ -234,7 +248,7 @@ class Image(Object):
 
         # Computed size may depend on new image size, so dirty cached size.
         self._dirty_cached_value("size")
-        size = self._get_computed_size()
+        size = self._get_computed_inner_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
 
@@ -253,7 +267,7 @@ class Image(Object):
 
         # Computed size may depend on new image size, so dirty cached size.
         self._dirty_cached_value("size")
-        size = self._get_computed_size()
+        size = self._get_computed_inner_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
 
@@ -272,7 +286,7 @@ class Image(Object):
 
         # Computed size may depend on new image size, so dirty cached size.
         self._dirty_cached_value("size")
-        size = self._get_computed_size()
+        size = self._get_computed_inner_size()
         self._o.resize(size)
         self._o.fill_set((0, 0), size)
 
@@ -379,7 +393,7 @@ class Image(Object):
             # testing, or perhaps we should reload on all upscaling?  Or 
             # never?)
             actual = self.get_image_size()
-            size = self._get_computed_size()
+            size = self._get_computed_inner_size()
             if float(size[0]*size[1]) / (actual[0]*actual[1]) > 2.0:
                 self._loaded = False
                 self._force_sync_property("filename")

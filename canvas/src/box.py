@@ -80,8 +80,8 @@ class Box(Container):
         #print " < ", self, self._child_sizes, " - offsets", self._child_offsets
         
 
-    def _get_computed_pos(self, child_asking = None):
-        pos = list(super(Box, self)._get_computed_pos(child_asking))
+    def _get_computed_pos(self, child_asking = None, with_margin = True):
+        pos = list(super(Box, self)._get_computed_pos(child_asking, with_margin))
         if child_asking:
             index = self._children.index(child_asking)
             if index < len(self._child_offsets):
@@ -179,6 +179,9 @@ class Box(Container):
         for i in range(2):
             if type(self["size"][i]) == int:
                 size[i] = self["size"][i]
+            else:
+                size[i] += self["padding"][i] + self["padding"][i+2]
+
 
         return size
 

@@ -79,6 +79,8 @@ class PlayerOSDCanvas(BufferCanvas):
             self.create((buffer_width, buffer_height), buffer)
             self._o.output_size_set((width, height))
 
+        self.resize(width, height)
+
 
 
 class Movie(Image):

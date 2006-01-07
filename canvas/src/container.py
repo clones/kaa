@@ -16,7 +16,9 @@ class Container(Object):
         self._children = []
         self._queued_children = {}
         super(Container, self).__init__()
+
         self["size"] = ("auto", "auto")
+        
         self._debug_rect = None
         self._last_reflow_size = None
 
@@ -35,7 +37,7 @@ class Container(Object):
         if not self._debug_rect:
             self._debug_rect = self.get_evas().object_rectangle_add()
             self._debug_rect.show()
-            self._debug_rect.color_set(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 190)
+            self._debug_rect.color_set(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 150)
 
         # For debugging, to be able to see the extents of the container.
         computed_size = self._get_computed_size()
@@ -252,7 +254,7 @@ class Container(Object):
                 # Replace None values with 0 in fixed pos
                 child_pos = [ (x, 0)[x == None] for x in child_pos ]
             else:
-                child_pos = child._get_computed_pos()
+                child_pos = child._get_computed_pos(with_margin = False)
 
             child_size = list(child._get_actual_size())
             child_size[0] += child["margin"][0] + child["margin"][2]
@@ -262,10 +264,14 @@ class Container(Object):
                 if child_pos[i] + child_size[i] > size[i]:
                     size[i] = child_pos[i] + child_size[i]
 
-        # If container has a fixed dimension, override calculated dimension.
         for i in range(2):
             if type(self["size"][i]) == int:
+                # If container has a fixed dimension, override calculated 
+                # dimension ...
                 size[i] = self["size"][i]
+            else:
+                size[i] += self["padding"][i] + self["padding"][i+2]
+
         return size
 
     def _get_minimum_size(self):
@@ -278,8 +284,8 @@ class Container(Object):
             child_pos = [ (x, 0)[x == None] for x in child_pos ]
 
             child_size = list(child._get_minimum_size())
-            child_size[i] += child["margin"][i]
-            child_size[1] += child["margin"][i]
+            child_size[0] += child["margin"][0] + child["margin"][2]
+            child_size[1] += child["margin"][1] + child["margin"][3]
 
             for i in range(2):
                 if child_pos[i] + child_size[i] > size[i]:
@@ -289,25 +295,18 @@ class Container(Object):
         for i in range(2):
             if type(self["size"][i]) == int:
                 size[i] = self["size"][i]
+            else:
+                size[i] += self["padding"][i] + self["padding"][i+2]
         return size
 
 
     def _compute_size(self, size, child_asking, extents = None):
-        if child_asking:
-            if "auto" in size:
-                size = list(size)  # copy
-                actual_size = self._get_actual_size(child_asking)
-                if size[0] == "auto":
-                    size[0] = actual_size[0]
-                if size[1] == "auto":
-                    size[1] = actual_size[1]
-
         size = super(Container, self)._compute_size(size, child_asking, extents)
         if child_asking:
-            # Reduce child's margin from the size we're about to offer them.
-            ml, mt, mr, mb = child_asking["margin"]
-            size[0] -= ml + mr
-            size[1] -= mt + mb
+            # Subtract our padding from the size we're about to offer child.
+            size[0] -= self["padding"][0] + self["padding"][2]
+            size[1] -= self["padding"][1] + self["padding"][3]
+
         return size
 
 
@@ -329,12 +328,18 @@ class Container(Object):
                     size[1] = extents[1]
     
             size = list(self._compute_size(size, child_asking))
+        else:
+            size[0] -= self["padding"][0] + self["padding"][2]
+            size[1] -= self["padding"][1] + self["padding"][3]
 
-        # Reduce child's margin from the size we're about to offer them.
-        ml, mt, mr, mb = child_asking["margin"]
-        size[0] -= ml + mr
-        size[1] -= mt + mb
         return size
+
+    def _get_computed_pos(self, child_asking = None, with_margin = True):
+        pos = list(super(Container, self)._get_computed_pos(child_asking, with_margin))
+        if child_asking:
+            pos[0] += self["padding"][0]
+            pos[1] += self["padding"][1]
+        return pos
 
 
     #
@@ -349,7 +354,7 @@ class Container(Object):
         supported_kwargs = "visible", "color", "name", "layer", "clip",  \
                            "expand", "font", "aspect", "size", "left", "top", \
                            "right", "bottom", "vcenter", "hcenter", "width", \
-                           "height", "display", "opacity", "margin"
+                           "height", "display", "opacity", "margin", "padding"
         for kwarg in kwargs.keys():
             if kwarg not in supported_kwargs:
                 raise ValueError, "Unsupported kwarg '%s'" % kwarg
@@ -383,6 +388,8 @@ class Container(Object):
             child.expand(kwargs["expand"])
         if "margin" in kwargs:
             child.set_margin(*kwargs["margin"])
+        if "padding" in kwargs and isinstance(child, Container):
+            child.set_padding(*kwargs["padding"])
 
         if ("font" in kwargs or "size" in kwargs) and isinstance(child, Text):
             child.set_font(kwargs.get("font"), kwargs.get("size"))
@@ -445,8 +452,7 @@ class Container(Object):
         abs_pos = self._get_relative_values("pos")
         return abs_child_pos[0] - abs_pos[0], abs_child_pos[1] - abs_pos[1]
 
-        
-        
+ 
     # Convenience functions for object creation.
 
 
