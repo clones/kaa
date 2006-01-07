@@ -226,7 +226,7 @@ class SizeAnimator(Animator):
         return "size" not in self._object()._changed_since_sync
 
     def _get_state(self):
-        return self._object()._get_actual_size()
+        return self._object()._get_intrinsic_size()
 
     def _apply_state(self, state):
         self._object().resize(*state)
@@ -262,7 +262,7 @@ class PositionAnimator(Animator):
         # Object has been resized, so recompute new target position in case
         # the target depends on the size.
         self._computed_target = self._compute_target(self._target)
-        if self._can_animate():
+        if self._can_animate() or self._start_time != None:
             self._step()
 
 

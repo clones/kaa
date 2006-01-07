@@ -98,7 +98,7 @@ class Canvas(Container):
         return self._o != None
 
 
-    def _get_actual_size(self):
+    def _get_intrinsic_size(self):
         return self["size"]
 
     def _request_reflow(self, what_changed = None, old = None, new = None, child_asking = None):

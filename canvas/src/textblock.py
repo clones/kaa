@@ -42,7 +42,7 @@ class TextBlock(Object):
             self._wrap(o)
 
 
-    def _get_actual_size(self, child_asking = None):
+    def _get_intrinsic_size(self, child_asking = None):
         return self._o.geometry_get()[1]
 
 

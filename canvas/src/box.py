@@ -60,7 +60,8 @@ class Box(Container):
                 # Children with fixed coordinates adjust the size they occupy
                 # in the box.
                 child_pos = child._get_fixed_pos()[self._dimension]
-                child_size += child["margin"][self._dimension] + child["margin"][self._dimension + 2]
+                child_margin = child._get_computed_margin()
+                child_size += child_margin[1-self._dimension] + child_margin[1-self._dimension + 2]
                 if child_pos != None:
                     child_size += child_pos
                 allocated_size += child_size
@@ -113,8 +114,9 @@ class Box(Container):
             min_child_size = list(child._get_minimum_size())
             req_child_size = list(child._compute_size(child["size"], None, size))
             for i in range(2):
-                min_child_size[i] += child["margin"][i] + child["margin"][i+2]
-                req_child_size[i] += child["margin"][i] + child["margin"][i+2]
+                child_margin = child._get_computed_margin()
+                min_child_size[i] += child_margin[1-i] + child_margin[1-i+2]
+                req_child_size[i] += child_margin[1-i] + child_margin[1-i+2]
 
             child_pos = child._get_fixed_pos()[self._dimension]
             if child_pos != None:
@@ -161,8 +163,9 @@ class Box(Container):
             if not child["display"]:
                 continue
             child_size = list(getattr(child, sizefunc)())
-            child_size[0] += child["margin"][0] + child["margin"][2]
-            child_size[1] += child["margin"][1] + child["margin"][3]
+            child_margin = child._get_computed_margin()
+            child_size[0] += child_margin[1] + child_margin[3]
+            child_size[1] += child_margin[0] + child_margin[2]
 
             # Children with fixed coordinates adjust the size they occupy
             # in the box.
@@ -176,17 +179,18 @@ class Box(Container):
             size[1 - self._dimension] = max(size[1 - self._dimension], child_size[1 - self._dimension])
 
         # If container has a fixed dimension, override calculated dimension.
+        padding = self._get_computed_padding()
         for i in range(2):
             if type(self["size"][i]) == int:
                 size[i] = self["size"][i]
             else:
-                size[i] += self["padding"][i] + self["padding"][i+2]
+                size[i] += padding[1-i] + padding[1-i+2]
 
 
         return size
 
 
-    def _get_actual_size(self, child_asking = None):
+    def _get_intrinsic_size(self, child_asking = None):
         return self._get_size_common("_get_computed_size")
 
 

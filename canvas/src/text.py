@@ -100,10 +100,10 @@ class Text(Object):
         self._remove_sync_property("font")
         self._remove_sync_property("text")
         self._remove_sync_property("clip")
-        #print "RENDER", self["text"], i.size, time.time()-t0, self._get_extents(), self._get_actual_size()
+        #print "RENDER", self["text"], i.size, time.time()-t0, self._get_extents(), self._get_intrinsic_size()
         
 
-    def _get_actual_size(self, child_asking = None):
+    def _get_intrinsic_size(self, child_asking = None):
         if self._o.type_get() == "image":
             if not self._img and self._font and self["text"] != None:
                 metrics = self._font.get_text_size(self["text"])
@@ -164,13 +164,13 @@ class Text(Object):
 
     def _compute_size(self, size, child_asking, extents = None):
         # Currently text cannot scale or clip; computed size is always 
-        # actual size, so force to auto.
+        # intrinsic size, so force to auto.
         size = ("auto", "auto")
         return super(Text, self)._compute_size(size, child_asking, extents)
 
 
     def _get_minimum_size(self):
-        return self._get_actual_size()
+        return self._get_intrinsic_size()
 
 
     #

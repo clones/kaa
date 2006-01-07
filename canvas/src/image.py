@@ -109,17 +109,14 @@ class Image(Object):
         size = list(super(Image, self)._compute_size(size, child_asking, extents))
         size = self._apply_aspect_to_size(size)
         #print "IMAGE size", self, size, child_asking
-        #if child_asking:
-        #    size[0] -= self["padding"][0] + self["padding"][2]
-        #    size[1] -= self["padding"][1] + self["padding"][3]
         return size
 
     def _get_computed_pos(self, child_asking = None, with_margin = True):
         pos = list(super(Image, self)._get_computed_pos(child_asking, with_margin))
         # The image will be scaled down to compensate for any padding, so here
         # we adjust the position of the image to account for the padding.
-        pos[0] += self["padding"][0]
-        pos[1] += self["padding"][1]
+        pos[0] += self["padding"][3]
+        pos[1] += self["padding"][0]
         return pos
 
 

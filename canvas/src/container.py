@@ -97,7 +97,7 @@ class Container(Object):
             return
 
         last = self._last_reflow_size
-        size = self._get_actual_size()
+        size = self._get_intrinsic_size()
         size_changed = size != self._last_reflow_size
         self._last_reflow_size = size
 
@@ -243,7 +243,7 @@ class Container(Object):
             child._reset()
 
 
-    def _get_actual_size(self, child_asking = None):
+    def _get_intrinsic_size(self, child_asking = None):
         size = [0, 0]
         for child in self._children:
             if not child["display"]:
@@ -256,21 +256,23 @@ class Container(Object):
             else:
                 child_pos = child._get_computed_pos(with_margin = False)
 
-            child_size = list(child._get_actual_size())
-            child_size[0] += child["margin"][0] + child["margin"][2]
-            child_size[1] += child["margin"][1] + child["margin"][3]
+            child_size = list(child._get_intrinsic_size())
+            child_margin = child._get_computed_margin()
+            child_size[0] += child_margin[1] + child_margin[3]
+            child_size[1] += child_margin[0] + child_margin[2]
 
             for i in range(2):
                 if child_pos[i] + child_size[i] > size[i]:
                     size[i] = child_pos[i] + child_size[i]
 
+        padding = self._get_computed_padding()
         for i in range(2):
             if type(self["size"][i]) == int:
                 # If container has a fixed dimension, override calculated 
                 # dimension ...
                 size[i] = self["size"][i]
             else:
-                size[i] += self["padding"][i] + self["padding"][i+2]
+                size[i] += padding[1-i] + padding[1-i+2]
 
         return size
 
@@ -284,19 +286,22 @@ class Container(Object):
             child_pos = [ (x, 0)[x == None] for x in child_pos ]
 
             child_size = list(child._get_minimum_size())
-            child_size[0] += child["margin"][0] + child["margin"][2]
-            child_size[1] += child["margin"][1] + child["margin"][3]
+            child_margin = child._get_computed_margin()
+            child_size[0] += child_margin[1] + child_margin[3]
+            child_size[1] += child_margin[0] + child_margin[2]
 
             for i in range(2):
                 if child_pos[i] + child_size[i] > size[i]:
                     size[i] = child_pos[i] + child_size[i]
  
-        # If container has a fixed dimension, override calculated dimension.
+        padding = self._get_computed_padding()
         for i in range(2):
             if type(self["size"][i]) == int:
+                # If container has a fixed dimension, override calculated 
+                # dimension ...
                 size[i] = self["size"][i]
             else:
-                size[i] += self["padding"][i] + self["padding"][i+2]
+                size[i] += padding[1-i] + padding[1-i+2]
         return size
 
 
@@ -304,8 +309,9 @@ class Container(Object):
         size = super(Container, self)._compute_size(size, child_asking, extents)
         if child_asking:
             # Subtract our padding from the size we're about to offer child.
-            size[0] -= self["padding"][0] + self["padding"][2]
-            size[1] -= self["padding"][1] + self["padding"][3]
+            padding = self._get_computed_padding()
+            size[0] -= padding[1] + padding[3]
+            size[1] -= padding[0] + padding[2]
 
         return size
 
@@ -329,16 +335,18 @@ class Container(Object):
     
             size = list(self._compute_size(size, child_asking))
         else:
-            size[0] -= self["padding"][0] + self["padding"][2]
-            size[1] -= self["padding"][1] + self["padding"][3]
+            padding = self._get_computed_padding()
+            size[0] -= padding[1] + padding[3]
+            size[1] -= padding[0] + padding[2]
 
         return size
 
     def _get_computed_pos(self, child_asking = None, with_margin = True):
         pos = list(super(Container, self)._get_computed_pos(child_asking, with_margin))
         if child_asking:
-            pos[0] += self["padding"][0]
-            pos[1] += self["padding"][1]
+            padding = self._get_computed_padding()
+            pos[0] += padding[3]
+            pos[1] += padding[0]
         return pos
 
 
