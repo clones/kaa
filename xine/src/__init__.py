@@ -238,7 +238,7 @@ class Xine(Wrapper):
                 kwargs["window"] = window._window
 
             if "wid" in kwargs:
-                if type(kwargs["wid"]) == str and kwargs["wid"][:2] == "0x":
+                if isinstance(kwargs["wid"], str) and kwargs["wid"][:2] == "0x":
                     kwargs["wid"] = int(kwargs["wid"], 16)
 
 
@@ -264,8 +264,8 @@ class Xine(Wrapper):
         if video_port == None:
             video_port = self.open_video_driver()
 
-        assert(type(audio_port) == AudioPort)
-        assert(type(video_port) == VideoPort)
+        assert(isinstance(audio_port, AudioPort))
+        assert(isinstance(video_port, VideoPort))
 
         stream = self._obj.stream_new(audio_port._obj, video_port._obj)
         return _wrap_xine_object(stream)
@@ -301,19 +301,19 @@ class Xine(Wrapper):
         return self.new_post(name, inputs, audio_targets, video_targets)
 
     def new_post(self, name, inputs = 0, audio_targets = [], video_targets = []):
-        assert(type(audio_targets) in (list, tuple))
-        assert(type(video_targets) in (list, tuple))
+        assert(isinstance(audio_targets, (list, tuple)))
+        assert(isinstance(video_targets, (list, tuple)))
         ao = []
         for item in audio_targets:
-            if type(item) == PostIn:
+            if isinstance(item, PostIn):
                 item = item.get_port()
-            assert(type(item) == AudioPort)
+            assert(isinstance(item, AudioPort))
             ao.append(item._obj)
         vo = []
         for item in video_targets:
-            if type(item) == PostIn:
+            if isinstance(item, PostIn):
                 item = item.get_port()
-            assert(type(item) == VideoPort)
+            assert(isinstance(item, VideoPort))
             vo.append(item._obj)
 
         post = self._obj.post_init(name, inputs, ao, vo)
@@ -326,7 +326,7 @@ class Xine(Wrapper):
         return section
 
     def get_log(self, section):
-        if type(section) == str:
+        if isinstance(section, str):
             sections = self.get_log_names()
             if section not in sections:
                 raise XineError, "Unknown log section: " + section
@@ -385,13 +385,13 @@ class Xine(Wrapper):
         cfg = self.get_config_value(key)
         if cfg == None:
             raise XineError, "Config option '%s' doesn't exist" % key
-        if cfg["type"] == tuple and type(value) != int:
+        if cfg["type"] == tuple and not isinstance(value, int):
             # Try to resolve value
             if value not in cfg["enums"]:
                 raise XineError, "Value '%s' is not in list of valid values" % value
             value = cfg["enums"].index(value)
         else:
-            assert(type(value) == cfg["type"])
+            assert(isinstance(value, cfg["type"]))
         return self._obj.config_update_entry(key, value)
 
 
@@ -470,7 +470,7 @@ class Stream(Wrapper):
         return _wrap_xine_object(self._obj.audio_source)
 
     def slave(self, slave, affection = 0xff):
-        assert(type(slave) == Stream)
+        assert(isinstance(slave, Stream))
         assert(slave != self)
         return self._obj.slave(slave._obj, affection)
 
@@ -586,12 +586,12 @@ class Post(Wrapper):
             # Check enums for value
             if value in parms[key]["enums"]:
                 value = kwargs[key] = parms[key]["enums"].index(value)
-            elif parms[key]["enums"] and type(value) != parms[key]["type"]:
+            elif parms[key]["enums"] and not isinstance(value, parms[key]["type"]):
                 raise XineError, "Value '%s' for parameter '%s' invalid." % (value, key)
-            elif type(value) == int and parms[key]["type"] == float:
+            elif isinstance(value, int) and isinstance(parms[key]["type"], float):
                 value = kwargs[key] = float(value)
 
-            assert(type(value) == parms[key]["type"])
+            assert(isinstance(value, parms[key]["type"]))
             
 
         return self._obj.set_parameters(kwargs)
@@ -636,17 +636,17 @@ class PostOut(Wrapper):
         super(PostOut, self).__init__(obj)
 
     def wire(self, input):
-        if type(input) == PostIn:
+        if isinstance(input, PostIn):
             if self._obj.get_port() == input._obj.get_port():
                 return
             return self._obj.wire(input._obj)
 
-        elif type(input) == VideoPort:
+        elif isinstance(input, VideoPort):
             if self._obj.get_port() == input._obj:
                 return
             return self._obj.wire_video_port(input._obj)
 
-        elif type(input) == AudioPort:
+        elif isinstance(input, AudioPort):
             if self._obj.get_port() == input._obj:
                 return
             return self._obj.wire_audio_port(input._obj)
@@ -670,7 +670,7 @@ class PostOut(Wrapper):
 
 
     def unwire(self):
-        if type(self.get_owner()) == Stream:
+        if isinstance(self.get_owner(), Stream):
             #if type(self.get_port()) == VideoPort:
             # XXX: we could do this automatically ...
             raise XineError, "Can't unwire a Stream source.  Try rewiring to a null port."
