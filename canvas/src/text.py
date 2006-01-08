@@ -64,6 +64,10 @@ class Text(Object):
         draw_mask = False
         if self["clip"] == "auto":
             extents = self._get_extents()
+            if self["size"] != ("auto", "auto"):
+                computed_size = self._get_computed_size()
+                extents = [ min(x,y) for x,y in zip(extents, computed_size) ]
+
             if extents[0] < w:
                 w = extents[0]
                 draw_mask = True
@@ -84,7 +88,8 @@ class Text(Object):
 
         # Need to append " " to work around a bug in Imlib2 1.2.1.004 and 
         # earlier.
-        i.draw_text((0, 0), self["text"] + " ", (255,255,255,255), self._font)
+        padding = self._get_computed_padding()
+        i.draw_text((padding[3], padding[1]), self["text"] + " ", (255,255,255,255), self._font)
         if draw_mask:
             for y in range(0, i.size[1], _text_fadeout_mask.size[1]):
                 i.draw_mask(_text_fadeout_mask, (i.size[0] -  _text_fadeout_mask.size[0], y))
@@ -165,7 +170,7 @@ class Text(Object):
     def _compute_size(self, size, child_asking, extents = None):
         # Currently text cannot scale or clip; computed size is always 
         # intrinsic size, so force to auto.
-        size = ("auto", "auto")
+        #size = ("auto", "auto")
         return super(Text, self)._compute_size(size, child_asking, extents)
 
 
@@ -179,7 +184,7 @@ class Text(Object):
 
     def set_font(self, font = None, size = None):
         assert(font == None or isinstance(font, basestring))
-        assert(size == None or type(size) == int)
+        assert(size == None or isinstance(size, int))
         if self["font"]:
             cur_font, cur_size = self["font"]
         else:

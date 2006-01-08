@@ -90,11 +90,12 @@ class Container(Object):
             self._restack_children()
             return
 
-        t = self._is_size_calculated_from_pos()
-        if (self["size"][0] != "auto" or t[0]) and (self["size"][1] != "auto" or t[1]):
+        #t = self._is_size_calculated_from_pos()
+        #if (self["size"][0] != "auto" or t[0]) and (self["size"][1] != "auto" or t[1]):
             # XXX: with fixed dimensions, there shouldn't be any need to
-            # reflow.  Verify this idea is correct.
-            return
+            # reflow.  Verify this idea is correct.  (I don't think it is.)
+            #self._force_sync_property("clip", update_children = False)
+            #return
 
         last = self._last_reflow_size
         size = self._get_intrinsic_size()
@@ -267,7 +268,7 @@ class Container(Object):
 
         padding = self._get_computed_padding()
         for i in range(2):
-            if type(self["size"][i]) == int:
+            if isinstance(self["size"][i], int):
                 # If container has a fixed dimension, override calculated 
                 # dimension ...
                 size[i] = self["size"][i]
@@ -296,7 +297,7 @@ class Container(Object):
  
         padding = self._get_computed_padding()
         for i in range(2):
-            if type(self["size"][i]) == int:
+            if isinstance(self["size"][i], int):
                 # If container has a fixed dimension, override calculated 
                 # dimension ...
                 size[i] = self["size"][i]
@@ -321,7 +322,7 @@ class Container(Object):
             return super(Container, self)._get_extents()
 
         size = list(self["size"])
-        if type(size[0]) != int or type(size[1]) != int:
+        if not isinstance(size[0], int) or not isinstance(size[1], int):
             if "auto" in size:
                 if self._parent:
                     extents = self._parent._get_extents(child_asking = self)
@@ -379,7 +380,7 @@ class Container(Object):
         if "opacity" in kwargs:
             child.set_opacity(kwargs["opacity"])
         if "color" in kwargs:
-            if type(kwargs["color"]) == str:  # html-style color spec
+            if isinstance(kwargs["color"], str):  # html-style color spec
                 child.set_color(kwargs["color"])
             else:
                 child.set_color(*kwargs["color"])
@@ -388,7 +389,7 @@ class Container(Object):
         if "layer" in kwargs:
             child.set_layer(kwargs["layer"])
         if "clip" in kwargs:
-            if type(kwargs["clip"]) in (tuple, list):
+            if isinstance(kwargs["clip"], (tuple, list)):
                 child.clip(*kwargs["clip"])
             else:  # "auto" or None
                 child.clip(kwargs["clip"])

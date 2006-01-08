@@ -157,9 +157,9 @@ class Object(object):
         """
         pos = [None, None]
         # TODO: handle fixed coords for right/bottom/[vh]center
-        if type(self["pos"][0]) == int:
+        if isinstance(self["pos"][0], int):
             pos[0] = self["pos"][0]
-        if type(self["pos"][1]) == int:
+        if isinstance(self["pos"][1], int):
             pos[1] = self["pos"][1]
 
         return pos
@@ -184,7 +184,7 @@ class Object(object):
         for i in range(2):
             if self["size"][i] == "auto":
                 size[i] = intrinsic_size[i]
-            elif type(self["size"][i]) == int:
+            elif isinstance(self["size"][i], int):
                 size[i] = self["size"][i]
 
         return size
@@ -197,6 +197,16 @@ class Object(object):
             ret[1] = True
         return ret
 
+    def _compute_relative_value(self, val, max):
+        if isinstance(val, str):
+            if val.replace("-", "").isdigit():
+                return int(val)
+            elif "%" in val:
+                return int(float(val.replace("%", "")) / 100.0 * max)
+            else:
+                raise ValueError, "Invalid relative value '%s'" % val
+        return val
+
     def _compute_size(self, size, child_asking, extents = None):
         size = list(size)
         if True in self._is_size_calculated_from_pos():
@@ -208,17 +218,20 @@ class Object(object):
             if size_from_pos[1] != None:
                 size[1] = size_from_pos[1]
 
+        if not extents:
+            if isinstance(size[0], str) or isinstance(size[1], str):
+                # At least one of our dimensions is relative, so we need to 
+                # obtain extents.
+                extents = self._get_extents()
+            else:
+                # Dummy value.
+                extents = 0, 0
 
         for index in range(2):
-            if type(size[index]) == int:
-                continue
-
-            if type(size[index]) == str and "%" in size[index]:
-                if not extents:
-                    extents = self._get_extents()
-                size[index] = int(float(size[index].replace("%", "")) / 100.0 * extents[index])
-            elif size[index] == "auto":
+            if size[index] == "auto":
                 size[index] = self._get_intrinsic_size(child_asking)[index]
+            else:
+                size[index] = self._compute_relative_value(size[index], extents[index])
 
         return size
 
@@ -270,47 +283,41 @@ class Object(object):
         if None in pos[:2]:
             computed_size = self._get_computed_size()
             parent_size = self._parent._get_computed_size(child_asking = self)
-        elif type(left) == str or type(top) == str or (left != None and right != None) or \
+        elif isinstance(left, str) or isinstance(top, str) or (left != None and right != None) or \
              (top != None and bottom != None):
             parent_size = self._parent._get_computed_size(child_asking = self)
         else:
             parent_size = [0, 0]  # dummy values
 
-        def calc_value(value, total):
-            if type(value) == int:
-                return value
-            def calc_percent(m):
-                return str(int(int(m.group(2)) / 100.0 * total))
-            value = re.sub("((\d+)%)", calc_percent, value)
-            # TODO: rewrite not to use eval.
-            # XXX: or, just remove this expression stuff (again) since this
-            # be possible with using margins.
-            return eval(value)
-        
         #print "COMPUTE POS", self, pos, computed_size, parent_size
         if left != None and right != None:
-            l = calc_value(left, parent_size[0])
-            r = calc_value(right, parent_size[0])
+            l = self._compute_relative_value(left, parent_size[0])
+            r = self._compute_relative_value(right, parent_size[0])
             computed_pos[0] = l + margin[3]
             computed_size[0] = r - l
         elif left != None:
-            computed_pos[0] = calc_value(left, parent_size[0]) + margin[3]
+            computed_pos[0] = self._compute_relative_value(left, parent_size[0]) + margin[3]
         elif right != None:
-            computed_pos[0] = calc_value(right, parent_size[0]) - computed_size[0] - margin[1]
+            computed_pos[0] = self._compute_relative_value(right, parent_size[0]) - \
+                              computed_size[0] - margin[1]
         elif hcenter != None:
-            computed_pos[0] = calc_value(hcenter, parent_size[0]) - computed_size[0] / 2 + margin[3] - margin[1]
+            computed_pos[0] = self._compute_relative_value(hcenter, parent_size[0]) - \
+                              computed_size[0] / 2 + margin[3] - margin[1]
+         
             
         if top != None and bottom != None:
-            t = calc_value(left, parent_size[1])
-            b = calc_value(bottom, parent_size[1])
+            t = self._compute_relative_value(left, parent_size[1])
+            b = self._compute_relative_value(bottom, parent_size[1])
             computed_pos[1] = t + margin[0]
             computed_size[1] = b - t
         elif top != None:
-            computed_pos[1] = calc_value(top, parent_size[1]) + margin[0]
+            computed_pos[1] = self._compute_relative_value(top, parent_size[1]) + margin[0]
         elif bottom != None:
-            computed_pos[1] = calc_value(bottom, parent_size[1]) - computed_size[1] - margin[2]
+            computed_pos[1] = self._compute_relative_value(bottom, parent_size[1]) - \
+                              computed_size[1] - margin[2]
         elif vcenter != None:
-            computed_pos[1] = calc_value(vcenter, parent_size[1]) - computed_size[1] / 2 + margin[0] - margin[2]
+            computed_pos[1] = self._compute_relative_value(vcenter, parent_size[1]) - \
+                              computed_size[1] / 2 + margin[0] - margin[2]
 
         #print "[CALC POS]", self, computed_size, parent_size, pos, computed_pos
         return computed_pos, computed_size
@@ -341,18 +348,9 @@ class Object(object):
         else:
             pos, size = clip
 
-        def resolve(val, max):
-            if type(val) == str:
-                if val.replace("-", "").isdigit():
-                    return int(val)
-                elif "%" in val:
-                    return int(float(val.replace("%", "")) / 100.0 * max)
-                    
-            return val
-
         computed_size = self._get_computed_inner_size()
-        pos = [ resolve(x,max) for x,max in zip(pos, computed_size) ]
-        size = [ resolve(x,max) for x,max in zip(size, computed_size) ]
+        pos = [ self._compute_relative_value(x,max) for x,max in zip(pos, computed_size) ]
+        size = [ self._compute_relative_value(x,max) for x,max in zip(size, computed_size) ]
 
         for i in range(2):
             if size[i] <= 0:
@@ -370,8 +368,23 @@ class Object(object):
 
 
     def _compute_margin(self, margin):
-        # TODO: relative values
-        return self["margin"]
+        if True in [isinstance(x, str) for x in margin]:
+            parent_size = self._parent._get_computed_size(child_asking = self)
+        else:
+            parent_size = 0, 0  # dummy values
+    
+        margin = list(margin)
+        # Top
+        margin[0] = self._compute_relative_value(margin[0], parent_size[1])
+        # Right
+        margin[1] = self._compute_relative_value(margin[1], parent_size[0])
+        # Bottom
+        margin[2] = self._compute_relative_value(margin[2], parent_size[1])
+        # Left
+        margin[3] = self._compute_relative_value(margin[3], parent_size[0])
+        
+        return margin
+
 
     def _get_computed_margin(self):
         margin = self._get_cached_value("margin", None)
@@ -381,8 +394,32 @@ class Object(object):
         return margin
 
     def _compute_padding(self, padding):
-        # TODO: relative values
-        return self["padding"]
+        if True in [isinstance(x, str) for x in padding]:
+            if self._parent:
+                size = self._parent._get_computed_size(child_asking = self)
+                # Calculate padding relative to parent's full size, not its
+                # inner size.  (XXX: maybe not; this is not what css does,
+                # at least.)
+                parent_padding = self._parent._get_computed_padding()
+                size[0] += parent_padding[1] + parent_padding[3]
+                size[1] += parent_padding[0] + parent_padding[2]
+            else:
+                size = self._get_intrinsic_size()
+            print "PARENT SIZE", size, self, self._parent
+        else:
+            size = 0, 0  # dummy values
+    
+        padding = list(padding)
+        # Top
+        padding[0] = self._compute_relative_value(padding[0], size[1])
+        # Right
+        padding[1] = self._compute_relative_value(padding[1], size[0])
+        # Bottom
+        padding[2] = self._compute_relative_value(padding[2], size[1])
+        # Left
+        padding[3] = self._compute_relative_value(padding[3], size[0])
+        
+        return padding
 
     def _get_computed_padding(self):
         padding = self._get_cached_value("padding", None)
@@ -441,15 +478,14 @@ class Object(object):
             # the window may be positioned at (50, 50) on the screen, so
             # we obviously don't want all objects on the canvas relative to
             # that ...
-            if self._parent != self._canvas:
-                if prop == "pos":
-                    v = map(lambda x,y: x+y, v, p)
-                elif prop == "visible":
-                    v = v and p
-                elif prop == "layer":
-                    v += p# + 1
-
-            if prop == "color":
+            #if self._parent != self._canvas:
+            if prop == "pos":
+                v = map(lambda x,y: x+y, v, p)
+            elif prop == "visible":
+                v = v and p
+            elif prop == "layer":
+                v += p# + 1
+            elif prop == "color":
             # ... except for color, which is a special case.
                 v = map(_blend_pixel, v, p)
 
@@ -472,7 +508,7 @@ class Object(object):
             else:
                 a = self["color"][3]
             color = r, g, b, a
-        elif type(color) in (list, tuple):
+        elif isinstance(color, (list, tuple)):
             # If color element is None, use the existing value.
             if None in color:
                 color = tuple(map(lambda x, y: (x,y)[x==None], color, self["color"]))
@@ -480,7 +516,7 @@ class Object(object):
             # Clamp color values to 0-255 range.
             color = [ max(0, min(255, c)) for c in color ]
             r,g,b,a = color
-            assert(type(r) == type(g) == type(b) == type(a) == int)
+            assert(False not in [isinstance(x, int) for x in (r,g,b,a)])
         else:
             raise ValueError, "Color must be 3- or 4-tuple, or #rrggbbaa"
 
@@ -499,7 +535,7 @@ class Object(object):
         is a valid value: either an integer, a percentage value, or "auto".
         If it is a stringified integer, it will convert to int type.
         """
-        if type(val) == str:
+        if isinstance(val, str):
             if val.replace("-", "").isdigit():
                 val = int(val)
             elif re.sub("[\d%\-+]", "", val) and val != "auto":
@@ -626,7 +662,7 @@ class Object(object):
         s = self._get_computed_inner_size()
         # TODO: if s > size extents, add clip.
         old_size = self._o.geometry_get()[1]
-        #print "[RESIZE OBJECT]", self, s
+        #print "[RESIZE OBJECT]", self, s, self._parent._get_computed_size(child_asking=self)
         self._o.resize(s)
         if s != old_size:
             self._request_reflow("size", old_size, s)
@@ -815,7 +851,7 @@ class Object(object):
 
     def set_opacity(self, opacity):
         # Opacity can be 0-255 or 0.0-1.0
-        if type(opacity) == float:
+        if isinstance(opacity, float):
             opacity = int(opacity * 255)
         self["color"] = self["color"][:3] + [opacity]
 
@@ -862,8 +898,8 @@ class Object(object):
 
     def resize(self, width = None, height = None):
         size = list(self["size"])
-        assert(type(width) not in (list, tuple))
-        assert(type(height) not in (list, tuple))
+        assert(not isinstance(width, (list, tuple)))
+        assert(not isinstance(height, (list, tuple)))
         if width != None:
             size[0] = width
         if height != None:

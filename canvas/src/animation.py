@@ -192,7 +192,7 @@ class Animator(object):
         if self._object in _queue:
             # Delete other animator of this type for this object.
             for animator in _queue[self._object]:
-                if type(animator) == type(self):
+                if isinstance(animator, type(self)):
                     _queue[self._object].remove(animator)
 
             _queue[self._object].append(self)
@@ -329,7 +329,7 @@ class SequenceAnimator(Animator):
             self.set_sequence(kwargs["sequence"])
 
     def set_sequence(self, sequence):
-        assert(type(sequence) in (list, tuple))
+        assert(isinstance(sequence, (list, tuple)))
         self._sequence = sequence
         self._cur_stage = 0
         self._set_end_point(**self._sequence[0])

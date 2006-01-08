@@ -39,8 +39,8 @@ class Image(Object):
             self._supported_sync_properties.remove(prop)
 
         self._supported_sync_properties += [
-            "image", "filename", "pixels", "data", "dirty", "size", "pos", 
-            "clip", "has_alpha", "border", "aspect"
+            "border", "image", "filename", "pixels", "data", "dirty",
+            "aspect", "size", "pos", "clip", "has_alpha"
         ]
 
         self._loaded = False
@@ -88,9 +88,9 @@ class Image(Object):
         size = self._apply_aspect_to_size(list(self["size"]))
         # If either dimension is fixed (i.e. not a percentage) then our min
         # size must reflect that.
-        if type(size[0]) == int:
+        if isinstance(size[0], int):
             image_size[0] = size[0]
-        if type(size[1]) == int:
+        if isinstance(size[1], int):
             image_size[1] = size[1]
         return image_size
         
@@ -115,8 +115,9 @@ class Image(Object):
         pos = list(super(Image, self)._get_computed_pos(child_asking, with_margin))
         # The image will be scaled down to compensate for any padding, so here
         # we adjust the position of the image to account for the padding.
-        pos[0] += self["padding"][3]
-        pos[1] += self["padding"][0]
+        padding = self._get_computed_padding()
+        pos[0] += padding[3]
+        pos[1] += padding[0]
         return pos
 
 
@@ -135,7 +136,7 @@ class Image(Object):
                     size[index] = self.get_image_size()[index]
 
                 # We can only keep aspect if the other dimension is known.
-                elif type(size[1-index]) == int and size[1-index] != -1:
+                elif isinstance(size[1-index], int) and size[1-index] != -1:
                     if index == 0:
                         size[index] = int(size[1] * aspect)
                     else:
@@ -165,23 +166,40 @@ class Image(Object):
 
 
     def _set_property_filename(self, filename):
-        assert(type(filename) == str)
+        assert(isinstance(filename, str))
         self._set_property_generic("filename", filename)
 
 
     def _set_property_image(self, image):
-        assert(imlib2 and type(image) == imlib2.Image)
+        assert(imlib2 and isinstance(image, imlib2.Image))
         self._set_property_generic("image", image)
 
     def _set_property_aspect(self, aspect):
-        if type(aspect) == str and aspect.replace(".", "").isdigit():
+        if isinstance(aspect, str) and aspect.replace(".", "").isdigit():
             aspect = float(aspect)
 
-        if aspect not in ("preserve", "ignore") and type(aspect) not in (int, float):
+        if aspect not in ("preserve", "ignore") and not isinstance(aspect, (int, float)):
             raise ValueError, "Aspect property must be 'preserve', 'ignore', or numeric."
 
         self._force_sync_property("size")
         self._set_property_generic("aspect", aspect)
+
+    def _sync_image_common(self, old_size):
+        # Computed size may depend on new image size, so dirty cached size.
+        self._dirty_cached_value("size")
+        size = self._get_computed_inner_size()
+        self._o.resize(size)
+        self._o.fill_set((0, 0), size)
+        # We've already calculated and updated the size, so there's no need to
+        # sync size property again if it is scheduled for syncing.
+        self._remove_sync_property("size")
+
+        self._loaded = True
+
+        if old_size != size:
+            # Only need to reflow if target size has changed.
+            self._request_reflow("size", old_size, size)
+
 
 
     def _sync_property_image(self):
@@ -189,18 +207,7 @@ class Image(Object):
         size = self["image"].size
         self._o.size_set(size)
         self._o.data_set(self["image"].get_raw_data(), copy = False)
-
-        # Computed size may depend on new image size, so dirty cached size.
-        self._dirty_cached_value("size")
-        size = self._get_computed_inner_size()
-        self._o.resize(size)
-        self._o.fill_set((0, 0), size)
-
-        self._loaded = True
-
-        if old_size != size:
-            # Only need to reflow if target size has changed.
-            self._request_reflow("size", old_size, size)
+        self._sync_image_common(old_size)
 
 
     def _sync_property_filename(self):
@@ -243,17 +250,8 @@ class Image(Object):
         if err:
             raise evas.LoadError, (err, "Unable to load image", self["filename"])
 
-        # Computed size may depend on new image size, so dirty cached size.
-        self._dirty_cached_value("size")
-        size = self._get_computed_inner_size()
-        self._o.resize(size)
-        self._o.fill_set((0, 0), size)
+        self._sync_image_common(old_size)
 
-        self._loaded = True
-
-        if old_size != size:
-            # Only need to reflow if target size has changed.
-            self._request_reflow("size", old_size, size)
 
     def _sync_property_pixels(self):
         old_size = self._o.geometry_get()[1]
@@ -262,17 +260,7 @@ class Image(Object):
         self._o.pixels_import(data, w, h, format)
         self._o.pixels_dirty_set()
 
-        # Computed size may depend on new image size, so dirty cached size.
-        self._dirty_cached_value("size")
-        size = self._get_computed_inner_size()
-        self._o.resize(size)
-        self._o.fill_set((0, 0), size)
-
-        self._loaded = True
-
-        if size != old_size:
-            # Only need to reflow if target size has changed.
-            self._request_reflow("size", old_size, size)
+        self._sync_image_common(old_size)
 
 
     def _sync_property_data(self):
@@ -281,16 +269,7 @@ class Image(Object):
         self._o.size_set((width, height))
         self._o.data_set(data, copy)
 
-        # Computed size may depend on new image size, so dirty cached size.
-        self._dirty_cached_value("size")
-        size = self._get_computed_inner_size()
-        self._o.resize(size)
-        self._o.fill_set((0, 0), size)
-
-        self._loaded = True
-
-        if old_size != size:
-            self._request_reflow("size", old_size, size)
+        self._sync_image_common(old_size)
 
         self._update_frame()
 
@@ -309,7 +288,7 @@ class Image(Object):
         if not self["dirty"]:
             return
 
-        if type(self["dirty"]) == list:
+        if isinstance(self["dirty"], (tuple, list)):
             for (x, y, w, h) in self["dirty"]:
                 self._o.data_update_add(x, y, w, h)
         else:
@@ -319,7 +298,6 @@ class Image(Object):
         # this data gets copied again (like GL textures).  It's essentially a
         # bug in evas.
         #self._o.data_set(self._o.data_get(), copy = False)
-
         self["dirty"] = False
 
 
@@ -398,9 +376,9 @@ class Image(Object):
 
     def set_image(self, image_or_file):
         del self["filename"], self["image"], self["pixels"]
-        if type(image_or_file) in types.StringTypes:
+        if isinstance(image_or_file, basestring):
             self["filename"] = image_or_file
-        elif imlib2 and type(image_or_file) == imlib2.Image:
+        elif imlib2 and isinstance(image_or_file, imlib2.Image):
             self["image"] = image_or_file
             # Use weakref connection because we already hold a ref to the
             # image: avoids cycle.
@@ -421,9 +399,10 @@ class Image(Object):
             # updating.
             self["dirty"] = True
             return
+
         # Otherwise it should be a sequence (x, y, w, h)
-        assert(type(region) in (list, tuple) and len(region) == 4)
-        if type(self["dirty"]) != list:
+        assert(isinstance(region, (list, tuple)) and len(region) == 4)
+        if not isinstance(self["dirty"], list):
             self["dirty"] = [region]
         else:
             self["dirty"] = self["dirty"] + [region]

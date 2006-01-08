@@ -181,7 +181,7 @@ class Box(Container):
         # If container has a fixed dimension, override calculated dimension.
         padding = self._get_computed_padding()
         for i in range(2):
-            if type(self["size"][i]) == int:
+            if isinstance(self["size"][i], int):
                 size[i] = self["size"][i]
             else:
                 size[i] += padding[1-i] + padding[1-i+2]
