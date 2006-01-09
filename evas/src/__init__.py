@@ -99,8 +99,8 @@ class Object(object):
     def move(self, pos):
         return self._object.move(pos)
 
-    def resize(self, pos):
-        return self._object.resize(pos)
+    def resize(self, size):
+        return self._object.resize(size)
 
     def hide(self):
         return self._object.hide()
@@ -304,6 +304,14 @@ class TextBlock(Object):
     def size_native_get(self):
         return self._object.textblock_size_native_get()
 
+    def style_insets_get(self):
+        return self._object.textblock_style_insets_get()
+
+    def cursor_get(self):   
+        return self._object.textblock_cursor_get()
+
+    def line_number_geometry_get(self, line):
+        return self._object.textblock_line_number_geometry_get(line)
 
 class Text(Object):
     def __init__(self, evas_object):

@@ -1,6 +1,7 @@
 #include "evas.h"
 #include "structmember.h"
 #include "object.h"
+#include "textblock.h"
 
 #include "engine_buffer.h"
 #include <Evas_Engine_Buffer.h>
@@ -145,12 +146,14 @@ Evas_PyObject_render(Evas_PyObject * self, PyObject * args)
     Evas_List *updates, *p;
     PyObject *list = PyList_New(0);
 
+    Py_BEGIN_ALLOW_THREADS
     updates = evas_render_updates(self->evas);
     for (p = updates; p; p = p->next) {
         Evas_Rectangle *r = p->data;
         PyList_Append(list, Py_BuildValue("(iiii)", r->x, r->y, r->w, r->h));
     }
     evas_render_updates_free(updates);
+    Py_END_ALLOW_THREADS
     return list;
 }
 
@@ -436,12 +439,19 @@ init_evas()
     Py_INCREF(&Evas_Object_PyObject_Type);
     PyModule_AddObject(m, "Object", (PyObject *)&Evas_Object_PyObject_Type);
 
+    if (PyType_Ready(&Evas_Textblock_Cursor_PyObject_Type) < 0)
+        return;
+    Py_INCREF(&Evas_Textblock_Cursor_PyObject_Type);
+    PyModule_AddObject(m, "TextBlockCursor", (PyObject *)&Evas_Textblock_Cursor_PyObject_Type);
+
     // Export a simple API for other extension modules to be able to access
     // and manipulate Evas objects.
     api_ptrs[0] = (void *)evas_object_from_pyobject;
     api_ptrs[1] = (void *)&Evas_PyObject_Type;
     c_api = PyCObject_FromVoidPtr((void *)api_ptrs, NULL);
     PyModule_AddObject(m, "_C_API", c_api);
+
+    PyEval_InitThreads();
 }
 
 // vim: ts=4
