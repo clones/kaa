@@ -32,9 +32,17 @@ import sys
 
 try:
     # kaa base imports
-    from kaa.base.distribution import setup
+    from kaa.base.distribution import setup, Extension
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-setup(module = 'player', version = '0.1')
+ext_modules = []
+libvisual = Extension("kaa.player._libvisual", ['src/extensions/libvisual.c'])
+if libvisual.check_library("libvisual", "0.2.0"):
+    print "+ libvisual support enabled"
+    ext_modules.append(libvisual)
+else:
+    print "- libvisual support disabled"
+
+setup(module = 'player', version = '0.1', ext_modules = ext_modules)
