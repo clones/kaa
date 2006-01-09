@@ -131,7 +131,10 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
             continue
 
         choice = player
-        
+ 
+    if not choice:
+        return None
+               
     return choice["class"]
 
 

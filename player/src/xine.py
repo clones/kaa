@@ -1,6 +1,8 @@
 import sys, os, md5, shm, time, fcntl, struct
 import kaa
 from kaa import notifier, display
+from kaa.base.config import Group, Var
+
 try:
     from kaa import xine
 except ImportError:
@@ -8,6 +10,19 @@ except ImportError:
 
 # player base
 from base import *
+
+
+# Config group for xine player
+config = Group(desc = 'Options for xine player', schema = [
+    Group(name = 'deinterlacer', desc = 'Deinterlacer options', schema = [
+        Var(name = 'method', default = 'GreedyH',
+            desc = 'tvtime method to use, e.g. TomsMoComp, GreedyH, LinearBlend, etc.'),
+        Var(name = 'chroma_filter', default = True,
+            desc = 'Enable chroma filtering (better quality, higher cpu usage')
+    ])
+])
+
+
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -32,6 +47,12 @@ class XinePlayerChild(object):
         monitor.register(sys.stdin.fileno())
         flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+        self._xine.set_config_value("effects.goom.fps", 20)
+        self._xine.set_config_value("effects.goom.width", 512)
+        self._xine.set_config_value("effects.goom.height", 384)
+        self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
+
 
 
     def _send_command(self, command, *args):
@@ -137,6 +158,7 @@ class XinePlayerChild(object):
         self._driver_control = control_return[0]
 
         self._stream = self._xine.new_stream(self._ao, self._vo) 
+        #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
         self._stream.signals["event"].connect_weak(self.handle_xine_event)
 
 
@@ -149,10 +171,10 @@ class XinePlayerChild(object):
 
         #self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
         self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
-        self._deint_post.set_parameters(method = "GreedyH", chroma_filter = False, framerate_mode="half_top")
-        #self._deint_post.set_parameters(method = "LinearBlend", cheap_mode = True)#, chroma_filter = True)
+        self._deint_post.set_parameters(method = config.deinterlacer.method, 
+                                        chroma_filter = config.deinterlacer.chroma_filter)
 
-        self._stream.get_video_source().wire(self._deint_post.get_default_input())
+        #self._stream.get_video_source().wire(self._deint_post.get_default_input())
         #self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
         self._expand_post = self._xine.post_init("expand", video_targets = [self._deint_post.get_default_input()])
         self._expand_post.set_parameters(enable_automatic_shift = True)
@@ -268,11 +290,12 @@ class XinePlayerChild(object):
             self._driver_control("set_passthrough", vo)
         if notify != None:
             if notify:
-                print "FRAME RATE MODE HALF TOP"
-                self._deint_post.set_parameters(framerate_mode="half_top")
+                print "DEINTERLACE CHEAP MODE: True"
+                self._deint_post.set_parameters(cheap_mode = True)
             else:
-                print "FRAME RATE MODE FULL"
-                self._deint_post.set_parameters(framerate_mode="full")
+                print "DEINTERLACE CHEAP MODE: False"
+                self._deint_post.set_parameters(cheap_mode = False)
+
             self._driver_control("set_notify_frame", notify)
         if size != None:
             self._driver_control("set_notify_frame_size", size)
@@ -469,6 +492,8 @@ class XinePlayer(MediaPlayer):
                 # Use the user specified size, or some sensible default.
                 win_size = self._size or (640, 480)
                 window = display.X11Window(size = win_size, title = "Movie Window")
+                # TODO: get from config value
+                window.set_cursor_hide_timeout(0.5)
                 self.set_window(window)
 
         # TODO: no window

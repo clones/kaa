@@ -196,6 +196,7 @@ class MPlayer(MediaPlayer):
                 if self._state == STATE_PAUSED:
                     self.signals["pause_toggle"].emit()
                 if self._state not in (STATE_PAUSED, STATE_PLAYING):
+                    self.set_frame_output_mode()
                     self._state = STATE_PLAYING
                     self.signals["start"].emit()
                     self.signals["stream_changed"].emit()
@@ -315,7 +316,7 @@ class MPlayer(MediaPlayer):
         # FIXME: hardcoded
         #self._size = 800, 600
         #self._size = 854, 640
-        self._size = 640, 480
+        #self._size = 640, 480
 
         if self._size:
             w, h = self._size
@@ -492,7 +493,7 @@ class MPlayer(MediaPlayer):
             cmd.append("visible=%d" % int(visible))
         if invalid_regions:
             for (x, y, w, h) in invalid_regions:
-                cmd.append("invalidate=%d:%d:%d:%d" % (x, y-1, w, h+1))
+                cmd.append("invalidate=%d:%d:%d:%d" % (x, y, w, h))
         self._slave_cmd("overlay %s" % ",".join(cmd))
         self._overlay_set_lock(BUFFER_LOCKED)
 
@@ -552,6 +553,9 @@ class MPlayer(MediaPlayer):
                 self._check_new_frame_timer.stop()
         if size != None:
             self._cur_outbuf_mode[2] = size
+
+        if not self.is_alive():
+            return
 
         mode = { (False, False): 0, (True, False): 1,
                  (False, True): 2, (True, True): 3 }[tuple(self._cur_outbuf_mode[:2])]
