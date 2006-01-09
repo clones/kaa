@@ -10,12 +10,12 @@ from kaa import notifier, display, evas, base
 class PlayerOSDCanvas(BufferCanvas):
 
     def __init__(self, player = None, size = (640, 480)):
-        super(PlayerOSDCanvas, self).__init__(size)
-
         self._alpha = self._osd_alpha = 255
         self._osd_visible = 0
-        self.hide()
         self._player = None
+
+        super(PlayerOSDCanvas, self).__init__(size)
+        self.hide()
         self["visible"] = False
 
         if player:

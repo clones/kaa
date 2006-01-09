@@ -71,8 +71,8 @@ class Canvas(Container):
         return 0, 0, None, None, None, None
 
     def _queue_render(self, child = None):
-        if not child:
-            child = self
+        #if not child:
+        #    child = self
         super(Canvas, self)._queue_render(child)
 
 

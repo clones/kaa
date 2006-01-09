@@ -582,7 +582,7 @@ class Object(object):
         return self._o != None
 
 
-    def _sync_properties(self, updated_properties = []):
+    def _sync_properties(self, updated_properties = None):
         # Note: Container relies on this function, so don't abort if 
         # self._o == None.  This function will only get called when the
         # object belongs to a canvas (but not necessarily when the underlying
@@ -593,10 +593,8 @@ class Object(object):
 
         #print "SYNC PROPS", self, self._changed_since_sync
         needs_render = False
-        #changed = self._changed_since_sync
-        self._in_sync_properties = True
         # Prevents reentry.
-        #self._changed_since_sync = {}
+        self._in_sync_properties = True
         for prop in self._supported_sync_properties:
             if prop not in self._changed_since_sync:
                 continue
@@ -609,7 +607,8 @@ class Object(object):
                 if prop in self._changed_since_sync:
                     del self._changed_since_sync[prop]
 
-                updated_properties.append(prop)
+                if updated_properties != None:
+                    updated_properties.append(prop)
 
         if self._changed_since_sync:
             # There are still some properties that haven't been synced.
@@ -738,7 +737,9 @@ class Object(object):
         self._queue_render()
 
     def _force_sync_property(self, prop):
-        assert(prop in self._supported_sync_properties)
+        if prop not in self._supported_sync_properties:
+            raise ValueError, "Unsupported property '%s'; supported: %s" % \
+                              (prop, str(self._supported_sync_properties))
         self._dirty_cached_value(prop)
         if prop == "pos":
             self._dirty_cached_value("computed_pos")

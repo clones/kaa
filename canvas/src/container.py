@@ -8,7 +8,7 @@ from rectangle import *
 from text import *
 import random
 
-DEBUG = 0
+DEBUG_ALL = False
 
 class Container(Object):
 
@@ -17,7 +17,10 @@ class Container(Object):
         self._queued_children = {}
         super(Container, self).__init__()
 
+        self._supported_sync_properties += ["debug"]
+
         self["size"] = ("auto", "auto")
+        self["debug"] = False
         
         self._debug_rect = None
         self._last_reflow_size = None
@@ -27,12 +30,20 @@ class Container(Object):
         })
 
     def __repr__(self):
-        s = "<canvas.%s size=%s nchildren=%d>" % \
-            (self.__class__.__name__, str(self["size"]), len(self._children))
+        size = str(self["size"])
+        computed_size = str(self._get_computed_size())
+        computed_pos = str(self._get_computed_pos())
+        s = "<canvas.%s size=%s computed-size=%s computed-pos=%s nchildren=%d>" % \
+            (self.__class__.__name__, size, computed_size, computed_pos, len(self._children))
         return s
 
+    def __del__(self):
+        print "@@@ CONT DEL", self, self._debug_rect
+        import gc
+        print "RECT", gc.get_referrers(self._debug_rect)
+
     def _update_debug_rectangle(self):
-        if not DEBUG or not self.get_evas():
+        if (not self["debug"] and not DEBUG_ALL) or not self.get_evas():
             return
         if not self._debug_rect:
             self._debug_rect = self.get_evas().object_rectangle_add()
@@ -46,7 +57,7 @@ class Container(Object):
         self._debug_rect.move(abs_pos)
         self._debug_rect.layer_set(self._get_relative_values("layer")+1)
 
-        print "DRAW DEBUG RECT", self, abs_pos, computed_size
+        #print "[CONTAINER]:", self, abs_pos, computed_size
 
 
     def _canvased(self, canvas):
@@ -78,7 +89,7 @@ class Container(Object):
 
     def _force_sync_property(self, prop, exclude = None, update_children = True):
         super(Container, self)._force_sync_property(prop)
-        if update_children:
+        if update_children and prop not in ("debug",):
             for child in self._children:
                 if exclude != child and child["display"]:
                     child._force_sync_property(prop)
@@ -138,8 +149,8 @@ class Container(Object):
     
     def _queue_render(self, child = None):
         if child:
-            w = _weakref.ref(child)
-            #w = child
+            #w = _weakref.ref(child)
+            w = child
             if w in self._queued_children:
                 return
 
@@ -150,21 +161,25 @@ class Container(Object):
 
     def _render_queued(self):
         #print "[render queued]", self, self._queued_children
-        if len(self._queued_children) == 0:
-            return False
-
         needs_render = False
-        updated_properties = []
+        if len(self._queued_children) == 0:
+            while self._sync_properties():
+                needs_render = True
+            if needs_render:
+                self._update_debug_rectangle()
+            return needs_render
+
+        # There are children to be updated ...
         while self._queued_children:
             #print "[render loop]", self, self._queued_children
             queued_children = self._queued_children
             self._queued_children = {}
-            if self._sync_properties(updated_properties):
+            if self._sync_properties():
                 needs_render = True
 
             changed = False
             for child in queued_children.keys():
-                child = child()  # Resolve weakref
+                #child = child()  # Resolve weakref
                 if not child:
                     continue
 
@@ -177,9 +192,7 @@ class Container(Object):
             if not changed:
                 break
 
-        if "size" in updated_properties or "pos" in updated_properties:
-            self._update_debug_rectangle()
-
+        self._update_debug_rectangle()
         #print "[render exit]", self, self._queued_children, needs_render
         return needs_render
         
@@ -210,7 +223,7 @@ class Container(Object):
         return True
 
     def _sync_property_visible(self):
-        return True
+        self._sync_property_debug()
 
     def _sync_property_display(self):
         return True
@@ -221,8 +234,9 @@ class Container(Object):
     def _sync_property_size(self):
         return True
 
-    def _sync_property_margin(self):
-        return True
+    def _sync_property_debug(self):
+        if self._debug_rect:
+            self._debug_rect.visible_set(self["debug"] and self["visible"])
 
     def _set_property_size(self, size):
         super(Container, self)._set_property_size(size)
@@ -355,6 +369,9 @@ class Container(Object):
     # Public API
     #
 
+    def debug(self, state):
+        self["debug"] = state
+
     def add_child(self, child, **kwargs):
         assert(isinstance(child, Object))
         if child._parent:
@@ -422,13 +439,18 @@ class Container(Object):
         self._children.remove(child)
         child.hide()
         child._queue_render()
-        if isinstance(child, Container):
-            child._queued_children = {}
 
+
+        # All this stuff seems broken to me now; figure out why I had it
+        # here to begin with.
+        #if isinstance(child, Container):
+        #    child._queued_children = {}
         # FIXME: shouldn't access _queued_children directly (create an 
         # unqueue method)
-        if child._canvas and child in child._canvas._queued_children:
-            del child._canvas._queued_children[child]
+        #if child._canvas and child in child._canvas._queued_children:
+        #    del child._canvas._queued_children[child]
+
+
         child._orphaned()
         if self._clip_object and not self._children:
             # Hide clip object if there are no children (otherwise it will
@@ -444,11 +466,13 @@ class Container(Object):
         """
         Forces a child to be added even if it's adopted by another parent.
         """
+        orig_visibility = child.get_visible()
         if child.get_parent():
             child.get_parent().remove_child(child)
         if child.get_canvas() != self.get_canvas():
             child._uncanvased()
             child._reset()
+        child.set_visible(orig_visibility)
         self.add_child(child)
  
  

@@ -66,7 +66,10 @@ class Text(Object):
             extents = self._get_extents()
             if self["size"] != ("auto", "auto"):
                 computed_size = self._get_computed_size()
-                extents = [ min(x,y) for x,y in zip(extents, computed_size) ]
+                if self["size"][0] != "auto":
+                    extents[0] = min(extents[0], computed_size[0])
+                if self["size"][1] != "auto":
+                    extents[1] = min(extents[1], computed_size[1])
 
             if extents[0] < w:
                 w = extents[0]
@@ -105,8 +108,34 @@ class Text(Object):
         self._remove_sync_property("font")
         self._remove_sync_property("text")
         self._remove_sync_property("clip")
-        #print "RENDER", self["text"], i.size, time.time()-t0, self._get_extents(), self._get_intrinsic_size()
+        #print "RENDER", self["font"], self["text"], metrics, i.size, time.time()-t0, self._get_extents(), self._get_intrinsic_size()
         
+
+    def _get_computed_font_size(self):
+        font_name, font_size = self["font"]
+        if self["size"][1] == "auto":
+            if isinstance(font_size, str):
+                font_size = self._compute_relative_value(font_size, 24)
+            if self._o.type_get() == "image":
+                # Imlib2 seems to want font size in points, so we need to
+                # compensate.  (FIXME: this calculation is probably wrong.)
+                font_size *= 0.79
+            return font_size
+
+        if self._o.type_get() != "image":
+            # Requires support from kaa.evas for Imaging stuff.
+            raise ValueError, "NYI"
+
+        target_height = self._get_computed_size()[1]
+        font = imlib2.load_font(font_name, target_height * 0.5)
+        metrics = font.get_text_size(self["text"])
+        diff = target_height * 0.5 / metrics[1]
+
+        font = imlib2.load_font(font_name, target_height * diff)
+        #metrics = font.get_text_size(self["text"])
+
+        return target_height * diff
+
 
     def _get_intrinsic_size(self, child_asking = None):
         if self._o.type_get() == "image":
@@ -122,12 +151,14 @@ class Text(Object):
     def _sync_property_font(self):
         old_size = self._o.geometry_get()[1]
 
+        font_name = self["font"][0]
+        font_size = self._get_computed_font_size()
+
         if self._o.type_get() == "image":
-            # Imlib2 uses points instead of pixels?
-            self._font = imlib2.load_font(self["font"][0], self["font"][1] * 0.79)
+            self._font = imlib2.load_font(font_name, font_size)
             self._render_text_to_image()
         else:
-            self._o.font_set(*self["font"])
+            self._o.font_set((font_name, font_size))
 
         new_size = self._o.geometry_get()[1]
         if old_size != new_size:
@@ -155,16 +186,24 @@ class Text(Object):
 
     def _sync_property_clip(self):
         # We do our own clipping, no need to create the clip object.
+        old_size = self._o.geometry_get()[1]
         if self._o.type_get() == "image":
             self._render_text_to_image(force = False)
+        new_size = self._o.geometry_get()[1]
+        if old_size != new_size:
+            self._request_reflow("size", old_size, new_size)
 
         return True
 
 
     def _sync_property_size(self):
+        old_size = self._o.geometry_get()[1]
         if self._o.type_get() == "image":
-            # Rerender text image to new size.
-            self._render_text_to_image(force = False)
+            # Calculate new font size and rerender text.
+            self._sync_property_font()
+        new_size = self._o.geometry_get()[1]
+        if old_size != new_size:
+            self._request_reflow("size", old_size, new_size)
 
 
     def _compute_size(self, size, child_asking, extents = None):
@@ -184,7 +223,7 @@ class Text(Object):
 
     def set_font(self, font = None, size = None):
         assert(font == None or isinstance(font, basestring))
-        assert(size == None or isinstance(size, int))
+        assert(size == None or isinstance(size, (str, int)))
         if self["font"]:
             cur_font, cur_size = self["font"]
         else:
