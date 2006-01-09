@@ -37,10 +37,6 @@ class Container(Object):
             (self.__class__.__name__, size, computed_size, computed_pos, len(self._children))
         return s
 
-    def __del__(self):
-        print "@@@ CONT DEL", self, self._debug_rect
-        import gc
-        print "RECT", gc.get_referrers(self._debug_rect)
 
     def _update_debug_rectangle(self):
         if (not self["debug"] and not DEBUG_ALL) or not self.get_evas():

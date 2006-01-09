@@ -3,6 +3,7 @@ __all__ = [ 'Canvas' ]
 import os
 import _weakref
 import kaa
+import logging
 from kaa.base import weakref
 from kaa.notifier import Signal, WeakCallback
 from container import *
@@ -10,6 +11,8 @@ try:
     from kaa import imlib2
 except ImportError:
     imlib2 = None
+
+log = logging.getLogger('canvas')
 
 class Canvas(Container):
 
@@ -71,18 +74,23 @@ class Canvas(Container):
         return 0, 0, None, None, None, None
 
     def _queue_render(self, child = None):
-        #if not child:
-        #    child = self
         super(Canvas, self)._queue_render(child)
 
 
     def _render_queued(self):
         if not self._o:
             return
-        import time
-        t0=time.time()
-        if super(Canvas, self)._render_queued():
-            t1=time.time()
+
+        try:
+            needs_render = super(Canvas, self)._render_queued()
+        except:
+            log.exception('Exception while updating canvas:')
+            return
+
+        #import time
+        #t0=time.time()
+        if needs_render:
+            #t1=time.time()
             regions = self._render()
             #print "@@@ render evas right now", time.time()-t0, self, regions, " - inside evas", time.time()-t1
 
