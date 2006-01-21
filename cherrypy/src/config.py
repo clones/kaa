@@ -1,12 +1,8 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# __init__py - Interface to kaa.cherrypy
+# config.py - kaa.base.config object for kaa.cherrypy
 # -----------------------------------------------------------------------------
 # $Id$
-#
-# This module define the expose decorator. The idea is copied from TurboGears.
-# The expose function adds a template (Kid) and it is possible to execute the
-# function from the main thread.
 #
 # -----------------------------------------------------------------------------
 # kaa-cherrypy - Web Framework for Kaa based on CherryPy
@@ -31,7 +27,12 @@
 #
 # -----------------------------------------------------------------------------
 
-# kaa.cherrypy imports
-from config import config
-from server import start
-from controller import expose
+__all__ = [ 'config' ]
+
+# kaa imports
+from kaa.base.config import Group, Var
+
+# the config group
+config = Group(desc='basic server configuration', schema=[
+    Var(name='port', default=8080, desc='port to listen'),
+    Var(name='debug', default=False, desc='turn on extra debug') ])
