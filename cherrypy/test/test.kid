@@ -7,6 +7,8 @@
 </head>
 <body>
 
+${header}
+
 <h1 py:content="title">There should be content</h1>
 
 <ol py:if="title">
