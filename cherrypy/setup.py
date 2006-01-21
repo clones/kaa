@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-cherrypy - web framework for kaa
+# kaa-cherrypy - Web Framework for Kaa based on CherryPy
 # Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
