@@ -18,28 +18,37 @@ class Test:
     def index(self, pos):
         return 'test'
 
+class TemplatePath:
+    def __init__(self, engine, path, suffix_list):
+        pass
+    
 class Root:
 
     test = Test()
-    
+
     @kaa.cherrypy.expose(template='test.kid', mainloop=False)
-    def index(self, template):
+    def index(self):
         main = kaa.notifier.thread._thread_notifier_mainthread
-        template.title = 'Test Kid Page'
-        template.lines = ['qwe','asd','zxc']
-        template.header = header.Template(text='index')
-        # return some attributes as dict
-        return { 'mainloop': main == threading.currentThread() } 
+        return dict(title = 'Test Kid Page',
+                    lines = ['qwe','asd','zxc'],
+                    header = header.Template(text='index'),
+                    mainloop = main == threading.currentThread())
     
+
     @kaa.cherrypy.expose(template='test.kid')
-    def main(self, template):
+    def main(self):
         main = kaa.notifier.thread._thread_notifier_mainthread
-        template.title = 'Test Kid Page'
-        template.lines = ['qwe','asd','zxc']
-        template.header = header.Template(text='main')
-        template.mainloop = main == threading.currentThread()
-        # nothing needs to be returned, the logic is in the template
+        return dict(title = 'Test Kid Page',
+                    lines = ['qwe','asd','zxc'],
+                    header = header.Template(text='index'),
+                    mainloop = main == threading.currentThread())
         
+
+    @kaa.cherrypy.expose(template='cheetah.html', engine='cheetah')
+    def cheetah(self):
+        return dict(lines = ['qwe','asd','zxc'])
+        
+
     @kaa.cherrypy.expose()
     def foo(self):
         return 'foo'

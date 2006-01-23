@@ -33,17 +33,45 @@
 
 __all__ = [ 'expose' ]
 
-# kid import
-import kid
-
 # kaa imports
 from kaa.notifier import MainThreadCallback
 
-# enable importing kid files as python modules
-kid.enable_import()
+engines = {}
+
+# Kid template
+
+try:
+    # kid import
+    import kid
+
+    # enable importing kid files as python modules
+    kid.enable_import()
+
+    def kid_render(template, args):
+        return kid.Template(file=template, **args).serialize(output='xhtml')
+
+    engines['kid'] = kid_render
+
+except ImportError:
+    pass
 
 
-def expose(template=None, mainloop=True):
+# Cheetah template
+
+try:
+    # import
+    import Cheetah.Template
+
+    def cheetah_render(template, args):
+        return str(Cheetah.Template.Template(file=template, searchList=[args]))
+
+    engines['cheetah'] = cheetah_render
+
+except ImportError:
+    pass
+
+
+def expose(template=None, engine=None, mainloop=True):
     """
     Expose function / wrapper. It adds the possiblity to define a template
     for the function and executes the callback from the mainloop.
@@ -55,28 +83,35 @@ def expose(template=None, mainloop=True):
             if mainloop:
                 _function = MainThreadCallback(_execute_func)
                 _function.set_async(False)
-            return _function(self, template, func, *args, **kwargs)
+            return _function(self, template, engine, func, args, kwargs)
 
         try:
             newfunc.func_name = func.func_name
         except TypeError:
             pass
         newfunc.exposed = True
+        newfunc.template = template
         return newfunc
 
     return decorator
 
 
-def _execute_func(self, template, func, *args, **kwargs):
+def render(engine, filename, variables):
+    """
+    Render template with filename based on the given engine and variables.
+    """
+    if not engine and filename.endswith('.kid'):
+        engine = 'kid'
+    return engines[engine](filename, variables)
+
+    
+def _execute_func(self, filename, engine, func, args, kwargs):
     """
     Helper function to call the function and handle kid. This whole function
     will be called from the main thread (when mainloop==True)
     """
-    if not template:
+    if not filename:
         return func(self, *args, **kwargs)
-    template = kid.Template(file=template)
-    result = func(self, template, *args, **kwargs)
-    if result:
-        for key, value in result.items():
-            setattr(template, key, value)
-    return template.serialize(output='xhtml')
+    if not engine and filename.endswith('.kid'):
+        engine = 'kid'
+    return engines[engine](filename, func(self, *args, **kwargs))
