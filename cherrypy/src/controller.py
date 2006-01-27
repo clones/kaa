@@ -33,10 +33,14 @@
 
 __all__ = [ 'expose' ]
 
+# python imports
+import types
+import os
+
 # kaa imports
 from kaa.notifier import MainThreadCallback
 
-engines = {}
+engines = []
 
 # Kid template
 
@@ -47,10 +51,24 @@ try:
     # enable importing kid files as python modules
     kid.enable_import()
 
-    def kid_render(template, args):
-        return kid.Template(file=template, **args).serialize(output='xhtml')
+    class KidTemplate(object):
 
-    engines['kid'] = kid_render
+        name = 'kid'
+        
+        def detect(self, template):
+            if type(template) == str and template.endswith('.kid'):
+                return True
+            if hasattr(template, 'BaseTemplate') and \
+               template.BaseTemplate == kid.BaseTemplate:
+                return True
+            return False
+
+        def parse(self, template, args):
+            if type(template) == types.ModuleType:
+                return template.Template(**args).serialize(output='xhtml')
+            return kid.Template(file=template, **args).serialize(output='xhtml')
+    
+    engines.append(KidTemplate())
 
 except ImportError:
     pass
@@ -62,20 +80,58 @@ try:
     # import
     import Cheetah.Template
 
-    def cheetah_render(template, args):
-        return str(Cheetah.Template.Template(file=template, searchList=[args]))
+    class CheetahTemplate(object):
 
-    engines['cheetah'] = cheetah_render
+        name = 'cheetah'
+        
+        def detect(self, template):
+            if type(template) == str and template.endswith('.tmpl'):
+                return True
+            if hasattr(template, '__CHEETAH_src__'):
+                c = os.path.splitext(os.path.basename(template.__CHEETAH_src__))[0]
+                template.__KaaCherrypyTemplate = getattr(template, c)
+                return True
+            return False
+            
+        def parse(self, template, args):
+            if type(template) == types.ModuleType:
+                return str(template.__KaaCherrypyTemplate(searchList=[args]))
+            return str(Cheetah.Template.Template(file=template, searchList=[args]))
+
+    engines.append(CheetahTemplate())
 
 except ImportError:
     pass
 
 
+def _get_engine(template, engine):
+    """
+    Get the engine object for the given template. If engine is given, use
+    that as name to find the engine.
+    """
+    if not engine:
+        # get engine by detecting the type
+        for e in engines:
+            if e.detect(template):
+                return e
+        raise RuntimeError('unable to detect template engine for %s' % template)
+
+    for e in engines:
+        # get engine by name
+        if e.name == engine:
+            return e
+    raise RuntimeError('unable to detect template engine for %s' % template)
+
+    
 def expose(template=None, engine=None, mainloop=True):
     """
     Expose function / wrapper. It adds the possiblity to define a template
     for the function and executes the callback from the mainloop.
     """
+
+    if template:
+        engine = _get_engine(template, engine)
+
     def decorator(func):
 
         def newfunc(self, *args, **kwargs):
@@ -96,15 +152,6 @@ def expose(template=None, engine=None, mainloop=True):
     return decorator
 
 
-def render(engine, filename, variables):
-    """
-    Render template with filename based on the given engine and variables.
-    """
-    if not engine and filename.endswith('.kid'):
-        engine = 'kid'
-    return engines[engine](filename, variables)
-
-    
 def _execute_func(self, filename, engine, func, args, kwargs):
     """
     Helper function to call the function and handle kid. This whole function
@@ -112,6 +159,4 @@ def _execute_func(self, filename, engine, func, args, kwargs):
     """
     if not filename:
         return func(self, *args, **kwargs)
-    if not engine and filename.endswith('.kid'):
-        engine = 'kid'
-    return engines[engine](filename, func(self, *args, **kwargs))
+    return engine.parse(filename, func(self, *args, **kwargs))
