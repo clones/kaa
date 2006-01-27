@@ -1,3 +1,5 @@
+import os
+
 import kaa.cherrypy
 import kaa.notifier
 import kaa.notifier.thread
@@ -15,22 +17,33 @@ import header
 class Test:
 
     @kaa.cherrypy.expose()
-    def index(self, pos):
+    def index(self):
         return 'test'
 
-class TemplatePath:
-    def __init__(self, engine, path, suffix_list):
-        pass
-    
+    @kaa.cherrypy.expose()
+    def seven(self):
+        return '7'
+
+class Browse:
+
+    @kaa.cherrypy.expose()
+    def index(self, path='/'):
+        return path
+
+    @kaa.cherrypy.expose()
+    def default(self, *args):
+        return self.index('/' + '/'.join(args))
+        
 class Root:
 
     test = Test()
-
+    browse = Browse()
+    
     @kaa.cherrypy.expose(template='test.kid', mainloop=False)
     def index(self):
         main = kaa.notifier.thread._thread_notifier_mainthread
         return dict(title = 'Test Kid Page',
-                    lines = ['qwe','asd','zxc'],
+                    lines = os.listdir('/tmp/'),
                     header = header.Template(text='index'),
                     mainloop = main == threading.currentThread())
     
@@ -55,6 +68,9 @@ class Root:
 
 kaa.cherrypy.config.port = 8080
 kaa.cherrypy.config.debug = True
+kaa.cherrypy.config.root = '..'
+kaa.cherrypy.config.static['/images'] = 'test'
+kaa.cherrypy.config.static['/css'] = '/tmp'
 
 kaa.cherrypy.start(Root)
 kaa.notifier.loop()

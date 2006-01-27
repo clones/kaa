@@ -30,9 +30,11 @@
 __all__ = [ 'config' ]
 
 # kaa imports
-from kaa.base.config import Group, Var
+from kaa.base.config import Group, Var, Dict
 
 # the config group
 config = Group(desc='basic server configuration', schema=[
     Var(name='port', default=8080, desc='port to listen'),
-    Var(name='debug', default=False, desc='turn on extra debug') ])
+    Var(name='debug', default=False, desc='turn on extra debug'),
+    Var(name='root', default=''),
+    Dict(name='static', type=str, schema=Var(type=str)) ])

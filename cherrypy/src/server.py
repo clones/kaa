@@ -143,7 +143,16 @@ def start(Root, *args, **kwargs):
         'autoreload.on': False,
         'server.logToScreen': config.debug,
         'logDebugInfoFilter.on': config.debug,
-        'server.socketPort': config.port })
+        'server.socketPort': config.port,
+        'staticFilter.root': config.root
+        })
+
+    for key, value in config.static.items():
+        cherrypy.config.update( { key: { 
+            'staticFilter.on': True,
+            'staticFilter.dir': value
+            } } )
+
     cherrypy.server = Server()
     cherrypy.server.start(True, WSGIServer)
     kaa.notifier.signals['shutdown'].connect(cherrypy.server.stop)
