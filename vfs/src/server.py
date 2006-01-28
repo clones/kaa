@@ -171,6 +171,16 @@ class Server(object):
             client.database.set_mountpoint(directory, name)
 
 
+    def update(self, items):
+        """
+        Update items from the client.
+        """
+        for dbid, attributes in items:
+            self._db.update_object(dbid, **attributes)
+        # TODO: they are changed now, send update to every other client
+        self._db.commit()
+
+        
     def __del__(self):
         """
         Debug in __del__.

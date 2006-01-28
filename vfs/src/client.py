@@ -66,7 +66,9 @@ class Client(object):
         self._server.connect(self)
         # internal list of active queries
         self._queries = []
-
+        # internal list of items to update
+        self._changed = []
+        
 
     def add_mountpoint(self, device, directory):
         """
@@ -121,6 +123,29 @@ class Client(object):
                 self._queries.remove(query)
 
 
+    def update(self, item=None):
+        """
+        Update item in next main loop interation.
+        """
+        if not item:
+            # do the update now
+            items = []
+            for i in self._changed:
+                changes = {}
+                for var in i.changes:
+                    changes[var] = i[var]
+                i.changes = []
+                items.append((i.dbid, changes))
+            self._changed = []
+            self._server.update(items, __ipc_oneway=True, __ipc_noproxy_args=True)
+            return
+
+        if not self._changed:
+            # register timer to do the changes
+            OneShotTimer(self.update).start(0.1)
+        self._changed.append(item)
+
+        
     def __str__(self):
         """
         Convert object to string (usefull for debugging)

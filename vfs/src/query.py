@@ -57,7 +57,10 @@ class Query(object):
         self._query = query
         self._monitor = None
         self._client = client
-        self._result = self._client.database.query(**query)
+        self._result = []
+        for r in self._client.database.query(**query):
+            r.db = self._client
+            self._result.append(r)
 
 
     def get(self):
@@ -95,6 +98,7 @@ class Query(object):
         
         if self._query.has_key('device'):
             self._result = result
+            self._result.db = self._client
             self.signals['changed'].emit()
             return
         

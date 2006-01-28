@@ -46,7 +46,7 @@ class Item(object):
         self.parent = parent
         self.db = None
         self.media = media
-
+        self.changes = []
 
     def __str__(self):
         """
@@ -62,7 +62,7 @@ class Item(object):
         # TODO: do we need to set more attributes?
         self.data = data
         self.dbid = data['type'], data['id']
-
+            
 
     def __getitem__(self, key):
         if self.data.has_key(key):
@@ -76,6 +76,19 @@ class Item(object):
         return None
 
 
+    def __setitem__(self, key, value):
+        self.data[key] = value
+        if not self.changes and self.dbid:
+            # FIXME: how to update an item not in the db yet?
+            self.db.update(self)
+        if not key in self.changes:
+            self.changes.append(key)
+        
+            
+    def keys(self):
+        return self.data.keys()
+
+    
 class Directory(Item):
     """
     A directory based item.
