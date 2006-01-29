@@ -11,6 +11,11 @@ import threading
 # kid doc
 # http://kid.lesscode.org/guide.html
 
+import kid
+
+# enable importing kid files as python modules
+kid.enable_import()
+
 # import a kid file with the header
 import header
 
