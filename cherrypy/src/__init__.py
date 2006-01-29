@@ -34,4 +34,4 @@
 # kaa.cherrypy imports
 from config import config
 from server import start
-from controller import expose, Template
+from controller import expose, Template, template, thread_template

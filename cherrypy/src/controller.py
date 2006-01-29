@@ -31,7 +31,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'expose', 'Template' ]
+__all__ = [ 'expose', 'Template', 'template', 'thread_template' ]
 
 # python imports
 import types
@@ -184,8 +184,33 @@ class Template(object):
 
 
     @expose()
-    def render(self, **attributes):
+    def render_mainloop(self, **attributes):
         """
         Render the template with the given attributes.
+        This function is exposed to run in the main loop.
         """
         return self.engine.parse(self.template, attributes)
+
+    @expose(mainloop=False)
+    def render_thread(self, **attributes):
+        """
+        Render the template with the given attributes.
+        This function is exposed to run in a thread
+        """
+        return self.engine.parse(self.template, attributes)
+
+
+def template(template, engine=None):
+    """
+    Return an exposed render function for the template to run in the
+    main loop.
+    """
+    return Template(template, engine).render_mainloop
+
+
+def thread_template(template, engine=None):
+    """
+    Return an exposed render function for the template to run in a
+    thread.
+    """
+    return Template(template, engine).render_thread
