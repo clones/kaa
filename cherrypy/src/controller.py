@@ -5,8 +5,8 @@
 # $Id$
 #
 # This module define the expose decorator. The idea is copied from TurboGears.
-# The expose function adds a template (Kid) and it is possible to execute the
-# function from the main thread.
+# The expose function adds a template (Kid or Cheetah) and it is possible to
+# execute the function from the main thread.
 #
 # -----------------------------------------------------------------------------
 # kaa-cherrypy - Web Framework for Kaa based on CherryPy
@@ -42,67 +42,20 @@ from kaa.notifier import MainThreadCallback, is_mainthread
 
 engines = []
 
-# Kid template
-
-try:
-    # kid import
-    import kid
-
-    # enable importing kid files as python modules
-    kid.enable_import()
-
-    class KidTemplate(object):
-
-        name = 'kid'
-
-        def detect(self, template):
-            if type(template) == str and template.endswith('.kid'):
-                return True
-            if hasattr(template, 'BaseTemplate') and \
-               template.BaseTemplate == kid.BaseTemplate:
-                return True
-            return False
-
-        def parse(self, template, args):
-            if type(template) == types.ModuleType:
-                return template.Template(**args).serialize(output='xhtml')
-            return kid.Template(file=template, **args).serialize(output='xhtml')
-
-    engines.append(KidTemplate())
-
-except ImportError:
-    pass
-
-
-# Cheetah template
-
-try:
-    # import
-    import Cheetah.Template
-
-    class CheetahTemplate(object):
-
-        name = 'cheetah'
-
-        def detect(self, template):
-            if type(template) == str and template.endswith('.tmpl'):
-                return True
-            if hasattr(template, '__CHEETAH_src__'):
-                c = os.path.splitext(os.path.basename(template.__CHEETAH_src__))[0]
-                template.__KaaCherrypyTemplate = getattr(template, c)
-                return True
-            return False
-
-        def parse(self, template, args):
-            if type(template) == types.ModuleType:
-                return str(template.__KaaCherrypyTemplate(searchList=[args]))
-            return str(Cheetah.Template.Template(file=template, searchList=[args]))
-
-    engines.append(CheetahTemplate())
-
-except ImportError:
-    pass
-
+# load template engines
+for f in os.listdir(os.path.dirname(__file__)):
+    if not f.startswith('templ_') or not f.endswith('.py'):
+        # this is no template engine
+        continue
+    try:
+        # try to import
+        exec('from %s import Template as Engine' % f[:-3])
+        # add to list of engines
+        engines.append(Engine())
+    except ImportError:
+        # engine not supported
+        pass
+    
 
 def _get_engine(template, engine):
     """
