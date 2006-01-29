@@ -31,14 +31,14 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'expose' ]
+__all__ = [ 'expose', 'Template' ]
 
 # python imports
 import types
 import os
 
 # kaa imports
-from kaa.notifier import MainThreadCallback
+from kaa.notifier import MainThreadCallback, is_mainthread
 
 engines = []
 
@@ -54,7 +54,7 @@ try:
     class KidTemplate(object):
 
         name = 'kid'
-        
+
         def detect(self, template):
             if type(template) == str and template.endswith('.kid'):
                 return True
@@ -67,7 +67,7 @@ try:
             if type(template) == types.ModuleType:
                 return template.Template(**args).serialize(output='xhtml')
             return kid.Template(file=template, **args).serialize(output='xhtml')
-    
+
     engines.append(KidTemplate())
 
 except ImportError:
@@ -83,7 +83,7 @@ try:
     class CheetahTemplate(object):
 
         name = 'cheetah'
-        
+
         def detect(self, template):
             if type(template) == str and template.endswith('.tmpl'):
                 return True
@@ -92,7 +92,7 @@ try:
                 template.__KaaCherrypyTemplate = getattr(template, c)
                 return True
             return False
-            
+
         def parse(self, template, args):
             if type(template) == types.ModuleType:
                 return str(template.__KaaCherrypyTemplate(searchList=[args]))
@@ -122,7 +122,7 @@ def _get_engine(template, engine):
             return e
     raise RuntimeError('unable to detect template engine for %s' % template)
 
-    
+
 def expose(template=None, engine=None, mainloop=True):
     """
     Expose function / wrapper. It adds the possiblity to define a template
@@ -136,7 +136,7 @@ def expose(template=None, engine=None, mainloop=True):
 
         def newfunc(self, *args, **kwargs):
             _function = _execute_func
-            if mainloop:
+            if mainloop and not is_mainthread():
                 _function = MainThreadCallback(_execute_func)
                 _function.set_async(False)
             return _function(self, template, engine, func, args, kwargs)
@@ -152,6 +152,7 @@ def expose(template=None, engine=None, mainloop=True):
     return decorator
 
 
+
 def _execute_func(self, filename, engine, func, args, kwargs):
     """
     Helper function to call the function and handle kid. This whole function
@@ -160,3 +161,31 @@ def _execute_func(self, filename, engine, func, args, kwargs):
     if not filename:
         return func(self, *args, **kwargs)
     return engine.parse(filename, func(self, *args, **kwargs))
+
+
+
+
+class Template(object):
+    """
+    A class wrapping a template. It has a __call__ function to execute
+    the template and an exposed render function to use the template as
+    full working side in the webserver.
+    """
+    def __init__(self, template, engine=None):
+        self.engine = _get_engine(template, engine)
+        self.template = template
+
+
+    def __call__(self, **attributes):
+        """
+        Render the template with the given attributes.
+        """
+        return self.engine.parse(self.template, attributes)
+
+
+    @expose()
+    def render(self, **attributes):
+        """
+        Render the template with the given attributes.
+        """
+        return self.engine.parse(self.template, attributes)
