@@ -40,7 +40,7 @@ for a in sys.argv:
         distutils.core.setup(name="kaa", version="0.1")
         sys.exit(0)
 
-if sys.argv[1] == 'clean' and len(sys.argv) == 2:
+if len(sys.argv) == 2 and sys.argv[1] == 'clean':
     for m in submodules:
         build = os.path.join(m, 'build')
         if os.path.isdir(build):
