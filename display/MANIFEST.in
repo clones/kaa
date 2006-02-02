@@ -1,0 +1,6 @@
+recursive-include src *.py
+recursive-include src *.c
+recursive-include src *.h
+recursive-include test *.py
+
+include MANIFEST README COPYING TODO AUTHORS
