@@ -1,0 +1,9 @@
+The new freevo webserver will be based on this code. While writing the
+new server, check if some code can move back into this module.
+
+Create a REAME
+
+Every file needs a header and inline docs. Also correct the header to
+point to the correct AUTHORS file.
+
+Create doc in the Wiki and dump it into the doc subdir

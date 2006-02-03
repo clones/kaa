@@ -1,0 +1,7 @@
+recursive-include src *.py
+recursive-include test *.py
+recursive-include test *.kid
+recursive-include test *.html
+recursive-include test *.tmpl
+
+include MANIFEST README COPYING TODO AUTHORS
