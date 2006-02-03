@@ -1,0 +1,9 @@
+The DirectFB code is not working because there is a bug in evas (last
+time we checked). The bug is that evas frees memeory from kaa.canvas
+or kaa.xine (I have no idea) and this causes a double free. Contact
+was Jorge Luis Zapata Muga <jorgeluis.zapata@gmail.com>.
+
+Every file needs a header and inline docs. Also correct the header to
+point to the correct AUTHORS file.
+
+Create doc in the Wiki and dump it into the doc subdir
