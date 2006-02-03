@@ -1,0 +1,7 @@
+recursive-include src *.py
+recursive-include test *.py
+recursive-include test *.png
+recursive-include test *.mng
+recursive-include test *.jpg
+
+include MANIFEST README COPYING TODO AUTHORS

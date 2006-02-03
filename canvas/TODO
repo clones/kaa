@@ -1,0 +1,27 @@
+Make it possible to have variables in the XML input for the canvas
+system (XML template, maybe based on or similar to Kid)
+
+Fonts can be either imlib2 or evas based. Using imlib2 makes fading
+possible but evas has nice extra effects. I'm still not sure what to
+do. The best would be to add fade out as evas feature inside the
+enlightenment evas code.
+
+The DirectFB code is not working because there is a bug in evas (last
+time we checked). The bug is that evas frees memeory from kaa.canvas
+or kaa.xine (I have no idea) and this causes a double free. Contact
+was Jorge Luis Zapata Muga <jorgeluis.zapata@gmail.com>.
+
+The transparent code is a bit strange. Sometimes alpha works with GL
+and not FB and sometimes the other way around. Tack knows a better
+description of this bug.
+
+Maybe move the SVG and/or MNG code to kaa.imlib2
+
+Create a REAME
+
+Every file needs a header and much more inline docs. Also correct the
+header to point to the correct AUTHORS file.
+
+Create doc in the Wiki and dump it into the doc subdir
+
+Tack: add more here
