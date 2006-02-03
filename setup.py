@@ -42,14 +42,14 @@ for a in sys.argv:
 
 if len(sys.argv) == 2 and sys.argv[1] == 'clean':
     for m in submodules:
-        build = os.path.join(m, 'build')
-        if os.path.isdir(build):
-            print 'removing %s' % build
-            os.system('rm -rf %s' % build)
-        version = os.path.join(m, 'src/version.py')
-        if os.path.isfile(version):
-            print 'removing %s' % version
-            os.unlink(version)
+        for file in ('build', 'dist', 'src/version.py', 'MANIFEST'):
+            file = os.path.join(m, file)
+            if os.path.isdir(file):
+                print 'removing %s' % file
+                os.system('rm -rf %s' % file)
+            if os.path.isfile(file):
+                print 'removing %s' % file
+                os.unlink(file)
             
 else:
     failed = []
