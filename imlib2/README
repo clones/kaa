@@ -1,4 +1,4 @@
-pyimlib2 - python module for Imlib2
+kaa-imlib2 - python module for Imlib2
 =========================================
 
    NOTE: This isn't meant to be a formal release but rather just a demo
@@ -9,15 +9,15 @@ pyimlib2 - python module for Imlib2
 About
 -----
 
-Pyimlib2 is a python module for Imlib2.  It is terribly incomplete.  Its 
+Kaa-Imlib2 is a python module for Imlib2.  It is terribly incomplete.  Its
 main raison d'être is to provide image manipulation routines for MeBox.
 
-PyImlib2 requires Imlib2 1.1.1 or later, which can be gotten here:
+Kaa-Imlib2 requires Imlib2 1.1.1 or later, which can be gotten here:
 
    http://sourceforge.net/project/showfiles.php?group_id=2&package_id=11130
 
-I've packaged RPMs for both Imlib2 and pyimlib2 for convenience.  You can 
-download them, as well as the most recent version of pyimlib2 at:
+I've packaged RPMs for both Imlib2 and kaa-imlib2 for convenience.  You can
+download them, as well as the most recent version of kaa-imlib2 at:
 
    http://sault.org/mebox/downloads.php
 
@@ -28,9 +28,9 @@ adding more methods, patches will be happily accepted.
 Installation
 ------------
 
-Assuming you already have Imlib2 installed, you can install pyimlib2 with:
+Assuming you already have Imlib2 installed, you can install kaa-imlib2 with:
 
-	make && make install
+	python setup.py install
 
 
 
@@ -38,7 +38,7 @@ License
 -------
 
 This code is released under the GNU GPL version 2.  Read it here:
-                                                                                                                                   
+
         http://www.gnu.org/licenses/gpl.html
 
 

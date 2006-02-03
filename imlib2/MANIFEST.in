@@ -1,7 +1,5 @@
-include doc/AUTHORS
-include doc/README
-include kaa-imlib2.spec
-include src/display.h
-include src/font.h
-include src/image.h
-include src/rawformats.h
+recursive-include src *.py
+recursive-include src *.c
+recursive-include src *.h
+
+include MANIFEST README COPYING TODO AUTHORS

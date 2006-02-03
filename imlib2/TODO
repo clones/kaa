@@ -1,0 +1,10 @@
+Maybe move the SVG and/or MNG code from kaa.canvas into this module
+
+Wrap the rest of the API (Tack: what is missing and do we need it?)
+
+Do a test suite
+
+Every file needs a header and much more inline docs. Also correct the
+header to point to the correct AUTHORS file.
+
+Create doc in the Wiki and dump it into the doc subdir
