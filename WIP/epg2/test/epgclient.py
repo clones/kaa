@@ -27,12 +27,15 @@ if guide.get_num_programs() == 0:
     guide.signals["updated"].connect(sys.exit)
 
     # xmltv backend: specify path to XML file:
-    guide.update("xmltv", os.path.expanduser("~/.freevo/TV.xml"))
+    guide.update("xmltv", sys.argv[1])
 
     # zap2it backend, specify username/passwd and optional start/stop time (GMT)
     # guide.update("zap2it", username="uname", passwd="passwd")
     kaa.main()
 
+    print 'done'
+    sys.exit(0)
+    
 t0 = time.time()
 if len(sys.argv) > 1:
     keywords = " ".join(sys.argv[1:])
