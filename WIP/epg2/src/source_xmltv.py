@@ -1,5 +1,6 @@
-import libxml2, sys, time, os, calendar
+import sys, time, os, calendar
 import kaa.notifier
+from kaa.base import libxml2
 
 def timestr2secs_utc(timestr):
     """
@@ -55,11 +56,10 @@ def timestr2secs_utc(timestr):
 
 
 def parse_channel(info):
-    channel_id = info.node.prop("id").decode("utf-8")
+    channel_id = info.node.getattr('id')
     channel = station = name = display = None
 
-    child = info.node.children
-    while child:
+    for child in info.node:
         # This logic expects that the first display-name that appears
         # after an all-numeric and an all-alpha display-name is going
         # to be the descriptive station name.  XXX: check if this holds
@@ -68,14 +68,13 @@ def parse_channel(info):
             if not channel and child.content.isdigit():
                 channel = int(child.content)
             elif not station and child.content.isalpha():
-                station = child.content.decode("utf-8")
+                station = child.content
             elif channel and station and not name:
-                name = child.content.decode("utf-8")
+                name = child.content
             else:
                 # something else, just remeber it in case we
                 # don't have a name later
-                display = child.content.decode("utf-8")
-        child = child.get_next()
+                display = child.content
 
     if not name:
         # set name to something. XXX: this is needed for the german xmltv
@@ -88,30 +87,28 @@ def parse_channel(info):
 
 
 def parse_programme(info):
-    channel_id = info.node.prop("channel").decode("utf-8")
+    channel_id = info.node.getattr('channel')
     if channel_id not in info.channel_id_to_db_id:
         log.warning("Program exists for unknown channel '%s'" % channel_id)
         return
 
     title = date = desc = None
 
-    child = info.node.children
-    while child:
+    for child in info.node.children:
         if child.name == "title":
-            title = child.content.decode("utf-8")
+            title = child.content
         elif child.name == "desc":
-            desc = child.content.decode("utf-8")
+            desc = child.content
         elif child.name == "date":
             fmt = "%Y%m%d"
             if len(child.content) == 4:
                 fmt = "%Y"
             date = time.mktime(time.strptime(child.content, fmt))
-        child = child.get_next()
 
     if not title:
         return
 
-    start = timestr2secs_utc(info.node.prop("start"))
+    start = timestr2secs_utc(info.node.getattr("start"))
     channel_db_id, last_prog = info.channel_id_to_db_id[channel_id]
     if last_prog:
         # There is a previous program for this channel with no stop time,
@@ -121,10 +118,10 @@ def parse_programme(info):
         # this problem.
         last_start, last_title, last_desc = last_prog
         info.epg._add_program_to_db(channel_db_id, last_start, start, last_title, last_desc)
-    if not info.node.prop("stop"):
+    if not info.node.getattr("stop"):
         info.channel_id_to_db_id[channel_id][1] = (start, title, desc)
     else:
-        stop = timestr2secs_utc(info.node.prop("stop"))
+        stop = timestr2secs_utc(info.node.getattr("stop"))
         info.epg._add_program_to_db(channel_db_id, start, stop, title, desc)
  
 
@@ -132,18 +129,17 @@ class UpdateInfo:
     pass
 
 def _update_parse_xml_thread(epg, xmltv_file):
-    doc = libxml2.parseFile(xmltv_file)
+    doc = libxml2.Document(xmltv_file, 'tv')
     channel_id_to_db_id = {}
     nprograms = 0
-    child = doc.children.get_next().children
-    while child:
+
+    for child in doc:
         if child.name == "programme":
             nprograms += 1
-        child = child.get_next()
 
     info = UpdateInfo()
     info.doc = doc
-    info.node = doc.children.get_next().children
+    info.node = doc.first
     info.channel_id_to_db_id = channel_id_to_db_id
     info.total = nprograms
     info.cur = 0
@@ -172,7 +168,6 @@ def _update_process_step(info):
 
     if not info.node:
         info.epg.signals["update_progress"].emit(info.cur, info.total)
-        info.doc.freeDoc()
         return False
 
     return True
