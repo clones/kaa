@@ -1,0 +1,46 @@
+o Fix the display code for channels. In Germany it is only the name,
+  for other countries it is a bad mix between names and access ids. It
+  should be a simple list of display names, all in the db. Let the
+  user (or freevo tvserver) face the naming / access problem.
+
+o Remove the automatic stop detection. It won't work with not sorted
+  files. And if you sort the file using tv_sort, you will also get
+  correct stop times. So no need for that extra code.
+
+o It could be possible to have blanks in the guide. E.g. the German
+  children channel stops at 9pm and starts again in the next
+  morning at 6am. So when I request the program for 10pm, maybe
+  return a dummy program with start=9pm and stop=6am and valid=False
+  or something like that. Similar to this, what happens if you have
+  an older guide without current data. Maybe also a dummy program
+  with start=last_stop and stop=very_big_number.
+
+o Make updates possible. If I already have a valid db and add a new
+  program, check
+
+   a. if something is overlapping there because of schedule
+      changes. If you search for start in range(start, stop) and 
+      stop >= start, you should get one result max. If you get more,
+      delete them from the db. And if you have one, start and stop
+      should match exactly, if not, delete it.
+
+   b. now if you have one overlap and start and stop are the same,
+      check the attributes. If everything is the same, no need to
+      change the db, just quit. If something is different, change the
+      object, not add a new one.
+
+   c. if no overlapps, add new program like you do it now.
+
+o Clean up db. It would be nice to have some sort of history. But on
+  update, delete every program older than lets say 7 days.
+
+
+If everything is done, move this as kaa.epg in the main tree and
+update all apps using kaa.epg (freevo)
+
+
+After that
+
+o Add support for calling the xmltv grabber
+
+o Add support for external grabber we don't know abaout (dbox2)
