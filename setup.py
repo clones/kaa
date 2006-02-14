@@ -32,8 +32,7 @@ import sys
 import distutils.core
 
 submodules = [ 'base', 'imlib2', 'display', 'mevas', 'thumb', 'epg', 'record',
-               'metadata', 'evas', 'canvas', 'xine', 'player', 'webinfo',
-               'cherrypy' ]
+               'metadata', 'evas', 'canvas', 'xine', 'player', 'cherrypy' ]
 
 for a in sys.argv:
     if a.startswith('--help'):
