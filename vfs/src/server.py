@@ -42,6 +42,7 @@ from kaa.base import ipc, weakref
 from kaa.notifier import OneShotTimer
 
 # kaa.vfs imports
+import parser
 from db import *
 from monitor import Monitor
 
@@ -57,7 +58,7 @@ class Server(object):
     scanning / monitoring of queries.
     """
     def __init__(self, dbdir):
-        self._db = Database(dbdir, False)
+        self._db = Database(dbdir, None)
 
         # files
         
@@ -134,6 +135,10 @@ class Server(object):
         """
         Create a monitor object to monitor a query for a client.
         """
+        if 'parent' in query:
+            type, id = query['parent']
+            query['parent'] = self._db.query(type=type, id=id)[0]
+
         monitor = Monitor(callback, self._db, self, id, query)
         log.debug('create %s' % monitor)
         callback(id, 'connect', monitor)
@@ -181,6 +186,19 @@ class Server(object):
         self._db.commit()
 
         
+    def vfs_request(self, filename):
+        self._db.commit()
+        data = self._db.query(filename=filename)
+        items = []
+        while not data._vfs_id:
+            items.append(data)
+            data = data._vfs_parent
+        while items:
+            parser.parse(self._db, items.pop(), store=True)
+        self._db.commit()
+        return data._vfs_data
+
+    
     def __del__(self):
         """
         Debug in __del__.

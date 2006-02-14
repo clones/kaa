@@ -52,11 +52,11 @@ def get_mtime(item):
     if not item.filename:
         log.info('no filename == no mtime :(')
         return 0
-    if not item.parent:
+    if not item._vfs_parent:
         log.info('no parent == no mtime :(')
         return 0
 
-    if item.isdir:
+    if item._vfs_isdir:
         # TODO: add overlay dir to mtime
         return os.stat(item.filename)[stat.ST_MTIME]
 
@@ -76,33 +76,36 @@ def get_mtime(item):
     return mtime
 
 
-def parse(db, item):
+def parse(db, item, store=False):
+    print 'check', item
     mtime = get_mtime(item)
     if not mtime:
         log.info('oops, no mtime %s' % item)
         return
-    if not item.parent:
+    parent = item._vfs_parent
+    if not parent:
         log.error('no parent %s' % item)
         return
-    if not item.parent.dbid:
+
+    if not parent._vfs_id:
         # There is a parent without id, update the parent now. We know that the
         # parent should be in the db, so commit and it should work
         db.commit()
-        if not item.parent.dbid:
+        if not parent._vfs_id:
             # this should never happen
             raise AttributeError('parent for %s has no dbid' % item)
-    if item.data['mtime'] == mtime:
+    if item._vfs_data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
         return
     log.info('scan %s' % item)
     attributes = { 'mtime': mtime }
     metadata = kaa.metadata.parse(item.filename)
-    if item.data.has_key('type'):
-        type = item.data['type']
+    if item._vfs_data.has_key('type'):
+        type = item._vfs_data['type']
     elif metadata and metadata['media'] and \
-             db.object_types.has_key(metadata['media']):
+             db.object_types().has_key(metadata['media']):
         type = metadata['media']
-    elif item.isdir:
+    elif item._vfs_isdir:
         type = 'dir'
     else:
         type = 'file'
@@ -120,16 +123,19 @@ def parse(db, item):
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
-    if item.dbid:
+    if item._vfs_id:
         # Update
-        db.update_object(item.dbid, **attributes)
-        item.data.update(attributes)
+        db.update_object(item._vfs_id, **attributes)
+        item._vfs_data.update(attributes)
     else:
         # Create. Maybe the object is already in the db. This could happen because
         # of bad timing but should not matter. Only one entry will be there after
         # the next update
-        db.add_object(type, name=item.basename, parent=item.parent.dbid,
-                      overlay=item.overlay, callback=item.set_data, **attributes)
+        db.add_object(type, name=item._vfs_data['name'], parent=parent._vfs_id,
+                      overlay=item._vfs_overlay, callback=item._vfs_database_update,
+                      **attributes)
+    if store:
+        db.commit()
     return True
 
 

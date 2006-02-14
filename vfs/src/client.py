@@ -61,7 +61,7 @@ class Client(object):
         self._server = ipc.IPCClient('vfs').get_object('vfs')(db)
         self.monitor = self._server.monitor
         # read only version of the database
-        self.database = Database(db, True)
+        self.database = Database(db, self)
         # connect to server notifications
         self._server.connect(self)
         # internal list of active queries
@@ -77,28 +77,57 @@ class Client(object):
         self._server.add_mountpoint(device, directory)
 
 
-    def query(self, **query):
+    def get(self, filename):
         """
-        Do a query to the databse. This will return a Query object.
+        Return an object for the given filename.
         """
-        # make sure filename in a query are normalized
-        if 'dirname' in query:
-            query['dirname'] = os.path.realpath(query['dirname'])
-        if 'files' in query:
-            query['files'] = [ os.path.realpath(x) for x in query['files'] ]
-        # TODO: reuse Query with same 'query'
-        result = Query(self, query)
-        self._queries.append(weakref(result))
+        result = Query(self, filename=os.path.realpath(filename))
+        return result.get()[0]
 
+
+    def vfs_request(self, id):
+        return self._server.vfs_request(id, __ipc_noproxy_result=True,
+                                        __ipc_noproxy_args=True)
+
+
+    def query(self, **query):
+        result = Query(self, **query)
+        self._queries.append(weakref(result))
         # start the remote query 100 ms seconds later. It is faster
         # that way because a) ipc takes some time and b) it avoids
         # doing the same stuff at the same time
 
         # TODO: create a client id to avoid sending self.notify to the
         # client at this point.
+        if 'parent' in query:
+            query['parent'] = query['parent']._vfs_id
         OneShotTimer(self.monitor, self.notify, result.id,
-                     __ipc_oneway=True, **query).start(0.1)
+                     **query).start(0.1)
         return result
+        
+    
+#     def query(self, **query):
+#         """
+#         Do a query to the databse. This will return a Query object.
+#         """
+#         # make sure filename in a query are normalized
+#         if 'dirname' in query:
+#             query['dirname'] = os.path.realpath(query['dirname'])
+#         if 'files' in query:
+#             query['files'] = [ os.path.realpath(x) for x in query['files'] ]
+#         # TODO: reuse Query with same 'query'
+#         result = Query(self, query)
+#         self._queries.append(weakref(result))
+
+#         # start the remote query 100 ms seconds later. It is faster
+#         # that way because a) ipc takes some time and b) it avoids
+#         # doing the same stuff at the same time
+
+#         # TODO: create a client id to avoid sending self.notify to the
+#         # client at this point.
+#         OneShotTimer(self.monitor, self.notify, result.id,
+#                      __ipc_oneway=True, **query).start(0.1)
+#         return result
 
 
     def notify(self, id, msg, *args, **kwargs):

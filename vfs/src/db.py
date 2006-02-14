@@ -45,7 +45,6 @@ from kaa.base.db import *
 
 # kaa.vfs imports
 import item
-import util
 
 # get logging object
 log = logging.getLogger('vfs')
@@ -63,17 +62,17 @@ class Mountpoint(object):
     # functions to it. But we need different kinds of classes for client
     # and server because the client needs to use ipc for the mounting.
 
-    def __init__(self, device, directory, vfsdir, db, read_only):
+    def __init__(self, device, directory, vfsdir, db, client):
         self.device = device
         self.directory = directory
         self.name = None
         self.id = None
         self.vfsdir = vfsdir
         self.db = db
-        self.read_only = read_only
         self.overlay = ''
         self.url = ''
-
+        self.client = client
+        
     def load(self, name):
         """
         Set name of the mountpoint (== load new media)
@@ -90,16 +89,17 @@ class Mountpoint(object):
                 # known, set internal id
                 media = media[0]
                 self.id = ('media', media['id'])
-            elif not self.read_only:
+            elif not self.client:
+                # no client == server == write access
                 # create media entry and root filesystem
                 log.info('create media entry for %s' % self.name)
                 media = self.db.add_object("media", name=self.name, content='file')
                 self.id = ('media', media['id'])
             if not self.db.query(type='dir', name='', parent=self.id) and \
-                   not self.read_only:
+                   not self.client:
                 log.info('create root filesystem for %s' % self.name)
                 self.db.add_object("dir", name="", parent=self.id)
-            if not self.read_only:
+            if not self.client:
                 self.db.commit()
             if media:
                 self.url = media['content'] + '//' + self.directory
@@ -149,7 +149,7 @@ class Database(object):
     A kaa.db based database.
     """
 
-    def __init__(self, dbdir, read_only):
+    def __init__(self, dbdir, client):
         """
         Init function
         """
@@ -157,9 +157,10 @@ class Database(object):
         # overlay dir for the vfs
         self.dbdir = dbdir
 
-        # flag if the db should be read only
-        self.read_only = read_only
-
+        # remeber client
+        # no client == server == write access
+        self.client = client
+        
         # handle changes in a list and add them to the database
         # on commit.
         self.changes = []
@@ -203,7 +204,8 @@ class Database(object):
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
                 return False
-        mountpoint = Mountpoint(device, directory, self.dbdir, self._db, self.read_only)
+        mountpoint = Mountpoint(device, directory, self.dbdir, self._db,
+                                self.client)
         self._mountpoints.append(mountpoint)
         self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
         return True
@@ -228,18 +230,6 @@ class Database(object):
         else:
             raise AttributeError('unknown mountpoint')
 
-        
-    def __getattr__(self, attr):
-        """
-        Interface to the db.
-        """
-        if attr == 'object_types':
-            # Return the attribute _object_types from the db.
-            # TODO: Make this a real variable which only contains the stuff
-            # we need here and make sure it is in sync between server and clients
-            return self._db._object_types
-        raise AttributeError(attr)
-
 
     def _get_dir(self, dirname, media):
         """
@@ -255,23 +245,24 @@ class Database(object):
         if dirname == media.directory:
             # we know that '/' is in the db
             current = self._db.query(type="dir", name='', parent=media.id)[0]
-            return item.create(current, None, media)
+            return item.create_dir(current, media)
 
         parent = self._get_dir(os.path.dirname(dirname), media)
-        if parent == None:
-            return None
-
         name = os.path.basename(dirname)
-        current = self._db.query(type="dir", name=name, parent=parent.dbid)
-        if not current and self.read_only:
-            log.info('not in db and read only db')
-            return None
+
+        if not parent._vfs_id:
+            return item.create_dir(name, parent)
+            
+        current = self._db.query(type="dir", name=name, parent=parent._vfs_id)
+        if not current and self.client:
+            return item.create_dir(name, parent)
+
         if not current:
-            current = self._db.add_object("dir", name=name, parent=parent.dbid)
+            current = self._db.add_object("dir", name=name, parent=parent._vfs_id)
             self._db.commit()
         else:
             current = current[0]
-        return item.create(current, parent, media)
+        return item.create_dir(current, parent)
 
 
     def commit(self):
@@ -310,32 +301,13 @@ class Database(object):
         self._db.delete_object((entry['type'], entry['id']))
 
 
-    def _query_dirname(self, **query):
+    def _query_dir(self, parent):
         """
-        A query to get all files in a directory. Special keyword 'dirname' in
-        the query is used for that.
+        A query to get all files in a directory.
         """
-        dirname = query['dirname']
-
-        # find correct mountpoint
-        for m in self._mountpoints:
-            if dirname.startswith(m.directory):
-                break
-
-        # get parent item (may be None for client)
-        parent = None
-        if 'parent' in query:
-            parent = query['parent']
-
-        if not parent:
-            parent = self._get_dir(dirname, m)
-
-        if parent and parent.dbid:
-            items = [ item.create(f, parent, m) for f in \
-                      self._db.query(parent = parent.dbid) ]
-        else:
-            items = []
-
+        dirname = parent.filename[:-1]
+        items = [ item.create_file(f, parent) for f in \
+                  self._db.query(parent = parent._vfs_id) ]
         # sort items based on url. The listdir is also sorted, that makes
         # checking much faster
         items.sort(lambda x,y: cmp(x.url, y.url))
@@ -347,16 +319,21 @@ class Database(object):
         # it scan time or something like that. Also make it an option so the
         # user can turn the feature off.
         pos = -1
-        for pos, f in enumerate(util.listdir(dirname, m)):
+        for pos, (f, overlay) in enumerate(parent._vfs_listdir()):
             if pos == len(items):
                 # new file at the end
-                items.append(item.create(f, parent, m))
+                if os.path.isdir(parent.filename + f):
+                    if not overlay:
+                        items.append(item.create_dir(f, parent))
+                    continue
+                items.append(item.create_file(f, parent, overlay))
                 continue
             while f > items[pos].url:
                 # file deleted
                 i = items[pos]
                 items.remove(i)
-                if not self.read_only:
+                if not self.client:
+                    # no client == server == write access
                     # delete from database by adding it to the internal changes
                     # list. It will be deleted right before the next commit.
                     self.changes.append((self._delete, i, [], {}))
@@ -365,11 +342,16 @@ class Database(object):
                 # same file
                 continue
             # new file
-            items.insert(pos, item.create(f, parent, m))
+            if os.path.isdir(parent.filename + f):
+                if not overlay:
+                    items.append(item.create_dir(f, parent))
+                continue
+            items.insert(pos, item.create_file(f, parent, overlay))
 
         if pos + 1 < len(items):
             # deleted files at the end
-            if not self.read_only:
+            if not self.client:
+                # no client == server == write access
                 for i in items[pos+1-len(items):]:
                     self.changes.append((self._delete, i, [], {}))
             items = items[:pos+1-len(items)]
@@ -377,85 +359,106 @@ class Database(object):
         if self.changes:
             # need commit because some items were deleted from the db
             self.commit()
-
-        if 'recursive' in query and query['recursive']:
-            # recursive, replace the directories with the content of the dir
-            # This can take a long time on a big hd, so we need to step to keep
-            # the main loop alive.
-            # FIXME: both the step() and the fact that this can take several
-            # minutes is very bad. This should not be used at all. It can also
-            # block the server in the monitoring when checking all mtimes.
-            subdirs = [ x for x in items if x.isdir ]
-            items = [ x for x in items if not x.isdir ]
-            for subdir in subdirs:
-                items += self._query_dirname(dirname=subdir.filename[:-1],
-                                             parent=subdir, recursive=True)
-            # step now
-            kaa.notifier.step(False)
         return items
 
 
-    def _query_files(self, *args, **kwargs):
-        """
-        A query to get a list of files. Special keyword 'filenames' (list) in
-        the query is used for that.
-        """
-        files = kwargs['files']
-        del kwargs['files']
+#     def _query_attr(self, *args, **kwargs):
+#         """
+#         A query to get a list of possible values of one attribute. Special
+#         keyword 'attr' the query is used for that. This query will not return
+#         a list of items.
+#         """
+#         kwargs['distinct'] = True
+#         kwargs['attrs'] = [ kwargs['attr'] ]
+#         del kwargs['attr']
+#         return [ x[1] for x in self._db.query_raw(**kwargs)[1] if x[1] ]
 
-        items = []
-        for f in files:
-            dirname = os.path.dirname(f)
-            basename = os.path.basename(f)
-            # TODO: cache parents here
+
+    def query(self, **query):
+        """
+        Internal query function inside the thread. This function will use the
+        corrent internal query function based on special keywords.
+        """
+        if 'filename' in query and len(query) == 1:
+            # return item for filename, can't be in overlay
+            filename = query['filename']
+            dirname = os.path.dirname(filename)
+            basename = os.path.basename(filename)
             # find correct mountpoint
             for m in self._mountpoints:
                 if dirname.startswith(m.directory):
                     break
             parent = self._get_dir(dirname, m)
-            if parent:
-                dbentry = self._db.query(parent = parent.dbid, name=basename)
-                if not dbentry:
-                    dbentry = 'file://' + f
+            if parent._vfs_id:
+                # parent is a valid db item, query
+                e = self._db.query(parent=parent._vfs_id, name=basename)
+                if e:
+                    # entry is in the db
+                    basename = e[0]
+            if os.path.isdir(filename):
+                return item.create_dir(basename, parent)
+            return item.create_file(basename, parent)
+
+
+        if 'id' in query and len(query) == 1:
+            # return item based on id (id is type,id)
+            
+            i = self._db.query(type=query['id'][0], id=query['id'][1])[0]
+            # now we need a parent
+            if i['name'] == '':
+                # root node found, find correct mountpoint
+                for m in self._mountpoints:
+                    if m.id == i['parent']:
+                        break
                 else:
-                    dbentry = dbentry[0]
+                    raise AttributeError('bad media %s' % i['parent'])
+                return item.create_dir(i, m)
+            # query for parent
+            parent = self.query(id=i['parent'])
+            if i['type'] == 'dir':
+                # it is a directory, make a dir item
+                return item.create_dir(i, parent)
+            if parent._vfs_isdir:
+                # parent is dir, this item is not
+                return item.create_file(i, parent)
+            # neither dir nor file, something else
+            return item.create_item(i, parent)
+
+            
+        if 'parent' in query and len(query) == 1:
+            # return all items for the given parent (parent is an object)
+            parent = query['parent']
+            if parent._vfs_isdir:
+                return self._query_dir(parent)
+            raise AttributeError('oops, fix me')
+            
+#         if 'attr' in kwargs:
+#             return self._query_attr(*args, **kwargs)
+#         if 'device' in kwargs:
+#             # A query to monitor a media (mountpoint). Special keyword 'media' in
+#             # the query is used for that.
+#             for m in self._mountpoints:
+#                 if m.device == kwargs['device']:
+#                     return m
+#             raise AttributeError('Unknown device' % kwargs['device'])
+#         return self._db.query(*args, **kwargs)
+
+        result = []
+        for r in self._db.query(**query):
+            # get the parent of the item
+            # FIXME: cache results here
+            parent = self.query(id=r['parent'])
+            if r['type'] == 'dir':
+                # it is a directory, make a dir item
+                result.append(item.create_dir(r, parent))
+            elif parent._vfs_isdir:
+                # parent is dir, this item is not
+                result.append(item.create_file(r, parent))
             else:
-                dbentry = basename
-            items.append(item.create(dbentry, parent, m))
-        return items
+                # neither dir nor file, something else
+                result.append(item.create_item(r, parent))
+        return result
 
-
-    def _query_attr(self, *args, **kwargs):
-        """
-        A query to get a list of possible values of one attribute. Special
-        keyword 'attr' the query is used for that. This query will not return
-        a list of items.
-        """
-        kwargs['distinct'] = True
-        kwargs['attrs'] = [ kwargs['attr'] ]
-        del kwargs['attr']
-        return [ x[1] for x in self._db.query_raw(**kwargs)[1] if x[1] ]
-
-
-    def query(self, *args, **kwargs):
-        """
-        Internal query function inside the thread. This function will use the
-        corrent internal query function based on special keywords.
-        """
-        if 'dirname' in kwargs:
-            return self._query_dirname(*args, **kwargs)
-        if 'files' in kwargs:
-            return self._query_files(*args, **kwargs)
-        if 'attr' in kwargs:
-            return self._query_attr(*args, **kwargs)
-        if 'device' in kwargs:
-            # A query to monitor a media (mountpoint). Special keyword 'media' in
-            # the query is used for that.
-            for m in self._mountpoints:
-                if m.device == kwargs['device']:
-                    return m
-            raise AttributeError('Unknown device' % kwargs['device'])
-        return self._db.query(*args, **kwargs)
 
 
     def add_object(self, type, *args, **kwargs):
@@ -510,6 +513,13 @@ class Database(object):
             self.commit()
 
 
+    def object_types(self):
+        """
+        Return the list of object types
+        """
+        return self._db._object_types
+
+        
     def register_object_type_attrs(self, type, *args, **kwargs):
         """
         Register a new object with attributes. Special keywords like name and

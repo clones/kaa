@@ -46,7 +46,7 @@ class Query(object):
     """
     NEXT_ID = 1
 
-    def __init__(self, client, query):
+    def __init__(self, client, **query):
         self.signals = {
             'changed': Signal(),
             'progress': Signal(),
@@ -58,10 +58,13 @@ class Query(object):
         self._monitor = None
         self._client = client
         self._result = []
-        for r in self._client.database.query(**query):
-            r.db = self._client
-            self._result.append(r)
-
+        result = self._client.database.query(**query)
+        if isinstance(result, list):
+            for r in result:
+                self._result.append(r)
+        else:
+            self._result.append(result)
+    
 
     def get(self):
         """

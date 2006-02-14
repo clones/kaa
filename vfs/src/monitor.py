@@ -109,56 +109,59 @@ class Monitor(object):
         t1 = time.time()
         self.items = self._db.query(**self._query)
         print 'monitor query took', time.time() - t1
-        if self._query.has_key('device'):
-            log.info('unable to update device query, just send notification here')
-            # device query, can't update it
-            if send_checked:
-                log.info('client.checked')
-                self.callback('checked')
-                return
 
-        last_parent = None
-        t1 = time.time()
-        for i in self.items:
-            # FIXME: this does not scale very good. For many items like a
-            # recursive dir search it can take several seconds to scan all mtimes
-            # and this is not an option.
-            if not isinstance(i, item.Item):
-                # TODO: don't know how to monitor other types
-                continue
+        return
+    
+    #     if self._query.has_key('device'):
+#             log.info('unable to update device query, just send notification here')
+#             # device query, can't update it
+#             if send_checked:
+#                 log.info('client.checked')
+#                 self.callback('checked')
+#                 return
 
-            # check parent and parent.parent mtime. Notice. The root
-            # dir has also a parent, the media itself. So we need to stop at
-            # parent.parent == None.
-            parent = i.parent
-            parent_check = []
-            while last_parent != parent and parent and parent.parent:
-                mtime = parser.get_mtime(parent)
-                if mtime and parent.data['mtime'] != mtime and not parent in to_check:
-                    parent_check.append(weakref(parent))
-                parent = parent.parent
-            if parent_check:
-                parent_check.reverse()
-                to_check += parent_check
-            last_parent = i.parent
+#         last_parent = None
+#         t1 = time.time()
+#         for i in self.items:
+#             # FIXME: this does not scale very good. For many items like a
+#             # recursive dir search it can take several seconds to scan all mtimes
+#             # and this is not an option.
+#             if not isinstance(i, item.Item):
+#                 # TODO: don't know how to monitor other types
+#                 continue
+
+#             # check parent and parent.parent mtime. Notice. The root
+#             # dir has also a parent, the media itself. So we need to stop at
+#             # parent.parent == None.
+#             parent = i.parent
+#             parent_check = []
+#             while last_parent != parent and parent and parent.parent:
+#                 mtime = parser.get_mtime(parent)
+#                 if mtime and parent.data['mtime'] != mtime and not parent in to_check:
+#                     parent_check.append(weakref(parent))
+#                 parent = parent.parent
+#             if parent_check:
+#                 parent_check.reverse()
+#                 to_check += parent_check
+#             last_parent = i.parent
             
-            mtime = parser.get_mtime(i)
-            if not mtime:
-                continue
-            if i.data['mtime'] == mtime:
-                continue
-            to_check.append(weakref(i))
+#             mtime = parser.get_mtime(i)
+#             if not mtime:
+#                 continue
+#             if i.data['mtime'] == mtime:
+#                 continue
+#             to_check.append(weakref(i))
 
-        print 'mtime query took %s, %s items to check' % (time.time()-t1, len(to_check))
+#         print 'mtime query took %s, %s items to check' % (time.time()-t1, len(to_check))
 
-        if to_check:
-            # FIXME: a constantly growing file like a recording will result in
-            # a huge db activity on both client and server because checker calls
-            # update again and the mtime changed.
-            self._checker = weakref(parser.Checker(weakref(self), self._db, to_check))
-        elif send_checked:
-            log.info('client.checked')
-            self.callback('checked')
+#         if to_check:
+#             # FIXME: a constantly growing file like a recording will result in
+#             # a huge db activity on both client and server because checker calls
+#             # update again and the mtime changed.
+#             self._checker = weakref(parser.Checker(weakref(self), self._db, to_check))
+#         elif send_checked:
+#             log.info('client.checked')
+#             self.callback('checked')
 
 
     def __str__(self):
