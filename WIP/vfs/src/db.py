@@ -311,8 +311,12 @@ class Database(object):
         A query to get all files in a directory.
         """
         dirname = parent.filename[:-1]
-        items = [ create_file(f, parent) for f in \
-                  self._db.query(parent = parent._vfs_id) ]
+        items = []
+        for i in self._db.query(parent = parent._vfs_id):
+            if i['type'] == 'dir':
+                items.append(create_dir(i, parent))
+            else:
+                items.append(create_file(i, parent))
         # sort items based on url. The listdir is also sorted, that makes
         # checking much faster
         items.sort(lambda x,y: cmp(x._vfs_name, y._vfs_name))
@@ -386,7 +390,7 @@ class Database(object):
         Internal query function inside the thread. This function will use the
         corrent internal query function based on special keywords.
         """
-        print 'QUERY', query
+#         print 'QUERY', query
         # make sure db is ok
         self.commit()
         

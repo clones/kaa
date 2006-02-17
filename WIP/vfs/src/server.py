@@ -132,12 +132,11 @@ class Server(object):
         return self._db.register_object_type_attrs('track_%s' % name, **kwargs)
 
 
-    def monitor(self, client_id, request_id, status, query):
+    def monitor(self, client_id, request_id, query):
         """
         Create a monitor object to monitor a query for a client.
         """
-        print 'MONITOR', client_id, request_id, query, status
-        if 'parent' in query:
+        if query and 'parent' in query:
             type, id = query['parent']
             query['parent'] = self._db.query(type=type, id=id)[0]
 
@@ -146,8 +145,8 @@ class Server(object):
                 break
         else:
             raise AttributeError('Unknown client id %s', client_id)
-        if not status:
-            print 'remove monitor'
+        if not query:
+            log.debug('remove monitor')
             for m in monitors:
                 if m.id == request_id:
                     monitors.remove(m)
@@ -244,8 +243,13 @@ def connect(dbdir):
 
 
 def _client_closed(client):
-    print client
+    for server in _server.values():
+        for client_info in server._clients:
+            if ipc.get_ipc_from_proxy(client_info[1]) == client:
+                log.warning('disconnect client')
+                server._clients.remove(client_info)
     
 # connect to the ipc code
 _ipc = ipc.IPCServer('vfs')
 _ipc.register_object(connect, 'vfs')
+_ipc.signals["client_closed"].connect(_client_closed)

@@ -39,7 +39,7 @@ import stat
 import logging
 
 # kaa imports
-from kaa.notifier import Timer
+from kaa.notifier import Timer, execute_in_timer
 import kaa.metadata
 
 # kaa.vfs imports
@@ -49,7 +49,7 @@ import util
 log = logging.getLogger('vfs')
 
 def parse(db, item, store=False):
-    print 'check', item
+    print 'check', item.url
     mtime = item._vfs_mtime()
     if not mtime:
         log.info('oops, no mtime %s' % item)
@@ -112,17 +112,18 @@ def parse(db, item, store=False):
 
 
 class Checker(object):
-    def __init__(self, monitor, db, items, notify):
+    def __init__(self, monitor, db, items, notify_checked):
         self.monitor = monitor
         self.db = db
         self.items = items
         self.max = len(items)
         self.pos = 0
         self.updated = []
-        self.do_notify = notify
-        Timer(self.check).start(0.01)
+        self.notify_checked = notify_checked
+        self.check()
 
 
+    @execute_in_timer(Timer, 0.01)
     def check(self):
 
         if self.items:
@@ -139,13 +140,12 @@ class Checker(object):
 
         if not self.items:
             self.db.commit()
-            if self.monitor:
-                self.monitor.callback('changed')
-            if self.monitor and self.do_notify:
-                self.monitor.callback('checked')
+            self.notify('changed')
+            if self.notify_checked:
+                self.notify('checked')
 
         updated = []
-        while self.updated and self.updated[0]._vfs_id:
+        while self.updated and self.updated[0] and self.updated[0]._vfs_id:
             updated.append(self.updated.pop(0))
         if updated:
             self.monitor.send_update(updated)
@@ -158,3 +158,6 @@ class Checker(object):
     def notify(self, *args, **kwargs):
         if self.monitor:
             self.monitor.callback(*args, **kwargs)
+
+#     def __del__(self):
+#         print 'del parser'

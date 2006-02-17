@@ -36,6 +36,7 @@
 
 # Python imports
 import os
+import copy
 import logging
 
 # kaa imports
@@ -87,15 +88,19 @@ class Client(object):
     def query(self, **query):
         result = Query(self, **query)
         self._queries.append(weakref(result))
-        if 'parent' in query:
-            query['parent'] = query['parent']._vfs_id
         return result
     
+
     def monitor(self, query, status):
         """
         Monitor a query
         """
-        self._server_monitor(self.id, query.id, query._query, status,
+        q = None
+        if status:
+            q = copy.copy(query._query)
+            if 'parent' in q:
+                q['parent'] = q['parent']._vfs_id
+        self._server_monitor(self.id, query.id, q,
                              __ipc_noproxy_args=True, __ipc_oneway=True)
         
 #     def query(self, **query):
@@ -137,7 +142,6 @@ class Client(object):
         dependencies. So this function is needed to find the correct Query
         for a request.
         """
-        print 'NOTIFY', id, msg
         for query in self._queries:
             if query and query.id == id:
                 if hasattr(query, '_vfs_%s' % msg):

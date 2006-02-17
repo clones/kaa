@@ -61,10 +61,15 @@ class Query(object):
         self.result = self._client.database.query(**query)
     
 
-    def monitor(status=True):
+    def monitor(self, status=True):
+        """
+        Turn on/off query mnitoring
+        """
         if self._monitor == status:
             return
         self._client.monitor(self, status)
+        self._monitor = status
+
         
     def _vfs_progress(self, pos, max, url):
         """
@@ -78,6 +83,7 @@ class Query(object):
         """
         Checked message from server.
         """
+        self.signals['up-to-date'].emit()
         return
 
 
@@ -85,7 +91,7 @@ class Query(object):
         """
         Checked message from server.
         """
-        print 'UPDATE'
+#         print 'UPDATE'
         url, data = items.pop(0)
         for r in self.result:
             if r.url == url:
@@ -99,6 +105,7 @@ class Query(object):
 
     def _vfs_changed(self):
         self.result = self._client.database.query(**self._query)
+        self.signals['changed'].emit()
 
         
     def __repr__(self):

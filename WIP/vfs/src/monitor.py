@@ -64,7 +64,7 @@ class Monitor(object):
     """
 
     def __init__(self, callback, db, server, id, query):
-        log.info('create new monitor %s', id)
+        log.debug('create new monitor %s' % id)
         self.id = id
         self.callback = Notification(callback, self.id)
         self._server = server
@@ -99,30 +99,28 @@ class Monitor(object):
             return True
         current = self._db.query(**self._query)
         if len(current) != len(self.items):
-            self.callback('changed')
             self.items = current
-            self._scan()
+            self._scan(False)
             return True
         for pos, c in enumerate(current):
             if self.items[pos].url != c.url:
                 self.items = current
-                self._scan()
-                self.callback('changed')
+                self._scan(False)
                 return True
         return True
 
 
-    def _scan(self, notify=False):
-        self._scan_step(self.items[:], [], notify)
+    def _scan(self, first_call):
+        self._scan_step(self.items[:], [], first_call)
 
         
     @execute_in_timer(Timer, 0.001, type='once')
-    def _scan_step(self, items, changed, notify):
+    def _scan_step(self, items, changed, first_call):
         """
         Find changed items in 'items' and add them to changed.
         """
         if not items:
-            self._update(changed, notify)
+            self._update(changed, first_call)
             return False
         c = 0
         while items:
@@ -136,9 +134,17 @@ class Monitor(object):
         return True
 
 
-    def _update(self, changed, notify):
-        self._checker = weakref(parser.Checker(weakref(self), self._db, changed, notify))
-
+    def _update(self, changed, first_call):
+        if changed:
+            c = parser.Checker(weakref(self), self._db, changed, first_call)
+            self._checker = weakref(c)
+            if not first_call and len(changed) > 10:
+                self.callback('changed')
+        elif first_call:
+            self.callback('checked')
+        else:
+            self.callback('changed')
+            
 
     def send_update(self, changed):
         changed = [ (x.url, x._vfs_data) for x in changed ]
@@ -202,4 +208,4 @@ class Monitor(object):
 
 
     def __del__(self):
-        log.debug('del %s', repr(self))
+        log.debug('del %s' % repr(self))
