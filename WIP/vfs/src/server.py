@@ -132,23 +132,31 @@ class Server(object):
         return self._db.register_object_type_attrs('track_%s' % name, **kwargs)
 
 
-    def monitor(self, client_id, request_id, query):
+    def monitor(self, client_id, request_id, status, query):
         """
         Create a monitor object to monitor a query for a client.
         """
-        print 'MONITOR', client_id, request_id, query
+        print 'MONITOR', client_id, request_id, query, status
         if 'parent' in query:
             type, id = query['parent']
             query['parent'] = self._db.query(type=type, id=id)[0]
 
-        for id, client, callback in self._clients:
+        for id, client, callback, monitors in self._clients:
             if id == client_id:
                 break
         else:
             raise AttributeError('Unknown client id %s', client_id)
-        monitor = Monitor(callback, self._db, self, request_id, query)
-        log.debug('create %s' % monitor)
-        callback(request_id, 'connect', monitor)
+        if not status:
+            print 'remove monitor'
+            for m in monitors:
+                if m.id == request_id:
+                    monitors.remove(m)
+                    return None
+            log.error('unable to find monitor %s:%s', client_id, request_id)
+            return None
+            
+        m = Monitor(callback, self._db, self, request_id, query)
+        monitors.append(m)
         return None
     
 
@@ -157,7 +165,7 @@ class Server(object):
         Add a mountpoint to the system.
         """
         if self._db.add_mountpoint(device, directory):
-            for id, client, notification in self._clients:
+            for id, client, notification, monitors in self._clients:
                 client.database.add_mountpoint(device, directory, __ipc_oneway=True)
 
 
@@ -166,7 +174,7 @@ class Server(object):
         Set mountpoint to the given name (e.g. load media)
         """
         if self._db.set_mountpoint(directory, name):
-            for id, client, notification in self._clients:
+            for id, client, notification, monitors in self._clients:
                 client.database.set_mountpoint(directory, name)
             return True
         return False
@@ -177,7 +185,7 @@ class Server(object):
         Connect a new client to the server.
         """
         self._next_client += 1
-        self._clients.append((self._next_client, client, callback))
+        self._clients.append((self._next_client, client, callback, []))
         for device, directory, name in self._db.get_mountpoints():
             client.database.add_mountpoint(device, directory)
             client.database.set_mountpoint(directory, name)

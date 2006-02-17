@@ -55,20 +55,17 @@ class Query(object):
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
         self._query = query
-        self._monitor = None
+        self._monitor = False
         self._client = client
 
         self.result = self._client.database.query(**query)
     
 
-    def _vfs_connect(self, monitor):
-        """
-        Connect message from server.
-        """
-        print 'CONNECT', monitor
-        self._monitor = monitor
-
-
+    def monitor(status=True):
+        if self._monitor == status:
+            return
+        self._client.monitor(self, status)
+        
     def _vfs_progress(self, pos, max, url):
         """
         Progress message from server.

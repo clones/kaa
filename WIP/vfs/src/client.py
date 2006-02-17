@@ -89,11 +89,15 @@ class Client(object):
         self._queries.append(weakref(result))
         if 'parent' in query:
             query['parent'] = query['parent']._vfs_id
-        OneShotTimer(self._server_monitor, self.id, result.id, query,
-                     __ipc_noproxy_args=True, __ipc_oneway=True).start(0.01)
         return result
     
-
+    def monitor(self, query, status):
+        """
+        Monitor a query
+        """
+        self._server_monitor(self.id, query.id, query._query, status
+                             __ipc_noproxy_args=True, __ipc_oneway=True)
+        
 #     def query(self, **query):
 #         """
 #         Do a query to the databse. This will return a Query object.
