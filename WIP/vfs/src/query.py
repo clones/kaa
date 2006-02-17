@@ -57,28 +57,15 @@ class Query(object):
         self._query = query
         self._monitor = None
         self._client = client
-        self._result = []
-        result = self._client.database.query(**query)
-        if isinstance(result, list):
-            for r in result:
-                self._result.append(r)
-        else:
-            self._result.append(result)
+
+        self.result = self._client.database.query(**query)
     
-
-    def get(self):
-        """
-        Get the result of the query.
-        """
-        if self._query.has_key('device'):
-            return self._result
-        return self._result[:]
-
 
     def _vfs_connect(self, monitor):
         """
         Connect message from server.
         """
+        print 'CONNECT', monitor
         self._monitor = monitor
 
 
@@ -94,74 +81,42 @@ class Query(object):
         """
         Checked message from server.
         """
-        # The server checked the query, we should redo the query
-        # to get possible updates.
-        result = self._client.database.query(**self._query)
-        log.info('check db results against current list of items')
+        return
+
+
+    def _vfs_updated(self, items):
+        """
+        Checked message from server.
+        """
+        print 'UPDATE'
+        url, data = items.pop(0)
+        for r in self.result:
+            if r.url == url:
+                r._vfs_database_update(data)
+                if not items:
+                    break
+                url, data = items.pop(0)
+        if items:
+            log.error('not all items found')
+
+
+    def _vfs_changed(self):
+        self.result = self._client.database.query(**self._query)
+
         
-        if self._query.has_key('device'):
-            self._result = result
-            self._result.db = self._client
-            self.signals['changed'].emit()
-            return
-        
-        changed = False
-        if not result or not hasattr(result[0], 'url'):
-            # normal string results
-            if result != self._result:
-                self._result = result
-                self.signals['changed'].emit()
-            self.signals['up-to-date'].emit()
-            return
-
-        # check old and new item lists. Both lists are sorted, so
-        # checking can be done with simple cmp of the urls.
-        for pos, dbitem in enumerate(result):
-            if not len(self._result) > pos:
-                # change the internal db of the item to out client
-                dbitem.db = self._client
-                self._result.append(dbitem)
-                changed = True
-                continue
-            current = self._result[pos]
-            while current and dbitem.url > current.url:
-                self._result.remove(current)
-                if len(self._result) > pos:
-                    current = self._result[pos]
-                else:
-                    current = None
-                changed = True
-            if current and dbitem.url == current.url:
-                if current.data['mtime'] != dbitem.data['mtime'] or \
-                   current.dbid != dbitem.dbid:
-                    changed = True
-                    current.data = dbitem.data
-                    current.dbid = dbitem.dbid
-                # TODO: this is not 100% correct. Maybe the parent changed, or
-                # the parent of the parent and we have now a new cover
-                current.parent = dbitem.parent
-                continue
-            # change the internal db of the item to out client
-            dbitem.db = self._client
-            changed = True
-            self._result.insert(pos, dbitem)
-
-        if len(self._result) > pos + 1:
-            changed = True
-            self._result = self._result[:pos+1]
-
-        if changed:
-            # send changed signal
-            log.debug('db has changed for %s, send signal %s'\
-                      % (self._query, self.signals['changed']._callbacks))
-            self.signals['changed'].emit()
-        # send up-to-date signal
-        self.signals['up-to-date'].emit()
-
-
-    def __str__(self):
+    def __repr__(self):
         """
         Convert object to string (usefull for debugging)
         """
         return '<vfs.Client.Query for %s>' % self._query
 
+
+    def __del__(self):
+        """
+        Memory debug
+        """
+        print 'del', repr(self)
+
+
+    def __iter__(self):
+        return self.result.__iter__()

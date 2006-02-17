@@ -59,11 +59,11 @@ class Client(object):
         db = os.path.abspath(db)
         # monitor function from the server to start a new monitor for a query
         self._server = ipc.IPCClient('vfs').get_object('vfs')(db)
-        self.monitor = self._server.monitor
+        self._server_monitor = self._server.monitor
         # read only version of the database
         self.database = Database(db, self)
         # connect to server notifications
-        self._server.connect(self)
+        self.id = self._server.connect(self, self._vfs_notify)
         # internal list of active queries
         self._queries = []
         # internal list of items to update
@@ -81,31 +81,19 @@ class Client(object):
         """
         Return an object for the given filename.
         """
-        result = Query(self, filename=os.path.realpath(filename))
-        return result.get()[0]
-
-
-    def vfs_request(self, id):
-        return self._server.vfs_request(id, __ipc_noproxy_result=True,
-                                        __ipc_noproxy_args=True)
+        return Query(self, filename=os.path.realpath(filename)).result
 
 
     def query(self, **query):
         result = Query(self, **query)
         self._queries.append(weakref(result))
-        # start the remote query 100 ms seconds later. It is faster
-        # that way because a) ipc takes some time and b) it avoids
-        # doing the same stuff at the same time
-
-        # TODO: create a client id to avoid sending self.notify to the
-        # client at this point.
         if 'parent' in query:
             query['parent'] = query['parent']._vfs_id
-        OneShotTimer(self.monitor, self.notify, result.id,
-                     **query).start(0.1)
+        OneShotTimer(self._server_monitor, self.id, result.id, query,
+                     __ipc_noproxy_args=True, __ipc_oneway=True).start(0.01)
         return result
-        
     
+
 #     def query(self, **query):
 #         """
 #         Do a query to the databse. This will return a Query object.
@@ -130,13 +118,22 @@ class Client(object):
 #         return result
 
 
-    def notify(self, id, msg, *args, **kwargs):
+    def _vfs_request(self, filename):
+        """
+        Request information about a filename.
+        """
+        return self._server.request(filename, __ipc_noproxy_result=True,
+                                    __ipc_noproxy_args=True)
+
+
+    def _vfs_notify(self, id, msg, *args, **kwargs):
         """
         Internal notification callback from the server. The Monitor does not
         has a reference to the Query because this would result in circular
         dependencies. So this function is needed to find the correct Query
         for a request.
         """
+        print 'NOTIFY', id, msg
         for query in self._queries:
             if query and query.id == id:
                 if hasattr(query, '_vfs_%s' % msg):
@@ -145,37 +142,37 @@ class Client(object):
                 
                 log.error('Error: unknown message from server: %s' % msg)
                 return
-            
+
         # not found, possibly already deleted, check for dead weakrefs
         for query in self._queries[:]:
             if not query:
                 self._queries.remove(query)
 
 
-    def update(self, item=None):
-        """
-        Update item in next main loop interation.
-        """
-        if not item:
-            # do the update now
-            items = []
-            for i in self._changed:
-                changes = {}
-                for var in i.changes:
-                    changes[var] = i[var]
-                i.changes = []
-                items.append((i.dbid, changes))
-            self._changed = []
-            self._server.update(items, __ipc_oneway=True, __ipc_noproxy_args=True)
-            return
+#     def update(self, item=None):
+#         """
+#         Update item in next main loop interation.
+#         """
+#         if not item:
+#             # do the update now
+#             items = []
+#             for i in self._changed:
+#                 changes = {}
+#                 for var in i.changes:
+#                     changes[var] = i[var]
+#                 i.changes = []
+#                 items.append((i.dbid, changes))
+#             self._changed = []
+#             self._server.update(items, __ipc_oneway=True, __ipc_noproxy_args=True)
+#             return
 
-        if not self._changed:
-            # register timer to do the changes
-            OneShotTimer(self.update).start(0.1)
-        self._changed.append(item)
+#         if not self._changed:
+#             # register timer to do the changes
+#             OneShotTimer(self.update).start(0.1)
+#         self._changed.append(item)
 
         
-    def __str__(self):
+    def __repr__(self):
         """
         Convert object to string (usefull for debugging)
         """

@@ -43,13 +43,14 @@ import kaa.notifier
 from kaa.base import db
 from kaa.base.db import *
 
-# kaa.vfs imports
-import item
-
 # get logging object
 log = logging.getLogger('vfs')
 
 MAX_BUFFER_CHANGES = 20
+
+# Item generation mapping
+from item import Directory as create_dir
+from item import File as create_file
 
 class Mountpoint(object):
     """
@@ -112,25 +113,25 @@ class Mountpoint(object):
         return True
 
 
-    def item(self):
-        """
-        Get the id of the mountpoint. This functions needs the database
-        and _must_ be called from the same thread as the db itself.
-        Return the root item for the mountpoint.
-        """
-        if not self.id:
-             return None
-        media = self.db.query(type='media', id=self.id[1])
-        content = media[0]['content']
-        if content == 'file':
-            # a simple data dir
-            current = self.db.query(type="dir", name='', parent=self.id)[0]
-            return item.create(current, None, self)
-        # a track of something else
-        return [ item.create(x, self, self) for x in \
-                 self.db.query(type='track_%s' % content, parent=self.id) ]
-        # TODO: support other media
-        return None
+#     def item(self):
+#         """
+#         Get the id of the mountpoint. This functions needs the database
+#         and _must_ be called from the same thread as the db itself.
+#         Return the root item for the mountpoint.
+#         """
+#         if not self.id:
+#              return None
+#         media = self.db.query(type='media', id=self.id[1])
+#         content = media[0]['content']
+#         if content == 'file':
+#             # a simple data dir
+#             current = self.db.query(type="dir", name='', parent=self.id)[0]
+#             return item.create(current, None, self)
+#         # a track of something else
+#         return [ item.create(x, self, self) for x in \
+#                  self.db.query(type='track_%s' % content, parent=self.id) ]
+#         # TODO: support other media
+#         return None
 
         
     def __str__(self):
@@ -245,24 +246,24 @@ class Database(object):
         if dirname == media.directory:
             # we know that '/' is in the db
             current = self._db.query(type="dir", name='', parent=media.id)[0]
-            return item.create_dir(current, media)
+            return create_dir(current, media)
 
         parent = self._get_dir(os.path.dirname(dirname), media)
         name = os.path.basename(dirname)
 
         if not parent._vfs_id:
-            return item.create_dir(name, parent)
+            return create_dir(name, parent)
             
         current = self._db.query(type="dir", name=name, parent=parent._vfs_id)
         if not current and self.client:
-            return item.create_dir(name, parent)
+            return create_dir(name, parent)
 
         if not current:
             current = self._db.add_object("dir", name=name, parent=parent._vfs_id)
             self._db.commit()
         else:
             current = current[0]
-        return item.create_dir(current, parent)
+        return create_dir(current, parent)
 
 
     def commit(self):
@@ -270,6 +271,10 @@ class Database(object):
         Commit changes to the database. All changes in the internal list
         are done first.
         """
+        if not self.changes:
+            return
+
+        print 'COMMIT'
         t1 = time.time()
         changes = self.changes
         for function, arg1, args, kwargs in self.changes:
@@ -296,9 +301,9 @@ class Database(object):
         commit is called just after this function is called.
         """
         log.debug('DELETE %s' % entry)
-        for child in self._db.query(parent = (entry['type'], entry['id'])):
+        for child in self._db.query(parent = entry._vfs_id):
             self._delete(child)
-        self._db.delete_object((entry['type'], entry['id']))
+        self._db.delete_object((entry._vfs_id))
 
 
     def _query_dir(self, parent):
@@ -306,11 +311,11 @@ class Database(object):
         A query to get all files in a directory.
         """
         dirname = parent.filename[:-1]
-        items = [ item.create_file(f, parent) for f in \
+        items = [ create_file(f, parent) for f in \
                   self._db.query(parent = parent._vfs_id) ]
         # sort items based on url. The listdir is also sorted, that makes
         # checking much faster
-        items.sort(lambda x,y: cmp(x.url, y.url))
+        items.sort(lambda x,y: cmp(x._vfs_name, y._vfs_name))
 
         # TODO: this could block for cdrom drives and network filesystems. Maybe
         # put the listdir in a thread
@@ -319,16 +324,17 @@ class Database(object):
         # it scan time or something like that. Also make it an option so the
         # user can turn the feature off.
         pos = -1
+
         for pos, (f, overlay) in enumerate(parent._vfs_listdir()):
             if pos == len(items):
                 # new file at the end
                 if os.path.isdir(parent.filename + f):
                     if not overlay:
-                        items.append(item.create_dir(f, parent))
+                        items.append(create_dir(f, parent))
                     continue
-                items.append(item.create_file(f, parent, overlay))
+                items.append(create_file(f, parent, overlay))
                 continue
-            while f > items[pos].url:
+            while f > items[pos]._vfs_name:
                 # file deleted
                 i = items[pos]
                 items.remove(i)
@@ -338,15 +344,15 @@ class Database(object):
                     # list. It will be deleted right before the next commit.
                     self.changes.append((self._delete, i, [], {}))
                 # delete
-            if f == items[pos].url:
+            if f == items[pos]._vfs_name:
                 # same file
                 continue
             # new file
             if os.path.isdir(parent.filename + f):
                 if not overlay:
-                    items.append(item.create_dir(f, parent))
+                    items.insert(pos, create_dir(f, parent))
                 continue
-            items.insert(pos, item.create_file(f, parent, overlay))
+            items.insert(pos, create_file(f, parent, overlay))
 
         if pos + 1 < len(items):
             # deleted files at the end
@@ -359,6 +365,7 @@ class Database(object):
         if self.changes:
             # need commit because some items were deleted from the db
             self.commit()
+        items.sort(lambda x,y: cmp(x.url, y.url))
         return items
 
 
@@ -379,6 +386,10 @@ class Database(object):
         Internal query function inside the thread. This function will use the
         corrent internal query function based on special keywords.
         """
+        print 'QUERY', query
+        # make sure db is ok
+        self.commit()
+        
         if 'filename' in query and len(query) == 1:
             # return item for filename, can't be in overlay
             filename = query['filename']
@@ -396,8 +407,8 @@ class Database(object):
                     # entry is in the db
                     basename = e[0]
             if os.path.isdir(filename):
-                return item.create_dir(basename, parent)
-            return item.create_file(basename, parent)
+                return create_dir(basename, parent)
+            return create_file(basename, parent)
 
 
         if 'id' in query and len(query) == 1:
@@ -412,17 +423,17 @@ class Database(object):
                         break
                 else:
                     raise AttributeError('bad media %s' % i['parent'])
-                return item.create_dir(i, m)
+                return create_dir(i, m)
             # query for parent
             parent = self.query(id=i['parent'])
             if i['type'] == 'dir':
                 # it is a directory, make a dir item
-                return item.create_dir(i, parent)
+                return create_dir(i, parent)
             if parent._vfs_isdir:
                 # parent is dir, this item is not
-                return item.create_file(i, parent)
+                return create_file(i, parent)
             # neither dir nor file, something else
-            return item.create_item(i, parent)
+            return create_item(i, parent)
 
             
         if 'parent' in query and len(query) == 1:
@@ -450,13 +461,13 @@ class Database(object):
             parent = self.query(id=r['parent'])
             if r['type'] == 'dir':
                 # it is a directory, make a dir item
-                result.append(item.create_dir(r, parent))
+                result.append(create_dir(r, parent))
             elif parent._vfs_isdir:
                 # parent is dir, this item is not
-                result.append(item.create_file(r, parent))
+                result.append(create_file(r, parent))
             else:
                 # neither dir nor file, something else
-                result.append(item.create_item(r, parent))
+                result.append(create_item(r, parent))
         return result
 
 

@@ -38,7 +38,7 @@ import logging
 
 # kaa imports
 from kaa.base.weakref import weakref
-from kaa.notifier import OneShotTimer, WeakTimer
+from kaa.notifier import OneShotTimer, WeakTimer, Timer, execute_in_timer
 
 # kaa.vfs imports
 import parser
@@ -55,7 +55,7 @@ class Notification(object):
         self.id = id
 
     def __call__(self, *args, **kwargs):
-        self.remote(self.id, __ipc_oneway=True, *args, **kwargs)
+        self.remote(self.id, __ipc_oneway=True, __ipc_noproxy_args=True, *args, **kwargs)
 
 
 class Monitor(object):
@@ -71,46 +71,79 @@ class Monitor(object):
         self._db = db
         self._query = query
         self._checker = None
-        if self._query.has_key('dirname') and \
-           (not self._query.has_key('recursive') or not self._query['recursive']):
-            # TODO: use inotify for monitoring, this will also fix the
-            # problem when files grow because they are copied right
-            # now and the first time we had no real information
-            dirname = self._query['dirname']
-            for m in self._db._mountpoints:
-                if dirname.startswith(m.directory):
-                    break
-            WeakTimer(self.check, dirname, m).start(1)
-        if self._query.has_key('device'):
-            # monitor a media
-            # TODO: support other stuff except cdrom
-            # FIXME: support removing the monitor :)
-            cdrom.monitor(query['device'], weakref(self), db, self._server)
+        self.items = self._db.query(**self._query)
+        self._scan(True)
+        self._poll()
+
+#         if self._query.has_key('dirname') and \
+#            (not self._query.has_key('recursive') or not self._query['recursive']):
+#             # TODO: use inotify for monitoring, this will also fix the
+#             # problem when files grow because they are copied right
+#             # now and the first time we had no real information
+#             dirname = self._query['dirname']
+#             for m in self._db._mountpoints:
+#                 if dirname.startswith(m.directory):
+#                     break
+#             WeakTimer(self.check, dirname, m).start(1)
+#         if self._query.has_key('device'):
+#             # monitor a media
+#             # TODO: support other stuff except cdrom
+#             # FIXME: support removing the monitor :)
+#             cdrom.monitor(query['device'], weakref(self), db, self._server)
             
-            
-    def check(self, dirname, mountpoint):
+
+    @execute_in_timer(WeakTimer, 1)
+    def _poll(self):
         if self._checker:
             # still checking
             return True
-        current = util.listdir(dirname, mountpoint)
+        current = self._db.query(**self._query)
         if len(current) != len(self.items):
-            OneShotTimer(self.update, True).start(0)
+            self.callback('changed')
+            self.items = current
+            self._scan()
             return True
-        for pos, url in enumerate(current):
-            if self.items[pos].url != url:
-                OneShotTimer(self.update, True).start(0)
+        for pos, c in enumerate(current):
+            if self.items[pos].url != c.url:
+                self.items = current
+                self._scan()
+                self.callback('changed')
                 return True
         return True
 
 
-    def update(self, send_checked=True):
-        to_check = []
-        import time
-        t1 = time.time()
-        self.items = self._db.query(**self._query)
-        print 'monitor query took', time.time() - t1
+    def _scan(self, notify=False):
+        self._scan_step(self.items[:], [], notify)
 
-        return
+        
+    @execute_in_timer(Timer, 0.001, type='once')
+    def _scan_step(self, items, changed, notify):
+        """
+        Find changed items in 'items' and add them to changed.
+        """
+        if not items:
+            self._update(changed, notify)
+            return False
+        c = 0
+        while items:
+            c += 1
+            if c > 20:
+                return True
+            i = items.pop(0)
+            # FIXME: check parents
+            if i._vfs_changed():
+                changed.append(weakref(i))
+        return True
+
+
+    def _update(self, changed, notify):
+        self._checker = weakref(parser.Checker(weakref(self), self._db, changed, notify))
+
+
+    def send_update(self, changed):
+        changed = [ (x.url, x._vfs_data) for x in changed ]
+        changed.sort(lambda x,y: cmp(x[0], y[0]))
+        self.callback('updated', changed)
     
     #     if self._query.has_key('device'):
 #             log.info('unable to update device query, just send notification here')
@@ -164,9 +197,9 @@ class Monitor(object):
 #             self.callback('checked')
 
 
-    def __str__(self):
+    def __repr__(self):
         return '<vfs.Monitor for %s>' % self._query
 
 
     def __del__(self):
-        log.debug('del %s' % self)
+        log.debug('del %s', repr(self))

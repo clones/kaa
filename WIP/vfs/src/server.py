@@ -59,7 +59,8 @@ class Server(object):
     """
     def __init__(self, dbdir):
         self._db = Database(dbdir, None)
-
+        self._next_client = 0
+        
         # files
         
         self.register_file_type_attrs("video",
@@ -104,7 +105,7 @@ class Server(object):
 
         # list of current clients
         self._clients = []
-
+        
         # add root mountpoint
         self.add_mountpoint(None, '/')
         self.set_mountpoint('/', 'kaa.vfs.root')
@@ -131,18 +132,23 @@ class Server(object):
         return self._db.register_object_type_attrs('track_%s' % name, **kwargs)
 
 
-    def monitor(self, callback, id, **query):
+    def monitor(self, client_id, request_id, query):
         """
         Create a monitor object to monitor a query for a client.
         """
+        print 'MONITOR', client_id, request_id, query
         if 'parent' in query:
             type, id = query['parent']
             query['parent'] = self._db.query(type=type, id=id)[0]
 
-        monitor = Monitor(callback, self._db, self, id, query)
+        for id, client, callback in self._clients:
+            if id == client_id:
+                break
+        else:
+            raise AttributeError('Unknown client id %s', client_id)
+        monitor = Monitor(callback, self._db, self, request_id, query)
         log.debug('create %s' % monitor)
-        callback(id, 'connect', monitor)
-        monitor.update()
+        callback(request_id, 'connect', monitor)
         return None
     
 
@@ -151,7 +157,7 @@ class Server(object):
         Add a mountpoint to the system.
         """
         if self._db.add_mountpoint(device, directory):
-            for client in self._clients:
+            for id, client, notification in self._clients:
                 client.database.add_mountpoint(device, directory, __ipc_oneway=True)
 
 
@@ -160,20 +166,22 @@ class Server(object):
         Set mountpoint to the given name (e.g. load media)
         """
         if self._db.set_mountpoint(directory, name):
-            for client in self._clients:
+            for id, client, notification in self._clients:
                 client.database.set_mountpoint(directory, name)
             return True
         return False
 
         
-    def connect(self, client):
+    def connect(self, client, callback):
         """
         Connect a new client to the server.
         """
-        self._clients.append(client)
+        self._next_client += 1
+        self._clients.append((self._next_client, client, callback))
         for device, directory, name in self._db.get_mountpoints():
             client.database.add_mountpoint(device, directory)
             client.database.set_mountpoint(directory, name)
+        return self._next_client
 
 
     def update(self, items):
@@ -186,13 +194,14 @@ class Server(object):
         self._db.commit()
 
         
-    def vfs_request(self, filename):
+    def request(self, filename):
         self._db.commit()
         data = self._db.query(filename=filename)
         items = []
-        while not data._vfs_id:
-            items.append(data)
-            data = data._vfs_parent
+        for i in data._vfs_tree():
+            if i._vfs_id:
+                break
+            items.append(i)
         while items:
             parser.parse(self._db, items.pop(), store=True)
         self._db.commit()

@@ -48,37 +48,9 @@ import util
 # get logging object
 log = logging.getLogger('vfs')
 
-def get_mtime(item):
-    if not item.filename:
-        log.info('no filename == no mtime :(')
-        return 0
-    if not item._vfs_parent:
-        log.info('no parent == no mtime :(')
-        return 0
-
-    if item._vfs_isdir:
-        # TODO: add overlay dir to mtime
-        return os.stat(item.filename)[stat.ST_MTIME]
-
-    # mtime is the the mtime for all files having the same
-    # base. E.g. the mtime of foo.jpg is the sum of the
-    # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the
-    # mtime is the sum of foo.mp3 and foo.jpg.
-
-    search = item.basename
-    if search.rfind('.') > 0:
-        search = search[:search.rfind('.')]
-
-    mtime = 0
-    for basename, url in item.parent.os_listdir():
-        if basename.startswith(search):
-            mtime += os.stat(url[5:])[stat.ST_MTIME]
-    return mtime
-
-
 def parse(db, item, store=False):
     print 'check', item
-    mtime = get_mtime(item)
+    mtime = item._vfs_mtime()
     if not mtime:
         log.info('oops, no mtime %s' % item)
         return
@@ -140,30 +112,46 @@ def parse(db, item, store=False):
 
 
 class Checker(object):
-    def __init__(self, monitor, db, items):
+    def __init__(self, monitor, db, items, notify):
         self.monitor = monitor
         self.db = db
         self.items = items
         self.max = len(items)
         self.pos = 0
+        self.updated = []
+        self.do_notify = notify
         Timer(self.check).start(0.01)
 
 
     def check(self):
 
+        if self.items:
+            self.pos += 1
+            item = self.items[0]
+            self.items = self.items[1:]
+            if item:
+                self.notify('progress', self.pos, self.max, item.url)
+                parse(self.db, item)
+                if item._vfs_id:
+                    self.monitor.send_update([item])
+                else:
+                    self.updated.append(item)
+
         if not self.items:
             self.db.commit()
             if self.monitor:
+                self.monitor.callback('changed')
+            if self.monitor and self.do_notify:
                 self.monitor.callback('checked')
-            if self.monitor:
-                self.monitor.update(False)
+
+        updated = []
+        while self.updated and self.updated[0]._vfs_id:
+            updated.append(self.updated.pop(0))
+        if updated:
+            self.monitor.send_update(updated)
+
+        if not self.items:
             return False
-        self.pos += 1
-        item = self.items[0]
-        self.items = self.items[1:]
-        if item:
-            self.notify('progress', self.pos, self.max, item.url)
-            parse(self.db, item)
         return True
 
 

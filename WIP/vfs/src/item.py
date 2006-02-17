@@ -34,6 +34,7 @@
 
 
 import os
+import stat
 
 UNKNOWN = -1
 
@@ -55,6 +56,7 @@ class Item(object):
         self._vfs_media = media
         self._vfs_isdir = False
         self._vfs_changes = []
+        self._vfs_name = data['name']
 
 
     def __repr__(self):
@@ -73,6 +75,17 @@ class Item(object):
     def _vfs_db(self):
         # get db
         return self._vfs_media.client
+
+    def _vfs_mtime(self):
+        # return mtime
+        return 0
+
+    def _vfs_changed(self):
+        return self._vfs_mtime() != self._vfs_data['mtime']
+
+
+    def _vfs_tree(self):
+        return ParentIterator(self)
 
     
     def getattr(self, key):
@@ -94,7 +107,22 @@ class Item(object):
     def keys(self):
         return self._vfs_data.keys()
 
-    
+
+class ParentIterator(object):
+
+    def __init__(self, item):
+        self.item = item
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self.item:
+            raise StopIteration
+        ret = self.item
+        self.item = self.item._vfs_parent
+        return ret
+
 class Directory(Item):
     """
     A directory based item.
@@ -110,6 +138,8 @@ class Directory(Item):
             id = None
             self.filename = parent.filename + data + '/' 
             data = { 'name': data, 'mtime': UNKNOWN }
+            if parent and parent._vfs_id:
+                data['parent_type'], data['parent_id'] = parent._vfs_id
             media = parent._vfs_media
         elif isinstance(parent, Directory):
             # db data
@@ -131,8 +161,8 @@ class Directory(Item):
     def listdir(self):
         if not self._vfs_id:
             # item is not in db, request information now
-            self._vfs_database_update(self._vfs_db().vfs_request(self.filename[:-1]))
-        return self._vfs_db().query(parent=self).get()
+            self._vfs_database_update(self._vfs_db()._vfs_request(self.filename[:-1]))
+        return self._vfs_db().query(parent=self)
         
 
     def _vfs_listdir(self):
@@ -151,6 +181,32 @@ class Directory(Item):
         result += [ ( x, False ) for x in listdir if not x.startswith('.') ]
         result.sort(lambda x,y: cmp(x[0], y[0]))
         return result
+
+
+    def _vfs_os_listdir(self):
+        if hasattr(self, '_vfs_os_listdir_cache'):
+            return self._vfs_os_listdir_cache
+        
+        try:
+            result = [ (x, self.filename + x) for x in os.listdir(self.filename)
+                       if not x.startswith('.') ]
+        except OSError:
+            return []
+
+        media = self._vfs_media
+        overlay = media.overlay + '/' + self.filename[len(media.directory):]
+        try:
+            result += [ ( x, overlay + x ) for x in os.listdir(overlay) \
+                        if not x.startswith('.') and not x in listdir ]
+        except OSError:
+            pass
+        self._vfs_os_listdir_cache = result
+        return result
+        
+    def _vfs_mtime(self):
+        # TODO: add overlay dir to mtime
+        return os.stat(self.filename)[stat.ST_MTIME]
+    
         
 #     def listdir(self):
 #         """
@@ -196,6 +252,8 @@ class File(Item):
             id = None
             self.filename = parent.filename + data
             data = { 'name': data, 'mtime': UNKNOWN }
+            if parent and parent._vfs_id:
+                data['parent_type'], data['parent_id'] = parent._vfs_id
             media = parent._vfs_media
         elif isinstance(parent, Directory):
             # db data
@@ -205,6 +263,21 @@ class File(Item):
 
         Item.__init__(self, id, 'file://' + self.filename, data, parent, media)
         self._vfs_overlay = overlay
+
+
+    def _vfs_mtime(self):
+        # mtime is the the mtime for all files having the same
+        # base. E.g. the mtime of foo.jpg is the sum of the
+        # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the
+        # mtime is the sum of foo.mp3 and foo.jpg.
+        search = self._vfs_data['name']
+        if search.rfind('.') > 0:
+            search = search[:search.rfind('.')]
+        mtime = 0
+        for basename, filename in self._vfs_parent._vfs_os_listdir():
+            if basename.startswith(search):
+                mtime += os.stat(filename)[stat.ST_MTIME]
+        return mtime
 
 
     def __repr__(self):
@@ -219,15 +292,3 @@ class File(Item):
 
 # make it possible to override these
 
-def create_dir(data, parent):
-    """
-    Create a Directory item.
-    """
-    return Directory(data, parent)
-
-    
-def create_file(data, parent, overlay=False):
-    """
-    Create a File item.
-    """
-    return File(data, parent, overlay)
