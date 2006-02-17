@@ -95,7 +95,7 @@ class Client(object):
         """
         Monitor a query
         """
-        self._server_monitor(self.id, query.id, query._query, status
+        self._server_monitor(self.id, query.id, query._query, status,
                              __ipc_noproxy_args=True, __ipc_oneway=True)
         
 #     def query(self, **query):
