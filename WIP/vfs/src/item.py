@@ -208,26 +208,6 @@ class Directory(Item):
         return os.stat(self.filename)[stat.ST_MTIME]
     
         
-#     def listdir(self):
-#         """
-#         List the directory. This returns a database object.
-#         """
-#         if self.db:
-#             return self.db.query(dirname=self.filename)
-#         raise AttributeError('item has no db object')
-
-
-#     def os_listdir(self):
-#         """
-#         Return (cached) os.listdir information including the overlay dir.
-#         The result is a list of basename, url.
-#         """
-#         if self._os_listdir == None:
-#             listing = util.listdir(self.filename[:-1], self.media)
-#             self._os_listdir = [ (x[x.rfind('/')+1:], x) for x in listing ]
-#         return self._os_listdir
-
-        
     def __repr__(self):
         """
         Convert object to string (usefull for debugging)

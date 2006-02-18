@@ -1,29 +1,33 @@
 import kaa.vfs
-from kaa.notifier import Timer, OneShotTimer
 import sys
 import kaa
-import kaa.notifier
-from kaa.base.weakref import weakref
 import time
-
-import logging
 
 def msg(*args):
     print '>>>>>>>>>', args
     
-c = kaa.vfs.connect('vfsdb')
-video = c.get(sys.argv[1])
-print video
-x = video.listdir()
+kaa.vfs.connect('vfsdb')
 
-x.signals['changed'].connect(msg, 'changed')
-x.signals['progress'].connect(msg, 'progress')
-x.signals['up-to-date'].connect(msg, 'up-to-date')
+a = u'Inkubus Sukkubus'
+#a = u'Bif Naked'
 
-x.monitor()
-for f in x:
-    print repr(f)
+t1 = time.time()
+result = kaa.vfs.get(sys.argv[1]).listdir()
+# result = kaa.vfs.query(artist=a)
+# result = kaa.vfs.query(attr='album', type='audio')
+t2 = time.time()
 
-# OneShotTimer(x.monitor, False).start(1)
+# x.signals['changed'].connect(msg, 'changed')
+# x.signals['progress'].connect(msg, 'progress')
+# x.signals['up-to-date'].connect(msg, 'up-to-date')
+
+# x.monitor()
+
+print 'query took', (t2 - t1)
+
+if 1:
+    for r in result:
+        print r
+
 print 'loop'
 kaa.main()

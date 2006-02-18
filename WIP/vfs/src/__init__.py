@@ -44,6 +44,9 @@ from client import Client
 # get logging object
 log = logging.getLogger('vfs')
 
+# connected client object
+_client = None
+
 def connect(vfsdb, logfile=None, loglevel=logging.INFO):
     """
     Connect to the vfs database dir given by 'vfsdb'. A server will be started
@@ -55,9 +58,12 @@ def connect(vfsdb, logfile=None, loglevel=logging.INFO):
     the are started by the same user. It will shutdown if no client is connected
     for over 5 seconds.
     """
+    global _client
+    
     try:
         # try to connect to an already running server
-        return Client(vfsdb)
+        _client = Client(vfsdb)
+        return _client
     except socket.error:
         pass
 
@@ -76,13 +82,13 @@ def connect(vfsdb, logfile=None, loglevel=logging.INFO):
     while time.time() < stop:
         step()
         try:
-            c = Client(vfsdb)
+            _client = Client(vfsdb)
             # client ready, close fd to server
             for fd in server_fd:
                 fd.close()
             # stop temp timer
             t.stop()
-            return c
+            return _client
         except socket.error:
             pass
 
@@ -99,3 +105,21 @@ def connect(vfsdb, logfile=None, loglevel=logging.INFO):
 
     # raise error
     raise OSError('Unable to start vfs server')
+
+
+def get(filename):
+    """
+    Get object for the given filename.
+    """
+    if not _client:
+        raise RuntimeError('vfs not connected')
+    return _client.get(filename)
+
+
+def query(**args):
+    """
+    Query the database.
+    """
+    if not _client:
+        raise RuntimeError('vfs not connected')
+    return _client.query(**args)

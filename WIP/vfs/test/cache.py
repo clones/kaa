@@ -4,10 +4,10 @@ import kaa.vfs
 import logging
 
 # full parameter set for connect
-# c = kaa.vfs.connect('vfsdb', 'logfile', logging.INFO)
+# kaa.vfs.connect('vfsdb', 'logfile', logging.INFO)
 
 # simple connect
-c = kaa.vfs.connect('vfsdb')
+kaa.vfs.connect('vfsdb')
 
 checked  = []
 to_check = []
@@ -45,8 +45,7 @@ def next(q):
     check()
     
 
-d = c.get(sys.argv[1])
-to_check.append(d)
+to_check.append(kaa.vfs.get(sys.argv[1]))
 
 check()
 

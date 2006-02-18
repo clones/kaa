@@ -134,7 +134,7 @@ class Mountpoint(object):
 #         return None
 
         
-    def __str__(self):
+    def __repr__(self):
         """
         Convert object to string (usefull for debugging)
         """
@@ -308,7 +308,8 @@ class Database(object):
 
     def _query_dir(self, parent):
         """
-        A query to get all files in a directory.
+        A query to get all files in a directory. The parameter parent is a
+        directort object.
         """
         dirname = parent.filename[:-1]
         items = []
@@ -373,96 +374,119 @@ class Database(object):
         return items
 
 
-#     def _query_attr(self, *args, **kwargs):
-#         """
-#         A query to get a list of possible values of one attribute. Special
-#         keyword 'attr' the query is used for that. This query will not return
-#         a list of items.
-#         """
-#         kwargs['distinct'] = True
-#         kwargs['attrs'] = [ kwargs['attr'] ]
-#         del kwargs['attr']
-#         return [ x[1] for x in self._db.query_raw(**kwargs)[1] if x[1] ]
+    def _query_filename(self, filename):
+        """
+        Return item for filename, can't be in overlay
+        """
+        dirname = os.path.dirname(filename)
+        basename = os.path.basename(filename)
+        # find correct mountpoint
+        for m in self._mountpoints:
+            if dirname.startswith(m.directory):
+                break
+        parent = self._get_dir(dirname, m)
+        if parent._vfs_id:
+            # parent is a valid db item, query
+            e = self._db.query(parent=parent._vfs_id, name=basename)
+            if e:
+                # entry is in the db
+                basename = e[0]
+        if os.path.isdir(filename):
+            return create_dir(basename, parent)
+        return create_file(basename, parent)
 
 
+    def _query_id(self, (type, id), cache=None):
+        """
+        Return item based on (type,id). Use given cache if provided.
+        """
+        i = self._db.query(type=type, id=id)[0]
+        # now we need a parent
+        if i['name'] == '':
+            # root node found, find correct mountpoint
+            for m in self._mountpoints:
+                if m.id == i['parent']:
+                    break
+            else:
+                raise AttributeError('bad media %s' % i['parent'])
+            return create_dir(i, m)
+
+        # query for parent
+        pid = i['parent']
+        if cache is not None and pid in cache:
+            parent = cache[pid]
+        else:
+            parent = self._query_id(pid)
+            if cache is not None:
+                cache[pid] = parent
+                
+        if i['type'] == 'dir':
+            # it is a directory, make a dir item
+            return create_dir(i, parent)
+        if parent._vfs_isdir:
+            # parent is dir, this item is not
+            return create_file(i, parent)
+        # neither dir nor file, something else
+        return create_item(i, parent)
+
+
+    def _query_parent(self, parent):
+        """
+        Return all items for the given parent object.
+        """
+        if parent._vfs_isdir:
+            return self._query_dir(parent)
+        raise AttributeError('oops, fix me')
+    
+
+    def _query_attr(self, query):
+        """
+        A query to get a list of possible values of one attribute. Special
+        keyword 'attr' the query is used for that. This query will not return
+        a list of items.
+        """
+        attr = query['attr']
+        del query['attr']
+
+        result = self._db.query_raw(attrs=[attr], distinct=True, **query)[1]
+        result = [ x[1] for x in result if x[1] ]
+
+        # sort results and return
+        result.sort()
+        return result
+
+    
     def query(self, **query):
         """
-        Internal query function inside the thread. This function will use the
-        corrent internal query function based on special keywords.
+        Main query function.
         """
-#         print 'QUERY', query
         # make sure db is ok
         self.commit()
-        
+
+        # do query based on type
         if 'filename' in query and len(query) == 1:
-            # return item for filename, can't be in overlay
-            filename = query['filename']
-            dirname = os.path.dirname(filename)
-            basename = os.path.basename(filename)
-            # find correct mountpoint
-            for m in self._mountpoints:
-                if dirname.startswith(m.directory):
-                    break
-            parent = self._get_dir(dirname, m)
-            if parent._vfs_id:
-                # parent is a valid db item, query
-                e = self._db.query(parent=parent._vfs_id, name=basename)
-                if e:
-                    # entry is in the db
-                    basename = e[0]
-            if os.path.isdir(filename):
-                return create_dir(basename, parent)
-            return create_file(basename, parent)
-
-
+            return self._query_filename(query['filename'])
         if 'id' in query and len(query) == 1:
-            # return item based on id (id is type,id)
-            
-            i = self._db.query(type=query['id'][0], id=query['id'][1])[0]
-            # now we need a parent
-            if i['name'] == '':
-                # root node found, find correct mountpoint
-                for m in self._mountpoints:
-                    if m.id == i['parent']:
-                        break
-                else:
-                    raise AttributeError('bad media %s' % i['parent'])
-                return create_dir(i, m)
-            # query for parent
-            parent = self.query(id=i['parent'])
-            if i['type'] == 'dir':
-                # it is a directory, make a dir item
-                return create_dir(i, parent)
-            if parent._vfs_isdir:
-                # parent is dir, this item is not
-                return create_file(i, parent)
-            # neither dir nor file, something else
-            return create_item(i, parent)
-
-            
+            return self._query_id(query['id'])
         if 'parent' in query and len(query) == 1:
-            # return all items for the given parent (parent is an object)
-            parent = query['parent']
-            if parent._vfs_isdir:
-                return self._query_dir(parent)
-            raise AttributeError('oops, fix me')
+            return self._query_parent(query['parent'])
+        if 'attr' in query:
+            return self._query_attr(query)
             
-#         if 'attr' in kwargs:
-#             return self._query_attr(*args, **kwargs)
-#         if 'device' in kwargs:
-#             # A query to monitor a media (mountpoint). Special keyword 'media' in
-#             # the query is used for that.
-#             for m in self._mountpoints:
-#                 if m.device == kwargs['device']:
-#                     return m
-#             raise AttributeError('Unknown device' % kwargs['device'])
-#         return self._db.query(*args, **kwargs)
-
+        # 'raw' query
         result = []
+        cache = {}
         for r in self._db.query(**query):
-            # get the parent of the item
-            # FIXME: cache results here
-            parent = self.query(id=r['parent'])
+
+            # get parent
+            pid = r['parent']
+            if pid in cache:
+                parent = cache[pid]
+            else:
+                parent = self._query_id(pid, cache)
+                cache[pid] = parent
+
+            # create item
             if r['type'] == 'dir':
                 # it is a directory, make a dir item
                 result.append(create_dir(r, parent))
@@ -472,7 +496,19 @@ class Database(object):
             else:
                 # neither dir nor file, something else
                 result.append(create_item(r, parent))
+
+        # sort results and return
+        result.sort(lambda x,y: cmp(x.url, y.url))
         return result
+
+#         if 'device' in kwargs:
+#             # A query to monitor a media (mountpoint). Special keyword 'media' in
+#             # the query is used for that.
+#             for m in self._mountpoints:
+#                 if m.device == kwargs['device']:
+#                     return m
+#             raise AttributeError('Unknown device' % kwargs['device'])
+#         return self._db.query(*args, **kwargs)
 
 
 
