@@ -34,9 +34,6 @@ from kaa.notifier import ThreadCallback, OneShotTimer, MainThreadCallback
 import kaa.metadata
 from kaa.metadata.disc.discinfo import cdrom_disc_id
 
-# kaa.vfs imports
-import util
-
 # get logging object
 log = logging.getLogger('vfs')
 

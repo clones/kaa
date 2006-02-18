@@ -42,9 +42,6 @@ import logging
 from kaa.notifier import Timer, execute_in_timer
 import kaa.metadata
 
-# kaa.vfs imports
-import util
-
 # get logging object
 log = logging.getLogger('vfs')
 
