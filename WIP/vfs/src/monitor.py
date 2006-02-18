@@ -38,7 +38,7 @@ import logging
 
 # kaa imports
 from kaa.base.weakref import weakref
-from kaa.notifier import OneShotTimer, WeakTimer, Timer, execute_in_timer
+from kaa.notifier import WeakTimer, Timer, execute_in_timer, Callback
 
 # kaa.vfs imports
 import parser
@@ -130,27 +130,36 @@ class Monitor(object):
             i = items.pop(0)
             # FIXME: check parents
             if i._vfs_changed():
-                changed.append(weakref(i))
+                changed.append(i)
         return True
 
 
     def _update(self, changed, first_call):
         if changed:
-            c = parser.Checker(weakref(self), self._db, changed, first_call)
-            self._checker = weakref(c)
+            cb = Callback(self.checked, first_call)
+            c = parser.Checker(self.callback, self._db, changed, cb)
+            self._checker = c
             if not first_call and len(changed) > 10:
                 self.callback('changed')
         elif first_call:
             self.callback('checked')
         else:
             self.callback('changed')
-            
 
-    def send_update(self, changed):
-        changed = [ (x.url, x._vfs_data) for x in changed ]
-        changed.sort(lambda x,y: cmp(x[0], y[0]))
-        self.callback('updated', changed)
-    
+
+    def checked(self, first_call):
+        self._checker = None
+        self.callback('changed')
+        if first_call:
+            self.callback('checked')
+
+        
+    def stop(self):
+        if self._checker:
+            self._checker.stop()
+        self._checker = None
+
+        
     #     if self._query.has_key('device'):
 #             log.info('unable to update device query, just send notification here')
 #             # device query, can't update it
@@ -190,8 +199,6 @@ class Monitor(object):
 #             if i.data['mtime'] == mtime:
 #                 continue
 #             to_check.append(weakref(i))
-
-#         print 'mtime query took %s, %s items to check' % (time.time()-t1, len(to_check))
 
 #         if to_check:
 #             # FIXME: a constantly growing file like a recording will result in

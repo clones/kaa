@@ -1,8 +1,13 @@
 import sys
 import kaa
-import kaa.vfs.client
+import kaa.vfs
+import logging
 
-c = kaa.vfs.client.Client('vfsdb')
+# full parameter set for connect
+# c = kaa.vfs.connect('vfsdb', 'logfile', logging.INFO)
+
+# simple connect
+c = kaa.vfs.connect('vfsdb')
 
 checked  = []
 to_check = []

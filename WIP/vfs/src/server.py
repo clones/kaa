@@ -149,6 +149,7 @@ class Server(object):
             log.debug('remove monitor')
             for m in monitors:
                 if m.id == request_id:
+                    m.stop()
                     monitors.remove(m)
                     return None
             log.error('unable to find monitor %s:%s', client_id, request_id)
@@ -224,6 +225,7 @@ class Server(object):
         
 # internal list of server
 _server = {}
+_num_client = 0
 
 def connect(dbdir):
     """
@@ -232,8 +234,11 @@ def connect(dbdir):
     """
     log.info('connect to %s' % dbdir)
 
+    global _num_client
+    _num_client += 1
+    
     # TODO: delete databases not used anymore
-
+    
     if not dbdir in _server:
         log.info('create server object')
         server = Server(dbdir)
@@ -243,13 +248,70 @@ def connect(dbdir):
 
 
 def _client_closed(client):
+    global _num_client
     for server in _server.values():
         for client_info in server._clients:
             if ipc.get_ipc_from_proxy(client_info[1]) == client:
                 log.warning('disconnect client')
+                for m in client_info[3]:
+                    m.stop()
                 server._clients.remove(client_info)
+                _num_client -= 1
+
+
+if __name__ == "__main__":
+
+    # python imports
+    import gc
+    import sys
     
-# connect to the ipc code
-_ipc = ipc.IPCServer('vfs')
-_ipc.register_object(connect, 'vfs')
-_ipc.signals["client_closed"].connect(_client_closed)
+    # kaa imports
+    from kaa.notifier import Timer, execute_in_timer, loop
+    
+    @execute_in_timer(Timer, 1)
+    def garbage_collect():
+        g = gc.collect()
+        if g:
+            log.info('gc: deleted %s objects' % g)
+        if gc.garbage:
+            log.warning('gc: found %s garbage objects' % len(gc.garbage))
+            for g in gc.garbage:
+                log.warning(g)
+        return True
+
+
+    shutdown_timer = 5
+
+    @execute_in_timer(Timer, 1)
+    def autoshutdown():
+        global shutdown_timer
+        if _num_client > 0:
+            shutdown_timer = 5
+            return True
+        shutdown_timer -= 1
+        if shutdown_timer == 0:
+            log.info('shutdown vfs server')
+            sys.exit(0)
+        return True
+    
+    # setup logger
+    f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
+                          '%(filename)s %(lineno)s: '+\
+                          '%(message)s')
+    handler = logging.FileHandler(sys.argv[1])
+    handler.setFormatter(f)
+    logging.getLogger().addHandler(handler)
+
+    # set log level
+    logging.getLogger().setLevel(int(sys.argv[2]))
+
+    log.info('start vfs server')
+    
+    # connect to the ipc code
+    _ipc = ipc.IPCServer('vfs')
+    _ipc.register_object(connect, 'vfs')
+    _ipc.signals["client_closed"].connect(_client_closed)
+
+    garbage_collect()
+    autoshutdown()
+    loop()

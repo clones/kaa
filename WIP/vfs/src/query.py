@@ -91,7 +91,6 @@ class Query(object):
         """
         Checked message from server.
         """
-#         print 'UPDATE'
         url, data = items.pop(0)
         for r in self.result:
             if r.url == url:
@@ -119,7 +118,9 @@ class Query(object):
         """
         Memory debug
         """
-        print 'del', repr(self)
+        if self._monitor:
+            self.monitor(False)
+        log.debug('del %s' % repr(self))
 
 
     def __iter__(self):

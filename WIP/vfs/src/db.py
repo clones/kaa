@@ -274,7 +274,7 @@ class Database(object):
         if not self.changes:
             return
 
-        print 'COMMIT'
+        log.info('COMMIT')
         t1 = time.time()
         changes = self.changes
         for function, arg1, args, kwargs in self.changes:

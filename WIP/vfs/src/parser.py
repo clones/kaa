@@ -49,7 +49,7 @@ import util
 log = logging.getLogger('vfs')
 
 def parse(db, item, store=False):
-    print 'check', item.url
+    log.info('check %s', item.url)
     mtime = item._vfs_mtime()
     if not mtime:
         log.info('oops, no mtime %s' % item)
@@ -112,20 +112,25 @@ def parse(db, item, store=False):
 
 
 class Checker(object):
-    def __init__(self, monitor, db, items, notify_checked):
-        self.monitor = monitor
+    def __init__(self, notify, db, items, callback):
+        self.notify = notify
         self.db = db
         self.items = items
+        self.callback = callback
+
         self.max = len(items)
         self.pos = 0
+
         self.updated = []
-        self.notify_checked = notify_checked
+        self.stopped = False
         self.check()
 
 
     @execute_in_timer(Timer, 0.01)
     def check(self):
-
+        if self.stopped:
+            return False
+        
         if self.items:
             self.pos += 1
             item = self.items[0]
@@ -134,30 +139,34 @@ class Checker(object):
                 self.notify('progress', self.pos, self.max, item.url)
                 parse(self.db, item)
                 if item._vfs_id:
-                    self.monitor.send_update([item])
+                    self.notify('updated', [ (item.url, item._vfs_data) ])
                 else:
                     self.updated.append(item)
 
+
         if not self.items:
             self.db.commit()
-            self.notify('changed')
-            if self.notify_checked:
-                self.notify('checked')
+            self.stop()
+            self.callback()
 
+            
         updated = []
         while self.updated and self.updated[0] and self.updated[0]._vfs_id:
             updated.append(self.updated.pop(0))
         if updated:
-            self.monitor.send_update(updated)
-
+            updated = [ (x.url, x._vfs_data) for x in updated ]
+            updated.sort(lambda x,y: cmp(x[0], y[0]))
+            self.notify('updated', updated)
+            
         if not self.items:
             return False
         return True
 
 
-    def notify(self, *args, **kwargs):
-        if self.monitor:
-            self.monitor.callback(*args, **kwargs)
+    def stop(self):
+        self.items = []
+        self.stopped = True
 
-#     def __del__(self):
-#         print 'del parser'
+
+    def __del__(self):
+        log.info('del parser')

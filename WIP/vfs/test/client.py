@@ -1,4 +1,4 @@
-import kaa.vfs.client
+import kaa.vfs
 from kaa.notifier import Timer, OneShotTimer
 import sys
 import kaa
@@ -8,82 +8,22 @@ import time
 
 import logging
 
-VERBOSE = True
+def msg(*args):
+    print '>>>>>>>>>', args
+    
+c = kaa.vfs.connect('vfsdb')
+video = c.get(sys.argv[1])
+print video
+x = video.listdir()
 
-def foo():
-    print 'delete all'
-    global q
-    q = None
+x.signals['changed'].connect(msg, 'changed')
+x.signals['progress'].connect(msg, 'progress')
+x.signals['up-to-date'].connect(msg, 'up-to-date')
 
-def progress(pos, max, last):
-    if VERBOSE:
-        print 'progress (%s of %s) -- %s' % (pos, max, last)
+x.monitor()
+for f in x:
+    print repr(f)
 
-def update(client, query):
-    print 'update'
-    result = query.get()
-    if not VERBOSE:
-        return
-    if isinstance(result, list):
-        for item in q.get():
-            print item
-    else:
-        print 'Disc', result
-        result = result.item()
-        if isinstance(result, list):
-            for f in result:
-                print '    ', f
-        else:
-            print result
-            if result and result.filename:
-                # it is a disc, scan dir (hope it's mounted)
-                print 'files on disc (needs to be mounted manually):'
-                for f in client.query(dirname=result.filename).get():
-                    print '    ', f
-        print
-
-def show_artists_list():
-    for artist in c.query(attr='artist', type='audio').get():
-        print artist
-        for album in c.query(attr='album', artist=artist, type='audio').get():
-            print ' ', album
-        
-c = kaa.vfs.client.Client('vfsdb')
-c.add_mountpoint('/dev/cdrom', '/mnt/cdrom')
-c.add_mountpoint('/dev/dvd', '/mnt/dvd')
-
-if len(sys.argv) < 2 or sys.argv[1].find('=') <= 0:
-    print 'usage: client query'
-    print 'e.g.   client directory=/home/dmeyer/video'
-    print '       client file=/path/to/file.mp3'
-    print '       client device=/mnt/cdrom'
-    print '       client attr=album type=audio'
-    sys.exit(0)
-
-if sys.argv[1][:sys.argv[1].find('=')] == 'file':
-    t1 = time.time()
-    q = c.query(files=(sys.argv[1][sys.argv[1].find('=')+1:],))
-else:
-    query = {}
-    for attr in sys.argv[1:]:
-        query[attr[:attr.find('=')]]=attr[attr.find('=')+1:]
-    t1 = time.time()
-    q = c.query(**query)
-q.signals['changed'].connect(update, c, weakref(q))
-q.signals['progress'].connect(progress)
-t2 = time.time()
-
-result = q.get()
-if VERBOSE:
-    if isinstance(result, list):
-        for item in q.get():
-            print item
-    else:
-        print 'Disc', result
-
-print 'q took %s' % (t2 - t1)
-
-#OneShotTimer(show_artists_list).start(1)
-#Timer(foo).start(5)
+# OneShotTimer(x.monitor, False).start(1)
 print 'loop'
 kaa.main()
