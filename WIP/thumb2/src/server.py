@@ -139,7 +139,7 @@ class Thumbnailer(object):
         if metadata and metadata['raw_image']:
             try:
                 image = kaa.imlib2.open_from_memory(metadata['raw_image'])
-                png(job.filename, job.imagefile, job.size, image)
+                png(job.filename, job.imagefile, job.size, image._image)
             except (IOError, ValueError):
                 # raw image is broken
                 self._debug(job.client, ['bad image in %s' % job.filename])
