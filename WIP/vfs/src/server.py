@@ -35,7 +35,14 @@
 
 # Python imports
 import os
+import sys
 import logging
+
+# insert kaa path information
+__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
+__site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), __site__))
+if not __site__ in sys.path:
+    sys.path.insert(0, __site__)
 
 # kaa imports
 from kaa.base import ipc, weakref
