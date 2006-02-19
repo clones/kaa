@@ -41,6 +41,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+/* kaa.imlib2 usage */
+Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
+PyTypeObject *Image_PyObject_Type;
+
+
 /* png write function stolen from epsilon (see png.c) */
 extern int _png_write (const char *file, DATA32 * ptr,
                        int tw, int th, int sw, int sh, char *imformat,
@@ -54,7 +59,6 @@ PyObject *epeg_thumbnail(PyObject *self, PyObject *args)
     char *dest;
 
     Epeg_Image *im;
-    Epeg_Thumbnail_Info info;
     
     if (!PyArg_ParseTuple(args, "ss(ii)", &source, &dest, &tw, &th))
         return NULL;
@@ -110,46 +114,55 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
     struct stat filestatus;
     Imlib_Image tmp = NULL;
     Imlib_Image src = NULL;
+    PyObject *pyimg = NULL;
 
-    if (!PyArg_ParseTuple(args, "ss(ii)", &source, &dest, &tw, &th))
+    if (!PyArg_ParseTuple(args, "ss(ii)|O!", &source, &dest, &tw, &th,
+			  Image_PyObject_Type, &pyimg))
         return NULL;
 
     if (stat (source, &filestatus) != 0) {
-        PyErr_SetString(PyExc_ValueError, "pyimlib2: unable to load image");
+        PyErr_SetString(PyExc_ValueError, "thumbnail: no such file");
         return NULL;
     }
       
     mtime = filestatus.st_mtime;
-    if ((tmp = imlib_load_image_immediately_without_cache (source))) {
-        imlib_context_set_image (tmp);
-        snprintf (format, 32, "image/%s", imlib_image_format ());
-        iw = imlib_image_get_width ();
-        ih = imlib_image_get_height ();
-        if (iw > tw || ih > th) {
-            if (iw / tw > ih / th)
-                th = (ih * tw) / iw;
-            else
-                tw = (iw * th) / ih;
 
-	    /* scale image down to thumbnail size */
-	    imlib_context_set_cliprect (0, 0, tw, th);
-	    src = imlib_create_cropped_scaled_image (0, 0, iw, ih, tw, th);
-	    if (!src) {
-	        imlib_free_image_and_decache ();
-	        PyErr_SetString(PyExc_IOError, "pyimlib2 scale error");
-		return NULL;
-	    }
-	    /* free original image and set context to new one */
-	    imlib_free_image_and_decache ();
-	    imlib_context_set_image (src);
-	      
-        } else {
-            tw = iw;
-            th = ih;
-        }
+    if (!pyimg) {
+	/* load source file */
+	if (!(tmp = imlib_load_image_immediately_without_cache (source))) {
+	    PyErr_SetString(PyExc_ValueError, "pyimlib2: unable to load image");
+	    return NULL;
+	} 
     } else {
-        PyErr_SetString(PyExc_ValueError, "pyimlib2: unable to load image");
-        return NULL;
+	/* extract from kaa.imlib2 object */
+	tmp = imlib_image_from_pyobject(pyimg);
+    }
+    
+    imlib_context_set_image (tmp);
+    snprintf (format, 32, "image/%s", imlib_image_format ());
+    iw = imlib_image_get_width ();
+    ih = imlib_image_get_height ();
+    if (iw > tw || ih > th) {
+	if (iw / tw > ih / th)
+	    th = (ih * tw) / iw;
+	else
+	    tw = (iw * th) / ih;
+
+	/* scale image down to thumbnail size */
+	imlib_context_set_cliprect (0, 0, tw, th);
+	src = imlib_create_cropped_scaled_image (0, 0, iw, ih, tw, th);
+	if (!src) {
+	    imlib_free_image_and_decache ();
+	    PyErr_SetString(PyExc_IOError, "pyimlib2 scale error");
+	    return NULL;
+	}
+	/* free original image and set context to new one */
+	imlib_free_image_and_decache ();
+	imlib_context_set_image (src);
+	      
+    } else {
+	tw = iw;
+	th = ih;
     }
     
     imlib_image_set_has_alpha (1);
@@ -199,14 +212,41 @@ PyObject *fail_thumbnail(PyObject *self, PyObject *args)
 
 
 PyMethodDef thumbnail_methods[] = {
-    { "epeg_thumbnail", epeg_thumbnail, METH_VARARGS }, 
-    { "png_thumbnail", png_thumbnail, METH_VARARGS }, 
-    { "fail_thumbnail", fail_thumbnail, METH_VARARGS }, 
+    { "epeg", epeg_thumbnail, METH_VARARGS }, 
+    { "png", png_thumbnail, METH_VARARGS }, 
+    { "failed", fail_thumbnail, METH_VARARGS }, 
     { NULL }
 };
 
 
-void init_thumbnailer()
+void **get_module_api(char *module)
 {
-    Py_InitModule("_thumbnailer", thumbnail_methods);
+    PyObject *m, *c_api;
+    void **ptrs;
+
+    m = PyImport_ImportModule(module);
+    if (m == NULL)
+       return NULL;
+    c_api = PyObject_GetAttrString(m, "_C_API");
+    if (c_api == NULL || !PyCObject_Check(c_api))
+        return NULL;
+    ptrs = (void **)PyCObject_AsVoidPtr(c_api);
+    Py_DECREF(c_api);
+    return ptrs;
+}
+
+
+void initthumbnailer()
+{
+    PyObject *m;
+    void **imlib2_api_ptrs;
+
+    m = Py_InitModule("thumbnailer", thumbnail_methods);
+
+    // Import kaa-imlib2's C api
+    imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");
+    if (imlib2_api_ptrs == NULL)
+        return;
+    imlib_image_from_pyobject = imlib2_api_ptrs[0];
+    Image_PyObject_Type = imlib2_api_ptrs[1];
 }

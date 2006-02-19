@@ -37,7 +37,7 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-thumbnailer = Extension("kaa.thumb._thumbnailer",
+thumbnailer = Extension("kaa.thumb2.thumbnailer",
                         ["src/thumbnail.c", "src/png.c" ],
                         config='src/config.h')
 
@@ -60,5 +60,5 @@ else:
 setup(module      = 'thumb2',
       version     = '0.1',
       ext_modules = [ thumbnailer ],
-      scripts     = [ 'bin/kaa-thumb2' ],
+      scripts     = [ 'bin/kaa-thumb' ],
       )

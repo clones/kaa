@@ -29,5 +29,3 @@
 #
 # -----------------------------------------------------------------------------
 
-from interface import create, check, NORMAL, LARGE, FAILED, MISSING
-from videothumb import snapshot as videothumb

@@ -4,20 +4,20 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# This file provides a function to create video thumbnails in the background.
-# It will start a mplayer childapp to create the thumbnail. It uses the
-# notifier loop to do this without blocking.
+# This file provides a function to create video thumbnails in the
+# background.  It will start a mplayer to create the thumbnail. It
+# uses the notifier loop to do this without blocking.
 #
 # Loosly based on videothumb.py commited to the freevo wiki
 #
 # -----------------------------------------------------------------------------
-# Freevo - A Home Theater PC framework
-# Copyright (C) 2002-2004 Krister Lagerstrom, Dirk Meyer, et al.
+# kaa-thumb - Thumbnailing module
+# Copyright (C) 2005-2006 Dirk Meyer, et al.
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
 #
-# Please see the file freevo/Docs/CREDITS for a complete list of authors.
+# Please see the file AUTHORS for a complete list of authors.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,178 +36,117 @@
 # -----------------------------------------------------------------------------
 
 # python imports
-import sys
-import os
-import kaa.metadata
 import glob
-import tempfile
-import logging
-import popen2
-
-from stat import *
+import os
+import stat
 
 # kaa imports
 import kaa.notifier
-from kaa import mevas
+import kaa.imlib2
 
-# get logging object
-log = logging.getLogger()
+# kaa.thumb imports
+from thumbnailer import epeg, png, failed
 
-# internal thumbnail queue
-_runqueue = []
 
-class MplayerThumbnail(kaa.notifier.Process):
+class VideoThumb(object):
     """
-    Mplayer thumbnailing process
+    Class to handle video thumbnailing.
     """
-    def __init__( self, app, imagefile):
-        self.imagefile = imagefile
-        kaa.notifier.Process.__init__(self, app)
-        self.signals["stdout"].connect(self.debug)
-        self.signals["stderr"].connect(self.debug)
-        self.signals["completed"].connect(self.finished)
+    def __init__(self, thumbnailer):
+        self._jobs = []
+        self._current = None
+
+        self._notify_client = thumbnailer._notify_client
+        self._create_failed_image = thumbnailer._create_failed_image
+        self._debug = thumbnailer._debug
+
+        self.child = kaa.notifier.Process(['mplayer', '-nosound', '-vo', 'png',
+                                           '-frames', '8', '-zoom', '-ss' ])
+        self.child.signals['completed'].connect(self._completed)
+        self.child.signals['stdout'].connect(self._handle_std)
+        self.child.signals['stderr'].connect(self._handle_std)
 
 
-    def debug(self, line):
-        """
-        print debug from child as warning
-        """
-        line.strip(' \t\n')
-        if line:
-            log.warning('>> %s' % line)
+    def append(self, job):
+        self._jobs.append(job)
+        self._run()
 
 
-    def finished(self, exit_code):
-        """
-        Job finished, run next if there is more
-        """
-        global _runqueue
-        _runqueue = _runqueue[1:]
-
-        if not os.path.isfile(self.imagefile):
-            log.warning('no imagefile found')
-        if _runqueue:
-            MplayerThumbnail(*_runqueue[0]).start()
+    def _handle_std(self, line):
+        self._child_std.append(line)
 
 
+    def _run(self):
+        if self.child.is_alive() or not self._jobs or self._current:
+            return True
+        self._current = self._jobs.pop(0)
 
-def snapshot(videofile, imagefile=None, pos=None, update=True):
-    """
-    make a snapshot of the videofile at position pos to imagefile
-    """
-    global _runqueue
-    if not imagefile:
-        imagefile = os.path.splitext(videofile)[0] + '.jpg'
-
-    if not update and os.path.isfile(imagefile) and \
-           os.stat(videofile)[ST_MTIME] <= os.stat(imagefile)[ST_MTIME]:
-        return
-
-    for r, r_image in _runqueue:
-        if r_image == imagefile:
-            return
-
-    log.info('generate %s' % imagefile)
-    args = [ videofile, imagefile ]
-
-    if pos != None:
-        args.append(str(pos))
-
-    job = ( [ 'python', os.path.abspath(__file__) ] + args, imagefile )
-    _runqueue.append(job)
-    if len(_runqueue) == 1:
-        MplayerThumbnail(*_runqueue[0]).start()
-
-        
-#
-# main function, will be called when this file is executed, not imported
-# args: mplayer, videofile, imagefile, [ pos ]
-#
-
-if __name__ == "__main__":
-    filename  = os.path.abspath(sys.argv[1])
-    imagefile = os.path.abspath(sys.argv[2])
-
-    try:
-        position = sys.argv[3]
-    except IndexError:
         try:
-            mminfo = kaa.metadata.parse(filename)
-            position = str(int(mminfo.video[0].length / 2.0))
+            mminfo = self._current.metadata
+            pos = str(int(mminfo.video[0].length / 2.0))
             if hasattr(mminfo, 'type'):
                 if mminfo.type in ('MPEG-TS', 'MPEG-PES'):
-                    position = str(int(mminfo.video[0].length / 20.0))
+                    pos = str(int(mminfo.video[0].length / 20.0))
         except:
             # else arbitrary consider that file is 1Mbps and grab position
             # at 10%
-            position = os.stat(filename)[ST_SIZE]/1024/1024/10.0
-            if position < 10:
-                position = '10'
+            try:
+                pos = os.stat(self._current.filename)[stat.ST_SIZE]/1024/1024/10.0
+            except (OSError, IOError):
+                # send message to client, we are done here
+                self._create_failed_image(self._current)
+                self._notify_client()
+                return
+            if pos < 10:
+                pos = '10'
             else:
-                position = str(int(position))
+                pos = str(int(pos))
 
-    # chdir to tmp so we have write access
-    tmpdir = tempfile.mkdtemp('tmp', 'videothumb', '/tmp/')
-    os.chdir(tmpdir)
+        self._child_std = []
+        self.child.start([pos, self._current.filename])
 
-    # call mplayer to get the image
-    child = popen2.Popen3(('mplayer', '-nosound', '-vo', 'png', '-frames', '8',
-                           '-ss', position, '-zoom', filename), 1, 100)
-    child_output = ''
-    while(1):
-        data = child.fromchild.readline()
-        if not data:
-            break
-        child_output += data
-    for line in child.childerr.readlines():
-        child_output += line
 
-    child.wait()
-    child.fromchild.close()
-    child.childerr.close()
-    child.tochild.close()
+    def _completed(self, code):
+        job = self._current
+        self._current = None
 
-    # store the correct thumbnail
-    captures = glob.glob('000000??.png')
-    if not captures:
-        # strange, print debug to find the problem
-        print "error creating capture for %s" % filename
-        print child_output
-        os.chdir('/')
-        os.rmdir(tmpdir)
-        sys.exit(1)
-    
-    capture = captures[-1]
+        # find thumbnails
+        captures = glob.glob('000000??.png')
+        if not captures:
+            # strange, no image files found
+            self._debug(job.client, self._child_std)
+            self._create_failed_image(job)
+            self._notify_client(job)
+            job = None
+            self._run()
+            return
 
-    try:
-        image = mevas.imagelib.open(capture)
-        if image.width > 255 or image.height > 255:
-            image.scale_preserve_aspect((255,255))
+        # scale thumbnail
+        width, height = job.size
+        image = kaa.imlib2.open(captures[-1])
+        if image.width > width or image.height > height:
+            image = image.scale_preserve_aspect((width,height))
         if image.width * 3 > image.height * 4:
             # fix image with blank bars to be 4:3
             nh = (image.width*3)/4
-            ni = mevas.imagelib.new((image.width, nh))
+            ni = kaa.imlib2.new((image.width, nh))
             ni.blend(image, (0,(nh- image.height) / 2))
             image = ni
         elif image.width * 3 < image.height * 4:
             # strange aspect, let's guess it's 4:3
             new_size = (image.width, (image.width*3)/4)
-            image.scale((new_size))
-        try:
-            image.save(imagefile)
-        except:
-            print 'unable to write file %s: %s' % (imagefile, e)
+            image = image.scale((new_size))
 
-    except (OSError, IOError), e:
-        # strange, print debug to find the problem
-        print 'error saving image %s: %s' % (imagefile, e)
-
-    for capture in captures:
         try:
+            png(job.filename, job.imagefile + '.png', job.size, image._image)
+            job.imagefile += '.png'
+        except (IOError, ValueError):
+            self._create_failed_image(job)
+
+        # remove old stuff
+        for capture in captures:
             os.remove(capture)
-        except:
-            print "error removing temporary captures for %s" % filename
 
-    os.chdir('/')
-    os.rmdir(tmpdir)
-    sys.exit(0)
+        # notify client and start next video
+        self._notify_client(job)
+        self._run()
