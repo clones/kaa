@@ -29,20 +29,13 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'connect' ]
+__all__ = [ 'connect', 'get', 'query' ]
 
 import os
-import popen2
-import time
-import socket
 import logging
 
-from kaa.notifier import step, Timer
-
+from kaa.base import ipc
 from client import Client
-
-# get logging object
-log = logging.getLogger('vfs')
 
 # connected client object
 _client = None
@@ -59,52 +52,15 @@ def connect(vfsdb, logfile=None, loglevel=logging.INFO):
     for over 5 seconds.
     """
     global _client
-    
-    try:
-        # try to connect to an already running server
-        _client = Client(vfsdb)
-        return _client
-    except socket.error:
-        pass
 
     # check logfile
     if not logfile:
         logfile = os.path.join(vfsdb, 'log')
-    # start server
+    # get server filename
     server = os.path.join(os.path.dirname(__file__), 'server.py')
-    server_fd = popen2.popen3(['python', '-OO', server, logfile, str(loglevel)])
 
-    # wait for server to start
-    # use a small timer to make sure step() comes back
-    stop = time.time() + 2
-    t = Timer(lambda x: True, 1)
-    t.start(0.01)
-    while time.time() < stop:
-        step()
-        try:
-            _client = Client(vfsdb)
-            # client ready, close fd to server
-            for fd in server_fd:
-                fd.close()
-            # stop temp timer
-            t.stop()
-            return _client
-        except socket.error:
-            pass
-
-    # no server found, print debug
-    for fd in server_fd:
-        try:
-            for msg in fd.readlines():
-                log.error(msg[:-1])
-        except IOError:
-            pass
-        fd.close()
-    # stop temp timer
-    t.stop()
-
-    # raise error
-    raise OSError('Unable to start vfs server')
+    _client = ipc.launch([server, logfile, str(loglevel)], 2, Client, vfsdb)
+    return _client
 
 
 def get(filename):
