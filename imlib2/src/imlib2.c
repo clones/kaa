@@ -145,11 +145,12 @@ PyObject *imlib2_open(PyObject *self, PyObject *args)
 {
     char *file;
     Image_PyObject *image;
-
-    if (!PyArg_ParseTuple(args, "s", &file))
+    int use_cache = 1;
+    
+    if (!PyArg_ParseTuple(args, "s|i", &file, &use_cache))
         return NULL;
  
-    image = _imlib2_open(file, 1);
+    image = _imlib2_open(file, use_cache);
     if (!image)
         return NULL;
     return (PyObject *)image;

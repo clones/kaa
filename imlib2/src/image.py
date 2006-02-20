@@ -42,7 +42,7 @@ class Image(object):
     Image object may be created via the new() and open() module functions.
     """
 
-    def __init__(self, image_or_filename):
+    def __init__(self, image_or_filename, use_cache=True):
         """
         Create a new Image object.
 
@@ -53,7 +53,7 @@ class Image(object):
                              the image.
         """
         if type(image_or_filename) in types.StringTypes:
-            self._image = _Imlib2.open(image_or_filename)
+            self._image = _Imlib2.open(image_or_filename, use_cache)
         elif isinstance(image_or_filename, Image):
             self._image = image_or_filename.copy()._image
         elif type(image_or_filename) == _Imlib2.Image:

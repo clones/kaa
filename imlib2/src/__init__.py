@@ -49,6 +49,14 @@ _image_cache = {
     "max-size": 16*1024   # 16 MB
 }
 
+def open_without_cache(file):
+    """
+    Create a new image object from the file 'file' without using the
+    internal cache.
+    """
+    return Image(file, False)
+
+
 def open(file):
     """
     Create a new image object from the file 'file'.
