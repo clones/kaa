@@ -123,7 +123,7 @@ class VideoThumb(object):
 
         # scale thumbnail
         width, height = job.size
-        image = kaa.imlib2.open(captures[-1])
+        image = kaa.imlib2.open_without_cache(captures[-1])
         if image.width > width or image.height > height:
             image = image.scale_preserve_aspect((width,height))
         if image.width * 3 > image.height * 4:

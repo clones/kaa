@@ -32,6 +32,7 @@
 # python imports
 import os
 import sys
+import logging
 
 # insert kaa path information
 __site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
@@ -95,7 +96,7 @@ class Thumbnailer(object):
 
 
     def _create_failed_image(self, job):
-        dirname = os.path.dirname(os.path.dirname(job.imagefile)) + '/failed/kaa/'
+        dirname = os.path.dirname(os.path.dirname(job.imagefile)) + '/fail/kaa/'
         job.imagefile = dirname + os.path.basename(job.imagefile) + '.png'
         if not os.path.isdir(dirname):
             os.makedirs(dirname, 0700)
@@ -125,7 +126,8 @@ class Thumbnailer(object):
             job.imagefile += '.png'
             self._notify_client(job)
             return True
-        except (IOError, ValueError):
+        except (IOError, ValueError), e:
+            print e
             pass
 
         # maybe this is no image
@@ -160,13 +162,25 @@ class Thumbnailer(object):
         return self.next_client_id
 
 
-    def thumbnail(self, id, filename, imagefile, size, update=True):
+    def schedule(self, id, filename, imagefile, size, update=True):
 
         self._jobs.append(Job(id, filename, imagefile, size, update))
         if not self._timer.active():
             self._timer.start(0.001)
 
 
+    def remove(self, id):
+        for job in self._jobs:
+            if id == (job.client, job.id):
+                print 'remove job'
+                self._jobs.remove(job)
+                return
+        for job in self.videothumb._jobs:
+            if id == (job.client, job.id):
+                print 'remove video job'
+                self.videothumb._jobs.remove(job)
+                return
+            
     def _client_closed(self, client):
         for client_info in self.clients[:]:
             id, c = client_info
@@ -196,12 +210,25 @@ if __name__ == "__main__":
             sys.exit(0)
         return True
     
-
+    try:
+        # detach for parent using a new sesion
+        os.setsid()
+    except OSError:
+        # looks like we are started from the shell
+        # TODO: start some extra debug here and disable autoshutdown
+        pass
+    
     # create tmp dir and change directory to it
     tmpdir = os.path.join(kaa.TEMP, 'thumb')
     if not os.path.isdir(tmpdir):
         os.mkdir(tmpdir)
     os.chdir(tmpdir)
+
+    # Setup logger. This module should produce no output at all, but a crash
+    # will result in a backtrace which is nice to have.
+    handler = logging.FileHandler('log')
+    handler.setFormatter(logging.Formatter('%(filename)s %(lineno)s: %(message)s'))
+    logging.getLogger().addHandler(handler)
 
     # create thumbnailer object
     thumbnailer = Thumbnailer(tmpdir)
