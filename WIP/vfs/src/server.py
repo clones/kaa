@@ -309,6 +309,14 @@ if __name__ == "__main__":
     handler.setFormatter(f)
     logging.getLogger().addHandler(handler)
 
+    try:
+        # detach for parent using a new sesion
+        os.setsid()
+    except OSError:
+        # looks like we are started from the shell
+        # TODO: start some extra debug here and disable autoshutdown
+        pass
+    
     # set log level
     logging.getLogger().setLevel(int(sys.argv[2]))
 
