@@ -55,12 +55,11 @@ class Job(object):
     """
     A job with thumbnail information.
     """
-    def __init__(self, id, filename, imagefile, size, update):
+    def __init__(self, id, filename, imagefile, size):
         self.client, self.id = id
         self.filename = filename
         self.imagefile = imagefile
         self.size = size
-        self.update = update
 
 
 class Thumbnailer(object):
@@ -110,7 +109,7 @@ class Thumbnailer(object):
 
         job = self._jobs.pop(0)
 
-        # FIXME: check if there is already a file and update is False
+        # FIXME: check if there is already a file and it is up to date
 
         if job.filename.lower().endswith('jpg'):
             try:
@@ -162,9 +161,9 @@ class Thumbnailer(object):
         return self.next_client_id
 
 
-    def schedule(self, id, filename, imagefile, size, update=True):
+    def schedule(self, id, filename, imagefile, size):
 
-        self._jobs.append(Job(id, filename, imagefile, size, update))
+        self._jobs.append(Job(id, filename, imagefile, size))
         if not self._timer.active():
             self._timer.start(0.001)
 

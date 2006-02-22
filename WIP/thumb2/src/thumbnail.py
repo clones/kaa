@@ -84,7 +84,12 @@ class Thumbnail(object):
         self._thumbnail = destdir + '/%s/' + md5.md5(url).hexdigest()
         
 
-    def get(self, type=NORMAL):
+    def get(self, type='any'):
+        if type == 'any':
+            image = self.get(LARGE)
+            if image:
+                return image
+            type = NORMAL
         if os.path.isfile(self._thumbnail % type + '.png'):
             return self._thumbnail % type + '.png'
         if os.path.isfile(self._thumbnail % type + '.jpg'):
@@ -92,9 +97,12 @@ class Thumbnail(object):
         return None
 
 
-    def set(self, image, type=NORMAL):
-        png(self.name, self._thumbnail % type + '.png', SIZE[type], image._image)
-
+    def set(self, image, type='both'):
+        if type in ('both', LARGE):
+            png(self.name, self._thumbnail % type + '.png', SIZE[LARGE], image._image)
+        if type in ('both', NORMAL):
+            png(self.name, self._thumbnail % type + '.png', SIZE[NORMAL], image._image)
+            
 
     def exists(self):
         return self.get(NORMAL) or self.get(LARGE) or self.get('fail/kaa')
@@ -104,7 +112,7 @@ class Thumbnail(object):
         return self._get_thumbnail('fail/kaa')
 
 
-    def create(self, type=NORMAL, wait=False, force=True):
+    def create(self, type=NORMAL, wait=False):
         Thumbnail.next_id += 1
         
         dest = '%s/%s' % (self.destdir, type)
@@ -113,7 +121,7 @@ class Thumbnail(object):
 
         # schedule thumbnail creation
         _schedule((_client_id, Thumbnail.next_id), self.name,
-                  self._thumbnail % type, SIZE[type], update=force,
+                  self._thumbnail % type, SIZE[type],
                   __ipc_oneway=True, __ipc_noproxy_args=True)
 
         job = Job(self, Thumbnail.next_id)
@@ -124,7 +132,10 @@ class Thumbnail(object):
         while not job.finished:
             step()
 
+    image = property(get, set, None, "thumbnail image")
+    failed = property(is_failed, set, None, "return True if thumbnailing failed")
 
+    
 def _callback(id, *args):
     if not id:
         for i in args[0]:
