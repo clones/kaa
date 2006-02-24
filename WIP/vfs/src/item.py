@@ -37,7 +37,7 @@ import os
 import stat
 
 # kaa imports
-import kaa.epg2
+import kaa.thumb2
 
 UNKNOWN = -1
 
@@ -93,7 +93,7 @@ class Item(object):
     
     def getattr(self, key):
         if key == 'thumbnail' and hasattr(self, 'filename'):
-            return kaa.epg2.Thumbnail(self.filename, url=self.url)
+            return kaa.thumb2.Thumbnail(self.filename, url=self.url)
         
         # FIXME: make sure we have db data
         if self._vfs_data.has_key(key):
