@@ -52,17 +52,17 @@ if fb.check_library('imlib2', '1.1.1'):
     print "+ FB support enabled"
     modules.append(fb)
 else:
-    print "+ FB support disabled"
+    print "- FB support disabled"
     fb = None
 
-# the framebuffer so module
+# the DirectFB so module
 dfb = Extension('kaa.display._DFBmodule', [ 'src/dfb.c'] )
 
 if dfb.check_library('directfb', '0.9.20'):
     print "+ DFB support enabled"
     modules.append(dfb)
 else:
-    print "+ DFB support disabled"
+    print "- DFB support disabled"
     dfb = None
 
 # config file
