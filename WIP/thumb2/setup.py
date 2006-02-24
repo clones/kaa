@@ -60,5 +60,5 @@ else:
 setup(module      = 'thumb2',
       version     = '0.1',
       ext_modules = [ thumbnailer ],
-      scripts     = [ 'bin/kaa-thumb' ],
+      scripts     = [ 'bin/kaa-thumb2' ],
       )
