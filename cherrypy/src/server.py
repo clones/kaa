@@ -142,7 +142,7 @@ def start(Root, *args, **kwargs):
     cherrypy.config.update( {
         'autoreload.on': False,
         'server.logToScreen': config.debug,
-        'logDebugInfoFilter.on': config.debug,
+        'logDebugInfoFilter.on': False,
         'server.socketPort': config.port,
         'staticFilter.root': config.root
         })
