@@ -13,7 +13,9 @@
 #include "drivers/video_out_kaa.h"
 #include "drivers/video_out_dummy.h"
 #include "drivers/kaa.h"
+#ifdef HAVE_X11
 #include "drivers/x11.h"
+#endif
 #include "drivers/dummy.h"
 #include "drivers/common.h"
 
@@ -740,10 +742,14 @@ init_xine()
         PyErr_Format(xine_error, "Failed to import kaa.display");
         return;
     }
+    #ifdef HAVE_X11
     X11Window_PyObject_Type = display_api_ptrs[1];
     x11window_object_decompose = display_api_ptrs[2];
+    #endif
 #else
+    #ifdef HAVE_X11
     X11Window_PyObject_Type = NULL;
+    #endif
 #endif
 
     PyEval_InitThreads();
