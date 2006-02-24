@@ -1,3 +1,4 @@
+import os
 import sys
 import kaa
 import kaa.vfs
@@ -7,7 +8,7 @@ import logging
 # kaa.vfs.connect('vfsdb', 'logfile', logging.INFO)
 
 # simple connect
-kaa.vfs.connect('vfsdb')
+kaa.vfs.connect(os.path.expanduser("~/.vfs"))
 
 checked  = []
 to_check = []
