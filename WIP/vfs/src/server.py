@@ -305,6 +305,9 @@ if __name__ == "__main__":
     f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
                           '%(filename)s %(lineno)s: '+\
                           '%(message)s')
+    if not os.path.isdir(os.path.dirname(sys.argv[1])):
+        os.makedirs(os.path.dirname(sys.argv[1]))
+        
     handler = logging.FileHandler(sys.argv[1])
     handler.setFormatter(f)
     logging.getLogger().addHandler(handler)
