@@ -51,13 +51,14 @@ if not x11.check_cc(['<X11/Xlib.h>'], '', '-lX11'):
 else:
     config.define('HAVE_X11')
 
-    files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
-             'src/post.c', 'src/drivers/video_out_kaa.c',
-             'src/post_out.c', 'src/post_in.c', 'src/event.c', 'src/event_queue.c',
-             'src/utils.c', 'src/vo_driver.c', 'src/drivers/kaa.c',
-             'src/drivers/yuv2rgb.c', 'src/drivers/yuv2rgb_mmx.c', 'src/drivers/dummy.c',
-             'src/drivers/video_out_dummy.c', 'src/drivers/common.c', 'src/drivers/fb.c'
-            ]
+files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
+         'src/post.c', 'src/drivers/video_out_kaa.c',
+         'src/post_out.c', 'src/post_in.c', 'src/event.c', 'src/event_queue.c',
+         'src/utils.c', 'src/vo_driver.c', 'src/drivers/kaa.c',
+         'src/drivers/yuv2rgb.c', 'src/drivers/yuv2rgb_mmx.c', 'src/drivers/dummy.c',
+         'src/drivers/video_out_dummy.c', 'src/drivers/common.c', 'src/drivers/fb.c'
+        ]
+
 if x11:
     files.append('src/drivers/x11.c')
     xineso = Extension('kaa.xine._xinemodule', files,
