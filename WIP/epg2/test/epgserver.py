@@ -1,5 +1,9 @@
-from kaa.epg2 import *
-import kaa
+import logging
 
-guide = GuideServer("epg")
+import kaa
+from kaa.epg2 import GuideServer
+
+logging.getLogger().setLevel(logging.DEBUG)
+
+guide = GuideServer("epg", dbfile="epgdb")
 kaa.main()
