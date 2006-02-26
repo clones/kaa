@@ -100,7 +100,7 @@ def parse_programme(info):
         elif child.name == "desc":
             desc = child.content
         elif child.name == "date":
-            fmt = "%Y%m%d"
+            fmt = "%Y-%m-%d"
             if len(child.content) == 4:
                 fmt = "%Y"
             date = time.mktime(time.strptime(child.content, fmt))
