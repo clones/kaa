@@ -1,16 +1,30 @@
-import libxml2, sys, time, os, weakref
+import libxml2, sys, time, os, weakref, logging
 from kaa.base.db import *
 from kaa.base import ipc
 from kaa.notifier import Signal
 
 __all__ = ['GuideServer']
 
+log = logging.getLogger('epg')
+
 # TODO: merge updates when processing instead of wipe.
 
 class GuideServer(object):
-    def __init__(self, socket, dbfile = None, auth_secret = None):
-        if not dbfile:
-            dbfile = "epgdb.sqlite"
+    def __init__(self, socket, dbfile = "/tmp/GuideServer.db", auth_secret = None,
+                 log_file = "/tmp/GuideServer.log", log_level = logging.INFO):
+
+        # setup logger
+        f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
+                              '%(filename)s %(lineno)s: '+\
+                              '%(message)s')
+        handler = logging.FileHandler(log_file)
+        handler.setFormatter(f)
+        logging.getLogger().addHandler(handler)
+
+        # setup log
+        logging.getLogger().setLevel(log_level)
+        log.info('start EPG server')
+        log.info('using database in %s', dbfile)
 
         db = Database(dbfile)
         db.register_object_type_attrs("channel",
@@ -34,12 +48,15 @@ class GuideServer(object):
             "update_progress": Signal()
         }
 
+        self._clients = []
         self._db = db
         self._load()
         
         self._ipc = ipc.IPCServer(socket, auth_secret = auth_secret)
+        self._ipc.signals["client_connected"].connect_weak(self._client_connected)
         self._ipc.signals["client_closed"].connect_weak(self._client_closed)
         self._ipc.register_object(self, "guide")
+
 
     def _load(self):
         self._max_program_length = self._num_programs = 0
@@ -53,11 +70,23 @@ class GuideServer(object):
             self._num_programs = res[0][0]
 
 
+    def _client_connected(self, client):
+        """
+        Connect a new client to the server.
+        """
+        self._clients.append(client)
+
+
     def _client_closed(self, client):
         for signal in self.signals.values():
             for callback in signal:
                 if ipc.get_ipc_from_proxy(callback) == client:
                     signal.disconnect(callback)
+
+        for c in self._clients:
+            if c == client:
+                log.warning('disconnect client')
+                self._clients.remove(c)
 
 
     def update(self, backend, *args, **kwargs):
@@ -79,8 +108,8 @@ class GuideServer(object):
             n = int((cur / float(total)) * 50)
 
         # Temporary: output progress status to stdout.
-        sys.stdout.write("|%51s| %d / %d\r" % (("="*n + ">").ljust(51), cur, total))
-        sys.stdout.flush()
+        # sys.stdout.write("|%51s| %d / %d\r" % (("="*n + ">").ljust(51), cur, total))
+        # sys.stdout.flush()
 
         if cur == total:
             self._db.commit()
@@ -97,6 +126,7 @@ class GuideServer(object):
 
 
     def _add_channel_to_db(self, id, channel, station, name):
+        log.debug("%s ^ %s ^ %s ^ %s", id, channel, station, name)
         o = self._db.add_object("channel", 
                                 channel = channel,
                                 station = station,
@@ -140,5 +170,61 @@ class GuideServer(object):
     def get_max_program_length(self):
         return self._max_program_length
 
+
     def get_num_programs(self):
         return self._num_programs
+
+
+if __name__ == "__main__":
+    # ARGS: log file, log level, db file
+
+    # python imports
+    import gc
+    import sys
+    
+    # kaa imports
+    from kaa.notifier import Timer, execute_in_timer, loop
+    
+    @execute_in_timer(Timer, 1)
+    def garbage_collect():
+        g = gc.collect()
+        if g:
+            log.debug('gc: deleted %s objects' % g)
+        if gc.garbage:
+            log.warning('gc: found %s garbage objects' % len(gc.garbage))
+            for g in gc.garbage:
+                log.warning(g)
+        return True
+
+
+    shutdown_timer = 5
+
+    @execute_in_timer(Timer, 1)
+    def autoshutdown():
+        global shutdown_timer
+        global _server
+
+        log.debug("clients: %s", len(_server._clients))
+        if _server and len(_server._clients) > 0:
+            shutdown_timer = 5
+            return True
+        shutdown_timer -= 1
+        if shutdown_timer == 0:
+            log.info('shutdown EPG server')
+            sys.exit(0)
+        return True
+    
+    try:
+        # detach for parent using a new sesion
+        os.setsid()
+    except OSError:
+        # looks like we are started from the shell
+        # TODO: start some extra debug here and disable autoshutdown
+        pass
+    
+    _server = GuideServer("epg", dbfile=sys.argv[3], log_file=str(sys.argv[1]), 
+                          log_level=int(sys.argv[2]))
+
+    garbage_collect()
+    autoshutdown()
+    loop()
