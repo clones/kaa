@@ -6,7 +6,7 @@
 
 import os, time, sys, textwrap
 import kaa
-from kaa.epg2 import *
+from kaa.epg2 import GuideClient
 
 def update_progress(cur, total):
     n = 0
@@ -45,15 +45,15 @@ if len(sys.argv) > 1:
     programs.sort(lambda a, b: cmp(a.start, b.start))
 else:
     print "All programs currently playing:"
-    programs = guide.search(time = time.time())
+    programs = guide.search(time = (time.time(), time.time()+7200))
     # Sort by channel
     programs.sort(lambda a, b: cmp(a.channel.channel, b.channel.channel))
 t1 = time.time()
 
 for program in programs:
     start_time = time.strftime("%a %H:%M", time.localtime(program.start))
-    print "  %s (%s): %s" % (program.channel.channel, start_time, program.title)
+    print "  %s (%s): %s" % (program.channel.channel, start_time, program.title.encode('latin-1'))
     if program.desc:
-        print "\t* " + "\n\t  ".join(textwrap.wrap(program.desc, 60))
+        print "\t* " + "\n\t  ".join(textwrap.wrap(program.desc.encode('latin-1'), 60))
 print "- Queried %d programs; %s results; %.04f seconds" % \
       (guide.get_num_programs(), len(programs), t1-t0)
