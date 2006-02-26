@@ -90,8 +90,17 @@ def request(username, passwd, host, uri, start, stop, auth = None):
 
     print "Downloading guide update ..."
     data = response.read()
+
+    dfile = open("/tmp/zapdebug", "w+")
+    dfile.write(data)
+    dfile.close()
+
     data = gzip.GzipFile(fileobj = StringIO(data)).read()
-    #open("guide.xml", "w").write(data)
+
+    xfile = open("/tmp/guide.xml", "w")
+    xfile.write(data)
+    xfile.close()
+
     conn.close()
     return data
 
