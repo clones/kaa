@@ -3,15 +3,18 @@ from kaa.base.db import *
 from kaa.base import ipc
 from kaa.notifier import Signal
 
-__all__ = ['GuideServer']
+__all__ = ['DEFAULT_EPG_PORT', 'GuideServer']
+
+DEFAULT_EPG_PORT = 4132
 
 log = logging.getLogger('epg')
 
 # TODO: merge updates when processing instead of wipe.
 
 class GuideServer(object):
-    def __init__(self, socket, dbfile = "/tmp/GuideServer.db", auth_secret = None,
-                 log_file = "/tmp/GuideServer.log", log_level = logging.INFO):
+    def __init__(self, socket, address = None, dbfile = "/tmp/GuideServer.db", 
+                 auth_secret = None, log_file = "/tmp/GuideServer.log", 
+                 log_level = logging.INFO):
 
         # setup logger
         f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
@@ -56,6 +59,23 @@ class GuideServer(object):
         self._ipc.signals["client_connected"].connect_weak(self._client_connected)
         self._ipc.signals["client_closed"].connect_weak(self._client_closed)
         self._ipc.register_object(self, "guide")
+
+        self._ipc_net = None
+ 
+        if address and \
+           address.split(':')[0] not in ['127.0.0.1', '0.0.0.0']:
+            # listen on tcp port too
+            if address.find(':') >= 0:
+                host, port = address.split(':', 1)
+            else:
+                host = address
+                port = DEFAULT_EPG_PORT
+
+            self._ipc_net = ipc.IPCServer((host, int(port)), auth_secret = auth_secret)
+            log.info('listening on address %s:%s', host, port)
+            self._ipc_net.signals["client_connected"].connect_weak(self._client_connected)
+            self._ipc_net.signals["client_closed"].connect_weak(self._client_closed)
+            self._ipc_net.register_object(self, "guide")
 
 
     def _load(self):
@@ -222,8 +242,14 @@ if __name__ == "__main__":
         # TODO: start some extra debug here and disable autoshutdown
         pass
     
-    _server = GuideServer("epg", dbfile=sys.argv[3], log_file=str(sys.argv[1]), 
-                          log_level=int(sys.argv[2]))
+    if len(sys.argv) < 5:
+        address = None
+    else:
+        address=sys.argv[4]
+
+    _server = GuideServer("epg", log_file=str(sys.argv[1]), 
+                          log_level=int(sys.argv[2]), dbfile=sys.argv[3],
+                          address=sys.argv[4])
 
     garbage_collect()
     autoshutdown()
