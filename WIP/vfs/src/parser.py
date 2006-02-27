@@ -40,6 +40,7 @@ import logging
 
 # kaa imports
 from kaa.notifier import Timer, execute_in_timer
+from kaa.base.strutils import str_to_unicode
 import kaa.metadata
 
 # get logging object
@@ -81,6 +82,9 @@ def parse(db, item, store=False):
 
     # add kaa.metadata results, the db module will add everything known
     # to the db.
+    if metadata and not metadata['title']:
+        n = item._vfs_data['name']
+        attributes['title'] = str_to_unicode(n[:n.rfind('.')])
     attributes['metadata'] = metadata
 
     # TODO: do some more stuff here:
