@@ -94,6 +94,26 @@ class Item(object):
     def getattr(self, key):
         if key == 'thumbnail' and hasattr(self, 'filename'):
             return kaa.thumb2.Thumbnail(self.filename, url=self.url)
+
+        if key == 'image':
+            image = ''
+            if self._vfs_data.has_key('image'):
+                image = self._vfs_data['image']
+            if not image and self._vfs_parent:
+                # This is not a good solution, maybe the parent is not
+                # up to date. Well, we have to live with that for now.
+                return self._vfs_parent.getattr('image')
+            return image
+
+        if key == 'title':
+            if self._vfs_data.has_key('title'):
+                t = self._vfs_data['title']
+                if t:
+                    return t
+            t = self._vfs_data['name']
+            if t.find('.') > 0:
+                t = t[:t.rfind('.')]
+            return t
         
         # FIXME: make sure we have db data
         if self._vfs_data.has_key(key):
