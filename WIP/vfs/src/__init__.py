@@ -53,6 +53,9 @@ def connect(vfsdb, logfile=None, loglevel=logging.INFO):
     """
     global _client
 
+    if _client:
+        return _client
+    
     # check logfile
     if not logfile:
         logfile = os.path.join(vfsdb, 'log')
