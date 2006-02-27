@@ -20,7 +20,7 @@ def connect(epgdb, address='127.0.0.1', logfile='/tmp/kaa-epg.log', loglevel=log
         return _client
 
     if address.split(':')[0] not in ['127.0.0.1', '0.0.0.0'] and \
-       address != gethostbyname(gethostname()):
+       address.split(':')[0] != gethostbyname(gethostname()):
         # epg is remote:  host:port
         if address.find(':') >= 0:
             host, port = address.split(':', 1)
@@ -29,7 +29,7 @@ def connect(epgdb, address='127.0.0.1', logfile='/tmp/kaa-epg.log', loglevel=log
             port = DEFAULT_EPG_PORT
 
         # create socket, pass it to client
-        _client = GuideClient((host, port))
+        _client = GuideClient((host, int(port)))
 
     else:
         # EPG is local, only use unix socket
