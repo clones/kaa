@@ -77,6 +77,10 @@ def parse(db, item, store=False):
         type = metadata['media']
     elif item._vfs_isdir:
         type = 'dir'
+    else:
+        type = 'file'
+
+    if type == 'dir':
         for cover in ('cover.jpg', 'cover.png'):
             if os.path.isfile(item.filename + cover):
                 attributes['image'] = item.filename + cover
@@ -85,9 +89,18 @@ def parse(db, item, store=False):
         # Audio directories may hve a different cover if there is only
         # one jpg in a dir of mp3 files or a files with 'front' in the name.
         # They need to be added here as special kind of cover
-    else:
-        type = 'file'
 
+    else:
+        base = os.path.splitext(item.filename)[0]
+        for ext in ('.jpg', '.png'):
+            if os.path.isfile(base + ext):
+                attributes['image'] = base + ext
+                break
+            if os.path.isfile(item.filename + ext):
+                attributes['image'] = item.filename + ext
+                break
+                
+            
     # add kaa.metadata results, the db module will add everything known
     # to the db.
     attributes['metadata'] = metadata
