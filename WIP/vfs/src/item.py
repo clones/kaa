@@ -38,6 +38,7 @@ import stat
 
 # kaa imports
 import kaa.thumb2
+from kaa.base.strutils import str_to_unicode
 
 UNKNOWN = -1
 
@@ -113,7 +114,7 @@ class Item(object):
             t = self._vfs_data['name']
             if t.find('.') > 0:
                 t = t[:t.rfind('.')]
-            return t
+            return str_to_unicode(t)
         
         # FIXME: make sure we have db data
         if self._vfs_data.has_key(key):
