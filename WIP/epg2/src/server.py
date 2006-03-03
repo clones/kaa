@@ -17,6 +17,9 @@ class GuideServer(object):
                  log_level = logging.INFO):
 
         # setup logger
+        # TODO: get a better format!  half of my screen is taken up before getting
+        #       to the log message.  A better time format would help, ie:
+        #       '%Y%m%d %H:%M:%S'
         f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
                               '%(filename)s %(lineno)s: '+\
                               '%(message)s')
@@ -31,10 +34,9 @@ class GuideServer(object):
 
         db = Database(dbfile)
         db.register_object_type_attrs("channel",
-            name = (unicode, ATTR_SEARCHABLE),
-            station = (unicode, ATTR_SEARCHABLE),
-            channel = (int, ATTR_SEARCHABLE),
-            channel_id = (unicode, ATTR_SIMPLE)
+            tuner_id   = (unicode, ATTR_SEARCHABLE),
+            short_name = (unicode, ATTR_SEARCHABLE),
+            long_name  = (unicode, ATTR_SEARCHABLE),
         )
         db.register_object_type_attrs("program", 
             [ ("start", "stop") ],
@@ -145,19 +147,60 @@ class GuideServer(object):
         self._channel_id_to_db_id = {}
 
 
-    def _add_channel_to_db(self, id, channel, station, name):
-        log.debug("%s ^ %s ^ %s ^ %s", id, channel, station, name)
+    def _add_channel_to_db(self, tuner_id, short_name, long_name):
+        """
+        This method requires at least one of tuner_id, short_name, long_name.
+        Depending on the source (various XMLTV sources, Zap2it, etc.) not all
+        of the information we would like is available.  Also, channels are 
+        perceived differently around the world and handled differently by 
+        differnent systems (DVB, analog TV).
+
+        Following the KISS philosophy (Keep It Simple Stupid) we can follow some
+        simple rules.
+
+        The most important field here is short_name.  If there's no short_name 
+        we make it based on tuner_id or long_name.  If there's no long_name we
+        base that on short_name or tuner_id.  If there's no tuner_id it does
+        not matter because we will then always have a value for short_name.
+        If there is a tuner_id then it will assist programs using kaa.epg to
+        match real channels and EPG data.
+        """
+        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', tuner_id, short_name, long_name)
+
+        # require at least one field
+        if not tuner_id and not short_name and not long_name:
+            log.error('need at least one field to add a channel')
+            return None
+
+        if not short_name:
+            # then there must be one of the others
+            if tuner_id:
+                short_name = tuner_id
+            else:
+                short_name = long_name
+             
+        if not long_name:
+            # then there must be one of the others
+            if short_name:
+                long_name = short_name
+            else:
+                long_name = tuner_id
+             
+        # NOTE: by now we do not care if there is no tuner_id, it only helps
+
+        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', tuner_id, short_name, long_name)
+
         o = self._db.add_object("channel", 
-                                channel = channel,
-                                station = station,
-                                name = name,
-                                channel_id = id)
+                                tuner_id = tuner_id,
+                                short_name = short_name,
+                                long_name = long_name)
         return o["id"]
 
 
-    def _add_program_to_db(self, channel_id, start, stop, title, desc):
+    def _add_program_to_db(self, channel_db_id, start, stop, title, desc):
+        log.debug('channel_db_id: "%s" start: "%s" title: "%s"', channel_db_id, start, title)
         o = self._db.add_object("program", 
-                                parent = ("channel", channel_id),
+                                parent = ("channel", channel_db_id),
                                 start = start,
                                 stop = stop, 
                                 title = title, 

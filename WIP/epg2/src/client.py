@@ -32,16 +32,16 @@ class GuideClient(object):
 
 
     def _load(self):
-        self._channels_by_number = {}
-        self._channels_by_id = {}
+        self._channels_by_name = {}
+        self._channels_by_db_id = {}
         self._channels_list = []
         data = self._server.query(type="channel", __ipc_noproxy_result = True)
-        for row in db.iter_raw_data(data, ("id", "channel", "station", "name")):
-            id, channel, station, name = row
-            chan = Channel(channel, station, name, self)
-            chan.id = id
-            self._channels_by_number[channel] = chan
-            self._channels_by_id[id] = chan
+        for row in db.iter_raw_data(data, ("id", "tuner_id", "short_name", "long_name")):
+            db_id, tuner_id, short_name, long_name = row
+            chan = Channel(tuner_id, short_name, long_name, self)
+            chan.db_id = db_id
+            self._channels_by_name[short_name] = chan
+            self._channels_by_db_id[db_id] = chan
             self._channels_list.append(chan)
 
         self._max_program_length = self._server.get_max_program_length()
@@ -52,9 +52,9 @@ class GuideClient(object):
         cols = "parent_id", "start", "stop", "title", "desc"#, "ratings"
         results = []
         for row in db.iter_raw_data(query_data, cols):
-            if row[0] not in self._channels_by_id:
+            if row[0] not in self._channels_by_db_id:
                 continue
-            channel = self._channels_by_id[row[0]]
+            channel = self._channels_by_db_id[row[0]]
             program = Program(channel, row[1], row[2], row[3], row[4])
             results.append(program)
         return results
@@ -64,9 +64,9 @@ class GuideClient(object):
         if "channel" in kwargs:
             ch = kwargs["channel"]
             if type(ch) == Channel:
-                kwargs["channel"] = ch.id
+                kwargs["channel"] = ch.db_id
             elif type(ch) == tuple and len(ch) == 2:
-                kwargs["channel"] = db.QExpr("range", (ch[0].id, ch[1].id))
+                kwargs["channel"] = db.QExpr("range", (ch[0].db_id, ch[1].db_id))
             else:
                 raise ValueError, "channel must be Channel object or tuple of 2 Channel objects"
 
@@ -91,15 +91,15 @@ class GuideClient(object):
         return self._program_rows_to_objects(data)
 
 
-    def get_channel(self, key):
-        if key not in self._channels_by_number:
+    def get_channel(self, short_name):
+        if short_name not in self._channels_by_name:
             return None
-        return self._channels_by_number[key]
+        return self._channels_by_name[short_name]
 
-    def get_channel_by_id(self, id):
-        if id not in self._channels_by_id:
+    def get_channel_by_db_id(self, db_id):
+        if db_id not in self._channels_by_db_id:
             return None
-        return self._channels_by_id[id]
+        return self._channels_by_db_id[db_id]
 
     def get_max_program_length(self):
         return self._max_program_length

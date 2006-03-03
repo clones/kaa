@@ -66,7 +66,7 @@ def parse_channel(info):
         # for all xmltv source.
         if child.name == "display-name":
             if not channel and child.content.isdigit():
-                channel = int(child.content)
+                channel = child.content
             elif not station and child.content.isalpha():
                 station = child.content
             elif channel and station and not name:
@@ -82,8 +82,8 @@ def parse_channel(info):
         # for the used grabber somehow.
         name = display or station
 
-    id = info.epg._add_channel_to_db(channel_id, channel, station, name)
-    info.channel_id_to_db_id[channel_id] = [id, None]
+    db_id = info.epg._add_channel_to_db(tuner_id=channel, short_name=station, long_name=name)
+    info.channel_id_to_db_id[channel_id] = [db_id, None]
 
 
 def parse_programme(info):
@@ -109,7 +109,7 @@ def parse_programme(info):
         return
 
     start = timestr2secs_utc(info.node.getattr("start"))
-    channel_db_id, last_prog = info.channel_id_to_db_id[channel_id]
+    db_id, last_prog = info.channel_id_to_db_id[channel_id]
     if last_prog:
         # There is a previous program for this channel with no stop time,
         # so set last program stop time to this program start time.
@@ -117,12 +117,12 @@ def parse_programme(info):
         # user to run tv_sort to fix this. And IIRC tv_sort also takes care of
         # this problem.
         last_start, last_title, last_desc = last_prog
-        info.epg._add_program_to_db(channel_db_id, last_start, start, last_title, last_desc)
+        info.epg._add_program_to_db(db_id, last_start, start, last_title, last_desc)
     if not info.node.getattr("stop"):
         info.channel_id_to_db_id[channel_id][1] = (start, title, desc)
     else:
         stop = timestr2secs_utc(info.node.getattr("stop"))
-        info.epg._add_program_to_db(channel_db_id, start, stop, title, desc)
+        info.epg._add_program_to_db(db_id, start, stop, title, desc)
  
 
 class UpdateInfo:
