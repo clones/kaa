@@ -157,7 +157,7 @@ def _callback(id, *args):
 
 # connect to ipc
 _server = os.path.join(os.path.dirname(__file__), 'server.py')
-_server = ipc.launch(_server, 2, ipc.IPCClient, 'thumb/socket').get_object('thumb')
+_server = ipc.launch(_server, 5, ipc.IPCClient, 'thumb/socket').get_object('thumb')
 
 _client_id = _server.connect(_callback)
 _schedule = _server.schedule
