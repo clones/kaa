@@ -75,7 +75,7 @@ x11 = Extension('kaa.display._Displaymodule',
                 libraries = ['png', 'rt'])
 
 # check if X11 is actually present
-if not x11.check_cc(['<X11/Xlib.h>'], '', '-lX11'):
+if not x11.check_cc(['<X11/Xlib.h>'], ''):
     print "System without X11 detected! Disabling all X11 dependencies..."
     x11 = None
 else:
