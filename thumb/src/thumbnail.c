@@ -61,7 +61,6 @@ PyObject *epeg_thumbnail(PyObject *self, PyObject *args)
 
     im = epeg_file_open(source);
     if (im) {
-        Py_BEGIN_ALLOW_THREADS
         epeg_size_get(im, &iw, &ih);
 
         if (iw > tw || ih > th) {
@@ -80,7 +79,7 @@ PyObject *epeg_thumbnail(PyObject *self, PyObject *args)
     
         epeg_file_output_set(im, dest);
         ret = epeg_encode (im);
-        Py_END_ALLOW_THREADS
+
         if (!ret) {
             epeg_close(im);
             Py_INCREF(Py_None);
