@@ -16,7 +16,11 @@ def scan(tuner, vbi, frequencies):
             start = time.time()
             while time.time() - 3 < start:
                 # scan 3 seconds for network name
-                vbi.read_sliced()
+                try:
+                    vbi.read_sliced()
+                except:
+                    print 'failed to read vbi slice'
+
                 if vbi.network:
                     print 'found "%s" (%s)' % vbi.network
                     chanid = vbi.network[0]
