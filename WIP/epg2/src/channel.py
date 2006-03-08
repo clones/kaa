@@ -11,7 +11,10 @@ class Channel(object):
         # kludge - remove
         self.id = short_name
 
-        self._epg = weakref.ref(epg)
+        if epg:
+            self._epg = weakref.ref(epg)
+        else:
+            self._epg = None
 
     def get_epg(self):
         return self._epg()
@@ -20,5 +23,8 @@ class Channel(object):
         if not t:
             t = time.time()
 
-        return self.get_epg().search(time = t, channel = self)
+        if self._epg:
+            return self.get_epg().search(time = t, channel = self)
+        else:
+            return []
 

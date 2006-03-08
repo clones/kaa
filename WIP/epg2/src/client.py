@@ -94,6 +94,35 @@ class GuideClient(object):
         return self._program_rows_to_objects(data)
 
 
+    def new_channel(self, tuner_id=None, short_name=None, long_name=None):
+        """
+        Returns a channel object that is not associated with the EPG.
+        This is useful for clients that have channels that do not appear
+        in the EPG but wish to handle them anyway.
+        """
+
+        # require at least one field
+        if not tuner_id and not short_name and not long_name:
+            log.error('need at least one field to create a channel')
+            return None
+        
+        if not short_name:
+            # then there must be one of the others
+            if tuner_id:
+                short_name = tuner_id
+            else:
+                short_name = long_name
+             
+        if not long_name:
+            # then there must be one of the others
+            if short_name:
+                long_name = short_name
+            else:
+                long_name = tuner_id
+
+        return Channel(tuner_id, short_name, long_name, epg=None)
+
+
     def get_channel(self, short_name):
         if short_name not in self._channels_by_name:
             return None
