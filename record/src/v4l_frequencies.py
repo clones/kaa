@@ -1,10 +1,10 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------
-# freq.py - Video Channel Frequencies
+# v4l_frequencies.py - Video Channel Frequencies
 # -----------------------------------------------------------------------
 # $Id$
 #
-# Notes: http://ivtv.sf.net
+# Notes: 
 #
 # Todo:        
 #
