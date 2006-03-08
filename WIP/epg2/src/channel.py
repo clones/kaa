@@ -8,6 +8,9 @@ class Channel(object):
         self.short_name = short_name
         self.long_name  = long_name
 
+        # kludge - remove
+        self.id = short_name
+
         self._epg = weakref.ref(epg)
 
     def get_epg(self):
