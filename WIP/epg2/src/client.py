@@ -34,6 +34,7 @@ class GuideClient(object):
     def _load(self):
         self._channels_by_name = {}
         self._channels_by_db_id = {}
+        self._channels_by_tuner_id = {}
         self._channels_list = []
         data = self._server.query(type="channel", __ipc_noproxy_result = True)
         for row in db.iter_raw_data(data, ("id", "tuner_id", "short_name", "long_name")):
@@ -42,6 +43,8 @@ class GuideClient(object):
             chan.db_id = db_id
             self._channels_by_name[short_name] = chan
             self._channels_by_db_id[db_id] = chan
+            if tuner_id:
+                self._channels_by_tuner_id[tuner_id] = chan
             self._channels_list.append(chan)
 
         self._max_program_length = self._server.get_max_program_length()
@@ -100,6 +103,11 @@ class GuideClient(object):
         if db_id not in self._channels_by_db_id:
             return None
         return self._channels_by_db_id[db_id]
+
+    def get_channel_by_tuner_id(self, tuner_id):
+        if tuner_id not in self._channels_by_tuner_id:
+            return None
+        return self._channels_by_tuner_id[tuner_id]
 
     def get_max_program_length(self):
         return self._max_program_length
