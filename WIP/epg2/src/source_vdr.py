@@ -34,6 +34,9 @@ import os
 import string
 import logging
 
+# kaa imports
+import kaa.notifier
+
 # vdr imports
 from vdr.vdr import VDR
 
@@ -44,7 +47,7 @@ log = logging.getLogger('epg')
 class UpdateInfo:
     pass
 
-def _update_data_thread(guide, vdr_dir=None, channels_file=None, epg_file=None,
+def _update_data_thread(epg, vdr_dir=None, channels_file=None, epg_file=None,
                         host=None, port=None, access_by='sid', 
                         limit_channels='conf', exclude_channels=None):
     """
@@ -65,26 +68,22 @@ def _update_data_thread(guide, vdr_dir=None, channels_file=None, epg_file=None,
                    channelsfile=channels_file, epgfile=epg_file,
                    close_connection=0)
 
-    log.info('EPGFILE: %s' % vdr.epgfile)
-    log.info('epg_file: %s' % epg_file)
-    log.info('vdr_dir: %s' % vdr_dir)
-
-    if vdr.epgfile and os.path.isfile(vdr.epgfile):
-        log.info('Using VDR EPG from %s.' % vdr.epgfile)
-        if os.path.isfile(vdr.channelsfile):
-            vdr.readchannels()
+    if info.vdr.epgfile and os.path.isfile(info.vdr.epgfile):
+        log.info('Using VDR EPG from %s.' % info.vdr.epgfile)
+        if os.path.isfile(info.vdr.channelsfile):
+            info.vdr.readchannels()
         else:
-            log.warning('VDR channels file not found: %s.' % vdr.channelsfile)
-        vdr.readepg()
-    elif vdr.host and vdr.port:
-        log.info('Using VDR EPG from %s:%s.' % (vdr.host, vdr.port))
-        vdr.retrievechannels()
-        vdr.retrieveepg()
+            log.warning('VDR channels file not found: %s.' % info.vdr.channelsfile)
+        info.vdr.readepg()
+    elif info.vdr.host and info.vdr.port:
+        log.info('Using VDR EPG from %s:%s.' % (info.vdr.host, info.vdr.port))
+        info.vdr.retrievechannels()
+        info.vdr.retrieveepg()
     else:
         log.info('No source for VDR EPG.')
         return False
 
-    for c in info.vdr.channels:
+    for c in info.vdr.channels.values():
         for e in c.events:
             info.total += 1
 
@@ -104,7 +103,7 @@ def _update_process_step(info):
 
     chans = info.vdr.channels.values()
     for c in chans:
-        if c.id in exclude_channels:  continue
+        if c.id in info.exclude_channels:  continue
 
         if string.lower(info.limit_channels) == 'epg' and not c.in_epg:
             continue
@@ -114,17 +113,17 @@ def _update_process_step(info):
                  not (c.in_conf and c.in_epg):
             continue
 
-        if access_by == 'name':
+        if info.access_by == 'name':
             access_id = c.name
-        elif access_by == 'rid':
+        elif info.access_by == 'rid':
             access_id = c.rid
         else:
             access_id = c.sid
 
         log.info('Adding channel: %s as %s' % (c.id, access_id))
 
-        chan_db_id = info.epg._add_channel_to_db(tuner_id=access_id, 
-                                                 short_name=c.name, 
+        chan_db_id = info.epg._add_channel_to_db(tuner_id=Unicode(access_id), 
+                                                 short_name=Unicode(c.name), 
                                                  long_name=None)
 
         for e in c.events:
@@ -136,7 +135,7 @@ def _update_process_step(info):
                 desc = ''
 
             info.epg._add_program_to_db(chan_db_id, e.start, int(e.start+e.dur),
-                                        e.title, desc)
+                                        Unicode(e.title), Unicode(desc))
 
             info.cur +=1
             if info.cur % info.progress_step == 0:
