@@ -737,7 +737,7 @@ init_xine()
         xine_object_to_pyobject_dict = PyDict_New();
 
 #if 1
-    display_api_ptrs = get_module_api("kaa.display._Display");
+    display_api_ptrs = get_module_api("kaa.display._X11");
     if (display_api_ptrs == NULL) {
         PyErr_Format(xine_error, "Failed to import kaa.display");
         return;
