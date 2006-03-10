@@ -35,7 +35,7 @@
 
 #include "config.h"
 
-#ifdef ENABLE_ENGINE_DFB
+#ifdef ENABLE_ENGINE_DIRECTFB
 #include "Evas.h"
 #include "Evas_Engine_DirectFB.h"
 #endif
@@ -54,7 +54,7 @@ IDirectFBDisplayLayer *layer = NULL;
 DFBSurfaceDescription  dsc;
 DFBDisplayLayerConfig  layer_config;
 
-#ifdef ENABLE_ENGINE_DFB
+#ifdef ENABLE_ENGINE_DIRECTFB
 /* Evas stuff */
 PyTypeObject *Evas_PyObject_Type;
 Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
@@ -116,7 +116,7 @@ PyObject *dfb_size(PyObject *self, PyObject *args)
 }
 
 
-#ifdef ENABLE_ENGINE_DFB
+#ifdef ENABLE_ENGINE_DIRECTFB
 PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     Evas_Engine_Info_DirectFB *einfo;
@@ -149,13 +149,13 @@ PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
     Py_INCREF(Py_None);
     return Py_None;
 }
-#endif  // ENABLE_ENGINE_DFB
+#endif  // ENABLE_ENGINE_DIRECTFB
 
 PyMethodDef dfb_methods[] = {
     { "open", (PyCFunction) dfb_open, METH_VARARGS },
     { "close", (PyCFunction) dfb_close, METH_VARARGS },
     { "size", (PyCFunction) dfb_size, METH_VARARGS },
-#ifdef ENABLE_ENGINE_DFB
+#ifdef ENABLE_ENGINE_DIRECTFB
     { "new_evas_dfb", (PyCFunction) new_evas_dfb, METH_VARARGS | METH_KEYWORDS },
 #endif
     { NULL }
@@ -179,16 +179,18 @@ void **get_module_api(char *module)
 
 
 void init_DFBmodule() {
-    void **imlib2_api_ptrs, **evas_api_ptrs;
     (void) Py_InitModule("_DFBmodule", dfb_methods);
 
-#ifdef ENABLE_ENGINE_DFB
+#ifdef ENABLE_ENGINE_DIRECTFB
     // Import kaa-evas's C api
-    evas_api_ptrs = get_module_api("kaa.evas._evas");
-    if (evas_api_ptrs == NULL)
-        return;
-    evas_object_from_pyobject = evas_api_ptrs[0];
-    Evas_PyObject_Type = evas_api_ptrs[1];
+    {
+	void **evas_api_ptrs = get_module_api("kaa.evas._evas");
+	if (evas_api_ptrs == NULL)
+	    return;
+	evas_object_from_pyobject = evas_api_ptrs[0];
+	Evas_PyObject_Type = evas_api_ptrs[1];
+    }
+    
 #endif
 
 }
