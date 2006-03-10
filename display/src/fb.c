@@ -5,13 +5,13 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - X11/SDL Display module
+ * kaa-display - Generic Display Module
  * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Dirk Meyer <dmeyer@tzi.de>
  * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
  *
- * Please see the file doc/CREDITS for a complete list of authors.
+ * Please see the file AUTHORS for a complete list of authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -311,16 +311,12 @@ void init_FBmodule() {
     void **imlib2_api_ptrs, **evas_api_ptrs;
     (void) Py_InitModule("_FBmodule", fb_methods);
   
-#ifdef USE_IMLIB2
     // Import kaa-imlib2's C api
     imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");
     if (imlib2_api_ptrs == NULL)
         return;
     imlib_image_from_pyobject = imlib2_api_ptrs[0];
     Image_PyObject_Type = imlib2_api_ptrs[1];
-#else
-    Image_PyObject_Type = NULL;
-#endif
 
 #ifdef USE_EVAS
     // Import kaa-evas's C api

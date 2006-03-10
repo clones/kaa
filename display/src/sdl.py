@@ -5,13 +5,13 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-display - X11/SDL Display module
+# kaa-display - Generic Display Module
 # Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
 #
-# Please see the file doc/CREDITS for a complete list of authors.
+# Please see the file AUTHORS for a complete list of authors.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ import time
 import kaa.notifier
 
 # the display module
-import _Display
+import _X11
 
 class PygameDisplay(object):
     def __init__(self, size):
@@ -77,7 +77,7 @@ class PygameDisplay(object):
         """
         if self._surface:
             # we need to use our tmp surface
-            _Display.image_to_surface(image, self._surface)
+            _X11.image_to_surface(image, self._surface)
             if areas == None:
                 # copy everything
                 self._screen.blit(self._surface, (0,0))
@@ -87,7 +87,7 @@ class PygameDisplay(object):
                     self._screen.blit(self._surface, pos, pos + size)
         else:
             # copy everything
-            _Display.image_to_surface(image, self._screen)
+            _X11.image_to_surface(image, self._screen)
 
         # update the screen
         if areas:

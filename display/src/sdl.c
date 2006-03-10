@@ -5,13 +5,13 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - X11/SDL Display module
+ * kaa-display - Generic Display Module
  * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Dirk Meyer <dmeyer@tzi.de>
  * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
  *
- * Please see the file doc/CREDITS for a complete list of authors.
+ * Please see the file AUTHORS for a complete list of authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@
 #include "config.h"
 #include <Python.h>
 
-#if defined(USE_PYGAME) && defined(USE_IMLIB2)
 #include "imlib2.h"
 #include <pygame.h>
 
@@ -65,12 +64,40 @@ PyObject *image_to_surface(PyObject *self, PyObject *args)
     Py_INCREF(Py_None);
     return Py_None;
 }
-#else
 
-PyObject *image_to_surface(PyObject *self, PyObject *args)
+
+PyMethodDef sdl_methods[] = {
+    { "image_to_surface", (PyCFunction) image_to_surface, METH_VARARGS },
+    { NULL }
+};
+
+
+void **get_module_api(char *module)
 {
-    PyErr_Format(PyExc_SystemError, "kaa-display compiled without pygame "
-                                    "and/or imlib2");
-    return NULL;
+    PyObject *m, *c_api;
+    void **ptrs;
+
+    m = PyImport_ImportModule(module);
+    if (m == NULL)
+       return NULL;
+    c_api = PyObject_GetAttrString(m, "_C_API");
+    if (c_api == NULL || !PyCObject_Check(c_api))
+        return NULL;
+    ptrs = (void **)PyCObject_AsVoidPtr(c_api);
+    Py_DECREF(c_api);
+    return ptrs;
 }
-#endif
+
+void init_SDL()
+{
+    void **imlib2_api_ptrs;
+
+    Py_InitModule("_SDL", display_methods);
+
+    // Import kaa-imlib2's C api
+    imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");
+    if (imlib2_api_ptrs == NULL)
+        return;
+    imlib_image_from_pyobject = imlib2_api_ptrs[0];
+    Image_PyObject_Type = imlib2_api_ptrs[1];
+}

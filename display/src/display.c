@@ -5,13 +5,13 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - X11/SDL Display module
+ * kaa-display - Generic Display Module
  * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Jason Tackaberry <tack@sault.org>
  * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
- * Please see the file doc/CREDITS for a complete list of authors.
+ * Please see the file AUTHORS for a complete list of authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,10 +37,8 @@
 #include "x11window.h"
 #include "imlib2.h"
 #include "evas.h"
-#include "sdl.h"
 
 PyMethodDef display_methods[] = {
-    { "image_to_surface", (PyCFunction) image_to_surface, METH_VARARGS },
     { "render_imlib2_image", (PyCFunction) render_imlib2_image, METH_VARARGS },
 #ifdef USE_EVAS
     { "new_evas_software_x11", (PyCFunction) new_evas_software_x11, METH_VARARGS | METH_KEYWORDS },
@@ -67,13 +65,13 @@ void **get_module_api(char *module)
     return ptrs;
 }
 
-void init_Display()
+void init_X11()
 {
     PyObject *m, *display_c_api;
     void **imlib2_api_ptrs, **evas_api_ptrs;
     static void *display_api_ptrs[3];
 
-    m = Py_InitModule("_Display", display_methods);
+    m = Py_InitModule("_X11", display_methods);
 
     if (PyType_Ready(&X11Display_PyObject_Type) < 0)
         return;

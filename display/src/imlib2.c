@@ -5,13 +5,13 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - X11/SDL Display module
+ * kaa-display - Generic Display Module
  * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Jason Tackaberry <tack@sault.org>
  * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
- * Please see the file doc/CREDITS for a complete list of authors.
+ * Please see the file AUTHORS for a complete list of authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,12 +36,11 @@
 PyTypeObject *Image_PyObject_Type;
 
 #ifdef USE_IMLIB2
+
 #include "imlib2.h"
 Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
-#endif
 
-#ifdef USE_IMLIB2_DISPLAY
-
+#include <X11/Xlib.h>
 #include "x11window.h"
 #include "x11display.h"
 
