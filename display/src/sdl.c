@@ -30,11 +30,12 @@
  * ----------------------------------------------------------------------------
  */
 
+#include <pygame.h>
+
 #include "config.h"
 #include <Python.h>
 
 #include "imlib2.h"
-#include <pygame.h>
 
 PyObject *image_to_surface(PyObject *self, PyObject *args)
 {
@@ -92,7 +93,7 @@ void init_SDL()
 {
     void **imlib2_api_ptrs;
 
-    Py_InitModule("_SDL", display_methods);
+    Py_InitModule("_SDL", sdl_methods);
 
     // Import kaa-imlib2's C api
     imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");

@@ -65,11 +65,11 @@ try:
 
     print 'ok'
     check_library('sdl', '1.2.5')
-    has_pygame = True
+    pygame = inc
     
 except ImportError, e:
     print 'not installed'
-    has_pygame = False
+    pygame = False
 
 
 evas_engines = []
@@ -166,12 +166,13 @@ else:
     print "- DirectFB"
 
 
-if has_pygame and get_library('sdl') and get_library('imlib2'):
+if pygame and get_library('sdl') and get_library('imlib2'):
 
     # pygame module
     sdl = Extension('kaa.display._SDLmodule', ['src/sdl.c'])
     sdl.add_library('imlib2')
     sdl.add_library('sdl')
+    sdl.include_dirs.append(pygame)
     sdl.build()
     print "+ SDL (imlib2)"
 else:
