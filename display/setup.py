@@ -107,6 +107,9 @@ if get_library('evas'):
         os.unlink(out)
 
 
+# extention modules
+modules = []
+
 if get_library('X11'):
     
     # the display so module
@@ -131,7 +134,7 @@ if get_library('X11'):
         features = [ 'yes' ]
     else:
         print "+ X11 (%s)" % ', '.join(features)
-    x11.build()
+    modules.append(x11)
 else:
     print '- X11'
 
@@ -146,7 +149,7 @@ if get_library('imlib2'):
         print "+ Framebuffer (imlib2, evas)"
     else:
         print "+ Framebuffer (imlib2)"
-    fb.build()
+    modules.append(fb)
 else:
     print "- Framebuffer"
 
@@ -161,7 +164,7 @@ if get_library('directfb'):
         dfb.add_library('evas')
     else:
         print "+ DirectFB"
-    dfb.build()
+    modules.append(dfb)
 else:
     print "- DirectFB"
 
@@ -173,7 +176,7 @@ if pygame and get_library('sdl') and get_library('imlib2'):
     sdl.add_library('imlib2')
     sdl.add_library('sdl')
     sdl.include_dirs.append(pygame)
-    sdl.build()
+    modules.append(sdl)
     print "+ SDL (imlib2)"
 else:
     print "- SDL"
@@ -181,6 +184,7 @@ else:
 
 setup(module  = 'display',
       version = '0.1',
+      ext_modules = modules
 )
 
 config.unlink()
