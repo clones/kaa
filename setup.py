@@ -42,6 +42,8 @@ for a in sys.argv:
 if len(sys.argv) == 2 and sys.argv[1] == 'clean':
     for m in submodules:
         for file in ('build', 'dist', 'src/version.py', 'MANIFEST'):
+            if m == 'base' and file == 'src/version.py':
+                continue
             file = os.path.join(m, file)
             if os.path.isdir(file):
                 print 'removing %s' % file
