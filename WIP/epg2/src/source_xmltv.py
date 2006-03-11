@@ -1,6 +1,6 @@
 import sys, time, os, calendar
 import kaa.notifier
-from kaa import libxml2
+from kaa import xml
 
 def timestr2secs_utc(timestr):
     """
@@ -129,7 +129,7 @@ class UpdateInfo:
     pass
 
 def _update_parse_xml_thread(epg, xmltv_file):
-    doc = libxml2.Document(xmltv_file, 'tv')
+    doc = xml.Document(xmltv_file, 'tv')
     channel_id_to_db_id = {}
     nprograms = 0
 
