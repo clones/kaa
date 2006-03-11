@@ -30,7 +30,7 @@ import types
 
 # imlib2 wrapper
 import _Imlib2
-from kaa.base.strutils import utf8
+from kaa.strutils import utf8
 
 class Font(object):
     def __init__(self, fontdesc, color=(255,255,255,255)):

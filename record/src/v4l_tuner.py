@@ -50,7 +50,7 @@ import sys
 from types import *
 
 # kaa imports
-from kaa.base.ioctl import ioctl, IOR, IOW, IOWR
+from kaa.ioctl import ioctl, IOR, IOW, IOWR
 from v4l_frequencies import get_frequency, CHANLIST
 
 log = logging.getLogger('record')

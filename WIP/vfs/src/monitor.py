@@ -37,7 +37,7 @@
 import logging
 
 # kaa imports
-from kaa.base.weakref import weakref
+from kaa.weakref import weakref
 from kaa.notifier import WeakTimer, Timer, execute_in_timer, Callback
 
 # kaa.vfs imports

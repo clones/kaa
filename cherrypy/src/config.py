@@ -30,7 +30,7 @@
 __all__ = [ 'config' ]
 
 # kaa imports
-from kaa.base.config import Group, Var, Dict
+from kaa.config import Group, Var, Dict
 
 # the config group
 config = Group(desc='basic server configuration', schema=[

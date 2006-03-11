@@ -2,7 +2,7 @@ import stat
 import os
 import glob
 
-from kaa.base import ipc
+from kaa import ipc
 import kaa.notifier
 import kaa.metadata
 import kaa.imlib2

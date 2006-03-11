@@ -40,7 +40,7 @@ import logging
 
 # kaa imports
 from kaa.notifier import Timer, execute_in_timer
-from kaa.base.strutils import str_to_unicode
+from kaa.strutils import str_to_unicode
 import kaa.metadata
 
 # get logging object

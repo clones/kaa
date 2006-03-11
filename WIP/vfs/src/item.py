@@ -38,7 +38,7 @@ import stat
 
 # kaa imports
 import kaa.thumb2
-from kaa.base.strutils import str_to_unicode
+from kaa.strutils import str_to_unicode
 
 UNKNOWN = -1
 

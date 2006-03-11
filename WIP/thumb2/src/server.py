@@ -41,7 +41,7 @@ if not __site__ in sys.path:
     sys.path.insert(0, __site__)
 
 # kaa imports
-from kaa.base import ipc
+from kaa import ipc
 import kaa.notifier
 import kaa.metadata
 import kaa.imlib2

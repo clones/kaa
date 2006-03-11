@@ -1,5 +1,5 @@
 import libxml2, sys, time, os, weakref, cPickle
-from kaa.base import ipc, db
+from kaa import ipc, db
 from kaa.notifier import Signal
 from server import *
 from channel import *

@@ -40,7 +40,7 @@ import copy
 import logging
 
 # kaa imports
-from kaa.base import ipc, weakref
+from kaa import ipc, weakref
 from kaa.notifier import OneShotTimer
 
 # kaa.vfs imports

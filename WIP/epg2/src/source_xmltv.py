@@ -1,6 +1,6 @@
 import sys, time, os, calendar
 import kaa.notifier
-from kaa.base import libxml2
+from kaa import libxml2
 
 def timestr2secs_utc(timestr):
     """

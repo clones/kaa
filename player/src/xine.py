@@ -1,7 +1,7 @@
 import sys, os, md5, shm, time, fcntl, struct
 import kaa
 from kaa import notifier, display
-from kaa.base.config import Group, Var
+from kaa.config import Group, Var
 
 try:
     from kaa import xine

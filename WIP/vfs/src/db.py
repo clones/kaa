@@ -40,8 +40,8 @@ import time
 
 # kaa imports
 import kaa.notifier
-from kaa.base import db
-from kaa.base.db import *
+from kaa import db
+from kaa.db import *
 
 # get logging object
 log = logging.getLogger('vfs')

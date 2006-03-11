@@ -1,6 +1,6 @@
 import libxml2, sys, time, os, weakref, logging
-from kaa.base.db import *
-from kaa.base import ipc
+from kaa.db import *
+from kaa import ipc
 from kaa.notifier import Signal
 
 __all__ = ['DEFAULT_EPG_PORT', 'GuideServer']

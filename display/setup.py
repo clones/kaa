@@ -37,7 +37,7 @@ import popen2
 
 try:
     # kaa base imports
-    from kaa.base.distribution import Extension, Configfile, setup, \
+    from kaa.distribution import Extension, Configfile, setup, \
          check_library, get_library
 except ImportError:
     print 'kaa.base not installed'

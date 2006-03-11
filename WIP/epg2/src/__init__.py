@@ -2,7 +2,7 @@ import os
 import logging
 from socket import gethostbyname, gethostname
 
-from kaa.base import ipc
+from kaa import ipc
 from client import *
 from server import *
 

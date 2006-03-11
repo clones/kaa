@@ -34,7 +34,7 @@ __all__ = [ 'connect', 'get', 'query' ]
 import os
 import logging
 
-from kaa.base import ipc
+from kaa import ipc
 from client import Client
 
 # connected client object

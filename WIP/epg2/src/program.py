@@ -1,4 +1,4 @@
-from kaa.base.strutils import str_to_unicode
+from kaa.strutils import str_to_unicode
 from channel import *
 
 class Program(object):

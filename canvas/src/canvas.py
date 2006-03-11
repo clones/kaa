@@ -4,7 +4,7 @@ import os
 import _weakref
 import kaa
 import logging
-from kaa.base import weakref
+from kaa import weakref
 from kaa.notifier import Signal, WeakCallback
 from container import *
 try:

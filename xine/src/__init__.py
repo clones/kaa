@@ -3,7 +3,7 @@ import weakref, threading, math, os
 import _xine
 import kaa
 from kaa import display, notifier, metadata
-from kaa.base.version import Version
+from kaa.version import Version
 from constants import *
 
 # FIXME: find a good place to document this:

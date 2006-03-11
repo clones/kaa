@@ -32,7 +32,7 @@ import os
 
 # imlib2 wrapper
 import _Imlib2
-from kaa.base.strutils import utf8
+from kaa.strutils import utf8
 from kaa.notifier import Signal
 from font import Font
 

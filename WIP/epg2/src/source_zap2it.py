@@ -1,7 +1,7 @@
 import libxml2
 import md5, time, httplib, gzip, calendar
 from StringIO import StringIO
-from kaa.base.strutils import str_to_unicode
+from kaa.strutils import str_to_unicode
 import kaa
 
 ZAP2IT_HOST = "datadirect.webservices.zap2it.com:80"

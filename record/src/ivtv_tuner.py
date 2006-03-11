@@ -49,7 +49,7 @@ import struct
 import time
 
 # kaa imports
-from kaa.base.ioctl import ioctl, IOR, IOW, IOWR
+from kaa.ioctl import ioctl, IOR, IOW, IOWR
 from v4l_tuner import *
 
 log = logging.getLogger('record')
