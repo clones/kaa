@@ -424,6 +424,8 @@ init_evas()
     PyObject *m, *c_api;
     static void *api_ptrs[2];
 
+    evas_init();
+
     m = Py_InitModule("_evas", evas_methods);
     evas_error = PyErr_NewException("evas.EvasError", NULL, NULL);
     Py_INCREF(evas_error);
