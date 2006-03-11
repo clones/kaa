@@ -60,7 +60,7 @@ def connect(vfsdb, logfile=None, loglevel=logging.INFO):
     if not logfile:
         logfile = os.path.join(vfsdb, 'log')
     # get server filename
-    server = os.path.join(os.path.dirname(__file__), 'server.py')
+    server = os.path.join(os.path.dirname(__file__), 'vfsd.py')
 
     _client = ipc.launch([server, logfile, str(loglevel)], 5, Client, vfsdb)
     return _client
