@@ -29,13 +29,15 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'connect', 'get', 'query' ]
+__all__ = [ 'connect', 'get', 'query', 'NORMAL', 'LARGE' ]
 
 import os
 import logging
 
 from kaa import ipc
 from client import Client
+
+from thumbnail import Thumbnail, NORMAL, LARGE
 
 # connected client object
 _client = None
@@ -55,7 +57,7 @@ def connect(vfsdb, logfile=None, loglevel=logging.INFO):
 
     if _client:
         return _client
-    
+
     # check logfile
     if not logfile:
         logfile = os.path.join(vfsdb, 'log')

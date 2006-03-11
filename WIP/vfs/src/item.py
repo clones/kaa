@@ -37,8 +37,10 @@ import os
 import stat
 
 # kaa imports
-import kaa.thumb2
 from kaa.strutils import str_to_unicode
+
+# kaa.vfs imports
+from thumbnail import Thumbnail
 
 UNKNOWN = -1
 
@@ -94,7 +96,7 @@ class Item(object):
     
     def getattr(self, key):
         if key == 'thumbnail' and hasattr(self, 'filename'):
-            return kaa.thumb2.Thumbnail(self.filename, url=self.url)
+            return Thumbnail(self.filename, url=self.url)
 
         if key == 'image':
             image = ''
