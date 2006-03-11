@@ -40,7 +40,8 @@ import md5
 import logging
 
 # kaa imports
-from kaa import ipc, weakref
+from kaa import ipc
+from kaa.weakref import weakref
 from kaa.notifier import Signal, step
 
 # kaa.thumb imports
