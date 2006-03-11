@@ -45,7 +45,7 @@ import kaa.notifier
 import kaa.imlib2
 
 # kaa.thumb imports
-from thumbnailer import epeg, png, failed
+from libthumb import epeg, png, failed
 
 
 class VideoThumb(object):

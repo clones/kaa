@@ -40,21 +40,22 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
-thumbnailer = Extension("kaa.vfs.thumbnailer", ["src/thumbnail.c", "src/png.c" ],
-                        config='src/config.h')
+ext = Extension("kaa.vfs.thumbnail.libthumb",
+                ["src/thumbnail/thumbnail.c", "src/thumbnail/png.c" ],
+                config='src/thumbnail/config.h')
 
-if not thumbnailer.check_library('imlib2', '1.1.1'):
+if not ext.check_library('imlib2', '1.1.1'):
     print 'Imlib2 >= 1.1.1 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
-if not thumbnailer.check_library('libpng', '1.2.0'):
+if not ext.check_library('libpng', '1.2.0'):
     print 'libpng >= 1.2.0 not found'
     sys.exit(1)
 
-if thumbnailer.check_library('epeg', '0.9'):
+if ext.check_library('epeg', '0.9'):
     print 'epeg extention enabled'
-    thumbnailer.config('#define USE_EPEG')
+    ext.config('#define USE_EPEG')
 else:
     print 'epeg extention disabled'
 
@@ -62,5 +63,5 @@ setup (module      = 'vfs',
        version     = '0.1',
        description = "Media-oriented VFS",
        scripts     = [ 'bin/kaa-thumb' ],
-       ext_modules = [ thumbnailer ]
+       ext_modules = [ ext ]
       )

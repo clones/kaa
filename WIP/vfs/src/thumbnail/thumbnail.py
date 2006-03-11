@@ -45,7 +45,7 @@ from kaa.weakref import weakref
 from kaa.notifier import Signal, step
 
 # kaa.thumb imports
-from thumbnailer import png
+from libthumb import png
 
 # get logging object
 log = logging.getLogger('thumb')
@@ -157,7 +157,7 @@ def _callback(id, *args):
 
 
 # connect to ipc
-_server = os.path.join(os.path.dirname(__file__), 'thumbd.py')
+_server = os.path.join(os.path.dirname(__file__), 'server.py')
 _server = ipc.launch(_server, 5, ipc.IPCClient, 'thumb/socket').get_object('thumb')
 
 _client_id = _server.connect(_callback)

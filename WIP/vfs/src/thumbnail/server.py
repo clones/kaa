@@ -47,8 +47,8 @@ import kaa.metadata
 import kaa.imlib2
 
 # kaa.thumb imports
-from thumbnailer import epeg, png, failed
-from videothumb import VideoThumb
+from libthumb import epeg, png, failed
+from video import VideoThumb
 
 
 class Job(object):
