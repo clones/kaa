@@ -76,10 +76,14 @@ class Directory(Item):
         self._vfs_isdir = True
 
 
+    def _vfs_request(self):
+        self._vfs_database_update(self._vfs_db()._vfs_request(self.filename[:-1]))
+
+
     def listdir(self):
         if not self._vfs_id:
             # item is not in db, request information now
-            self._vfs_database_update(self._vfs_db()._vfs_request(self.filename[:-1]))
+            self._vfs_request()
         return self._vfs_db().query(parent=self)
         
 

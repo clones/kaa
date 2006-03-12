@@ -125,3 +125,7 @@ class Query(object):
 
     def __iter__(self):
         return self.result.__iter__()
+
+    def __getitem__(self, key):
+        return self.result[key]
+    

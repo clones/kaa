@@ -38,6 +38,7 @@ import stat
 
 # kaa.vfs imports
 from item import Item
+from directory import Directory
 
 UNKNOWN = -1
 
@@ -81,6 +82,10 @@ class File(Item):
             if basename.startswith(search):
                 mtime += os.stat(filename)[stat.ST_MTIME]
         return mtime
+
+
+    def _vfs_request(self):
+        self._vfs_database_update(self._vfs_db()._vfs_request(self.filename[:-1]))
 
 
     def __repr__(self):

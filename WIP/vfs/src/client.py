@@ -158,27 +158,28 @@ class Client(object):
                 self._queries.remove(query)
 
 
-#     def update(self, item=None):
-#         """
-#         Update item in next main loop interation.
-#         """
-#         if not item:
-#             # do the update now
-#             items = []
-#             for i in self._changed:
-#                 changes = {}
-#                 for var in i.changes:
-#                     changes[var] = i[var]
-#                 i.changes = []
-#                 items.append((i.dbid, changes))
-#             self._changed = []
-#             self._server.update(items, __ipc_oneway=True, __ipc_noproxy_args=True)
-#             return
+    def update(self, item=None):
+        """
+        Update item in next main loop interation.
+        """
+        if not item:
+            # do the update now
+            items = []
+            for i in self._changed:
+                id = i._vfs_id
+                if not id:
+                    # TODO: how to update an item not in the db
+                    continue
+                items.append((id, i._vfs_changes))
+                i._vfs_changes = {}
+            self._changed = []
+            self._server.update(items, __ipc_oneway=True, __ipc_noproxy_args=True)
+            return
 
-#         if not self._changed:
-#             # register timer to do the changes
-#             OneShotTimer(self.update).start(0.1)
-#         self._changed.append(item)
+        if not self._changed:
+            # register timer to do the changes
+            OneShotTimer(self.update).start(0.1)
+        self._changed.append(item)
 
         
     def __repr__(self):

@@ -54,10 +54,11 @@ class Item(object):
         # internal data
         self._vfs_id = _vfs_id
         self._vfs_data = data
+        self._vfs_tmpdata = {}
         self._vfs_parent = parent
         self._vfs_media = media
         self._vfs_isdir = False
-        self._vfs_changes = []
+        self._vfs_changes = {}
         self._vfs_name = data['name']
 
 
@@ -72,7 +73,9 @@ class Item(object):
         # callback from db
         self._vfs_data = data
         self._vfs_id = (data['type'], data['id'])
-
+        for key, value in self._vfs_changes.items():
+            self._vfs_data[key] = value
+            
         
     def _vfs_db(self):
         # get db
@@ -86,11 +89,17 @@ class Item(object):
         return self._vfs_mtime() != self._vfs_data['mtime']
 
 
+    def _vfs_request(self):
+        pass
+    
     def _vfs_tree(self):
         return ParentIterator(self)
 
     
     def getattr(self, key):
+        if key.startswith('tmp:'):
+            return self._vfs_tmpdata[key[4:]]
+
         if key == 'thumbnail' and hasattr(self, 'filename'):
             return Thumbnail(self.filename, url=self.url)
 
@@ -114,19 +123,24 @@ class Item(object):
                 t = t[:t.rfind('.')]
             return str_to_unicode(t)
         
-        # FIXME: make sure we have db data
+        if not self._vfs_id:
+            # item is not in db, request information now
+            self._vfs_request()
+
         if self._vfs_data.has_key(key):
             return self._vfs_data[key]
         return None
 
 
     def setattr(self, key, value):
+        if key.startswith('tmp:'):
+            self._vfs_tmpdata[key[4:]] = value
+            return
         self._vfs_data[key] = value
         if not self._vfs_changes and self._vfs_id:
             # FIXME: how to update an item not in the db yet?
-            self.db.update(self)
-        if not key in self._vfs_changes:
-            self._vfs_changes.append(key)
+            self._vfs_db().update(self)
+        self._vfs_changes[key] = value
         
             
     def keys(self):
