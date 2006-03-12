@@ -38,7 +38,7 @@ def connect(epgdb, address='127.0.0.1', logfile='/tmp/kaa-epg.log', loglevel=log
         server = os.path.join(os.path.dirname(__file__), 'server.py')
 
         _client = ipc.launch([server, logfile, str(loglevel), epgdb, address], 
-                              2, GuideClient, "epg")
+                              5, GuideClient, "epg")
 
     return _client
 
