@@ -43,8 +43,8 @@ class GuideClient(object):
             chan.db_id = db_id
             self._channels_by_name[short_name] = chan
             self._channels_by_db_id[db_id] = chan
-            if tuner_id:
-                self._channels_by_tuner_id[tuner_id] = chan
+            for t in tuner_id:
+                self._channels_by_tuner_id[t] = chan
             self._channels_list.append(chan)
 
         self._max_program_length = self._server.get_max_program_length()
@@ -109,7 +109,7 @@ class GuideClient(object):
         if not short_name:
             # then there must be one of the others
             if tuner_id:
-                short_name = tuner_id
+                short_name = tuner_id[0]
             else:
                 short_name = long_name
              
@@ -117,8 +117,8 @@ class GuideClient(object):
             # then there must be one of the others
             if short_name:
                 long_name = short_name
-            else:
-                long_name = tuner_id
+            elif tuner_id:
+                long_name = tuner_id[0]
 
         return Channel(tuner_id, short_name, long_name, epg=None)
 

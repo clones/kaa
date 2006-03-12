@@ -1,4 +1,6 @@
 import libxml2, sys, time, os, weakref, logging
+from types import ListType
+
 from kaa.db import *
 from kaa import ipc
 from kaa.notifier import Signal
@@ -34,7 +36,7 @@ class GuideServer(object):
 
         db = Database(dbfile)
         db.register_object_type_attrs("channel",
-            tuner_id   = (unicode, ATTR_SEARCHABLE),
+            tuner_id   = (list, ATTR_SIMPLE),
             short_name = (unicode, ATTR_SEARCHABLE),
             long_name  = (unicode, ATTR_SEARCHABLE),
         )
@@ -117,7 +119,8 @@ class GuideServer(object):
         except ImportError:
             raise ValueError, "No such update backend '%s'" % backend
 
-        self._wipe()
+        # TODO: delte old programs
+        # self._wipe()
         self.signals["update_progress"].connect_weak(self._update_progress, time.time())
         backend.update(self, *args, **kwargs)
 
@@ -165,7 +168,11 @@ class GuideServer(object):
         If there is a tuner_id then it will assist programs using kaa.epg to
         match real channels and EPG data.
         """
-        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', tuner_id, short_name, long_name)
+        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', 
+                  tuner_id, short_name, long_name)
+
+        if type(tuner_id) != ListType:
+            tuner_id = [ tuner_id ]
 
         # require at least one field
         if not tuner_id and not short_name and not long_name:
@@ -175,7 +182,7 @@ class GuideServer(object):
         if not short_name:
             # then there must be one of the others
             if tuner_id:
-                short_name = tuner_id
+                short_name = tuner_id[0]
             else:
                 short_name = long_name
              
@@ -183,12 +190,29 @@ class GuideServer(object):
             # then there must be one of the others
             if short_name:
                 long_name = short_name
-            else:
-                long_name = tuner_id
+            elif tuner_id:
+                long_name = tuner_id[0]
              
-        # NOTE: by now we do not care if there is no tuner_id, it only helps
+        if not tuner_id:
+            tuner_id = [ short_name ]
+             
+        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', 
+                  tuner_id, short_name, long_name)
 
-        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', tuner_id, short_name, long_name)
+        c2 = self._db.query(type = "channel", short_name = short_name)
+        if len(c2):
+            c2 = c2[0]
+            log.debug('c2: %s', c2)
+
+            for t in tuner_id:
+                if t not in c2["tuner_id"]:
+                    c2["tuner_id"].append(t)
+
+            # TODO: if everything is the same do not update
+            self._db.update_object(("channel", c2["id"]),
+                                   tuner_id = c2["tuner_id"],
+                                   long_name = long_name)
+            return c2["id"]
 
         o = self._db.add_object("channel", 
                                 tuner_id = tuner_id,
@@ -198,16 +222,40 @@ class GuideServer(object):
 
 
     def _add_program_to_db(self, channel_db_id, start, stop, title, desc):
-        log.debug('channel_db_id: "%s" start: "%s" title: "%s"', channel_db_id, start, title)
-        o = self._db.add_object("program", 
-                                parent = ("channel", channel_db_id),
-                                start = start,
-                                stop = stop, 
-                                title = title, 
-                                desc = desc, ratings = 42)
-        if stop - start > self._max_program_length:
-            self._max_program_length = stop = start
-        return o["id"]
+        #log.debug('channel_db_id: "%s" start: "%s" title: "%s"', 
+        #          channel_db_id, start, title)
+
+        # TODO: check time range
+        p2 = self._db.query(parent = ("channel", channel_db_id),
+                            type = "program", start = start)
+
+        if len(p2):
+            # we have a program at this time
+            p2 = p2[0]
+
+            log.debug('updating program: %s', p2["title"])
+            # TODO: if everything is the same do not update
+            self._db.update_object(("program", p2["id"]),
+                                   start = start,
+                                   stop = stop,
+                                   title = title, 
+                                   desc = desc)
+            return p2["id"]
+
+        # TODO: check title, see if it is a different program.  Also check
+        #       if the program is the same but shifted times a bit
+        else:
+            log.debug('adding program: %s', title)
+            o = self._db.add_object("program", 
+                                    parent = ("channel", channel_db_id),
+                                    start = start,
+                                    stop = stop, 
+                                    title = title, 
+                                    desc = desc, ratings = 42)
+
+            if stop - start > self._max_program_length:
+                self._max_program_length = stop = start
+            return o["id"]
 
 
     def query(self, **kwargs):
