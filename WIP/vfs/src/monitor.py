@@ -42,7 +42,6 @@ from kaa.notifier import WeakTimer, Timer, execute_in_timer, Callback
 
 # kaa.vfs imports
 import parser
-import item
 import cdrom
 
 # get logging object

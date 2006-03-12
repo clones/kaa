@@ -49,8 +49,8 @@ log = logging.getLogger('vfs')
 MAX_BUFFER_CHANGES = 20
 
 # Item generation mapping
-from item import Directory as create_dir
-from item import File as create_file
+from directory import Directory as create_dir
+from file import File as create_file
 
 class Mountpoint(object):
     """
