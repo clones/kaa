@@ -1,4 +1,6 @@
 import libxml2, sys, time, os, weakref, cPickle
+import logging
+
 from kaa import ipc, db
 from kaa.notifier import Signal
 from server import *
@@ -6,6 +8,8 @@ from channel import *
 from program import *
 
 __all__ = ['GuideClient']
+
+log = logging.getLogger()
 
 
 class GuideClient(object):
@@ -44,7 +48,13 @@ class GuideClient(object):
             self._channels_by_name[short_name] = chan
             self._channels_by_db_id[db_id] = chan
             for t in tuner_id:
-                self._channels_by_tuner_id[t] = chan
+                if self._channels_by_tuner_id.has_key(t):
+                    log.warning('loading channel %s with tuner_id %s '+\
+                                'allready claimed by channel %s', 
+                                chan.short_name, t, 
+                                self._channels_by_tuner_id[t].short_name)
+                else:
+                    self._channels_by_tuner_id[t] = chan
             self._channels_list.append(chan)
 
         self._max_program_length = self._server.get_max_program_length()

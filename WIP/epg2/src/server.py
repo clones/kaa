@@ -56,6 +56,7 @@ class GuideServer(object):
         }
 
         self._clients = []
+        self._tuner_ids = []
         self._db = db
         self._load()
         
@@ -202,17 +203,32 @@ class GuideServer(object):
         c2 = self._db.query(type = "channel", short_name = short_name)
         if len(c2):
             c2 = c2[0]
-            log.debug('c2: %s', c2)
+            #log.debug('c2: %s', c2)
 
             for t in tuner_id:
                 if t not in c2["tuner_id"]:
-                    c2["tuner_id"].append(t)
+                    if t not in self._tuner_ids:
+                        # only add this id if it's not already there and not
+                        # claimed by another channel
+                        c2["tuner_id"].append(t)
+                        self._tuner_ids.append(t)
+                    else:
+                        log.warning('not adding tuner_id %s for channel %s - '+\
+                            'it is claimed by another channel', t, short_name)
 
             # TODO: if everything is the same do not update
             self._db.update_object(("channel", c2["id"]),
                                    tuner_id = c2["tuner_id"],
                                    long_name = long_name)
             return c2["id"]
+
+        for t in tuner_id:
+            if t in self._tuner_ids:
+                log.warning('not adding tuner_id %s for channel %s - it is '+\
+                            'claimed by another channel', t, short_name)
+                tuner_id.remove(t)
+            else:
+                self._tuner_ids.append(t)
 
         o = self._db.add_object("channel", 
                                 tuner_id = tuner_id,
@@ -233,7 +249,7 @@ class GuideServer(object):
             # we have a program at this time
             p2 = p2[0]
 
-            log.debug('updating program: %s', p2["title"])
+            #log.debug('updating program: %s', p2["title"])
             # TODO: if everything is the same do not update
             self._db.update_object(("program", p2["id"]),
                                    start = start,
@@ -245,7 +261,7 @@ class GuideServer(object):
         # TODO: check title, see if it is a different program.  Also check
         #       if the program is the same but shifted times a bit
         else:
-            log.debug('adding program: %s', title)
+            #log.debug('adding program: %s', title)
             o = self._db.add_object("program", 
                                     parent = ("channel", channel_db_id),
                                     start = start,
