@@ -2,10 +2,7 @@
 # -----------------------------------------------------------------------------
 # file.py - File item of the VFS
 # -----------------------------------------------------------------------------
-# $Id: item.py 1273 2006-03-11 19:34:08Z dmeyer $
-#
-# TODO: handle all the FIXME and TODO comments inside this file and
-#       add docs for functions, variables and how to use this file
+# $Id$
 #
 # -----------------------------------------------------------------------------
 # kaa-vfs - A virtual filesystem with metadata
@@ -35,18 +32,28 @@
 # python imports
 import os
 import stat
+import logging
 
 # kaa.vfs imports
 from item import Item
 from directory import Directory
 
+# get logging object
+log = logging.getLogger('vfs')
+
+
 UNKNOWN = -1
 
 class File(Item):
     """
-    A file based item.
-    Object Attributes:
-    url, filename, getattr, setattr, keys
+    A file based database item.
+
+    Attributes:
+    url:      unique url of the item
+    filename: filename of the item on hd
+    getattr:  function to get an attribute
+    setattr:  function to set an attribute
+    keys:     function to return all known attributes of the item
 
     Do not access attributes starting with _vfs outside kaa.vfs
     """
@@ -70,10 +77,13 @@ class File(Item):
 
 
     def _vfs_mtime(self):
-        # mtime is the the mtime for all files having the same
-        # base. E.g. the mtime of foo.jpg is the sum of the
-        # mtimeof foo.jpg and foo.jpg.xml or for foo.mp3 the
-        # mtime is the sum of foo.mp3 and foo.jpg.
+        """
+        Return modification time of the item itself.
+
+        mtime is the the mtime for all files having the same base. E.g. the
+        mtime of foo.jpg is the sum of the mtime of foo.jpg and foo.jpg.xml
+        or for foo.mp3 the mtime is the sum of foo.mp3 and foo.jpg.
+        """
         search = self._vfs_data['name']
         if search.rfind('.') > 0:
             search = search[:search.rfind('.')]
@@ -85,6 +95,9 @@ class File(Item):
 
 
     def _vfs_request(self):
+        """
+        Request the item to be scanned.
+        """
         self._vfs_database_update(self._vfs_db()._vfs_request(self.filename[:-1]))
 
 
@@ -96,7 +109,3 @@ class File(Item):
         if self._vfs_data['mtime'] == UNKNOWN:
             str += ' (new)'
         return str + '>'
-
-
-# make it possible to override these
-

@@ -4,9 +4,6 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: handle all the FIXME and TODO comments inside this file and
-#       add docs for functions, variables and how to use this file
-#
 # -----------------------------------------------------------------------------
 # kaa-vfs - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
@@ -32,18 +29,27 @@
 #
 # -----------------------------------------------------------------------------
 
+# python imports
+import logging
+
 # kaa imports
 from kaa.strutils import str_to_unicode
 
 # kaa.vfs imports
 from thumbnail import Thumbnail
 
-UNKNOWN = -1
+# get logging object
+log = logging.getLogger('vfs')
 
 class Item(object):
     """
-    Object Attributes:
-    url, getattr, setattr, keys
+    A database item.
+
+    Attributes:
+    url:      unique url of the item
+    getattr:  function to get an attribute
+    setattr:  function to set an attribute
+    keys:     function to return all known attributes of the item
 
     Do not access attributes starting with _vfs outside kaa.vfs
     """
@@ -62,6 +68,52 @@ class Item(object):
         self._vfs_name = data['name']
 
 
+    def _vfs_database_update(self, data):
+        """
+        Callback from db with new data
+        """
+        self._vfs_data = data
+        self._vfs_id = (data['type'], data['id'])
+        for key, value in self._vfs_changes.items():
+            self._vfs_data[key] = value
+
+
+    def _vfs_db(self):
+        """
+        Get the database connection (the client)
+        """
+        return self._vfs_media.client
+
+
+    def _vfs_mtime(self):
+        """
+        Return modification time of the item itself.
+        """
+        return 0
+
+
+    def _vfs_changed(self):
+        """
+        Return if the item is changed (based on modification time of
+        the data and in the database).
+        """
+        return self._vfs_mtime() != self._vfs_data['mtime']
+
+
+    def _vfs_request(self):
+        """
+        Request the item to be scanned.
+        """
+        pass
+
+
+    def _vfs_tree(self):
+        """
+        Return an iterator to walk through the parents.
+        """
+        return ParentIterator(self)
+
+
     def __repr__(self):
         """
         Convert object to string (usefull for debugging)
@@ -69,36 +121,20 @@ class Item(object):
         return '<vfs.Item %s>' % self.url
 
 
-    def _vfs_database_update(self, data):
-        # callback from db
-        self._vfs_data = data
-        self._vfs_id = (data['type'], data['id'])
-        for key, value in self._vfs_changes.items():
-            self._vfs_data[key] = value
-            
-        
-    def _vfs_db(self):
-        # get db
-        return self._vfs_media.client
-
-    def _vfs_mtime(self):
-        # return mtime
-        return 0
-
-    def _vfs_changed(self):
-        return self._vfs_mtime() != self._vfs_data['mtime']
-
-
-    def _vfs_request(self):
-        pass
-    
-    def _vfs_tree(self):
-        return ParentIterator(self)
-
-    
-    def getattr(self, key):
+    def getattr(self, key, request=True):
+        """
+        Interface to kaa.vfs. Return the value of a given attribute. If
+        the attribute is not in the db, return None. If the key starts with
+        'tmp:', the data will be fetched from a dict that is not stored in
+        the db. Loosing the item object will remove that attribute. If
+        request is True, scan the item if it is not in the db. If request is
+        False and the item is not in the db, results will be very limited.
+        """
         if key.startswith('tmp:'):
             return self._vfs_tmpdata[key[4:]]
+
+        if key == 'parent':
+            return self._vfs_parent
 
         if key == 'thumbnail' and hasattr(self, 'filename'):
             return Thumbnail(self.filename, url=self.url)
@@ -122,9 +158,9 @@ class Item(object):
             if t.find('.') > 0:
                 t = t[:t.rfind('.')]
             return str_to_unicode(t)
-        
-        if not self._vfs_id:
-            # item is not in db, request information now
+
+        if request and not self._vfs_id:
+            log.info('requesting data for %s', self)
             self._vfs_request()
 
         if self._vfs_data.has_key(key):
@@ -132,23 +168,37 @@ class Item(object):
         return None
 
 
-    def setattr(self, key, value):
+    def setattr(self, key, value, request=True):
+        """
+        Interface to kaa.vfs. Set the value of a given attribute. If the key
+        starts with 'tmp:', the data will only be valid in this item and not
+        stored in the db. Loosing the item object will remove that attribute. If
+        request is True, scan the item if it is not in the db. If request is
+        False and the item is not in the db, the value may be lost.
+        """
         if key.startswith('tmp:'):
             self._vfs_tmpdata[key[4:]] = value
             return
+        if not self._vfs_id:
+            log.info('requesting data for %s', self)
+            self._vfs_request()
         self._vfs_data[key] = value
         if not self._vfs_changes and self._vfs_id:
-            # FIXME: how to update an item not in the db yet?
             self._vfs_db().update(self)
         self._vfs_changes[key] = value
-        
-            
+
+
     def keys(self):
-        return self._vfs_data.keys()
+        """
+        Interface to kaa.vfs. Return all attributes of the item.
+        """
+        return self._vfs_data.keys() + self._vfs_tmpdata.keys()
 
 
 class ParentIterator(object):
-
+    """
+    Iterator to iterate thru the parent structure.
+    """
     def __init__(self, item):
         self.item = item
 
