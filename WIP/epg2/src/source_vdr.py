@@ -35,6 +35,7 @@ import string
 import logging
 
 # kaa imports
+from kaa.base import strutils
 import kaa.notifier
 
 # vdr imports
@@ -122,8 +123,8 @@ def _update_process_step(info):
 
         log.info('Adding channel: %s as %s' % (c.id, access_id))
 
-        chan_db_id = info.epg._add_channel_to_db(tuner_id=Unicode(access_id), 
-                                                 short_name=Unicode(c.name), 
+        chan_db_id = info.epg._add_channel_to_db(tuner_id=strutils.str_to_unicode(access_id), 
+                                                 short_name=strutils.str_to_unicode(c.name), 
                                                  long_name=None)
 
         for e in c.events:
@@ -135,7 +136,7 @@ def _update_process_step(info):
                 desc = ''
 
             info.epg._add_program_to_db(chan_db_id, e.start, int(e.start+e.dur),
-                                        Unicode(e.title), Unicode(desc))
+                                        strutils.str_to_unicode(e.title), strutils.str_to_unicode(desc))
 
             info.cur +=1
             if info.cur % info.progress_step == 0:
