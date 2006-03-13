@@ -179,8 +179,6 @@ class GuideServer(object):
         If there is a tuner_id then it will assist programs using kaa.epg to
         match real channels and EPG data.
         """
-        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', 
-                  tuner_id, short_name, long_name)
 
         if type(tuner_id) != ListType:
             tuner_id = [ tuner_id ]
@@ -207,13 +205,10 @@ class GuideServer(object):
         if not tuner_id:
             tuner_id = [ short_name ]
              
-        log.debug('tuner_id: "%s" short_name: "%s" long_name: "%s"', 
-                  tuner_id, short_name, long_name)
 
         c2 = self._db.query(type = "channel", short_name = short_name)
         if len(c2):
             c2 = c2[0]
-            #log.debug('c2: %s', c2)
 
             for t in tuner_id:
                 if t not in c2["tuner_id"]:
@@ -232,9 +227,7 @@ class GuideServer(object):
                                    long_name = long_name)
             return c2["id"]
 
-        log.debug('self._tuner_ids: %s', self._tuner_ids)
         for t in tuner_id:
-            log.debug('new chan with tuner_id %s', t)
             if t in self._tuner_ids:
                 log.warning('not adding tuner_id %s for channel %s - it is '+\
                             'claimed by another channel', t, short_name)
