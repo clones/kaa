@@ -56,7 +56,6 @@ class GuideServer(object):
         }
 
         self._clients = []
-        self._tuner_ids = []
         self._db = db
         self._load()
         
@@ -93,6 +92,17 @@ class GuideServer(object):
         res = self.get_db()._db_query("SELECT count(*) FROM objects_program")
         if len(res):
             self._num_programs = res[0][0]
+
+        self._tuner_ids = []
+        channels = self._db.query(type = "channel")
+        for c in channels:
+            for t in c["tuner_id"]:
+                if t in self._tuner_ids:
+                    log.warning('loading channel %s with tuner_id %s '+\
+                                'allready claimed by another channel',
+                                c["short_name"], t)
+                else:
+                    self._tuner_ids.append(t)
 
 
     def _client_connected(self, client):
@@ -207,14 +217,14 @@ class GuideServer(object):
 
             for t in tuner_id:
                 if t not in c2["tuner_id"]:
-                    if t not in self._tuner_ids:
+                    if t in self._tuner_ids:
+                        log.warning('not adding tuner_id %s for channel %s - '+\
+                            'it is claimed by another channel', t, short_name)
+                    else:
                         # only add this id if it's not already there and not
                         # claimed by another channel
                         c2["tuner_id"].append(t)
                         self._tuner_ids.append(t)
-                    else:
-                        log.warning('not adding tuner_id %s for channel %s - '+\
-                            'it is claimed by another channel', t, short_name)
 
             # TODO: if everything is the same do not update
             self._db.update_object(("channel", c2["id"]),
@@ -222,7 +232,9 @@ class GuideServer(object):
                                    long_name = long_name)
             return c2["id"]
 
+        log.debug('self._tuner_ids: %s', self._tuner_ids)
         for t in tuner_id:
+            log.debug('new chan with tuner_id %s', t)
             if t in self._tuner_ids:
                 log.warning('not adding tuner_id %s for channel %s - it is '+\
                             'claimed by another channel', t, short_name)
@@ -331,7 +343,7 @@ if __name__ == "__main__":
         global shutdown_timer
         global _server
 
-        log.debug("clients: %s", len(_server._clients))
+        #log.debug("clients: %s", len(_server._clients))
         if _server and len(_server._clients) > 0:
             shutdown_timer = 5
             return True
