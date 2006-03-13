@@ -41,18 +41,18 @@ class GuideClient(object):
         self._channels_by_tuner_id = {}
         self._channels_list = []
         data = self._server.query(type="channel", __ipc_noproxy_result = True)
-        for row in db.iter_raw_data(data, ("id", "tuner_id", "short_name", "long_name")):
-            db_id, tuner_id, short_name, long_name = row
-            chan = Channel(tuner_id, short_name, long_name, self)
+        for row in db.iter_raw_data(data, ("id", "tuner_id", "name", "long_name")):
+            db_id, tuner_id, name, long_name = row
+            chan = Channel(tuner_id, name, long_name, self)
             chan.db_id = db_id
-            self._channels_by_name[short_name] = chan
+            self._channels_by_name[name] = chan
             self._channels_by_db_id[db_id] = chan
             for t in tuner_id:
                 if self._channels_by_tuner_id.has_key(t):
                     log.warning('loading channel %s with tuner_id %s '+\
                                 'allready claimed by channel %s', 
-                                chan.short_name, t, 
-                                self._channels_by_tuner_id[t].short_name)
+                                chan.name, t, 
+                                self._channels_by_tuner_id[t].name)
                 else:
                     self._channels_by_tuner_id[t] = chan
             self._channels_list.append(chan)
@@ -104,7 +104,7 @@ class GuideClient(object):
         return self._program_rows_to_objects(data)
 
 
-    def new_channel(self, tuner_id=None, short_name=None, long_name=None):
+    def new_channel(self, tuner_id=None, name=None, long_name=None):
         """
         Returns a channel object that is not associated with the EPG.
         This is useful for clients that have channels that do not appear
@@ -112,31 +112,31 @@ class GuideClient(object):
         """
 
         # require at least one field
-        if not tuner_id and not short_name and not long_name:
+        if not tuner_id and not name and not long_name:
             log.error('need at least one field to create a channel')
             return None
         
-        if not short_name:
+        if not name:
             # then there must be one of the others
             if tuner_id:
-                short_name = tuner_id[0]
+                name = tuner_id[0]
             else:
-                short_name = long_name
+                name = long_name
              
         if not long_name:
             # then there must be one of the others
-            if short_name:
-                long_name = short_name
+            if name:
+                long_name = name
             elif tuner_id:
                 long_name = tuner_id[0]
 
-        return Channel(tuner_id, short_name, long_name, epg=None)
+        return Channel(tuner_id, name, long_name, epg=None)
 
 
-    def get_channel(self, short_name):
-        if short_name not in self._channels_by_name:
+    def get_channel(self, name):
+        if name not in self._channels_by_name:
             return None
-        return self._channels_by_name[short_name]
+        return self._channels_by_name[name]
 
     def get_channel_by_db_id(self, db_id):
         if db_id not in self._channels_by_db_id:

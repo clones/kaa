@@ -131,7 +131,7 @@ def parse_map(node, info):
 
     channel = int(node.prop("channel"))
     db_id = info.epg._add_channel_to_db(tuner_id=channel, 
-                                        short_name=info.stations_by_id[id]["station"],
+                                        name=info.stations_by_id[id]["station"],
                                         long_name=info.stations_by_id[id]["name"])
     info.stations_by_id[id]["db_id"] = db_id
 

@@ -82,7 +82,7 @@ def parse_channel(info):
         # for the used grabber somehow.
         name = display or station
 
-    db_id = info.epg._add_channel_to_db(tuner_id=channel, short_name=station, long_name=name)
+    db_id = info.epg._add_channel_to_db(tuner_id=channel, name=station, long_name=name)
     info.channel_id_to_db_id[channel_id] = [db_id, None]
 
 

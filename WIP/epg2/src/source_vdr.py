@@ -124,7 +124,7 @@ def _update_process_step(info):
         log.info('Adding channel: %s as %s' % (c.id, access_id))
 
         chan_db_id = info.epg._add_channel_to_db(tuner_id=strutils.str_to_unicode(access_id), 
-                                                 short_name=strutils.str_to_unicode(c.name), 
+                                                 name=strutils.str_to_unicode(c.name), 
                                                  long_name=None)
 
         for e in c.events:

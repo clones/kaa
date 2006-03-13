@@ -2,14 +2,14 @@ from kaa.strutils import str_to_unicode
 import weakref, time
 
 class Channel(object):
-    def __init__(self, tuner_id, short_name, long_name, epg):
+    def __init__(self, tuner_id, name, long_name, epg):
         self.db_id      = None
         self.tuner_id   = tuner_id
-        self.short_name = short_name
+        self.name = name
         self.long_name  = long_name
 
         # kludge - remove
-        self.id = short_name
+        self.id = name
 
         if epg:
             self._epg = weakref.ref(epg)

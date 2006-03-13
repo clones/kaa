@@ -37,7 +37,7 @@ class GuideServer(object):
         db = Database(dbfile)
         db.register_object_type_attrs("channel",
             tuner_id   = (list, ATTR_SIMPLE),
-            short_name = (unicode, ATTR_SEARCHABLE),
+            name = (unicode, ATTR_SEARCHABLE),
             long_name  = (unicode, ATTR_SEARCHABLE),
         )
         db.register_object_type_attrs("program", 
@@ -100,7 +100,7 @@ class GuideServer(object):
                 if t in self._tuner_ids:
                     log.warning('loading channel %s with tuner_id %s '+\
                                 'allready claimed by another channel',
-                                c["short_name"], t)
+                                c["name"], t)
                 else:
                     self._tuner_ids.append(t)
 
@@ -161,9 +161,9 @@ class GuideServer(object):
         self._channel_id_to_db_id = {}
 
 
-    def _add_channel_to_db(self, tuner_id, short_name, long_name):
+    def _add_channel_to_db(self, tuner_id, name, long_name):
         """
-        This method requires at least one of tuner_id, short_name, long_name.
+        This method requires at least one of tuner_id, name, long_name.
         Depending on the source (various XMLTV sources, Zap2it, etc.) not all
         of the information we would like is available.  Also, channels are 
         perceived differently around the world and handled differently by 
@@ -172,10 +172,10 @@ class GuideServer(object):
         Following the KISS philosophy (Keep It Simple Stupid) we can follow some
         simple rules.
 
-        The most important field here is short_name.  If there's no short_name 
+        The most important field here is name.  If there's no name 
         we make it based on tuner_id or long_name.  If there's no long_name we
-        base that on short_name or tuner_id.  If there's no tuner_id it does
-        not matter because we will then always have a value for short_name.
+        base that on name or tuner_id.  If there's no tuner_id it does
+        not matter because we will then always have a value for name.
         If there is a tuner_id then it will assist programs using kaa.epg to
         match real channels and EPG data.
         """
@@ -184,29 +184,29 @@ class GuideServer(object):
             tuner_id = [ tuner_id ]
 
         # require at least one field
-        if not tuner_id and not short_name and not long_name:
+        if not tuner_id and not name and not long_name:
             log.error('need at least one field to add a channel')
             return None
 
-        if not short_name:
+        if not name:
             # then there must be one of the others
             if tuner_id:
-                short_name = tuner_id[0]
+                name = tuner_id[0]
             else:
-                short_name = long_name
+                name = long_name
              
         if not long_name:
             # then there must be one of the others
-            if short_name:
-                long_name = short_name
+            if name:
+                long_name = name
             elif tuner_id:
                 long_name = tuner_id[0]
              
         if not tuner_id:
-            tuner_id = [ short_name ]
+            tuner_id = [ name ]
              
 
-        c2 = self._db.query(type = "channel", short_name = short_name)
+        c2 = self._db.query(type = "channel", name = name)
         if len(c2):
             c2 = c2[0]
 
@@ -214,7 +214,7 @@ class GuideServer(object):
                 if t not in c2["tuner_id"]:
                     if t in self._tuner_ids:
                         log.warning('not adding tuner_id %s for channel %s - '+\
-                            'it is claimed by another channel', t, short_name)
+                            'it is claimed by another channel', t, name)
                     else:
                         # only add this id if it's not already there and not
                         # claimed by another channel
@@ -230,14 +230,14 @@ class GuideServer(object):
         for t in tuner_id:
             if t in self._tuner_ids:
                 log.warning('not adding tuner_id %s for channel %s - it is '+\
-                            'claimed by another channel', t, short_name)
+                            'claimed by another channel', t, name)
                 tuner_id.remove(t)
             else:
                 self._tuner_ids.append(t)
 
         o = self._db.add_object("channel", 
                                 tuner_id = tuner_id,
-                                short_name = short_name,
+                                name = name,
                                 long_name = long_name)
         return o["id"]
 
