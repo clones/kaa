@@ -62,13 +62,14 @@ class GuideClient(object):
 
 
     def _program_rows_to_objects(self, query_data):
-        cols = "parent_id", "start", "stop", "title", "desc"#, "ratings"
+        cols = "parent_id", "start", "stop", "title", "desc", "id"#, "ratings"
         results = []
         for row in db.iter_raw_data(query_data, cols):
             if row[0] not in self._channels_by_db_id:
                 continue
             channel = self._channels_by_db_id[row[0]]
             program = Program(channel, row[1], row[2], row[3], row[4])
+            program.db_id = row[5]
             results.append(program)
         return results
 
