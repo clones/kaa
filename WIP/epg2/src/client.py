@@ -30,6 +30,12 @@ class GuideClient(object):
         self._server.signals["updated"].connect(self._updated)
         self._server.signals["update_progress"].connect(self.signals["update_progress"].emit)
 
+    def ping(self):
+        if self._ipc:
+            return self._ipc.ping()
+        else:
+            return False
+        
     def _updated(self):
         self._load()
         self.signals["updated"].emit()
