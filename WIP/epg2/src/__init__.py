@@ -18,7 +18,7 @@ def connect(epgdb, address='127.0.0.1', logfile='/tmp/kaa-epg.log', loglevel=log
     """
     global _client
 
-    if _client:
+    if _client and _client.ping() != False:
         return _client
 
     if address.split(':')[0] not in ['127.0.0.1', '0.0.0.0'] and \
