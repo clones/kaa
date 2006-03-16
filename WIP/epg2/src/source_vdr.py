@@ -35,7 +35,7 @@ import string
 import logging
 
 # kaa imports
-from kaa.base import strutils
+from kaa import strutils
 import kaa.notifier
 
 # vdr imports
