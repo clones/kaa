@@ -245,40 +245,48 @@ class GuideServer(object):
 
 
     def _add_program_to_db(self, channel_db_id, start, stop, title, desc):
-        #log.debug('channel_db_id: "%s" start: "%s" title: "%s"', 
-        #          channel_db_id, start, title)
+        start = int(start)
+        stop = int(stop)
+        
+        # Find all programs that have a start or stop during this program
+        s1 = self._db.query(parent = ("channel", channel_db_id), type = "program",
+                            start = QExpr("range", (start, stop-1)))
+        s2 = self._db.query(parent = ("channel", channel_db_id), type = "program",
+                            stop = QExpr("range", (start+1, stop)))
+        
+        # In a perfect world this program is already in the db and is in s1 and
+        # s2 and both lists have a length of 1
+        if len(s1) == len(s2) == 1 and start == s1[0]['start'] == s2[0]['start'] and \
+               stop == s1[0]['stop'] == s2[0]['stop']:
+            # yes, update object if it is different
+            prg = s1[0]
+            if prg['title'] != title and prg['desc'] != desc:
+                log.info('update %s', title)
+                self._db.update_object(("program", prg["id"]), start = start,
+                                       stop = stop, title = title, desc = desc)
+            return prg["id"]
 
-        # TODO: check time range
-        p2 = self._db.query(parent = ("channel", channel_db_id),
-                            type = "program", start = start)
+        removed = []
+        for r in s1 + s2:
+            # OK, something is wrong here with some overlapping. Either the source
+            # of the guide has no overlap detection or the schedule has changed.
+            # Anyway, the best we can do now is to remove everything that is in our
+            # conflict
+            if r['id'] in removed:
+                continue
+            log.info('remove %s', r['title'])
+            self._db.delete_object(("program", r['id']))
+            removed.append(r['id'])
 
-        if len(p2):
-            # we have a program at this time
-            p2 = p2[0]
+        # Now add the new program
+        log.info('adding program: %s', title)
+        o = self._db.add_object("program", parent = ("channel", channel_db_id),
+                                start = start, stop = stop, title = title, 
+                                desc = desc, ratings = 42)
 
-            #log.debug('updating program: %s', p2["title"])
-            # TODO: if everything is the same do not update
-            self._db.update_object(("program", p2["id"]),
-                                   start = start,
-                                   stop = stop,
-                                   title = title, 
-                                   desc = desc)
-            return p2["id"]
-
-        # TODO: check title, see if it is a different program.  Also check
-        #       if the program is the same but shifted times a bit
-        else:
-            #log.debug('adding program: %s', title)
-            o = self._db.add_object("program", 
-                                    parent = ("channel", channel_db_id),
-                                    start = start,
-                                    stop = stop, 
-                                    title = title, 
-                                    desc = desc, ratings = 42)
-
-            if stop - start > self._max_program_length:
-                self._max_program_length = stop = start
-            return o["id"]
+        if stop - start > self._max_program_length:
+            self._max_program_length = stop = start
+        return o["id"]
 
 
     def query(self, **kwargs):
