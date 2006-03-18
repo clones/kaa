@@ -125,6 +125,7 @@ class GuideServer(object):
 
 
     def update(self, backend, *args, **kwargs):
+        log.error('update')
         try:
             exec('import source_%s as backend' % backend)
         except ImportError:
@@ -152,7 +153,7 @@ class GuideServer(object):
             self._load()
             self.signals["updated"].emit()
             self.signals["update_progress"].disconnect(self._update_progress)
-            print "\nProcessed in %.02f seconds." % (time.time()-update_start_time)
+            log.info("Processed in %.02f seconds." % (time.time()-update_start_time))
 
 
     def _wipe(self):
@@ -180,7 +181,8 @@ class GuideServer(object):
         match real channels and EPG data.
         """
 
-        if type(tuner_id) != ListType:
+        log.info('add channel %s %s %s', tuner_id, name, long_name)
+        if type(tuner_id) != ListType and tuner_id:
             tuner_id = [ tuner_id ]
 
         # require at least one field
