@@ -2,13 +2,14 @@ import os
 import logging
 from socket import gethostbyname, gethostname
 
+from kaa.db import QExpr
 from kaa import ipc
 from client import *
 from server import *
 from channel import Channel
 from program import Program
 
-__all__ = [ 'connect', 'Channel', 'Program', 'DEFAULT_EPG_PORT', 'GuideClient', 'GuideServer' ]
+__all__ = [ 'connect', 'Channel', 'Program', 'DEFAULT_EPG_PORT', 'GuideClient', 'GuideServer', 'QExpr' ]
 
 # connected client object
 _client = None
