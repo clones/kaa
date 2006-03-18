@@ -24,7 +24,7 @@ given.  Some examples:
 
 
     # Connect to the guide server (unix socket 'epg')
-    guide = epg2.GuideClient("epg")
+    guide = epg.GuideClient("epg")
 
     # get Channel object for channe 515
     ch = guide.get_channel(515)

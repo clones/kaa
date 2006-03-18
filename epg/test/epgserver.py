@@ -1,7 +1,7 @@
 import logging
 
 import kaa
-from kaa.epg2 import GuideServer
+from kaa.epg import GuideServer
 
 logging.getLogger().setLevel(logging.DEBUG)
 

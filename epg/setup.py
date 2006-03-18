@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# setup.py - setup script for kaa.epg2
+# setup.py - setup script for kaa.epg
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -11,6 +11,7 @@
 # First Edition: Jason Tackaberry <tack@sault.org>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
 #                Jason Tackaberry <tack@sault.org>
+#                Rob Shortt <rob@tvcentric.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,7 +40,7 @@ except ImportError:
     sys.exit(1)
     
 
-setup(module       = 'epg2',
+setup(module       = 'epg',
       version      = '0.1',
       description  = "Python EPG module",
       )

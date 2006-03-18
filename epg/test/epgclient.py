@@ -6,7 +6,7 @@
 
 import os, time, sys, textwrap
 import kaa
-from kaa.epg2 import GuideClient
+from kaa.epg import GuideClient
 
 def update_progress(cur, total):
     n = 0
