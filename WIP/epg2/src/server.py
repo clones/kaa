@@ -125,7 +125,7 @@ class GuideServer(object):
 
 
     def update(self, backend, *args, **kwargs):
-        log.error('update')
+        log.info('update')
         try:
             exec('import source_%s as backend' % backend)
         except ImportError:
