@@ -167,4 +167,5 @@ class GuideClient(object):
     def update(self, *args, **kwargs):
         # updated signal will fire when this call completes.
         kwargs["__ipc_oneway"] = True
+        kwargs["__ipc_noproxy_args"] = True
         self._server.update(*args, **kwargs)
