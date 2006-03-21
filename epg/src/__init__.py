@@ -4,6 +4,7 @@ from channel import Channel
 from program import Program
 from client import Client
 from server import Server
+from util import cmp_channel
 
 __all__ = [ 'connect', 'Channel', 'Program', 'Client', 'Server', 'QExpr',
             'get_channels', 'search' ]
@@ -26,8 +27,13 @@ def connect(address, auth_secret=None):
     return guide
 
 
-def get_channels():
+def get_channels(sort=False):
     if guide:
+        if sort:
+            channels = guide.get_channels()[:]
+            channels.sort(lambda a, b: cmp(a.name, b.name))
+            channels.sort(lambda a, b: cmp_channel(a, b))
+            return channels
         return guide.get_channels()
     return []
 
