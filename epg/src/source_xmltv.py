@@ -1,6 +1,9 @@
 import sys, time, os, calendar
+import logging
 import kaa.notifier
 from kaa import xml
+
+log = logging.getLogger('xmltv')
 
 def timestr2secs_utc(timestr):
     """
@@ -129,7 +132,13 @@ class UpdateInfo:
     pass
 
 def _update_parse_xml_thread(epg, xmltv_file):
-    doc = xml.Document(xmltv_file, 'tv')
+    log.info('parse xml file')
+    try:
+        doc = xml.Document(xmltv_file, 'tv')
+    except:
+        log.exception('error parsing xmltv file')
+        return
+    
     channel_id_to_db_id = {}
     nprograms = 0
 
