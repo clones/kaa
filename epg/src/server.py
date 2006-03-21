@@ -1,36 +1,18 @@
-import libxml2, sys, time, os, weakref, logging
+import sys, time, os, weakref, logging
 from types import ListType
 
 from kaa.db import *
 from kaa import ipc
 from kaa.notifier import Signal
 
-__all__ = ['DEFAULT_EPG_PORT', 'GuideServer']
-
-DEFAULT_EPG_PORT = 4132
+__all__ = [ 'Server']
 
 log = logging.getLogger('epg')
 
-# TODO: merge updates when processing instead of wipe.
 
-class GuideServer(object):
-    def __init__(self, socket, address = None, dbfile = "/tmp/GuideServer.db", 
-                 auth_secret = None, log_file = "/tmp/GuideServer.log", 
-                 log_level = logging.INFO):
+class Server(object):
+    def __init__(self, dbfile):
 
-        # setup logger
-        # TODO: get a better format!  half of my screen is taken up before getting
-        #       to the log message.  A better time format would help, ie:
-        #       '%Y%m%d %H:%M:%S'
-        f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
-                              '%(filename)s %(lineno)s: '+\
-                              '%(message)s')
-        handler = logging.FileHandler(log_file)
-        handler.setFormatter(f)
-        logging.getLogger().addHandler(handler)
-
-        # setup log
-        logging.getLogger().setLevel(log_level)
         log.info('start EPG server')
         log.info('using database in %s', dbfile)
 
@@ -59,27 +41,24 @@ class GuideServer(object):
         self._db = db
         self._load()
         
-        self._ipc = ipc.IPCServer(socket, auth_secret = auth_secret)
+        self._ipc = ipc.IPCServer('epg')
         self._ipc.signals["client_connected"].connect_weak(self._client_connected)
         self._ipc.signals["client_closed"].connect_weak(self._client_closed)
         self._ipc.register_object(self, "guide")
 
         self._ipc_net = None
- 
-        if address and \
-           address.split(':')[0] not in ['127.0.0.1', '0.0.0.0']:
-            # listen on tcp port too
-            if address.find(':') >= 0:
-                host, port = address.split(':', 1)
-            else:
-                host = address
-                port = DEFAULT_EPG_PORT
+            
 
-            self._ipc_net = ipc.IPCServer((host, int(port)), auth_secret = auth_secret)
-            log.info('listening on address %s:%s', host, port)
-            self._ipc_net.signals["client_connected"].connect_weak(self._client_connected)
-            self._ipc_net.signals["client_closed"].connect_weak(self._client_closed)
-            self._ipc_net.register_object(self, "guide")
+    def connect_to_network(self, address, auth_secret=None):
+        # listen on tcp port too
+        host, port = address.split(':', 1)
+
+        self._ipc_net = ipc.IPCServer((host, int(port)), auth_secret = auth_secret)
+        log.info('listening on address %s:%s', host, port)
+        self._ipc_net.signals["client_connected"].connect_weak(self._client_connected)
+        self._ipc_net.signals["client_closed"].connect_weak(self._client_closed)
+        self._ipc_net.register_object(self, "guide")
+        return self._ipc_net.socket.getsockname()
 
 
     def _load(self):
@@ -315,64 +294,3 @@ class GuideServer(object):
 
     def get_num_programs(self):
         return self._num_programs
-
-
-if __name__ == "__main__":
-    # ARGS: log file, log level, db file
-
-    # python imports
-    import gc
-    import sys
-    
-    # kaa imports
-    from kaa.notifier import Timer, execute_in_timer, loop
-    
-    @execute_in_timer(Timer, 1)
-    def garbage_collect():
-        g = gc.collect()
-        if g:
-            log.debug('gc: deleted %s objects' % g)
-        if gc.garbage:
-            log.warning('gc: found %s garbage objects' % len(gc.garbage))
-            for g in gc.garbage:
-                log.warning(g)
-        return True
-
-
-    shutdown_timer = 5
-
-    @execute_in_timer(Timer, 1)
-    def autoshutdown():
-        global shutdown_timer
-        global _server
-
-        #log.debug("clients: %s", len(_server._clients))
-        if _server and len(_server._clients) > 0:
-            shutdown_timer = 5
-            return True
-        shutdown_timer -= 1
-        if shutdown_timer == 0:
-            log.info('shutdown EPG server')
-            sys.exit(0)
-        return True
-    
-    try:
-        # detach for parent using a new sesion
-        os.setsid()
-    except OSError:
-        # looks like we are started from the shell
-        # TODO: start some extra debug here and disable autoshutdown
-        pass
-    
-    if len(sys.argv) < 5:
-        address = None
-    else:
-        address=sys.argv[4]
-
-    _server = GuideServer("epg", log_file=str(sys.argv[1]), 
-                          log_level=int(sys.argv[2]), dbfile=sys.argv[3],
-                          address=sys.argv[4])
-
-    garbage_collect()
-    autoshutdown()
-    loop()

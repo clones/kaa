@@ -1,48 +1,44 @@
-import os
-import logging
-from socket import gethostbyname, gethostname
-
 from kaa.db import QExpr
-from kaa import ipc
-from client import *
-from server import *
+
 from channel import Channel
 from program import Program
+from client import Client
+from server import Server
 
-__all__ = [ 'connect', 'Channel', 'Program', 'DEFAULT_EPG_PORT', 'GuideClient', 'GuideServer', 'QExpr' ]
+__all__ = [ 'connect', 'Channel', 'Program', 'Client', 'Server', 'QExpr',
+            'get_channels', 'search' ]
 
 # connected client object
-_client = None
+guide  = None
+_address = None
 
-def connect(epgdb, address='127.0.0.1', logfile='/tmp/kaa-epg.log', loglevel=logging.INFO):
+def connect(address, auth_secret=None):
     """
     """
-    global _client
+    global guide
+    global _address
+    
+    if guide and guide.connected and _address == address:
+        return guide
 
-    if _client and _client.ping() != False:
-        return _client
-
-    if address.split(':')[0] not in ['127.0.0.1', '0.0.0.0'] and \
-       address.split(':')[0] != gethostbyname(gethostname()):
-        # epg is remote:  host:port
-        if address.find(':') >= 0:
-            host, port = address.split(':', 1)
-        else:
-            host = address
-            port = DEFAULT_EPG_PORT
-
-        # create socket, pass it to client
-        _client = GuideClient((host, int(port)))
-
-    else:
-        # EPG is local, only use unix socket
-
-        # get server filename
-        server = os.path.join(os.path.dirname(__file__), 'server.py')
-
-        _client = ipc.launch([server, logfile, str(loglevel), epgdb, address], 
-                              5, GuideClient, "epg")
-
-    return _client
+    guide = Client(address, auth_secret)
+    _address = address
+    return guide
 
 
+def get_channels():
+    if guide:
+        return guide.get_channels()
+    return []
+
+
+def get_channel(*args, **kwargs):
+    if guide:
+        return guide.get_channel(*args, **kwargs)
+    return []
+
+
+def search(*args, **kwargs):
+    if guide:
+        return guide.search(*args, **kwargs)
+    return []

@@ -7,34 +7,32 @@ from server import *
 from channel import *
 from program import *
 
-__all__ = ['GuideClient']
+__all__ = ['Client']
 
 log = logging.getLogger()
 
 
-class GuideClient(object):
+class Client(object):
     def __init__(self, server_or_socket, auth_secret = None):
-        if type(server_or_socket) == GuideServer:
-            self._server = server_or_socket
-            self._ipc = None
-        else:
-            self._ipc = ipc.IPCClient(server_or_socket, auth_secret = auth_secret)
-            self._server = self._ipc.get_object("guide")
+        self.connected = True
+        self._ipc = ipc.IPCClient(server_or_socket, auth_secret = auth_secret)
+        self._server = self._ipc.get_object("guide")
 
         self.signals = {
             "updated": Signal(),
-            "update_progress": Signal()
+            "update_progress": Signal(),
+            "disconnected": Signal()
         }
-    
+
         self._load()
+        self._ipc.signals["closed"].connect(self._disconnected)
         self._server.signals["updated"].connect(self._updated)
         self._server.signals["update_progress"].connect(self.signals["update_progress"].emit)
 
-    def ping(self):
-        if self._ipc:
-            return self._ipc.ping()
-        else:
-            return False
+    def _disconnected(self):
+        self.connected = False
+        self.signals["disconnected"].emit()
+
         
     def _updated(self):
         self._load()
