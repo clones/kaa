@@ -79,6 +79,9 @@ class Client(object):
 
 
     def search(self, **kwargs):
+        if not self.connected:
+            return []
+
         if "channel" in kwargs:
             ch = kwargs["channel"]
             if type(ch) == Channel:
@@ -163,6 +166,9 @@ class Client(object):
         return self._channels_list
 
     def update(self, *args, **kwargs):
+        if not self.connected:
+            return False
+        
         # updated signal will fire when this call completes.
         kwargs["__ipc_oneway"] = True
         kwargs["__ipc_noproxy_args"] = True

@@ -1,3 +1,5 @@
+import logging
+
 from kaa.db import QExpr
 
 from channel import Channel
@@ -7,23 +9,22 @@ from server import Server
 from util import cmp_channel
 
 __all__ = [ 'connect', 'Channel', 'Program', 'Client', 'Server', 'QExpr',
-            'get_channels', 'search' ]
+            'get_channels', 'get_channel', 'search' ]
+
+log = logging.getLogger('epg')
 
 # connected client object
-guide  = None
-_address = None
+guide = None
 
 def connect(address, auth_secret=None):
     """
     """
     global guide
-    global _address
     
-    if guide and guide.connected and _address == address:
-        return guide
+    if guide and guide.connected:
+        log.warning('connecting to a new epg database')
 
     guide = Client(address, auth_secret)
-    _address = address
     return guide
 
 
@@ -46,5 +47,8 @@ def get_channel(*args, **kwargs):
 
 def search(*args, **kwargs):
     if guide:
-        return guide.search(*args, **kwargs)
+        try:
+            return guide.search(*args, **kwargs)
+        except Exception, e:
+            log.exception('kaa.epg.search failed')
     return []
