@@ -1,3 +1,4 @@
+import os
 import logging
 
 from kaa.db import QExpr
@@ -7,9 +8,10 @@ from program import Program
 from client import Client
 from server import Server
 from util import cmp_channel
+from source import sources
 
 __all__ = [ 'connect', 'Channel', 'Program', 'Client', 'Server', 'QExpr',
-            'get_channels', 'get_channel', 'search' ]
+            'get_channels', 'get_channel', 'search', 'sources' ]
 
 log = logging.getLogger('epg')
 
