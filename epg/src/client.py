@@ -2,7 +2,7 @@ import libxml2, sys, time, os, weakref, cPickle
 import logging
 
 from kaa import ipc, db
-from kaa.notifier import Signal
+from kaa.notifier import Signal, OneShotTimer, execute_in_timer
 from server import *
 from channel import *
 from program import *
@@ -26,19 +26,31 @@ class Client(object):
 
         self._load()
         self._ipc.signals["closed"].connect(self._disconnected)
+
+        # Connect to server signals. The callbacks itself are called with
+        # a OneShotTimer to avoid some strange problems because of the ipc
+        # code (the server will wait for the return)
+        # FIXME: this whole signals over ipc stuff is ugly
         self._server.signals["updated"].connect(self._updated)
-        self._server.signals["update_progress"].connect(self.signals["update_progress"].emit)
+        self._server.signals["update_progress"].connect(self._update_progress)
+
 
     def _disconnected(self):
         self.connected = False
         self.signals["disconnected"].emit()
 
-        
+
+    execute_in_timer(OneShotTimer, 0)
     def _updated(self):
         self._load()
         self.signals["updated"].emit()
 
 
+    execute_in_timer(OneShotTimer, 0)
+    def _update_progress(self):
+        self.signals["update_progress"].emit()
+
+        
     def _load(self):
         self._channels_by_name = {}
         self._channels_by_db_id = {}
@@ -61,6 +73,7 @@ class Client(object):
                     self._channels_by_tuner_id[t] = chan
             self._channels_list.append(chan)
 
+        # get attributes from server and store local
         self._max_program_length = self._server.get_max_program_length()
         self._num_programs = self._server.get_num_programs()
 
