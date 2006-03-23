@@ -90,7 +90,7 @@ def parse_channel(info):
 
 
 ATTR_MAPPING = {
-    'desc': 'description',
+    'desc': 'desc',
     'sub-title': 'subtitle',
     'episode-num': 'episode',
     'category': 'genre' }

@@ -153,7 +153,7 @@ def parse_schedule(node, info):
     d["rating"] = str_to_unicode(node.prop("tvRating"))
 
     info.epg._add_program_to_db(info.stations_by_id[d["station_id"]]["db_id"], d["start"],
-                           d["stop"], d.get("title"), description=d.get("desc"))
+                           d["stop"], d.get("title"), desc=d.get("desc"))
 
 
 def parse_program(node, info):
