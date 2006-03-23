@@ -1,4 +1,5 @@
 import sys, time, os, calendar
+import shutil
 import logging
 import kaa.notifier
 from kaa import xml
@@ -184,12 +185,42 @@ def parse_programme(info):
 class UpdateInfo:
     pass
 
-def _update_parse_xml_thread(epg, xmltv_file):
+def _update_parse_xml_thread(epg):
+    if config.grabber:
+        log.info('grabbing listings using %s', config.grabber)
+        xmltv_file = os.path.join(kaa.TEMP, 'TV.xml')
+        log_file = os.path.join(kaa.TEMP, 'TV.xml.log')
+        # TODO: using os.system is ugly because it blocks ... but we can make this
+        # nicer using kaa.notifier.Process later. We are inside a thread so it
+        # seems to be ok.
+        ec = os.system('%s --output %s --days %s >%s 2>%s' % \
+                       (config.grabber, xmltv_file, config.days, log_file, log_file))
+        if not os.path.exists(xmltv_file) or ec:
+            log.error('grabber failed, see %s', log_file)
+            epg.signals["updated"].emit()
+            return
+
+        if config.sort:
+            log.info('sorting listings')
+            shutil.move(xmltv_file, xmltv_file + '.tmp')
+            os.system('%s --output %s %s.tmp >>%s 2>>%s' % \
+                      (config.sort, xmltv_file, xmltv_file, log_file, log_file))
+            os.unlink(xmltv_file + '.tmp')
+            if not os.path.exists(xmltv_file):
+                log.error('sorting failed, see %s', log_file)
+                epg.signals["updated"].emit()
+                return
+        else:
+            log.info('not configured to use tv_sort, skipping')
+    else:
+        xmltv_file = str(config.data_file)
+
     log.info('parse xml file')
     try:
         doc = xml.Document(xmltv_file, 'tv')
     except:
         log.exception('error parsing xmltv file')
+        epg.signals["updated"].emit()
         return
     
     channel_id_to_db_id = {}
@@ -237,11 +268,10 @@ def _update_process_step(info):
     
 
 def update(epg):
-    if not config.data_file:
-        log.error('XMLTV gabber not supported yet. Please download the')
-        log.error('file manually and set xmltv.data_file')
+    if not config.data_file and not config.grabber:
+        log.error('XMLTV gabber not configured.')
         epg.signals["updated"].emit()
         return False
-    thread = kaa.notifier.Thread(_update_parse_xml_thread, epg, str(config.data_file))
+    thread = kaa.notifier.Thread(_update_parse_xml_thread, epg)
     thread.start()
     return True
