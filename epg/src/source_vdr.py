@@ -37,12 +37,66 @@ import logging
 # kaa imports
 from kaa import strutils
 import kaa.notifier
+from kaa.config import Var, Group
 
 # vdr imports
 from vdr.vdr import VDR
 
 # get logging object
 log = logging.getLogger('epg')
+
+
+# Source configuration
+config = \
+       Group(name='vdr', desc=u'''
+       VDR settings
+       
+       Add more doc here please!
+       ''',
+             desc_type='group',
+             schema = [
+
+    Var(name='activate',
+        default=False,
+        desc=u'Use VDR to populate the database.'),
+
+    Var(name='dir',
+        default='/video',
+        desc=u'VDR main directory.'),
+
+    Var(name='channels_file',
+        default='channels.conf',
+        desc=u'VDR channels file name.'),
+    
+    Var(name='epg_file',
+        default='epg.data',
+        desc=u'VDR EPG file name.'
+       ),
+
+    Var(name='host',
+        default='localhost',
+        desc=u'VDR SVDRP host.'
+       ),
+    
+    Var(name='port',
+        default=2001,
+        desc=u'VDR SVDRP port.'
+       ),
+
+    Var(name='access_by',
+        type=('name', 'sid' 'rid'),
+        default='sid',
+        desc=u'Which field to access channels by: name, sid (service id), \n'+
+        u'or rid (radio id).'
+       ),
+
+    Var(name='limit_channels',
+        type=('epg', 'chan' 'both'),
+        default='chan',
+        desc=u'Limit channels added to those found in the EPG file, the \n'+
+        u'channels file, or both.  Values: epg, chan, both'
+       ),
+    ])
 
 
 class UpdateInfo:

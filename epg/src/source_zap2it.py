@@ -2,11 +2,37 @@ import libxml2
 import md5, time, httplib, gzip, calendar
 from StringIO import StringIO
 from kaa.strutils import str_to_unicode
+from kaa.config import Var, Group
 import kaa
 
 ZAP2IT_HOST = "datadirect.webservices.zap2it.com:80"
 ZAP2IT_URI = "/tvlistings/xtvdService"
 
+# Source configuration
+config = \
+       Group(name='zap2it', desc='''
+       Zap2it settings
+       
+       Add more doc here please!
+       ''',
+             desc_type='group',
+             schema = [
+
+    Var(name='activate',
+        default=False,
+        desc='Use Zap2it service to populate database.'
+       ), 
+
+    Var(name='username',
+        default='',
+        desc='Zap2it username.'
+       ),
+
+    Var(name='password',
+        default='',
+        desc='Zap2it password.'
+       ),
+    ])
 
 def H(m):
     return md5.md5(m).hexdigest()
@@ -239,12 +265,13 @@ def _update_process_step(info):
     if not info.node and not info.roots:
         info.epg.signals["update_progress"].emit(info.total, info.total)
         info.doc.freeDoc()
+        info.epg.signals["updated"].emit()
         return False
 
     return True
 
 
-def update(epg, username, passwd, start = None, stop = None):
+def update(epg, start = None, stop = None):
     if not start:
         # If start isn't specified, choose current time (rounded down to the 
         # nearest hour).
@@ -253,5 +280,8 @@ def update(epg, username, passwd, start = None, stop = None):
         # If stop isn't specified, use 24 hours after start.
         stop = start + (24 * 60 * 60)
 
-    thread = kaa.notifier.Thread(_update_parse_xml_thread, epg, username, passwd, start, stop)
+    thread = kaa.notifier.Thread(_update_parse_xml_thread, epg,
+                                 str(config.username), str(config.password),
+                                 start, stop)
     thread.start()
+    return True
