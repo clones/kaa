@@ -1,21 +1,58 @@
-import sys, time, os, weakref, logging
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# server.py - server part of the epg
+# -----------------------------------------------------------------------------
+# $Id$
+# -----------------------------------------------------------------------------
+# kaa.epg - EPG Database
+# Copyright (C) 2004-2005 Jason Tackaberry, Dirk Meyer, Rob Shortt
+#
+# First Edition: Jason Tackaberry <tack@sault.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#                Rob Shortt <rob@tvcentric.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+## You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+__all__ = [ 'Server']
+
+# python imports
+import logging
 from types import ListType
 
+# kaa imports
 from kaa.db import *
 from kaa import ipc
 from kaa.notifier import Signal
 
-__all__ = [ 'Server']
-
-log = logging.getLogger('epg')
-
+# kaa.epg imports
 from source import sources
 
+# get logging object
+log = logging.getLogger('epg')
+
 class Server(object):
+    """
+    Server class for the epg.
+    """
     def __init__(self, dbfile):
 
         log.info('start EPG server')
         log.info('using database in %s', dbfile)
+
+        # create the db and register objects
 
         db = Database(dbfile)
         db.register_object_type_attrs("channel",
@@ -23,7 +60,7 @@ class Server(object):
             name = (unicode, ATTR_SEARCHABLE),
             long_name  = (unicode, ATTR_SEARCHABLE),
         )
-        db.register_object_type_attrs("program", 
+        db.register_object_type_attrs("program",
             [ ("start", "stop") ],
             title = (unicode, ATTR_KEYWORDS),
             desc = (unicode, ATTR_KEYWORDS),
@@ -44,17 +81,22 @@ class Server(object):
         self._clients = []
         self._db = db
         self._load()
-        
+
+        # ipc connection
         self._ipc = ipc.IPCServer('epg')
         self._ipc.signals["client_connected"].connect_weak(self._client_connected)
         self._ipc.signals["client_closed"].connect_weak(self._client_closed)
         self._ipc.register_object(self, "guide")
 
         self._ipc_net = None
-            
+
 
     def connect_to_network(self, address, auth_secret=None):
-        # listen on tcp port too
+        """
+        Start a network connection (tcp) with the given address and secret.
+        The function will return addr/port so you can set port to 0 to let the
+        system choose one.
+        """
         host, port = address.split(':', 1)
 
         self._ipc_net = ipc.IPCServer((host, int(port)), auth_secret = auth_secret)
@@ -66,13 +108,16 @@ class Server(object):
 
 
     def _load(self):
+        """
+        Load some basic information from the db.
+        """
         self._max_program_length = self._num_programs = 0
         q = "SELECT stop-start AS length FROM objects_program ORDER BY length DESC LIMIT 1"
-        res = self.get_db()._db_query(q)
+        res = self._db._db_query(q)
         if len(res):
             self._max_program_length = res[0][0]
 
-        res = self.get_db()._db_query("SELECT count(*) FROM objects_program")
+        res = self._db._db_query("SELECT count(*) FROM objects_program")
         if len(res):
             self._num_programs = res[0][0]
 
@@ -96,6 +141,9 @@ class Server(object):
 
 
     def _client_closed(self, client):
+        """
+        Callback when a client disconnects from ipc.
+        """
         for signal in self.signals.values():
             for callback in signal:
                 if ipc.get_ipc_from_proxy(callback) == client:
@@ -108,6 +156,9 @@ class Server(object):
 
 
     def update(self, backend, *args, **kwargs):
+        """
+        Start epg update calling the source_* files.
+        """
         if not sources.has_key(backend):
             raise ValueError, "No such update backend '%s'" % backend
         log.info('update backend %s', backend)
@@ -118,14 +169,14 @@ class Server(object):
         """
         This method requires at least one of tuner_id, name, long_name.
         Depending on the source (various XMLTV sources, Zap2it, etc.) not all
-        of the information we would like is available.  Also, channels are 
-        perceived differently around the world and handled differently by 
+        of the information we would like is available.  Also, channels are
+        perceived differently around the world and handled differently by
         differnent systems (DVB, analog TV).
 
         Following the KISS philosophy (Keep It Simple Stupid) we can follow some
         simple rules.
 
-        The most important field here is name.  If there's no name 
+        The most important field here is name.  If there's no name
         we make it based on tuner_id or long_name.  If there's no long_name we
         base that on name or tuner_id.  If there's no tuner_id it does
         not matter because we will then always have a value for name.
@@ -148,17 +199,17 @@ class Server(object):
                 name = tuner_id[0]
             else:
                 name = long_name
-             
+
         if not long_name:
             # then there must be one of the others
             if name:
                 long_name = name
             elif tuner_id:
                 long_name = tuner_id[0]
-             
+
         if not tuner_id:
             tuner_id = [ name ]
-             
+
 
         c2 = self._db.query(type = "channel", name = name)
         if len(c2):
@@ -189,23 +240,25 @@ class Server(object):
             else:
                 self._tuner_ids.append(t)
 
-        o = self._db.add_object("channel", 
-                                tuner_id = tuner_id,
-                                name = name,
+        o = self._db.add_object("channel", tuner_id = tuner_id, name = name,
                                 long_name = long_name)
         return o["id"]
 
 
     def _add_program_to_db(self, channel_db_id, start, stop, title, **attributes):
+        """
+        Add a program to the db. This could cause removing older programs
+        overlapping.
+        """
         start = int(start)
         stop = int(stop)
-        
+
         # Find all programs that have a start or stop during this program
         s1 = self._db.query(parent = ("channel", channel_db_id), type = "program",
                             start = QExpr("range", (start, stop-1)))
         s2 = self._db.query(parent = ("channel", channel_db_id), type = "program",
                             stop = QExpr("range", (start+1, stop)))
-        
+
         # In a perfect world this program is already in the db and is in s1 and
         # s2 and both lists have a length of 1
         if len(s1) == len(s2) == 1 and start == s1[0]['start'] == s2[0]['start'] and \
@@ -233,7 +286,7 @@ class Server(object):
         # Now add the new program
         log.info('adding program: %s', title)
         o = self._db.add_object("program", parent = ("channel", channel_db_id),
-                                start = start, stop = stop, title = title, 
+                                start = start, stop = stop, title = title,
                                 **attributes)
 
         if stop - start > self._max_program_length:
@@ -242,6 +295,9 @@ class Server(object):
 
 
     def query(self, **kwargs):
+        """
+        Query the db.
+        """
         if "channel" in kwargs:
             if type(kwargs["channel"]) in (list, tuple):
                 kwargs["parent"] = [("channel", x) for x in kwargs["channel"]]
@@ -257,13 +313,15 @@ class Server(object):
         return res
 
 
-    def get_db(self):
-        return self._db
-
-
     def get_max_program_length(self):
+        """
+        Get maximum program length
+        """
         return self._max_program_length
 
 
     def get_num_programs(self):
+        """
+        Get number of programs in the db.
+        """
         return self._num_programs

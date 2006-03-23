@@ -1,18 +1,51 @@
-import libxml2, sys, time, os, weakref, cPickle
-import logging
-
-from kaa import ipc, db
-from kaa.notifier import Signal, OneShotTimer, execute_in_timer
-from server import *
-from channel import *
-from program import *
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# client.py - client part of the epg
+# -----------------------------------------------------------------------------
+# $Id$
+# -----------------------------------------------------------------------------
+# kaa.epg - EPG Database
+# Copyright (C) 2004-2005 Jason Tackaberry, Dirk Meyer, Rob Shortt
+#
+# First Edition: Jason Tackaberry <tack@sault.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#                Rob Shortt <rob@tvcentric.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+## You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
 
 __all__ = ['Client']
 
-log = logging.getLogger()
+# python imports
+import logging
 
+# kaa imports
+from kaa import ipc, db
+from kaa.notifier import Signal, OneShotTimer, execute_in_timer
+
+# kaa.epg imports
+from channel import Channel
+from program import Program
+
+# get logging object
+log = logging.getLogger('epg')
 
 class Client(object):
+    """
+    EPG client class to access the epg on server side.
+    """
     def __init__(self, server_or_socket, auth_secret = None):
         self.connected = True
         self._ipc = ipc.IPCClient(server_or_socket, auth_secret = auth_secret)
@@ -36,22 +69,34 @@ class Client(object):
 
 
     def _disconnected(self):
+        """
+        Signal callback when server disconnects.
+        """
         self.connected = False
         self.signals["disconnected"].emit()
 
 
     execute_in_timer(OneShotTimer, 0)
     def _updated(self):
+        """
+        Signal callback when update is done.
+        """
         self._load()
         self.signals["updated"].emit()
 
 
     execute_in_timer(OneShotTimer, 0)
     def _update_progress(self, *args, **kwargs):
+        """
+        Signal callback when update is in progress.
+        """
         self.signals["update_progress"].emit(*args, **kwargs)
 
         
     def _load(self):
+        """
+        (re)load some static information
+        """
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
@@ -79,6 +124,9 @@ class Client(object):
 
 
     def _program_rows_to_objects(self, query_data):
+        """
+        Convert raw search result data from the server into python objects.
+        """
         cols = "parent_id", "id", "start", "stop", "title", "desc", \
                "subtitle", "episode", "genre", "rating"
         results = []
@@ -92,6 +140,11 @@ class Client(object):
 
 
     def search(self, **kwargs):
+        """
+        Search the db. This will call the search function on server side using
+        kaa.ipc. Notice: this will call kaa.notifier.step() until the result
+        arrives.
+        """
         if not self.connected:
             return []
 
@@ -102,6 +155,7 @@ class Client(object):
             elif type(ch) == tuple and len(ch) == 2:
                 kwargs["channel"] = db.QExpr("range", (ch[0].db_id, ch[1].db_id))
             else:
+                # FIXME: this is ugly. Why not a longer list?
                 raise ValueError, "channel must be Channel object or tuple of 2 Channel objects"
 
         if "time" in kwargs:
@@ -155,30 +209,58 @@ class Client(object):
 
 
     def get_channel(self, name):
+        """
+        Get channel by name.
+        """
         if name not in self._channels_by_name:
             return None
         return self._channels_by_name[name]
 
+
     def get_channel_by_db_id(self, db_id):
+        """
+        Get channel by database id.
+        """
         if db_id not in self._channels_by_db_id:
             return None
         return self._channels_by_db_id[db_id]
 
+
     def get_channel_by_tuner_id(self, tuner_id):
+        """
+        Get channel by tuner id.
+        """
         if tuner_id not in self._channels_by_tuner_id:
             return None
         return self._channels_by_tuner_id[tuner_id]
 
+
     def get_max_program_length(self):
+        """
+        Get maximum program length
+        """
         return self._max_program_length
 
+
     def get_num_programs(self):
+        """
+        Get number of programs in the db.
+        """
         return self._num_programs
 
+
     def get_channels(self):
+        """
+        Get all channels
+        """
         return self._channels_list
 
+
     def update(self, *args, **kwargs):
+        """
+        Update the database. This will call the update function in the server
+        and the server needs to be configured for that.
+        """
         if not self.connected:
             return False
         
