@@ -9,6 +9,7 @@ __all__ = [ 'Server']
 
 log = logging.getLogger('epg')
 
+from source import sources
 
 class Server(object):
     def __init__(self, dbfile):
@@ -107,41 +108,10 @@ class Server(object):
 
 
     def update(self, backend, *args, **kwargs):
-        log.info('update')
-        try:
-            exec('import source_%s as backend' % backend)
-        except ImportError:
+        if not sources.has_key(backend):
             raise ValueError, "No such update backend '%s'" % backend
-
-        # TODO: delte old programs
-        # self._wipe()
-        self.signals["update_progress"].connect_weak(self._update_progress, time.time())
-        backend.update(self, *args, **kwargs)
-
-
-    def _update_progress(self, cur, total, update_start_time):
-        if total <= 0:
-            # Processing something, but don't yet know how much
-            n = 0
-        else:
-            n = int((cur / float(total)) * 50)
-
-        # Temporary: output progress status to stdout.
-        # sys.stdout.write("|%51s| %d / %d\r" % (("="*n + ">").ljust(51), cur, total))
-        # sys.stdout.flush()
-
-        if cur == total:
-            self._db.commit()
-            self._load()
-            self.signals["updated"].emit()
-            self.signals["update_progress"].disconnect(self._update_progress)
-            log.info("Processed in %.02f seconds." % (time.time()-update_start_time))
-
-
-    def _wipe(self):
-        t0=time.time()
-        self._db.delete_by_query()
-        self._channel_id_to_db_id = {}
+        log.info('update backend %s', backend)
+        return sources[backend].update(self, *args, **kwargs)
 
 
     def _add_channel_to_db(self, tuner_id, name, long_name):
