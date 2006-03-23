@@ -47,8 +47,8 @@ class Client(object):
 
 
     execute_in_timer(OneShotTimer, 0)
-    def _update_progress(self):
-        self.signals["update_progress"].emit()
+    def _update_progress(self, *args, **kwargs):
+        self.signals["update_progress"].emit(*args, **kwargs)
 
         
     def _load(self):
