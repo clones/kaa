@@ -1,18 +1,53 @@
-import sys, time, os, calendar
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# source_xmltv.py - XMLTV source for the epg
+# -----------------------------------------------------------------------------
+# $Id$
+# -----------------------------------------------------------------------------
+# kaa.epg - EPG Database
+# Copyright (C) 2004-2005 Jason Tackaberry, Dirk Meyer, Rob Shortt
+#
+# First Edition: Jason Tackaberry <tack@sault.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#                Rob Shortt <rob@tvcentric.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+## You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+__all__ = [ 'config', 'update' ]
+
+# Python imports
+import time
+import os
+import calendar
 import shutil
 import logging
-import kaa.notifier
+
+# kaa imports
 from kaa import xml
-
 from kaa.config import Var, Group
+from kaa.notifier import Timer, Thread
 
+# get logging object
 log = logging.getLogger('xmltv')
 
-# Source configuration
+# configuration
 config = \
        Group(name='xmltv', desc='''
        XMLTV settings
-       
+
        You can use a xmltv rabber to populate the epg database. To activate the xmltv
        grabber you need to set 'activate' to True and specify a data_file which already
        contains the current listing or define a grabber to fetch the listings.
@@ -21,7 +56,7 @@ config = \
        ''',
              desc_type='group',
              schema = [
-    
+
     Var(name='activate',
         default=False,
         desc='Use XMLTV file to populate database.'
@@ -106,6 +141,9 @@ def timestr2secs_utc(timestr):
 
 
 def parse_channel(info):
+    """
+    Parse channel information
+    """
     channel_id = info.node.getattr('id')
     channel = station = name = display = None
 
@@ -136,6 +174,7 @@ def parse_channel(info):
     info.channel_id_to_db_id[channel_id] = [db_id, None]
 
 
+# mapping for xmltv -> epgdb
 ATTR_MAPPING = {
     'desc': 'desc',
     'sub-title': 'subtitle',
@@ -143,6 +182,9 @@ ATTR_MAPPING = {
     'category': 'genre' }
 
 def parse_programme(info):
+    """
+    Parse a program node.
+    """
     channel_id = info.node.getattr('channel')
     if channel_id not in info.channel_id_to_db_id:
         log.warning("Program exists for unknown channel '%s'" % channel_id)
@@ -150,7 +192,7 @@ def parse_programme(info):
 
     title = None
     attr = {}
-    
+
     for child in info.node.children:
         if child.name == "title":
             title = child.content
@@ -161,7 +203,7 @@ def parse_programme(info):
             attr['date'] = int(time.mktime(time.strptime(child.content, fmt)))
         elif child.name in ATTR_MAPPING.keys():
             attr[ATTR_MAPPING[child.name]] = child.content
-            
+
     if not title:
         return
 
@@ -180,12 +222,19 @@ def parse_programme(info):
     else:
         stop = timestr2secs_utc(info.node.getattr("stop"))
         info.epg._add_program_to_db(db_id, start, stop, title, **attr)
- 
+
 
 class UpdateInfo:
+    """
+    Simple class holding information we need for update information.
+    """
     pass
 
+
 def _update_parse_xml_thread(epg):
+    """
+    Thread to parse the xml file. It will also call the grabber if needed.
+    """
     if config.grabber:
         log.info('grabbing listings using %s', config.grabber)
         xmltv_file = os.path.join(kaa.TEMP, 'TV.xml')
@@ -213,8 +262,9 @@ def _update_parse_xml_thread(epg):
         else:
             log.info('not configured to use tv_sort, skipping')
     else:
-        xmltv_file = str(config.data_file)
+        xmltv_file = config.data_file
 
+    # Now we have a xmltv file and need to parse it
     log.info('parse xml file')
     try:
         doc = xml.Document(xmltv_file, 'tv')
@@ -222,7 +272,7 @@ def _update_parse_xml_thread(epg):
         log.exception('error parsing xmltv file')
         epg.signals["updated"].emit()
         return
-    
+
     channel_id_to_db_id = {}
     nprograms = 0
 
@@ -239,12 +289,17 @@ def _update_parse_xml_thread(epg):
     info.epg = epg
     info.progress_step = info.total / 100
 
-    timer = kaa.notifier.Timer(_update_process_step, info)
+    # start parser in main loop again, thread is done
+    timer = Timer(_update_process_step, info)
     timer.set_prevent_recursion()
     timer.start(0)
-    
+
 
 def _update_process_step(info):
+    """
+    Step in main loop for the parsing of the xmltv file. This function
+    will be called in a Timer until everything is parsed.
+    """
     t0 = time.time()
     while info.node:
         if info.node.name == "channel":
@@ -257,6 +312,7 @@ def _update_process_step(info):
 
         info.node = info.node.get_next()
         if time.time() - t0 > 0.1:
+            # time to return to the main loop
             break
 
     if not info.node:
@@ -265,13 +321,17 @@ def _update_process_step(info):
         return False
 
     return True
-    
+
 
 def update(epg):
+    """
+    Interface to source_xmltv. This function will start the update
+    process.
+    """
     if not config.data_file and not config.grabber:
         log.error('XMLTV gabber not configured.')
         epg.signals["updated"].emit()
         return False
-    thread = kaa.notifier.Thread(_update_parse_xml_thread, epg)
+    thread = Thread(_update_parse_xml_thread, epg)
     thread.start()
     return True
