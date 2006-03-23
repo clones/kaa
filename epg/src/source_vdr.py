@@ -136,7 +136,8 @@ def _update_process_step(info):
                 desc = ''
 
             info.epg._add_program_to_db(chan_db_id, e.start, int(e.start+e.dur),
-                                        strutils.str_to_unicode(e.title), strutils.str_to_unicode(desc))
+                                        strutils.str_to_unicode(e.title),
+                                        description=strutils.str_to_unicode(desc))
 
             info.cur +=1
             if info.cur % info.progress_step == 0:

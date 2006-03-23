@@ -89,25 +89,32 @@ def parse_channel(info):
     info.channel_id_to_db_id[channel_id] = [db_id, None]
 
 
+ATTR_MAPPING = {
+    'desc': 'description',
+    'sub-title': 'subtitle',
+    'episode-num': 'episode',
+    'category': 'genre' }
+
 def parse_programme(info):
     channel_id = info.node.getattr('channel')
     if channel_id not in info.channel_id_to_db_id:
         log.warning("Program exists for unknown channel '%s'" % channel_id)
         return
 
-    title = date = desc = None
-
+    title = None
+    attr = {}
+    
     for child in info.node.children:
         if child.name == "title":
             title = child.content
-        elif child.name == "desc":
-            desc = child.content
         elif child.name == "date":
             fmt = "%Y-%m-%d"
             if len(child.content) == 4:
                 fmt = "%Y"
-            date = time.mktime(time.strptime(child.content, fmt))
-
+            attr['date'] = int(time.mktime(time.strptime(child.content, fmt)))
+        elif child.name in ATTR_MAPPING.keys():
+            attr[ATTR_MAPPING[child.name]] = child.content
+            
     if not title:
         return
 
@@ -119,13 +126,13 @@ def parse_programme(info):
         # XXX This only works in sorted files. I guess it is ok to force the
         # user to run tv_sort to fix this. And IIRC tv_sort also takes care of
         # this problem.
-        last_start, last_title, last_desc = last_prog
-        info.epg._add_program_to_db(db_id, last_start, start, last_title, last_desc)
+        last_start, last_title, last_attr = last_prog
+        info.epg._add_program_to_db(db_id, last_start, start, last_title, **last_attr)
     if not info.node.getattr("stop"):
-        info.channel_id_to_db_id[channel_id][1] = (start, title, desc)
+        info.channel_id_to_db_id[channel_id][1] = (start, title, attr)
     else:
         stop = timestr2secs_utc(info.node.getattr("stop"))
-        info.epg._add_program_to_db(db_id, start, stop, title, desc)
+        info.epg._add_program_to_db(db_id, start, stop, title, **attr)
  
 
 class UpdateInfo:

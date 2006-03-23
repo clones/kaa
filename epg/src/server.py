@@ -26,9 +26,12 @@ class Server(object):
             [ ("start", "stop") ],
             title = (unicode, ATTR_KEYWORDS),
             desc = (unicode, ATTR_KEYWORDS),
-            date = (int, ATTR_SEARCHABLE),
             start = (int, ATTR_SEARCHABLE),
             stop = (int, ATTR_SEARCHABLE),
+            episode = (unicode, ATTR_SIMPLE),
+            subtitle = (unicode, ATTR_SIMPLE),
+            genre = (unicode, ATTR_SIMPLE),
+            date = (int, ATTR_SEARCHABLE),
             ratings = (dict, ATTR_SIMPLE)
         )
 
@@ -223,7 +226,7 @@ class Server(object):
         return o["id"]
 
 
-    def _add_program_to_db(self, channel_db_id, start, stop, title, desc):
+    def _add_program_to_db(self, channel_db_id, start, stop, title, **attributes):
         start = int(start)
         stop = int(stop)
         
@@ -239,10 +242,10 @@ class Server(object):
                stop == s1[0]['stop'] == s2[0]['stop']:
             # yes, update object if it is different
             prg = s1[0]
-            if prg['title'] != title and prg['desc'] != desc:
+            if prg['title'] != title:
                 log.info('update %s', title)
                 self._db.update_object(("program", prg["id"]), start = start,
-                                       stop = stop, title = title, desc = desc)
+                                       stop = stop, title = title, **attributes)
             return prg["id"]
 
         removed = []
@@ -261,7 +264,7 @@ class Server(object):
         log.info('adding program: %s', title)
         o = self._db.add_object("program", parent = ("channel", channel_db_id),
                                 start = start, stop = stop, title = title, 
-                                desc = desc, ratings = 42)
+                                **attributes)
 
         if stop - start > self._max_program_length:
             self._max_program_length = stop = start
