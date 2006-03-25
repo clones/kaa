@@ -1,11 +1,11 @@
 import os
 import sys
 import kaa
-import kaa.vfs
+import kaa.beacon
 import logging
 
 # simple connect
-kaa.vfs.connect(os.path.expanduser("~/.vfs"))
+kaa.beacon.connect(os.path.expanduser("~/.beacon"))
 
 checked  = []
 to_check = []
@@ -34,7 +34,7 @@ def check():
 def next(q):
     q.monitor(False)
     for f in q:
-        if f._vfs_isdir:
+        if f._beacon_isdir:
             for i in checked + to_check:
                 if f.filename == i.filename:
                     break
@@ -43,7 +43,7 @@ def next(q):
     check()
     
 
-to_check.append(kaa.vfs.get(sys.argv[1]))
+to_check.append(kaa.beacon.get(sys.argv[1]))
 
 check()
 

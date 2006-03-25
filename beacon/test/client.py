@@ -1,4 +1,4 @@
-import kaa.vfs
+import kaa.beacon
 import sys
 import os
 import kaa
@@ -7,15 +7,15 @@ import time
 def msg(*args):
     print '>>>>>>>>>', args
     
-kaa.vfs.connect(os.path.expanduser("~/.vfs"))
+kaa.beacon.connect(os.path.expanduser("~/.beacon"))
 
 a = u'Inkubus Sukkubus'
 #a = u'Bif Naked'
 
 t1 = time.time()
-result = kaa.vfs.get(sys.argv[1]).listdir()
-# result = kaa.vfs.query(artist=a)
-# result = kaa.vfs.query(attr='album', type='audio')
+result = kaa.beacon.get(sys.argv[1]).listdir()
+# result = kaa.beacon.query(artist=a)
+# result = kaa.beacon.query(attr='album', type='audio')
 t2 = time.time()
 
 result.signals['changed'].connect(msg, 'changed')
