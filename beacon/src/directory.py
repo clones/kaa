@@ -126,6 +126,8 @@ class Directory(Item):
             result = []
         result += [ ( x, False ) for x in listdir if not x.startswith('.') ]
         result.sort(lambda x,y: cmp(x[0], y[0]))
+        if hasattr(self, '_beacon_os_listdir_cache'):
+            del self._beacon_os_listdir_cache
         return result
 
 
