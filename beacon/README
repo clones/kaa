@@ -1,8 +1,8 @@
-Small API doc for kaa.vfs. Some parts are still missing but everything
+Small API doc for kaa.beacon. Some parts are still missing but everything
 written here should work. The variable / function names may change in
 the future. 
 
-DO NOT ACCESS ANY MEMBER FUNCTIONS OR VARIABLES STARTING WIRH _vfs!!!
+DO NOT ACCESS ANY MEMBER FUNCTIONS OR VARIABLES STARTING WIRH _beacon!!!
 They are for internal use only and you can do stuff with the db you
 should not be able to do.
 
@@ -12,7 +12,7 @@ Fill the database
 You can use the monitor stuff (I will explain later) or you can use
 the cache test app to fill the database. Open cache.py in the test dir
 and change the db path to the localtion of your database
-(e.g. /var/lib/freevo/vfsdb). After that call python cache.py with a
+(e.g. /var/lib/freevo/beacondb). After that call python cache.py with a
 directory as argument. The test app will recursive add the files to
 the database.
 
@@ -24,20 +24,20 @@ directory object and call the listdir() memeber function. You get a
 Query object in return. Besides some monitoring stuff, the class has
 an interator to walk through the list of results:
 
-| kaa.vfs.connect('/var/lib/freevo/vfsdb')
-| directory = kaa.vfs.get('/home/mp3')
+| kaa.beacon.connect('/var/lib/freevo/beacondb')
+| directory = kaa.beacon.get('/home/mp3')
 | listing = directory.listdir()
 | for item in listing:
 |     print item
 
 Item is an object of the type Item (or higher classes like File or
 Directory. You will be able to change that in later versions of
-kaa.vfs to your own classes). Directory object have a 'listdir()'
+kaa.beacon to your own classes). Directory object have a 'listdir()'
 again (other types will also have a list in the future). You can
 access the attributes from the database with the memeber function
 'getattr()'. A File/Directory also has attributes 'url', 'filename'
 and 'isdir'. To get a list of all possible attributes call 'keys()'.
-Using the attribute 'thumbnail' will return a kaa.thumb2 object for
+Using the attribute 'thumbnail' will return a Thumbnail object for
 that item you can use to get/set/create thumbnails. The thumbnail
 object has (besides other things) a member variable 'image' returning
 the thumbnail filename with the highest resolution or None if no
@@ -64,4 +64,4 @@ will be stopped.
 
 
 
-More about kaa.vfs and kaa.thumb2 later
+More about kaa.beacon later

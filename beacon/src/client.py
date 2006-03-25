@@ -1,17 +1,17 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# client.py - Client interface for the VFS
+# client.py - Client interface for Beacon
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# This is the client interface to the vfs. The server needs to be running.
+# This is the client interface to beacon. The server needs to be running.
 # To use the server a Client object must be created. Once created, it is
 # possible to start a query on the client.
 #
 # TODO: make it possible to update an item that is not in the database.
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -46,28 +46,28 @@ from kaa import ipc
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer
 
-# kaa.vfs imports
+# kaa.beacon imports
 from db import Database
 from query import Query
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 
 class Client(object):
     """
-    VFS Client. This client uses the db read only and needs a server on
+    Beacon client. This client uses the db read only and needs a server on
     the same machine doing the file scanning and changing of the db.
     """
     def __init__(self, db):
         db = os.path.abspath(db)
         # monitor function from the server to start a new monitor for a query
-        self._server = ipc.IPCClient('vfs').get_object('vfs')(db)
+        self._server = ipc.IPCClient('beacon').get_object('beacon')(db)
         self._server_monitor = self._server.monitor
         # read only version of the database
         self.database = Database(db, self)
         # connect to server notifications
-        self.id = self._server.connect(self, self._vfs_notify)
+        self.id = self._server.connect(self, self._beacon_notify)
         # internal list of active queries
         self._queries = []
         # internal list of items to update
@@ -102,12 +102,12 @@ class Client(object):
         if status:
             q = copy.copy(query._query)
             if 'parent' in q:
-                q['parent'] = q['parent']._vfs_id
+                q['parent'] = q['parent']._beacon_id
         self._server_monitor(self.id, query.id, q,
                              __ipc_noproxy_args=True, __ipc_oneway=True)
         
 
-    def _vfs_request(self, filename):
+    def _beacon_request(self, filename):
         """
         Request information about a filename.
         """
@@ -115,7 +115,7 @@ class Client(object):
                                     __ipc_noproxy_args=True)
 
 
-    def _vfs_notify(self, id, msg, *args, **kwargs):
+    def _beacon_notify(self, id, msg, *args, **kwargs):
         """
         Internal notification callback from the server. The Monitor does not
         has a reference to the Query because this would result in circular
@@ -124,8 +124,8 @@ class Client(object):
         """
         for query in self._queries:
             if query and query.id == id:
-                if hasattr(query, '_vfs_%s' % msg):
-                    getattr(query, '_vfs_%s' % msg)(*args, **kwargs)
+                if hasattr(query, '_beacon_%s' % msg):
+                    getattr(query, '_beacon_%s' % msg)(*args, **kwargs)
                     return
                 
                 log.error('Error: unknown message from server: %s' % msg)
@@ -145,13 +145,13 @@ class Client(object):
             # do the update now
             items = []
             for i in self._changed:
-                id = i._vfs_id
+                id = i._beacon_id
                 if not id:
                     # TODO: How to update an item not in the db? Right now we
                     # can't do that and will drop the item.
                     continue
-                items.append((id, i._vfs_changes))
-                i._vfs_changes = {}
+                items.append((id, i._beacon_changes))
+                i._beacon_changes = {}
             self._changed = []
             self._server.update(items, __ipc_oneway=True, __ipc_noproxy_args=True)
             return
@@ -166,7 +166,7 @@ class Client(object):
         """
         Convert object to string (usefull for debugging)
         """
-        return '<vfs.Client>'
+        return '<beacon.Client>'
 
 
     def __del__(self):

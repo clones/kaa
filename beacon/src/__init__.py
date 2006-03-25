@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# __init__.py - interface to kaa.vfs
+# __init__.py - interface to kaa.beacon
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -40,15 +40,15 @@ import thumbnail
 from thumbnail import Thumbnail, NORMAL, LARGE
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 # connected client object
 _client = None
 
-def connect(vfsdb=None):
+def connect(database=None):
     """
-    Connect to the vfs database dir given by 'vfsdb'. Id 'vfsdb' is None, the
-    client will only connect to the thumbnailer. A kaa-vfs program must be running.
+    Connect to the beacon database dir given by 'database'. Id 'database' is None, the
+    client will only connect to the thumbnailer. A kaa-beacon program must be running.
     """
     global _client
 
@@ -58,11 +58,11 @@ def connect(vfsdb=None):
     log.info('connect to thumbnailer')
     thumbnail.connect()
 
-    if not vfsdb:
+    if not database:
         return None
     
-    log.info('connect to %s' % vfsdb)
-    _client = Client(vfsdb)
+    log.info('connect to %s' % database)
+    _client = Client(database)
     return _client
 
 
@@ -71,7 +71,7 @@ def get(filename):
     Get object for the given filename.
     """
     if not _client:
-        raise RuntimeError('vfs not connected')
+        raise RuntimeError('beacon not connected')
     return _client.get(filename)
 
 
@@ -80,5 +80,5 @@ def query(**args):
     Query the database.
     """
     if not _client:
-        raise RuntimeError('vfs not connected')
+        raise RuntimeError('beacon not connected')
     return _client.query(**args)

@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# file.py - File item of the VFS
+# file.py - Beacon file item
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -34,12 +34,12 @@ import os
 import stat
 import logging
 
-# kaa.vfs imports
+# kaa.beacon imports
 from item import Item
 from directory import Directory
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 
 UNKNOWN = -1
@@ -55,7 +55,7 @@ class File(Item):
     setattr:  function to set an attribute
     keys:     function to return all known attributes of the item
 
-    Do not access attributes starting with _vfs outside kaa.vfs
+    Do not access attributes starting with _beacon outside kaa.beacon
     """
     def __init__(self, data, parent, overlay=False):
         if isinstance(data, str):
@@ -63,20 +63,20 @@ class File(Item):
             id = None
             self.filename = parent.filename + data
             data = { 'name': data, 'mtime': UNKNOWN }
-            if parent and parent._vfs_id:
-                data['parent_type'], data['parent_id'] = parent._vfs_id
-            media = parent._vfs_media
+            if parent and parent._beacon_id:
+                data['parent_type'], data['parent_id'] = parent._beacon_id
+            media = parent._beacon_media
         elif isinstance(parent, Directory):
             # db data
             id = (data['type'], data['id'])
-            media = parent._vfs_media
+            media = parent._beacon_media
             self.filename = parent.filename + data['name']
 
         Item.__init__(self, id, 'file://' + self.filename, data, parent, media)
-        self._vfs_overlay = overlay
+        self._beacon_overlay = overlay
 
 
-    def _vfs_mtime(self):
+    def _beacon_mtime(self):
         """
         Return modification time of the item itself.
 
@@ -84,28 +84,28 @@ class File(Item):
         mtime of foo.jpg is the sum of the mtime of foo.jpg and foo.jpg.xml
         or for foo.mp3 the mtime is the sum of foo.mp3 and foo.jpg.
         """
-        search = self._vfs_data['name']
+        search = self._beacon_data['name']
         if search.rfind('.') > 0:
             search = search[:search.rfind('.')]
         mtime = 0
-        for basename, filename in self._vfs_parent._vfs_os_listdir():
+        for basename, filename in self._beacon_parent._beacon_os_listdir():
             if basename.startswith(search):
                 mtime += os.stat(filename)[stat.ST_MTIME]
         return mtime
 
 
-    def _vfs_request(self):
+    def _beacon_request(self):
         """
         Request the item to be scanned.
         """
-        self._vfs_database_update(self._vfs_db()._vfs_request(self.filename[:-1]))
+        self._beacon_database_update(self._beacon_db()._beacon_request(self.filename[:-1]))
 
 
     def __repr__(self):
         """
         Convert object to string (usefull for debugging)
         """
-        str = '<vfs.File %s' % self.filename
-        if self._vfs_data['mtime'] == UNKNOWN:
+        str = '<beacon.File %s' % self.filename
+        if self._beacon_data['mtime'] == UNKNOWN:
             str += ' (new)'
         return str + '>'

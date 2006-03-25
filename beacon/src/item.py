@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# item.py - Item of the VFS
+# item.py - Beacon item
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -35,11 +35,11 @@ import logging
 # kaa imports
 from kaa.strutils import str_to_unicode
 
-# kaa.vfs imports
+# kaa.beacon imports
 from thumbnail import Thumbnail
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 class Item(object):
     """
@@ -51,63 +51,63 @@ class Item(object):
     setattr:  function to set an attribute
     keys:     function to return all known attributes of the item
 
-    Do not access attributes starting with _vfs outside kaa.vfs
+    Do not access attributes starting with _beacon outside kaa.beacon
     """
-    def __init__(self, _vfs_id, url, data, parent, media):
+    def __init__(self, _beacon_id, url, data, parent, media):
         # url of the item
         self.url = url
 
         # internal data
-        self._vfs_id = _vfs_id
-        self._vfs_data = data
-        self._vfs_tmpdata = {}
-        self._vfs_parent = parent
-        self._vfs_media = media
-        self._vfs_isdir = False
-        self._vfs_changes = {}
-        self._vfs_name = data['name']
+        self._beacon_id = _beacon_id
+        self._beacon_data = data
+        self._beacon_tmpdata = {}
+        self._beacon_parent = parent
+        self._beacon_media = media
+        self._beacon_isdir = False
+        self._beacon_changes = {}
+        self._beacon_name = data['name']
 
 
-    def _vfs_database_update(self, data):
+    def _beacon_database_update(self, data):
         """
         Callback from db with new data
         """
-        self._vfs_data = data
-        self._vfs_id = (data['type'], data['id'])
-        for key, value in self._vfs_changes.items():
-            self._vfs_data[key] = value
+        self._beacon_data = data
+        self._beacon_id = (data['type'], data['id'])
+        for key, value in self._beacon_changes.items():
+            self._beacon_data[key] = value
 
 
-    def _vfs_db(self):
+    def _beacon_db(self):
         """
         Get the database connection (the client)
         """
-        return self._vfs_media.client
+        return self._beacon_media.client
 
 
-    def _vfs_mtime(self):
+    def _beacon_mtime(self):
         """
         Return modification time of the item itself.
         """
         return 0
 
 
-    def _vfs_changed(self):
+    def _beacon_changed(self):
         """
         Return if the item is changed (based on modification time of
         the data and in the database).
         """
-        return self._vfs_mtime() != self._vfs_data['mtime']
+        return self._beacon_mtime() != self._beacon_data['mtime']
 
 
-    def _vfs_request(self):
+    def _beacon_request(self):
         """
         Request the item to be scanned.
         """
         pass
 
 
-    def _vfs_tree(self):
+    def _beacon_tree(self):
         """
         Return an iterator to walk through the parents.
         """
@@ -118,12 +118,12 @@ class Item(object):
         """
         Convert object to string (usefull for debugging)
         """
-        return '<vfs.Item %s>' % self.url
+        return '<beacon.Item %s>' % self.url
 
 
     def getattr(self, key, request=True):
         """
-        Interface to kaa.vfs. Return the value of a given attribute. If
+        Interface to kaa.beacon. Return the value of a given attribute. If
         the attribute is not in the db, return None. If the key starts with
         'tmp:', the data will be fetched from a dict that is not stored in
         the db. Loosing the item object will remove that attribute. If
@@ -131,68 +131,68 @@ class Item(object):
         False and the item is not in the db, results will be very limited.
         """
         if key.startswith('tmp:'):
-            return self._vfs_tmpdata[key[4:]]
+            return self._beacon_tmpdata[key[4:]]
 
         if key == 'parent':
-            return self._vfs_parent
+            return self._beacon_parent
 
         if key == 'thumbnail' and hasattr(self, 'filename'):
             return Thumbnail(self.filename, url=self.url)
 
         if key == 'image':
             image = ''
-            if self._vfs_data.has_key('image'):
-                image = self._vfs_data['image']
-            if not image and self._vfs_parent:
+            if self._beacon_data.has_key('image'):
+                image = self._beacon_data['image']
+            if not image and self._beacon_parent:
                 # This is not a good solution, maybe the parent is not
                 # up to date. Well, we have to live with that for now.
-                return self._vfs_parent.getattr('image')
+                return self._beacon_parent.getattr('image')
             return image
 
         if key == 'title':
-            if self._vfs_data.has_key('title'):
-                t = self._vfs_data['title']
+            if self._beacon_data.has_key('title'):
+                t = self._beacon_data['title']
                 if t:
                     return t
-            t = self._vfs_data['name']
+            t = self._beacon_data['name']
             if t.find('.') > 0:
                 t = t[:t.rfind('.')]
             return str_to_unicode(t)
 
-        if request and not self._vfs_id:
+        if request and not self._beacon_id:
             log.info('requesting data for %s', self)
-            self._vfs_request()
+            self._beacon_request()
 
-        if self._vfs_data.has_key(key):
-            return self._vfs_data[key]
+        if self._beacon_data.has_key(key):
+            return self._beacon_data[key]
         return None
 
 
     def setattr(self, key, value, request=True):
         """
-        Interface to kaa.vfs. Set the value of a given attribute. If the key
+        Interface to kaa.beacon. Set the value of a given attribute. If the key
         starts with 'tmp:', the data will only be valid in this item and not
         stored in the db. Loosing the item object will remove that attribute. If
         request is True, scan the item if it is not in the db. If request is
         False and the item is not in the db, the value may be lost.
         """
         if key.startswith('tmp:'):
-            self._vfs_tmpdata[key[4:]] = value
+            self._beacon_tmpdata[key[4:]] = value
             return
-        if not self._vfs_id:
+        if not self._beacon_id:
             log.info('requesting data for %s', self)
-            self._vfs_request()
-        self._vfs_data[key] = value
-        if not self._vfs_changes and self._vfs_id:
-            self._vfs_db().update(self)
-        self._vfs_changes[key] = value
+            self._beacon_request()
+        self._beacon_data[key] = value
+        if not self._beacon_changes and self._beacon_id:
+            self._beacon_db().update(self)
+        self._beacon_changes[key] = value
 
 
     def keys(self):
         """
-        Interface to kaa.vfs. Return all attributes of the item.
+        Interface to kaa.beacon. Return all attributes of the item.
         """
-        return self._vfs_data.keys() + self._vfs_tmpdata.keys()
+        return self._beacon_data.keys() + self._beacon_tmpdata.keys()
 
 
 class ParentIterator(object):
@@ -209,5 +209,5 @@ class ParentIterator(object):
         if not self.item:
             raise StopIteration
         ret = self.item
-        self.item = self.item._vfs_parent
+        self.item = self.item._beacon_parent
         return ret

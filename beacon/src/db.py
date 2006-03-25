@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# db.py - Database for the VFS
+# db.py - Beacon database
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -9,7 +9,7 @@
 #       o Support tracks and other non file based items
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -45,7 +45,7 @@ from kaa import db
 from kaa.db import *
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 MAX_BUFFER_CHANGES = 20
 
@@ -64,12 +64,12 @@ class Mountpoint(object):
     # functions to it. But we need different kinds of classes for client
     # and server because the client needs to use ipc for the mounting.
 
-    def __init__(self, device, directory, vfsdir, db, client):
+    def __init__(self, device, directory, beacon_dir, db, client):
         self.device = device
         self.directory = directory
         self.name = None
         self.id = None
-        self.vfsdir = vfsdir
+        self.beacon_dir = beacon_dir
         self.db = db
         self.overlay = ''
         self.url = ''
@@ -106,7 +106,7 @@ class Mountpoint(object):
             if media:
                 self.url = media['content'] + '//' + self.directory
             if name:
-                self.overlay = os.path.join(self.vfsdir, name)
+                self.overlay = os.path.join(self.beacon_dir, name)
                 if not os.path.isdir(self.overlay):
                     os.mkdir(self.overlay)
             else:
@@ -139,7 +139,7 @@ class Mountpoint(object):
         """
         Convert object to string (usefull for debugging)
         """
-        return '<vfs.Mountpoint for %s>' % self.directory
+        return '<beacon.Mountpoint for %s>' % self.directory
 
 
     def __del__(self):
@@ -156,7 +156,7 @@ class Database(object):
         Init function
         """
         # internal db dir, it contains the real db and the
-        # overlay dir for the vfs
+        # overlay dir for the beacon
         self.dbdir = dbdir
 
         # remeber client
@@ -252,15 +252,15 @@ class Database(object):
         parent = self._get_dir(os.path.dirname(dirname), media)
         name = os.path.basename(dirname)
 
-        if not parent._vfs_id:
+        if not parent._beacon_id:
             return create_dir(name, parent)
             
-        current = self._db.query(type="dir", name=name, parent=parent._vfs_id)
+        current = self._db.query(type="dir", name=name, parent=parent._beacon_id)
         if not current and self.client:
             return create_dir(name, parent)
 
         if not current:
-            current = self._db.add_object("dir", name=name, parent=parent._vfs_id)
+            current = self._db.add_object("dir", name=name, parent=parent._beacon_id)
             self._db.commit()
         else:
             current = current[0]
@@ -302,9 +302,9 @@ class Database(object):
         commit is called just after this function is called.
         """
         log.debug('DELETE %s' % entry)
-        for child in self._db.query(parent = entry._vfs_id):
+        for child in self._db.query(parent = entry._beacon_id):
             self._delete(child)
-        self._db.delete_object((entry._vfs_id))
+        self._db.delete_object((entry._beacon_id))
 
 
     def _query_dir(self, parent):
@@ -314,14 +314,14 @@ class Database(object):
         """
         dirname = parent.filename[:-1]
         items = []
-        for i in self._db.query(parent = parent._vfs_id):
+        for i in self._db.query(parent = parent._beacon_id):
             if i['type'] == 'dir':
                 items.append(create_dir(i, parent))
             else:
                 items.append(create_file(i, parent))
         # sort items based on url. The listdir is also sorted, that makes
         # checking much faster
-        items.sort(lambda x,y: cmp(x._vfs_name, y._vfs_name))
+        items.sort(lambda x,y: cmp(x._beacon_name, y._beacon_name))
 
         # TODO: this could block for cdrom drives and network filesystems. Maybe
         # put the listdir in a thread
@@ -331,7 +331,7 @@ class Database(object):
         # user can turn the feature off.
         pos = -1
 
-        for pos, (f, overlay) in enumerate(parent._vfs_listdir()):
+        for pos, (f, overlay) in enumerate(parent._beacon_listdir()):
             if pos == len(items):
                 # new file at the end
                 if os.path.isdir(parent.filename + f):
@@ -340,7 +340,7 @@ class Database(object):
                     continue
                 items.append(create_file(f, parent, overlay))
                 continue
-            while f > items[pos]._vfs_name:
+            while f > items[pos]._beacon_name:
                 # file deleted
                 i = items[pos]
                 items.remove(i)
@@ -350,7 +350,7 @@ class Database(object):
                     # list. It will be deleted right before the next commit.
                     self.changes.append((self._delete, i, [], {}))
                 # delete
-            if f == items[pos]._vfs_name:
+            if f == items[pos]._beacon_name:
                 # same file
                 continue
             # new file
@@ -386,9 +386,9 @@ class Database(object):
             if dirname.startswith(m.directory):
                 break
         parent = self._get_dir(dirname, m)
-        if parent._vfs_id:
+        if parent._beacon_id:
             # parent is a valid db item, query
-            e = self._db.query(parent=parent._vfs_id, name=basename)
+            e = self._db.query(parent=parent._beacon_id, name=basename)
             if e:
                 # entry is in the db
                 basename = e[0]
@@ -424,7 +424,7 @@ class Database(object):
         if i['type'] == 'dir':
             # it is a directory, make a dir item
             return create_dir(i, parent)
-        if parent._vfs_isdir:
+        if parent._beacon_isdir:
             # parent is dir, this item is not
             return create_file(i, parent)
         # neither dir nor file, something else
@@ -435,7 +435,7 @@ class Database(object):
         """
         Return all items for the given parent object.
         """
-        if parent._vfs_isdir:
+        if parent._beacon_isdir:
             return self._query_dir(parent)
         raise AttributeError('oops, fix me')
     
@@ -491,7 +491,7 @@ class Database(object):
             if r['type'] == 'dir':
                 # it is a directory, make a dir item
                 result.append(create_dir(r, parent))
-            elif parent._vfs_isdir:
+            elif parent._beacon_isdir:
                 # parent is dir, this item is not
                 result.append(create_file(r, parent))
             else:
@@ -515,7 +515,7 @@ class Database(object):
 
     def add_object(self, type, *args, **kwargs):
         """
-        Add an object to the db. If the keyword 'vfs_immediately' is set, the
+        Add an object to the db. If the keyword 'beacon_immediately' is set, the
         object will be added now and the db will be locked until the next commit.
         To avoid locking, do not se the keyword, but this means that a requery on
         the object won't find it before the next commit.
@@ -528,10 +528,10 @@ class Database(object):
                         kwargs[key] = metadata[key]
             del kwargs['metadata']
 
-        if 'vfs_immediately' in kwargs:
+        if 'beacon_immediately' in kwargs:
             if len(self.changes):
                 self.commit()
-            del kwargs['vfs_immediately']
+            del kwargs['beacon_immediately']
             return self._db.add_object(type, *args, **kwargs)
 
         self.changes.append((self._db.add_object, type, args, kwargs))
@@ -541,7 +541,7 @@ class Database(object):
 
     def update_object(self, (type, id), *args, **kwargs):
         """
-        Update an object to the db. If the keyword 'vfs_immediately' is set, the
+        Update an object to the db. If the keyword 'beacon_immediately' is set, the
         object will be updated now and the db will be locked until the next commit.
         To avoid locking, do not se the keyword, but this means that a requery on
         the object will return the old values.
@@ -554,10 +554,10 @@ class Database(object):
                         kwargs[key] = metadata[key]
             del kwargs['metadata']
 
-        if 'vfs_immediately' in kwargs:
+        if 'beacon_immediately' in kwargs:
             if len(self.changes):
                 self.commit()
-            del kwargs['vfs_immediately']
+            del kwargs['beacon_immediately']
             return self._db.update_object((type, id), *args, **kwargs)
 
         self.changes.append((self._db.update_object, (type, id), args, kwargs))

@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -37,7 +37,7 @@ import logging
 from kaa.notifier import Signal
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 
 class Query(object):
@@ -71,7 +71,7 @@ class Query(object):
         self._monitor = status
 
         
-    def _vfs_progress(self, pos, max, url):
+    def _beacon_progress(self, pos, max, url):
         """
         Progress message from server.
         """
@@ -79,7 +79,7 @@ class Query(object):
         return
 
 
-    def _vfs_checked(self):
+    def _beacon_checked(self):
         """
         Checked message from server.
         """
@@ -87,14 +87,14 @@ class Query(object):
         return
 
 
-    def _vfs_updated(self, items):
+    def _beacon_updated(self, items):
         """
         Checked message from server.
         """
         url, data = items.pop(0)
         for r in self.result:
             if r.url == url:
-                r._vfs_database_update(data)
+                r._beacon_database_update(data)
                 if not items:
                     break
                 url, data = items.pop(0)
@@ -102,7 +102,7 @@ class Query(object):
             log.error('not all items found')
 
 
-    def _vfs_changed(self):
+    def _beacon_changed(self):
         self.result = self._client.database.query(**self._query)
         self.signals['changed'].emit()
 
@@ -111,7 +111,7 @@ class Query(object):
         """
         Convert object to string (usefull for debugging)
         """
-        return '<vfs.Client.Query for %s>' % self._query
+        return '<beacon.Client.Query for %s>' % self._query
 
 
     def __del__(self):

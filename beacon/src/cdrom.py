@@ -35,7 +35,7 @@ import kaa.metadata
 from kaa.metadata.disc.discinfo import cdrom_disc_id
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 def ioctl(fd, code, *args, **kargs):
     if code > sys.maxint:
@@ -56,7 +56,7 @@ class Device(object):
     def check(self):
         tcb = ThreadCallback(self.check_thread)
         tcb.signals['exception'].connect(log.error)
-        tcb.register('vfs.cdrom')
+        tcb.register('beacon.cdrom')
 
         
     def check_thread(self):
@@ -114,7 +114,7 @@ class Device(object):
         tcb = ThreadCallback(kaa.metadata.parse, self.device)
         tcb.signals['exception'].connect(log.error)
         tcb.signals['completed'].connect(self.scan_result)
-        tcb.register('vfs.cdrom')
+        tcb.register('beacon.cdrom')
 
 
     def scan_result(self, metadata):
@@ -123,7 +123,7 @@ class Device(object):
             log.info('detected %s with tracks', type)
             type_list = self.db.object_types['track_%s' % type]
             disc = self.db.add_object("media", name=metadata.id, content=type,
-                                      vfs_immediately = True)
+                                      beacon_immediately = True)
             parent = ('media', disc['id'])
             for pos, track in enumerate(metadata.tracks):
                 self.db.add_object('track_%s' % type, name = str(pos), parent = parent,

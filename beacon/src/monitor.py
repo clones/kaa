@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# monitor.py - Monitor for changes in the VFS
+# monitor.py - Monitor for changes in Beacon
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -8,7 +8,7 @@
 #       add docs for functions, variables and how to use this file
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -40,12 +40,12 @@ import logging
 from kaa.weakref import weakref
 from kaa.notifier import WeakTimer, Timer, execute_in_timer, Callback
 
-# kaa.vfs imports
+# kaa.beacon imports
 import parser
 import cdrom
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 class Notification(object):
     def __init__(self, remote, id):
@@ -127,7 +127,7 @@ class Monitor(object):
                 return True
             i = items.pop(0)
             # FIXME: check parents
-            if i._vfs_changed():
+            if i._beacon_changed():
                 changed.append(i)
         return True
 
@@ -209,7 +209,7 @@ class Monitor(object):
 
 
     def __repr__(self):
-        return '<vfs.Monitor for %s>' % self._query
+        return '<beacon.Monitor for %s>' % self._query
 
 
     def __del__(self):

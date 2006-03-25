@@ -18,9 +18,9 @@ if not __site__ in sys.path:
 log = logging.getLogger()
 
 def usage(error_code):
-    print 'kaa-vfs [options]'
-    print '--start            start vfs daemon'
-    print '--stop             stop running vfs daemon'
+    print 'beacon [options]'
+    print '--start            start beacon'
+    print '--stop             stop running beacon'
     print '--daemon           detach for parent process'
     print '--autoshutdown     stop server when no clients are connected'
     print '--logfile file     use file for logging'
@@ -67,12 +67,12 @@ if not mode:
     usage(0)
 
 if mode == 'stop':
-    # stop a running vfs server
+    # stop a running beacon
     
     import kaa.ipc
 
     try:
-        kaa.ipc.IPCClient('vfs').get_object('shutdown')()
+        kaa.ipc.IPCClient('beacon').get_object('shutdown')()
     except kaa.ipc.IPCDisconnectedError:
         pass
     except:
@@ -80,7 +80,7 @@ if mode == 'stop':
     sys.exit(0)
 
 
-# When we reach this point we need to start a new vfs server. If run
+# When we reach this point we need to start a new beacon server. If run
 # in daemon mode we fork and detach from the parent. After that a logger
 # is created and the thumbnail server will be forked out.
 
@@ -110,7 +110,7 @@ if not pid:
     import kaa
     import kaa.notifier
 
-    import kaa.vfs.thumbnail.server
+    import kaa.beacon.thumbnail.server
 
     # create tmp dir and change directory to it
     tmpdir = os.path.join(kaa.TEMP, 'thumb')
@@ -120,7 +120,7 @@ if not pid:
 
     # create thumbnailer object
     try:
-        thumbnailer = kaa.vfs.thumbnail.server.Thumbnailer(tmpdir)
+        thumbnailer = kaa.beacon.thumbnail.server.Thumbnailer(tmpdir)
     except IOError, e:
         log.error('thumbnail: %s' % e)
         time.sleep(0.1)
@@ -133,13 +133,13 @@ if not pid:
     
 
 
-# vfs server
+# beacon server
 import kaa
 import kaa.notifier
 import kaa.ipc
 
-import kaa.vfs.server
-import kaa.vfs.thumbnail.thumbnail
+import kaa.beacon.server
+import kaa.beacon.thumbnail.thumbnail
 
 def garbage_collect():
     g = gc.collect()
@@ -154,29 +154,29 @@ def garbage_collect():
 
 # connect thumbnailer
 log.info('connect to thumbnailer')
-kaa.vfs.thumbnail.thumbnail.connect()
+kaa.beacon.thumbnail.thumbnail.connect()
 
 try:
-    ipc = kaa.ipc.IPCServer('vfs')
+    ipc = kaa.ipc.IPCServer('beacon')
 except IOError, e:
-    kaa.vfs.thumbnail.thumbnail.disconnect()
-    log.error('vfs: %s' % e)
+    kaa.beacon.thumbnail.thumbnail.disconnect()
+    log.error('beacon: %s' % e)
     time.sleep(0.1)
     sys.exit(0)
 
-log.info('start vfs server')
-ipc.register_object(kaa.vfs.server.connect, 'vfs')
+log.info('start beacon')
+ipc.register_object(kaa.beacon.server.connect, 'beacon')
 ipc.register_object(kaa.notifier.shutdown, 'shutdown')
-ipc.signals["client_closed"].connect(kaa.vfs.server._client_closed)
+ipc.signals["client_closed"].connect(kaa.beacon.server._client_closed)
 
 # start garbage collector
 kaa.notifier.Timer(garbage_collect).start(10)
 if shutdown:
     log.info('set autoshutdown timer to 3 seconds')
-    kaa.vfs.server.autoshutdown(3)
+    kaa.beacon.server.autoshutdown(3)
 
 kaa.notifier.loop()
-log.info('stop vfs server')
+log.info('stop beacon')
 try:
     os.kill(pid, 15)
 except OSError:

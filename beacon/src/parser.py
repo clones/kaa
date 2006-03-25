@@ -8,7 +8,7 @@
 #       add docs for functions, variables and how to use this file
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -44,38 +44,38 @@ from kaa.strutils import str_to_unicode
 import kaa.metadata
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 def parse(db, item, store=False):
     log.info('check %s', item.url)
-    mtime = item._vfs_mtime()
+    mtime = item._beacon_mtime()
     if not mtime:
         log.info('oops, no mtime %s' % item)
         return
-    parent = item._vfs_parent
+    parent = item._beacon_parent
     if not parent:
         log.error('no parent %s' % item)
         return
 
-    if not parent._vfs_id:
+    if not parent._beacon_id:
         # There is a parent without id, update the parent now. We know that the
         # parent should be in the db, so commit and it should work
         db.commit()
-        if not parent._vfs_id:
+        if not parent._beacon_id:
             # this should never happen
             raise AttributeError('parent for %s has no dbid' % item)
-    if item._vfs_data['mtime'] == mtime:
+    if item._beacon_data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
         return
     log.info('scan %s' % item)
     attributes = { 'mtime': mtime }
     metadata = kaa.metadata.parse(item.filename)
-    if item._vfs_data.has_key('type'):
-        type = item._vfs_data['type']
+    if item._beacon_data.has_key('type'):
+        type = item._beacon_data['type']
     elif metadata and metadata['media'] and \
              db.object_types().has_key(metadata['media']):
         type = metadata['media']
-    elif item._vfs_isdir:
+    elif item._beacon_isdir:
         type = 'dir'
     else:
         type = 'file'
@@ -114,16 +114,16 @@ def parse(db, item, store=False):
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
-    if item._vfs_id:
+    if item._beacon_id:
         # Update
-        db.update_object(item._vfs_id, **attributes)
-        item._vfs_data.update(attributes)
+        db.update_object(item._beacon_id, **attributes)
+        item._beacon_data.update(attributes)
     else:
         # Create. Maybe the object is already in the db. This could happen because
         # of bad timing but should not matter. Only one entry will be there after
         # the next update
-        db.add_object(type, name=item._vfs_data['name'], parent=parent._vfs_id,
-                      overlay=item._vfs_overlay, callback=item._vfs_database_update,
+        db.add_object(type, name=item._beacon_data['name'], parent=parent._beacon_id,
+                      overlay=item._beacon_overlay, callback=item._beacon_database_update,
                       **attributes)
     if store:
         db.commit()
@@ -157,8 +157,8 @@ class Checker(object):
             if item:
                 self.notify('progress', self.pos, self.max, item.url)
                 parse(self.db, item)
-                if item._vfs_id:
-                    self.notify('updated', [ (item.url, item._vfs_data) ])
+                if item._beacon_id:
+                    self.notify('updated', [ (item.url, item._beacon_data) ])
                 else:
                     self.updated.append(item)
 
@@ -170,10 +170,10 @@ class Checker(object):
 
             
         updated = []
-        while self.updated and self.updated[0] and self.updated[0]._vfs_id:
+        while self.updated and self.updated[0] and self.updated[0]._beacon_id:
             updated.append(self.updated.pop(0))
         if updated:
-            updated = [ (x.url, x._vfs_data) for x in updated ]
+            updated = [ (x.url, x._beacon_data) for x in updated ]
             updated.sort(lambda x,y: cmp(x[0], y[0]))
             self.notify('updated', updated)
             

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# server.py - Server interface for the VFS
+# server.py - Server interface for Beacon
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -8,7 +8,7 @@
 #       add docs for functions, variables and how to use this file
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - A virtual filesystem with metadata
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
@@ -43,13 +43,13 @@ from kaa import ipc
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Timer
 
-# kaa.vfs imports
+# kaa.beacon imports
 import parser
 from db import *
 from monitor import Monitor
 
 # get logging object
-log = logging.getLogger('vfs')
+log = logging.getLogger('beacon')
 
 # ipc debugging
 # ipc.DEBUG = 1
@@ -110,7 +110,7 @@ class Server(object):
         
         # add root mountpoint
         self.add_mountpoint(None, '/')
-        self.set_mountpoint('/', 'kaa.vfs.root')
+        self.set_mountpoint('/', 'kaa.beacon.root')
         
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
@@ -208,14 +208,14 @@ class Server(object):
         self._db.commit()
         data = self._db.query(filename=filename)
         items = []
-        for i in data._vfs_tree():
-            if i._vfs_id:
+        for i in data._beacon_tree():
+            if i._beacon_id:
                 break
             items.append(i)
         while items:
             parser.parse(self._db, items.pop(), store=True)
         self._db.commit()
-        return data._vfs_data
+        return data._beacon_data
 
     
     def __del__(self):
@@ -268,7 +268,7 @@ def autoshutdown_step(timeout):
         return True
     shutdown_timer -= 1
     if shutdown_timer == 0:
-        log.info('vfs server timeout')
+        log.info('beacon timeout')
         sys.exit(0)
     return True
     

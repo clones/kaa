@@ -1,18 +1,18 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# setup.py - Setup script for kaa.vfs
+# setup.py - Setup script for kaa.beacon
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-vfs - Media VFS
+# kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Jason Tackaberry, Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 #                Jason Tackaberry <tack@sault.org>
-# Maintainer:    The Kaa team
+# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
 #
-# Please see the file doc/CREDITS for a complete list of authors.
+# Please see the file AUTHORS for a complete list of authors.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
-ext = Extension("kaa.vfs.thumbnail.libthumb",
+ext = Extension("kaa.beacon.thumbnail.libthumb",
                 ["src/thumbnail/thumbnail.c", "src/thumbnail/png.c" ],
                 config='src/thumbnail/config.h')
 
@@ -59,9 +59,9 @@ if ext.check_library('epeg', '0.9'):
 else:
     print 'epeg extention disabled'
 
-setup (module      = 'vfs',
+setup (module      = 'beacon',
        version     = '0.1',
-       description = "Media-oriented VFS",
-       scripts     = [ 'bin/kaa-thumb', 'bin/kaa-vfs' ],
+       description = "Media-oriented virtual filesystem",
+       scripts     = [ 'bin/kaa-thumb', 'bin/kaa-beacon' ],
        ext_modules = [ ext ]
       )
