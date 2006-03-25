@@ -78,6 +78,9 @@ class Directory(Item):
             parent = None
             self.filename = media.directory
 
+        if os.path.islink(self.filename[:-1]):
+            self.filename = os.path.realpath(self.filename) + '/'
+
         Item.__init__(self, id, 'file://' + self.filename, data, parent, media)
         self._beacon_overlay = False
         self._beacon_isdir = True
