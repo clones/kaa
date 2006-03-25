@@ -43,6 +43,7 @@ from kaa.notifier import WeakTimer, Timer, execute_in_timer, Callback
 # kaa.beacon imports
 import parser
 import cdrom
+from item import Item
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -70,7 +71,8 @@ class Monitor(object):
         self._query = query
         self._checker = None
         self.items = self._db.query(**self._query)
-        self._scan(True)
+        if self.items and isinstance(self.items[0], Item):
+            self._scan(True)
         self._poll()
 
 #         if self._query.has_key('dirname') and \
@@ -98,13 +100,26 @@ class Monitor(object):
         current = self._db.query(**self._query)
         if len(current) != len(self.items):
             self.items = current
-            self._scan(False)
-            return True
-        for pos, c in enumerate(current):
-            if self.items[pos].url != c.url:
-                self.items = current
+            if (current and isinstance(current[0], Item)) or \
+               (self.items and isinstance(self.items[0], Item)):
                 self._scan(False)
-                return True
+            else:
+                self.callback('changed')
+            return True
+        if len(current) == 0:
+            return True
+        if isinstance(current[0], Item):
+            for pos, c in enumerate(current):
+                if self.items[pos].url != c.url:
+                    self.items = current
+                    self._scan(False)
+                    return True
+        else:
+            for pos, c in enumerate(current):
+                if self.items[pos] != c:
+                    self.items = current
+                    self.callback('changed')
+                    return True
         return True
 
 
