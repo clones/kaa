@@ -8,6 +8,8 @@
 # To use the server a Client object must be created. Once created, it is
 # possible to start a query on the client.
 #
+# TODO: make it possible to update an item that is not in the database.
+#
 # -----------------------------------------------------------------------------
 # kaa-vfs - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
@@ -104,29 +106,6 @@ class Client(object):
         self._server_monitor(self.id, query.id, q,
                              __ipc_noproxy_args=True, __ipc_oneway=True)
         
-#     def query(self, **query):
-#         """
-#         Do a query to the databse. This will return a Query object.
-#         """
-#         # make sure filename in a query are normalized
-#         if 'dirname' in query:
-#             query['dirname'] = os.path.realpath(query['dirname'])
-#         if 'files' in query:
-#             query['files'] = [ os.path.realpath(x) for x in query['files'] ]
-#         # TODO: reuse Query with same 'query'
-#         result = Query(self, query)
-#         self._queries.append(weakref(result))
-
-#         # start the remote query 100 ms seconds later. It is faster
-#         # that way because a) ipc takes some time and b) it avoids
-#         # doing the same stuff at the same time
-
-#         # TODO: create a client id to avoid sending self.notify to the
-#         # client at this point.
-#         OneShotTimer(self.monitor, self.notify, result.id,
-#                      __ipc_oneway=True, **query).start(0.1)
-#         return result
-
 
     def _vfs_request(self, filename):
         """
@@ -168,7 +147,8 @@ class Client(object):
             for i in self._changed:
                 id = i._vfs_id
                 if not id:
-                    # TODO: how to update an item not in the db
+                    # TODO: How to update an item not in the db? Right now we
+                    # can't do that and will drop the item.
                     continue
                 items.append((id, i._vfs_changes))
                 i._vfs_changes = {}

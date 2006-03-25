@@ -4,8 +4,9 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: handle all the FIXME and TODO comments inside this file and
-#       add docs for functions, variables and how to use this file
+# TODO: o Mountpoint handling (rom drive mount/umount)
+#       o Make it possible to override create_file and create_dir
+#       o Support tracks and other non file based items
 #
 # -----------------------------------------------------------------------------
 # kaa-vfs - A virtual filesystem with metadata
