@@ -34,7 +34,6 @@ __all__ = [ 'connect', 'get', 'query', 'NORMAL', 'LARGE' ]
 import os
 import logging
 
-from kaa import ipc
 from client import Client
 import thumbnail
 from thumbnail import Thumbnail, NORMAL, LARGE

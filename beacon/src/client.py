@@ -42,7 +42,8 @@ import copy
 import logging
 
 # kaa imports
-from kaa import ipc
+import kaa
+import kaa.ipc
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer
 
@@ -62,7 +63,7 @@ class Client(object):
     def __init__(self, db):
         db = os.path.abspath(db)
         # monitor function from the server to start a new monitor for a query
-        self._server = ipc.IPCClient('beacon').get_object('beacon')(db)
+        self._server = kaa.ipc.IPCClient('beacon').get_object('beacon')(db)
         self._server_monitor = self._server.monitor
         # read only version of the database
         self.database = Database(db, self)
@@ -72,8 +73,22 @@ class Client(object):
         self._queries = []
         # internal list of items to update
         self._changed = []
-        
+        # add ourself to shutdown handler for correct disconnect
+        kaa.signals['shutdown'].connect(self.disconnect)
 
+
+    def disconnect(self):
+        """
+        Disconnect from the server.
+        """
+        for q in self._queries:
+            q._monitor = False
+        self._queries = []
+        self._server = None
+        self._server_monitor = None
+        self.database = None
+        
+        
     def add_mountpoint(self, device, directory):
         """
         Add a mountpoint to the system.
