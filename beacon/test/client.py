@@ -4,9 +4,6 @@ import os
 import kaa
 import time
 
-def msg(*args):
-    print 'Beacon Server Message:', args
-
 def uptodate(stop):
     print 'Beacon has finished the query and parsing'
     if stop:
@@ -21,6 +18,10 @@ def progress(cur, total, item):
     if cur == total:
         print
 
+def changed(result):
+    for r in result:
+        print r
+    
 if len(sys.argv) == 1:
     print 'Beacon Test Client'
     print 'Start the client with your query'
@@ -58,7 +59,7 @@ else:
     t2 = time.time()
 
 if monitor:
-    result.signals['changed'].connect(msg, 'changed')
+    result.signals['changed'].connect(changed, result)
     result.signals['progress'].connect(progress)
     result.signals['up-to-date'].connect(uptodate, False)
 else:
