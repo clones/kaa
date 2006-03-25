@@ -20,6 +20,8 @@ if len(sys.argv) == 1:
 query = {}
 for a in sys.argv[1:]:
     key, value = a.split('=', 1)
+    if key in ('title', 'album', 'artist'):
+        value = unicode(value)
     query[key] = value
 
 kaa.beacon.connect(os.path.expanduser("~/.beacon"))
