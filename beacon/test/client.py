@@ -5,29 +5,34 @@ import kaa
 import time
 
 def msg(*args):
-    print '>>>>>>>>>', args
+    print 'Beacon Server Message:', args
     
+if len(sys.argv) == 1:
+    print 'Beacon Test Client'
+    print 'Start the client with your query'
+    print 'Examples:'
+    print '  client.py dirname=/local/video'
+    print '  client.py artist=Silbermond'
+    print '  client.py attr=album type=audio'
+    sys.exit(0)
+
+query = {}
+for a in sys.argv[1:]:
+    key, value = a.split('=', 1)
+    query[key] = value
+
 kaa.beacon.connect(os.path.expanduser("~/.beacon"))
 
-a = u'Inkubus Sukkubus'
-#a = u'Bif Naked'
-
-t1 = time.time()
-result = kaa.beacon.get(sys.argv[1]).listdir()
-# result = kaa.beacon.query(artist=a)
-# result = kaa.beacon.query(attr='album', type='audio')
-t2 = time.time()
-
+if 'dirname' in query:
+    result = kaa.beacon.get(query['dirname']).listdir()
+else:
+    result = kaa.beacon.query(**query)
+    
 result.signals['changed'].connect(msg, 'changed')
 result.signals['progress'].connect(msg, 'progress')
 result.signals['up-to-date'].connect(msg, 'up-to-date')
 
 result.monitor()
-
-print 'query took', (t2 - t1)
-
-print result[0].getattr('foo')
-result[0].setattr('foo', 'barw')
 
 if 1:
     for r in result:
