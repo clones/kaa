@@ -4,9 +4,6 @@ import kaa
 import kaa.vfs
 import logging
 
-# full parameter set for connect
-# kaa.vfs.connect('vfsdb', 'logfile', logging.INFO)
-
 # simple connect
 kaa.vfs.connect(os.path.expanduser("~/.vfs"))
 

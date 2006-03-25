@@ -62,6 +62,6 @@ else:
 setup (module      = 'vfs',
        version     = '0.1',
        description = "Media-oriented VFS",
-       scripts     = [ 'bin/kaa-thumb' ],
+       scripts     = [ 'bin/kaa-thumb', 'bin/kaa-vfs' ],
        ext_modules = [ ext ]
       )

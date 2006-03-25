@@ -36,35 +36,33 @@ import logging
 
 from kaa import ipc
 from client import Client
-
+import thumbnail
 from thumbnail import Thumbnail, NORMAL, LARGE
+
+# get logging object
+log = logging.getLogger('vfs')
 
 # connected client object
 _client = None
 
-def connect(vfsdb, logfile=None, loglevel=logging.INFO):
+def connect(vfsdb=None):
     """
-    Connect to the vfs database dir given by 'vfsdb'. A server will be started
-    if no server is running. The new server will print debug output to the
-    given logfile. If a server is already running, logfile has no effect. If
-    a loglevel is given and the server will be started, it will use the given
-    loglevel. If no logfile is given, the server will log to vfsdb/log.
-    The server can be used by different clients in different applications if
-    the are started by the same user. It will shutdown if no client is connected
-    for over 5 seconds.
+    Connect to the vfs database dir given by 'vfsdb'. Id 'vfsdb' is None, the
+    client will only connect to the thumbnailer. A kaa-vfs program must be running.
     """
     global _client
 
     if _client:
         return _client
 
-    # check logfile
-    if not logfile:
-        logfile = os.path.join(vfsdb, 'log')
-    # get server filename
-    server = os.path.join(os.path.dirname(__file__), 'server.py')
+    log.info('connect to thumbnailer')
+    thumbnail.connect()
 
-    _client = ipc.launch([server, logfile, str(loglevel)], 5, Client, vfsdb)
+    if not vfsdb:
+        return None
+    
+    log.info('connect to %s' % vfsdb)
+    _client = Client(vfsdb)
     return _client
 
 

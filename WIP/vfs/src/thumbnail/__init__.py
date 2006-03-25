@@ -1,1 +1,1 @@
-from thumbnail import Thumbnail, NORMAL, LARGE
+from thumbnail import Thumbnail, NORMAL, LARGE, connect, disconnect

@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Thumbnail', 'NORMAL', 'LARGE' ]
+__all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'connect', 'disconnect' ]
 
 NORMAL  = 'normal'
 LARGE   = 'large'
@@ -37,10 +37,11 @@ LARGE   = 'large'
 # python imports
 import os
 import md5
+import time
 import logging
 
 # kaa imports
-from kaa import ipc
+import kaa
 from kaa.weakref import weakref
 from kaa.notifier import Signal, step
 
@@ -55,6 +56,9 @@ DOT_THUMBNAIL = os.path.join(os.environ['HOME'], '.thumbnails')
 
 # sizes for the thumbnails
 SIZE = { NORMAL: (128, 128), LARGE: (256, 256) }
+
+# internal variables for ipc
+_server = _client_id = _schedule = _remove = None
 
 class Job(object):
 
@@ -156,10 +160,44 @@ def _callback(id, *args):
             _remove((_client_id, job.id), __ipc_oneway=True, __ipc_noproxy_args=True)
 
 
-# connect to ipc
-_server = os.path.join(os.path.dirname(__file__), 'server.py')
-_server = ipc.launch(_server, 5, ipc.IPCClient, 'thumb/socket').get_object('thumb')
+def connect():
+    """
+    Connect to server.
+    """
+    global _server
+    global _client_id
+    global _schedule
+    global _remove
 
-_client_id = _server.connect(_callback)
-_schedule = _server.schedule
-_remove = _server.remove
+    if _server:
+        return True
+    
+    start = time.time()
+    while True:
+        try:
+            _server = kaa.ipc.IPCClient('thumb/socket').get_object('thumb')
+            break
+        except Exception, e:
+            if start + 3 < time.time():
+                # start time is up, something is wrong here
+                raise RuntimeError('unable to connect to thumbnail server')
+            time.sleep(0.01)
+        
+    _client_id = _server.connect(_callback)
+    _schedule = _server.schedule
+    _remove = _server.remove
+    kaa.signals['shutdown'].connect(disconnect)
+    return True
+
+
+def disconnect():
+    """
+    Shutdown connection.
+    """
+    global _server
+    global _client_id
+    global _schedule
+    global _remove
+
+    # delete all objects
+    _server = _client_id = _schedule = _remove = None

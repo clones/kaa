@@ -1,0 +1,183 @@
+#!/usr/bin/python
+
+# python imports
+import os
+import sys
+import gc
+import getopt
+import time
+import logging
+
+# insert freevo path information
+__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
+__site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), __site__))
+if not __site__ in sys.path:
+    sys.path.insert(0, __site__)
+
+# get logging object
+log = logging.getLogger()
+
+def usage(error_code):
+    print 'kaa-vfs [options]'
+    print '--start            start vfs daemon'
+    print '--stop             stop running vfs daemon'
+    print '--daemon           detach for parent process'
+    print '--autoshutdown     stop server when no clients are connected'
+    print '--logfile file     use file for logging'
+    print '--loglevel level   log level (warning, info, debug)'
+    print '--help | -h        this message'
+    print
+    sys.exit(error_code)
+
+    
+try:
+    # read arguments
+    opts = [ 'start', 'stop', 'daemon', 'autoshutdown', 'logfile=', 'loglevel=', 'help' ]
+    opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
+except getopt.GetoptError:
+    usage(1)
+
+logfile  = ''
+mode     = None
+detach   = False
+shutdown = False
+
+for o, a in opts:
+    if o in ('--start', '--stop'):
+        if mode:
+            usage(1)
+        mode = o[2:]
+    if o == '--daemon':
+        detach = True
+    if o == '--autoshutdown':
+        shutdown = True
+    if o == '--logfile':
+        logfile = a
+    if o == '--loglevel':
+        try:
+            log.setLevel(getattr(logging, a.upper()))
+        except:
+            print 'invalid loglevel: %s' % a
+            usage(1)
+    if o in ('--help', '-h'):
+        usage(0)
+
+if not mode:
+    # no idea what to do
+    usage(0)
+
+if mode == 'stop':
+    # stop a running vfs server
+    
+    import kaa.ipc
+
+    try:
+        kaa.ipc.IPCClient('vfs').get_object('shutdown')()
+    except kaa.ipc.IPCDisconnectedError:
+        pass
+    except:
+        print 'server not running'
+    sys.exit(0)
+
+
+# When we reach this point we need to start a new vfs server. If run
+# in daemon mode we fork and detach from the parent. After that a logger
+# is created and the thumbnail server will be forked out.
+
+if detach:
+    if os.fork():
+        sys.exit(0)
+    os.setsid()
+    
+# create logger
+if logfile:
+    if not os.path.isdir(os.path.dirname(logfile)):
+        os.makedirs(os.path.dirname(logfile))
+    handler = logging.FileHandler(logfile)
+    f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
+                          '%(filename)s %(lineno)s: %(message)s')
+    handler.setFormatter(f)
+    log.addHandler(handler)
+elif detach:
+    print 'unable to detach without setting a logfile'
+    usage(1)
+    
+# fork thumbnailer
+pid = os.fork()
+
+if not pid:
+    # thumbnailer child
+    import kaa
+    import kaa.notifier
+
+    import kaa.vfs.thumbnail.server
+
+    # create tmp dir and change directory to it
+    tmpdir = os.path.join(kaa.TEMP, 'thumb')
+    if not os.path.isdir(tmpdir):
+        os.mkdir(tmpdir)
+    os.chdir(tmpdir)
+
+    # create thumbnailer object
+    try:
+        thumbnailer = kaa.vfs.thumbnail.server.Thumbnailer(tmpdir)
+    except IOError, e:
+        log.error('thumbnail: %s' % e)
+        time.sleep(0.1)
+        sys.exit(0)
+        
+    # loop
+    kaa.notifier.loop()
+    log.info('stop thumbnail server')
+    sys.exit(0)
+    
+
+
+# vfs server
+import kaa
+import kaa.notifier
+import kaa.ipc
+
+import kaa.vfs.server
+import kaa.vfs.thumbnail.thumbnail
+
+def garbage_collect():
+    g = gc.collect()
+    if g:
+        log.info('gc: deleted %s objects' % g)
+    if gc.garbage:
+        log.warning('gc: found %s garbage objects' % len(gc.garbage))
+        for g in gc.garbage:
+            log.warning(g)
+    return True
+
+
+# connect thumbnailer
+log.info('connect to thumbnailer')
+kaa.vfs.thumbnail.thumbnail.connect()
+
+try:
+    ipc = kaa.ipc.IPCServer('vfs')
+except IOError, e:
+    kaa.vfs.thumbnail.thumbnail.disconnect()
+    log.error('vfs: %s' % e)
+    time.sleep(0.1)
+    sys.exit(0)
+
+log.info('start vfs server')
+ipc.register_object(kaa.vfs.server.connect, 'vfs')
+ipc.register_object(kaa.notifier.shutdown, 'shutdown')
+ipc.signals["client_closed"].connect(kaa.vfs.server._client_closed)
+
+# start garbage collector
+kaa.notifier.Timer(garbage_collect).start(10)
+if shutdown:
+    log.info('set autoshutdown timer to 3 seconds')
+    kaa.vfs.server.autoshutdown(3)
+
+kaa.notifier.loop()
+log.info('stop vfs server')
+try:
+    os.kill(pid, 15)
+except OSError:
+    pass

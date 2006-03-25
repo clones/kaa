@@ -38,16 +38,10 @@ import os
 import sys
 import logging
 
-# insert kaa path information
-__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
-__site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), __site__))
-if not __site__ in sys.path:
-    sys.path.insert(0, __site__)
-
 # kaa imports
 from kaa import ipc
 from kaa.weakref import weakref
-from kaa.notifier import OneShotTimer
+from kaa.notifier import OneShotTimer, Timer
 
 # kaa.vfs imports
 import parser
@@ -267,70 +261,20 @@ def _client_closed(client):
                 _num_client -= 1
 
 
-if __name__ == "__main__":
-
-    # python imports
-    import gc
-    import sys
-    
-    # kaa imports
-    from kaa.notifier import Timer, execute_in_timer, loop
-    
-    @execute_in_timer(Timer, 1)
-    def garbage_collect():
-        g = gc.collect()
-        if g:
-            log.info('gc: deleted %s objects' % g)
-        if gc.garbage:
-            log.warning('gc: found %s garbage objects' % len(gc.garbage))
-            for g in gc.garbage:
-                log.warning(g)
+def autoshutdown_step(timeout):
+    global shutdown_timer
+    if _num_client > 0:
+        shutdown_timer = timeout
         return True
-
-
-    shutdown_timer = 5
-
-    @execute_in_timer(Timer, 1)
-    def autoshutdown():
-        global shutdown_timer
-        if _num_client > 0:
-            shutdown_timer = 5
-            return True
-        shutdown_timer -= 1
-        if shutdown_timer == 0:
-            log.info('shutdown vfs server')
-            sys.exit(0)
-        return True
+    shutdown_timer -= 1
+    if shutdown_timer == 0:
+        log.info('vfs server timeout')
+        sys.exit(0)
+    return True
     
-    # setup logger
-    f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
-                          '%(filename)s %(lineno)s: '+\
-                          '%(message)s')
-    if not os.path.isdir(os.path.dirname(sys.argv[1])):
-        os.makedirs(os.path.dirname(sys.argv[1]))
-        
-    handler = logging.FileHandler(sys.argv[1])
-    handler.setFormatter(f)
-    logging.getLogger().addHandler(handler)
 
-    try:
-        # detach for parent using a new sesion
-        os.setsid()
-    except OSError:
-        # looks like we are started from the shell
-        # TODO: start some extra debug here and disable autoshutdown
-        pass
+def autoshutdown(timeout):
+    global shutdown_timer
+    shutdown_timer = timeout
+    Timer(autoshutdown_step, timeout).start(1)
     
-    # set log level
-    logging.getLogger().setLevel(int(sys.argv[2]))
-
-    log.info('start vfs server')
-    
-    # connect to the ipc code
-    _ipc = ipc.IPCServer('vfs')
-    _ipc.register_object(connect, 'vfs')
-    _ipc.signals["client_closed"].connect(_client_closed)
-
-    garbage_collect()
-    autoshutdown()
-    loop()

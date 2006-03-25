@@ -34,12 +34,6 @@ import os
 import sys
 import logging
 
-# insert kaa path information
-__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
-__site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), __site__))
-if not __site__ in sys.path:
-    sys.path.insert(0, __site__)
-
 # kaa imports
 from kaa import ipc
 import kaa.notifier
@@ -192,48 +186,3 @@ class Thumbnailer(object):
                         self.videothumb._jobs.remove(j)
                 self.clients.remove(client_info)
                 return
-
-
-if __name__ == "__main__":
-
-    shutdown_timer = 5
-
-    @kaa.notifier.execute_in_timer(kaa.notifier.Timer, 1)
-    def autoshutdown(server):
-        global shutdown_timer
-        if len(server.clients) > 0:
-            shutdown_timer = 5
-            return True
-        shutdown_timer -= 1
-        if shutdown_timer == 0:
-            sys.exit(0)
-        return True
-    
-    try:
-        # detach for parent using a new sesion
-        os.setsid()
-    except OSError:
-        # looks like we are started from the shell
-        # TODO: start some extra debug here and disable autoshutdown
-        pass
-    
-    # create tmp dir and change directory to it
-    tmpdir = os.path.join(kaa.TEMP, 'thumb')
-    if not os.path.isdir(tmpdir):
-        os.mkdir(tmpdir)
-    os.chdir(tmpdir)
-
-    # Setup logger. This module should produce no output at all, but a crash
-    # will result in a backtrace which is nice to have.
-    handler = logging.FileHandler('log')
-    handler.setFormatter(logging.Formatter('%(filename)s %(lineno)s: %(message)s'))
-    logging.getLogger().addHandler(handler)
-
-    # create thumbnailer object
-    thumbnailer = Thumbnailer(tmpdir)
-
-    # start autoshutdown
-    autoshutdown(thumbnailer)
-
-    # loop
-    kaa.notifier.loop()
