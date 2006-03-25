@@ -48,7 +48,7 @@ _client = None
 def connect(database=None):
     """
     Connect to the beacon database dir given by 'database'. Id 'database' is None, the
-    client will only connect to the thumbnailer. A kaa-beacon program must be running.
+    client will only connect to the thumbnailer. A beacon server must be running.
     """
     global _client
 

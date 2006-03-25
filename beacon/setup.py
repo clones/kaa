@@ -62,6 +62,6 @@ else:
 setup (module      = 'beacon',
        version     = '0.1',
        description = "Media-oriented virtual filesystem",
-       scripts     = [ 'bin/kaa-thumb', 'bin/kaa-beacon' ],
+       scripts     = [ 'bin/kaa-thumb', 'bin/beacon' ],
        ext_modules = [ ext ]
       )
