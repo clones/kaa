@@ -14,6 +14,7 @@ if len(sys.argv) == 1:
     print '  client.py dirname=/local/video'
     print '  client.py artist=Silbermond'
     print '  client.py attr=album type=audio'
+    print '  client.py "keywords=Helden Blind"'
     sys.exit(0)
 
 query = {}
