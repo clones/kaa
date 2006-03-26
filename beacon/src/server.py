@@ -47,6 +47,7 @@ from kaa.notifier import OneShotTimer, Timer
 import parser
 from db import *
 from monitor import Monitor
+from crawl import Crawler
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -111,12 +112,18 @@ class Server(object):
         # add root mountpoint
         self.add_mountpoint(None, '/')
         self.set_mountpoint('/', 'kaa.beacon.root')
-        
+
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
         # set up.
         self._db.commit()
-        
+
+        # check the mountpoint for db changes
+        for m in self._db.get_mountpoints(True):
+            if m.directory == '/':
+                Crawler(self._db).crawl(self._db._get_dir('/', m))
+                break
+
 
     def register_file_type_attrs(self, name, **kwargs):
         """
@@ -162,6 +169,23 @@ class Server(object):
         return None
     
 
+    def crawl(self, directory):
+        """
+        Start crawling a directory.
+        """
+        self._db.commit()
+        data = self._db.query(filename=directory)
+        items = []
+        for i in data._beacon_tree():
+            if i._beacon_id:
+                break
+            items.append(i)
+        while items:
+            parser.parse(self._db, items.pop(), store=True)
+        self._db.commit()
+        Crawler(self._db).crawl(data)
+        
+        
     def add_mountpoint(self, device, directory):
         """
         Add a mountpoint to the system.

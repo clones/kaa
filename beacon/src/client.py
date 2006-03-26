@@ -65,6 +65,7 @@ class Client(object):
         # monitor function from the server to start a new monitor for a query
         self._server = kaa.ipc.IPCClient('beacon').get_object('beacon')(db)
         self._server_monitor = self._server.monitor
+        self._crawler = self._server.crawl
         # read only version of the database
         self.database = Database(db, self)
         # connect to server notifications
@@ -86,6 +87,7 @@ class Client(object):
         self._queries = []
         self._server = None
         self._server_monitor = None
+        self._crawler = None
         self.database = None
         
         
@@ -100,7 +102,12 @@ class Client(object):
         """
         Return an object for the given filename.
         """
-        return Query(self, filename=os.path.realpath(filename)).result
+        filename = os.path.realpath(filename)
+        result = Query(self, filename=filename).result
+        if result and result._beacon_isdir and \
+               (not result._beacon_id or not result._beacon_data['mtime']):
+            self._crawler(filename, __ipc_oneway=True, __ipc_noproxy_args=True)
+        return result
 
 
     def query(self, **query):

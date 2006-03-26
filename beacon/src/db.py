@@ -312,7 +312,12 @@ class Database(object):
         A query to get all files in a directory. The parameter parent is a
         directort object.
         """
-        dirname = parent.filename[:-1]
+        if parent._beacon_islink:
+            # WARNING: parent is a link, we need to follow it
+            dirname = os.path.realpath(parent.filename)
+            parent = self._query_filename(dirname)
+        else:
+            dirname = parent.filename[:-1]
         items = []
         for i in self._db.query(parent = parent._beacon_id):
             if i['type'] == 'dir':

@@ -47,7 +47,7 @@ import kaa.metadata
 log = logging.getLogger('beacon')
 
 def parse(db, item, store=False):
-    log.info('check %s', item.url)
+    log.debug('check %s', item.url)
     mtime = item._beacon_mtime()
     if not mtime:
         log.info('oops, no mtime %s' % item)
