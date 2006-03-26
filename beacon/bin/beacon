@@ -19,6 +19,7 @@ log = logging.getLogger()
 
 def usage(error_code):
     print 'beacon [options]'
+    print 'Server options:'
     print '--start            start beacon'
     print '--stop             stop running beacon'
     print '--daemon           detach for parent process'
@@ -27,12 +28,23 @@ def usage(error_code):
     print '--loglevel level   log level (warning, info, debug)'
     print '--help | -h        this message'
     print
+    print 'Client options:'
+    print '--search args      search mode'
+    print '--monitor          do not exit after search and monitor for changes'
+    print
+    print 'Examples for client mode when a server is running:'
+    print '  beacon --search dirname=/local/video'
+    print '  beacon --search --monitor dirname=/local/video'
+    print '  beacon --search artist=Silbermond'
+    print '  beacon --search attr=album type=audio'
+    print '  beacon --search "keywords=Helden Blind"'
     sys.exit(error_code)
 
     
 try:
     # read arguments
-    opts = [ 'start', 'stop', 'daemon', 'autoshutdown', 'logfile=', 'loglevel=', 'help' ]
+    opts = [ 'start', 'stop', 'daemon', 'autoshutdown', 'logfile=', 'loglevel=',
+             'help', 'search', 'monitor' ]
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
     usage(1)
@@ -41,9 +53,10 @@ logfile  = ''
 mode     = None
 detach   = False
 shutdown = False
+monitor  = False
 
 for o, a in opts:
-    if o in ('--start', '--stop'):
+    if o in ('--start', '--stop', '--search'):
         if mode:
             usage(1)
         mode = o[2:]
@@ -59,6 +72,8 @@ for o, a in opts:
         except:
             print 'invalid loglevel: %s' % a
             usage(1)
+    if o == '--monitor':
+        monitor = True
     if o in ('--help', '-h'):
         usage(0)
 
@@ -79,7 +94,67 @@ if mode == 'stop':
         print 'server not running'
     sys.exit(0)
 
+if mode == 'search':
+    # client search mode
 
+    import kaa.notifier
+    import kaa.beacon
+
+    def progress(cur, total, item):
+        n = 0
+        if total > 0:
+            n = int((cur / float(total)) * 50)
+        sys.stdout.write("|%51s| %d / %d\r" % (("="*n + ">").ljust(51), cur, total))
+        sys.stdout.flush()
+        if cur == total:
+            print
+
+    def changed(result):
+        for r in result:
+            print r
+
+    def uptodate():
+        print 'Beacon has finished the query and parsing'
+
+
+    query   = {}
+    for a in args:
+        key, value = a.split('=', 1)
+        if key in ('title', 'album', 'artist'):
+            value = unicode(value)
+        query[key] = value
+
+    try:
+        kaa.beacon.connect(os.path.expanduser("~/.beacon"))
+    except:
+        print 'beacon server not running'
+        sys.exit(1)
+    
+    if 'dirname' in query:
+        t1 = time.time()
+        result = kaa.beacon.get(query['dirname']).listdir()
+        t2 = time.time()
+    else:
+        t1 = time.time()
+        result = kaa.beacon.query(**query)
+        t2 = time.time()
+
+    for r in result:
+        print r
+    print 'Query took %s seconds' % (t2-t1)
+
+    if monitor:
+        result.signals['changed'].connect(changed, result)
+        result.signals['progress'].connect(progress)
+        result.signals['up-to-date'].connect(uptodate)
+        result.monitor()
+    else:
+        kaa.notifier.OneShotTimer(sys.exit, 0).start(0.1)
+
+    kaa.notifier.loop()
+    sys.exit(0)
+
+    
 # When we reach this point we need to start a new beacon server. If run
 # in daemon mode we fork and detach from the parent. After that a logger
 # is created and the thumbnail server will be forked out.
@@ -125,7 +200,10 @@ if not pid:
         log.error('thumbnail: %s' % e)
         time.sleep(0.1)
         sys.exit(0)
-        
+
+    # set nice level
+    os.nice(19)
+    
     # loop
     kaa.notifier.loop()
     log.info('stop thumbnail server')
@@ -177,7 +255,12 @@ if shutdown:
 
 kaa.notifier.loop()
 log.info('stop beacon')
+
 try:
+    # try to kill thumbnailer
     os.kill(pid, 15)
 except OSError:
     pass
+
+#wait for dead thumbnailer
+os.waitpid(pid, 0)
