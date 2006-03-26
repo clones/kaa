@@ -40,28 +40,47 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
-ext = Extension("kaa.beacon.thumbnail.libthumb",
-                ["src/thumbnail/thumbnail.c", "src/thumbnail/png.c" ],
-                config='src/thumbnail/config.h')
+thumb_ext = Extension("kaa.beacon.thumbnail.libthumb",
+                      ["src/thumbnail/thumbnail.c", "src/thumbnail/png.c" ],
+                      config='src/thumbnail/config.h')
 
-if not ext.check_library('imlib2', '1.1.1'):
+if not thumb_ext.check_library('imlib2', '1.1.1'):
     print 'Imlib2 >= 1.1.1 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
-if not ext.check_library('libpng', '1.2.0'):
+if not thumb_ext.check_library('libpng', '1.2.0'):
     print 'libpng >= 1.2.0 not found'
     sys.exit(1)
 
-if ext.check_library('epeg', '0.9'):
+if thumb_ext.check_library('epeg', '0.9'):
     print 'epeg extention enabled'
-    ext.config('#define USE_EPEG')
+    thumb_ext.config('#define USE_EPEG')
 else:
     print 'epeg extention disabled'
+
+
+inotify_ext = Extension("kaa.beacon.inotify._inotify",
+                        ["src/inotify/inotify.c"],
+                        config='src/inotify/config.h')
+
+ext_modules = [ thumb_ext, inotify_ext ]
+
+if not inotify_ext.check_cc(["<sys/inotify.h>"], "inotify_init();"):
+    if not inotify_ext.check_cc(["<sys/syscall.h>"], "syscall(0);"):
+        print "inotify not enabled: doesn't look like a Linux system."
+        ext_modules.remove(inotify_ext)
+    else:
+        print "inotify not supported in glibc; using fallback."
+        inotify_ext.config("#define USE_FALLBACK")
+
+else:
+    print "inotify supported by glibc; good."
+
 
 setup (module      = 'beacon',
        version     = '0.1',
        description = "Media-oriented virtual filesystem",
        scripts     = [ 'bin/kaa-thumb', 'bin/beacon' ],
-       ext_modules = [ ext ]
+       ext_modules = ext_modules
       )
