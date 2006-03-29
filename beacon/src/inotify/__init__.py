@@ -81,7 +81,7 @@ class INotify:
 
             wd, mask, cookie, size = struct.unpack("LLLL", self._read_buffer[0:16])
             if size:
-                name = self._read_buffer[16:16+size]
+                name = self._read_buffer[16:16+size].rstrip('\0')
             else:
                 name = None
 
