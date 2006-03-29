@@ -4,8 +4,7 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: o Mountpoint handling (rom drive mount/umount)
-#       o Make it possible to override create_file and create_dir
+# TODO: o Make it possible to override create_file and create_dir
 #       o Support tracks and other non file based items
 #
 # -----------------------------------------------------------------------------
@@ -44,6 +43,10 @@ import kaa.notifier
 from kaa import db
 from kaa.db import *
 
+# beacon imports
+from item import Item
+from mountpoint import Mountpoint
+
 # get logging object
 log = logging.getLogger('beacon')
 
@@ -52,98 +55,6 @@ MAX_BUFFER_CHANGES = 20
 # Item generation mapping
 from directory import Directory as create_dir
 from file import File as create_file
-
-class Mountpoint(object):
-    """
-    Internal class for mountpoints. More a list of attributes important
-    for each mountpoint.
-    """
-
-
-    # TODO: make this object visible to the client and add mount and umount
-    # functions to it. But we need different kinds of classes for client
-    # and server because the client needs to use ipc for the mounting.
-
-    def __init__(self, device, directory, beacon_dir, db, client):
-        self.device = device
-        self.directory = directory
-        self.name = None
-        self.id = None
-        self.beacon_dir = beacon_dir
-        self.db = db
-        self.overlay = ''
-        self.url = ''
-        self.client = client
-        
-    def load(self, name):
-        """
-        Set name of the mountpoint (== load new media)
-        """
-        if name == self.name:
-            return False
-        self.name = name
-        self.id = None
-        self.url = ''
-        # get the db id
-        if self.name != None:
-            media = self.db.query(type="media", name=self.name)
-            if media:
-                # known, set internal id
-                media = media[0]
-                self.id = ('media', media['id'])
-            elif not self.client:
-                # no client == server == write access
-                # create media entry and root filesystem
-                log.info('create media entry for %s' % self.name)
-                media = self.db.add_object("media", name=self.name, content='file')
-                self.id = ('media', media['id'])
-            if not self.db.query(type='dir', name='', parent=self.id) and \
-                   not self.client:
-                log.info('create root filesystem for %s' % self.name)
-                self.db.add_object("dir", name="", parent=self.id)
-            if not self.client:
-                self.db.commit()
-            if media:
-                self.url = media['content'] + '//' + self.directory
-            if name:
-                self.overlay = os.path.join(self.beacon_dir, name)
-                if not os.path.isdir(self.overlay):
-                    os.mkdir(self.overlay)
-            else:
-                self.overlay = ''
-        return True
-
-
-#     def item(self):
-#         """
-#         Get the id of the mountpoint. This functions needs the database
-#         and _must_ be called from the same thread as the db itself.
-#         Return the root item for the mountpoint.
-#         """
-#         if not self.id:
-#              return None
-#         media = self.db.query(type='media', id=self.id[1])
-#         content = media[0]['content']
-#         if content == 'file':
-#             # a simple data dir
-#             current = self.db.query(type="dir", name='', parent=self.id)[0]
-#             return item.create(current, None, self)
-#         # a track of something else
-#         return [ item.create(x, self, self) for x in \
-#                  self.db.query(type='track_%s' % content, parent=self.id) ]
-#         # TODO: support other media
-#         return None
-
-        
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        return '<beacon.Mountpoint for %s>' % self.directory
-
-
-    def __del__(self):
-        return 'del', self
 
 
 class Database(object):
@@ -206,7 +117,7 @@ class Database(object):
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
                 return False
-        mountpoint = Mountpoint(device, directory, self.dbdir, self._db,
+        mountpoint = Mountpoint(device, directory, self.dbdir, self,
                                 self.client)
         self._mountpoints.append(mountpoint)
         self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
@@ -267,18 +178,18 @@ class Database(object):
         return create_dir(current, parent)
 
 
-    def commit(self):
+    def commit(self, force=False):
         """
         Commit changes to the database. All changes in the internal list
         are done first.
         """
-        if not self.changes:
+        if not self.changes and not force:
             return
 
-        log.info('COMMIT')
         t1 = time.time()
         changes = self.changes
-        for function, arg1, args, kwargs in self.changes:
+        self.changes = []
+        for function, arg1, args, kwargs in changes:
             # It could be possible that an item is added twice. But this is no
             # problem because the duplicate will be removed at the
             # next query. It can also happen that a dir is added because of
@@ -291,7 +202,6 @@ class Database(object):
             else:
                 function(arg1, *args, **kwargs)
         self._db.commit()
-        self.changes = []
         log.info('db.commit took %s seconds' % (time.time() - t1))
 
 
@@ -301,10 +211,12 @@ class Database(object):
         items as parent (and so on). To avoid internal problems, make sure
         commit is called just after this function is called.
         """
-        log.debug('DELETE %s' % entry)
-        for child in self._db.query(parent = entry._beacon_id):
-            self._delete(child)
-        self._db.delete_object((entry._beacon_id))
+        log.info('DELETE %s', entry)
+        if isinstance(entry, Item):
+            entry = entry._beacon_id
+        for child in self._db.query(parent = entry):
+            self._delete((child['type'], child['id']))
+        self._db.delete_object(entry)
 
 
     def _query_dir(self, parent):
@@ -517,59 +429,59 @@ class Database(object):
 #         return self._db.query(*args, **kwargs)
 
 
+    def query_raw(self, *args, **kwargs):
+        """
+        Query kaa.db database object directly.
+        """
+        self.commit()
+        return self._db.query(*args, **kwargs)
+    
 
-    def add_object(self, type, *args, **kwargs):
+    def add_object(self, type, metadata=None, beacon_immediately=False,
+                   *args, **kwargs):
         """
         Add an object to the db. If the keyword 'beacon_immediately' is set, the
         object will be added now and the db will be locked until the next commit.
         To avoid locking, do not se the keyword, but this means that a requery on
         the object won't find it before the next commit.
         """
-        if 'metadata' in kwargs:
-            metadata = kwargs['metadata']
-            if metadata:
-                for key in self._db._object_types[type][1].keys():
-                    if metadata.has_key(key) and metadata[key] != None:
-                        kwargs[key] = metadata[key]
-            del kwargs['metadata']
+        if metadata:
+            for key in self._db._object_types[type][1].keys():
+                if metadata.has_key(key) and metadata[key] != None:
+                    kwargs[key] = metadata[key]
 
-        if 'beacon_immediately' in kwargs:
-            if len(self.changes):
-                self.commit()
-            del kwargs['beacon_immediately']
+        if beacon_immediately:
+            self.commit()
             return self._db.add_object(type, *args, **kwargs)
-
         self.changes.append((self._db.add_object, type, args, kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
 
-    def update_object(self, (type, id), *args, **kwargs):
+    def update_object(self, (type, id), metadata=None, beacon_immediately=False,
+                      *args, **kwargs):
         """
         Update an object to the db. If the keyword 'beacon_immediately' is set, the
         object will be updated now and the db will be locked until the next commit.
         To avoid locking, do not se the keyword, but this means that a requery on
         the object will return the old values.
         """
-        if 'metadata' in kwargs:
-            metadata = kwargs['metadata']
-            if metadata:
-                for key in self._db._object_types[type][1].keys():
-                    if metadata.has_key(key) and metadata[key] != None:
-                        kwargs[key] = metadata[key]
-            del kwargs['metadata']
-
-        if 'beacon_immediately' in kwargs:
-            if len(self.changes):
-                self.commit()
-            del kwargs['beacon_immediately']
-            return self._db.update_object((type, id), *args, **kwargs)
+        if metadata:
+            for key in self._db._object_types[type][1].keys():
+                if metadata.has_key(key) and metadata[key] != None:
+                    kwargs[key] = metadata[key]
 
         self.changes.append((self._db.update_object, (type, id), args, kwargs))
-        if len(self.changes) > MAX_BUFFER_CHANGES:
+        if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
             self.commit()
 
 
+    def delete_object(self, (type, id), beacon_immediately=False):
+        self.changes.append((self._delete, (type, id), [], {}))
+        if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
+            self.commit()
+            
+                      
     def object_types(self):
         """
         Return the list of object types

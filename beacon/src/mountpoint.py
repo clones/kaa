@@ -1,0 +1,109 @@
+# TODO: o Mountpoint handling (rom drive mount/umount)
+
+import os
+import logging
+
+from crawl import Crawler
+
+# get logging object
+log = logging.getLogger('beacon')
+
+class Mountpoint(object):
+    """
+    Internal class for mountpoints. More a list of attributes important
+    for each mountpoint.
+    """
+
+    # TODO: make this object visible to the client and add mount and umount
+    # functions to it. But we need different kinds of classes for client
+    # and server because the client needs to use ipc for the mounting.
+
+    def __init__(self, device, directory, beacon_dir, db, client):
+        self.device = device
+        self.directory = directory
+        self.name = None
+        self.id = None
+        self.beacon_dir = beacon_dir
+        self.db = db
+        self.overlay = ''
+        self.url = ''
+        self.client = client
+        if not self.client:
+            self.crawler = Crawler(db)
+
+        
+    def load(self, name):
+        """
+        Set name of the mountpoint (== load new media)
+        """
+        if name == self.name:
+            return False
+        self.name = name
+        self.id = None
+        self.url = ''
+        # get the db id
+        if self.name != None:
+            media = self.db.query_raw(type="media", name=self.name)
+            if media:
+                # known, set internal id
+                media = media[0]
+                self.id = ('media', media['id'])
+            elif not self.client:
+                # no client == server == write access
+                # create media entry and root filesystem
+                log.info('create media entry for %s' % self.name)
+                media = self.db.add_object("media", name=self.name, content='file',
+                                           beacon_immediately=True)
+                self.id = ('media', media['id'])
+            if not self.db.query_raw(type='dir', name='', parent=self.id) and \
+                   not self.client:
+                log.info('create root filesystem for %s' % self.name)
+                self.db.add_object("dir", name="", parent=self.id,
+                                   beacon_immediately=True)
+                self.db.commit(force=True)
+            if media:
+                self.url = media['content'] + '//' + self.directory
+            if name:
+                self.overlay = os.path.join(self.beacon_dir, name)
+                if not os.path.isdir(self.overlay):
+                    os.mkdir(self.overlay)
+            else:
+                self.overlay = ''
+        return True
+
+
+    def monitor(self, directory):
+        self.crawler.append(directory)
+
+        
+#     def item(self):
+#         """
+#         Get the id of the mountpoint. This functions needs the database
+#         and _must_ be called from the same thread as the db itself.
+#         Return the root item for the mountpoint.
+#         """
+#         if not self.id:
+#              return None
+#         media = self.db.query(type='media', id=self.id[1])
+#         content = media[0]['content']
+#         if content == 'file':
+#             # a simple data dir
+#             current = self.db.query(type="dir", name='', parent=self.id)[0]
+#             return item.create(current, None, self)
+#         # a track of something else
+#         return [ item.create(x, self, self) for x in \
+#                  self.db.query(type='track_%s' % content, parent=self.id) ]
+#         # TODO: support other media
+#         return None
+
+        
+    def __repr__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        return '<beacon.Mountpoint for %s>' % self.directory
+
+
+    def __del__(self):
+        return 'del', self
+
