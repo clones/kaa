@@ -4,141 +4,183 @@ import logging
 from kaa.notifier import Timer, OneShotTimer
 
 import parser
+from inotify import INotify
+from directory import Directory
 
 log = logging.getLogger('crawler')
 
-DIRECTORY_BLACKLIST  = [ '/usr/', '/bin/' ]
-DIRECTORY_QUICKCHECK = [ '/', '/home/', os.path.expanduser("~/") ]
-
-CHECK_TIMER  = 0.03
-PARSE_TIMER  = 0.02
-UPDATE_TIMER = 0.03
-
-_crawling = []
-
 class Crawler(object):
+
+    PARSE_TIMER  = 0.02
+    UPDATE_TIMER = 0.03
 
     active = 0
     nextid = 0
     
     def __init__(self, db):
+        """
+        Init the Crawler.
+        Parameter db is a beacon.db.Database object.
+        The Crawler is used by Mountpoint
+        """
         self.db = db
-        self._checked = []
-        self._tocheck = []
-        self._toparse = []
-        self._toupdate = []
+        self.monitoring = []
+        self.scan_directory_items = []
+        self.check_mtime_items = []
+        self.update_items = []
         Crawler.nextid += 1
         self.num = Crawler.nextid
-        
+        try:
+            self.inotify = INotify()
+        except SystemError, e:
+            log.warning('%s', e)
+            self.inotify = None
+        self.timer = None
+        self.restart_timer = None
+        self.restart_args = []
 
-    def crawl(self, item):
-        if not item.filename in DIRECTORY_QUICKCHECK + DIRECTORY_BLACKLIST:
-            items = [ item ]
-        else:
-            items = self.search(item)
-            
-        for child in items:
-            for c in _crawling:
-                if child.filename.startswith(c):
-                    break
+
+    def inotify_callback(self, mask, name):
+        if mask & INotify.WATCH_MASK:
+            item = self.db.query(filename=name)
+            if os.path.exists(name):
+                # created or modified, we don't care
+                if item._beacon_isdir:
+                    self.scan_directory_items.append(item)
+                self.check_mtime_items.append(item)
+                if not self.timer:
+                    Crawler.active += 1
+                    self.check_mtime()
             else:
-                self._toparse.append(child)
-                self._tocheck.append(child)
-                _crawling.append(child.filename)
-        if not self._toparse:
-            return
-        Crawler.active += 1
-        log.info('start crawler %s for %s' % (self.num, [ x.filename for x in items]))
-        self.timer = Timer(self.parse)
-        self.timer.start(PARSE_TIMER / Crawler.active)
+                # deleted
+                item = self.db.query(filename=name)
+                if item._beacon_id:
+                    self.db.delete_object(item._beacon_id, beacon_immediately=True)
+                if name + '/' in self.monitoring:
+                    for m in self.monitoring[:]:
+                        if m.startswith(name + '/'):
+                            if self.inotify:
+                                self.inotify.ignore(m)
+                                log.info('remove inotify for %s', m)
+                            self.monitoring.remove(m)
+
+    def append(self, item):
+        log.info('crawl %s', item)
+        self.check_mtime_items.append(item)
+        self.scan_directory_items.append(item)
+        self.restart_args.append(item)
+        if not self.timer:
+            Crawler.active += 1
+            log.info('start crawler %s' % self.num)
+            self.check_mtime()
 
 
-    def stop(self):
+    def finished(self):
         if not self.timer:
             return
         log.info('crawler %s finished', self.num)
         Crawler.active -= 1
         self.timer.stop()
         self.timer = None
-        for child in self._tocheck:
-            if child.filename in _crawling:
-                _crawling.remove(child.filename)
-        self._tocheck = self._toparse = self._toupdate = []
+        self.scan_directory_items = []
+        self.check_mtime_items = []
+        self.update_items = []
         self.db.commit()
+        if not self.inotify:
+            log.info('schedule rescan')
+            self.restart_timer = OneShotTimer(self.restart).start(10)
+                
+
+    def stop(self):
+        self.finished()
+        self.monitoring = []
+        self.inotify = None
+        
+        
+    def restart(self):
+        self.PARSE_TIMER = 1
+
+        self.monitoring = []
+        for item in self.restart_args:
+            self.check_mtime_items.append(item)
+            self.scan_directory_items.append(item)
+        Crawler.active += 1
+        log.info('start crawler %s' % self.num)
+        self.check_mtime()
 
         
-    def search(self, object):
-        if not object._beacon_isdir or object.filename in DIRECTORY_BLACKLIST:
-            return []
-        if object._beacon_data['mtime'] and \
-               not object.filename in DIRECTORY_QUICKCHECK:
-            return [ object ]
-        ret = []
-        for child in self.db.query(parent=object):
-            if not child._beacon_id:
-                continue
-            ret += self.search(child)
-        return ret
-
-
-    def check(self):
+    def scan_directory(self):
         if not self.timer:
             return False
 
-        if not self._tocheck:
-            self.stop()
+        if not self.scan_directory_items:
+            self.finished()
             return False
 
-        item = self._tocheck.pop(0)
-        self._checked.append(item)
+        item = self.scan_directory_items.pop(0)
+        if not isinstance(item, Directory):
+            log.warning('%s is no directory item', item)
+            if hasattr(item, 'filename') and item.filename + '/' in self.monitoring:
+                self.monitoring.remove(item.filename + '/')
+            return True
+
         log.debug('check %s', item)
-        if item.filename in _crawling:
-            _crawling.remove(item.filename)
         for child in self.db.query(parent=item):
             if child._beacon_isdir:
-                for x in self._tocheck + self._checked:
-                    if child.filename == x.filename:
-                        self._toparse.append(child)
+                for fname in [ f.filename for f in self.scan_directory_items ] + \
+                        self.monitoring:
+                    if child.filename == fname:
+                        self.check_mtime_items.append(child)
                         break
                 else:
-                    self._toparse.append(child)
-                    self._tocheck.append(child)
-                    _crawling.append(child.filename)
+                    self.check_mtime_items.append(child)
+                    self.scan_directory_items.append(child)
                 continue
-            self._toparse.append(child)
-        self.timer = Timer(self.parse)
-        self.timer.start(PARSE_TIMER / Crawler.active)
+            self.check_mtime_items.append(child)
+        if not item.filename in self.monitoring:
+            if self.inotify:
+                log.info('add inotify for %s' % item.filename)
+                self.inotify.watch(item.filename[:-1]).connect(self.inotify_callback)
+            self.monitoring.append(item.filename)
+        self.check_mtime()
         return True
 
 
-    def parse(self):
+    def check_mtime(self):
+        self.timer = Timer(self.check_mtime_step)
+        self.timer.start(self.PARSE_TIMER / Crawler.active)
+
+        
+    def check_mtime_step(self):
         if not self.timer:
             return False
         counter = 0
         while True:
-            if not self._toparse:
-                if self._toupdate:
-                    self.timer = Timer(self.update)
-                    self.timer.start(UPDATE_TIMER / Crawler.active)
-                else:
-                    self.timer = OneShotTimer(self.check)
-                    self.timer.start(CHECK_TIMER / Crawler.active)
+            if not self.check_mtime_items:
+                self.update()
                 return False
-            item = self._toparse.pop(0)
+            item = self.check_mtime_items.pop(0)
             counter += 1
             if item._beacon_data['mtime'] != item._beacon_mtime():
-                self._toupdate.append(item)
-            if counter == 20 and len(self._toparse) > 10:
+                self.update_items.append(item)
+            if counter == 20 and len(self.check_mtime_items) > 10:
                 return True
 
 
     def update(self):
+        if self.update_items:
+            self.timer = Timer(self.update_step)
+            self.timer.start(self.UPDATE_TIMER / Crawler.active)
+        else:
+            self.scan_directory()
+        
+
+    def update_step(self):
         if not self.timer:
             return False
-        if not self._toupdate:
-            self.timer = OneShotTimer(self.check)
-            self.timer.start(CHECK_TIMER / Crawler.active)
+        if not self.update_items:
+            self.scan_directory()
             return False
-        item = self._toupdate.pop(0)
+        item = self.update_items.pop(0)
         parser.parse(self.db, item)
         return True
