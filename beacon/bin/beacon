@@ -19,14 +19,16 @@ log = logging.getLogger()
 
 def usage(error_code):
     print 'beacon [options]'
-    print 'Server options:'
-    print '--start            start beacon'
-    print '--stop             stop running beacon'
-    print '--daemon           detach for parent process'
-    print '--autoshutdown     stop server when no clients are connected'
-    print '--logfile file     use file for logging'
-    print '--loglevel level   log level (warning, info, debug)'
-    print '--help | -h        this message'
+    print 'options:'
+    print '--start             start beacon'
+    print '--stop              stop running beacon'
+    print '--daemon            detach for parent process'
+    print '--autoshutdown      stop server when no clients are connected'
+    print '--logfile file      use file for logging'
+    print '--verbose modules   comma separated list of modules which should be more'
+    print '                    verbose. Possible modules are db, notifier, crawler'
+    print '                    Use \'all\' to increase every module.'
+    print '--help | -h         this message'
     print
     print 'Client options:'
     print '--search args      search mode'
@@ -43,7 +45,7 @@ def usage(error_code):
     
 try:
     # read arguments
-    opts = [ 'start', 'stop', 'daemon', 'autoshutdown', 'logfile=', 'loglevel=',
+    opts = [ 'start', 'stop', 'daemon', 'autoshutdown', 'logfile=', 'verbose=',
              'help', 'search', 'monitor' ]
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
@@ -66,12 +68,13 @@ for o, a in opts:
         shutdown = True
     if o == '--logfile':
         logfile = a
-    if o == '--loglevel':
-        try:
-            log.setLevel(getattr(logging, a.upper()))
-        except:
-            print 'invalid loglevel: %s' % a
-            usage(1)
+    if o == '--verbose':
+        a = a.lower()
+        if a == 'all':
+            log.setLevel(logging.INFO)
+        else:
+            for m in a.split(','):
+                logging.getLogger(m).setLevel(logging.INFO)
     if o == '--monitor':
         monitor = True
     if o in ('--help', '-h'):
@@ -110,6 +113,7 @@ if mode == 'search':
             print
 
     def changed(result):
+        print 'Beacon query update'
         for r in result:
             print r
 
@@ -247,6 +251,14 @@ ipc.register_object(kaa.beacon.server.connect, 'beacon')
 ipc.register_object(kaa.notifier.shutdown, 'shutdown')
 ipc.signals["client_closed"].connect(kaa.beacon.server._client_closed)
 
+if os.environ.get('BEACON_DATABASE'):
+    log.info('connect to %s',  os.environ['BEACON_DATABASE'])
+    server = kaa.beacon.server.connect(os.environ['BEACON_DATABASE'])
+    if os.environ.get('BEACON_MONITOR'):
+        for dirname in os.environ.get('BEACON_MONITOR').split(':'):
+            log.info('monitor %s', dirname)
+            server.monitor_dir(dirname)
+            
 # start garbage collector
 kaa.notifier.Timer(garbage_collect).start(10)
 if shutdown:

@@ -64,4 +64,22 @@ will be stopped.
 
 
 
+Hidden features
+
+The beacon server can also be used as a small test application. In
+normal use, the server won't connect to a database unless a client
+connects. You can force the server to connect on startup setting the
+environment variable BEACON_DATABASE to the location of the database.
+A second environment variable is BEACON_MONITOR, a collon separated
+list of directories (plus subdirectories) to be monitored using
+inotify. Both variables are created to help testing beacon, the may be
+removed later.
+
+Example:
+export BEACON_DATABASE=/home/dmeyer/.beacon
+export BEACON_MONITOR=/home/dmeyer/video:/home/dmeyer/mp3 
+beacon --start --verbose crawler,db
+
+
+
 More about kaa.beacon later
