@@ -30,6 +30,8 @@ def handle_key(key):
     elif key == "enter":
         streak.move(right = 0)
         streak.animate("move", left="100%", duration = 0.25)
+    elif key == "f":
+        c.get_window().set_fullscreen(not c.get_window().get_fullscreen())
 
     if new_item != cur_item:
         set_menu_item(new_item)
