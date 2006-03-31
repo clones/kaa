@@ -21,6 +21,7 @@ class INotify:
         }
 
         self._watches = {}
+        self._watches_by_path = {}
         self._read_buffer = ""
 
         self._fd = _inotify.init()
@@ -46,6 +47,10 @@ class INotify:
         will get emitted.  Callbacks connected to the signal must accept 2
         arguments: notify mask and filename.
         """
+        path = os.path.realpath(path)
+        if path in self._watches_by_path:
+            return self._watches_by_path[path][0]
+
         if mask == None:
             mask = INotify.WATCH_MASK
 
@@ -54,7 +59,8 @@ class INotify:
             raise IOError, "Failed to add watch on '%s'" % path
 
         signal = kaa.notifier.Signal()
-        self._watches[wd] = [signal, os.path.realpath(path)]
+        self._watches[wd] = [signal, path]
+        self._watches_by_path[path] = [signal, wd]
         return signal
 
 
@@ -63,13 +69,14 @@ class INotify:
         Removes a watch on the given path.
         """
         path = os.path.realpath(path)
-        for wd in self._watches:
-            if path == self._watches[wd][1]:
-                _inotify.rm_watch(self._fd, wd)
-                del self._watches[wd]
-                return True
+        if path not in self._watches_by_path:
+            return False
 
-        return False
+        _inotify.rm_watch(self._fd, self._watches_by_path[path][1])
+        del self._watches[wd]
+        del self._watches_by_path[path]
+        return True
+
 
     def _handle_data(self):
         data = os.read(self._fd, 32768)
