@@ -4,7 +4,7 @@ from displays.buffer import BufferCanvas
 from displays.x11 import X11Canvas
 from image import *
 import kaa.player
-from kaa import notifier, display, evas, base
+from kaa import notifier, display, evas, weakref
 
 
 class PlayerOSDCanvas(BufferCanvas):
@@ -149,7 +149,7 @@ class Movie(Image):
                 self._player.signals[signal].connect_weak(self.signals[signal].emit)
 
         if self._player.has_capability(kaa.player.CAP_OSD):
-            self.osd.set_player(base.weakref(self._player))
+            self.osd.set_player(weakref.weakref(self._player))
             self.osd._queue_render()
         else:
             self.osd.set_player(None)
