@@ -130,7 +130,7 @@ if get_library('X11'):
     if 'gl_x11' in evas_engines:
         features.append('evasGL')
         x11.add_library('evas')
-        x11.libraries.append("GL")
+        x11.libraries += ['GL', 'Xxf86vm']
     if not features:
         features = [ 'yes' ]
     else:
