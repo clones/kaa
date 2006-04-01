@@ -104,6 +104,12 @@ if get_library('evas'):
                 engine = line.strip()
                 config.define("ENABLE_ENGINE_%s" % engine.upper())
                 evas_engines.append(engine)
+                if engine == "gl_x11":
+                    # Determine if libGL.so is linked to evas (this is not
+                    # the case with recent evas); if not, we must link
+                    # explicitly to libGL.
+                    evas_gl_linked = os.system("ldd %s | grep -q libGL.so" % out) == 0
+
         os.unlink(out)
 
 
@@ -130,7 +136,8 @@ if get_library('X11'):
     if 'gl_x11' in evas_engines:
         features.append('evasGL')
         x11.add_library('evas')
-        x11.libraries += ['GL', 'Xxf86vm']
+        if not evas_gl_linked:
+            x11.libraries.append("GL")
     if not features:
         features = [ 'yes' ]
     else:
