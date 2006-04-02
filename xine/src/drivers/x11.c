@@ -10,7 +10,9 @@ typedef struct _x11_vo_user_data {
              *dest_size_callback;
     Display *display;
     PyObject *window_pyobject;
-    int close_display_needed;
+    int close_display_needed,
+        last_width, last_height;
+    double last_aspect;
 } x11_vo_user_data;
 
 
@@ -38,8 +40,12 @@ static void x11_frame_output_cb(void *data, int video_width, int video_height,
                 // FIXME: find a way to propagate this back to the main thread.
                 printf("EXCEPTION: frame_output_cb returned bad arguments (%s).\n", result->ob_type->tp_name);
                 PyErr_Print();
-            } else
+            } else {
                 success = 1;
+                user_data->last_width = *dest_width;
+                user_data->last_height = *dest_height;
+                user_data->last_aspect = *dest_pixel_aspect; 
+            }
             Py_DECREF(result);
         } else {
             // FIXME: find a way to propagate this back to the main thread.
@@ -52,10 +58,11 @@ static void x11_frame_output_cb(void *data, int video_width, int video_height,
 
     if (!success) {
         // Call to python space failed, but we need to set some sane defaults
-        // here, or else xine does ugly things.
+        // here, or else xine does ugly things.  So we'll use the last values.
         *dest_x = *dest_y = *win_x = *win_y = 0;
-        *dest_width = *dest_height = 50;
-        *dest_pixel_aspect = 1;
+        *dest_width = user_data->last_width;
+        *dest_height = user_data->last_height;
+        *dest_pixel_aspect = user_data->last_aspect;
     }
 }
 
@@ -83,8 +90,12 @@ static void x11_dest_size_cb(void *data, int video_width, int video_height,
                 // FIXME: find a way to propagate this back to the main thread.
                 printf("EXCEPTION: dest_size_cb returned bad arguments (%s).\n", result->ob_type->tp_name);
                 PyErr_Print();
-            } else
+            } else {
                 success = 1;
+                user_data->last_width = *dest_width;
+                user_data->last_height = *dest_height;
+                user_data->last_aspect = *dest_pixel_aspect; 
+            }
     
             Py_DECREF(result);
         } else {
@@ -97,9 +108,10 @@ static void x11_dest_size_cb(void *data, int video_width, int video_height,
 
     if (!success) {
         // Call to python space failed, but we need to set some sane defaults
-        // here, or else xine does ugly things.
-        *dest_width = *dest_height = 50;
-        *dest_pixel_aspect = 1;
+        // here, or else xine does ugly things.  So we'll use the last values.
+        *dest_width = user_data->last_width;
+        *dest_height = user_data->last_height;
+        *dest_pixel_aspect = user_data->last_aspect;
     }
 }
 

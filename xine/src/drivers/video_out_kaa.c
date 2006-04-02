@@ -883,16 +883,6 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
     kaa_frame_t *frame = (kaa_frame_t *)frame_gen;
 
-    //printf("kaa_display_frame: %x draw=%x w=%d h=%d ratio=%.3f format=%d (yv12=%d yuy=%d)\n", frame, frame_gen->draw, frame->vo_frame.width, frame->height, frame->ratio, frame->format, XINE_IMGFMT_YV12, XINE_IMGFMT_YUY2);
-
-
-    /*
-    memcpy(frame->passthrough_frame->base[0], frame_gen->base[0], frame_gen->pitches[0] * frame->height);
-    memcpy(frame->passthrough_frame->base[1], frame_gen->base[1], frame_gen->pitches[1] * (frame->height>>1));
-    memcpy(frame->passthrough_frame->base[2], frame_gen->base[2], frame_gen->pitches[2] * (frame->height>>1));
-    */
-
-
     if (this->handle_frame_cb)
         this->handle_frame_cb(KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD, frame_gen, &frame->user_data, this->handle_frame_cb_data);
 
@@ -901,6 +891,7 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
 
     if (this->handle_frame_cb)
         this->handle_frame_cb(KAA_VO_HANDLE_FRAME_DISPLAY_POST_OSD, frame_gen, &frame->user_data, this->handle_frame_cb_data);
+
     if (frame->passthrough_frame->proc_slice) {
         // Serious kludge!  For passthrough drivers that do slices, we delay
         // processing them until now so that we have a chance to blend the 
@@ -915,15 +906,11 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
         }
     }
 
-
     if (this->passthrough && this->do_passthrough) 
         this->passthrough->display_frame(this->passthrough, frame->passthrough_frame);
 
     this->last_frame = frame;
     frame->vo_frame.free(&frame->vo_frame);
-
-    pthread_mutex_unlock(&this->lock);
-
 }
 
 static int 
