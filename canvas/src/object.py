@@ -61,7 +61,7 @@ class Object(object):
         return None
 
     def __setitem__(self, key, value):
-        #print "Set property '%s', oldval=%s  newval=%s" % (key, repr(self[key]), repr(value))
+        #print self, "Set property '%s', oldval=%s  newval=%s" % (key, repr(self[key]), repr(value))
         if self[key] == value:
             return False
 

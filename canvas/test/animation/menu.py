@@ -61,7 +61,7 @@ def set_menu_item(new_item):
                              bounce = True, decelerate = True)
     elif MENU_STYLE == 2:
         pos = menu.get_child_position(menu_items[cur_item])
-        menu.animate("move", top = -pos[1], duration = 0.2, bounce = True, decelerate = True, bounce_factor = 0.2)
+        menu.animate("move", top = -pos[1], duration = 0.3, bounce = True, decelerate = True, bounce_factor = 0.2)
 
 
 def menu_reflow():
@@ -113,6 +113,7 @@ for item in ("tv", "videos", "music", "photos", "dvd", "settings"):
     # Initialize these images to 20% size and alpha=0 (invisible)
     img.set_width("20%")
     img.set_color(a = 0)
+    #img.set_margin(left=80)
     watermark_items.append(img)
 
 selector_box = c.add_child(kaa.canvas.Container(), width = 200, clip = "auto")
@@ -120,7 +121,7 @@ selector_box = c.add_child(kaa.canvas.Container(), width = 200, clip = "auto")
 selector = selector_box.add_child(kaa.canvas.Image("royale/list_selector.mng"))
 # Set the border to 10 pixels in all directions, so that scaling the selector
 # won't distort its edges.
-selector.set_border(10, 10, 10, 10)
+selector.set_border(7, 7, 7, 7)
 # Slightly transparent, so we can see the watermarks through the selector.
 selector.set_color(a = 200)
 

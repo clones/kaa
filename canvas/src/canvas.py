@@ -93,6 +93,7 @@ class Canvas(Container):
             #t1=time.time()
             regions = self._render()
             #print "@@@ render evas right now", time.time()-t0, self, regions, " - inside evas", time.time()-t1
+            return regions
 
 
 
@@ -121,7 +122,7 @@ class Canvas(Container):
     #
 
     def render(self):
-        self._render_queued()
+        return self._render_queued()
 
 
     def get_evas(self):
