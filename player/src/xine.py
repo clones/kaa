@@ -136,8 +136,9 @@ class XinePlayerChild(object):
 
 
         # FIXME: don't hardcore buffer dimensions
-        self._send_command("osd_configure", width, height, aspect, 2000, 2000)
-        return self._osd_shmem.addr + 16, 2000 * 4, self._frame_shmem.addr
+        assert(width*height*4 < 2000*2000*4)
+        self._send_command("osd_configure", width, height, aspect)
+        return self._osd_shmem.addr + 16, width * 4, self._frame_shmem.addr
 
 
     def _handle_command_setup(self, wid):
@@ -246,11 +247,11 @@ class XinePlayerChild(object):
         if not self._osd_shmem:
             return
 
-        if alpha:
+        if alpha != None:
             self._driver_control("set_osd_alpha", alpha)
-        if visible:
+        if visible != None:
             self._driver_control("set_osd_visibility", visible)
-        if invalid_regions:
+        if invalid_regions != None:
             self._driver_control("osd_invalidate_rect", invalid_regions)
         self._osd_shmem.write(chr(BUFFER_UNLOCKED))
 
@@ -417,7 +418,7 @@ class XinePlayer(MediaPlayer):
                 self.signals["end"].emit()
 
 
-    def _handle_command_osd_configure(self, width, height, aspect, buffer_width, buffer_height):
+    def _handle_command_osd_configure(self, width, height, aspect):
         if not self._osd_shmem:
             shmid = shm.getshmid(self._osd_shmkey)
             if shmid:
@@ -432,7 +433,7 @@ class XinePlayer(MediaPlayer):
         # TODO: remember these values and emit them to new connections to
         # this signal after this point.
         self.signals["osd_configure"].emit(width, height, self._osd_shmem.addr + 16, 
-                                           buffer_width, buffer_height)
+                                           width, height)
  
             
     def _handle_command_resize(self, size):

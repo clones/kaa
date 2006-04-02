@@ -158,7 +158,10 @@ osdgrad.set_padding(5, 5, 5, 5)
 osd_text = osd_cont.add_child(kaa.canvas.Text("Hello", size = 24), left = 40, vcenter="50%")
 osd.show()
 
+#osd_cont.move(0,0)
+#r=osd.add_child(kaa.canvas.Rectangle(), color=(255,255,255,255), width=640, height=640)
 kaa.notifier.Timer(output_status_line, player).start(0.1)
+
 kaa.signals["stdin_key_press_event"].connect(handle_key, player)
 if player.get_window():
     player.get_window().signals["key_press_event"].connect(handle_key, player)
