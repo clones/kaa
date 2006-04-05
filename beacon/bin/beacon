@@ -22,6 +22,7 @@ def usage(error_code):
     print 'options:'
     print '--start             start beacon'
     print '--stop              stop running beacon'
+    print '--db directory      directory of the database (default ~/.beacon)'
     print '--daemon            detach for parent process'
     print '--autoshutdown      stop server when no clients are connected'
     print '--logfile file      use file for logging'
@@ -45,8 +46,8 @@ def usage(error_code):
     
 try:
     # read arguments
-    opts = [ 'start', 'stop', 'daemon', 'autoshutdown', 'logfile=', 'verbose=',
-             'help', 'search', 'monitor' ]
+    opts = [ 'start', 'stop', 'db=', 'daemon', 'autoshutdown', 'logfile=',
+             'verbose=', 'help', 'search', 'monitor' ]
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
     usage(1)
@@ -56,12 +57,15 @@ mode     = None
 detach   = False
 shutdown = False
 monitor  = False
+database = os.path.expanduser("~/.beacon")
 
 for o, a in opts:
     if o in ('--start', '--stop', '--search'):
         if mode:
             usage(1)
         mode = o[2:]
+    if o == '--db':
+        database = a
     if o == '--daemon':
         detach = True
     if o == '--autoshutdown':
@@ -129,7 +133,7 @@ if mode == 'search':
         query[key] = value
 
     try:
-        kaa.beacon.connect(os.path.expanduser("~/.beacon"))
+        kaa.beacon.connect()
     except:
         print 'beacon server not running'
         sys.exit(1)
@@ -238,32 +242,17 @@ def garbage_collect():
 log.info('connect to thumbnailer')
 kaa.beacon.thumbnail.thumbnail.connect()
 
-try:
-    ipc = kaa.ipc.IPCServer('beacon')
-except IOError, e:
-    kaa.beacon.thumbnail.thumbnail.disconnect()
-    log.error('beacon: %s' % e)
-    time.sleep(0.1)
-    sys.exit(0)
-
-log.info('start beacon')
-ipc.register_object(kaa.beacon.server.connect, 'beacon')
-ipc.register_object(kaa.notifier.shutdown, 'shutdown')
-ipc.signals["client_closed"].connect(kaa.beacon.server._client_closed)
-
-if os.environ.get('BEACON_DATABASE'):
-    log.info('connect to %s',  os.environ['BEACON_DATABASE'])
-    server = kaa.beacon.server.connect(os.environ['BEACON_DATABASE'])
-    if os.environ.get('BEACON_MONITOR'):
-        for dirname in os.environ.get('BEACON_MONITOR').split(':'):
-            log.info('monitor %s', dirname)
-            server.monitor_dir(dirname)
+server = kaa.beacon.server.Server(database)
+if os.environ.get('BEACON_MONITOR'):
+    for dirname in os.environ.get('BEACON_MONITOR').split(':'):
+        log.info('monitor %s', dirname)
+        server.monitor_dir(dirname)
             
 # start garbage collector
 kaa.notifier.Timer(garbage_collect).start(10)
 if shutdown:
     log.info('set autoshutdown timer to 3 seconds')
-    kaa.beacon.server.autoshutdown(3)
+    server.autoshutdown(3)
 
 kaa.notifier.loop()
 log.info('stop beacon')

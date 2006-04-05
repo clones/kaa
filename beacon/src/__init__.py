@@ -44,24 +44,18 @@ log = logging.getLogger('beacon')
 # connected client object
 _client = None
 
-def connect(database=None):
+def connect():
     """
-    Connect to the beacon database dir given by 'database'. Id 'database' is None, the
-    client will only connect to the thumbnailer. A beacon server must be running.
+    Connect to the beacon. A beacon server must be running.
     """
     global _client
 
     if _client:
         return _client
 
-    log.info('connect to thumbnailer')
+    log.info('beacon connect')
     thumbnail.connect()
-
-    if not database:
-        return None
-    
-    log.info('connect to %s' % database)
-    _client = Client(database)
+    _client = Client()
     return _client
 
 

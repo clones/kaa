@@ -60,15 +60,14 @@ class Client(object):
     Beacon client. This client uses the db read only and needs a server on
     the same machine doing the file scanning and changing of the db.
     """
-    def __init__(self, db):
-        db = os.path.abspath(db)
+    def __init__(self):
         # monitor function from the server to start a new monitor for a query
-        self._server = kaa.ipc.IPCClient('beacon').get_object('beacon')(db)
-        self._server_monitor = self._server.monitor
+        self._server = kaa.ipc.IPCClient('beacon').get_object('beacon')
+        self._monitor = self._server.monitor
         # read only version of the database
-        self.database = Database(db, self)
+        self.database = Database(self._server.get_database(), self)
         # connect to server notifications
-        self.id = self._server.connect(self, self._beacon_notify)
+        self.id = self._server.connect(self)
         # internal list of active queries
         self._queries = []
         # internal list of items to update
@@ -85,7 +84,7 @@ class Client(object):
             q._monitor = False
         self._queries = []
         self._server = None
-        self._server_monitor = None
+        self._monitor = None
         self.database = None
         
         
@@ -120,8 +119,7 @@ class Client(object):
             q = copy.copy(query._query)
             if 'parent' in q:
                 q['parent'] = q['parent']._beacon_id
-        self._server_monitor(self.id, query.id, q,
-                             __ipc_noproxy_args=True, __ipc_oneway=True)
+        self._monitor(self.id, query.id, q, __ipc_noproxy_args=True, __ipc_oneway=True)
         
 
     def _beacon_request(self, filename):
@@ -132,7 +130,7 @@ class Client(object):
                                     __ipc_noproxy_args=True)
 
 
-    def _beacon_notify(self, id, msg, *args, **kwargs):
+    def notify(self, id, msg, *args, **kwargs):
         """
         Internal notification callback from the server. The Monitor does not
         has a reference to the Query because this would result in circular

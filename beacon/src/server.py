@@ -39,9 +39,9 @@ import sys
 import logging
 
 # kaa imports
-from kaa import ipc
+import kaa.ipc
 from kaa.weakref import weakref
-from kaa.notifier import OneShotTimer, Timer
+from kaa.notifier import OneShotTimer, Timer, Callback
 
 # kaa.beacon imports
 import parser
@@ -51,8 +51,6 @@ from monitor import Monitor
 # get logging object
 log = logging.getLogger('beacon')
 
-# ipc debugging
-# ipc.DEBUG = 1
 
 class Server(object):
     """
@@ -60,6 +58,20 @@ class Server(object):
     scanning / monitoring of queries.
     """
     def __init__(self, dbdir):
+        log.info('start beacon')
+        try:
+            self.ipc = kaa.ipc.IPCServer('beacon')
+        except IOError, e:
+            kaa.beacon.thumbnail.thumbnail.disconnect()
+            log.error('beacon: %s' % e)
+            time.sleep(0.1)
+            sys.exit(0)
+
+        self.ipc.register_object(self, 'beacon')
+        self.ipc.register_object(Callback(sys.exit, 0), 'shutdown')
+        self.ipc.signals["client_closed"].connect(self.disconnect)
+
+        self._dbdir = dbdir
         self._db = Database(dbdir, None)
         self._next_client = 0
         
@@ -117,6 +129,62 @@ class Server(object):
         # set up.
         self._db.commit()
 
+
+    def get_database(self):
+        """
+        Return the database directory of the server.
+        """
+        return self._dbdir
+
+    
+    def connect(self, client):
+        """
+        Connect a new client to the server.
+        """
+        self._next_client += 1
+        self._clients.append((self._next_client, client, client.notify, []))
+        for device, directory, name in self._db.get_mountpoints():
+            client.database.add_mountpoint(device, directory)
+            client.database.set_mountpoint(directory, name)
+        return self._next_client
+
+
+    def disconnect(self, client):
+        """
+        IPC callback when a client is lost.
+        """
+        for client_info in self._clients[:]:
+            if kaa.ipc.get_ipc_from_proxy(client_info[1]) == client:
+                log.warning('disconnect client')
+                for m in client_info[3]:
+                    m.stop()
+                self._clients.remove(client_info)
+
+
+    def autoshutdown(self, timeout):
+        """
+        Start autoshutdown.
+        """
+        if hasattr(self, '_autoshutdown_timer'):
+            return
+        self._autoshutdown_timer = timeout
+        Timer(self._autoshutdown, timeout).start(1)
+
+
+    def _autoshutdown(self, timeout):
+        """
+        Timer callback for autoshutdown.
+        """
+        print self._autoshutdown_timer
+        if len(self._clients) > 0:
+            self._autoshutdown_timer = timeout
+            return True
+        self._autoshutdown_timer -= 1
+        if self._autoshutdown_timer == 0:
+            log.info('beacon timeout')
+            sys.exit(0)
+        return True
+    
 
     def register_file_type_attrs(self, name, **kwargs):
         """
@@ -198,18 +266,6 @@ class Server(object):
         return False
 
         
-    def connect(self, client, callback):
-        """
-        Connect a new client to the server.
-        """
-        self._next_client += 1
-        self._clients.append((self._next_client, client, callback, []))
-        for device, directory, name in self._db.get_mountpoints():
-            client.database.add_mountpoint(device, directory)
-            client.database.set_mountpoint(directory, name)
-        return self._next_client
-
-
     def update(self, items):
         """
         Update items from the client.
@@ -239,58 +295,3 @@ class Server(object):
         Debug in __del__.
         """
         return 'del', self
-            
-        
-# internal list of server
-_server = {}
-_num_client = 0
-
-def connect(dbdir):
-    """
-    Connect to a server object. Each server object handles one db dir.
-    Different clients can use the same server object.
-    """
-    log.info('connect to %s' % dbdir)
-
-    global _num_client
-    _num_client += 1
-    
-    # TODO: delete databases not used anymore
-    
-    if not dbdir in _server:
-        log.info('create server object')
-        server = Server(dbdir)
-        # TODO: use weakref
-        _server[dbdir] = server
-    return _server[dbdir]
-
-
-def _client_closed(client):
-    global _num_client
-    for server in _server.values():
-        for client_info in server._clients:
-            if ipc.get_ipc_from_proxy(client_info[1]) == client:
-                log.warning('disconnect client')
-                for m in client_info[3]:
-                    m.stop()
-                server._clients.remove(client_info)
-                _num_client -= 1
-
-
-def autoshutdown_step(timeout):
-    global shutdown_timer
-    if _num_client > 0:
-        shutdown_timer = timeout
-        return True
-    shutdown_timer -= 1
-    if shutdown_timer == 0:
-        log.info('beacon timeout')
-        sys.exit(0)
-    return True
-    
-
-def autoshutdown(timeout):
-    global shutdown_timer
-    shutdown_timer = timeout
-    Timer(autoshutdown_step, timeout).start(1)
-    
