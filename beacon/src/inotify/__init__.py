@@ -72,8 +72,8 @@ class INotify:
         if path not in self._watches_by_path:
             return False
 
-        _inotify.rm_watch(self._fd, self._watches_by_path[path][1])
-        signal, wd = self._watches_by_path[path]
+        wd = self._watches_by_path[path][1]
+        _inotify.rm_watch(self._fd, wd)
         del self._watches[wd]
         del self._watches_by_path[path]
         return True
