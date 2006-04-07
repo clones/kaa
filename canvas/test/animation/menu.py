@@ -1,4 +1,5 @@
 from kaa import canvas, input
+import kaa.input.stdin
 import kaa, sys
 
 

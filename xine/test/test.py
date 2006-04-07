@@ -4,7 +4,7 @@
 
 import sys, math, threading, os, time, gc
 
-import kaa, kaa.input
+import kaa, kaa.input, kaa.input.stdin
 from kaa import xine, display, metadata, notifier, evas
 
 if len(sys.argv) <= 1:

@@ -1,5 +1,5 @@
 import kaa, sys
-import kaa.player, kaa.canvas, kaa.input
+import kaa.player, kaa.canvas, kaa.input, kaa.input.stdin
 
 print  kaa.player.xine.config.deinterlacer.method
 kaa.player.xine.config.deinterlacer.method = 'Toms'
