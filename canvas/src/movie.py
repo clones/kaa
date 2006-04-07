@@ -230,9 +230,10 @@ class Movie(Image):
             if not self._window:
                 return
             self._player.set_frame_output_mode(vo = True, notify = False)
-            self._window.resize(self.get_canvas().get_window().get_size())
-            self._window.move((0, 0))
-            self._window.show(raised = True)
+            print self._window
+#             self._window.resize(self.get_canvas().get_window().get_size())
+#             self._window.move((0, 0))
+#             self._window.show(raised = True)
         else:
             visible = self._get_relative_values("visible")
             alpha = self._get_relative_values("color")[3]
