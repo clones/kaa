@@ -36,7 +36,7 @@ import shutil
 import logging
 
 # kaa imports
-from kaa import xml
+from kaa import xml, TEMP
 from kaa.config import Var, Group
 from kaa.notifier import Timer, Thread
 
@@ -237,8 +237,8 @@ def _update_parse_xml_thread(epg):
     """
     if config.grabber:
         log.info('grabbing listings using %s', config.grabber)
-        xmltv_file = os.path.join(kaa.TEMP, 'TV.xml')
-        log_file = os.path.join(kaa.TEMP, 'TV.xml.log')
+        xmltv_file = os.path.join(TEMP, 'TV.xml')
+        log_file = os.path.join(TEMP, 'TV.xml.log')
         # TODO: using os.system is ugly because it blocks ... but we can make this
         # nicer using kaa.notifier.Process later. We are inside a thread so it
         # seems to be ok.
@@ -318,6 +318,7 @@ def _update_process_step(info):
     if not info.node:
         info.epg.signals["update_progress"].emit(info.cur, info.total)
         info.epg.signals["updated"].emit()
+        info.epg.commit()
         return False
 
     return True
