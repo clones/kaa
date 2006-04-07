@@ -165,6 +165,14 @@ class Server(object):
         return sources[backend].update(self, *args, **kwargs)
 
 
+    def commit(self):
+        """
+        Commit changes to database.
+        """
+        log.info('commit database changes')
+        self._db.commit()
+
+        
     def _add_channel_to_db(self, tuner_id, name, long_name):
         """
         This method requires at least one of tuner_id, name, long_name.
@@ -184,7 +192,6 @@ class Server(object):
         match real channels and EPG data.
         """
 
-        log.info('add channel %s %s %s', tuner_id, name, long_name)
         if type(tuner_id) != ListType and tuner_id:
             tuner_id = [ tuner_id ]
 
@@ -227,6 +234,7 @@ class Server(object):
                         self._tuner_ids.append(t)
 
             # TODO: if everything is the same do not update
+            log.info('update channel %s', name)
             self._db.update_object(("channel", c2["id"]),
                                    tuner_id = c2["tuner_id"],
                                    long_name = long_name)
@@ -240,6 +248,7 @@ class Server(object):
             else:
                 self._tuner_ids.append(t)
 
+        log.info('add channel %s %s %s', tuner_id, name, long_name)
         o = self._db.add_object("channel", tuner_id = tuner_id, name = name,
                                 long_name = long_name)
         return o["id"]
