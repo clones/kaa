@@ -62,7 +62,7 @@ class Animator(object):
         self._did_bounce = False
         self._target = None
 
-        if not self._duration:
+        if self._duration == None:
             # Default to one second if duration isn't specified.
             self._duration = 1.0
 
@@ -87,7 +87,7 @@ class Animator(object):
         return None
 
 
-    def _clamp(self, value, max_value, dir):
+    def _clamp(self, value, max_value, dir, index):
         if (dir < 0 and value <= max_value) or \
            (dir > 0 and value >= max_value):
            return max_value
@@ -103,7 +103,7 @@ class Animator(object):
 
             val_offset = self._calc_step_value(start_state[i], computed_target[i], time_offset, duration)
             new_value = (start_state[i] + int(val_offset))
-            value[i] = self._clamp(new_value, computed_target[i], self._direction[i])
+            value[i] = self._clamp(new_value, computed_target[i], self._direction[i], i)
 
         if value == computed_target:
             if self._bounce and not self._did_bounce:
@@ -135,6 +135,9 @@ class Animator(object):
 
 
     def _calc_step_value(self, begin_val, end_val, time_offset, duration):
+        if duration == 0:
+            return end_val - begin_val
+
         if self._did_bounce:
             duration /= 2.0
         if self._accelerate and not self._did_bounce:
@@ -229,6 +232,7 @@ class SizeAnimator(Animator):
         return self._object()._get_intrinsic_size()
 
     def _apply_state(self, state):
+        print "SIZE", state
         self._object().resize(*state)
 
     def _compute_target(self, target):
@@ -239,10 +243,13 @@ class SizeAnimator(Animator):
         return computed_target
 
 
-    def _clamp(self, value, max_value, dir):
-        # Clamp value to multiple of 2.  FIXME: only need to do this if
-        # object is centered.
-        ret_value = super(SizeAnimator, self)._clamp(value & ~1, max_value, dir)
+    def _clamp(self, value, max_value, dir, index):
+        if (index == 1 and self._object().get_hcenter() != None) or \
+           (index == 0 and self._object().get_vcenter() != None):
+            # Clamp value to multiple of two if this dimension is centered.
+            value &= ~1
+
+        ret_value = super(SizeAnimator, self)._clamp(value, max_value, dir, index)
         return ret_value
 
 
@@ -309,6 +316,13 @@ class ColorAnimator(Animator):
 
 
 
+class OpacityAnimator(ColorAnimator):
+    def __init__(self, o, **kwargs):
+        kwargs["a"] = int(kwargs["opacity"] * 255)
+        super(OpacityAnimator, self).__init__(o, **kwargs)
+
+
+
 class SequenceAnimator(Animator):
     def __new__(cls, o, **kwargs):
         submethod = kwargs.get("submethod")
@@ -368,6 +382,7 @@ class ThrobAnimator(SequenceAnimator):
 register_animator_method("size", SizeAnimator)
 register_animator_method("move", PositionAnimator)
 register_animator_method("color", ColorAnimator)
+register_animator_method("opacity", OpacityAnimator)
 register_animator_method("sequence", SequenceAnimator)
 register_animator_method("throb", ThrobAnimator)
 
