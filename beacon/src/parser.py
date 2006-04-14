@@ -67,6 +67,17 @@ def parse(db, item, store=False):
     if item._beacon_data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
         return
+
+    if not item._beacon_id:
+        # New file, maybe already added? Do a small check to be sure we don't
+        # add the same item to the db again.
+        data = db.get_object(item._beacon_data['name'], parent._beacon_id)
+        if data:
+            item._beacon_database_update(data)
+            if item._beacon_data['mtime'] == mtime:
+                log.info('up-to-date %s' % item)
+                return
+            
     log.info('scan %s' % item)
     attributes = { 'mtime': mtime }
     metadata = kaa.metadata.parse(item.filename)

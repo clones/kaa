@@ -126,6 +126,10 @@ class Crawler(object):
             # be much faster if we can handle move.
             if item._beacon_isdir:
                 self.scan_directory_items.append(item)
+            for i in self.check_mtime_items:
+                if i.filename == item.filename:
+                    # already in the checking list, ignore it
+                    return True
             self.check_mtime_items.append(item)
             if not self.timer:
                 Crawler.active += 1
@@ -134,10 +138,13 @@ class Crawler(object):
 
         # The file does not exist, we need to delete it in the database
         # (if it is still in there)
-        item = self.db.query(filename=name)
-        if item._beacon_id:
+        if self.db.get_object(item._beacon_data['name'], item._beacon_data['parent']):
             # Still in the db, delete it
             self.db.delete_object(item._beacon_id, beacon_immediately=True)
+        for i in self.check_mtime_items:
+            if i.filename == item.filename:
+                self.check_mtime_items.remove(i)
+                break
         if name + '/' in self.monitoring:
             # remove directory and all subdirs from the notifier. The directory
             # is gone, so all subdirs are invalid, too.
@@ -300,6 +307,5 @@ class Crawler(object):
             self.scan_directory()
             return False
         # parse next item using parse from parser.py
-        # log.info('update %s', self.update_items[0])
         parse(self.db, self.update_items.pop(0))
         return True

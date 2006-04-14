@@ -437,6 +437,23 @@ class Database(object):
         return self._db.query(*args, **kwargs)
     
 
+    def get_object(self, name, parent):
+        """
+        Get the object with the given type, name and parent. This function will
+        look at the pending commits and also in the database.
+        """
+        for func, type, args, kwargs  in self.changes:
+            if func == self._db.add_object and \
+                   'name' in kwargs and kwargs['name'] == name and \
+                   'parent' in kwargs and kwargs['parent'] == parent:
+                self.commit()
+                break
+        result = self._db.query(name=name, parent=parent)
+        if result:
+            return result[0]
+        return None
+        
+            
     def add_object(self, type, metadata=None, beacon_immediately=False,
                    *args, **kwargs):
         """
