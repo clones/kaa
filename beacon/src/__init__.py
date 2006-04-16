@@ -64,7 +64,7 @@ def get(filename):
     Get object for the given filename.
     """
     if not _client:
-        raise RuntimeError('beacon not connected')
+        connect()
     return _client.get(filename)
 
 
@@ -73,5 +73,5 @@ def query(**args):
     Query the database.
     """
     if not _client:
-        raise RuntimeError('beacon not connected')
+        connect()
     return _client.query(**args)
