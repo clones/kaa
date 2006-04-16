@@ -81,7 +81,8 @@ class Client(object):
         Disconnect from the server.
         """
         for q in self._queries:
-            q._monitor = False
+            if q:
+                q._monitor = False
         self._queries = []
         self._server = None
         self._monitor = None
