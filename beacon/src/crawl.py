@@ -138,7 +138,7 @@ class Crawler(object):
 
         # The file does not exist, we need to delete it in the database
         # (if it is still in there)
-        if self.db.get_object(item._beacon_data['name'], item._beacon_data['parent']):
+        if self.db.get_object(item._beacon_data['name'], item._beacon_parent._beacon_id):
             # Still in the db, delete it
             self.db.delete_object(item._beacon_id, beacon_immediately=True)
         for i in self.check_mtime_items:
