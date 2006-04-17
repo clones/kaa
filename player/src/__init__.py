@@ -1,3 +1,2 @@
 from base import *
-import xine
-import mplayer
+from generic import Player

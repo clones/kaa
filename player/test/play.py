@@ -9,11 +9,6 @@ if len(sys.argv) <= 1:
     print "Usage: %s [videofile]" % sys.argv[0]
     sys.exit(0)
 
-cls = kaa.player.get_player_class(sys.argv[1])
-if not cls:
-    print "No supported player found to play:", sys.argv[1]
-    sys.exit(0)
-
 def handle_lirc_event(code, player):
     lirc_map = { "exit": "q", "menu": "m", "select": "space",
                  "up": "up", "down": "down", "left": "left", "right": "right",
@@ -133,10 +128,10 @@ def osd_msg(msg):
     
 
 
-player = cls()
+player = kaa.player.Player()
+player.open(sys.argv[1])
 player.delay = 0
 print "Playing file with '%s' player" % player.get_player_id()
-player.open(sys.argv[1])
 player.signals["start"].connect(dump_info, player)
 player.play()
 player.get_window().set_fullscreen()
