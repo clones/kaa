@@ -32,7 +32,7 @@ class XinePlayerChild(object):
     def __init__(self, instance_id):
         self._xine = xine.Xine()
         self._stream = self._vo = self._ao = None
-
+        self._stdin_data = ''
         self._osd_shmkey = int(md5.md5(instance_id + "osd").hexdigest()[:7], 16)
         self._frame_shmkey = int(md5.md5(instance_id + "frame").hexdigest()[:7], 16)
         self._osd_shmem = self._frame_shmem = None
@@ -64,8 +64,10 @@ class XinePlayerChild(object):
         if len(data) == 0:
             # Parent likely died.
             self._handle_command_die()
-
-        for line in data.splitlines():
+        self._stdin_data += data
+        while self._stdin_data.find('\n') >= 0:
+            line = self._stdin_data[:self._stdin_data.find('\n')]
+            self._stdin_data = self._stdin_data[self._stdin_data.find('\n')+1:]
             command, args, kwargs = eval(line)
             reply = getattr(self, "_handle_command_" + command)(*args, **kwargs)
 
