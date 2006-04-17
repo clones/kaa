@@ -1,5 +1,3 @@
-import gtk
-
 import kaa, sys
 import kaa.player, kaa.canvas, kaa.input, kaa.input.stdin
 
