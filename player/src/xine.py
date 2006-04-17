@@ -55,8 +55,8 @@ class XinePlayerChild(object):
 
 
 
-    def _send_command(self, command, *args):
-        sys.stderr.write("!" + repr( (command, args) ) + "\n")
+    def _send_command(self, command, *args, **kwargs):
+        sys.stderr.write("!" + repr( (command, args, kwargs) ) + "\n")
 
 
     def _handle_line(self):
@@ -66,8 +66,8 @@ class XinePlayerChild(object):
             self._handle_command_die()
 
         for line in data.splitlines():
-            command, args = eval(line)
-            reply = getattr(self, "_handle_command_" + command)(*args)
+            command, args, kwargs = eval(line)
+            reply = getattr(self, "_handle_command_" + command)(*args, **kwargs)
 
 
     def _status_output(self):
@@ -149,14 +149,20 @@ class XinePlayerChild(object):
         self._ao = self._xine.open_audio_driver()
 
         control_return = []
-        self._vo = self._xine.open_video_driver("kaa", control_return = control_return,
-                    passthrough = "xv", wid = wid, osd_configure_cb = notifier.WeakCallback(self._osd_configure),
-#                    osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4, osd_rows = 2000,
-#        self._vo = self._xine.open_video_driver("xv", wid = wid,
-                    frame_output_cb = notifier.WeakCallback(self._x11_frame_output_cb),
-                    dest_size_cb = notifier.WeakCallback(self._x11_dest_size_cb))
-#        self._vo = self._xine.open_video_driver("none")
-        self._driver_control = control_return[0]
+        if wid:
+            self._vo = self._xine.open_video_driver(
+                "kaa", control_return = control_return,
+                passthrough = "xv", wid = wid,
+                osd_configure_cb = notifier.WeakCallback(self._osd_configure),
+                # osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4,
+                # osd_rows = 2000,
+                # self._vo = self._xine.open_video_driver("xv", wid = wid,
+                frame_output_cb = notifier.WeakCallback(self._x11_frame_output_cb),
+                dest_size_cb = notifier.WeakCallback(self._x11_dest_size_cb))
+            self._driver_control = control_return[0]
+        else:
+            self._vo = self._xine.open_video_driver("none")
+            self._driver_control = None
 
         self._stream = self._xine.new_stream(self._ao, self._vo) 
         #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
@@ -181,7 +187,9 @@ class XinePlayerChild(object):
         self._expand_post.set_parameters(enable_automatic_shift = True)
         self._stream.get_video_source().wire(self._expand_post.get_default_input())
 
-        self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
+        self._goom_post = None
+        if wid:
+            self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
 
         #self._driver_control("set_passthrough", False)
         return self._stream
@@ -190,7 +198,7 @@ class XinePlayerChild(object):
     def _handle_command_open(self, mrl):
         try:
             self._stream.open(mrl)
-            if not self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO):
+            if not self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO) and self._goom_post:
                 self._stream.get_audio_source().wire(self._goom_post.get_default_input())
             else:
                 self._stream.get_audio_source().wire(self._ao)
@@ -287,6 +295,9 @@ class XinePlayerChild(object):
 
 
     def _handle_command_frame_output(self, vo, notify, size):
+        if not self._driver_control:
+            # FIXME: Tack, what am I doing here?
+            return
         if vo != None:
             self._driver_control("set_passthrough", vo)
         if notify != None:
@@ -364,8 +375,8 @@ class XinePlayer(MediaPlayer):
 
 
 
-    def _send_command(self, command, *args):
-        s = repr((command, args))
+    def _send_command(self, command, *args, **kwargs):
+        s = repr((command, args, kwargs))
         self._process.write(s + "\n")
 
 
@@ -385,8 +396,8 @@ class XinePlayer(MediaPlayer):
 
     def _handle_line(self, line):
         if line and line[0] == "!":
-            command, args = eval(line[1:])
-            getattr(self, "_handle_command_" + command)(*args)
+            command, args, kwargs = eval(line[1:])
+            getattr(self, "_handle_command_" + command)(*args, **kwargs)
         else:
             print "CHILD[%d]: %s" % (self._process.child.pid, line)
 
@@ -483,13 +494,13 @@ class XinePlayer(MediaPlayer):
         self.signals["open"].emit()
 
 
-    def play(self):
+    def play(self, video=True):
         if self.get_state() == STATE_PAUSED:
             self._send_command("play")
             return
 
         if self.get_state() == STATE_NOT_RUNNING:
-            if self._window == None:
+            if self._window == None and video:
                 # Use the user specified size, or some sensible default.
                 win_size = self._size or (640, 480)
                 window = display.X11Window(size = win_size, title = "Movie Window")
@@ -497,8 +508,10 @@ class XinePlayer(MediaPlayer):
                 window.set_cursor_hide_timeout(0.5)
                 self.set_window(window)
 
-        # TODO: no window
-        self._send_command("setup", self._window.get_id())
+        wid = None
+        if self._window:
+            wid = self._window.get_id()
+        self._send_command("setup", wid=wid)
 
         self._position = 0.0
         self._send_command("open", self._mrl)
