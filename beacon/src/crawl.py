@@ -73,6 +73,7 @@ class Crawler(object):
         if use_inotify:
             try:
                 self.inotify = INotify()
+                self.inotify.signals['event'].connect(self.inotify_callback)
             except SystemError, e:
                 log.warning('%s', e)
                 self.inotify = None
@@ -223,7 +224,7 @@ class Crawler(object):
             # to avoid changes we would miss between checking and adding the
             # inotifier.
             log.info('add inotify for %s' % item.filename)
-            self.inotify.watch(item.filename[:-1]).connect(self.inotify_callback)
+            self.inotify.watch(item.filename[:-1])
 
         # log.info('check %s', item)
         for child in self.db.query(parent=item):
