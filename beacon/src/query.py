@@ -129,3 +129,8 @@ class Query(object):
     def __getitem__(self, key):
         return self.result[key]
     
+    def index(self, item):
+        return self.result.index(item)
+
+    def __len__(self):
+        return len(self.result)
