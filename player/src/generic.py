@@ -27,32 +27,6 @@ class Player(object):
             "quit": notifier.Signal()
         })
 
-    def open(self, mrl):
-        if self._player and self.get_state() not in (STATE_NOT_RUNNING, STATE_IDLE):
-            raise PlayerError('player is running')
-        cls = get_player_class(mrl)
-        if not cls:
-            raise PlayerError("No supported player found to play %s", mrl)
-        new_player = cls()
-        if 1:#not self._player or new_player.get_player_id() != self._player.get_player_id():
-            # Hook our signals to the player we're proxying for.
-            for signal in self.signals.keys():
-                new_player.signals[signal].connect_weak(self.signals[signal].emit)
-
-            if self._player:
-                # An active player already exists.  We need to kill it, in case
-                # it's got something locked that our new instance needs.  We can't
-                # start the new player until the old one is gone, so we construct
-                # a state machine by using signals.
-                self._player.signals["quit"].connect(new_player.open, mrl)
-                self._player.die()
-                self._player = new_player
-                return
-
-            self._player = new_player
-
-        return self._player.open(mrl)
-
 
     def open(self, mrl, caps = None):
         cls = get_player_class(mrl = mrl, caps = caps)
