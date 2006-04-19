@@ -231,11 +231,12 @@ class Database(object):
         else:
             dirname = parent.filename[:-1]
         items = []
-        for i in self._db.query(parent = parent._beacon_id):
-            if i['type'] == 'dir':
-                items.append(create_dir(i, parent))
-            else:
-                items.append(create_file(i, parent))
+        if parent._beacon_id:
+            for i in self._db.query(parent = parent._beacon_id):
+                if i['type'] == 'dir':
+                    items.append(create_dir(i, parent))
+                else:
+                    items.append(create_file(i, parent))
         # sort items based on url. The listdir is also sorted, that makes
         # checking much faster
         items.sort(lambda x,y: cmp(x._beacon_name, y._beacon_name))
