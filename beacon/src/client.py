@@ -61,19 +61,48 @@ class Client(object):
     the same machine doing the file scanning and changing of the db.
     """
     def __init__(self):
-        # monitor function from the server to start a new monitor for a query
-        self._server = kaa.ipc.IPCClient('beacon').get_object('beacon')
-        self._monitor = self._server.monitor
-        # read only version of the database
-        self.database = Database(self._server.get_database(), self)
-        # connect to server notifications
-        self.id = self._server.connect(self)
+        self.database = None
+
+        self._connect()
         # internal list of active queries
         self._queries = []
         # internal list of items to update
         self._changed = []
         # add ourself to shutdown handler for correct disconnect
         kaa.signals['shutdown'].connect(self.disconnect)
+        kaa.notifier.WeakTimer(self._check_is_connected).start(5)
+
+
+    def _connect(self):
+        """
+        Establish connection to the beacon server and locally connect to the
+        database (if necessary).
+        """
+        # monitor function from the server to start a new monitor for a query
+        self._server = kaa.ipc.IPCClient('beacon').get_object('beacon')
+        self._monitor = self._server.monitor
+        # read only version of the database
+        if not self.database:
+            self.database = Database(self._server.get_database(), self)
+        # connect to server notifications
+        self.id = self._server.connect(self)
+
+    def _check_is_connected(self):
+        """
+        See if the socket with the server is still alive, otherwise reconnect.
+        """
+        if kaa.ipc.is_proxy_alive(self._server):
+            # Still alive.
+            return True
+
+        # Got disconnected; reconnect.
+        try:
+            self._connect()
+        except kaa.ipc.IPCSocketError, (err, msg):
+            log.error('Error: failed to connect to beacon server: %s (errno=%d)' % (msg, err))
+
+        # FIXME: re-register any monitors with the server that may have been
+        # lost due to a disconnect.  dischi? :)
 
 
     def disconnect(self):
@@ -120,6 +149,8 @@ class Client(object):
             q = copy.copy(query._query)
             if 'parent' in q:
                 q['parent'] = q['parent']._beacon_id
+
+        self._check_is_connected()
         self._monitor(self.id, query.id, q, __ipc_noproxy_args=True, __ipc_oneway=True)
         
 

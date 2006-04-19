@@ -326,7 +326,7 @@ class Database(object):
                 if m.id == i['parent']:
                     break
             else:
-                raise AttributeError('bad media %s' % i['parent'])
+                raise AttributeError('bad media %s' % str(i['parent']))
             return create_dir(i, m)
 
         # query for parent
