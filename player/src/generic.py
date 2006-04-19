@@ -100,7 +100,7 @@ class Player(object):
 
     def get_info(self):
         if self._player:
-            self._player.get_info()
+            return self._player.get_info()
         return {}
 
     def nav_command(self, input):
