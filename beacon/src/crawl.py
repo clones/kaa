@@ -228,8 +228,11 @@ class Crawler(object):
                 # WARNING: item is a link, we need to follow it
                 dirname = os.path.realpath(item.filename)
             log.info('add inotify for %s' % dirname)
-            self.inotify.watch(dirname)
-
+            try:
+                self.inotify.watch(dirname)
+            except IOError, e:
+                log.error(e)
+                
         for child in self.db.query(parent=item):
             if child._beacon_isdir:
                 # A directory. Check if it is already scanned or in the list of
