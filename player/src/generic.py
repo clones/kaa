@@ -111,3 +111,35 @@ class Player(object):
         if self._player:
             return self._player.is_in_menu()
         return False
+
+    def get_player_id(self):
+        if self._player:
+            return self._player.get_player_id()
+
+    def get_window(self):
+        if self._player:
+            return self._player.get_window()
+
+    def has_capability(self, cap):
+        if self._player:
+            return self._player.has_capability(cap)
+
+    def osd_can_update(self):
+        if self._player:
+            return self._player.osd_can_update()
+
+    def osd_update(self, *args, **kwargs):
+        if self._player:
+            return self._player.osd_update(*args, **kwargs)
+        
+    def unlock_frame_buffer(self):
+        if self._player:
+            return self._player.unlock_frame_buffer()
+
+    def get_state(self):
+        if self._player:
+            return self._player.get_state()
+
+    def die(self):
+        if self._player:
+            return self._player.die()
