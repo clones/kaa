@@ -78,16 +78,16 @@ class Server(object):
         # files
         
         self.register_file_type_attrs("video",
-            title = (unicode, ATTR_KEYWORDS),
+            title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             width = (int, ATTR_SIMPLE),
             height = (int, ATTR_SIMPLE),
             length = (int, ATTR_SIMPLE))
 
         self.register_file_type_attrs("audio",
-            title = (unicode, ATTR_KEYWORDS),
-            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
-            album = (unicode, ATTR_KEYWORDS),
-            genre = (unicode, ATTR_INDEXED),
+            title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
+            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED | ATTR_IGNORE_CASE),
+            album = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
+            genre = (unicode, ATTR_INDEXED | ATTR_IGNORE_CASE),
             samplerate = (int, ATTR_SIMPLE),
             length = (int, ATTR_SIMPLE),
             bitrate = (int, ATTR_SIMPLE),
