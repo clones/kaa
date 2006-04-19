@@ -95,7 +95,7 @@ class Player(object):
 
     def get_position(self):
         if self._player:
-            self._player.get_position()
+            return self._player.get_position()
         return 0.0
 
     def get_info(self):
