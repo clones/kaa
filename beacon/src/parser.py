@@ -62,7 +62,12 @@ def parse(db, item, store=False):
         # parent should be in the db, so commit and it should work
         db.commit()
         if not parent._beacon_id:
-            # this should never happen
+            # Still not in the database? Well, this should never happen but does
+            # when we use some strange softlinks around the filesystem. So in
+            # that case we need to scan the parent, too.
+            parse(db, parent, True)
+        if not parent._beacon_id:
+            # This should never happen
             raise AttributeError('parent for %s has no dbid' % item)
     if item._beacon_data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
