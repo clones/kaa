@@ -223,10 +223,13 @@ class Crawler(object):
             # add directory to the inotify list. Do that before the real checking
             # to avoid changes we would miss between checking and adding the
             # inotifier.
-            log.info('add inotify for %s' % item.filename)
-            self.inotify.watch(item.filename[:-1])
+            dirname = item.filename[:-1]
+            if item._beacon_islink:
+                # WARNING: item is a link, we need to follow it
+                dirname = os.path.realpath(item.filename)
+            log.info('add inotify for %s' % dirname)
+            self.inotify.watch(dirname)
 
-        # log.info('check %s', item)
         for child in self.db.query(parent=item):
             if child._beacon_isdir:
                 # A directory. Check if it is already scanned or in the list of
