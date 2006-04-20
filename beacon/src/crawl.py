@@ -31,6 +31,7 @@
 
 # python imports
 import os
+import time
 import logging
 
 # kaa imports
@@ -44,6 +45,15 @@ from directory import Directory
 # get logging object
 log = logging.getLogger('crawler')
 
+try:
+    WATCH_MASK = INotify.MODIFY | INotify.CLOSE_WRITE | INotify.DELETE | \
+                 INotify.CREATE | INotify.DELETE_SELF | INotify.UNMOUNT | \
+                 INotify.MOVE
+except:
+    WATCH_MASK = None
+
+# timer for growing files (cp, download)
+GROWING_TIMER = 5
 
 class Crawler(object):
     """
@@ -82,6 +92,7 @@ class Crawler(object):
         self.timer = None
         self.restart_timer = None
         self.restart_args = []
+        self.last_checked = {}
 
 
     def append(self, item):
@@ -105,6 +116,10 @@ class Crawler(object):
         self.finished()
         self.monitoring = []
         self.inotify = None
+        for wait, timer in self.last_checked:
+            if timer and timer.active():
+                timer.stop()
+        self.last_checked = {}
         
 
     # -------------------------------------------------------------------------
@@ -115,8 +130,12 @@ class Crawler(object):
         """
         Callback for inotify.
         """
-        if not mask & INotify.WATCH_MASK:
-            # TODO: maybe check more types of callbacks
+        if mask & INotify.MODIFY and name in self.last_checked and \
+               self.last_checked[name][1]:
+            # A file was modified. Do this check as fast as we can because the
+            # events may come in bursts when a file is just copied. In this case
+            # a timer is already active and we can return. It still uses too much
+            # CPU time in the burst, but there is nothing we can do about it.
             return True
         
         item = self.db.query(filename=name)
@@ -131,6 +150,23 @@ class Crawler(object):
                 if i.filename == item.filename:
                     # already in the checking list, ignore it
                     return True
+            now = time.time()
+            if name in self.last_checked:
+                last_check, timer = self.last_checked[name]
+                if mask & INotify.CLOSE_WRITE:
+                    # The file is closed. So we can remove the current running
+                    # timer and check now
+                    timer.stop()
+                    del self.last_checked[name]
+                else:
+                    # Do not check again, but restart the timer, it is expired
+                    timer = OneShotTimer(self.inotify_timer_callback, name)
+                    timer.start(GROWING_TIMER)
+                    self.last_checked[name][1] = timer
+                    return True
+            elif INotify.MODIFY:
+                # store the current time
+                self.last_checked[name] = [ now, None ]
             self.check_mtime_items.append(item)
             if not self.timer:
                 Crawler.active += 1
@@ -156,6 +192,17 @@ class Crawler(object):
                     self.inotify.ignore(m)
                     log.info('remove inotify for %s', m)
                 self.monitoring.remove(m)
+        return True
+
+
+    def inotify_timer_callback(self, name):
+        """
+        Callback for delayed inotify MODIFY events.
+        """
+        if not name in self.last_checked:
+            return
+        del self.last_checked[name]
+        self.inotify_callback(INotify.MODIFY, name)
 
 
     def finished(self):
@@ -229,7 +276,7 @@ class Crawler(object):
                 dirname = os.path.realpath(item.filename)
             log.info('add inotify for %s' % dirname)
             try:
-                self.inotify.watch(dirname)
+                self.inotify.watch(dirname, WATCH_MASK)
             except IOError, e:
                 log.error(e)
                 
