@@ -169,19 +169,17 @@ class Client(object):
         dependencies. So this function is needed to find the correct Query
         for a request.
         """
-        for query in self._queries:
-            if query and query.id == id:
+        for query in self._queries[:]:
+            if not query:
+                self._queries.remove(query)
+                continue
+            if query.id == id:
                 if hasattr(query, '_beacon_%s' % msg):
                     getattr(query, '_beacon_%s' % msg)(*args, **kwargs)
                     return
                 
                 log.error('Error: unknown message from server: %s' % msg)
                 return
-
-        # not found, possibly already deleted, check for dead weakrefs
-        for query in self._queries[:]:
-            if not query:
-                self._queries.remove(query)
 
 
     def update(self, item=None):
