@@ -1,0 +1,32 @@
+1. Add function to the client to tell the server which directory to
+   monitor with inotify.
+
+2. Add subitem support (titles on iso DVD images)
+
+3. Support DVD directories
+
+4. Add support for rom drives and network media
+
+   o Mount / umount (inotify?)
+
+   o Possible blocking on access
+
+
+5. Beacon Reconnect:
+
+   o Add mount points back to the server
+
+   o add monitoring directories back to the server
+ 
+6. Support client update of items when the item is not in the db yet.
+
+7. Clean up Directory os.listdir stuff. It works, but it is ugly
+
+8. Update Monitor class
+
+   o Handle dirname searches on directories not monitored by inotify
+
+   o Check parents on file updates (cover?). Or is this not needed
+     beacuse of the crawler?
+
+9. Update doc

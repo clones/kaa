@@ -4,9 +4,6 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: handle all the FIXME and TODO comments inside this file and
-#       add docs for functions, variables and how to use this file
-#
 # -----------------------------------------------------------------------------
 # kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
@@ -113,9 +110,6 @@ class Server(object):
             artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
             album = (unicode, ATTR_KEYWORDS),
             genre = (unicode, ATTR_INDEXED))
-
-        # TODO: add more known types and support data tracks on
-        # audio cds
 
         # list of current clients
         self._clients = []
@@ -272,7 +266,6 @@ class Server(object):
         """
         for dbid, attributes in items:
             self._db.update_object(dbid, **attributes)
-        # TODO: they are changed now, send update to every other client
         self._db.commit()
 
         

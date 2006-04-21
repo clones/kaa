@@ -4,8 +4,7 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: handle all the FIXME and TODO comments inside this file and
-#       add docs for functions, variables and how to use this file
+# TODO: add more data to the item (cover) and start thumbnailing
 #
 # -----------------------------------------------------------------------------
 # kaa-beacon - A virtual filesystem with metadata

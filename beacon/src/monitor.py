@@ -4,9 +4,6 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: handle all the FIXME and TODO comments inside this file and
-#       add docs for functions, variables and how to use this file
-#
 # -----------------------------------------------------------------------------
 # kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer

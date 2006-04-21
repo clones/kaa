@@ -8,8 +8,6 @@
 # To use the server a Client object must be created. Once created, it is
 # possible to start a query on the client.
 #
-# TODO: make it possible to update an item that is not in the database.
-#
 # -----------------------------------------------------------------------------
 # kaa-beacon - A virtual filesystem with metadata
 # Copyright (C) 2005 Dirk Meyer
@@ -245,7 +243,7 @@ class Client(object):
             for i in self._changed:
                 id = i._beacon_id
                 if not id:
-                    # TODO: How to update an item not in the db? Right now we
+                    # FIXME: How to update an item not in the db? Right now we
                     # can't do that and will drop the item.
                     continue
                 items.append((id, i._beacon_changes))
