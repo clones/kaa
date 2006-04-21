@@ -170,7 +170,7 @@ class Client(object):
         for a request.
         """
         for query in self._queries[:]:
-            if not query:
+            if query == None:
                 self._queries.remove(query)
                 continue
             if query.id == id:
