@@ -68,7 +68,7 @@ def get_channels(sort=False):
     """
     Return a list of all channels.
     """
-    if guide:
+    if guide and guide.connected:
         if sort:
             channels = guide.get_channels()[:]
             channels.sort(lambda a, b: cmp(a.name, b.name))
@@ -82,7 +82,7 @@ def get_channel(name):
     """
     Return the channel with the given name.
     """
-    if guide:
+    if guide and guide.connected:
         return guide.get_channel(name)
     return []
 
@@ -91,7 +91,7 @@ def search(*args, **kwargs):
     """
     Search the epg.
     """
-    if guide:
+    if guide and guide.connected:
         try:
             return guide.search(*args, **kwargs)
         except Exception, e:

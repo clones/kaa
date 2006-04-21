@@ -58,7 +58,7 @@ class Client(object):
         }
 
         self._load()
-        self._ipc.signals["closed"].connect(self._disconnected)
+        self._ipc.signals["closed"].connect_once(self._disconnected)
 
         # Connect to server signals. The callbacks itself are called with
         # a OneShotTimer to avoid some strange problems because of the ipc
@@ -72,8 +72,11 @@ class Client(object):
         """
         Signal callback when server disconnects.
         """
+        log.info('kaa.epg client disconnected')
         self.connected = False
         self.signals["disconnected"].emit()
+        del self._ipc
+        del self._server
 
 
     execute_in_timer(OneShotTimer, 0)
