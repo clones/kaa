@@ -45,7 +45,7 @@ import logging
 import kaa
 import kaa.ipc
 from kaa.weakref import weakref
-from kaa.notifier import OneShotTimer
+from kaa.notifier import OneShotTimer, Signal
 
 # kaa.beacon imports
 from db import Database
@@ -54,7 +54,23 @@ from query import Query
 # get logging object
 log = logging.getLogger('beacon')
 
+DISCONNECTED = 'disconnected'
+CONNECTED    = 'connected'
+SHUTDOWN     = 'shutdown'
 
+class ServerIPC(object):
+    def __init__(self):
+        self.connection = kaa.ipc.IPCClient('beacon')
+        self.signals = self.connection.signals
+        self.server = self.connection.get_object('beacon')
+        self.monitor = self.server.monitor
+
+    def __getattr__(self, attr):
+        return getattr(self.server, attr)
+
+    def is_alive(self):
+        return kaa.ipc.is_proxy_alive(self.server)
+        
 class Client(object):
     """
     Beacon client. This client uses the db read only and needs a server on
@@ -63,14 +79,19 @@ class Client(object):
     def __init__(self):
         self.database = None
 
-        self._connect()
+        self.signals = {
+            'connect': Signal(),
+            'disconnect': Signal()
+            }
+        
         # internal list of active queries
         self._queries = []
         # internal list of items to update
         self._changed = []
         # add ourself to shutdown handler for correct disconnect
-        kaa.signals['shutdown'].connect(self.disconnect)
-        kaa.notifier.WeakTimer(self._check_is_connected).start(5)
+        kaa.signals['shutdown'].connect(self._shutdown)
+        self.status = DISCONNECTED
+        self._connect()
 
 
     def _connect(self):
@@ -78,43 +99,67 @@ class Client(object):
         Establish connection to the beacon server and locally connect to the
         database (if necessary).
         """
+        if self.status != DISCONNECTED:
+            # no re-connect needed
+            return
+
         # monitor function from the server to start a new monitor for a query
-        self._server = kaa.ipc.IPCClient('beacon').get_object('beacon')
-        self._monitor = self._server.monitor
+        self._server = ServerIPC()
+        self._server.signals["closed"].connect_once(self._disconnected)
         # read only version of the database
         if not self.database:
             self.database = Database(self._server.get_database(), self)
         # connect to server notifications
         self.id = self._server.connect(self)
+        self.status = CONNECTED
+        self.signals['connect'].emit()
 
-    def _check_is_connected(self):
+
+    def _disconnected(self):
+        if self.status != CONNECTED:
+            return
+        log.warning('disconnected from beacon server')
+        kaa.notifier.WeakTimer(self._reconnect).start(2)
+        self.status = DISCONNECTED
+        self.signals['disconnect'].emit()
+
+
+    def _reconnect(self):
         """
         See if the socket with the server is still alive, otherwise reconnect.
         """
-        if kaa.ipc.is_proxy_alive(self._server):
-            # Still alive.
-            return True
+        if self._server.is_alive():
+            # already alive again
+            return False
 
         # Got disconnected; reconnect.
         try:
             self._connect()
         except kaa.ipc.IPCSocketError, (err, msg):
-            log.error('Error: failed to connect to beacon server: %s (errno=%d)' % (msg, err))
+            # still dead
+            return True
 
-        # FIXME: re-register any monitors with the server that may have been
-        # lost due to a disconnect.  dischi? :)
+        # reset monitors to queries
+        for query in self._queries:
+            if query != None and query.monitoring:
+                self.monitor_query(query, True)
+
+        # FIXME: also set up all information in the database again, like
+        # mountpoints and directories to monitor
+        log.info('beacon connected again')
+        return False
 
 
-    def disconnect(self):
+    def _shutdown(self):
         """
         Disconnect from the server.
         """
+        self.status = SHUTDOWN
         for q in self._queries:
             if q:
-                q._monitor = False
+                q.monitoring = False
         self._queries = []
         self._server = None
-        self._monitor = None
         self.database = None
         
         
@@ -122,6 +167,8 @@ class Client(object):
         """
         Add a mountpoint to the system.
         """
+        if not self.status == CONNECTED:
+            return
         self._server.add_mountpoint(device, directory)
 
 
@@ -140,24 +187,28 @@ class Client(object):
         return result
     
 
-    def monitor(self, query, status):
+    def monitor_query(self, query, status):
         """
         Monitor a query
         """
+        if not self.status == CONNECTED:
+            return
         q = None
         if status:
             q = copy.copy(query._query)
             if 'parent' in q:
                 q['parent'] = q['parent']._beacon_id
 
-        self._check_is_connected()
-        self._monitor(self.id, query.id, q, __ipc_noproxy_args=True, __ipc_oneway=True)
+        self._server.monitor(self.id, query.id, q, __ipc_noproxy_args=True,
+                             __ipc_oneway=True)
         
 
     def _beacon_request(self, filename):
         """
         Request information about a filename.
         """
+        if not self.status == CONNECTED:
+            return None
         return self._server.request(filename, __ipc_noproxy_result=True,
                                     __ipc_noproxy_args=True)
 
@@ -186,6 +237,8 @@ class Client(object):
         """
         Update item in next main loop interation.
         """
+        if not self.status == CONNECTED:
+            return
         if not item:
             # do the update now
             items = []

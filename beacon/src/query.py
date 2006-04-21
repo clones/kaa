@@ -55,9 +55,8 @@ class Query(object):
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
         self._query = query
-        self._monitor = False
         self._client = client
-
+        self.monitoring = False
         self.result = self._client.database.query(**query)
     
 
@@ -65,10 +64,10 @@ class Query(object):
         """
         Turn on/off query mnitoring
         """
-        if self._monitor == status:
+        if self.monitoring == status:
             return
-        self._client.monitor(self, status)
-        self._monitor = status
+        self._client.monitor_query(self, status)
+        self.monitoring = status
 
         
     def _beacon_progress(self, pos, max, url):
@@ -118,8 +117,8 @@ class Query(object):
         """
         Memory debug
         """
-        if self._monitor:
-            self.monitor(False)
+        if self.monitoring:
+            self.monitor_query(False)
         log.debug('del %s' % repr(self))
 
 
