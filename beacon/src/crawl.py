@@ -137,8 +137,18 @@ class Crawler(object):
             # a timer is already active and we can return. It still uses too much
             # CPU time in the burst, but there is nothing we can do about it.
             return True
-        
+
         item = self.db.query(filename=name)
+
+        if mask & INotify.CREATE or mask & INotify.DELETE:
+            # directory changed, too
+            parent = item._beacon_parent
+            for i in self.check_mtime_items:
+                if i.filename == parent.filename:
+                    break
+            else:
+                self.check_mtime_items.append(parent)
+                
         if os.path.exists(name):
             # The file exists. So it is either created or modified, we don't care
             # right now. Later it would be nice to check in detail about MOVE_MASK.
@@ -192,6 +202,10 @@ class Crawler(object):
                     self.inotify.ignore(m)
                     log.info('remove inotify for %s', m)
                 self.monitoring.remove(m)
+        if self.check_mtime_items and not self.timer:
+            # check directory for modifications
+            Crawler.active += 1
+            self.check_mtime()
         return True
 
 
