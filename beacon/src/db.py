@@ -106,6 +106,10 @@ class Database(object):
             length = (int, ATTR_SIMPLE),
             content = (str, ATTR_SIMPLE))
 
+        self.signals = {
+            'changed': kaa.notifier.Signal()
+            }
+        
         # commit
         self._db.commit()
 
@@ -188,20 +192,52 @@ class Database(object):
 
         t1 = time.time()
         changes = self.changes
+        changed_id = []
         self.changes = []
-        for function, arg1, args, kwargs in changes:
-            # It could be possible that an item is added twice. But this is no
-            # problem because the duplicate will be removed at the
-            # next query. It can also happen that a dir is added because of
-            # _getdir and because of the parser. We can't avoid that but the
-            # db should clean itself up.
+        for function, arg1, kwargs in changes:
+            callback = None
             if 'callback' in kwargs:
                 callback = kwargs['callback']
                 del kwargs['callback']
-                callback(function(arg1, *args, **kwargs))
+            id = arg1
+            result = None
+            if function == 'delete':
+                # delete items and all subitems from the db. The delete function
+                # will return all ids deleted, callbacks are not allowed, so
+                # we can just continue
+                changed_id.extend(self._delete(id))
+                continue
+            if function == 'update':
+                try:
+                    result = self._db.update_object(id, **kwargs)
+                except Exception, e:
+                    log.error('%s not in the db: %s' % (id, e))
+            elif function == 'add':
+                # arg1 is the type, kwargs should contain parent and name, the
+                # result is the return of a query, so it has (type, id)
+                if 'parent' in kwargs and 'name' in kwargs:
+                    # make sure it is not in the db already
+                    name = kwargs['name']
+                    parent = kwargs['parent']
+                    result = self._db.query(name=name, parent=parent)
+                    if result:
+                        log.warning('switch to update for %s in %s' % (name, parent)) 
+                        # we already have such an item, switch to update mode
+                        result = result[0]
+                        id = result['type'], result['id']
+                        self._db.update_object(id, **kwargs)
+                if not result:
+                    # add object to db
+                    result = self._db.add_object(arg1, **kwargs)
+                    id = result['type'], result['id']
             else:
-                function(arg1, *args, **kwargs)
+                # programming error, this should never happen
+                log.error('unknown change <%s>' % function)
+            changed_id.append(id)
+            if callback and result is not None:
+                callback(result)
         self._db.commit()
+        self.signals['changed'].emit(changed_id)
         log.info('db.commit took %s seconds' % (time.time() - t1))
 
 
@@ -211,12 +247,14 @@ class Database(object):
         items as parent (and so on). To avoid internal problems, make sure
         commit is called just after this function is called.
         """
-        log.info('DELETE %s', entry)
+        log.info('delete %s', entry)
         if isinstance(entry, Item):
             entry = entry._beacon_id
+        deleted = [ entry ]
         for child in self._db.query(parent = entry):
-            self._delete((child['type'], child['id']))
+            deleted.extend(self._delete((child['type'], child['id'])))
         self._db.delete_object(entry)
+        return deleted
 
 
     def _query_dir(self, parent):
@@ -266,7 +304,7 @@ class Database(object):
                     # no client == server == write access
                     # delete from database by adding it to the internal changes
                     # list. It will be deleted right before the next commit.
-                    self.changes.append((self._delete, i, [], {}))
+                    self.changes.append(('delete', i, {}))
                 # delete
             if f == items[pos]._beacon_name:
                 # same file
@@ -283,7 +321,7 @@ class Database(object):
             if not self.client:
                 # no client == server == write access
                 for i in items[pos+1-len(items):]:
-                    self.changes.append((self._delete, i, [], {}))
+                    self.changes.append(('delete', i, {}))
             items = items[:pos+1-len(items)]
 
         if self.changes:
@@ -443,9 +481,8 @@ class Database(object):
         Get the object with the given type, name and parent. This function will
         look at the pending commits and also in the database.
         """
-        for func, type, args, kwargs  in self.changes:
-            if func == self._db.add_object and \
-                   'name' in kwargs and kwargs['name'] == name and \
+        for func, type, kwargs  in self.changes:
+            if func == 'add' and 'name' in kwargs and kwargs['name'] == name and \
                    'parent' in kwargs and kwargs['parent'] == parent:
                 self.commit()
                 break
@@ -455,8 +492,7 @@ class Database(object):
         return None
         
             
-    def add_object(self, type, metadata=None, beacon_immediately=False,
-                   *args, **kwargs):
+    def add_object(self, type, metadata=None, beacon_immediately=False, **kwargs):
         """
         Add an object to the db. If the keyword 'beacon_immediately' is set, the
         object will be added now and the db will be locked until the next commit.
@@ -470,14 +506,14 @@ class Database(object):
 
         if beacon_immediately:
             self.commit()
-            return self._db.add_object(type, *args, **kwargs)
-        self.changes.append((self._db.add_object, type, args, kwargs))
+            return self._db.add_object(type, **kwargs)
+        self.changes.append(('add', type, kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
 
     def update_object(self, (type, id), metadata=None, beacon_immediately=False,
-                      *args, **kwargs):
+                      **kwargs):
         """
         Update an object to the db. If the keyword 'beacon_immediately' is set, the
         object will be updated now and the db will be locked until the next commit.
@@ -489,13 +525,13 @@ class Database(object):
                 if metadata.has_key(key) and metadata[key] != None:
                     kwargs[key] = metadata[key]
 
-        self.changes.append((self._db.update_object, (type, id), args, kwargs))
+        self.changes.append(('update', (type, id), kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
             self.commit()
 
 
     def delete_object(self, (type, id), beacon_immediately=False):
-        self.changes.append((self._delete, (type, id), [], {}))
+        self.changes.append(('delete', (type, id), {}))
         if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
             self.commit()
             

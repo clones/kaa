@@ -38,7 +38,7 @@ import logging
 
 # kaa imports
 from kaa.weakref import weakref
-from kaa.notifier import WeakTimer, Timer, execute_in_timer, Callback
+from kaa.notifier import WeakTimer, WeakOneShotTimer, Timer, execute_in_timer, Callback
 
 # kaa.beacon imports
 import parser
@@ -57,12 +57,39 @@ class Notification(object):
         self.remote(self.id, __ipc_oneway=True, __ipc_noproxy_args=True, *args, **kwargs)
 
 
+class Master(object):
+    def __init__(self, db):
+        self.monitors = []
+        self.timer = Timer(self.check)
+        db.signals['changed'].connect(self.changed)
+        
+    def connect(self, monitor):
+        self.monitors.append((weakref(monitor), []))
+        
+    def changed(self, changes):
+        for m, c in self.monitors:
+            c.extend(changes)
+        if not self.timer.active():
+            self.timer.start(0.02)
+
+    def check(self):
+        if not self.monitors:
+            return False
+        monitor, changes = self.monitors.pop(0)
+        if monitor == None:
+            return True
+        if changes:
+            monitor.check(changes)
+        self.monitors.append((monitor, []))
+
+_master = None
+
 class Monitor(object):
     """
     Monitor query for changes and call callback.
     """
-
     def __init__(self, callback, db, server, id, query):
+        global _master
         log.debug('create new monitor %s' % id)
         self.id = id
         self.callback = Notification(callback, self.id)
@@ -71,59 +98,65 @@ class Monitor(object):
         self._query = query
         self._checker = None
         self.items = self._db.query(**self._query)
+        if not _master:
+            _master = Master(db)
+        _master.connect(self)
         if self.items and isinstance(self.items[0], Item):
             self._scan(True)
-        self._poll()
 
-#         if self._query.has_key('dirname') and \
-#            (not self._query.has_key('recursive') or not self._query['recursive']):
-#             # TODO: use inotify for monitoring, this will also fix the
-#             # problem when files grow because they are copied right
-#             # now and the first time we had no real information
-#             dirname = self._query['dirname']
-#             for m in self._db._mountpoints:
-#                 if dirname.startswith(m.directory):
-#                     break
-#             WeakTimer(self.check, dirname, m).start(1)
-#         if self._query.has_key('device'):
-#             # monitor a media
-#             # TODO: support other stuff except cdrom
-#             # FIXME: support removing the monitor :)
-#             cdrom.monitor(query['device'], weakref(self), db, self._server)
-            
+        # FIXME: how to get updates on directories not monitored by
+        # inotify? Maybe poll the dirs when we have a query with
+        # dirname it it?
+        
 
-    @execute_in_timer(WeakTimer, 1)
-    def _poll(self):
+    def check(self, changes):
+        """
+        This function compares the last query result with the current db status
+        and will inform the client when there is a change.
+        """
         if self._checker:
-            # still checking
+            # Still checking. FIXME: what happens if new files are added during
+            # scan? For one part, the changes here here the item changes itself,
+            # so we would update the client all the time. So it is better to wait
+            # here. Note: with inotify support this should not happen often.
+            WeakOneShotTimer(self.check, changes).start(1)
             return True
+
         current = self._db.query(**self._query)
+
+        # The query result length is different, this is a change
         if len(current) != len(self.items):
             self.items = current
-            if (current and isinstance(current[0], Item)) or \
-               (self.items and isinstance(self.items[0], Item)):
-                self._scan(False)
-            else:
-                self.callback('changed')
+            self.callback('changed')
             return True
+
+        # Same length and length is 0. No change here
         if len(current) == 0:
             return True
+
+        # Same length, check for changes inside the items
         if isinstance(current[0], Item):
-            for pos, c in enumerate(current):
-                if self.items[pos].url != c.url:
-                    self.items = current
-                    self._scan(False)
-                    return True
-        else:
-            for pos, c in enumerate(current):
-                if self.items[pos] != c:
+            for i in current:
+                if i._beacon_id in changes:
                     self.items = current
                     self.callback('changed')
                     return True
+            return True
+
+        # Same length, check if the strings itself did not change
+        for pos, c in enumerate(current):
+            if self.items[pos] != c:
+                self.items = current
+                self.callback('changed')
+                return True
         return True
 
 
     def _scan(self, first_call):
+        """
+        Start scanning the current list of items if they need to be updated.
+        With a full structure covered by inotify, there should be not changes.
+        """
         self._scan_step(self.items[:], [], first_call)
 
         
@@ -133,31 +166,37 @@ class Monitor(object):
         Find changed items in 'items' and add them to changed.
         """
         if not items:
-            self._update(changed, first_call)
+            if not changed and first_call:
+                # no changes but it was our first call. Tell the client that everything
+                # is checked
+                self.callback('checked')
+                return False
+            if not changed:
+                # no changes but send the 'changed' ipc to the client
+                self.callback('changed')
+                return False
+            # We have some items that need an update. This will create a parser
+            # object checking all items in the list.
+            cb = Callback(self.checked, first_call)
+            c = parser.Checker(self.callback, self._db, changed, cb)
+            self._checker = c
+            if not first_call and len(changed) > 10:
+                # do not wait for the parser to send the changed signal, it may
+                # take a while.
+                self.callback('changed')
             return False
+
         c = 0
         while items:
             c += 1
             if c > 20:
+                # stop it and continue in the next step
                 return True
             i = items.pop(0)
             # FIXME: check parents
             if i._beacon_changed():
                 changed.append(i)
         return True
-
-
-    def _update(self, changed, first_call):
-        if changed:
-            cb = Callback(self.checked, first_call)
-            c = parser.Checker(self.callback, self._db, changed, cb)
-            self._checker = c
-            if not first_call and len(changed) > 10:
-                self.callback('changed')
-        elif first_call:
-            self.callback('checked')
-        else:
-            self.callback('changed')
 
 
     def checked(self, first_call):
@@ -171,56 +210,6 @@ class Monitor(object):
         if self._checker:
             self._checker.stop()
         self._checker = None
-
-        
-    #     if self._query.has_key('device'):
-#             log.info('unable to update device query, just send notification here')
-#             # device query, can't update it
-#             if send_checked:
-#                 log.info('client.checked')
-#                 self.callback('checked')
-#                 return
-
-#         last_parent = None
-#         t1 = time.time()
-#         for i in self.items:
-#             # FIXME: this does not scale very good. For many items like a
-#             # recursive dir search it can take several seconds to scan all mtimes
-#             # and this is not an option.
-#             if not isinstance(i, item.Item):
-#                 # TODO: don't know how to monitor other types
-#                 continue
-
-#             # check parent and parent.parent mtime. Notice. The root
-#             # dir has also a parent, the media itself. So we need to stop at
-#             # parent.parent == None.
-#             parent = i.parent
-#             parent_check = []
-#             while last_parent != parent and parent and parent.parent:
-#                 mtime = parser.get_mtime(parent)
-#                 if mtime and parent.data['mtime'] != mtime and not parent in to_check:
-#                     parent_check.append(weakref(parent))
-#                 parent = parent.parent
-#             if parent_check:
-#                 parent_check.reverse()
-#                 to_check += parent_check
-#             last_parent = i.parent
-            
-#             mtime = parser.get_mtime(i)
-#             if not mtime:
-#                 continue
-#             if i.data['mtime'] == mtime:
-#                 continue
-#             to_check.append(weakref(i))
-
-#         if to_check:
-#             # FIXME: a constantly growing file like a recording will result in
-#             # a huge db activity on both client and server because checker calls
-#             # update again and the mtime changed.
-#             self._checker = weakref(parser.Checker(weakref(self), self._db, to_check))
-#         elif send_checked:
-#             log.info('client.checked')
-#             self.callback('checked')
 
 
     def __repr__(self):
