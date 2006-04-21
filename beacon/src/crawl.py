@@ -166,7 +166,8 @@ class Crawler(object):
                 if mask & INotify.CLOSE_WRITE:
                     # The file is closed. So we can remove the current running
                     # timer and check now
-                    timer.stop()
+                    if timer:
+                        timer.stop()
                     del self.last_checked[name]
                 else:
                     # Do not check again, but restart the timer, it is expired
