@@ -530,6 +530,35 @@ class Database(object):
             self.commit()
 
 
+    def update_object_type(self, (type, id), new_type):
+        old_entry = self._db.query(type=type, id=id)
+        if not old_entry:
+            # already changed by something
+            return None
+        old_entry = old_entry[0]
+
+        # copy metadata to new object
+        metadata = {}
+        for key in self._db._object_types[new_type][1].keys():
+            if not key == 'id' and key in old_entry:
+                metadata[key] = old_entry[key]
+        # add object to db keep the db in sync
+        self.commit()
+        metadata = self._db.add_object(new_type, **metadata)
+        new_beacon_id = (type, metadata['id'])
+        self._db.commit()
+
+        # move all children to new parent
+        for child in self._db.query(parent=(type, id)):
+            log.warning('untested code: mode parent for %s' % child)
+            self._db.update_object((child['type'], child['id']), parent=new_beacon_id)
+
+        # delete old and sync the db again
+        self.delete_object((type, id))
+        self.commit()
+        return metadata
+
+    
     def delete_object(self, (type, id), beacon_immediately=False):
         self.changes.append(('delete', (type, id), {}))
         if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:

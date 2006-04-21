@@ -86,15 +86,23 @@ def parse(db, item, store=False):
     log.info('scan %s' % item)
     attributes = { 'mtime': mtime }
     metadata = kaa.metadata.parse(item.filename)
-    if item._beacon_data.has_key('type'):
-        type = item._beacon_data['type']
-    elif metadata and metadata['media'] and \
+    if metadata and metadata['media'] and \
              db.object_types().has_key(metadata['media']):
         type = metadata['media']
     elif item._beacon_isdir:
         type = 'dir'
     else:
         type = 'file'
+
+    if item._beacon_id and type != item._beacon_id[0]:
+        # The item changed its type. Adjust the db
+        data = db.update_object_type(item._beacon_id, type)
+        if not data:
+            log.warning('item to change not in the db anymore, try to find it')
+            data = db.get_object(item._beacon_data['name'], parent._beacon_id)
+        log.info('change item %s to %s' % (item._beacon_id, type))
+        item._beacon_database_update(data)
+
 
     if type == 'dir':
         for cover in ('cover.jpg', 'cover.png'):
