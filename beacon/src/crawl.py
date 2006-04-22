@@ -55,6 +55,7 @@ except:
 # timer for growing files (cp, download)
 GROWING_TIMER = 5
 
+
 class Crawler(object):
     """
     Class to crawl through a filesystem and check for changes. If inotify
@@ -106,13 +107,8 @@ class Crawler(object):
         Append a directory to be crawled and monitored.
         """
         log.info('crawl %s', item)
-        self.check_mtime_items.append(item)
-        self.scan_directory_items.append(item)
         self.restart_args.append(item)
-        if not self.timer:
-            Crawler.active += 1
-            log.info('start crawler %s' % self.num)
-            self.check_mtime()
+        self.scan_directory(item)
 
 
     def stop(self):
@@ -165,14 +161,12 @@ class Crawler(object):
             self.db.commit()
 
             # Now both directories need to be checked again
-            self.check_mtime_items.append(item._beacon_parent)
-            self.check_mtime_items.append(move._beacon_parent)
-            if not self.timer:
-                Crawler.active += 1
-                self.check_mtime()
+            self.scan_directory(item._beacon_parent, recursive=False)
+            self.scan_directory(move._beacon_parent, recursive=False)
 
             if not mask & INotify.ISDIR:
                 return True
+
             # The directory is a dir. So we have to change all inotify watches
             # from the subdir to the new dir
             for m in self.monitoring[:]:
@@ -196,24 +190,25 @@ class Crawler(object):
         
         if mask & INotify.CREATE or mask & INotify.DELETE or mask & INotify.MOVE:
             # directory changed, too
-            parent = item._beacon_parent
-            for i in self.check_mtime_items:
-                if i.filename == parent.filename:
-                    break
-            else:
-                self.check_mtime_items.append(parent)
-                
+            self.scan_directory(item._beacon_parent, recursive=False)
+        
         if os.path.exists(name):
             # The file exists. So it is either created or modified, we don't care
-            # right now. Later it would be nice to check in detail about MOVE_MASK.
-            # At this point we add the new file and delete the old one but it would
-            # be much faster if we can handle move.
+            # right now.
             if item._beacon_isdir:
-                self.scan_directory_items.append(item)
+                # It is a directory. Just do a full directory rescan.
+                self.scan_directory(item, recursive=False)
+                return True
+            # Check if the item is already in our watch list
             for i in self.check_mtime_items:
                 if i.filename == item.filename:
                     # already in the checking list, ignore it
                     return True
+            for i, r in self.scan_directory_items:
+                if i.filename == item._beacon_parent.filename:
+                    # will be added later, ignore
+                    return True
+
             now = time.time()
             if name in self.last_checked:
                 last_check, timer = self.last_checked[name]
@@ -232,24 +227,24 @@ class Crawler(object):
             elif INotify.MODIFY:
                 # store the current time
                 self.last_checked[name] = [ now, None ]
-            self.check_mtime_items.append(item)
-            if not self.timer:
-                Crawler.active += 1
-                self.check_mtime()
+            if not mask & (INotify.CREATE | INotify.MOVE):
+                # add to mtime checking when not CREATE or MOVE. When it is one
+                # of these two, we already to a full directory rescan.
+                self.check_mtime(item)
             return True
 
         # The file does not exist, we need to delete it in the database
-        # (if it is still in there)
         if self.db.get_object(item._beacon_data['name'], item._beacon_parent._beacon_id):
             # Still in the db, delete it
             self.db.delete_object(item._beacon_id, beacon_immediately=True)
+        # Remove item from list of files to check
         for i in self.check_mtime_items:
             if i.filename == item.filename:
                 self.check_mtime_items.remove(i)
                 break
+        # remove directory and all subdirs from the inotify. The directory
+        # is gone, so all subdirs are invalid, too.
         if name + '/' in self.monitoring:
-            # remove directory and all subdirs from the notifier. The directory
-            # is gone, so all subdirs are invalid, too.
             for m in self.monitoring[:]:
                 # FIXME: This is not correct when you deal with softlinks. If you
                 # move a directory with relative softlinks, the new directory to
@@ -260,10 +255,6 @@ class Crawler(object):
                     self.inotify.ignore(m)
                     log.info('remove inotify for %s', m)
                 self.monitoring.remove(m)
-        if self.check_mtime_items and not self.timer:
-            # check directory for modifications
-            Crawler.active += 1
-            self.check_mtime()
         return True
 
 
@@ -312,26 +303,36 @@ class Crawler(object):
         # this object with 'append' again.
         self.monitoring = []
         for item in self.restart_args:
-            self.check_mtime_items.append(item)
-            self.scan_directory_items.append(item)
-        Crawler.active += 1
-        log.info('start crawler %s' % self.num)
-        self.check_mtime()
+            self.scan_directory(item)
 
         
-    def scan_directory(self):
+    def scan_directory(self, directory=None, recursive=True):
         """
         Scan a directory for changes add all subitems to check_mtime. All subdirs
         are also added to scan_directory_items to be checked by this function later.
         """
+        if directory:
+            # add directory to the scanning list and if necessary start a timer
+            # to do the scanning the mtime and the directory
+            for entry in self.scan_directory_items:
+                if directory.filename == entry[0].filename:
+                    if recursive and not entry[1]:
+                        entry[1] = True
+                    break
+            else:
+                self.scan_directory_items.append([directory, recursive])
+            self.check_mtime(directory)
+            return True
+
         if not self.timer:
+            # we should not run
             return False
 
         if not self.scan_directory_items:
             self.finished()
             return False
 
-        item = self.scan_directory_items.pop(0)
+        item, recursive = self.scan_directory_items.pop(0)
         if not isinstance(item, Directory):
             log.warning('%s is no directory item', item)
             if hasattr(item, 'filename') and item.filename + '/' in self.monitoring:
@@ -353,20 +354,13 @@ class Crawler(object):
                 log.error(e)
                 
         for child in self.db.query(parent=item):
-            if child._beacon_isdir:
+            if child._beacon_isdir and recursive:
                 # A directory. Check if it is already scanned or in the list of
                 # items to be scanned. If not, add it.
-                for fname in [ f.filename for f in self.scan_directory_items ] + \
-                        self.monitoring:
-                    if child.filename == fname:
-                        self.check_mtime_items.append(child)
-                        break
-                else:
-                    self.check_mtime_items.append(child)
-                    self.scan_directory_items.append(child)
+                self.scan_directory(child)
                 continue
             # add file to the list of items to be checked
-            self.check_mtime_items.append(child)
+            self.check_mtime(child)
 
         if not item.filename in self.monitoring:
             # add directory to list of files we scanned.
@@ -377,11 +371,23 @@ class Crawler(object):
         return True
 
 
-    def check_mtime(self):
+    def check_mtime(self, item=None):
         """
         Check the modification time of all items in self.check_mtime_items.
         This function will start a timer for check_mtime_step.
         """
+        if item:
+            for i in self.check_mtime_items:
+                if i.filename == item.filename:
+                    return True
+            self.check_mtime_items.append(item)
+            if not self.timer:
+                Crawler.active += 1
+                self.timer = Timer(self.check_mtime_step)
+                self.timer.start(self.PARSE_TIMER / Crawler.active)
+            return True
+
+        # called without item, start stepping
         self.timer = Timer(self.check_mtime_step)
         self.timer.start(self.PARSE_TIMER / Crawler.active)
 
