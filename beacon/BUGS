@@ -1,0 +1,4 @@
+o Make sure the thumbaniler is killed on beacon stop
+
+  If this is not possible, at least connect to the old thumbnailer on
+  startup to make it possible to shut it down.
