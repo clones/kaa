@@ -241,9 +241,11 @@ class Database(object):
         # just for a simple commit and while we commit the reading of the db
         # is blocked for the client. To see only the commit times, start beacon
         # with --verbose db with a clean database.
+        t2 = time.time()
         self._db.commit()
-        log.info('db.commit took %s seconds' % (time.time() - t1))
+        t3 = time.time()
         self.signals['changed'].emit(changed_id)
+        log.info('db.commit took %1.3f/%1.3f seconds' % (t2 - t1, t3 - t2))
 
 
     def _delete(self, entry):
