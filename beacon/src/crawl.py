@@ -99,6 +99,7 @@ class Crawler(object):
         # used for debugging/testing.
         if os.getenv("BEACON_EAT_CYCLES"):
             self.UPDATE_TIMER = 0
+            self.PARSE_TIMER = 0
 
     def append(self, item):
         """
