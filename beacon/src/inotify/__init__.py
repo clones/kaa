@@ -82,9 +82,16 @@ class INotify:
     def _handle_data(self):
         data = os.read(self._fd, 32768)
         self._read_buffer += data
-
+        is_move = None
+        
         while True:
             if len(self._read_buffer) < 16:
+                if is_move:
+                    # We had a MOVED_FROM without MOVED_TO. Too bad, just send
+                    # the MOVED_FROM without target
+                    wd, mask, cookie, path = is_move
+                    self._watches[wd][0].emit(mask, path)
+                    self.signals["event"].emit(mask, path)
                 break
 
             wd, mask, cookie, size = struct.unpack("LLLL", self._read_buffer[0:16])
@@ -100,6 +107,29 @@ class INotify:
             path = self._watches[wd][1]
             if name:
                 path = os.path.join(path, name)
+
+            if mask & INotify.MOVED_FROM:
+                # This is a MOVED_FROM. Don't emit the signals now, let's wait
+                # for a MOVED_TO.
+                is_move = wd, mask, cookie, path
+                continue
+            if is_move:
+                # Last check was a MOVED_FROM. So if this is a MOVED_TO and the
+                # cookie matches, emit both paths. If not, send two signals.
+                if mask & INotify.MOVED_TO and cookie == is_move[2]:
+                    # Great, they match. Fire a MOVE signal with both paths.
+                    # Use the all three signals (global, from, to)
+                    mask |= INotify.MOVED_FROM
+                    self._watches[is_move[0]][0].emit(mask, is_move[3], path)
+                    self._watches[wd][0].emit(mask, is_move[3], path)
+                    self.signals["event"].emit(mask, is_move[3], path)
+                    is_move = None
+                    continue
+                # No match, fire the is_move signal now
+                wd, cookie, path = is_move
+                self._watches[is_move[0]][0].emit(is_move[1], is_move[3])
+                self.signals["event"].emit(is_move[1], is_move[3])
+                is_move = None
 
             self._watches[wd][0].emit(mask, path)
             self.signals["event"].emit(mask, path)

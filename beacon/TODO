@@ -30,6 +30,3 @@
      beacuse of the crawler?
 
 9. Update doc
-
-10. Treat MOVE inotify events as special cases; right now it treats it as a
-    DELETE followed by an ADD, but MOVES don't require reindexing files.

@@ -131,7 +131,7 @@ class Crawler(object):
     # Internal functions
     # -------------------------------------------------------------------------
     
-    def inotify_callback(self, mask, name):
+    def inotify_callback(self, mask, name, *args):
         """
         Callback for inotify.
         """
@@ -145,7 +145,55 @@ class Crawler(object):
 
         item = self.db.query(filename=name)
 
-        if mask & INotify.CREATE or mask & INotify.DELETE:
+        if mask & INotify.MOVE and args and item._beacon_id:
+            # Move information with source and destination
+            move = self.db.query(filename=args[0])
+            if move._beacon_id:
+                # New item already in the db, delete it first
+                self.db.delete_object(move._beacon_id)
+            changes = {}
+            if item._beacon_parent._beacon_id != move._beacon_parent._beacon_id:
+                # Different directory, set new parent
+                changes['parent'] = move._beacon_parent._beacon_id
+            if item._beacon_data['name'] != move._beacon_data['name']:
+                # New name, set name to item
+                changes['name'] = move._beacon_data['name']
+            if changes:
+                log.info('move: %s', changes)
+                self.db.update_object(item._beacon_id, **changes)
+            self.db.commit()
+
+            # Now both directories need to be checked again
+            self.check_mtime_items.append(item._beacon_parent)
+            self.check_mtime_items.append(move._beacon_parent)
+            if not self.timer:
+                Crawler.active += 1
+                self.check_mtime()
+
+            if not mask & INotify.ISDIR:
+                return True
+            # The directory is a dir. So we have to change all inotify watches
+            # from the subdir to the new dir
+            for m in self.monitoring[:]:
+                if not m.startswith(name + '/'):
+                    continue
+                n = m.replace(name, args[0])
+                self.inotify.ignore(m)
+                try:
+                    self.inotify.watch(n, WATCH_MASK)
+                except IOError, e:
+                    log.error(e)
+                log.info('move inotify for %s to %s', m, n)
+                self.monitoring.remove(m)
+                self.monitoring.append(n)
+            return True
+
+        if mask & INotify.MOVE and args:
+            # We have a move with to and from, but the from item is not in
+            # the db. So we handle it as a simple MOVE_TO
+            name = args[0]
+        
+        if mask & INotify.CREATE or mask & INotify.DELETE or mask & INotify.MOVE:
             # directory changed, too
             parent = item._beacon_parent
             for i in self.check_mtime_items:
@@ -202,6 +250,9 @@ class Crawler(object):
             # remove directory and all subdirs from the notifier. The directory
             # is gone, so all subdirs are invalid, too.
             for m in self.monitoring[:]:
+                # FIXME: This is not correct when you deal with softlinks. If you
+                # move a directory with relative softlinks, the new directory to
+                # monitor is different.
                 if not m.startswith(name + '/'):
                     continue
                 if self.inotify:
