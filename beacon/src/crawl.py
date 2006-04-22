@@ -94,6 +94,11 @@ class Crawler(object):
         self.restart_args = []
         self.last_checked = {}
 
+        # If this env var is non-zero, initialize the update timer to
+        # 0 so that we do initial indexing as quickly as possible.  Mainly
+        # used for debugging/testing.
+        if os.getenv("BEACON_EAT_CYCLES"):
+            self.UPDATE_TIMER = 0
 
     def append(self, item):
         """
