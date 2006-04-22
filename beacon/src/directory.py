@@ -122,9 +122,9 @@ class Directory(Item):
         basename, full filename, is_overlay, stat result
         """
         if self._beacon_listdir_cache and cache and \
-               self._beacon_listdir_cache[0] + 1 > time.time():
+               self._beacon_listdir_cache[0] + 3 > time.time():
             # use cached result if we have and caching time is less than
-            # one second ago
+            # three seconds ago
             return self._beacon_listdir_cache[1]
 
         try:
