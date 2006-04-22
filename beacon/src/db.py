@@ -308,6 +308,13 @@ class Database(object):
             dirname = parent.filename[:-1]
         items = []
         if parent._beacon_id:
+            # XXX: This loop is a performance hotspot, accounting for nearly
+            # 70% of execution time in this function.  The time in this loop
+            # is comprised of about 60-70% for the db query, and the rest in
+            # File/Directory object creation.  Of the query itself, 70% of
+            # that time is spent normalizing the query results.  So if
+            # normalization can be deferred, we can get results to the
+            # caller .7*.7*.7 =~ 35% faster.  
             for i in self._db.query(parent = parent._beacon_id):
                 if i['type'] == 'dir':
                     items.append(create_dir(i, parent))
@@ -323,6 +330,10 @@ class Database(object):
         # TODO: use parent mtime to check if an update is needed. Maybe call
         # it scan time or something like that. Also make it an option so the
         # user can turn the feature off.
+
+        # XXX: Most of the remaining time for this function is in this loop.
+        # About 25%.  (Assuming stat results are cached by the filesystem so
+        # no disk access is needed.)
         pos = -1
 
         for pos, (f, fullname, overlay, stat_res) in enumerate(parent._beacon_listdir()):
