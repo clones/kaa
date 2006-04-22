@@ -425,7 +425,7 @@ class Crawler(object):
             self.timer.start(self.UPDATE_TIMER / Crawler.active)
         else:
             self.timer = OneShotTimer(self.scan_directory)
-            self.timer.start(0.01)
+            self.timer.start(self.PARSE_TIMER / 2)
         
 
     def update_step(self):
