@@ -167,20 +167,17 @@ class Crawler(object):
             if not mask & INotify.ISDIR:
                 return True
 
-            # The directory is a dir. So we have to change all inotify watches
-            # from the subdir to the new dir
+            # The directory is a dir. We now remove all the monitors to that
+            # directory and crawl it again. This keeps track for softlinks that
+            # may be different or broken now.
             for m in self.monitoring[:]:
                 if not m.startswith(name + '/'):
                     continue
-                n = m.replace(name, args[0])
                 self.inotify.ignore(m)
-                try:
-                    self.inotify.watch(n, WATCH_MASK)
-                except IOError, e:
-                    log.error(e)
-                log.info('move inotify for %s to %s', m, n)
+                log.info('remove inotify for %s', m)
                 self.monitoring.remove(m)
-                self.monitoring.append(n)
+            # now make sure the directory is parsed recursive again
+            self.scan_directory(move, recursive=True)
             return True
 
         if mask & INotify.MOVE and args:
