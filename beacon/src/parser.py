@@ -49,11 +49,11 @@ def parse(db, item, store=False):
     log.debug('check %s', item.url)
     mtime = item._beacon_mtime()
     if not mtime:
-        log.info('oops, no mtime %s' % item)
+        log.warning('no mtime, skip %s' % item)
         return
     parent = item._beacon_parent
     if not parent:
-        log.error('no parent %s' % item)
+        log.warning('no parent, skip %s' % item)
         return
 
     if not parent._beacon_id:

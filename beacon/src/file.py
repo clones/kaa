@@ -90,7 +90,11 @@ class File(Item):
         mtime = 0
         for basename, filename in self._beacon_parent._beacon_os_listdir():
             if basename.startswith(search):
-                mtime += os.stat(filename)[stat.ST_MTIME]
+                try:
+                    # FIXME: mtime should come out of _beacon_os_listdir
+                    mtime += os.stat(filename)[stat.ST_MTIME]
+                except (OSError, IOError):
+                    pass
         return mtime
 
 

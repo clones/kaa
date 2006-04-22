@@ -96,9 +96,15 @@ class Directory(Item):
         the directory itself and the overlay directory (if that exists).
         """
         if os.path.isdir(self._beacon_ovdir):
-            return max(os.stat(self._beacon_ovdir)[stat.ST_MTIME],
-                       os.stat(self.filename)[stat.ST_MTIME])
-        return os.stat(self.filename)[stat.ST_MTIME]
+            try:
+                return max(os.stat(self._beacon_ovdir)[stat.ST_MTIME],
+                           os.stat(self.filename)[stat.ST_MTIME])
+            except (OSError, IOError):
+                pass
+        try:
+            return os.stat(self.filename)[stat.ST_MTIME]
+        except (OSError, IOError):
+            return 0
 
 
     def _beacon_request(self):
