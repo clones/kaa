@@ -6,10 +6,10 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-beacon - A virtual filesystem with metadata
-# Copyright (C) 2005 Dirk Meyer
+# Copyright (C) 2006 Dirk Meyer
 #
-# First Edition: Dirk Meyer <dmeyer@tzi.de>
-# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
 #
 # Please see the file AUTHORS for a complete list of authors.
 #

@@ -8,8 +8,8 @@
 # kaa-thumb - Thumbnailing module
 # Copyright (C) 2005-2006 Dirk Meyer, et al.
 #
-# First Edition: Dirk Meyer <dmeyer@tzi.de>
-# Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
 #
 # Please see the file AUTHORS for a complete list of authors.
 #
