@@ -116,7 +116,6 @@ class Monitor(object):
             # scan? For one part, the changes here here the item changes itself,
             # so we would update the client all the time. So it is better to wait
             # here. Note: with inotify support this should not happen often.
-            WeakOneShotTimer(self.check, changes).start(1)
             return True
 
         current = self._db.query(**self._query)
@@ -198,6 +197,9 @@ class Monitor(object):
 
     def checked(self, first_call):
         self._checker = None
+        # The client will update its query on this signal, so it should
+        # be safe to do the same here. *cross*fingers*
+        self.items = self._db.query(**self._query)
         self.callback('changed')
         if first_call:
             self.callback('checked')
