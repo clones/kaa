@@ -197,17 +197,43 @@ class Database(object):
         if not self.changes and not force:
             return
 
+        # Before we start with the commit, we make sure that all items we want
+        # to add are not in the db already.
+        for pos, (function, arg1, kwargs) in enumerate(self.changes):
+            if not function == 'add' or not 'parent' in kwargs or not 'name' in kwargs:
+                continue
+            # check the db
+            result = self._db.query(name=kwargs['name'], parent=kwargs['parent'])
+            if not result:
+                continue
+            # change 'add' to 'update'
+            log.info('switch from add to update for %s', kwargs['name'])
+            result = result[0]
+            if 'callback' in kwargs:
+                callback = kwargs['callback']
+                del kwargs['callback']
+                callback(result)
+            self.changes[pos] = ('update', result['type'], result['id'], kwargs)
+
+        # Now we did everything we can to make it as fast as possible. Let
+        # us start with the real db changes now
+
+        # get time for debugging
         t1 = time.time()
+        # set internal variables
         changes = self.changes
         changed_id = []
         self.changes = []
+        callbacks = []
+
+        # NOTE: Database will be locked now
+
+        # walk through the list of changes
         for function, arg1, kwargs in changes:
             callback = None
             if 'callback' in kwargs:
                 callback = kwargs['callback']
                 del kwargs['callback']
-            id = arg1
-            result = None
             if function == 'delete':
                 # delete items and all subitems from the db. The delete function
                 # will return all ids deleted, callbacks are not allowed, so
@@ -216,39 +242,37 @@ class Database(object):
                 continue
             if function == 'update':
                 try:
-                    result = self._db.update_object(id, **kwargs)
+                    result = self._db.update_object(arg1, **kwargs)
+                    changed_id.append(arg1)
                 except Exception, e:
-                    log.error('%s not in the db: %s' % (id, e))
+                    log.error('%s not in the db: %s' % (arg1, e))
+                    result = None
             elif function == 'add':
                 # arg1 is the type, kwargs should contain parent and name, the
                 # result is the return of a query, so it has (type, id)
-                if 'parent' in kwargs and 'name' in kwargs:
-                    # make sure it is not in the db already
-                    name = kwargs['name']
-                    parent = kwargs['parent']
-                    result = self._db.query(name=name, parent=parent)
-                    if result:
-                        log.warning('switch to update for %s in %s' % (name, parent)) 
-                        # we already have such an item, switch to update mode
-                        result = result[0]
-                        id = result['type'], result['id']
-                        self._db.update_object(id, **kwargs)
-                if not result:
-                    # add object to db
-                    result = self._db.add_object(arg1, **kwargs)
-                    id = result['type'], result['id']
+                result = self._db.add_object(arg1, **kwargs)
+                changed_id.append((result['type'], result['id']))
             else:
                 # programming error, this should never happen
                 log.error('unknown change <%s>' % function)
-            changed_id.append(id)
+                continue
             if callback and result is not None:
-                callback(result)
+                callbacks.append((callback, result))
 
+        # db commit
         t2 = time.time()
         self._db.commit()
         t3 = time.time()
+
+        # NOTE: Database is unlocked again
+
+        # some time debugging
         log.info('db.commit %d items; %.5fs (kaa.db commit %.5f / %.2f%%)' % \
                  (len(changes), t3-t1, t3-t2, (t3-t2)/(t3-t1)*100.0))
+        # now call all callbacks
+        for callback, result in callbacks:
+            callback(result)
+        # fire db changed signal
         self.signals['changed'].emit(changed_id)
 
 
