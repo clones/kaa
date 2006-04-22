@@ -20,13 +20,11 @@
  
 6. Support client update of items when the item is not in the db yet.
 
-7. Clean up Directory os.listdir stuff. It works, but it is ugly
-
-8. Update Monitor class
+7. Update Monitor class
 
    o Handle dirname searches on directories not monitored by inotify
 
    o Check parents on file updates (cover?). Or is this not needed
      beacuse of the crawler?
 
-9. Update doc
+8. Update doc

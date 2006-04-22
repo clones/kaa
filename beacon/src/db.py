@@ -34,6 +34,7 @@
 
 # python imports
 import os
+import stat
 import threading
 import logging
 import time
@@ -287,10 +288,11 @@ class Database(object):
         # user can turn the feature off.
         pos = -1
 
-        for pos, (f, overlay) in enumerate(parent._beacon_listdir()):
+        for pos, (f, fullname, overlay, stat_res) in enumerate(parent._beacon_listdir()):
+            isdir = stat.S_ISDIR(stat_res[stat.ST_MODE])
             if pos == len(items):
                 # new file at the end
-                if os.path.isdir(parent.filename + f):
+                if isdir:
                     if not overlay:
                         items.append(create_dir(f, parent))
                     continue
@@ -310,7 +312,7 @@ class Database(object):
                 # same file
                 continue
             # new file
-            if os.path.isdir(parent.filename + f):
+            if isdir:
                 if not overlay:
                     items.insert(pos, create_dir(f, parent))
                 continue

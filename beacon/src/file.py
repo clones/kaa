@@ -88,13 +88,10 @@ class File(Item):
         if search.rfind('.') > 0:
             search = search[:search.rfind('.')]
         mtime = 0
-        for basename, filename in self._beacon_parent._beacon_os_listdir():
+        for basename, filename, overlay, stat_res in \
+                self._beacon_parent._beacon_listdir(cache=True):
             if basename.startswith(search):
-                try:
-                    # FIXME: mtime should come out of _beacon_os_listdir
-                    mtime += os.stat(filename)[stat.ST_MTIME]
-                except (OSError, IOError):
-                    pass
+                mtime += stat_res[stat.ST_MTIME]
         return mtime
 
 

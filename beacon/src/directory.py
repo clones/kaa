@@ -32,6 +32,7 @@
 # python imports
 import os
 import stat
+import time
 import logging
 
 # kaa.beacon imports
@@ -86,7 +87,7 @@ class Directory(Item):
         self._beacon_overlay = False
         self._beacon_isdir = True
         self._beacon_ovdir = media.overlay + '/' + self.filename[len(media.directory):]
-
+        self._beacon_listdir_cache = None
 
     def _beacon_mtime(self):
         """
@@ -114,53 +115,56 @@ class Directory(Item):
         self._beacon_database_update(self._beacon_db()._beacon_request(self.filename[:-1]))
 
 
-    def _beacon_listdir(self):
+    def _beacon_listdir(self, cache=False):
         """
         Internal function to list all files in the directory and the overlay
-        directory. The result is a list of tuples. The first item is the
-        basename, the next is True when the file is in the overlay dir and
-        False if not.
+        directory. The result is a list of tuples:
+        basename, full filename, is_overlay, stat result
         """
+        if self._beacon_listdir_cache and cache and \
+               self._beacon_listdir_cache[0] + 1 > time.time():
+            # use cached result if we have and caching time is less than
+            # one second ago
+            return self._beacon_listdir_cache[1]
+
         try:
+            # Try to list the directory. If that fails for some reason,
+            # return an empty list
             listdir = os.listdir(self.filename)
-        except OSError:
-            return []
-
-        try:
-            result = [ ( x, True ) for x in os.listdir(self._beacon_ovdir) \
-                       if not x.startswith('.') and not x in listdir ]
-        except OSError:
-            result = []
-        result += [ ( x, False ) for x in listdir if not x.startswith('.') ]
-        result.sort(lambda x,y: cmp(x[0], y[0]))
-        if hasattr(self, '_beacon_os_listdir_cache'):
-            del self._beacon_os_listdir_cache
-        return result
-
-
-    def _beacon_os_listdir(self):
-        """
-        Internal function to list all files in the directory and the overlay
-        directory. The result is a list of complete filenames. The function
-        will use an internal cache.
-        FIXME: This is an ugly solution.
-        """
-        if hasattr(self, '_beacon_os_listdir_cache'):
-            return self._beacon_os_listdir_cache
-
-        try:
-            result = [ (x, self.filename + x) for x in os.listdir(self.filename)
+            result = [ [ x, self.filename + x, False ] for x in listdir
                        if not x.startswith('.') ]
-        except OSError:
+        except OSError, e:
+            log.warning(e)
+            self._beacon_listdir_cache = time.time(), []
             return []
 
         try:
-            result += [ ( x, self._beacon_ovdir + x ) for x in os.listdir(self._beacon_ovdir) \
-                        if not x.startswith('.') and not x in listdir ]
+            # Try to list the overlay directory
+            result += [ [ x, self._beacon_ovdir + x, True ] \
+                          for x in os.listdir(self._beacon_ovdir) \
+                          if not x.startswith('.') and not x in listdir ]
         except OSError:
+            # No overlay
             pass
-        self._beacon_os_listdir_cache = result
-        return result
+        
+        for r in result[:]:
+            try:
+                # append stat information to every result
+                r.append(os.stat(r[1]))
+                if r[2] and stat.S_ISDIR(r[3][stat.ST_MODE]):
+                    # overlay dir, remove
+                    log.warning('skip overlay dir %s' % r[1])
+                    result.remove(r)
+            except (OSError, IOError), e:
+                # unable to stat file, remove it from list
+                log.error(e)
+                result.remove(r)
+        # sort results
+        result.sort(lambda x,y: cmp(x[0], y[0]))
+        # store in cache
+        self._beacon_listdir_cache = time.time(), result
+        # return results
+        return result[:]
 
 
     def __repr__(self):
