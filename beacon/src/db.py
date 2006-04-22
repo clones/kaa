@@ -51,7 +51,7 @@ from mountpoint import Mountpoint
 # get logging object
 log = logging.getLogger('beacon.db')
 
-MAX_BUFFER_CHANGES = 20
+MAX_BUFFER_CHANGES = 30
 
 # Item generation mapping
 from directory import Directory as create_dir
@@ -89,18 +89,24 @@ class Database(object):
 
         # register basic types
         self._db.register_object_type_attrs("dir",
-            name = (str, ATTR_KEYWORDS_FILENAME),
+            # This multi-column index optimizes queries on (name,parent) which
+            # is done for every object add/update, so must be fast.  All
+            # object types will have this combined index.
+            [("name", "parent_type", "parent_id")],
+            name = (str, ATTR_KEYWORDS),
             overlay = (bool, ATTR_SIMPLE),
             media = (int, ATTR_SIMPLE),
             mtime = (int, ATTR_SIMPLE))
 
-        self._db.register_object_type_attrs("file",
-            name = (str, ATTR_KEYWORDS_FILENAME),
+        self._db.register_object_type_attrs("file", 
+            [("name", "parent_type", "parent_id")],
+            name = (str, ATTR_KEYWORDS),
             overlay = (bool, ATTR_SIMPLE),
             media = (int, ATTR_SIMPLE),
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs("media",
+            [("name", "parent_type", "parent_id")],
             name = (str, ATTR_KEYWORDS),
             title = (unicode, ATTR_KEYWORDS),
             overlay = (bool, ATTR_SIMPLE),
@@ -237,16 +243,13 @@ class Database(object):
             changed_id.append(id)
             if callback and result is not None:
                 callback(result)
-        # Note: this can take up to 0.3 seconds. This seems to be very much
-        # just for a simple commit and while we commit the reading of the db
-        # is blocked for the client. To see only the commit times, start beacon
-        # with --verbose db with a clean database.
+
         t2 = time.time()
         self._db.commit()
         t3 = time.time()
+        log.info('db.commit %d items; %.5fs (kaa.db commit %.5f / %.2f%%)' % \
+                 (len(changes), t3-t1, t3-t2, (t3-t2)/(t3-t1)*100.0))
         self.signals['changed'].emit(changed_id)
-        log.info('db.commit %s items took %1.3f/%1.3f sec' \
-                 % (len(changes), t2 - t1, t3 - t2))
 
 
     def _delete(self, entry):
@@ -595,4 +598,5 @@ class Database(object):
         kwargs['media'] = (int, ATTR_SIMPLE)
         if not type.startswith('track_'):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
-        return self._db.register_object_type_attrs(type, *args, **kwargs)
+        indices = [("name", "parent_type", "parent_id")]
+        return self._db.register_object_type_attrs(type, indices, *args, **kwargs)
