@@ -155,7 +155,7 @@ if mode == 'search':
 
     for r in result:
         print r
-    print 'Query took %s seconds' % (t2-t1)
+    print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
 
     if monitor:
         result.signals['changed'].connect(changed, result)
