@@ -245,7 +245,8 @@ class Database(object):
         self._db.commit()
         t3 = time.time()
         self.signals['changed'].emit(changed_id)
-        log.info('db.commit took %1.3f/%1.3f seconds' % (t2 - t1, t3 - t2))
+        log.info('db.commit %s items took %1.3f/%1.3f sec' \
+                 % (len(changes), t2 - t1, t3 - t2))
 
 
     def _delete(self, entry):
