@@ -94,6 +94,7 @@ class Monitor(object):
         self._db = db
         self._query = query
         self._checker = None
+        self._check_changes = []
         self.items = self._db.query(**self._query)
         if not _master:
             _master = Master(db)
@@ -116,8 +117,13 @@ class Monitor(object):
             # scan? For one part, the changes here here the item changes itself,
             # so we would update the client all the time. So it is better to wait
             # here. Note: with inotify support this should not happen often.
+            self._check_changes.extend(changes)
             return True
 
+        if self._check_changes:
+            changes = self._check_changes + changes
+            self._check_changes = []
+            
         current = self._db.query(**self._query)
 
         # The query result length is different, this is a change
@@ -200,7 +206,12 @@ class Monitor(object):
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
         self.items = self._db.query(**self._query)
-        self.callback('changed')
+        # Do not send 'changed' signal here. The db was changed and the
+        # master notification will do the rest. Just to make sure it will
+        # happen, start a Timer
+        if self._check_changes:
+            # Set new check timer. This should not be needed, but just in case :)
+            WeakOneShotTimer(self.check, []).start(0.5)
         if first_call:
             self.callback('checked')
 
