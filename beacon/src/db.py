@@ -267,6 +267,9 @@ class Database(object):
             # WARNING: parent is a link, we need to follow it
             dirname = os.path.realpath(parent.filename)
             parent = self._query_filename(dirname)
+            if not parent._beacon_isdir:
+                # oops, this is not directory anymore, return nothing
+                return []
         else:
             dirname = parent.filename[:-1]
         items = []
