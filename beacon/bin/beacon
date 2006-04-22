@@ -132,7 +132,11 @@ if mode == 'search':
             value = unicode(value)
         elif key in ('limit',):
             value = int(value)
-        query[key] = value
+        if isinstance(value, basestring) and "%" in value:
+            # Treat as wildcard search, use LIKE operator.
+            query[key] = kaa.db.QExpr("like", "%%%s%%" % value)
+        else:
+            query[key] = value
 
     try:
         kaa.beacon.connect()
