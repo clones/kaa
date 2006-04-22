@@ -237,9 +237,13 @@ class Database(object):
             changed_id.append(id)
             if callback and result is not None:
                 callback(result)
+        # Note: this can take up to 0.3 seconds. This seems to be very much
+        # just for a simple commit and while we commit the reading of the db
+        # is blocked for the client. To see only the commit times, start beacon
+        # with --verbose db with a clean database.
         self._db.commit()
-        self.signals['changed'].emit(changed_id)
         log.info('db.commit took %s seconds' % (time.time() - t1))
+        self.signals['changed'].emit(changed_id)
 
 
     def _delete(self, entry):
