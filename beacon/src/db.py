@@ -296,7 +296,7 @@ class Database(object):
                     continue
                 items.append(create_file(f, parent, overlay))
                 continue
-            while f > items[pos]._beacon_name:
+            while pos < len(items) and f > items[pos]._beacon_name:
                 # file deleted
                 i = items[pos]
                 items.remove(i)
@@ -306,7 +306,7 @@ class Database(object):
                     # list. It will be deleted right before the next commit.
                     self.changes.append(('delete', i, {}))
                 # delete
-            if f == items[pos]._beacon_name:
+            if pos < len(items) and f == items[pos]._beacon_name:
                 # same file
                 continue
             # new file
