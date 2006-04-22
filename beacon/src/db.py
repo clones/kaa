@@ -49,7 +49,7 @@ from item import Item
 from mountpoint import Mountpoint
 
 # get logging object
-log = logging.getLogger('beacon')
+log = logging.getLogger('beacon.db')
 
 MAX_BUFFER_CHANGES = 20
 

@@ -43,7 +43,7 @@ from inotify import INotify
 from directory import Directory
 
 # get logging object
-log = logging.getLogger('crawler')
+log = logging.getLogger('beacon.crawler')
 
 try:
     WATCH_MASK = INotify.MODIFY | INotify.CLOSE_WRITE | INotify.DELETE | \

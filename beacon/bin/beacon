@@ -27,8 +27,8 @@ def usage(error_code):
     print '--autoshutdown      stop server when no clients are connected'
     print '--logfile file      use file for logging'
     print '--verbose modules   comma separated list of modules which should be more'
-    print '                    verbose. Possible modules are db, notifier, crawler'
-    print '                    Use \'all\' to increase every module.'
+    print '                    verbose. Possible modules are db, crawler, monitor,'
+    print '                    parser, server. Use \'all\' to increase every module.'
     print '--help | -h         this message'
     print
     print 'Client options:'
@@ -75,10 +75,10 @@ for o, a in opts:
     if o == '--verbose':
         a = a.lower()
         if a == 'all':
-            log.setLevel(logging.INFO)
+            logging.getLogger('beacon').setLevel(logging.INFO)
         else:
             for m in a.split(','):
-                logging.getLogger(m).setLevel(logging.INFO)
+                logging.getLogger('beacon.' + m).setLevel(logging.INFO)
     if o == '--monitor':
         monitor = True
     if o in ('--help', '-h'):

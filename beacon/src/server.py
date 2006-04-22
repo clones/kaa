@@ -46,7 +46,7 @@ from db import *
 from monitor import Monitor
 
 # get logging object
-log = logging.getLogger('beacon')
+log = logging.getLogger('beacon.server')
 
 
 class Server(object):

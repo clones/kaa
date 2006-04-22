@@ -43,7 +43,7 @@ from kaa.strutils import str_to_unicode
 import kaa.metadata
 
 # get logging object
-log = logging.getLogger('beacon')
+log = logging.getLogger('beacon.parser')
 
 def parse(db, item, store=False):
     log.debug('check %s', item.url)

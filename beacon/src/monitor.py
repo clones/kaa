@@ -43,7 +43,7 @@ import cdrom
 from item import Item
 
 # get logging object
-log = logging.getLogger('beacon')
+log = logging.getLogger('beacon.monitor')
 
 class Notification(object):
     def __init__(self, remote, id):
