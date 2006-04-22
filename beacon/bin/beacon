@@ -130,6 +130,8 @@ if mode == 'search':
         key, value = a.split('=', 1)
         if key in ('title', 'album', 'artist'):
             value = unicode(value)
+        elif key in ('limit',):
+            value = int(value)
         query[key] = value
 
     try:
