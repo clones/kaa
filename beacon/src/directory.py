@@ -128,43 +128,51 @@ class Directory(Item):
             return self._beacon_listdir_cache[1]
 
         try:
+            # Try to list the overlay directory
+            overlay_results = os.listdir(self._beacon_ovdir)
+        except OSError:
+            # No overlay
+            overlay_results = []
+
+        try:
             # Try to list the directory. If that fails for some reason,
             # return an empty list
-            listdir = os.listdir(self.filename)
-            result = [ [ x, self.filename + x, False ] for x in listdir
-                       if not x.startswith('.') ]
+            fs_results = os.listdir(self.filename)
         except OSError, e:
             log.warning(e)
             self._beacon_listdir_cache = time.time(), []
             return []
 
-        try:
-            # Try to list the overlay directory
-            result += [ [ x, self._beacon_ovdir + x, True ] \
-                          for x in os.listdir(self._beacon_ovdir) \
-                          if not x.startswith('.') and not x in listdir ]
-        except OSError:
-            # No overlay
-            pass
-        
-        for r in result[:]:
-            try:
-                # append stat information to every result
-                r.append(os.stat(r[1]))
-                if r[2] and stat.S_ISDIR(r[3][stat.ST_MODE]):
-                    # overlay dir, remove
-                    log.warning('skip overlay dir %s' % r[1])
-                    result.remove(r)
-            except (OSError, IOError), e:
-                # unable to stat file, remove it from list
-                log.error(e)
-                result.remove(r)
-        # sort results
-        result.sort(lambda x,y: cmp(x[0], y[0]))
+        results_file_map = {}
+        for is_overlay, prefix, results in ((False, self.filename, fs_results), 
+                                            (True, self._beacon_ovdir, overlay_results)):
+            for r in results:
+                if (is_overlay and r in results_file_map) or r[0] == ".":
+                    continue
+                fullpath = prefix + r
+                try:
+                    # append stat information to every result
+                    statinfo = os.stat(fullpath)
+                    if is_overlay and stat.S_ISDIR(statinfo[stat.ST_MODE]):
+                        # overlay dir, remove
+                        log.warning('skip overlay dir %s' % r[1])
+                        continue
+                except (OSError, IOError), e:
+                    # unable to stat file, remove it from list
+                    log.error(e)
+                    continue
+
+                results_file_map[r] = (r, fullpath, is_overlay, statinfo)
+
+        # We want to avoid lambda on large data sets, so we sort the keys,
+        # which is just a list of files.  This is the common case that sort()
+        # is optimized for.
+        keys = results_file_map.keys()
+        keys.sort()
+        result = [ results_file_map[x] for x in keys ]
         # store in cache
         self._beacon_listdir_cache = time.time(), result
-        # return results
-        return result[:]
+        return result
 
 
     def __repr__(self):
