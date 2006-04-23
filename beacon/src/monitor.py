@@ -55,21 +55,38 @@ class Notification(object):
 
 
 class Master(object):
+    """
+    Master Monitor. This monitor will connect to the db and will call all monitors
+    with the changes. This class will make sure they don't re-query all at once
+    and have a small delay between them to keep the load down.
+    """
     def __init__(self, db):
         self.monitors = []
         self.timer = Timer(self.check)
         db.signals['changed'].connect(self.changed)
+
         
     def connect(self, monitor):
+        """
+        Connect a new monitor.
+        """
         self.monitors.append((weakref(monitor), []))
+
         
     def changed(self, changes):
+        """
+        Database callback with changed ids.
+        """
         for m, c in self.monitors:
             c.extend(changes)
         if not self.timer.active():
             self.timer.start(0.02)
 
+
     def check(self):
+        """
+        Timed callback to call the connected monitor update functions.
+        """
         if not self.monitors:
             return False
         monitor, changes = self.monitors.pop(0)
@@ -139,7 +156,11 @@ class Monitor(object):
         # Same length, check for changes inside the items
         if isinstance(current[0], Item):
             for i in current:
-                if i._beacon_id in changes:
+                # We only compare the ids. If an item had no id before and
+                # has now we can't detect it. But we only call this function
+                # if we have a full scanned db. So an empty id also triggers
+                # the update call.
+                if i._beacon_id in changes or not i._beacon_id:
                     self.items = current
                     self.callback('changed')
                     return True
@@ -205,6 +226,9 @@ class Monitor(object):
 
 
     def checked(self, first_call):
+        """
+        Callback from the Checker class in parser when everything is parsed.
+        """
         self._checker = None
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
@@ -220,6 +244,9 @@ class Monitor(object):
 
         
     def stop(self):
+        """
+        Stop checking.
+        """
         if self._checker:
             self._checker.stop()
         self._checker = None
@@ -227,7 +254,3 @@ class Monitor(object):
 
     def __repr__(self):
         return '<beacon.Monitor for %s>' % self._query
-
-
-    def __del__(self):
-        log.debug('del %s' % repr(self))

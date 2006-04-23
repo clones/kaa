@@ -147,6 +147,12 @@ class Directory(Item):
         for is_overlay, prefix, results in ((False, self.filename, fs_results), 
                                             (True, self._beacon_ovdir, overlay_results)):
             for r in results:
+                # FIXME: for some large directories not in the hd cache this
+                # can take a long time. E.g. /usr/bin takes 3 seconds in this
+                # part. Once done, a second check is much faster (0.3 sec).
+                # It would be nice if we can do a stat on demand, but we need
+                # to know if an item is a dir or file, so we will always need
+                # this. Maybe step() from time to time?
                 if (is_overlay and r in results_file_map) or r[0] == ".":
                     continue
                 fullpath = prefix + r
@@ -154,7 +160,7 @@ class Directory(Item):
                     # append stat information to every result
                     statinfo = os.stat(fullpath)
                     if is_overlay and stat.S_ISDIR(statinfo[stat.ST_MODE]):
-                        # overlay dir, remove
+                        # dir in overlay, ignore
                         log.warning('skip overlay dir %s' % r[1])
                         continue
                 except (OSError, IOError), e:
