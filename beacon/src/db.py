@@ -239,7 +239,7 @@ class Database(object):
                 # will return all ids deleted, callbacks are not allowed, so
                 # we can just continue
                 # FIXME: 'id' here is wrong; what's it supposed to be?
-                changed_id.extend(self._delete(id))
+                changed_id.extend(self._delete(arg1))
                 continue
             if function == 'update':
                 try:
