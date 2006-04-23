@@ -238,6 +238,7 @@ class Database(object):
                 # delete items and all subitems from the db. The delete function
                 # will return all ids deleted, callbacks are not allowed, so
                 # we can just continue
+                # FIXME: 'id' here is wrong; what's it supposed to be?
                 changed_id.extend(self._delete(id))
                 continue
             if function == 'update':
