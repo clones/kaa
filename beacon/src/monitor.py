@@ -188,6 +188,9 @@ class Monitor(object):
                 self.callback('changed')
             return False
 
+        # FIXME: This is O(n^2); we iterate over each item, and each item
+        # calls _beacon_mtime() which in turn calls _beacon_listdir() and
+        # iterates over all items returned by that.
         c = 0
         while items:
             c += 1
