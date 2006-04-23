@@ -35,6 +35,7 @@ import os
 import logging
 
 from crawl import Crawler
+from cdrom import Device as Cdrom
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -49,7 +50,8 @@ class Mountpoint(object):
     # functions to it. But we need different kinds of classes for client
     # and server because the client needs to use ipc for the mounting.
 
-    def __init__(self, device, directory, beacon_dir, db, client):
+    def __init__(self, type, device, directory, beacon_dir, db, client):
+        self.type = type
         self.device = device
         self.directory = directory
         self.name = None
@@ -60,13 +62,18 @@ class Mountpoint(object):
         self.url = ''
         self.client = client
         if not self.client:
-            self.crawler = Crawler(db)
+            if type == 'hd':
+                self.crawler = Crawler(db)
+            if type == 'cdrom':
+                self.watcher = Cdrom(self, db)
+                self.watcher.signals['changed'].connect(self.load)
 
-        
+                
     def load(self, name):
         """
         Set name of the mountpoint (== load new media)
         """
+        print 'load', name
         if name == self.name:
             return False
         self.name = name
@@ -105,27 +112,6 @@ class Mountpoint(object):
 
     def monitor(self, directory):
         self.crawler.append(directory)
-
-        
-#     def item(self):
-#         """
-#         Get the id of the mountpoint. This functions needs the database
-#         and _must_ be called from the same thread as the db itself.
-#         Return the root item for the mountpoint.
-#         """
-#         if not self.id:
-#              return None
-#         media = self.db.query(type='media', id=self.id[1])
-#         content = media[0]['content']
-#         if content == 'file':
-#             # a simple data dir
-#             current = self.db.query(type="dir", name='', parent=self.id)[0]
-#             return item.create(current, None, self)
-#         # a track of something else
-#         return [ item.create(x, self, self) for x in \
-#                  self.db.query(type='track_%s' % content, parent=self.id) ]
-#         # TODO: support other media
-#         return None
 
         
     def __repr__(self):

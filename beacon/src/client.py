@@ -161,13 +161,13 @@ class Client(object):
         self.database = None
         
         
-    def add_mountpoint(self, device, directory):
+    def add_mountpoint(self, type, device, directory):
         """
         Add a mountpoint to the system.
         """
         if not self.status == CONNECTED:
             return
-        self._server.add_mountpoint(device, directory)
+        self._server.add_mountpoint(type, device, directory)
 
 
     def get(self, filename):

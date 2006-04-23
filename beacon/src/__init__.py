@@ -75,3 +75,13 @@ def query(**args):
     if not _client:
         connect()
     return _client.query(**args)
+
+
+def add_mountpoint(type, device, directory):
+    """
+    Add a mountpoint for rom drives
+    """
+    if not _client:
+        connect()
+    return _client.add_mountpoint(type, device, directory)
+    

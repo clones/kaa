@@ -115,7 +115,7 @@ class Server(object):
         self._clients = []
         
         # add root mountpoint
-        self.add_mountpoint(None, '/')
+        self.add_mountpoint('hd', None, '/')
         self.set_mountpoint('/', 'kaa.beacon.root')
 
         # commit and wait for the results (there are no results,
@@ -137,8 +137,8 @@ class Server(object):
         """
         self._next_client += 1
         self._clients.append((self._next_client, client, client.notify, []))
-        for device, directory, name in self._db.get_mountpoints():
-            client.database.add_mountpoint(device, directory)
+        for type, device, directory, name in self._db.get_mountpoints():
+            client.database.add_mountpoint(type, device, directory)
             client.database.set_mountpoint(directory, name)
         return self._next_client
 
@@ -240,13 +240,14 @@ class Server(object):
         return None
     
 
-    def add_mountpoint(self, device, directory):
+    def add_mountpoint(self, type, device, directory):
         """
         Add a mountpoint to the system.
         """
-        if self._db.add_mountpoint(device, directory):
+        if self._db.add_mountpoint(type, device, directory):
             for id, client, notification, monitors in self._clients:
-                client.database.add_mountpoint(device, directory, __ipc_oneway=True)
+                client.database.add_mountpoint(type, device, directory,
+                                               __ipc_oneway=True)
 
 
     def set_mountpoint(self, directory, name):

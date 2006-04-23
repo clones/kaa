@@ -121,15 +121,14 @@ class Database(object):
         self._db.commit()
 
 
-    def add_mountpoint(self, device, directory):
+    def add_mountpoint(self, type, device, directory):
         """
         Add a mountpoint to the system.
         """
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
                 return False
-        mountpoint = Mountpoint(device, directory, self.dbdir, self,
-                                self.client)
+        mountpoint = Mountpoint(type, device, directory, self.dbdir, self, self.client)
         self._mountpoints.append(mountpoint)
         self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
         return True
@@ -141,7 +140,7 @@ class Database(object):
         """
         if return_objects:
             return self._mountpoints
-        return [ (m.device, m.directory, m.name) for m in self._mountpoints ]
+        return [ (m.type, m.device, m.directory, m.name) for m in self._mountpoints ]
 
 
     def set_mountpoint(self, directory, name):
@@ -482,7 +481,12 @@ class Database(object):
             return self._query_parent(query['parent'])
         if 'attr' in query:
             return self._query_attr(query)
-            
+        if 'type' in query and query['type'] == 'media':
+            m = self._db.query(**query)
+            if m:
+                return m[0]
+            return None
+        
         # 'raw' query
         result = []
         cache = {}
