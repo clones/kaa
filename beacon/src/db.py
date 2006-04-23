@@ -320,8 +320,8 @@ class Database(object):
                     items.append(create_dir(i, parent))
                 else:
                     items.append(create_file(i, parent))
-        # sort items based on url. The listdir is also sorted, that makes
-        # checking much faster
+        # sort items based on name. The listdir is also sorted by name,
+        # that makes checking much faster
         items.sort(lambda x,y: cmp(x._beacon_name, y._beacon_name))
 
         # TODO: this could block for cdrom drives and network filesystems. Maybe
@@ -377,7 +377,10 @@ class Database(object):
         if self.changes:
             # need commit because some items were deleted from the db
             self.commit()
-        items.sort(lambda x,y: cmp(x.url, y.url))
+
+        # no need to sort the items again, they are already sorted based
+        # on name, let us keep it that way. And name is unique in a directory.
+        # items.sort(lambda x,y: cmp(x.url, y.url))
         return items
 
 
@@ -504,7 +507,7 @@ class Database(object):
                 # neither dir nor file, something else
                 result.append(create_item(r, parent))
 
-        # sort results and return
+        # sort results by url (name is not unique) and return
         result.sort(lambda x,y: cmp(x.url, y.url))
         return result
 
