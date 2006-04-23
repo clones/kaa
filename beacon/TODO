@@ -28,3 +28,12 @@
      beacuse of the crawler?
 
 8. Update doc
+
+9. Support information in hidden directories. The free-desktop standard
+   says that title and images about a directory can be stored inside
+   a .directory dir inside the dir. So on every change in this dir 
+   (that doesn't need to be scanned but needs inotify) we need to
+   rescan the directory itself.
+
+A. Make listdir much faster. One idea is to have a fixed list of possible
+   extentions that should trigger a new scan.
