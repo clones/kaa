@@ -125,7 +125,7 @@ class Directory(Item):
                self._beacon_listdir_cache[0] + 3 > time.time():
             # use cached result if we have and caching time is less than
             # three seconds ago
-            return self._beacon_listdir_cache[1]
+            return self._beacon_listdir_cache[1:]
 
         try:
             # Try to list the overlay directory
@@ -140,8 +140,8 @@ class Directory(Item):
             fs_results = os.listdir(self.filename)
         except OSError, e:
             log.warning(e)
-            self._beacon_listdir_cache = time.time(), []
-            return []
+            self._beacon_listdir_cache = time.time(), [], {}
+            return [], {}
 
         results_file_map = {}
         for is_overlay, prefix, results in ((False, self.filename, fs_results), 
@@ -177,8 +177,8 @@ class Directory(Item):
         keys.sort()
         result = [ results_file_map[x] for x in keys ]
         # store in cache
-        self._beacon_listdir_cache = time.time(), result
-        return result
+        self._beacon_listdir_cache = time.time(), result, results_file_map
+        return result, results_file_map
 
 
     def __repr__(self):

@@ -335,7 +335,7 @@ class Database(object):
         # no disk access is needed.)
         pos = -1
 
-        for pos, (f, fullname, overlay, stat_res) in enumerate(parent._beacon_listdir()):
+        for pos, (f, fullname, overlay, stat_res) in enumerate(parent._beacon_listdir()[0]):
             isdir = stat.S_ISDIR(stat_res[stat.ST_MODE])
             if pos == len(items):
                 # new file at the end

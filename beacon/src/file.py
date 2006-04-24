@@ -84,14 +84,36 @@ class File(Item):
         mtime of foo.jpg is the sum of the mtime of foo.jpg and foo.jpg.xml
         or for foo.mp3 the mtime is the sum of foo.mp3 and foo.jpg.
         """
-        search = self._beacon_data['name']
-        if search.rfind('.') > 0:
-            search = search[:search.rfind('.')]
-        mtime = 0
-        for basename, filename, overlay, stat_res in \
-                self._beacon_parent._beacon_listdir(cache=True):
-            if basename.startswith(search):
-                mtime += stat_res[stat.ST_MTIME]
+        fullname = self._beacon_data['name']
+        basename, ext = fullname, ''
+        pos = basename.rfind('.')
+        if pos > 0:
+            ext = basename[pos:]
+            basename = basename[:pos]
+
+        # FIXME: move this logic to kaa.metadata. The best way would be to
+        # use the info modules for that kind of information, but we may not
+        # know the type here. This code here is only for testing.
+        # FIXME: this also only supports ext in lower case
+        if ext in ('.avi',):
+            # subtitles for avi + cover
+            special_exts = ( '.srt', '.png', '.jpg' )
+        elif ext in ('.gif', '.png', '.jpg', '.jpeg'):
+            # bins xml files
+            special_exts = ( '.xml', )
+        else:
+            # cover
+            special_exts = ( '.png', '.jpg' )
+
+        listdir_file_map = self._beacon_parent._beacon_listdir(cache=True)[1]
+
+        # calculate the new modification time
+        mtime = listdir_file_map[fullname][3][stat.ST_MTIME]
+        for ext in special_exts:
+            if basename+ext in listdir_file_map:
+                mtime += listdir_file_map[basename+ext][3][stat.ST_MTIME]
+            if fullname+ext in listdir_file_map:
+                mtime += listdir_file_map[fullname+ext][3][stat.ST_MTIME]
         return mtime
 
 

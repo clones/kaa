@@ -35,5 +35,4 @@
    (that doesn't need to be scanned but needs inotify) we need to
    rescan the directory itself.
 
-A. Make listdir much faster. One idea is to have a fixed list of possible
-   extentions that should trigger a new scan.
+A. Move special_exts in File._beacon_mtime to kaa.metadata
