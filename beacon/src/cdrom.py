@@ -32,7 +32,7 @@ except:
 
 from kaa.notifier import Timer, execute_in_thread, execute_in_mainloop, \
      MainThreadCallback, Signal
-from kaa.base.ioctl import ioctl
+from kaa.ioctl import ioctl
 import kaa.metadata
 
 # get logging object
