@@ -84,4 +84,11 @@ def add_mountpoint(type, device, directory):
     if not _client:
         connect()
     return _client.add_mountpoint(type, device, directory)
-    
+
+def get_db_info():
+    """
+    Gets statistics about the database
+    """
+    if not _client:
+        connect()
+    return _client.database.get_db_info()

@@ -642,3 +642,13 @@ class Database(object):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
         indices = [("name", "parent_type", "parent_id")]
         return self._db.register_object_type_attrs(type, indices, *args, **kwargs)
+
+
+    def get_db_info(self):
+        """
+        Returns information about the database.  Look at 
+        kaa.db.Database.get_db_info() for more details.
+        """
+        info = self._db.get_db_info()
+        # Anything else we want to add?
+        return info
