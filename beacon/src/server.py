@@ -93,6 +93,7 @@ class Server(object):
         self.register_file_type_attrs("image",
             width = (int, ATTR_SEARCHABLE),
             height = (int, ATTR_SEARCHABLE),
+            comment = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             date = (unicode, ATTR_SEARCHABLE))
 
         # tracks for rom discs or iso files
