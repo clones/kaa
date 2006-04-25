@@ -89,7 +89,7 @@ class Item(object):
         """
         Return modification time of the item itself.
         """
-        return 0
+        return None
 
 
     def _beacon_changed(self):

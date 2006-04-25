@@ -48,7 +48,7 @@ log = logging.getLogger('beacon.parser')
 def parse(db, item, store=False):
     log.debug('check %s', item.url)
     mtime = item._beacon_mtime()
-    if not mtime:
+    if mtime == None:
         log.warning('no mtime, skip %s' % item)
         return
     parent = item._beacon_parent

@@ -105,7 +105,7 @@ class Directory(Item):
         try:
             return os.stat(self.filename)[stat.ST_MTIME]
         except (OSError, IOError):
-            return 0
+            return None
 
 
     def _beacon_request(self):
