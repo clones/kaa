@@ -92,7 +92,8 @@ def parse(db, item, store=False):
         # inside a unicode object.  This logic below is taken from mminfo.
         # Why is this needed?  Something looks seriously broken.
         for key in metadata.keys:
-            metadata[key] = str_to_unicode(unicode(metadata[key]).encode('latin-1', 'replace'))
+            if isinstance(metadata[key], unicode):
+                metadata[key] = str_to_unicode(unicode(metadata[key]).encode('latin-1', 'replace'))
     elif item._beacon_isdir:
         type = 'dir'
     else:
