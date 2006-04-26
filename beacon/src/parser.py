@@ -88,12 +88,6 @@ def parse(db, item, store=False):
     if metadata and metadata['media'] and \
              db.object_types().has_key(metadata['media']):
         type = metadata['media']
-        # XXX: data coming out of kaa.metadata looks like latin-1 encoded 
-        # inside a unicode object.  This logic below is taken from mminfo.
-        # Why is this needed?  Something looks seriously broken.
-        for key in metadata.keys:
-            if isinstance(metadata[key], unicode):
-                metadata[key] = str_to_unicode(unicode(metadata[key]).encode('latin-1', 'replace'))
     elif item._beacon_isdir:
         type = 'dir'
     else:
