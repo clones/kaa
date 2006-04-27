@@ -142,6 +142,10 @@ class Crawler(object):
 
         item = self.db.query(filename=name)
 
+        if item._beacon_name.startswith('.'):
+            # hidden file, ignore
+            return True
+        
         if mask & INotify.MOVE and args and item._beacon_id:
             # Move information with source and destination
             move = self.db.query(filename=args[0])
