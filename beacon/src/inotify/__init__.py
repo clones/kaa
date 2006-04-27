@@ -79,6 +79,22 @@ class INotify:
         return True
 
 
+    def has_watch(self, path):
+        """
+        Return if the given path is currently watched by the inotify
+        object.
+        """
+        path = os.path.realpath(path)
+        return path in self._watches_by_path
+
+
+    def get_watches(self):
+        """
+        Returns a list of all paths monitored by the object.
+        """
+        return self._watches_by_path.keys()
+
+    
     def _handle_data(self):
         data = os.read(self._fd, 32768)
         self._read_buffer += data
