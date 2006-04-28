@@ -151,7 +151,7 @@ class XinePlayerChild(object):
         self._ao = self._xine.open_audio_driver()
 
         control_return = []
-        if wid:
+        if wid and isinstance(wid, int):
             self._vo = self._xine.open_video_driver(
                 "kaa", control_return = control_return,
                 passthrough = "xv", wid = wid,
@@ -159,6 +159,14 @@ class XinePlayerChild(object):
                 # osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4,
                 # osd_rows = 2000,
                 # self._vo = self._xine.open_video_driver("xv", wid = wid,
+                frame_output_cb = notifier.WeakCallback(self._x11_frame_output_cb),
+                dest_size_cb = notifier.WeakCallback(self._x11_dest_size_cb))
+            self._driver_control = control_return[0]
+        elif wid and isinstance(wid, str) and wid.startswith('fb'):
+            self._vo = self._xine.open_video_driver(
+                "kaa", control_return = control_return,
+                passthrough = "vidixfb",
+                osd_configure_cb = notifier.WeakCallback(self._osd_configure),
                 frame_output_cb = notifier.WeakCallback(self._x11_frame_output_cb),
                 dest_size_cb = notifier.WeakCallback(self._x11_dest_size_cb))
             self._driver_control = control_return[0]
@@ -598,7 +606,7 @@ class XinePlayer(MediaPlayer):
             old_window.signals["unmap_event"].disconnect(self._handle_window_visibility_event)
             old_window.signals["expose_event"].disconnect(self._handle_window_expose_event)
 
-        if window:
+        if window and window.signals:
             window.signals["configure_event"].connect_weak(self._handle_window_configure_event)
             window.signals["map_event"].connect_weak(self._handle_window_visibility_event)
             window.signals["unmap_event"].connect_weak(self._handle_window_visibility_event)
