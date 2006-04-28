@@ -4,6 +4,9 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
+# Note: The DirectFB output without evas is crashing. It needs much work, but
+# by DirectFB knowledge is close to zero.
+#
 # -----------------------------------------------------------------------------
 # kaa-display - Generic Display Module
 # Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
@@ -29,24 +32,18 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'EvasDirectFB' ]
+__all__ = [ 'DirectFB', 'EvasDirectFB' ]
 
 import _DFBmodule as dfb
 
-class EvasDirectFB(object):
+class _DirectFB(object):
     """
-    Frambuffer using evas for drawing
-    The 'mode' argument can either be a size (width, height) matching one of the
-    specified framebuffer resolutions, a list for fbset or None. If set to None,
-    the current framebuffer size will be used.
+    Base class for DirectFB framebuffer.
     """
     def __init__(self, size):
-        import kaa.evas
         dfb.open(size)
-        self._evas = kaa.evas.Evas()
-        dfb.new_evas_dfb(self._evas._evas)
 
-        
+
     def size(self):
         """
         return the size of the framebuffer.
@@ -54,6 +51,40 @@ class EvasDirectFB(object):
         return dfb.size()
 
 
+    def get_id(self):
+        """
+        Fake id function that does not return a windows id but returns a
+        string that would identify this as DirectFB.
+        """
+        return 'dfb'
+
+    
+    def __del__(self):
+        print 'close dfb'
+        dfb.close()
+
+
+class DirectFB(_DirectFB):
+    """
+    DirectFB framebuffer.
+    """
+    pass
+
+
+class EvasDirectFB(_DirectFB):
+    """
+    Frambuffer using evas for drawing
+    The 'mode' argument can either be a size (width, height) matching one of the
+    specified framebuffer resolutions, a list for fbset or None. If set to None,
+    the current framebuffer size will be used.
+    """
+    def __init__(self, size):
+        _DirectFB.__init__(self, size)
+        import kaa.evas
+        self._evas = kaa.evas.Evas()
+        dfb.new_evas_dfb(self._evas._evas)
+
+        
     def get_evas(self):
         """
         Return evas object.
@@ -64,6 +95,5 @@ class EvasDirectFB(object):
     def __del__(self):
         print 'delete evas object'
         del self._evas
-        print 'close dfb'
-        dfb.close()
+        _DirectFB.__del__(self)
 

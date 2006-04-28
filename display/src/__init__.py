@@ -48,7 +48,7 @@ except ImportError, e:
 
 # import DirectFB support
 try:
-    from dfb import EvasDirectFB
+    from dfb import DirectFB, EvasDirectFB
     displays.append('directfb')
 except ImportError, e:
     pass
