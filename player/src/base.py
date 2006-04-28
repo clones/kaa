@@ -199,7 +199,7 @@ class MediaPlayer(object):
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
 
-        assert(isinstance(window, display.X11Window))
+#         assert(isinstance(window, display.X11Window))
         self._window = window
         
     def set_size(self, size):
