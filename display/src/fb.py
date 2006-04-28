@@ -56,6 +56,9 @@ class _Framebuffer(object):
     the current framebuffer size will be used.
     """
     def __init__(self, mode=None):
+        # No signals
+        self.signals = []
+
         if mode:
             if len(mode) == 2:
                 mode = globals()['FB_%sx%s' % mode]
@@ -63,17 +66,28 @@ class _Framebuffer(object):
         else:
             fb.open()
 
+
     def info(self):
         """
         Return some basic informations about the frambuffer.
         """
         return fb.info()
+
+    
+    def get_id(self):
+        """
+        Fake id function that does not return a windows id but returns a
+        string that would identify this as framebuffer.
+        """
+        return 'fb0'
+
     
     def size(self):
         """
-        return the size of the framebuffer.
+        Return the size of the framebuffer.
         """
         return fb.size()
+
 
     def __del__(self):
         fb.close()
