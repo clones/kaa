@@ -28,7 +28,7 @@ class Canvas(Container):
             "updated": Signal()
         })
 
-        kaa.signals["idle"].connect(WeakCallback(self._render_queued))
+        kaa.signals["idle"].connect_weak(self._render_queued)
         self._supported_sync_properties += ["fontpath"]
 
         font_path = []
@@ -81,16 +81,16 @@ class Canvas(Container):
         if not self._o:
             return
 
+        import time
+        t0=time.time()
         try:
             needs_render = super(Canvas, self)._render_queued()
         except:
             log.exception('Exception while updating canvas:')
             return
 
-        #import time
-        #t0=time.time()
         if needs_render:
-            #t1=time.time()
+            t1=time.time()
             regions = self._render()
             #print "@@@ render evas right now", time.time()-t0, self, regions, " - inside evas", time.time()-t1
             return regions
