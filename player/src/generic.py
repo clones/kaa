@@ -28,8 +28,8 @@ class Player(object):
         })
 
 
-    def open(self, mrl, caps = None):
-        cls = get_player_class(mrl = mrl, caps = caps)
+    def open(self, mrl, caps = None, player = None):
+        cls = get_player_class(mrl = mrl, player = player, caps = caps)
         if not cls:
             raise PlayerError("No supported player found to play %s", mrl)
 
@@ -68,6 +68,7 @@ class Player(object):
             return
 
         self._player.play(**kwargs)
+
 
     def stop(self):
         if self._player:
