@@ -48,6 +48,7 @@ class Baloo(object):
     def on_search_activate(self, data=None):
         string = self.xml.get_widget("search").get_text()
         self.search = kaa.beacon.query(type='audio', keywords=string)
+        self.search.signals['updated'].connect(update_playlist)
         self.search.monitor()
         self.update_playlist()
         if self.current:
