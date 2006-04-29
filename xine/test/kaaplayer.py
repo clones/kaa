@@ -203,7 +203,7 @@ stream = x.new_stream(ao, vo)
 stream.signals["event"].connect(handle_xine_event)
 stream.is_in_menu = False
 
-kaa.signals["idle"].connect_weak(output_status_line, stream, win)
+kaa.signals["step"].connect_weak(output_status_line, stream, win)
 kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 

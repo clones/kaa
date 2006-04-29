@@ -28,7 +28,7 @@ class Canvas(Container):
             "updated": Signal()
         })
 
-        kaa.signals["idle"].connect_weak(self._render_queued)
+        kaa.signals["step"].connect_weak(self._render_queued)
         self._supported_sync_properties += ["fontpath"]
 
         font_path = []

@@ -61,7 +61,7 @@ class PygameDisplay(object):
                          'mouse_up_event'  : kaa.notifier.Signal(),
                          'mouse_down_event': kaa.notifier.Signal() }
         # connect to idle loop
-        kaa.notifier.signals['idle'].connect(self.poll)
+        kaa.notifier.signals['step'].connect(self.poll)
         # keyboard settings
         pygame.key.set_repeat(500, 30)
         # mouse settings

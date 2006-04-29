@@ -449,7 +449,7 @@ class Stream(Wrapper):
             "event": notifier.Signal()
         }
         self.event_queue = self.new_event_queue()
-        kaa.signals["idle"].connect_weak(self._poll_events)
+        kaa.signals["step"].connect_weak(self._poll_events)
         #self.event_queue._queue.event_callback = notifier.WeakCallback(self._obj_callback)
 
     def _poll_events(self):

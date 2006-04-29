@@ -300,7 +300,7 @@ stream = x.new_stream(ao, vo)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 if "aspect_changed" in win.signals:
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
-kaa.signals["idle"].connect_weak(output_status_line, stream, win)
+kaa.signals["step"].connect_weak(output_status_line, stream, win)
 
 stream.deint_post = x.post_init("tvtime", video_targets = [vo])
 stream.deint_post.set_parameters(method = "GreedyH", enabled = True)

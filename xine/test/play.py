@@ -117,7 +117,7 @@ ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
 stream.signals["event"].connect(handle_xine_event)
 
-kaa.signals["idle"].connect_weak(output_status_line, stream)
+kaa.signals["step"].connect_weak(output_status_line, stream)
 kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream)
 
 stream.open(sys.argv[1])
