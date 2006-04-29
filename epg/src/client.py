@@ -64,8 +64,8 @@ class Client(object):
         # a OneShotTimer to avoid some strange problems because of the ipc
         # code (the server will wait for the return)
         # FIXME: this whole signals over ipc stuff is ugly
-        self._server.signals["updated"].connect(self._updated)
-        self._server.signals["update_progress"].connect(self._update_progress)
+        self._server.signals["updated"].connect_weak(self._updated)
+        self._server.signals["update_progress"].connect_weak(self._update_progress)
 
 
     def _disconnected(self):
