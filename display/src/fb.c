@@ -284,7 +284,7 @@ PyMethodDef fb_methods[] = {
     { "size", (PyCFunction) fb_size, METH_VARARGS },
     { "depth", (PyCFunction) fb_depth, METH_VARARGS },
     { "info", (PyCFunction) fb_info, METH_VARARGS },
-#ifdef USE_EVAS
+#ifdef ENABLE_ENGINE_FB
     { "new_evas_fb", (PyCFunction) new_evas_fb, METH_VARARGS | METH_KEYWORDS },
 #endif
     { NULL }
@@ -318,7 +318,7 @@ void init_FBmodule() {
     imlib_image_from_pyobject = imlib2_api_ptrs[0];
     Image_PyObject_Type = imlib2_api_ptrs[1];
 
-#ifdef USE_EVAS
+#ifdef ENABLE_ENGINE_FB
     // Import kaa-evas's C api
     evas_api_ptrs = get_module_api("kaa.evas._evas");
     if (evas_api_ptrs == NULL)
