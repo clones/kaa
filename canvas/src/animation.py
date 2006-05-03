@@ -253,6 +253,11 @@ class SizeAnimator(Animator):
         return ret_value
 
 
+class ScaleAnimator(SizeAnimator):
+
+    def _apply_state(self, state):
+        print "SIZE", state
+        self._object().scale(*state)
 
 
 class PositionAnimator(Animator):
@@ -380,6 +385,7 @@ class ThrobAnimator(SequenceAnimator):
 
 
 register_animator_method("size", SizeAnimator)
+register_animator_method("scale", ScaleAnimator)
 register_animator_method("move", PositionAnimator)
 register_animator_method("color", ColorAnimator)
 register_animator_method("opacity", OpacityAnimator)
