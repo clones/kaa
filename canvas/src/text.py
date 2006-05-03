@@ -134,8 +134,6 @@ class Text(Object):
         diff = target_height * 0.5 / metrics[1]
 
         font = imlib2.load_font(font_name, target_height * diff)
-        #metrics = font.get_text_size(self["text"])
-
         return target_height * diff
 
 

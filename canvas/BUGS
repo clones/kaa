@@ -1,0 +1,5 @@
+Removing and adding the same object in a container in the same step
+doesn't show the object.
+
+Object._get_intrinsic_size gets no argument (except self) but is
+called around line 229 of the same file with child_asking.

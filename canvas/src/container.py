@@ -458,6 +458,14 @@ class Container(Object):
         return True
 
 
+    def wipe(self):
+        """
+        Delete all children.
+        """
+        for c in self._children[:]:
+            self.remove_child(c)
+
+            
     def kidnap(self, child):
         """
         Forces a child to be added even if it's adopted by another parent.
