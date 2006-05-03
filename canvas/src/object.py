@@ -280,11 +280,12 @@ class Object(object):
             margin = 0, 0, 0, 0
 
         left, top, right, bottom, hcenter, vcenter = pos
-        if None in pos[:2]:
+
+        if None in pos[:2] and self._parent:
             computed_size = self._get_computed_size()
             parent_size = self._parent._get_computed_size(child_asking = self)
-        elif isinstance(left, str) or isinstance(top, str) or (left != None and right != None) or \
-             (top != None and bottom != None):
+        elif (isinstance(left, str) or isinstance(top, str) or (left != None and right != None) or \
+             (top != None and bottom != None)) and self._parent:
             parent_size = self._parent._get_computed_size(child_asking = self)
         else:
             parent_size = [0, 0]  # dummy values
@@ -770,6 +771,10 @@ class Object(object):
         if self._canvas:
             return self._canvas.get_evas()
 
+    def unparent(self):
+        if self._parent:
+            self._parent.remove_child(self)
+
     #
     # Position property methods
     #
@@ -932,6 +937,10 @@ class Object(object):
     def get_computed_outer_size(self):
         return self._get_computed_outer_size()
 
+    def scale(self, width=None, height=None):
+        # FIXME, BTW, why width and height and not size as tuple?
+        return self.resize(width, height)
+
 
     #
     # clip property methods
@@ -1010,4 +1019,3 @@ class Object(object):
 
     def get_padding(self):
         return self["padding"]
-
