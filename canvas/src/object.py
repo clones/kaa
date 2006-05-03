@@ -229,7 +229,7 @@ class Object(object):
 
         for index in range(2):
             if size[index] == "auto":
-                size[index] = self._get_intrinsic_size()[index]
+                size[index] = self._get_intrinsic_size(child_asking)[index]
             else:
                 size[index] = self._compute_relative_value(size[index], extents[index])
 
