@@ -14,7 +14,6 @@ try:
 except ImportError:
     imlib2 = None
 
-
 class Text(Object):
 
     def __init__(self, text = None, font = None, size = None, color = None):
@@ -93,9 +92,12 @@ class Text(Object):
         # earlier.
         padding = self._get_computed_padding()
         i.draw_text((padding[3], padding[1]), self["text"] + " ", (255,255,255,255), self._font)
+        # DISCHI: bug here. The code would draw the mask at a negative x value if
+        # i.size[0] < _text_fadeout_mask.size[0] and this does not work. So now we
+        # use max(0, value) to avoid that, but this is not correct in the way it looks.
         if draw_mask:
             for y in range(0, i.size[1], _text_fadeout_mask.size[1]):
-                i.draw_mask(_text_fadeout_mask, (i.size[0] -  _text_fadeout_mask.size[0], y))
+                i.draw_mask(_text_fadeout_mask, (max(0, i.size[0] -  _text_fadeout_mask.size[0]), y))
 
         self._o.size_set(i.size)
         self._o.data_set(i.get_raw_data(), copy = False)
