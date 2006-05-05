@@ -145,7 +145,7 @@ class Object(object):
         # Must be implemented by subclass.
         return 0, 0
 
-    def _get_intrinsic_size(self):
+    def _get_intrinsic_size(self, child_asking = None):
         return self._o.geometry_get()[1]
 
     def _get_fixed_pos(self):
