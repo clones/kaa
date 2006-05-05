@@ -3,3 +3,6 @@ doesn't show the object.
 
 Object._get_intrinsic_size gets no argument (except self) but is
 called around line 229 of the same file with child_asking.
+
+When the layer for container is set, shouldn't the objects in it be at
+the same layer? Or at least adjust them.
