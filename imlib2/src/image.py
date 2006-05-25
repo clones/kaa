@@ -244,7 +244,7 @@ class Image(object):
 
     def sharpen(self, radius):
         """
-        Blur the image
+        Sharpen the image
         
         Returns: None.
         """
