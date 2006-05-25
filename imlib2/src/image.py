@@ -232,6 +232,26 @@ class Image(object):
         self._changed()
 
 
+    def blurr(self, radius):
+        """
+        Blur the image
+        
+        Returns: None.
+        """
+        self._image.blurr(radius)
+        self._changed()
+
+
+    def sharpen(self, radius):
+        """
+        Blur the image
+        
+        Returns: None.
+        """
+        self._image.sharpen(radius)
+        self._changed()
+
+
     def scale_preserve_aspect(self, (w, h)):
         """
         Scales the image while retaining the original aspect ratio and return

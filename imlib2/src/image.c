@@ -240,6 +240,35 @@ PyObject *Image_PyObject__flip(PyObject *self, PyObject *args)
     return Py_None;
 }
 
+
+PyObject *Image_PyObject__blur(PyObject *self, PyObject *args)
+{
+    int radius;
+
+    if (!PyArg_ParseTuple(args, "i", &radius))
+        return NULL;
+
+    imlib_context_set_image(((Image_PyObject *)self)->image);
+    imlib_image_blur(radius);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+PyObject *Image_PyObject__sharpen(PyObject *self, PyObject *args)
+{
+    int radius;
+
+    if (!PyArg_ParseTuple(args, "i", &radius))
+        return NULL;
+
+    imlib_context_set_image(((Image_PyObject *)self)->image);
+    imlib_image_sharpen(radius);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 PyObject *Image_PyObject__clone(PyObject *self, PyObject *args)
 {
     Imlib_Image *image;
@@ -557,6 +586,8 @@ PyMethodDef Image_PyObject_methods[] = {
     { "rotate", Image_PyObject__rotate, METH_VARARGS },
     { "orientate", Image_PyObject__orientate, METH_VARARGS },
     { "flip", Image_PyObject__flip, METH_VARARGS },
+    { "blur", Image_PyObject__blur, METH_VARARGS },
+    { "sharpen", Image_PyObject__sharpen, METH_VARARGS },
     { "blend", Image_PyObject__blend, METH_VARARGS },
     { "set_alpha", Image_PyObject__set_alpha, METH_VARARGS },
     { "get_raw_data", Image_PyObject__get_raw_data, METH_VARARGS },
