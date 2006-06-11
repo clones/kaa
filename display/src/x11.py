@@ -374,7 +374,7 @@ class EvasX11Window(X11Window):
             assert(isinstance(kwargs["parent"], X11Window))
             kwargs["parent"] = kwargs["parent"]._window
 
-        assert(type(size) == tuple)
+        assert(type(size) in (list, tuple))
         display = _get_display(display)
         self._evas = kaa.evas.Evas()
         window = f(self._evas._evas, display._display, size = size,
