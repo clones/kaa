@@ -6,3 +6,6 @@ called around line 229 of the same file with child_asking.
 
 When the layer for container is set, shouldn't the objects in it be at
 the same layer? Or at least adjust them.
+
+It is unclear when it is allowed to use "0xffffff" as color attribute
+and when a list is needed.
