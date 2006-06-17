@@ -38,7 +38,8 @@ class Font(object):
         Create a new Font object.
 
         Arguments:
-          fontdesc: the description of the font, in the form 'Fontname/Size'.
+          fontdesc: the description of the font, in the form 'Fontname/Size'
+                    or as a list/tuple in the form ('Fontname', size).
                     Only TrueType fonts are supported, and the .ttf file must
                     exist in a registered font path.  Font paths can be
                     registered by calling Imlib2.add_font_path().
@@ -48,7 +49,8 @@ class Font(object):
                     is 255.  If color is not specified, the default is fully
                     opaque white.
         """
-
+        if isinstance(fontdesc, (list, tuple)):
+            fontdesc = fontdesc[0] + '/' + str(fontdesc[1])
         self._font = _Imlib2.load_font(fontdesc)
         sep = fontdesc.index("/")
         self.fontname = fontdesc[:sep]
