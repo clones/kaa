@@ -32,6 +32,23 @@ import types
 import _Imlib2
 from kaa.strutils import utf8
 
+TEXT_STYLE_PLAIN, \
+TEXT_STYLE_SHADOW, \
+TEXT_STYLE_OUTLINE, \
+TEXT_STYLE_SOFT_OUTLINE, \
+TEXT_STYLE_GLOW, \
+TEXT_STYLE_OUTLINE_SHADOW, \
+TEXT_STYLE_FAR_SHADOW, \
+TEXT_STYLE_OUTLINE_SOFT_SHADOW, \
+TEXT_STYLE_SOFT_SHADOW, \
+TEXT_STYLE_FAR_SOFT_SHADOW = range(10)
+
+TEXT_STYLE_GEOMETRY = [
+    (0,0,0,0,0,0), (0,0,1,1,1,1), (1,1,1,1,2,2), (2,2,2,2,4,4),
+    (2,2,2,2,4,4), (1,1,2,2,3,3), (0,0,2,2,2,2), (1,1,4,4,5,5),
+    (1,1,3,3,4,4), (0,0,4,4,4,4)
+]
+
 class Font(object):
     def __init__(self, fontdesc, color=(255,255,255,255)):
         """
@@ -56,7 +73,7 @@ class Font(object):
         self.fontname = fontdesc[:sep]
         self.size = fontdesc[sep + 1:]
         self.set_color(color)
-        self.style = 0 # TEXT_STYLE_PLAIN
+        self.style = TEXT_STYLE_PLAIN
         
 
     def get_text_size(self, text):
@@ -123,7 +140,18 @@ class Font(object):
         else:
             self.glow2 = glow2
 
-        
+
+    def get_style_geometry(self):
+        """
+        Return the additional pixel the font needs for the style. This function
+        will return left, top, right, bottom as number of pixels the text will
+        start to the left/top and the number of pixels it needs more at the
+        right/bottom. To avoid extra calculations the function will also return
+        the additional width and height needed for the style.
+        """
+        return TEXT_STYLE_GEOMETRY[self.style]
+
+    
     def __getattr__(self, attr):
         """
         These attributes are available:

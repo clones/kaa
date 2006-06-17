@@ -34,18 +34,7 @@ import os
 import _Imlib2
 from kaa.strutils import utf8
 from kaa.notifier import Signal
-from font import Font
-
-TEXT_STYLE_PLAIN, \
-TEXT_STYLE_SHADOW, \
-TEXT_STYLE_OUTLINE, \
-TEXT_STYLE_SOFT_OUTLINE, \
-TEXT_STYLE_GLOW, \
-TEXT_STYLE_OUTLINE_SHADOW, \
-TEXT_STYLE_FAR_SHADOW, \
-TEXT_STYLE_OUTLINE_SOFT_SHADOW, \
-TEXT_STYLE_SOFT_SHADOW, \
-TEXT_STYLE_FAR_SOFT_SHADOW = range(10)
+from font import *
 
 class Image(object):
     """

@@ -125,3 +125,14 @@ def load_font(font, size):
     'FontName/Size', such as 'Arial/16'
     """
     return Font(font + "/" + str(size))
+
+
+def get_font_style_geometry(style):
+    """
+    Return the additional pixel the font needs for the style. This function
+    will return left, top, right, bottom as number of pixels the text will
+    start to the left/top and the number of pixels it needs more at the
+    right/bottom. To avoid extra calculations the function will also return
+    the additional width and height needed for the style.
+    """
+    return TEXT_STYLE_GEOMETRY[style]
