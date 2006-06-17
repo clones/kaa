@@ -36,6 +36,17 @@ from kaa.strutils import utf8
 from kaa.notifier import Signal
 from font import Font
 
+TEXT_STYLE_PLAIN, \
+TEXT_STYLE_SHADOW, \
+TEXT_STYLE_OUTLINE, \
+TEXT_STYLE_SOFT_OUTLINE, \
+TEXT_STYLE_GLOW, \
+TEXT_STYLE_OUTLINE_SHADOW, \
+TEXT_STYLE_FAR_SHADOW, \
+TEXT_STYLE_OUTLINE_SOFT_SHADOW, \
+TEXT_STYLE_SOFT_SHADOW, \
+TEXT_STYLE_FAR_SOFT_SHADOW = range(10)
+
 class Image(object):
     """
     Imlib2 Image class.  The constructor can be called directly, or a new
@@ -426,7 +437,9 @@ class Image(object):
         return self.font
 
 
-    def draw_text(self, (x, y), text, color = None, font_or_fontname = None):
+    def draw_text(self, (x, y), text, color = None, font_or_fontname = None,
+                  style = None, shadow = None, outline = None, glow = None,
+                  glow2 = None):
         """
         Draws text on the image.
 
@@ -444,6 +457,8 @@ class Image(object):
                             form "Fontname/Size" such as "Arial/16".  If this
                             parameter is none, the font context is used, as
                             specified by set_font().
+          style:            The style to use. Id style is None, the style from
+                            the font object will be used.
 
         Returns: a 4-tuple representing the width, height, horizontal advance,
                  and vertical advance of the rendered text.
@@ -457,13 +472,39 @@ class Image(object):
 
         if not color:
             color = font.color
-        if len(color) == 3:
+        elif len(color) == 3:
             color = tuple(color) + (255,)
 
-        metrics = self._image.draw_text(font._font, int(x), int(y),
-                                        utf8(text), color)
+        if style == TEXT_STYLE_PLAIN or \
+               (style == None and font.style == TEXT_STYLE_PLAIN):
+            metrics = self._image.draw_text(font._font, int(x), int(y),
+                                            utf8(text), color)
+        else:
+            if not style:
+                style = font.style
+            if not shadow:
+                shadow = font.shadow
+            elif len(shadow) == 3:
+                shadow = tuple(shadow) + (255,)
+            if not outline:
+                outline = font.outline
+            elif len(outline) == 3:
+                outline = tuple(outline) + (255,)
+            if not glow:
+                glow = font.glow
+            elif len(glow) == 3:
+                glow = tuple(glow) + (255,)
+            if not glow2:
+                glow2 = font.glow2
+            elif len(glow2) == 3:
+                glow2 = tuple(glow2) + (255,)
+                
+            metrics = self._image.draw_text_with_style(font._font, int(x), int(y),
+                                                       utf8(text), style, color,
+                                                       shadow, outline, glow, glow2)
         self._changed()
         return metrics
+        
 
 
     def draw_rectangle(self, (x, y), (w, h), color, fill = True):

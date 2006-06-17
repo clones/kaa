@@ -76,6 +76,23 @@ PyTypeObject Image_PyObject_Type = {
     "Imlib2 Image Object"      /* tp_doc */
 };
 
+typedef enum _Text_Style_Type {
+    TEXT_STYLE_PLAIN,
+    TEXT_STYLE_SHADOW,
+    TEXT_STYLE_OUTLINE,
+    TEXT_STYLE_SOFT_OUTLINE,
+    TEXT_STYLE_GLOW,
+    TEXT_STYLE_OUTLINE_SHADOW,
+    TEXT_STYLE_FAR_SHADOW,
+    TEXT_STYLE_OUTLINE_SOFT_SHADOW,
+    TEXT_STYLE_SOFT_SHADOW,
+    TEXT_STYLE_FAR_SOFT_SHADOW
+} Text_Style_Type;
+
+typedef struct _Color {
+    int r,g,b,a;
+} Color;
+
 // Exported _C_API function
 Imlib_Image *imlib_image_from_pyobject(Image_PyObject *pyimg)
 {
@@ -398,9 +415,9 @@ PyObject *Image_PyObject__draw_text(PyObject *self, PyObject *args)
     int x, y, w, h, advance_w, advance_h, r, g, b, a;
     char *text;
     Font_PyObject *font;
-
+    
     if (!PyArg_ParseTuple(args, "O!iis(iiii)", &Font_PyObject_Type, &font, &x,
-              &y, &text, &r, &g, &b, &a))
+			  &y, &text, &r, &g, &b, &a))
         return NULL;
 
     imlib_context_set_image(((Image_PyObject *)self)->image);
@@ -408,9 +425,128 @@ PyObject *Image_PyObject__draw_text(PyObject *self, PyObject *args)
 
     imlib_context_set_color(r, g, b, a);
     imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w,
-                    &advance_h);
+					&advance_h);
     return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
 }
+
+
+#define DRAW_TEXT(divx,divy) imlib_text_draw(x+divx, y+divy, text);
+#define COLOR_SET_AMUL(col, amul) \
+    imlib_context_set_color(col.r, col.g, col.b, (col.a * amul) / 255);
+#define COLOR_SET(col) imlib_context_set_color(col.r, col.g, col.b, col.a);
+
+PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
+{
+    Color color, shadow, outline, glow, glow2;
+    int x, y, w, h, advance_w, advance_h, i, j;
+    Text_Style_Type style;
+    char *text;
+    Font_PyObject *font;
+    
+    const char vals[5][5] = {
+	{0, 1, 2, 1, 0},
+	{1, 3, 4, 3, 1},
+	{2, 4, 5, 4, 2},
+	{1, 3, 4, 3, 1},
+	{0, 1, 2, 1, 0}
+    };
+
+    if (!PyArg_ParseTuple(args, "O!iisi(iiii)(iiii)(iiii)(iiii)(iiii)", 
+			  &Font_PyObject_Type, &font, &x, &y, &text, &style,
+			  &color.r, &color.g, &color.b, &color.a, 
+			  &shadow.r, &shadow.g, &shadow.b, &shadow.a,
+			  &outline.r, &outline.g, &outline.b, &outline.a,
+			  &glow.r, &glow.g, &glow.b, &glow.a,
+			  &glow2.r, &glow2.g, &glow2.b, &glow2.a))
+        return NULL;
+	
+    imlib_context_set_image(((Image_PyObject *)self)->image);
+    imlib_context_set_font(((Font_PyObject *)font)->font);
+    
+    /* FIXME: change x,y based on effect */
+
+    /* The following code is more or less copied from evas_object_text */
+
+    /* shadows */
+    if (style == TEXT_STYLE_SHADOW) {
+	COLOR_SET(shadow);
+	DRAW_TEXT(1, 1);
+    }
+    
+    else if ((style == TEXT_STYLE_OUTLINE_SHADOW) ||
+	     (style == TEXT_STYLE_FAR_SHADOW)) {
+	COLOR_SET(shadow);
+	DRAW_TEXT(2, 2);
+    }
+    
+    else if ((style == TEXT_STYLE_OUTLINE_SOFT_SHADOW) ||
+	     (style == TEXT_STYLE_FAR_SOFT_SHADOW)) {
+	for (j = 0; j < 5; j++) {
+	    for (i = 0; i < 5; i++) {
+		if (vals[i][j] != 0) {
+		    COLOR_SET_AMUL(shadow, vals[i][j] * 50);
+		    DRAW_TEXT(i, j);
+		}
+	    }
+	}
+    }
+    else if (style == TEXT_STYLE_SOFT_SHADOW) {
+	for (j = 0; j < 5; j++) {
+	    for (i = 0; i < 5; i++) {
+		if (vals[i][j] != 0) {
+		    COLOR_SET_AMUL(shadow, vals[i][j] * 50);
+		    DRAW_TEXT(i - 1, j - 1);
+		}
+	    }
+	}
+    }
+			  
+    /* glows */
+    if (style == TEXT_STYLE_GLOW) {
+	for (j = 0; j < 5; j++) {
+	    for (i = 0; i < 5; i++) {
+		if (vals[i][j] != 0) {
+		    COLOR_SET_AMUL(glow, vals[i][j] * 50);
+		    DRAW_TEXT(i - 2, j - 2);
+		}
+	    }
+	}
+	COLOR_SET(glow2);
+	DRAW_TEXT(-1, 0);
+	DRAW_TEXT(1, 0);
+	DRAW_TEXT(0, -1);
+	DRAW_TEXT(0, 1);
+    }
+    
+
+    /* outlines */
+    if ((style == TEXT_STYLE_OUTLINE) ||
+	(style == TEXT_STYLE_OUTLINE_SHADOW) ||
+	(style == TEXT_STYLE_OUTLINE_SOFT_SHADOW)) {
+	COLOR_SET(outline);
+	DRAW_TEXT(-1, 0);
+	DRAW_TEXT(1, 0);
+	DRAW_TEXT(0, -1);
+	DRAW_TEXT(0, 1);
+     }
+    else if (style == TEXT_STYLE_SOFT_OUTLINE) {
+	for (j = 0; j < 5; j++) {
+	    for (i = 0; i < 5; i++) {
+		if (((i != 2) || (j != 2)) && (vals[i][j] != 0)) {
+		    COLOR_SET_AMUL(outline, vals[i][j] * 50);
+		    DRAW_TEXT(i - 2, j - 2);
+		}
+	    }
+	}
+    }
+
+    COLOR_SET(color);
+    imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w, &advance_h);
+
+    /* FIXME: add effect to advance_w and advance_h */
+    return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
+}
+
 
 
 PyObject *Image_PyObject__draw_rectangle(PyObject *self, PyObject *args)
@@ -578,6 +714,7 @@ PyMethodDef Image_PyObject_methods[] = {
     { "draw_rectangle", Image_PyObject__draw_rectangle, METH_VARARGS },
     { "draw_ellipse", Image_PyObject__draw_ellipse, METH_VARARGS },
     { "draw_text", Image_PyObject__draw_text, METH_VARARGS },
+    { "draw_text_with_style", Image_PyObject__draw_text_with_style, METH_VARARGS },
     { "draw_mask", Image_PyObject__draw_mask, METH_VARARGS },
     { "clear", Image_PyObject__clear, METH_VARARGS },
     { "copy_rect", Image_PyObject__copy_rect, METH_VARARGS },

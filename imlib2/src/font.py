@@ -54,7 +54,8 @@ class Font(object):
         self.fontname = fontdesc[:sep]
         self.size = fontdesc[sep + 1:]
         self.set_color(color)
-
+        self.style = 0 # TEXT_STYLE_PLAIN
+        
 
     def get_text_size(self, text):
         """
@@ -86,6 +87,41 @@ class Font(object):
             self.color = color
 
 
+    def set_style(self, style, shadow=(0,0,0,0), outline=(0,0,0,0),
+                  glow=(0,0,0,0), glow2=(0,0,0,0)):
+        """
+        Set a text style. Based on the style different color parameter
+        need to be set.
+
+        Arguments:
+            style:   the style to use (disable with TEXT_STYLE_PLAIN)
+            shadow:  shadow color for TEXT_STYLE_SHADOW, TEXT_STYLE_OUTLINE_SHADOW,
+                     TEXT_STYLE_FAR_SHADOW, TEXT_STYLE_OUTLINE_SOFT_SHADOW,
+                     TEXT_STYLE_SOFT_SHADOW and TEXT_STYLE_FAR_SOFT_SHADOW
+            outline: outline color for TEXT_STYLE_OUTLINE, TEXT_STYLE_SOFT_OUTLINE, 
+                     TEXT_STYLE_OUTLINE_SHADOW and TEXT_STYLE_OUTLINE_SOFT_SHADOW
+            glow:    glow color 1 for TEXT_STYLE_GLOW
+            glow2:   glow color 2 for TEXT_STYLE_GLOW
+        """
+        self.style = style
+        if len(shadow) == 3:
+            self.shadow = tuple(shadow) + (255,)
+        else:
+            self.shadow = shadow
+        if len(outline) == 3:
+            self.outline = tuple(outline) + (255,)
+        else:
+            self.outline = outline
+        if len(glow) == 3:
+            self.glow = tuple(glow) + (255,)
+        else:
+            self.glow = glow
+        if len(glow2) == 3:
+            self.glow2 = tuple(glow2) + (255,)
+        else:
+            self.glow2 = glow2
+
+        
     def __getattr__(self, attr):
         """
         These attributes are available:
