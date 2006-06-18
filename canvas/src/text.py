@@ -118,22 +118,20 @@ class Text(Object):
         if self["size"][1] == "auto":
             if isinstance(font_size, str):
                 font_size = self._compute_relative_value(font_size, 24)
-            if self._o.type_get() == "image":
-                # Imlib2 seems to want font size in points, so we need to
-                # compensate.  (FIXME: this calculation is probably wrong.)
-                font_size *= 0.79
-            return font_size
-
-        if self._o.type_get() != "image":
+            if self._o.type_get() != "image":
+                return font_size
+            # Imlib2 seems to want font size in points, so we need to
+            # compensate. Set font size as target_height and calculate later.
+            target_height = self['font'][1]
+        
+        elif self._o.type_get() != "image":
             # Requires support from kaa.evas for Imaging stuff.
             raise ValueError, "NYI"
-
-        target_height = self._get_computed_size()[1]
+        else:
+            target_height = self._get_computed_size()[1]
         font = imlib2.load_font(font_name, target_height * 0.5)
         metrics = font.get_text_size(self["text"])
         diff = target_height * 0.5 / metrics[1]
-
-        font = imlib2.load_font(font_name, target_height * diff)
         return target_height * diff
 
 
