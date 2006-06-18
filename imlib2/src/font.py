@@ -106,6 +106,15 @@ class Font(object):
             self.color = color
 
 
+    def set_size(self, size):
+        """
+        Sets a new font size.
+        """
+        fontdesc = self.fontname + '/' + str(size)
+        self._font = _Imlib2.load_font(fontdesc)
+        self.size = int(size)
+        
+        
     def set_style(self, style, shadow=(0,0,0,0), outline=(0,0,0,0),
                   glow=(0,0,0,0), glow2=(0,0,0,0)):
         """
