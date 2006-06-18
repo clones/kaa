@@ -196,6 +196,8 @@ MNG_PyObject__dealloc(MNG_PyObject *self)
         free(self->mng_data);
     if (self->mng)
         mng_cleanup(&self->mng);
+    if (self->buffer)
+        free(self->buffer);
     Py_DECREF(self->refresh_callback);
     self->ob_type->tp_free((PyObject*)self);
 }
