@@ -22,6 +22,22 @@ except ImportError:
 MNG_MAGIC = "\x8aMNG\x0d\x0a\x1a\x0a"
 
 
+# SOME DOC ABOUT ASPECT
+#
+# If aspect is a value, keep this aspect. If width and height are given,
+# fit into the given width and keep the aspect. If only one is provided,
+# calculate the other based on the aspect.
+#
+# If aspect is 'preserve' use the aspect of the image file and act as if
+# a value is given.
+#
+# If aspect is 'ignore' use the given width and height, scretch image if needed.
+# If one or both attributes are missing, take the width or height from the image
+#
+# If aspect is 'auto' preserve the image aspect if only one of width or height
+# is given (== 'preserve'). If both are given, use this ignoring the aspect
+# (== 'ignore'). This is the default aspect.
+
 class Image(Object):
 
     PIXEL_FORMAT_NONE = 0
@@ -46,7 +62,7 @@ class Image(Object):
         self._loaded = False
         self["has_alpha"] = True
         self["dirty"] = False
-        self["aspect"] = "preserve"
+        self["aspect"] = "auto"
 
         # For animated images
         self._mng = None
@@ -122,7 +138,7 @@ class Image(Object):
 
 
     def _apply_aspect_to_size(self, size):
-        if self["aspect"] not in ("ignore", "preserve"):
+        if self["aspect"] not in ("ignore", "preserve", "auto"):
             aspect = self["aspect"]
         else:
             aspect = self._get_aspect_ratio()
@@ -133,15 +149,26 @@ class Image(Object):
         for index in range(2):
             if size[index] == -1:
                 if self["aspect"] == "ignore":
+                    # for ignore we use the image values
                     size[index] = self.get_image_size()[index]
-
+                    
                 # We can only keep aspect if the other dimension is known.
+                # (float value, preserve or auto)
                 elif isinstance(size[1-index], int) and size[1-index] != -1:
                     if index == 0:
                         size[index] = int(size[1] * aspect)
                     else:
                         size[index] = int(size[0] / aspect)
-
+                        
+        # if both values or not -1 and we are not in ignore or auto,
+        # set width and height to aspect and fit it!
+        if not self["aspect"] in ("ignore", "auto") and isinstance(size[0], int) \
+               and size[0] != -1 and isinstance(size[1], int) and size[1] != -1:
+            width, height = self.get_image_size()
+            if int(size[0] / aspect) < size[1]:
+                size[1] = int(size[0] / aspect)
+            elif int(size[1] * aspect) < size[0]:
+                size[0] = int(size[1] * aspect)
         return size
 
 
@@ -178,8 +205,9 @@ class Image(Object):
         if isinstance(aspect, str) and aspect.replace(".", "").isdigit():
             aspect = float(aspect)
 
-        if aspect not in ("preserve", "ignore") and not isinstance(aspect, (int, float)):
-            raise ValueError, "Aspect property must be 'preserve', 'ignore', or numeric."
+        if aspect not in ("preserve", "ignore", "auto") and \
+               not isinstance(aspect, (int, float)):
+            raise ValueError, "Aspect property must be 'preserve', 'ignore', 'aspect' or numeric."
 
         self._force_sync_property("size")
         self._set_property_generic("aspect", aspect)
@@ -343,14 +371,9 @@ class Image(Object):
     #
 
     def resize(self, width = None, height = None):
-        if width not in (None, -1) and height not in (None, -1) and self["aspect"] != "ignore":
-            # We're set to preserve some aspect, but the user has specified
-            # both dimensions, so we silently change the aspect to "ignore"
-            # since this is probably what the user wants.
-            self["aspect"] = "ignore"
-
-        if self["aspect"] != "ignore":
-            # Otherwise, we're preserving an aspect and only one dimension
+        if self["aspect"] not in ("ignore", "auto") and \
+               (height == None or width == None):
+            # We're preserving an aspect and only one dimension
             # has been specified, set the other one to -1, which will cause
             # _compute_size() to compute that dimension based on the aspect.
             if width != None:
