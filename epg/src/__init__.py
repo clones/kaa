@@ -38,7 +38,7 @@ from kaa.db import QExpr
 # kaa.epg imports
 from channel import Channel
 from program import Program
-from client import Client
+from client import Client, DISCONNECTED, CONNECTING, CONNECTED
 from server import Server
 from source import sources
 
@@ -51,13 +51,13 @@ log = logging.getLogger('epg')
 # connected client object
 guide = None
 
-def connect(address, auth_secret=None):
+def connect(address, auth_secret=''):
     """
     Connect to the epg server with the given address.
     """
     global guide
 
-    if guide and guide.connected:
+    if guide and not guide.status == DISCONNECTED:
         log.warning('connecting to a new epg database')
 
     guide = Client(address, auth_secret)
@@ -68,7 +68,7 @@ def get_channels(sort=False):
     """
     Return a list of all channels.
     """
-    if guide and guide.connected:
+    if guide and not guide.status == DISCONNECTED:
         if sort:
             channels = guide.get_channels()[:]
             channels.sort(lambda a, b: cmp(a.name, b.name))
@@ -82,7 +82,7 @@ def get_channel(name):
     """
     Return the channel with the given name.
     """
-    if guide and guide.connected:
+    if guide and not guide.status == DISCONNECTED:
         return guide.get_channel(name)
     return []
 
@@ -91,7 +91,7 @@ def search(*args, **kwargs):
     """
     Search the epg.
     """
-    if guide and guide.connected:
+    if guide and not guide.status == DISCONNECTED:
         try:
             return guide.search(*args, **kwargs)
         except Exception, e:

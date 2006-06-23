@@ -34,7 +34,8 @@ from types import ListType
 
 # kaa imports
 from kaa.db import *
-from kaa import ipc
+import kaa.rpc
+
 from kaa.notifier import Signal
 
 # kaa.epg imports
@@ -83,28 +84,37 @@ class Server(object):
         self._load()
 
         # ipc connection
-        self._ipc = ipc.IPCServer('epg')
-        self._ipc.signals["client_connected"].connect_weak(self._client_connected)
-        self._ipc.signals["client_closed"].connect_weak(self._client_closed)
-        self._ipc.register_object(self, "guide")
-
-        self._ipc_net = None
+        self._rpc = kaa.rpc.Server('epg')
+        self._rpc.signals['client_connected'].connect(self._client_connected)
+        self._rpc.connect(self)
+        self._net = None
 
 
-    def connect_to_network(self, address, auth_secret=None):
+    @kaa.notifier.execute_in_mainloop()
+    def guide_changed(self):
+        self.signals['updated'].emit()
+        self._load()
+        clist = self.query(type="channel"), ("id", "tuner_id", "name", "long_name")
+        channels = [ r for r in kaa.db.iter_raw_data(*clist)]
+        info = channels, self._max_program_length, self._num_programs
+        for client in self._clients:
+            log.info('update client %s', client)
+            client.rpc('guide.update')(info)
+            
+        
+    @kaa.rpc.expose('server.start')
+    def connect_to_network(self, address, auth_secret):
         """
         Start a network connection (tcp) with the given address and secret.
         The function will return addr/port so you can set port to 0 to let the
         system choose one.
         """
         host, port = address.split(':', 1)
-
-        self._ipc_net = ipc.IPCServer((host, int(port)), auth_secret = auth_secret)
+        self._net = kaa.rpc.Server((host, int(port)), auth_secret = auth_secret)
         log.info('listening on address %s:%s', host, port)
-        self._ipc_net.signals["client_connected"].connect_weak(self._client_connected)
-        self._ipc_net.signals["client_closed"].connect_weak(self._client_closed)
-        self._ipc_net.register_object(self, "guide")
-        return self._ipc_net.socket.getsockname()
+        self._net.signals['client_connected'].connect(self._client_connected)
+        self._net.connect(self)
+        return self._net.socket.getsockname()
 
 
     def _load(self):
@@ -137,24 +147,23 @@ class Server(object):
         """
         Connect a new client to the server.
         """
+        clist = self.query(type="channel"), ("id", "tuner_id", "name", "long_name")
+        channels = [ r for r in kaa.db.iter_raw_data(*clist)]
+        info = channels, self._max_program_length, self._num_programs
+        client.rpc('guide.update')(info)
         self._clients.append(client)
+        client.signals['closed'].connect(self._client_closed, client)
 
-
+        
     def _client_closed(self, client):
         """
-        Callback when a client disconnects from ipc.
+        Callback when a client disconnects.
         """
-        for signal in self.signals.values():
-            for callback in signal:
-                if ipc.get_ipc_from_proxy(callback) == client:
-                    signal.disconnect(callback)
-
-        for c in self._clients:
-            if c == client:
-                log.warning('disconnect client')
-                self._clients.remove(c)
+        log.warning('disconnect client %s', client)
+        self._clients.remove(client)
 
 
+    @kaa.rpc.expose('guide.update')
     def update(self, backend, *args, **kwargs):
         """
         Start epg update calling the source_* files.
@@ -303,6 +312,25 @@ class Server(object):
         return o["id"]
 
 
+    @kaa.rpc.expose('guide.query')
+    def remote_query(self, **kwargs):
+        if "channel" in kwargs:
+            if type(kwargs["channel"]) in (list, tuple):
+                kwargs["parent"] = [("channel", x) for x in kwargs["channel"]]
+            else:
+                kwargs["parent"] = "channel", kwargs["channel"]
+            del kwargs["channel"]
+
+        for key in kwargs.copy():
+            if key.startswith("__ipc_"):
+                del kwargs[key]
+
+        res  = self._db.query_raw(**kwargs)
+        cols = "parent_id", "id", "start", "stop", "title", "desc", \
+               "subtitle", "episode", "genre", "rating"
+        return [ r for r in kaa.db.iter_raw_data(res, cols) ]
+
+        
     def query(self, **kwargs):
         """
         Query the db.

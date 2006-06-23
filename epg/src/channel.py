@@ -27,7 +27,7 @@
 # -----------------------------------------------------------------------------
 
 # python imports
-import weakref
+from kaa.weakref import weakref
 import time
 
 
@@ -40,24 +40,13 @@ class Channel(object):
         self.tuner_id   = tuner_id
         self.name       = name
         self.long_name  = long_name
+        self._epg       = weakref(epg)
 
         # kludge - remove
         self.id = name
 
-        if epg:
-            self._epg = weakref.ref(epg)
-        else:
-            self._epg = None
 
-
-    def get_epg(self):
-        """
-        Return the epg object this channel is created from.
-        """
-        return self._epg()
-
-
-    def get_programs(self, t = None):
+    def get_programs(self, t = None, callback = None):
         """
         Get programs from a specific time.
         """
@@ -65,6 +54,6 @@ class Channel(object):
             t = time.time()
 
         if self._epg:
-            return self.get_epg().search(time = t, channel = self)
+            return self._epg.search(time = t, channel = self, callback = callback)
         else:
             return []

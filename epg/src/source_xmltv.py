@@ -246,7 +246,7 @@ def _update_parse_xml_thread(epg):
                        (config.grabber, xmltv_file, config.days, log_file, log_file))
         if not os.path.exists(xmltv_file) or ec:
             log.error('grabber failed, see %s', log_file)
-            epg.signals["updated"].emit()
+            epg.guide_changed()
             return
 
         if config.sort:
@@ -257,7 +257,7 @@ def _update_parse_xml_thread(epg):
             os.unlink(xmltv_file + '.tmp')
             if not os.path.exists(xmltv_file):
                 log.error('sorting failed, see %s', log_file)
-                epg.signals["updated"].emit()
+                epg.guide_changed()
                 return
         else:
             log.info('not configured to use tv_sort, skipping')
@@ -270,7 +270,7 @@ def _update_parse_xml_thread(epg):
         doc = xml.Document(xmltv_file, 'tv')
     except:
         log.exception('error parsing xmltv file')
-        epg.signals["updated"].emit()
+        epg.guide_changed()
         return
 
     channel_id_to_db_id = {}
@@ -317,8 +317,8 @@ def _update_process_step(info):
 
     if not info.node:
         info.epg.signals["update_progress"].emit(info.cur, info.total)
-        info.epg.signals["updated"].emit()
         info.epg.commit()
+        info.epg.guide_changed()
         return False
 
     return True
@@ -331,7 +331,7 @@ def update(epg):
     """
     if not config.data_file and not config.grabber:
         log.error('XMLTV gabber not configured.')
-        epg.signals["updated"].emit()
+        epg.guide_changed()
         return False
     thread = Thread(_update_parse_xml_thread, epg)
     thread.start()

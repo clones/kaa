@@ -265,7 +265,7 @@ def _update_process_step(info):
     if not info.node and not info.roots:
         info.epg.signals["update_progress"].emit(info.total, info.total)
         info.doc.freeDoc()
-        info.epg.signals["updated"].emit()
+        info.epg.guide_changed()
         return False
 
     return True

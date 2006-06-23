@@ -32,7 +32,8 @@ __all__ = ['Client']
 import logging
 
 # kaa imports
-from kaa import ipc, db
+import kaa.db
+import kaa.rpc
 from kaa.notifier import Signal, OneShotTimer, execute_in_timer
 
 # kaa.epg imports
@@ -42,61 +43,45 @@ from program import Program
 # get logging object
 log = logging.getLogger('epg')
 
+DISCONNECTED, CONNECTING, CONNECTED = range(3)
+
 class Client(object):
     """
     EPG client class to access the epg on server side.
     """
-    def __init__(self, server_or_socket, auth_secret = None):
-        self.connected = True
-        self._ipc = ipc.IPCClient(server_or_socket, auth_secret = auth_secret)
-        self._server = self._ipc.get_object("guide")
-
+    def __init__(self, server_or_socket, auth_secret = ''):
+        self.status = CONNECTING
+        self.server = kaa.rpc.Client(server_or_socket, auth_secret = auth_secret)
+        self.server.connect(self)
+        
+        self._channels_list = []
         self.signals = {
             "updated": Signal(),
-            "update_progress": Signal(),
+            "connected": Signal(),
             "disconnected": Signal()
         }
 
-        self._load()
-        self._ipc.signals["closed"].connect_once(self._disconnected)
+        self._channels_by_name = {}
+        self._channels_by_db_id = {}
+        self._channels_by_tuner_id = {}
+        self._channels_list = []
 
-        # Connect to server signals. The callbacks itself are called with
-        # a OneShotTimer to avoid some strange problems because of the ipc
-        # code (the server will wait for the return)
-        # FIXME: this whole signals over ipc stuff is ugly
-        self._server.signals["updated"].connect_weak(self._updated)
-        self._server.signals["update_progress"].connect_weak(self._update_progress)
+        self.server.signals['closed'].connect_weak(self._handle_disconnected)
 
 
-    def _disconnected(self):
+    def _handle_disconnected(self):
         """
         Signal callback when server disconnects.
         """
-        log.info('kaa.epg client disconnected')
-        self.connected = False
+        log.error('kaa.epg client disconnected')
+        self.status = DISCONNECTED
         self.signals["disconnected"].emit()
-        del self._ipc
-        del self._server
+        log.info('delete server link')
+        del self.server
 
 
-    execute_in_timer(OneShotTimer, 0)
-    def _updated(self):
-        """
-        Signal callback when update is done.
-        """
-        self._load()
-        self.signals["updated"].emit()
-
-
-    execute_in_timer(OneShotTimer, 0)
-    def _update_progress(self, *args, **kwargs):
-        """
-        Signal callback when update is in progress.
-        """
-        self.signals["update_progress"].emit(*args, **kwargs)
-
-        
-    def _load(self):
+    @kaa.rpc.expose('guide.update')
+    def _handle_guide_update(self, (epgdata, max_program_length, num_programs)):
         """
         (re)load some static information
         """
@@ -104,8 +89,8 @@ class Client(object):
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
         self._channels_list = []
-        data = self._server.query(type="channel", __ipc_noproxy_result = True)
-        for row in db.iter_raw_data(data, ("id", "tuner_id", "name", "long_name")):
+
+        for row in epgdata:
             db_id, tuner_id, name, long_name = row
             chan = Channel(tuner_id, name, long_name, self)
             chan.db_id = db_id
@@ -122,33 +107,38 @@ class Client(object):
             self._channels_list.append(chan)
 
         # get attributes from server and store local
-        self._max_program_length = self._server.get_max_program_length()
-        self._num_programs = self._server.get_num_programs()
+        self._max_program_length = max_program_length
+        self._num_programs = num_programs
 
+        if self.status == CONNECTING:
+            self.status = CONNECTED
+            self.signals["connected"].emit()
+        self.signals["updated"].emit()
 
-    def _program_rows_to_objects(self, query_data):
+        
+    def _program_rows_to_objects(self, query_data, callback=None):
         """
         Convert raw search result data from the server into python objects.
         """
-        cols = "parent_id", "id", "start", "stop", "title", "desc", \
-               "subtitle", "episode", "genre", "rating"
         results = []
-        for row in db.iter_raw_data(query_data, cols):
+        for row in query_data:
             if row[0] not in self._channels_by_db_id:
                 continue
             channel = self._channels_by_db_id[row[0]]
             program = Program(channel, *row[2:])
             results.append(program)
+        if callback:
+            callback(results)
         return results
 
 
-    def search(self, **kwargs):
+    def search(self, callback=None, **kwargs):
         """
         Search the db. This will call the search function on server side using
         kaa.ipc. Notice: this will call kaa.notifier.step() until the result
         arrives.
         """
-        if not self.connected:
+        if self.status == DISCONNECTED:
             return []
 
         if "channel" in kwargs:
@@ -156,10 +146,10 @@ class Client(object):
             if type(ch) == Channel:
                 kwargs["channel"] = ch.db_id
             elif type(ch) == tuple and len(ch) == 2:
-                kwargs["channel"] = db.QExpr("range", (ch[0].db_id, ch[1].db_id))
+                kwargs["channel"] = kaa.db.QExpr("range", (ch[0].db_id, ch[1].db_id))
             else:
                 # FIXME: this is ugly. Why not a longer list?
-                raise ValueError, "channel must be Channel object or tuple of 2 Channel objects"
+                raise ValueError, "channel must be Channel object"
 
         if "time" in kwargs:
             if type(kwargs["time"]) in (int, float, long):
@@ -170,15 +160,16 @@ class Client(object):
             else:
                 start, stop = kwargs["time"]
 
-            max = self.get_max_program_length()
-            kwargs["start"] = db.QExpr("range", (int(start) - max, int(stop)))
-            kwargs["stop"] = db.QExpr(">=", int(start))
+            max = self._max_program_length
+            kwargs["start"] = kaa.db.QExpr("range", (int(start) - max, int(stop)))
+            kwargs["stop"] = kaa.db.QExpr(">=", int(start))
             del kwargs["time"]
 
-        kwargs["type"] = "program"
-        data = self._server.query(__ipc_noproxy_result = True, **kwargs)
-        if not data[1]:
-            return []
+        if callback:
+            rpc = self.server.rpc('guide.query', self._program_rows_to_objects, callback)
+            rpc(type='program', **kwargs)
+            return None
+        data = self.server.rpc('guide.query', 'blocking')(type='program', **kwargs)
         return self._program_rows_to_objects(data)
 
 
@@ -264,10 +255,6 @@ class Client(object):
         Update the database. This will call the update function in the server
         and the server needs to be configured for that.
         """
-        if not self.connected:
+        if self.status == DISCONNECTED:
             return False
-        
-        # updated signal will fire when this call completes.
-        kwargs["__ipc_oneway"] = True
-        kwargs["__ipc_noproxy_args"] = True
-        self._server.update(*args, **kwargs)
+        self.server.rpc('guide.update')(*args, **kwargs)
