@@ -97,3 +97,6 @@ def search(*args, **kwargs):
         except Exception, e:
             log.exception('kaa.epg.search failed')
     return []
+
+def is_connected():
+    return guide and guide.status == CONNECTED
