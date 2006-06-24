@@ -76,12 +76,14 @@ class Server(object):
         self._clients = []
         self._db = db
         self._setup_internal_variables()
+        self._rpc_server = []
 
-        # ipc connection
-        self._rpc = kaa.rpc.Server('epg')
-        self._rpc.signals['client_connected'].connect(self._client_connected)
-        self._rpc.connect(self)
-        self._net = None
+        # start unix socket rpc connection
+        s = kaa.rpc.Server('epg')
+        s.signals['client_connected'].connect(self.client_connected)
+        s.connect(self)
+        self._rpc_server.append(s)
+
 
     # -------------------------------------------------------------------------
     # kaa.rpc interface called by kaa.epg.Client
@@ -95,11 +97,13 @@ class Server(object):
         system choose one.
         """
         host, port = address.split(':', 1)
-        self._net = kaa.rpc.Server((host, int(port)), auth_secret = auth_secret)
+        s = kaa.rpc.Server((host, int(port)), auth_secret = auth_secret)
+        s.signals['client_connected'].connect(self.client_connected)
+        s.connect(self)
+        self._rpc_server.append(s)
+        host, port = s.socket.getsockname()
         log.info('listening on address %s:%s', host, port)
-        self._net.signals['client_connected'].connect(self._client_connected)
-        self._net.connect(self)
-        return self._net.socket.getsockname()
+        return host, port
 
 
     @kaa.rpc.expose('guide.update')
@@ -131,17 +135,17 @@ class Server(object):
     # kaa.rpc client handling
     # -------------------------------------------------------------------------
 
-    def _client_connected(self, client):
+    def client_connected(self, client):
         """
         Connect a new client to the server.
         """
         info = self._channel_list, self._max_program_length, self._num_programs
         client.rpc('guide.update')(info)
+        client.signals['closed'].connect(self.client_closed, client)
         self._clients.append(client)
-        client.signals['closed'].connect(self._client_closed, client)
 
 
-    def _client_closed(self, client):
+    def client_closed(self, client):
         """
         Callback when a client disconnects.
         """
