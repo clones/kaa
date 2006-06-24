@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2005 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -50,8 +50,7 @@ class Server(object):
     """
     def __init__(self, dbfile):
 
-        log.info('start EPG server')
-        log.info('using database in %s', dbfile)
+        log.info('start epg server with database %s', dbfile)
 
         # create the db and register objects
 
@@ -74,14 +73,9 @@ class Server(object):
             ratings = (dict, ATTR_SIMPLE)
         )
 
-        self.signals = {
-            "updated": Signal(),
-            "update_progress": Signal()
-        }
-
         self._clients = []
         self._db = db
-        self._load()
+        self._setup_internal_variables()
 
         # ipc connection
         self._rpc = kaa.rpc.Server('epg')
@@ -89,19 +83,10 @@ class Server(object):
         self._rpc.connect(self)
         self._net = None
 
+    # -------------------------------------------------------------------------
+    # kaa.rpc interface called by kaa.epg.Client
+    # -------------------------------------------------------------------------
 
-    @kaa.notifier.execute_in_mainloop()
-    def guide_changed(self):
-        self.signals['updated'].emit()
-        self._load()
-        clist = self.query(type="channel"), ("id", "tuner_id", "name", "long_name")
-        channels = [ r for r in kaa.db.iter_raw_data(*clist)]
-        info = channels, self._max_program_length, self._num_programs
-        for client in self._clients:
-            log.info('update client %s', client)
-            client.rpc('guide.update')(info)
-            
-        
     @kaa.rpc.expose('server.start')
     def connect_to_network(self, address, auth_secret):
         """
@@ -117,52 +102,6 @@ class Server(object):
         return self._net.socket.getsockname()
 
 
-    def _load(self):
-        """
-        Load some basic information from the db.
-        """
-        self._max_program_length = self._num_programs = 0
-        q = "SELECT stop-start AS length FROM objects_program ORDER BY length DESC LIMIT 1"
-        res = self._db._db_query(q)
-        if len(res):
-            self._max_program_length = res[0][0]
-
-        res = self._db._db_query("SELECT count(*) FROM objects_program")
-        if len(res):
-            self._num_programs = res[0][0]
-
-        self._tuner_ids = []
-        channels = self._db.query(type = "channel")
-        for c in channels:
-            for t in c["tuner_id"]:
-                if t in self._tuner_ids:
-                    log.warning('loading channel %s with tuner_id %s '+\
-                                'allready claimed by another channel',
-                                c["name"], t)
-                else:
-                    self._tuner_ids.append(t)
-
-
-    def _client_connected(self, client):
-        """
-        Connect a new client to the server.
-        """
-        clist = self.query(type="channel"), ("id", "tuner_id", "name", "long_name")
-        channels = [ r for r in kaa.db.iter_raw_data(*clist)]
-        info = channels, self._max_program_length, self._num_programs
-        client.rpc('guide.update')(info)
-        self._clients.append(client)
-        client.signals['closed'].connect(self._client_closed, client)
-
-        
-    def _client_closed(self, client):
-        """
-        Callback when a client disconnects.
-        """
-        log.warning('disconnect client %s', client)
-        self._clients.remove(client)
-
-
     @kaa.rpc.expose('guide.update')
     def update(self, backend, *args, **kwargs):
         """
@@ -174,15 +113,61 @@ class Server(object):
         return sources[backend].update(self, *args, **kwargs)
 
 
-    def commit(self):
+    @kaa.rpc.expose('guide.query')
+    def query(self, channel=None, **kwargs):
+        if channel:
+            if isinstance(channel, (list, tuple)):
+                kwargs["parent"] = [("channel", x) for x in channel]
+            else:
+                kwargs["parent"] = "channel", channel
+
+        res  = self._db.query_raw(**kwargs)
+        cols = "parent_id", "id", "start", "stop", "title", "desc", \
+               "subtitle", "episode", "genre", "rating"
+        return [ r for r in kaa.db.iter_raw_data(res, cols) ]
+
+
+    # -------------------------------------------------------------------------
+    # kaa.rpc client handling
+    # -------------------------------------------------------------------------
+
+    def _client_connected(self, client):
         """
-        Commit changes to database.
+        Connect a new client to the server.
+        """
+        info = self._channel_list, self._max_program_length, self._num_programs
+        client.rpc('guide.update')(info)
+        self._clients.append(client)
+        client.signals['closed'].connect(self._client_closed, client)
+
+
+    def _client_closed(self, client):
+        """
+        Callback when a client disconnects.
+        """
+        log.warning('disconnect client %s', client)
+        self._clients.remove(client)
+
+
+    # -------------------------------------------------------------------------
+    # functions called by source_* modules
+    # -------------------------------------------------------------------------
+
+    @kaa.notifier.execute_in_mainloop()
+    def guide_changed(self):
+        """
+        Guide changed by source, commit changes to database and notify clients.
         """
         log.info('commit database changes')
         self._db.commit()
+        self._setup_internal_variables()
+        info = self._channel_list, self._max_program_length, self._num_programs
+        for client in self._clients:
+            log.info('update client %s', client)
+            client.rpc('guide.update')(info)
 
-        
-    def _add_channel_to_db(self, tuner_id, name, long_name):
+
+    def add_channel(self, tuner_id, name, long_name):
         """
         This method requires at least one of tuner_id, name, long_name.
         Depending on the source (various XMLTV sources, Zap2it, etc.) not all
@@ -263,7 +248,7 @@ class Server(object):
         return o["id"]
 
 
-    def _add_program_to_db(self, channel_db_id, start, stop, title, **attributes):
+    def add_program(self, channel_db_id, start, stop, title, **attributes):
         """
         Add a program to the db. This could cause removing older programs
         overlapping.
@@ -312,53 +297,36 @@ class Server(object):
         return o["id"]
 
 
-    @kaa.rpc.expose('guide.query')
-    def remote_query(self, **kwargs):
-        if "channel" in kwargs:
-            if type(kwargs["channel"]) in (list, tuple):
-                kwargs["parent"] = [("channel", x) for x in kwargs["channel"]]
-            else:
-                kwargs["parent"] = "channel", kwargs["channel"]
-            del kwargs["channel"]
+    # -------------------------------------------------------------------------
+    # internal functions
+    # -------------------------------------------------------------------------
 
-        for key in kwargs.copy():
-            if key.startswith("__ipc_"):
-                del kwargs[key]
-
-        res  = self._db.query_raw(**kwargs)
-        cols = "parent_id", "id", "start", "stop", "title", "desc", \
-               "subtitle", "episode", "genre", "rating"
-        return [ r for r in kaa.db.iter_raw_data(res, cols) ]
-
-        
-    def query(self, **kwargs):
+    def _setup_internal_variables(self):
         """
-        Query the db.
+        Load some basic information from the db.
         """
-        if "channel" in kwargs:
-            if type(kwargs["channel"]) in (list, tuple):
-                kwargs["parent"] = [("channel", x) for x in kwargs["channel"]]
-            else:
-                kwargs["parent"] = "channel", kwargs["channel"]
-            del kwargs["channel"]
+        self._max_program_length = self._num_programs = 0
+        q = "SELECT stop-start AS length FROM objects_program ORDER BY length DESC LIMIT 1"
+        res = self._db._db_query(q)
+        if len(res):
+            self._max_program_length = res[0][0]
 
-        for key in kwargs.copy():
-            if key.startswith("__ipc_"):
-                del kwargs[key]
+        res = self._db._db_query("SELECT count(*) FROM objects_program")
+        if len(res):
+            self._num_programs = res[0][0]
 
-        res = self._db.query_raw(**kwargs)
-        return res
+        self._tuner_ids = []
+        channels = self._db.query(type = "channel")
+        for c in channels:
+            for t in c["tuner_id"]:
+                if t in self._tuner_ids:
+                    log.warning('loading channel %s with tuner_id %s '+\
+                                'allready claimed by another channel',
+                                c["name"], t)
+                else:
+                    self._tuner_ids.append(t)
 
-
-    def get_max_program_length(self):
-        """
-        Get maximum program length
-        """
-        return self._max_program_length
-
-
-    def get_num_programs(self):
-        """
-        Get number of programs in the db.
-        """
-        return self._num_programs
+        # get channel list to be passed to a client on connect / update
+        channels = self._db.query_raw(type="channel")
+        values = ("id", "tuner_id", "name", "long_name")
+        self._channel_list = [ r for r in kaa.db.iter_raw_data(channels, values)]
