@@ -156,9 +156,9 @@ def parse_map(node, info):
         return
 
     channel = int(node.prop("channel"))
-    db_id = info.epg._add_channel_to_db(tuner_id=channel, 
-                                        name=info.stations_by_id[id]["station"],
-                                        long_name=info.stations_by_id[id]["name"])
+    db_id = info.epg.add_channel(tuner_id=channel, 
+                                 name=info.stations_by_id[id]["station"],
+                                 long_name=info.stations_by_id[id]["name"])
     info.stations_by_id[id]["db_id"] = db_id
 
 
@@ -178,8 +178,8 @@ def parse_schedule(node, info):
     d["stop"] = d["start"] + duration_secs
     d["rating"] = str_to_unicode(node.prop("tvRating"))
 
-    info.epg._add_program_to_db(info.stations_by_id[d["station_id"]]["db_id"], d["start"],
-                           d["stop"], d.get("title"), desc=d.get("desc"))
+    info.epg.add_program(info.stations_by_id[d["station_id"]]["db_id"], d["start"],
+                         d["stop"], d.get("title"), desc=d.get("desc"))
 
 
 def parse_program(node, info):
@@ -233,7 +233,6 @@ def _update_parse_xml_thread(epg, username, passwd, start, stop):
     info.node_names = ["station", "map", "program", "schedule"]
     info.node = None
     info.total = nprograms
-    info.cur = 0
     info.schedules_by_id = {}
     info.stations_by_id = stations_by_id
     info.epg = epg
@@ -253,17 +252,12 @@ def _update_process_step(info):
     while info.node:
         if info.node.name == info.cur_node_name:
             globals()["parse_%s" % info.cur_node_name](info.node, info)
-        if info.node.name == "schedule":
-            info.cur += 1
-            if info.cur % info.progress_step == 0:
-                info.epg.signals["update_progress"].emit(info.cur, info.total)
 
         info.node = info.node.get_next()
         if time.time() - t0 > 0.1:
             break
 
     if not info.node and not info.roots:
-        info.epg.signals["update_progress"].emit(info.total, info.total)
         info.doc.freeDoc()
         info.epg.guide_changed()
         return False

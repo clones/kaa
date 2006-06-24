@@ -170,7 +170,7 @@ def parse_channel(info):
         # for the used grabber somehow.
         name = display or station
 
-    db_id = info.epg._add_channel_to_db(tuner_id=channel, name=station, long_name=name)
+    db_id = info.epg.add_channel(tuner_id=channel, name=station, long_name=name)
     info.channel_id_to_db_id[channel_id] = [db_id, None]
 
 
@@ -216,12 +216,12 @@ def parse_programme(info):
         # user to run tv_sort to fix this. And IIRC tv_sort also takes care of
         # this problem.
         last_start, last_title, last_attr = last_prog
-        info.epg._add_program_to_db(db_id, last_start, start, last_title, **last_attr)
+        info.epg.add_program(db_id, last_start, start, last_title, **last_attr)
     if not info.node.getattr("stop"):
         info.channel_id_to_db_id[channel_id][1] = (start, title, attr)
     else:
         stop = timestr2secs_utc(info.node.getattr("stop"))
-        info.epg._add_program_to_db(db_id, start, stop, title, **attr)
+        info.epg.add_program(db_id, start, stop, title, **attr)
 
 
 class UpdateInfo:
@@ -285,7 +285,6 @@ def _update_parse_xml_thread(epg):
     info.node = doc.first
     info.channel_id_to_db_id = channel_id_to_db_id
     info.total = nprograms
-    info.cur = 0
     info.epg = epg
     info.progress_step = info.total / 100
 
@@ -304,11 +303,8 @@ def _update_process_step(info):
     while info.node:
         if info.node.name == "channel":
             parse_channel(info)
-        elif info.node.name == "programme":
+        if info.node.name == "programme":
             parse_programme(info)
-            info.cur +=1
-            if info.cur % info.progress_step == 0:
-                info.epg.signals["update_progress"].emit(info.cur, info.total)
 
         info.node = info.node.get_next()
         if time.time() - t0 > 0.1:
@@ -316,8 +312,6 @@ def _update_process_step(info):
             break
 
     if not info.node:
-        info.epg.signals["update_progress"].emit(info.cur, info.total)
-        info.epg.commit()
         info.epg.guide_changed()
         return False
 

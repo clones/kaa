@@ -145,7 +145,6 @@ def _update_data_thread(epg, vdr_dir=None, channels_file=None, epg_file=None,
     info.access_by        = access_by
     info.limit_channels   = limit_channels
     info.exclude_channels = exclude_channels
-    info.cur              = 0
     info.epg              = epg
     info.progress_step    = info.total / 100
 
@@ -177,9 +176,9 @@ def _update_process_step(info):
 
         log.info('Adding channel: %s as %s' % (c.id, access_id))
 
-        chan_db_id = info.epg._add_channel_to_db(tuner_id=strutils.str_to_unicode(access_id), 
-                                                 name=strutils.str_to_unicode(c.name), 
-                                                 long_name=None)
+        chan_db_id = info.epg.add_channel(tuner_id=strutils.str_to_unicode(access_id), 
+                                          name=strutils.str_to_unicode(c.name), 
+                                          long_name=None)
 
         for e in c.events:
             subtitle = e.subtitle
@@ -189,15 +188,9 @@ def _update_process_step(info):
             if not desc:
                 desc = ''
 
-            info.epg._add_program_to_db(chan_db_id, e.start, int(e.start+e.dur),
-                                        strutils.str_to_unicode(e.title),
-                                        desc=strutils.str_to_unicode(desc))
-
-            info.cur +=1
-            if info.cur % info.progress_step == 0:
-                info.epg.signals["update_progress"].emit(info.cur, info.total)
-
-    info.epg.signals["update_progress"].emit(info.cur, info.total)
+            info.epg.add_program(chan_db_id, e.start, int(e.start+e.dur),
+                                 strutils.str_to_unicode(e.title),
+                                 desc=strutils.str_to_unicode(desc))
     return False
 
 
