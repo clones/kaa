@@ -8,6 +8,7 @@ from kaa.notifier import Signal
 import animation
 
 _percent_re = re.compile("([\d.]+%)")
+_validate_relative_value_re = re.compile("[\d%\-+]")
 
 class CanvasError(Exception):
     pass
@@ -54,15 +55,12 @@ class Object(object):
 
 
     def __getitem__(self, key):
-        if hasattr(self, "_get_property_" + key):
-            return getattr(self, "_get_property_" + key)()
-        if key in self._properties:
-            return self._properties[key]
-        return None
+        return self._properties.get(key)
+
 
     def __setitem__(self, key, value):
         #print self, "Set property '%s', oldval=%s  newval=%s" % (key, repr(self[key]), repr(value))
-        if self[key] == value:
+        if self._properties.get(key) == value:
             return False
 
         self._dirty_cached_value(key)
@@ -73,10 +71,10 @@ class Object(object):
         #if key in ("pos", "visible", "color", "layer", "size"):
         #    self._inc_properties_serial()
 
-        if hasattr(self, "_set_property_" + key):
-            getattr(self, "_set_property_" + key)(value)
-        else:
-            self._set_property_generic(key, value)
+        func = getattr(self, "_set_property_" + key, None)
+        if func:
+            return func(value)
+        self._set_property_generic(key, value)
 
 
     def _set_property_generic(self, key, value):
@@ -525,8 +523,9 @@ class Object(object):
 
     
     def _set_property_color(self, color):
-        color = self._parse_color(color)
-        if color != self["color"]:
+        if not isinstance(color, (list, tuple)) or None in color:
+            color = self._parse_color(color)
+        if self._properties.get('color') != color:
             self._set_property_generic("color", color)
         return True
 
@@ -536,28 +535,43 @@ class Object(object):
         is a valid value: either an integer, a percentage value, or "auto".
         If it is a stringified integer, it will convert to int type.
         """
-        if isinstance(val, str):
-            if val.replace("-", "").isdigit():
-                val = int(val)
-            elif re.sub("[\d%\-+]", "", val) and val != "auto":
-                raise ValueError, "Invalid relative value '%s'" % val
+        if not isinstance(val, str):
+            return val
+        if val == 'auto':
+            return val
+        if val.replace("-", "").isdigit():
+            return int(val)
+        if not _validate_relative_value_re.sub("", val):
+            return val
+        raise ValueError, "Invalid relative value '%s'" % val
 
-        return val
 
     def _set_property_pos(self, pos):
-        pos = [ self._validate_relative_value(x) for x in pos ]
+        for x in pos:
+            if isinstance(x, str):
+                pos = [ self._validate_relative_value(x) for x in pos ]
+                break
         self._set_property_generic("pos", tuple(pos))
 
     def _set_property_size(self, size):
-        size = [ self._validate_relative_value(x) for x in size ]
+        for x in size:
+            if isinstance(x, str):
+                size = [ self._validate_relative_value(x) for x in size ]
+                break
         self._set_property_generic("size", tuple(size))
 
     def _set_property_margin(self, margin):
-        margin = [ self._validate_relative_value(x) for x in margin ]
+        for x in margin:
+            if isinstance(x, str):
+                margin = [ self._validate_relative_value(x) for x in margin ]
+                break
         self._set_property_generic("margin", tuple(margin))
 
     def _set_property_padding(self, padding):
-        padding = [ self._validate_relative_value(x) for x in padding ]
+        for x in padding:
+            if isinstance(x, str):
+                padding = [ self._validate_relative_value(x) for x in padding ]
+                break
         self._set_property_generic("padding", tuple(padding))
 
 

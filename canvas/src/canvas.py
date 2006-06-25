@@ -70,8 +70,11 @@ class Canvas(Container):
         if name in self._names:
             del self._names[name]
 
-    def _get_property_pos(self):
-        return 0, 0, None, None, None, None
+    def __getitem__(self, key):
+        if key == 'pos':
+            return 0, 0, None, None, None, None
+        return self._properties.get(key)
+
 
     def _queue_render(self, child = None):
         super(Canvas, self)._queue_render(child)

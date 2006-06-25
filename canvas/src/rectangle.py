@@ -10,7 +10,7 @@ class Rectangle(Object):
         if size:
             self.resize(size)
         if color:
-            self.set_color(*color)
+            self["color"] = color
    
     def _canvased(self, canvas):
         super(Rectangle, self)._canvased(canvas)

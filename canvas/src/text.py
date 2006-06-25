@@ -1,6 +1,8 @@
 __all__ = [ 'Text' ]
 
 from object import *
+from kaa.strutils import unicode_to_str
+
 import time
 try:
     from kaa import imlib2
@@ -28,14 +30,17 @@ class Text(Object):
         self._font = self._img = None
 
         self.set_font(font, size)
-        if text != None:
-            self.set_text(text)
-        if color != None:
-            self.set_color(*color)
+        if text:
+            self["text"] = text
+        if color:
+            self["color"] = color
 
     def __repr__(self):
         clsname = self.__class__.__name__
-        return "<canvas.%s text=\"%s\">" % (clsname, self["text"])
+        text = self["text"]
+        if isinstance(text, unicode):
+            text = unicode_to_str(text)
+        return "<canvas.%s text=\"%s\">" % (clsname, text)
 
     def _canvased(self, canvas):
         super(Text, self)._canvased(canvas)
