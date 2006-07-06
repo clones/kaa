@@ -54,6 +54,7 @@ class File(Item):
     getattr:  function to get an attribute
     setattr:  function to set an attribute
     keys:     function to return all known attributes of the item
+    scanned:  returns True if the item is scanned
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
@@ -75,6 +76,38 @@ class File(Item):
         Item.__init__(self, id, 'file://' + self.filename, data, parent, media)
         self._beacon_overlay = overlay
 
+
+    # -------------------------------------------------------------------------
+    # Internal API for client and server
+    # -------------------------------------------------------------------------
+
+    def __repr__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        str = '<beacon.File %s' % self.filename
+        if self._beacon_data['mtime'] == UNKNOWN:
+            str += ' (new)'
+        return str + '>'
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for client
+    # -------------------------------------------------------------------------
+
+    def _beacon_request(self, callback=None, *args, **kwargs):
+        """
+        Request the item to be scanned.
+        """
+        f = self._beacon_db()._beacon_request
+        f(self.filename, self._beacon_database_update, callback,
+          *args, **kwargs)
+        return None
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for server
+    # -------------------------------------------------------------------------
 
     def _beacon_mtime(self):
         """
@@ -115,20 +148,3 @@ class File(Item):
             if fullname+ext in listdir_file_map:
                 mtime += listdir_file_map[fullname+ext][3][stat.ST_MTIME]
         return mtime
-
-
-    def _beacon_request(self):
-        """
-        Request the item to be scanned.
-        """
-        self._beacon_database_update(self._beacon_db()._beacon_request(self.filename[:-1]))
-
-
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        str = '<beacon.File %s' % self.filename
-        if self._beacon_data['mtime'] == UNKNOWN:
-            str += ' (new)'
-        return str + '>'

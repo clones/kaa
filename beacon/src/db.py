@@ -71,10 +71,10 @@ class Database(object):
         # overlay dir for the beacon
         self.dbdir = dbdir
 
-        # remeber client
+        # remember client
         # no client == server == write access
         self.client = client
-        
+
         # handle changes in a list and add them to the database
         # on commit.
         self.changes = []
@@ -87,6 +87,14 @@ class Database(object):
             os.makedirs(self.dbdir)
         self._db = db.Database(self.dbdir + '/db')
 
+        self.signals = {
+            'changed': kaa.notifier.Signal()
+            }
+
+        if self.client:
+            # client mode, nothing more to do
+            return
+        
         # register basic types
         self._db.register_object_type_attrs("dir",
             # This multi-column index optimizes queries on (name,parent) which
@@ -98,7 +106,7 @@ class Database(object):
             media = (int, ATTR_SIMPLE),
             mtime = (int, ATTR_SIMPLE))
 
-        self._db.register_object_type_attrs("file", 
+        self._db.register_object_type_attrs("file",
             [("name", "parent_type", "parent_id")],
             name = (str, ATTR_KEYWORDS),
             overlay = (bool, ATTR_SIMPLE),
@@ -113,13 +121,13 @@ class Database(object):
             length = (int, ATTR_SIMPLE),
             content = (str, ATTR_SIMPLE))
 
-        self.signals = {
-            'changed': kaa.notifier.Signal()
-            }
-        
         # commit
         self._db.commit()
 
+
+    # -------------------------------------------------------------------------
+    # Mountpoint handling
+    # -------------------------------------------------------------------------
 
     def add_mountpoint(self, type, device, directory):
         """
@@ -128,7 +136,8 @@ class Database(object):
         for mountpoint in self._mountpoints:
             if mountpoint.directory == directory:
                 return False
-        mountpoint = Mountpoint(type, device, directory, self.dbdir, self, self.client)
+        mountpoint = Mountpoint(type, device, directory, self.dbdir, self,
+                                self.client)
         self._mountpoints.append(mountpoint)
         self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
         return True
@@ -140,7 +149,8 @@ class Database(object):
         """
         if return_objects:
             return self._mountpoints
-        return [ (m.type, m.device, m.directory, m.name) for m in self._mountpoints ]
+        return [ (m.type, m.device, m.directory, m.name) \
+                 for m in self._mountpoints ]
 
 
     def set_mountpoint(self, directory, name):
@@ -154,55 +164,356 @@ class Database(object):
             raise AttributeError('unknown mountpoint')
 
 
-    def _get_dir(self, dirname, media):
+    # -------------------------------------------------------------------------
+    # Query functions
+    #
+    # The query functions can modify the database when in server mode. E.g.
+    # a directory query could detect deleted files and will delete them in
+    # the database. In client mode, the query functions will use the database
+    # read only.
+    # -------------------------------------------------------------------------
+
+    def query(self, **query):
         """
-        Get database entry for the given directory. Called recursive to
-        find the current entry. Do not cache results, they could change.
+        Main query function. This function will call one of the specific
+        query functions ins this class depending on the query. This function
+        may raise an AsyncProcess exception.
         """
-        if not media:
-            # Unknown media and looks like we are read only.
-            # Return None, if the media is not known, the dir also won't
-            # Note: this should never happen
-            log.error('no media set, this should never happen')
+        # make sure db is ok
+        if not self.client:
+            self.commit()
+
+        # do query based on type
+        if 'filename' in query and len(query) == 1:
+            return self._db_query_filename(query['filename'])
+        if 'id' in query and len(query) == 1:
+            return self._db_query_id(query['id'])
+        if 'parent' in query and len(query) == 1:
+            if query['parent']._beacon_isdir:
+                return self._db_query_dir(query['parent'])
+            raise AttributeError('oops, fix me')
+        if 'parent' in query and 'recursive' in query and len(query) == 2:
+            if not query['parent']._beacon_isdir:
+                raise AttributeError('parent is no directory')
+            return self._db_query_dir_recursive(query['parent'])
+        if 'attr' in query:
+            return self._db_query_attr(query)
+        if 'type' in query and query['type'] == 'media':
+            m = self._db.query(**query)
+            if m:
+                return m[0]
             return None
-        if dirname == media.directory:
-            # we know that '/' is in the db
-            current = self._db.query(type="dir", name='', parent=media.id)[0]
-            return create_dir(current, media)
+        return self._db_query_raw(query)
+    
 
-        parent = self._get_dir(os.path.dirname(dirname), media)
-        name = os.path.basename(dirname)
+    def query_raw(self, *args, **kwargs):
+        """
+        Query kaa.db database object directly.
+        """
+        self.commit()
+        return self._db.query(*args, **kwargs)
 
-        if not parent._beacon_id:
-            return create_dir(name, parent)
-            
-        current = self._db.query(type="dir", name=name, parent=parent._beacon_id)
-        if not current and self.client:
-            return create_dir(name, parent)
 
-        if not current:
-            current = self._db.add_object("dir", name=name, parent=parent._beacon_id)
-            self._db.commit()
+    @kaa.notifier.yield_execution()
+    def _db_query_dir(self, parent):
+        """
+        A query to get all files in a directory. The parameter parent is a
+        directort object.
+        """
+        if parent._beacon_islink:
+            # WARNING: parent is a link, we need to follow it
+            dirname = os.path.realpath(parent.filename)
+            parent = self._db_query_filename(dirname)
+            if not parent._beacon_isdir:
+                # oops, this is not directory anymore, return nothing
+                yield []
         else:
-            current = current[0]
-        return create_dir(current, parent)
+            dirname = parent.filename[:-1]
 
+        listing = parent._beacon_listdir(async=self.client)
+        
+        if isinstance(listing, kaa.notifier.InProgress):
+            # oops, something takes more time than we had in mind,
+            callback = kaa.notifier.YieldCallback()
+            listing.connect(callback)
+            yield callback
+            # when we reach this point, we can continue
+            listing = callback.get()
+
+        items = []
+        if parent._beacon_id:
+            # XXX: This loop is a performance hotspot, accounting for nearly
+            # 70% of execution time in this function.  The time in this loop
+            # is comprised of about 60-70% for the db query, and the rest in
+            # File/Directory object creation.  Of the query itself, 70% of
+            # that time is spent normalizing the query results.  So if
+            # normalization can be deferred, we can get results to the
+            # caller .7*.7*.7 =~ 35% faster.
+            for i in self._db.query(parent = parent._beacon_id):
+                if i['type'] == 'dir':
+                    items.append(create_dir(i, parent))
+                else:
+                    items.append(create_file(i, parent))
+
+        # sort items based on name. The listdir is also sorted by name,
+        # that makes checking much faster
+        items.sort(lambda x,y: cmp(x._beacon_name, y._beacon_name))
+
+        # TODO: use parent mtime to check if an update is needed. Maybe call
+        # it scan time or something like that. Also make it an option so the
+        # user can turn the feature off.
+
+        # XXX: Most of the remaining time for this function is in this loop.
+        # About 25%.  (Assuming stat results are cached by the filesystem so
+        # no disk access is needed.)
+        pos = -1
+
+        for pos, (f, fullname, overlay, stat_res) in enumerate(listing[0]):
+            isdir = stat.S_ISDIR(stat_res[stat.ST_MODE])
+            if pos == len(items):
+                # new file at the end
+                if isdir:
+                    if not overlay:
+                        items.append(create_dir(f, parent))
+                    continue
+                items.append(create_file(f, parent, overlay))
+                continue
+            while pos < len(items) and f > items[pos]._beacon_name:
+                # file deleted
+                i = items[pos]
+                items.remove(i)
+                if not self.client:
+                    # no client == server == write access
+                    # delete from database by adding it to the internal changes
+                    # list. It will be deleted right before the next commit.
+                    self.changes.append(('delete', i, {}))
+                # delete
+            if pos < len(items) and f == items[pos]._beacon_name:
+                # same file
+                continue
+            # new file
+            if isdir:
+                if not overlay:
+                    items.insert(pos, create_dir(f, parent))
+                continue
+            items.insert(pos, create_file(f, parent, overlay))
+
+        if pos + 1 < len(items):
+            # deleted files at the end
+            if not self.client:
+                # no client == server == write access
+                for i in items[pos+1-len(items):]:
+                    self.changes.append(('delete', i, {}))
+            items = items[:pos+1-len(items)]
+
+        if self.changes:
+            # need commit because some items were deleted from the db
+            self.commit()
+
+        # no need to sort the items again, they are already sorted based
+        # on name, let us keep it that way. And name is unique in a directory.
+        # items.sort(lambda x,y: cmp(x.url, y.url))
+        yield items
+
+
+    @kaa.notifier.yield_execution()
+    def _db_query_dir_recursive(self, parent):
+        """
+        Return all files in the directory 'parent' including files in
+        subdirectories (and so on). The directories itself will not be
+        returned. If a subdir is a softlink, it will be skipped. This
+        query does not check if the files are still there and if the
+        database list is up to date.
+        """
+        if parent._beacon_islink:
+            # WARNING: parent is a link, we need to follow it
+            dirname = os.path.realpath(parent.filename)
+            parent = self._db_query_filename(dirname)
+            if not parent._beacon_isdir:
+                # oops, this is not directory anymore, return nothing
+                yield []
+        else:
+            dirname = parent.filename[:-1]
+
+        async = False
+        if self.client:
+            async = True
+            timer = time.time()
+
+        items = []
+        # A list of all directories we will look at. If a link is in the
+        # directory it will be ignored.
+        directories = [ parent ]
+        while directories:
+            parent = directories.pop(0)
+            if not parent._beacon_id:
+                continue
+            for i in self._db.query(parent = parent._beacon_id):
+                if i['type'] == 'dir':
+                    child = create_dir(i, parent)
+                    if not child._beacon_islink:
+                        directories.append(child)
+                else:
+                    items.append(create_file(i, parent))
+            if async and time.time() > timer + 0.1:
+                # we are in async mode and already use too much time.
+                # call yield YieldContinue at this point to continue
+                # later.
+                timer = time.time()
+                yield kaa.notifier.YieldContinue
+
+        # sort items based on name. The listdir is also sorted by name,
+        # that makes checking much faster
+        items.sort(lambda x,y: cmp(x._beacon_name, y._beacon_name))
+        yield items
+
+
+    def _db_query_filename(self, filename):
+        """
+        Return item for filename, can't be in overlay
+        """
+        dirname = os.path.dirname(filename)
+        basename = os.path.basename(filename)
+        # find correct mountpoint
+        for m in self._mountpoints:
+            if dirname.startswith(m.directory):
+                break
+        else:
+            raise AttributeError('mountpoint not found')
+        parent = self._get_dir(dirname, m)
+        if parent._beacon_id:
+            # parent is a valid db item, query
+            e = self._db.query(parent=parent._beacon_id, name=basename)
+            if e:
+                # entry is in the db
+                basename = e[0]
+        if os.path.isdir(filename):
+            return create_dir(basename, parent)
+        return create_file(basename, parent)
+
+
+    def _db_query_id(self, (type, id), cache=None):
+        """
+        Return item based on (type,id). Use given cache if provided.
+        """
+        i = self._db.query(type=type, id=id)[0]
+        # now we need a parent
+        if i['name'] == '':
+            # root node found, find correct mountpoint
+            for m in self._mountpoints:
+                if m.id == i['parent']:
+                    break
+            else:
+                raise AttributeError('bad media %s' % str(i['parent']))
+            return create_dir(i, m)
+
+        # query for parent
+        pid = i['parent']
+        if cache is not None and pid in cache:
+            parent = cache[pid]
+        else:
+            parent = self._db_query_id(pid)
+            if cache is not None:
+                cache[pid] = parent
+
+        if i['type'] == 'dir':
+            # it is a directory, make a dir item
+            return create_dir(i, parent)
+        if parent._beacon_isdir:
+            # parent is dir, this item is not
+            return create_file(i, parent)
+        # neither dir nor file, something else
+        return create_item(i, parent)
+
+
+    def _db_query_attr(self, query):
+        """
+        A query to get a list of possible values of one attribute. Special
+        keyword 'attr' the query is used for that. This query will not return
+        a list of items.
+        """
+        attr = query['attr']
+        del query['attr']
+
+        result = self._db.query_raw(attrs=[attr], distinct=True, **query)[1]
+        result = [ x[1] for x in result if x[1] ]
+
+        # sort results and return
+        result.sort()
+        return result
+
+
+    @kaa.notifier.yield_execution()
+    def _db_query_raw(self, query):
+        """
+        Do a 'raw' query. This means to query the database and create
+        a list of items from the result. The items will have a complete
+        parent structure. For files / directories this function won't check
+        if they are still there.
+        """
+        result = []
+        cache = {}
+        counter = 0
+        timer = time.time()
+
+        for r in self._db.query(**query):
+
+            # get parent
+            pid = r['parent']
+            if pid in cache:
+                parent = cache[pid]
+            else:
+                parent = self._db_query_id(pid, cache)
+                cache[pid] = parent
+
+            # create item
+            if r['type'] == 'dir':
+                # it is a directory, make a dir item
+                result.append(create_dir(r, parent))
+            elif parent._beacon_isdir:
+                # parent is dir, this item is not
+                result.append(create_file(r, parent))
+            else:
+                # neither dir nor file, something else
+                result.append(create_item(r, parent))
+
+            counter += 1
+            if self.client and not counter % 50 and time.time() > timer + 0.05:
+                # we are in async mode and already use too much time.
+                # call yield YieldContinue at this point to continue
+                # later.
+                timer = time.time()
+                yield kaa.notifier.YieldContinue
+
+        # sort results by url (name is not unique) and return
+        result.sort(lambda x,y: cmp(x.url, y.url))
+        yield result
+
+        
+    # -------------------------------------------------------------------------
+    # Database access
+    #
+    # The database functions are only called for the server.
+    # (Except get_db_info which is only for debugging)
+    # -------------------------------------------------------------------------
 
     def commit(self, force=False):
         """
         Commit changes to the database. All changes in the internal list
         are done first.
         """
-        if not self.changes and not force:
+        if self.client or (not self.changes and not force):
             return
 
         # Before we start with the commit, we make sure that all items we want
         # to add are not in the db already.
         for pos, (function, arg1, kwargs) in enumerate(self.changes):
-            if not function == 'add' or not 'parent' in kwargs or not 'name' in kwargs:
+            if not function == 'add' or not 'parent' in kwargs or \
+                   not 'name' in kwargs:
                 continue
             # check the db
-            result = self._db.query(name=kwargs['name'], parent=kwargs['parent'])
+            result = self._db.query(name=kwargs['name'],
+                                    parent=kwargs['parent'])
             if not result:
                 continue
             # change 'add' to 'update'
@@ -275,286 +586,29 @@ class Database(object):
         self.signals['changed'].emit(changed_id)
 
 
-    def _delete(self, entry):
-        """
-        Delete item with the given id from the db and all items with that
-        items as parent (and so on). To avoid internal problems, make sure
-        commit is called just after this function is called.
-        """
-        log.info('delete %s', entry)
-        if isinstance(entry, Item):
-            entry = entry._beacon_id
-        deleted = [ entry ]
-        for child in self._db.query(parent = entry):
-            deleted.extend(self._delete((child['type'], child['id'])))
-        self._db.delete_object(entry)
-        return deleted
-
-
-    def _query_dir(self, parent):
-        """
-        A query to get all files in a directory. The parameter parent is a
-        directort object.
-        """
-        if parent._beacon_islink:
-            # WARNING: parent is a link, we need to follow it
-            dirname = os.path.realpath(parent.filename)
-            parent = self._query_filename(dirname)
-            if not parent._beacon_isdir:
-                # oops, this is not directory anymore, return nothing
-                return []
-        else:
-            dirname = parent.filename[:-1]
-        items = []
-        if parent._beacon_id:
-            # XXX: This loop is a performance hotspot, accounting for nearly
-            # 70% of execution time in this function.  The time in this loop
-            # is comprised of about 60-70% for the db query, and the rest in
-            # File/Directory object creation.  Of the query itself, 70% of
-            # that time is spent normalizing the query results.  So if
-            # normalization can be deferred, we can get results to the
-            # caller .7*.7*.7 =~ 35% faster.  
-            for i in self._db.query(parent = parent._beacon_id):
-                if i['type'] == 'dir':
-                    items.append(create_dir(i, parent))
-                else:
-                    items.append(create_file(i, parent))
-        # sort items based on name. The listdir is also sorted by name,
-        # that makes checking much faster
-        items.sort(lambda x,y: cmp(x._beacon_name, y._beacon_name))
-
-        # TODO: this could block for cdrom drives and network filesystems. Maybe
-        # put the listdir in a thread
-
-        # TODO: use parent mtime to check if an update is needed. Maybe call
-        # it scan time or something like that. Also make it an option so the
-        # user can turn the feature off.
-
-        # XXX: Most of the remaining time for this function is in this loop.
-        # About 25%.  (Assuming stat results are cached by the filesystem so
-        # no disk access is needed.)
-        pos = -1
-
-        for pos, (f, fullname, overlay, stat_res) in enumerate(parent._beacon_listdir()[0]):
-            isdir = stat.S_ISDIR(stat_res[stat.ST_MODE])
-            if pos == len(items):
-                # new file at the end
-                if isdir:
-                    if not overlay:
-                        items.append(create_dir(f, parent))
-                    continue
-                items.append(create_file(f, parent, overlay))
-                continue
-            while pos < len(items) and f > items[pos]._beacon_name:
-                # file deleted
-                i = items[pos]
-                items.remove(i)
-                if not self.client:
-                    # no client == server == write access
-                    # delete from database by adding it to the internal changes
-                    # list. It will be deleted right before the next commit.
-                    self.changes.append(('delete', i, {}))
-                # delete
-            if pos < len(items) and f == items[pos]._beacon_name:
-                # same file
-                continue
-            # new file
-            if isdir:
-                if not overlay:
-                    items.insert(pos, create_dir(f, parent))
-                continue
-            items.insert(pos, create_file(f, parent, overlay))
-
-        if pos + 1 < len(items):
-            # deleted files at the end
-            if not self.client:
-                # no client == server == write access
-                for i in items[pos+1-len(items):]:
-                    self.changes.append(('delete', i, {}))
-            items = items[:pos+1-len(items)]
-
-        if self.changes:
-            # need commit because some items were deleted from the db
-            self.commit()
-
-        # no need to sort the items again, they are already sorted based
-        # on name, let us keep it that way. And name is unique in a directory.
-        # items.sort(lambda x,y: cmp(x.url, y.url))
-        return items
-
-
-    def _query_filename(self, filename):
-        """
-        Return item for filename, can't be in overlay
-        """
-        dirname = os.path.dirname(filename)
-        basename = os.path.basename(filename)
-        # find correct mountpoint
-        for m in self._mountpoints:
-            if dirname.startswith(m.directory):
-                break
-        parent = self._get_dir(dirname, m)
-        if parent._beacon_id:
-            # parent is a valid db item, query
-            e = self._db.query(parent=parent._beacon_id, name=basename)
-            if e:
-                # entry is in the db
-                basename = e[0]
-        if os.path.isdir(filename):
-            return create_dir(basename, parent)
-        return create_file(basename, parent)
-
-
-    def _query_id(self, (type, id), cache=None):
-        """
-        Return item based on (type,id). Use given cache if provided.
-        """
-        i = self._db.query(type=type, id=id)[0]
-        # now we need a parent
-        if i['name'] == '':
-            # root node found, find correct mountpoint
-            for m in self._mountpoints:
-                if m.id == i['parent']:
-                    break
-            else:
-                raise AttributeError('bad media %s' % str(i['parent']))
-            return create_dir(i, m)
-
-        # query for parent
-        pid = i['parent']
-        if cache is not None and pid in cache:
-            parent = cache[pid]
-        else:
-            parent = self._query_id(pid)
-            if cache is not None:
-                cache[pid] = parent
-                
-        if i['type'] == 'dir':
-            # it is a directory, make a dir item
-            return create_dir(i, parent)
-        if parent._beacon_isdir:
-            # parent is dir, this item is not
-            return create_file(i, parent)
-        # neither dir nor file, something else
-        return create_item(i, parent)
-
-
-    def _query_parent(self, parent):
-        """
-        Return all items for the given parent object.
-        """
-        if parent._beacon_isdir:
-            return self._query_dir(parent)
-        raise AttributeError('oops, fix me')
-    
-
-    def _query_attr(self, query):
-        """
-        A query to get a list of possible values of one attribute. Special
-        keyword 'attr' the query is used for that. This query will not return
-        a list of items.
-        """
-        attr = query['attr']
-        del query['attr']
-
-        result = self._db.query_raw(attrs=[attr], distinct=True, **query)[1]
-        result = [ x[1] for x in result if x[1] ]
-
-        # sort results and return
-        result.sort()
-        return result
-
-    
-    def query(self, **query):
-        """
-        Main query function.
-        """
-        # make sure db is ok
-        self.commit()
-
-        # do query based on type
-        if 'filename' in query and len(query) == 1:
-            return self._query_filename(query['filename'])
-        if 'id' in query and len(query) == 1:
-            return self._query_id(query['id'])
-        if 'parent' in query and len(query) == 1:
-            return self._query_parent(query['parent'])
-        if 'attr' in query:
-            return self._query_attr(query)
-        if 'type' in query and query['type'] == 'media':
-            m = self._db.query(**query)
-            if m:
-                return m[0]
-            return None
-        
-        # 'raw' query
-        result = []
-        cache = {}
-        for r in self._db.query(**query):
-
-            # get parent
-            pid = r['parent']
-            if pid in cache:
-                parent = cache[pid]
-            else:
-                parent = self._query_id(pid, cache)
-                cache[pid] = parent
-
-            # create item
-            if r['type'] == 'dir':
-                # it is a directory, make a dir item
-                result.append(create_dir(r, parent))
-            elif parent._beacon_isdir:
-                # parent is dir, this item is not
-                result.append(create_file(r, parent))
-            else:
-                # neither dir nor file, something else
-                result.append(create_item(r, parent))
-
-        # sort results by url (name is not unique) and return
-        result.sort(lambda x,y: cmp(x.url, y.url))
-        return result
-
-#         if 'device' in kwargs:
-#             # A query to monitor a media (mountpoint). Special keyword 'media' in
-#             # the query is used for that.
-#             for m in self._mountpoints:
-#                 if m.device == kwargs['device']:
-#                     return m
-#             raise AttributeError('Unknown device' % kwargs['device'])
-#         return self._db.query(*args, **kwargs)
-
-
-    def query_raw(self, *args, **kwargs):
-        """
-        Query kaa.db database object directly.
-        """
-        self.commit()
-        return self._db.query(*args, **kwargs)
-    
-
     def get_object(self, name, parent):
         """
         Get the object with the given type, name and parent. This function will
         look at the pending commits and also in the database.
         """
         for func, type, kwargs  in self.changes:
-            if func == 'add' and 'name' in kwargs and kwargs['name'] == name and \
-                   'parent' in kwargs and kwargs['parent'] == parent:
+            if func == 'add' and 'name' in kwargs and kwargs['name'] == name \
+                   and 'parent' in kwargs and kwargs['parent'] == parent:
                 self.commit()
                 break
         result = self._db.query(name=name, parent=parent)
         if result:
             return result[0]
         return None
-        
-            
-    def add_object(self, type, metadata=None, beacon_immediately=False, **kwargs):
+
+
+    def add_object(self, type, metadata=None, beacon_immediately=False,
+                   **kwargs):
         """
-        Add an object to the db. If the keyword 'beacon_immediately' is set, the
-        object will be added now and the db will be locked until the next commit.
-        To avoid locking, do not se the keyword, but this means that a requery on
-        the object won't find it before the next commit.
+        Add an object to the db. If the keyword 'beacon_immediately' is set,
+        the object will be added now and the db will be locked until the next
+        commit. To avoid locking, do not se the keyword, but this means that a
+        requery on the object won't find it before the next commit.
         """
         if metadata:
             for key in self._db._object_types[type][1].keys():
@@ -569,13 +623,13 @@ class Database(object):
             self.commit()
 
 
-    def update_object(self, (type, id), metadata=None, beacon_immediately=False,
-                      **kwargs):
+    def update_object(self, (type, id), metadata=None,
+                      beacon_immediately=False, **kwargs):
         """
-        Update an object to the db. If the keyword 'beacon_immediately' is set, the
-        object will be updated now and the db will be locked until the next commit.
-        To avoid locking, do not se the keyword, but this means that a requery on
-        the object will return the old values.
+        Update an object to the db. If the keyword 'beacon_immediately' is set,
+        the object will be updated now and the db will be locked until the next
+        commit. To avoid locking, do not se the keyword, but this means that a
+        requery on the object will return the old values.
         """
         if metadata:
             for key in self._db._object_types[type][1].keys():
@@ -608,27 +662,28 @@ class Database(object):
         # move all children to new parent
         for child in self._db.query(parent=(type, id)):
             log.warning('untested code: mode parent for %s' % child)
-            self._db.update_object((child['type'], child['id']), parent=new_beacon_id)
+            id = (child['type'], child['id'])
+            self._db.update_object(id, parent=new_beacon_id)
 
         # delete old and sync the db again
         self.delete_object((type, id))
         self.commit()
         return metadata
 
-    
+
     def delete_object(self, (type, id), beacon_immediately=False):
         self.changes.append(('delete', (type, id), {}))
         if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
             self.commit()
-            
-                      
+
+
     def object_types(self):
         """
         Return the list of object types
         """
         return self._db._object_types
 
-        
+
     def register_object_type_attrs(self, type, *args, **kwargs):
         """
         Register a new object with attributes. Special keywords like name and
@@ -641,14 +696,71 @@ class Database(object):
         if not type.startswith('track_'):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
         indices = [("name", "parent_type", "parent_id")]
-        return self._db.register_object_type_attrs(type, indices, *args, **kwargs)
+        return self._db.register_object_type_attrs(type, indices, *args,
+                                                   **kwargs)
 
 
     def get_db_info(self):
         """
-        Returns information about the database.  Look at 
+        Returns information about the database.  Look at
         kaa.db.Database.get_db_info() for more details.
         """
-        info = self._db.get_db_info()
-        # Anything else we want to add?
-        return info
+        return self._db.get_db_info()
+
+
+    # -------------------------------------------------------------------------
+    # Internal functions
+    # -------------------------------------------------------------------------
+
+    def _get_dir(self, dirname, media):
+        """
+        Get database entry for the given directory. Called recursive to
+        find the current entry. Do not cache results, they could change.
+        """
+        if not media:
+            # Unknown media and looks like we are read only.
+            # Return None, if the media is not known, the dir also won't
+            # Note: this should never happen
+            log.error('no media set, this should never happen')
+            return None
+        if dirname == media.directory:
+            # we know that '/' is in the db
+            current = self._db.query(type="dir", name='', parent=media.id)[0]
+            return create_dir(current, media)
+
+        parent = self._get_dir(os.path.dirname(dirname), media)
+        name = os.path.basename(dirname)
+
+        if not parent._beacon_id:
+            return create_dir(name, parent)
+
+        current = self._db.query(type="dir", name=name,
+                                 parent=parent._beacon_id)
+        if not current and self.client:
+            return create_dir(name, parent)
+
+        if not current:
+            current = self._db.add_object("dir", name=name,
+                                          parent=parent._beacon_id)
+            self._db.commit()
+        else:
+            current = current[0]
+        return create_dir(current, parent)
+
+
+    def _delete(self, entry):
+        """
+        Delete item with the given id from the db and all items with that
+        items as parent (and so on). To avoid internal problems, make sure
+        commit is called just after this function is called.
+        """
+        log.info('delete %s', entry)
+        if isinstance(entry, Item):
+            entry = entry._beacon_id
+        deleted = [ entry ]
+        for child in self._db.query(parent = entry):
+            deleted.extend(self._delete((child['type'], child['id'])))
+        self._db.delete_object(entry)
+        return deleted
+
+

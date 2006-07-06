@@ -34,6 +34,7 @@ import logging
 
 # kaa imports
 from kaa.strutils import str_to_unicode
+import kaa.notifier
 
 # kaa.beacon imports
 from thumbnail import Thumbnail
@@ -50,6 +51,7 @@ class Item(object):
     getattr:  function to get an attribute
     setattr:  function to set an attribute
     keys:     function to return all known attributes of the item
+    scanned:  returns True if the item is scanned
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
@@ -68,60 +70,11 @@ class Item(object):
         self._beacon_name = data['name']
 
 
-    def _beacon_database_update(self, data):
-        """
-        Callback from db with new data
-        """
-        self._beacon_data = data
-        self._beacon_id = (data['type'], data['id'])
-        for key, value in self._beacon_changes.items():
-            self._beacon_data[key] = value
+    # -------------------------------------------------------------------------
+    # Public API for the client
+    # -------------------------------------------------------------------------
 
-
-    def _beacon_db(self):
-        """
-        Get the database connection (the client)
-        """
-        return self._beacon_media.client
-
-
-    def _beacon_mtime(self):
-        """
-        Return modification time of the item itself.
-        """
-        return None
-
-
-    def _beacon_changed(self):
-        """
-        Return if the item is changed (based on modification time of
-        the data and in the database).
-        """
-        return self._beacon_mtime() != self._beacon_data['mtime']
-
-
-    def _beacon_request(self):
-        """
-        Request the item to be scanned.
-        """
-        pass
-
-
-    def _beacon_tree(self):
-        """
-        Return an iterator to walk through the parents.
-        """
-        return ParentIterator(self)
-
-
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        return '<beacon.Item %s>' % self.url
-
-
-    def getattr(self, key, request=True):
+    def getattr(self, key, request=False):
         """
         Interface to kaa.beacon. Return the value of a given attribute. If
         the attribute is not in the db, return None. If the key starts with
@@ -129,6 +82,7 @@ class Item(object):
         the db. Loosing the item object will remove that attribute. If
         request is True, scan the item if it is not in the db. If request is
         False and the item is not in the db, results will be very limited.
+        When request is True this function may call kaa.notifier.step()
         """
         if key.startswith('tmp:'):
             return self._beacon_tmpdata[key[4:]]
@@ -162,29 +116,26 @@ class Item(object):
         if request and not self._beacon_id:
             log.info('requesting data for %s', self)
             self._beacon_request()
+            while not self._beacon_id:
+                kaa.notifier.step()
 
         if self._beacon_data.has_key(key):
             return self._beacon_data[key]
         return None
 
 
-    def setattr(self, key, value, request=True):
+    def setattr(self, key, value):
         """
         Interface to kaa.beacon. Set the value of a given attribute. If the key
         starts with 'tmp:', the data will only be valid in this item and not
-        stored in the db. Loosing the item object will remove that attribute. If
-        request is True, scan the item if it is not in the db. If request is
-        False and the item is not in the db, the value may be lost.
+        stored in the db. Loosing the item object will remove that attribute.
         """
         if key.startswith('tmp:'):
             self._beacon_tmpdata[key[4:]] = value
             return
-        if not self._beacon_id:
-            log.info('requesting data for %s', self)
-            self._beacon_request()
         self._beacon_data[key] = value
-        if not self._beacon_changes and self._beacon_id:
-            self._beacon_db().update(self)
+        if not self._beacon_changes:
+            self._beacon_db()._beacon_update(self)
         self._beacon_changes[key] = value
 
 
@@ -193,6 +144,80 @@ class Item(object):
         Interface to kaa.beacon. Return all attributes of the item.
         """
         return self._beacon_data.keys() + self._beacon_tmpdata.keys()
+
+
+    def scanned(self):
+        """
+        Return True if the item is in the database and fully scanned.
+        """
+        return self._beacon_id is not None
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for client and server
+    # -------------------------------------------------------------------------
+
+    def _beacon_database_update(self, data, callback=None, *args, **kwargs):
+        """
+        Callback from db with new data
+        """
+        self._beacon_data = data
+        self._beacon_id = (data['type'], data['id'])
+        for key, value in self._beacon_changes.items():
+            self._beacon_data[key] = value
+        if callback:
+            callback(*args, **kwargs)
+
+
+    def __repr__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        return '<beacon.Item %s>' % self.url
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for client
+    # -------------------------------------------------------------------------
+
+    def _beacon_db(self):
+        """
+        Get the database connection (the client)
+        """
+        return self._beacon_media.client
+
+
+    def _beacon_request(self):
+        """
+        Request the item to be scanned.
+        """
+        return None
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for server
+    # -------------------------------------------------------------------------
+
+    def _beacon_mtime(self):
+        """
+        Return modification time of the item itself.
+        """
+        return None
+
+
+    def _beacon_changed(self):
+        """
+        Return if the item is changed (based on modification time of
+        the data and in the database).
+        """
+        return self._beacon_mtime() != self._beacon_data['mtime']
+
+
+    def _beacon_tree(self):
+        """
+        Return an iterator to walk through the parents.
+        """
+        return ParentIterator(self)
 
 
 class ParentIterator(object):

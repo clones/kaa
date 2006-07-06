@@ -36,7 +36,7 @@ import sys
 import logging
 
 # kaa imports
-import kaa.ipc
+import kaa.rpc
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Timer, Callback
 
@@ -57,17 +57,16 @@ class Server(object):
     def __init__(self, dbdir):
         log.info('start beacon')
         try:
-            self.ipc = kaa.ipc.IPCServer('beacon')
+            self.ipc = kaa.rpc.Server('beacon')
         except IOError, e:
             kaa.beacon.thumbnail.thumbnail.disconnect()
             log.error('beacon: %s' % e)
             time.sleep(0.1)
             sys.exit(0)
 
-        self.ipc.register_object(self, 'beacon')
-        self.ipc.register_object(Callback(sys.exit, 0), 'shutdown')
-        self.ipc.signals["client_closed"].connect(self.disconnect)
-
+        self.ipc.signals['client_connected'].connect(self.client_connect)
+        self.ipc.connect(self)
+        
         self._dbdir = dbdir
         self._db = Database(dbdir, None)
         self._next_client = 0
@@ -125,33 +124,24 @@ class Server(object):
         self._db.commit()
 
 
-    def get_database(self):
-        """
-        Return the database directory of the server.
-        """
-        return self._dbdir
-
-    
-    def connect(self, client):
+    def client_connect(self, client):
         """
         Connect a new client to the server.
         """
+        client.signals['closed'].connect(self.client_disconnect, client)
         self._next_client += 1
-        self._clients.append((self._next_client, client, client.notify, []))
-        for type, device, directory, name in self._db.get_mountpoints():
-            client.database.add_mountpoint(type, device, directory)
-            client.database.set_mountpoint(directory, name)
-        return self._next_client
+        self._clients.append((self._next_client, client, []))
+        client.rpc('connect')(self._next_client, self._dbdir, self._db.get_mountpoints())
 
 
-    def disconnect(self, client):
+    def client_disconnect(self, client):
         """
         IPC callback when a client is lost.
         """
         for client_info in self._clients[:]:
-            if kaa.ipc.get_ipc_from_proxy(client_info[1]) == client:
-                log.warning('disconnect client')
-                for m in client_info[3]:
+            if client == client_info[1]:
+                log.info('disconnect client')
+                for m in client_info[2]:
                     m.stop()
                 self._clients.remove(client_info)
 
@@ -170,7 +160,6 @@ class Server(object):
         """
         Timer callback for autoshutdown.
         """
-        print self._autoshutdown_timer
         if len(self._clients) > 0:
             self._autoshutdown_timer = timeout
             return True
@@ -199,6 +188,8 @@ class Server(object):
 
     def monitor_dir(self, directory):
         """
+        Monitor a directory in the background. One directories with a monitor
+        running will update running query monitors.
         """
         self._db.commit()
         data = self._db.query(filename=directory)
@@ -213,55 +204,60 @@ class Server(object):
         data._beacon_media.monitor(data)
         
         
-    def monitor(self, client_id, request_id, query):
+    @kaa.rpc.expose('monitor.add')
+    def monitor_add(self, client_id, request_id, query):
         """
         Create a monitor object to monitor a query for a client.
         """
+        log.info('add monitor %s', query)
         if query and 'parent' in query:
             type, id = query['parent']
             query['parent'] = self._db.query(type=type, id=id)[0]
 
-        for id, client, callback, monitors in self._clients:
+        for id, client, monitors in self._clients:
             if id == client_id:
                 break
         else:
             raise AttributeError('Unknown client id %s', client_id)
-        if not query:
-            log.debug('remove monitor')
-            for m in monitors:
-                if m.id == request_id:
-                    m.stop()
-                    monitors.remove(m)
-                    return None
-            log.error('unable to find monitor %s:%s', client_id, request_id)
-            return None
-            
-        m = Monitor(callback, self._db, self, request_id, query)
+        m = Monitor(client, self._db, self, request_id, query)
         monitors.append(m)
-        return None
+    
+
+    @kaa.rpc.expose('monitor.remove')
+    def monitor_remove(self, client_id, request_id):
+        """
+        Create a monitor object to monitor a query for a client.
+        """
+        log.info('remove monitor %s', client_id)
+        for id, client, monitors in self._clients:
+            if id == client_id:
+                break
+        else:
+            raise AttributeError('Unknown client id %s', client_id)
+        log.debug('remove monitor')
+        for m in monitors:
+            if m.id == request_id:
+                m.stop()
+                monitors.remove(m)
+                return None
+        log.error('unable to find monitor %s:%s', client_id, request_id)
     
 
     def add_mountpoint(self, type, device, directory):
         """
         Add a mountpoint to the system.
         """
-        if self._db.add_mountpoint(type, device, directory):
-            for id, client, notification, monitors in self._clients:
-                client.database.add_mountpoint(type, device, directory,
-                                               __ipc_oneway=True)
+        self._db.add_mountpoint(type, device, directory)
 
 
     def set_mountpoint(self, directory, name):
         """
         Set mountpoint to the given name (e.g. load media)
         """
-        if self._db.set_mountpoint(directory, name):
-            for id, client, notification, monitors in self._clients:
-                client.database.set_mountpoint(directory, name)
-            return True
-        return False
+        self._db.set_mountpoint(directory, name)
 
         
+    @kaa.rpc.expose('item.update')
     def update(self, items):
         """
         Update items from the client.
@@ -271,6 +267,7 @@ class Server(object):
         self._db.commit()
 
         
+    @kaa.rpc.expose('item.request')
     def request(self, filename):
         self._db.commit()
         data = self._db.query(filename=filename)
@@ -285,8 +282,6 @@ class Server(object):
         return data._beacon_data
 
     
-    def __del__(self):
-        """
-        Debug in __del__.
-        """
-        return 'del', self
+    @kaa.rpc.expose('beacon.shutdown')
+    def shutdown(self):
+        sys.exit(0)

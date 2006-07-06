@@ -41,7 +41,7 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.ipc
+import kaa.rpc
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Signal
 
@@ -53,22 +53,10 @@ from query import Query
 log = logging.getLogger('beacon')
 
 DISCONNECTED = 'disconnected'
+CONNECTING   = 'connecting'
 CONNECTED    = 'connected'
 SHUTDOWN     = 'shutdown'
 
-class ServerIPC(object):
-    def __init__(self):
-        self.connection = kaa.ipc.IPCClient('beacon')
-        self.signals = self.connection.signals
-        self.server = self.connection.get_object('beacon')
-        self.monitor = self.server.monitor
-
-    def __getattr__(self, attr):
-        return getattr(self.server, attr)
-
-    def is_alive(self):
-        return kaa.ipc.is_proxy_alive(self.server)
-        
 class Client(object):
     """
     Beacon client. This client uses the db read only and needs a server on
@@ -78,10 +66,10 @@ class Client(object):
         self.database = None
 
         self.signals = {
-            'connect': Signal(),
+            'connect'   : Signal(),
             'disconnect': Signal()
-            }
-        
+        }
+
         # internal list of active queries
         self._queries = []
         # internal list of items to update
@@ -91,6 +79,31 @@ class Client(object):
         self.status = DISCONNECTED
         self._connect()
 
+
+    # -------------------------------------------------------------------------
+    # Public API
+    # -------------------------------------------------------------------------
+
+    def get(self, filename):
+        """
+        Return an object for the given filename.
+        """
+        filename = os.path.realpath(filename)
+        return Query(self, filename=filename).get()
+
+
+    def query(self, **query):
+        """
+        Query the database.
+        """
+        result = Query(self, **query)
+        self._queries.append(weakref(result))
+        return result
+
+
+    # -------------------------------------------------------------------------
+    # Server connect / disconnect / reconnect handling
+    # -------------------------------------------------------------------------
 
     def _connect(self):
         """
@@ -102,15 +115,12 @@ class Client(object):
             return
 
         # monitor function from the server to start a new monitor for a query
-        self._server = ServerIPC()
-        self._server.signals["closed"].connect_once(self._disconnected)
-        # read only version of the database
-        if not self.database:
-            self.database = Database(self._server.get_database(), self)
-        # connect to server notifications
-        self.id = self._server.connect(self)
-        self.status = CONNECTED
-        self.signals['connect'].emit()
+        log.error('connecting')
+        server = kaa.rpc.Client('beacon')
+        server.signals["closed"].connect_once(self._disconnected)
+        server.connect(self)
+        self.rpc = server.rpc
+        self.status = CONNECTING
 
 
     def _disconnected(self):
@@ -126,21 +136,17 @@ class Client(object):
         """
         See if the socket with the server is still alive, otherwise reconnect.
         """
-        if self._server.is_alive():
-            # already alive again
-            return False
-
         # Got disconnected; reconnect.
         try:
             self._connect()
-        except kaa.ipc.IPCSocketError, (err, msg):
+        except Exception, e:
             # still dead
             return True
 
         # reset monitors to queries
         for query in self._queries:
             if query != None and query.monitoring:
-                self.monitor_query(query, True)
+                self._beacon_monitor_add(query)
 
         # FIXME: also set up all information in the database again, like
         # mountpoints and directories to monitor
@@ -157,60 +163,105 @@ class Client(object):
             if q:
                 q.monitoring = False
         self._queries = []
-        self._server = None
+        self.rpc = None
         self.database = None
-        
-        
-    def add_mountpoint(self, type, device, directory):
-        """
-        Add a mountpoint to the system.
-        """
-        if not self.status == CONNECTED:
-            return
-        self._server.add_mountpoint(type, device, directory)
 
 
-    def get(self, filename):
-        """
-        Return an object for the given filename.
-        """
-        filename = os.path.realpath(filename)
-        result = Query(self, filename=filename).result
-        return result
+    # -------------------------------------------------------------------------
+    # Internal API
+    # -------------------------------------------------------------------------
 
-
-    def query(self, **query):
-        result = Query(self, **query)
-        self._queries.append(weakref(result))
-        return result
-    
-
-    def monitor_query(self, query, status):
+    def _beacon_monitor_add(self, query):
         """
         Monitor a query
         """
         if not self.status == CONNECTED:
             return
-        q = None
-        if status:
-            q = copy.copy(query._query)
-            if 'parent' in q:
-                q['parent'] = q['parent']._beacon_id
+        q = copy.copy(query._query)
+        if 'parent' in q:
+            q['parent'] = q['parent']._beacon_id
+        self.rpc('monitor.add')(self.id, query.id, q)
 
-        self._server.monitor(self.id, query.id, q, __ipc_noproxy_args=True,
-                             __ipc_oneway=True)
-        
 
-    def _beacon_request(self, filename):
+    def _beacon_monitor_remove(self, query):
+        """
+        Monitor a query
+        """
+        if not self.status == CONNECTED:
+            return
+        self.rpc('monitor.remove')(self.id, query.id)
+
+
+    def _beacon_request(self, filename, callback, *args, **kwargs):
         """
         Request information about a filename.
         """
         if not self.status == CONNECTED:
-            return None
-        return self._server.request(filename, __ipc_noproxy_result=True,
-                                    __ipc_noproxy_args=True)
+            return False
+        self.rpc('item.request', callback, *args, **kwargs)(filename)
+        return True
 
 
+    def _beacon_update(self, item):
+        """
+        Update item in next main loop interation.
+        """
+        if not item._beacon_id:
+            # item has no beacon id, request the data before
+            # schedule the update
+            item._beacon_request(self._beacon_update, item)
+            return
+        if not self._changed:
+            # register timer to do the changes
+            OneShotTimer(self._beacon_update_all).start(0.1)
+        self._changed.append(item)
+
+
+    def _beacon_update_all(self, item=None):
+        """
+        Update all items waiting.
+        """
+        if not self.status == CONNECTED:
+            return
+        # do the update now
+        items = []
+        for i in self._changed:
+            id = i._beacon_id
+            if not id:
+                # FIXME: How to update an item not in the db? Right now we
+                # can't do that and will drop the item.
+                continue
+            items.append((id, i._beacon_changes))
+            i._beacon_changes = {}
+        self._changed = []
+        self.rpc('item.update')(items)
+
+
+    def __repr__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        return '<beacon.Client>'
+
+
+    # -------------------------------------------------------------------------
+    # Server callbacks
+    # -------------------------------------------------------------------------
+
+    @kaa.rpc.expose('connect')
+    def _connected(self, id, database, mountpoints):
+        # read only version of the database
+        self.database = Database(database, self)
+        # connect to server notifications
+        self.id = id
+        self.status = CONNECTED
+        for type, device, directory, name in mountpoints:
+            self.database.add_mountpoint(type, device, directory)
+            self.database.set_mountpoint(directory, name)
+        self.signals['connect'].emit()
+
+
+    @kaa.rpc.expose('notify')
     def notify(self, id, msg, *args, **kwargs):
         """
         Internal notification callback from the server. The Monitor does not
@@ -222,51 +273,10 @@ class Client(object):
             if query == None:
                 self._queries.remove(query)
                 continue
-            if query.id == id:
-                if hasattr(query, '_beacon_%s' % msg):
-                    getattr(query, '_beacon_%s' % msg)(*args, **kwargs)
-                    return
-                
-                log.error('Error: unknown message from server: %s' % msg)
-                return
-
-
-    def update(self, item=None):
-        """
-        Update item in next main loop interation.
-        """
-        if not self.status == CONNECTED:
+            if not query.id == id:
+                continue
+            callback = getattr(query, '_beacon_callback_%s' % msg, None)
+            if callback:
+                return callback(*args, **kwargs)
+            log.error('Error: unknown message from server: %s' % msg)
             return
-        if not item:
-            # do the update now
-            items = []
-            for i in self._changed:
-                id = i._beacon_id
-                if not id:
-                    # FIXME: How to update an item not in the db? Right now we
-                    # can't do that and will drop the item.
-                    continue
-                items.append((id, i._beacon_changes))
-                i._beacon_changes = {}
-            self._changed = []
-            self._server.update(items, __ipc_oneway=True, __ipc_noproxy_args=True)
-            return
-
-        if not self._changed:
-            # register timer to do the changes
-            OneShotTimer(self.update).start(0.1)
-        self._changed.append(item)
-
-        
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        return '<beacon.Client>'
-
-
-    def __del__(self):
-        """
-        Debug in __del__.
-        """
-        return 'del', self

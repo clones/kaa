@@ -46,12 +46,12 @@ from item import Item
 log = logging.getLogger('beacon.monitor')
 
 class Notification(object):
-    def __init__(self, remote, id):
-        self.remote = remote
+    def __init__(self, client, id):
+        self.remote = client.rpc('notify')
         self.id = id
 
     def __call__(self, *args, **kwargs):
-        self.remote(self.id, __ipc_oneway=True, __ipc_noproxy_args=True, *args, **kwargs)
+        self.remote(self.id, *args, **kwargs)
 
 
 class Master(object):
@@ -100,13 +100,13 @@ _master = None
 
 class Monitor(object):
     """
-    Monitor query for changes and call callback.
+    Monitor query for changes and call the client.
     """
-    def __init__(self, callback, db, server, id, query):
+    def __init__(self, client, db, server, id, query):
         global _master
-        log.debug('create new monitor %s' % id)
+        log.info('create new monitor %s' % id)
         self.id = id
-        self.callback = Notification(callback, self.id)
+        self.callback = Notification(client, self.id)
         self._server = server
         self._db = db
         self._query = query
@@ -251,6 +251,9 @@ class Monitor(object):
             self._checker.stop()
         self._checker = None
 
-
     def __repr__(self):
         return '<beacon.Monitor for %s>' % self._query
+
+
+    def __del__(self):
+        log.info('delete %s', self)

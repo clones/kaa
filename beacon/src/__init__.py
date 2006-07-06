@@ -31,10 +31,15 @@
 
 __all__ = [ 'connect', 'get', 'query', 'NORMAL', 'LARGE' ]
 
+# python imports
 import os
 import logging
 
-from client import Client
+# kaa imports
+import kaa.notifier
+
+# kaa.beacon imports
+from client import Client, CONNECTED
 import thumbnail
 from thumbnail import Thumbnail, NORMAL, LARGE
 
@@ -43,25 +48,34 @@ log = logging.getLogger('beacon')
 
 # connected client object
 _client = None
+# signals of the client, only valid after calling connect()
+signals = {}
 
 def connect():
     """
-    Connect to the beacon. A beacon server must be running.
+    Connect to the beacon. A beacon server must be running. This function will
+    raise an exception if the client is not connected and the server is not
+    running for a connect.
     """
     global _client
+    global signals
 
     if _client:
         return _client
 
     log.info('beacon connect')
-    thumbnail.connect()
     _client = Client()
+    thumbnail.connect()
+    signals = _client.signals
     return _client
 
 
 def get(filename):
     """
-    Get object for the given filename.
+    Get object for the given filename. This function will raise an exception if
+    the client is not connected and the server is not running for a connect.
+    If the client is still connecting or reconnecting, this function will block
+    using kaa.notifier.step.
     """
     if not _client:
         connect()
@@ -70,25 +84,21 @@ def get(filename):
 
 def query(**args):
     """
-    Query the database.
+    Query the database. This function will raise an exception if the
+    client is not connected and the server is not running for a connect.
     """
     if not _client:
         connect()
     return _client.query(**args)
 
 
-def add_mountpoint(type, device, directory):
-    """
-    Add a mountpoint for rom drives
-    """
-    if not _client:
-        connect()
-    return _client.add_mountpoint(type, device, directory)
-
 def get_db_info():
     """
-    Gets statistics about the database
+    Gets statistics about the database. This function will block using
+    kaa.notifier.step() until the client is connected.
     """
     if not _client:
         connect()
+    while not _client.status == CONNECTED:
+        kaa.notifier.step()
     return _client.database.get_db_info()

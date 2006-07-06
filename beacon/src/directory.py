@@ -35,6 +35,8 @@ import stat
 import time
 import logging
 
+import kaa.notifier
+
 # kaa.beacon imports
 from item import Item
 
@@ -54,6 +56,7 @@ class Directory(Item):
     getattr:  function to get an attribute
     setattr:  function to set an attribute
     keys:     function to return all known attributes of the item
+    scanned:  returns True if the item is scanned
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
@@ -86,8 +89,132 @@ class Directory(Item):
         Item.__init__(self, id, 'file://' + self.filename, data, parent, media)
         self._beacon_overlay = False
         self._beacon_isdir = True
-        self._beacon_ovdir = media.overlay + '/' + self.filename[len(media.directory):]
+        self._beacon_ovdir = media.overlay + '/' + \
+                             self.filename[len(media.directory):]
         self._beacon_listdir_cache = None
+
+
+    # -------------------------------------------------------------------------
+    # Public API
+    # -------------------------------------------------------------------------
+
+    def listdir(self, recursive=False):
+        """
+        Interface to kaa.beacon: List all files in the directory.
+        """
+        if recursive:
+            return self._beacon_db().query(parent=self, recursive=True)
+        return self._beacon_db().query(parent=self)
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for client and server
+    # -------------------------------------------------------------------------
+
+    @kaa.notifier.yield_execution()
+    def _beacon_listdir(self, cache=False, async=False):
+        """
+        Internal function to list all files in the directory and the overlay
+        directory. The result is a list of tuples:
+        basename, full filename, is_overlay, stat result
+        This function gets called by the client when doing a dirname query
+        and by the server for the query and inside the parser to get mtime
+        information. If async is True, this function may return an
+        InProgress object and not the results. In that case, connect to this
+        object to get the result later.
+        """
+        if self._beacon_listdir_cache and cache and \
+               self._beacon_listdir_cache[0] + 3 > time.time():
+            # use cached result if we have and caching time is less than
+            # three seconds ago
+            yield self._beacon_listdir_cache[1:]
+
+        try:
+            # Try to list the overlay directory
+            overlay_results = os.listdir(self._beacon_ovdir)
+        except OSError:
+            # No overlay
+            overlay_results = []
+
+        try:
+            # Try to list the directory. If that fails for some reason,
+            # return an empty list
+            fs_results = os.listdir(self.filename)
+        except OSError, e:
+            log.warning(e)
+            self._beacon_listdir_cache = time.time(), [], {}
+            yield [], {}
+
+        results_file_map = {}
+        counter = 0
+        timer = time.time()
+
+        for is_overlay, prefix, results in \
+                ((False, self.filename, fs_results),
+                 (True, self._beacon_ovdir, overlay_results)):
+            for r in results:
+                if (is_overlay and r in results_file_map) or r[0] == ".":
+                    continue
+                fullpath = prefix + r
+                try:
+                    # append stat information to every result
+                    statinfo = os.stat(fullpath)
+                    if is_overlay and stat.S_ISDIR(statinfo[stat.ST_MODE]):
+                        # dir in overlay, ignore
+                        log.warning('skip overlay dir %s' % r[1])
+                        continue
+                except (OSError, IOError), e:
+                    # unable to stat file, remove it from list
+                    log.error(e)
+                    continue
+
+                results_file_map[r] = (r, fullpath, is_overlay, statinfo)
+                counter += 1
+                if async and not counter % 30 and time.time() > timer + 0.04:
+                    # we are in async mode and already use too much time.
+                    # call yield YieldContinue at this point to continue
+                    # later.
+                    timer = time.time()
+                    yield kaa.notifier.YieldContinue
+
+        # We want to avoid lambda on large data sets, so we sort the keys,
+        # which is just a list of files.  This is the common case that sort()
+        # is optimized for.
+        keys = results_file_map.keys()
+        keys.sort()
+        result = [ results_file_map[x] for x in keys ]
+        # store in cache
+        self._beacon_listdir_cache = time.time(), result, results_file_map
+        yield result, results_file_map
+
+
+    def __repr__(self):
+        """
+        Convert object to string
+        """
+        str = '<beacon.Directory %s' % self.filename
+        if self._beacon_data['mtime'] == UNKNOWN:
+            str += ' (new)'
+        return str + '>'
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for client
+    # -------------------------------------------------------------------------
+
+    def _beacon_request(self, callback=None, *args, **kwargs):
+        """
+        Request the item to be scanned.
+        """
+        f = self._beacon_db()._beacon_request
+        f(self.filename[:-1], self._beacon_database_update, callback,
+          *args, **kwargs)
+        return None
+
+
+    # -------------------------------------------------------------------------
+    # Internal API for server
+    # -------------------------------------------------------------------------
 
     def _beacon_mtime(self):
         """
@@ -106,97 +233,3 @@ class Directory(Item):
             return os.stat(self.filename)[stat.ST_MTIME]
         except (OSError, IOError):
             return None
-
-
-    def _beacon_request(self):
-        """
-        Request the item to be scanned.
-        """
-        self._beacon_database_update(self._beacon_db()._beacon_request(self.filename[:-1]))
-
-
-    def _beacon_listdir(self, cache=False):
-        """
-        Internal function to list all files in the directory and the overlay
-        directory. The result is a list of tuples:
-        basename, full filename, is_overlay, stat result
-        """
-        if self._beacon_listdir_cache and cache and \
-               self._beacon_listdir_cache[0] + 3 > time.time():
-            # use cached result if we have and caching time is less than
-            # three seconds ago
-            return self._beacon_listdir_cache[1:]
-
-        try:
-            # Try to list the overlay directory
-            overlay_results = os.listdir(self._beacon_ovdir)
-        except OSError:
-            # No overlay
-            overlay_results = []
-
-        try:
-            # Try to list the directory. If that fails for some reason,
-            # return an empty list
-            fs_results = os.listdir(self.filename)
-        except OSError, e:
-            log.warning(e)
-            self._beacon_listdir_cache = time.time(), [], {}
-            return [], {}
-
-        results_file_map = {}
-        for is_overlay, prefix, results in ((False, self.filename, fs_results), 
-                                            (True, self._beacon_ovdir, overlay_results)):
-            for r in results:
-                # FIXME: for some large directories not in the hd cache this
-                # can take a long time. E.g. /usr/bin takes 3 seconds in this
-                # part. Once done, a second check is much faster (0.3 sec).
-                # It would be nice if we can do a stat on demand, but we need
-                # to know if an item is a dir or file, so we will always need
-                # this. Maybe step() from time to time?
-                if (is_overlay and r in results_file_map) or r[0] == ".":
-                    continue
-                fullpath = prefix + r
-                try:
-                    # append stat information to every result
-                    statinfo = os.stat(fullpath)
-                    if is_overlay and stat.S_ISDIR(statinfo[stat.ST_MODE]):
-                        # dir in overlay, ignore
-                        log.warning('skip overlay dir %s' % r[1])
-                        continue
-                except (OSError, IOError), e:
-                    # unable to stat file, remove it from list
-                    log.error(e)
-                    continue
-
-                results_file_map[r] = (r, fullpath, is_overlay, statinfo)
-
-        # We want to avoid lambda on large data sets, so we sort the keys,
-        # which is just a list of files.  This is the common case that sort()
-        # is optimized for.
-        keys = results_file_map.keys()
-        keys.sort()
-        result = [ results_file_map[x] for x in keys ]
-        # store in cache
-        self._beacon_listdir_cache = time.time(), result, results_file_map
-        return result, results_file_map
-
-
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        str = '<beacon.Directory %s' % self.filename
-        if self._beacon_data['mtime'] == UNKNOWN:
-            str += ' (new)'
-        return str + '>'
-
-
-    def listdir(self):
-        """
-        Interface to kaa.beacon: List all files in the directory.
-        """
-        if not self._beacon_id:
-            log.info('requesting data for %s', self)
-            self._beacon_request()
-        return self._beacon_db().query(parent=self)
-

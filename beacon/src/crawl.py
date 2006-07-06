@@ -136,8 +136,9 @@ class Crawler(object):
                self.last_checked[name][1]:
             # A file was modified. Do this check as fast as we can because the
             # events may come in bursts when a file is just copied. In this case
-            # a timer is already active and we can return. It still uses too much
-            # CPU time in the burst, but there is nothing we can do about it.
+            # a timer is already active and we can return. It still uses too
+            # much CPU time in the burst, but there is nothing we can do about
+            # it.
             return True
 
         item = self.db.query(filename=name)
@@ -194,8 +195,8 @@ class Crawler(object):
             self.scan_directory(item._beacon_parent, recursive=False)
         
         if os.path.exists(name):
-            # The file exists. So it is either created or modified, we don't care
-            # right now.
+            # The file exists. So it is either created or modified, we don't
+            # care right now.
             if item._beacon_isdir:
                 # It is a directory. Just do a full directory rescan.
                 self.scan_directory(item, recursive=False)
@@ -235,7 +236,8 @@ class Crawler(object):
             return True
 
         # The file does not exist, we need to delete it in the database
-        if self.db.get_object(item._beacon_data['name'], item._beacon_parent._beacon_id):
+        if self.db.get_object(item._beacon_data['name'],
+                              item._beacon_parent._beacon_id):
             # Still in the db, delete it
             self.db.delete_object(item._beacon_id, beacon_immediately=True)
         # Remove item from list of files to check
@@ -309,8 +311,9 @@ class Crawler(object):
         
     def scan_directory(self, directory=None, recursive=True):
         """
-        Scan a directory for changes add all subitems to check_mtime. All subdirs
-        are also added to scan_directory_items to be checked by this function later.
+        Scan a directory for changes add all subitems to check_mtime. All
+        subdirs are also added to scan_directory_items to be checked by this
+        function later.
         """
         if directory:
             # add directory to the scanning list and if necessary start a timer
