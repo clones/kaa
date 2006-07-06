@@ -33,17 +33,20 @@
 import os
 import sys
 import logging
+import time
 
 # kaa imports
-from kaa import ipc
 import kaa.notifier
 import kaa.metadata
 import kaa.imlib2
+import kaa.rpc
 
 # kaa.thumb imports
 from libthumb import epeg, png, failed
 from video import VideoThumb
 
+# get logging object
+log = logging.getLogger('beacon.thumbnail')
 
 class Job(object):
     """
@@ -65,14 +68,42 @@ class Thumbnailer(object):
         self.clients = []
         self._jobs = []
         self._timer = kaa.notifier.Timer(self._run)
-        self._ipc = ipc.IPCServer(os.path.join(tmpdir, 'socket'))
-        self._ipc.register_object(self, 'thumb')
-        self._ipc.signals["client_closed"].connect(self._client_closed)
-
+        self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
+        self._ipc.signals['client_connected'].connect(self.client_connect)
+        self._ipc.connect(self)
+        
         # video module
         self.videothumb = VideoThumb(self)
 
 
+    def client_connect(self, client):
+        """
+        Connect a new client to the server.
+        """
+        client.signals['closed'].connect(self.client_disconnect, client)
+        self.next_client_id += 1
+        self.clients.append((self.next_client_id, client))
+        client.rpc('connect')(self.next_client_id)
+
+
+    def client_disconnect(self, client):
+        """
+        IPC callback when a client is lost.
+        """
+        for client_info in self.clients[:]:
+            id, c = client_info
+            if c == client:
+                for j in self._jobs[:]:
+                    if j.client == id:
+                        self._jobs.remove(j)
+                for j in self.videothumb._jobs[:]:
+                    if j.client == id:
+                        self.videothumb._jobs.remove(j)
+                self.clients.remove(client_info)
+                return
+
+
+        
     def _debug(self, client, messages):
         for id, callback in self.clients:
             if id == client:
@@ -149,12 +180,7 @@ class Thumbnailer(object):
         return True
 
 
-    def connect(self, callback):
-        self.next_client_id += 1
-        self.clients.append((self.next_client_id, callback))
-        return self.next_client_id
-
-
+    @kaa.rpc.expose('schedule')
     def schedule(self, id, filename, imagefile, size):
 
         self._jobs.append(Job(id, filename, imagefile, size))
@@ -162,6 +188,7 @@ class Thumbnailer(object):
             self._timer.start(0.001)
 
 
+    @kaa.rpc.expose('remove')
     def remove(self, id):
         for job in self._jobs:
             if id == (job.client, job.id):
@@ -173,16 +200,31 @@ class Thumbnailer(object):
                 print 'remove video job'
                 self.videothumb._jobs.remove(job)
                 return
-            
-    def _client_closed(self, client):
-        for client_info in self.clients[:]:
-            id, c = client_info
-            if ipc.get_ipc_from_proxy(c) == client:
-                for j in self._jobs[:]:
-                    if j.client == id:
-                        self._jobs.remove(j)
-                for j in self.videothumb._jobs[:]:
-                    if j.client == id:
-                        self.videothumb._jobs.remove(j)
-                self.clients.remove(client_info)
-                return
+
+    @kaa.rpc.expose('shutdown')
+    def shutdown(self):
+        sys.exit(0)
+
+        
+def loop():
+    # create tmp dir and change directory to it
+    tmpdir = os.path.join(kaa.TEMP, 'thumb')
+    if not os.path.isdir(tmpdir):
+        os.mkdir(tmpdir)
+    os.chdir(tmpdir)
+
+    # create thumbnailer object
+    try:
+        thumbnailer = Thumbnailer(tmpdir)
+    except IOError, e:
+        log.error('thumbnail: %s' % e)
+        time.sleep(0.1)
+        sys.exit(0)
+
+    # set nice level
+    os.nice(19)
+    
+    # loop
+    kaa.notifier.loop()
+    log.info('stop thumbnail server')
+    sys.exit(0)

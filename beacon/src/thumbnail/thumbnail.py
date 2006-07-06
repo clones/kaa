@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'connect', 'disconnect' ]
+__all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'connect', 'stop' ]
 
 NORMAL  = 'normal'
 LARGE   = 'large'
@@ -42,8 +42,9 @@ import logging
 
 # kaa imports
 import kaa
+import kaa.rpc
 from kaa.weakref import weakref
-from kaa.notifier import Signal, step
+import kaa.notifier
 
 # kaa.thumb imports
 from libthumb import png
@@ -57,9 +58,6 @@ DOT_THUMBNAIL = os.path.join(os.environ['HOME'], '.thumbnails')
 # sizes for the thumbnails
 SIZE = { NORMAL: (128, 128), LARGE: (256, 256) }
 
-# internal variables for ipc
-_server = _client_id = _schedule = _remove = None
-
 class Job(object):
 
     all = []
@@ -67,10 +65,12 @@ class Job(object):
     def __init__(self, file, id):
         self.file = weakref(file)
         self.id = id
-        self.signal = Signal()
+        self.signal = kaa.notifier.Signal()
         self.finished = False
         Job.all.append(self)
         
+
+_client = None
 
 class Thumbnail(object):
 
@@ -125,9 +125,7 @@ class Thumbnail(object):
             os.makedirs(dest, 0700)
 
         # schedule thumbnail creation
-        _schedule((_client_id, Thumbnail.next_id), self.name,
-                  self._thumbnail % type, SIZE[type],
-                  __ipc_oneway=True, __ipc_noproxy_args=True)
+        _client.schedule(Thumbnail.next_id, self.name, self._thumbnail % type, SIZE[type])
 
         job = Job(self, Thumbnail.next_id)
 
@@ -135,69 +133,78 @@ class Thumbnail(object):
             return job.signal
 
         while not job.finished:
-            step()
+            kaa.notifier.step()
 
     image = property(get, set, None, "thumbnail image")
     failed = property(is_failed, set, None, "return True if thumbnailing failed")
 
-    
-def _callback(id, *args):
-    if not id:
-        for i in args[0]:
-            log.error(i)
+
+
+class Client(object):
+
+    def __init__(self):
+        self.id = None
+        server = kaa.rpc.Client('thumb/socket')
+        server.connect(self)
+        self.remove = server.rpc('remove')
+        self.shutdown = server.rpc('shutdown')
+        self._schedule = server.rpc('schedule')
         return
 
-    for job in Job.all[:]:
-        if job.id == id:
-            log.info('finished job %s->%s', args[0], args[1])
-            Job.all.remove(job)
-            job.finished = True
-            job.signal.emit()
-        elif not job.file:
-            Job.all.remove(job)
-            job.finished = True
-            log.info('remove job %s', job.id)
-            _remove((_client_id, job.id), __ipc_oneway=True, __ipc_noproxy_args=True)
+
+    @kaa.rpc.expose('connect')
+    def _connected(self, id):
+        self.id = id
+
+        
+    def schedule(self, id, *args, **kwargs):
+        if not self.id:
+            raise AttributeError('thumbnailer not connected')
+        self._schedule((self.id, id), *args, **kwargs)
+        
+        
+    def _callback(self, id, *args):
+        if not id:
+            for i in args[0]:
+                log.error(i)
+
+        for job in Job.all[:]:
+            if job.id == id:
+                log.info('finished job %s->%s', args[0], args[1])
+                Job.all.remove(job)
+                job.finished = True
+                job.signal.emit()
+            elif not job.file:
+                Job.all.remove(job)
+                job.finished = True
+                log.info('remove job %s', job.id)
+                self.remove((self.id, job.id))
 
 
 def connect():
-    """
-    Connect to server.
-    """
-    global _server
-    global _client_id
-    global _schedule
-    global _remove
+    global _client
 
-    if _server:
-        return True
+    if _client:
+        return _client
     
     start = time.time()
     while True:
         try:
-            _server = kaa.ipc.IPCClient('thumb/socket').get_object('thumb')
-            break
+            _client = Client()
+            return _client
         except Exception, e:
+            print e
             if start + 3 < time.time():
                 # start time is up, something is wrong here
                 raise RuntimeError('unable to connect to thumbnail server')
             time.sleep(0.01)
-        
-    _client_id = _server.connect(_callback)
-    _schedule = _server.schedule
-    _remove = _server.remove
-    kaa.signals['shutdown'].connect(disconnect)
-    return True
 
+def stop():
+    global _client
+    
+    if not _client:
+        return
 
-def disconnect():
-    """
-    Shutdown connection.
-    """
-    global _server
-    global _client_id
-    global _schedule
-    global _remove
-
-    # delete all objects
-    _server = _client_id = _schedule = _remove = None
+    _client.shutdown()
+    kaa.notifier.step()
+    _client = None
