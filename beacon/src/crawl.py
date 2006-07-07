@@ -249,9 +249,9 @@ class Crawler(object):
         # is gone, so all subdirs are invalid, too.
         if name + '/' in self.monitoring:
             for m in self.monitoring[:]:
-                # FIXME: This is not correct when you deal with softlinks. If you
-                # move a directory with relative softlinks, the new directory to
-                # monitor is different.
+                # FIXME: This is not correct when you deal with softlinks.
+                # If you move a directory with relative softlinks, the new
+                # directory to monitor is different.
                 if not m.startswith(name + '/'):
                     continue
                 if self.inotify:
@@ -420,9 +420,9 @@ class Crawler(object):
 
     def update(self):
         """
-        Update all items that are changed. If no items is changed (anymore), call
-        self.scan_directory to keep on crawling. This function will start a timer
-        for update_step.
+        Update all items that are changed. If no items is changed (anymore),
+        call self.scan_directory to keep on crawling. This function will
+        start a timer for update_step.
         """
         if self.update_items:
             self.timer = Timer(self.update_step)
@@ -434,8 +434,8 @@ class Crawler(object):
 
     def update_step(self):
         """
-        Update (parse) the first item in self.update_items. If the list is empty,
-        call self.scan_directory to keep on crawling.
+        Update (parse) the first item in self.update_items. If the list is
+        empty, call self.scan_directory to keep on crawling.
         """
         if not self.timer:
             return False
