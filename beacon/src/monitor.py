@@ -35,7 +35,7 @@ import logging
 
 # kaa imports
 from kaa.weakref import weakref
-from kaa.notifier import WeakTimer, WeakOneShotTimer, Timer, execute_in_timer, Callback
+from kaa.notifier import OneShotTimer, Timer, yield_execution, YieldContinue
 
 # kaa.beacon imports
 import parser
@@ -51,14 +51,16 @@ class Notification(object):
         self.id = id
 
     def __call__(self, *args, **kwargs):
-        self.remote(self.id, *args, **kwargs)
-
+        try:
+            self.remote(self.id, *args, **kwargs)
+        except IOError:
+            pass
 
 class Master(object):
     """
-    Master Monitor. This monitor will connect to the db and will call all monitors
-    with the changes. This class will make sure they don't re-query all at once
-    and have a small delay between them to keep the load down.
+    Master Monitor. This monitor will connect to the db and will call all
+    monitors with the changes. This class will make sure they don't re-query
+    all at once and have a small delay between them to keep the load down.
     """
     def __init__(self, db):
         self.monitors = []
@@ -106,18 +108,19 @@ class Monitor(object):
         global _master
         log.info('create new monitor %s' % id)
         self.id = id
-        self.callback = Notification(client, self.id)
+        self.notify_client = Notification(client, self.id)
         self._server = server
         self._db = db
         self._query = query
-        self._checker = None
+        self._checking = False
+        self._running = True
         self._check_changes = []
         self.items = self._db.query(**self._query)
         if not _master:
             _master = Master(db)
         _master.connect(self)
         if self.items and isinstance(self.items[0], Item):
-            self._scan(True)
+            self._initial_scan(True)
 
         # FIXME: how to get updates on directories not monitored by
         # inotify? Maybe poll the dirs when we have a query with
@@ -129,11 +132,15 @@ class Monitor(object):
         This function compares the last query result with the current db status
         and will inform the client when there is a change.
         """
-        if self._checker:
+        if not self.running:
+            return True
+        
+        if self._checking:
             # Still checking. FIXME: what happens if new files are added during
-            # scan? For one part, the changes here here the item changes itself,
-            # so we would update the client all the time. So it is better to wait
-            # here. Note: with inotify support this should not happen often.
+            # scan? For one part, the changes here here the item changes
+            # itself, so we would update the client all the time. So it is
+            # better to wait here. Note: with inotify support this should not
+            # happen often.
             self._check_changes.extend(changes)
             return True
 
@@ -146,7 +153,7 @@ class Monitor(object):
         # The query result length is different, this is a change
         if len(current) != len(self.items):
             self.items = current
-            self.callback('changed')
+            self.notify_client('changed')
             return True
 
         # Same length and length is 0. No change here
@@ -162,7 +169,7 @@ class Monitor(object):
                 # the update call.
                 if i._beacon_id in changes or not i._beacon_id:
                     self.items = current
-                    self.callback('changed')
+                    self.notify_client('changed')
                     return True
             return True
 
@@ -170,66 +177,67 @@ class Monitor(object):
         for pos, c in enumerate(current):
             if self.items[pos] != c:
                 self.items = current
-                self.callback('changed')
+                self.notify_client('changed')
                 return True
         return True
 
 
-    def _scan(self, first_call):
+    @yield_execution(0.01)
+    def _initial_scan(self, first_call):
         """
         Start scanning the current list of items if they need to be updated.
         With a full structure covered by inotify, there should be not changes.
         """
-        self._scan_step(self.items[:], [], first_call)
-
-        
-    @execute_in_timer(Timer, 0.001, type='once')
-    def _scan_step(self, items, changed, first_call):
-        """
-        Find changed items in 'items' and add them to changed.
-        """
-        if not items:
-            if not changed and first_call:
-                # no changes but it was our first call. Tell the client that everything
-                # is checked
-                self.callback('checked')
-                return False
-            if not changed:
-                # no changes but send the 'changed' ipc to the client
-                self.callback('changed')
-                return False
-            # We have some items that need an update. This will create a parser
-            # object checking all items in the list.
-            cb = Callback(self.checked, first_call)
-            c = parser.Checker(self.callback, self._db, changed, cb)
-            self._checker = c
-            if not first_call and len(changed) > 10:
-                # do not wait for the parser to send the changed signal, it may
-                # take a while.
-                self.callback('changed')
-            return False
+        self._checking = True
+        changed = []
 
         # FIXME: This is O(n^2); we iterate over each item, and each item
         # calls _beacon_mtime() which in turn calls _beacon_listdir() and
         # iterates over all items returned by that.
         c = 0
-        while items:
+        for i in self.items[:]:
             c += 1
             if c > 20:
                 # stop it and continue in the next step
-                return True
-            i = items.pop(0)
+                yield YieldContinue
             # FIXME: check parents
             if i._beacon_changed():
                 changed.append(i)
-        return True
 
+        if not changed and first_call:
+            # no changes but it was our first call. Tell the client that
+            # everything is checked
+            self.notify_client('checked')
+            yield False
 
-    def checked(self, first_call):
-        """
-        Callback from the Checker class in parser when everything is parsed.
-        """
-        self._checker = None
+        if not changed:
+            # no changes but send the 'changed' ipc to the client
+            self.notify_client('changed')
+            yield False
+
+        if not first_call and len(changed) > 10:
+            # do not wait to send the changed signal, it may take a while.
+            self.notify_client('changed')
+
+        updated = []
+        for pos, item in enumerate(changed):
+            self.notify_client('progress', pos, len(changed), item.url)
+            parser.parse(self._db, item)
+            if item._beacon_id:
+                self.notify_client('updated', [ (item.url, item._beacon_data) ])
+            else:
+                updated.append(item)
+            yield YieldContinue
+            if not self._checking:
+                break
+            
+        self._db.commit()
+        self.stop()
+
+        updated = [ (x.url, x._beacon_data) for x in updated ]
+        updated.sort(lambda x,y: cmp(x[0], y[0]))
+        self.notify_client('updated', updated)
+
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
         self.items = self._db.query(**self._query)
@@ -237,19 +245,22 @@ class Monitor(object):
         # master notification will do the rest. Just to make sure it will
         # happen, start a Timer
         if self._check_changes:
-            # Set new check timer. This should not be needed, but just in case :)
-            WeakOneShotTimer(self.check, []).start(0.5)
+            # Set new check timer. This should not be needed, but just in
+            # case :)
+            OneShotTimer(self.check, []).start(0.5)
         if first_call:
-            self.callback('checked')
+            self.notify_client('checked')
+        self._checking = False
+        yield False
 
         
     def stop(self):
         """
         Stop checking.
         """
-        if self._checker:
-            self._checker.stop()
-        self._checker = None
+        self._checking = False
+        self._running = False
+
 
     def __repr__(self):
         return '<beacon.Monitor for %s>' % self._query
