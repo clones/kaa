@@ -129,7 +129,7 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
     if (!pyimg) {
 	/* load source file */
 	if (!(tmp = imlib_load_image_immediately_without_cache (source))) {
-	    PyErr_SetString(PyExc_ValueError, "pyimlib2: unable to load image");
+	    PyErr_SetString(PyExc_ValueError, "imlib2: unable to load image");
 	    return NULL;
 	} 
     } else {
@@ -151,14 +151,16 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
 	imlib_context_set_cliprect (0, 0, tw, th);
 	src = imlib_create_cropped_scaled_image (0, 0, iw, ih, tw, th);
 	if (!src) {
-	    imlib_free_image_and_decache ();
-	    PyErr_SetString(PyExc_IOError, "pyimlib2 scale error");
+	    if (!pyimg)
+		imlib_free_image_and_decache ();
+	    PyErr_SetString(PyExc_IOError, "imlib2 scale error");
 	    return NULL;
 	}
 	/* free original image and set context to new one */
-	imlib_free_image_and_decache ();
+        if (!pyimg)
+	    imlib_free_image_and_decache ();
 	imlib_context_set_image (src);
-	      
+	pyimg = NULL;
     } else {
 	tw = iw;
 	th = ih;
@@ -169,12 +171,15 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
     snprintf (uri, PATH_MAX, "file://%s", source);
     if (_png_write (dest, imlib_image_get_data (), tw, th, iw, ih,
 		    format, mtime, uri)) {
-      imlib_free_image_and_decache ();
-      Py_INCREF(Py_None);
-      return Py_None;
+        if (!pyimg)
+	    imlib_free_image_and_decache ();
+	Py_INCREF(Py_None);
+	return Py_None;
     }
 
-    PyErr_SetString(PyExc_ValueError, "pyimlib2: unable to save image");
+    if (!pyimg)
+	imlib_free_image_and_decache ();
+    PyErr_SetString(PyExc_ValueError, "imlib2: unable to save image");
     return NULL;
 }
 
@@ -205,7 +210,7 @@ PyObject *fail_thumbnail(PyObject *self, PyObject *args)
 	return Py_None;
     }
     imlib_free_image_and_decache ();
-    PyErr_SetString(PyExc_ValueError, "pyimlib2: unable to save image");
+    PyErr_SetString(PyExc_ValueError, "imlib2: unable to save image");
     return NULL;
 }
 
