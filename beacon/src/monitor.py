@@ -132,7 +132,7 @@ class Monitor(object):
         This function compares the last query result with the current db status
         and will inform the client when there is a change.
         """
-        if not self.running:
+        if not self._running:
             return True
         
         if self._checking:
@@ -191,9 +191,6 @@ class Monitor(object):
         self._checking = True
         changed = []
 
-        # FIXME: This is O(n^2); we iterate over each item, and each item
-        # calls _beacon_mtime() which in turn calls _beacon_listdir() and
-        # iterates over all items returned by that.
         c = 0
         for i in self.items[:]:
             c += 1
@@ -221,7 +218,7 @@ class Monitor(object):
 
         updated = []
         for pos, item in enumerate(changed):
-            self.notify_client('progress', pos, len(changed), item.url)
+            self.notify_client('progress', pos+1, len(changed), item.url)
             parser.parse(self._db, item)
             if item._beacon_id:
                 self.notify_client('updated', [ (item.url, item._beacon_data) ])
