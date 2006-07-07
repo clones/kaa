@@ -50,7 +50,7 @@ import kaa.notifier
 from libthumb import png
 
 # get logging object
-log = logging.getLogger('thumb')
+log = logging.getLogger('beacon.thumb')
 
 # default .thumbnail dir
 DOT_THUMBNAIL = os.path.join(os.environ['HOME'], '.thumbnails')
@@ -62,11 +62,10 @@ class Job(object):
 
     all = []
 
-    def __init__(self, file, id):
-        self.file = weakref(file)
+    def __init__(self, job, id):
+        self.valid = weakref(job)
         self.id = id
         self.signal = kaa.notifier.Signal()
-        self.finished = False
         Job.all.append(self)
         
 
@@ -103,21 +102,29 @@ class Thumbnail(object):
 
 
     def set(self, image, type='both'):
-        if type in ('both', LARGE):
-            png(self.name, self._thumbnail % type + '.png', SIZE[LARGE], image._image)
-        if type in ('both', NORMAL):
-            png(self.name, self._thumbnail % type + '.png', SIZE[NORMAL], image._image)
-            
+        if type == 'both':
+            self.set(image, NORMAL)
+            self.set(image, LARGE)
+            return
+
+        dest = '%s/%s' % (self.destdir, type)
+        if not os.path.isdir(dest):
+            os.makedirs(dest, 0700)
+
+        i = self._thumbnail % type + '.png'
+        png(self.name, i, SIZE[type], image._image)
+        log.info('store %s', i)
+
 
     def exists(self):
         return self.get(NORMAL) or self.get(LARGE) or self.get('fail/kaa')
     
 
     def is_failed(self):
-        return self._get_thumbnail('fail/kaa')
+        return self.get('fail/kaa')
 
 
-    def create(self, type=NORMAL, wait=False):
+    def create(self, type=NORMAL):
         Thumbnail.next_id += 1
         
         dest = '%s/%s' % (self.destdir, type)
@@ -125,18 +132,13 @@ class Thumbnail(object):
             os.makedirs(dest, 0700)
 
         # schedule thumbnail creation
-        _client.schedule(Thumbnail.next_id, self.name, self._thumbnail % type, SIZE[type])
+        _client.schedule(Thumbnail.next_id, self.name,
+                         self._thumbnail % type, SIZE[type])
 
         job = Job(self, Thumbnail.next_id)
 
-        if not wait:
-            return job.signal
-
-        while not job.finished:
-            kaa.notifier.step()
-
-    image = property(get, set, None, "thumbnail image")
-    failed = property(is_failed, set, None, "return True if thumbnailing failed")
+    image  = property(get, set, None, "thumbnail image")
+    failed = property(is_failed, set, None, "true if thumbnailing failed")
 
 
 
@@ -146,39 +148,49 @@ class Client(object):
         self.id = None
         server = kaa.rpc.Client('thumb/socket')
         server.connect(self)
-        self.remove = server.rpc('remove')
+        self._schedules = []
+
+        # server rpc calls
+        self.reduce_priority = server.rpc('reduce_priority')
         self.shutdown = server.rpc('shutdown')
         self._schedule = server.rpc('schedule')
-        return
 
 
-    @kaa.rpc.expose('connect')
-    def _connected(self, id):
-        self.id = id
-
-        
-    def schedule(self, id, *args, **kwargs):
+    def schedule(self, id, filename, imagename, type):
         if not self.id:
-            raise AttributeError('thumbnailer not connected')
-        self._schedule((self.id, id), *args, **kwargs)
+            # Not connected yet, schedule job later
+            self._schedules.append(id, filename, imagename, type)
+            return
+        self._schedule((self.id, id), filename, imagename, type)
         
         
-    def _callback(self, id, *args):
-        if not id:
-            for i in args[0]:
-                log.error(i)
+    @kaa.rpc.expose('connect')
+    def _server_callback_connected(self, id):
+        self.id = id
+        for s in self._schedules:
+            schedule(*s)
+        self._schedules = []
 
+
+    @kaa.rpc.expose('log.info')
+    def _server_callback_debug(self, *args):
+        log.info(*args)
+
+
+    @kaa.rpc.expose('finished')
+    def _server_callback_finished(self, id, filename, imagefile):
+        log.info('finished job %s->%s', filename, imagefile)
         for job in Job.all[:]:
             if job.id == id:
-                log.info('finished job %s->%s', args[0], args[1])
+                # found updated job
                 Job.all.remove(job)
-                job.finished = True
                 job.signal.emit()
-            elif not job.file:
-                Job.all.remove(job)
-                job.finished = True
-                log.info('remove job %s', job.id)
-                self.remove((self.id, job.id))
+                continue
+            if job.valid:
+                continue
+            # set old jobs to lower priority
+            Job.all.remove(job)
+            self.reduce_priority((self.id, job.id))
 
 
 def connect():

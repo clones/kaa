@@ -53,12 +53,11 @@ class VideoThumb(object):
     Class to handle video thumbnailing.
     """
     def __init__(self, thumbnailer):
-        self._jobs = []
+        self.jobs = []
         self._current = None
 
-        self._notify_client = thumbnailer._notify_client
-        self._create_failed_image = thumbnailer._create_failed_image
-        self._debug = thumbnailer._debug
+        self.notify_client = thumbnailer.notify_client
+        self.create_failed = thumbnailer.create_failed
 
         self.child = kaa.notifier.Process(['mplayer', '-nosound', '-vo', 'png',
                                            '-frames', '8', '-zoom', '-ss' ])
@@ -68,7 +67,7 @@ class VideoThumb(object):
 
 
     def append(self, job):
-        self._jobs.append(job)
+        self.jobs.append(job)
         self._run()
 
 
@@ -77,9 +76,9 @@ class VideoThumb(object):
 
 
     def _run(self):
-        if self.child.is_alive() or not self._jobs or self._current:
+        if self.child.is_alive() or not self.jobs or self._current:
             return True
-        self._current = self._jobs.pop(0)
+        self._current = self.jobs.pop(0)
 
         try:
             mminfo = self._current.metadata
@@ -94,8 +93,8 @@ class VideoThumb(object):
                 pos = os.stat(self._current.filename)[stat.ST_SIZE]/1024/1024/10.0
             except (OSError, IOError):
                 # send message to client, we are done here
-                self._create_failed_image(self._current)
-                self._notify_client()
+                self.create_failed(self._current)
+                self.notify_client()
                 return
             if pos < 10:
                 pos = '10'
@@ -114,9 +113,9 @@ class VideoThumb(object):
         captures = glob.glob('000000??.png')
         if not captures:
             # strange, no image files found
-            self._debug(job.client, self._child_std)
-            self._create_failed_image(job)
-            self._notify_client(job)
+            self.message(self._child_std)
+            self.create_failed(job)
+            self.notify_client(job)
             job = None
             self._run()
             return
@@ -141,12 +140,12 @@ class VideoThumb(object):
             png(job.filename, job.imagefile + '.png', job.size, image._image)
             job.imagefile += '.png'
         except (IOError, ValueError):
-            self._create_failed_image(job)
+            self.create_failed(job)
 
         # remove old stuff
         for capture in captures:
             os.remove(capture)
 
         # notify client and start next video
-        self._notify_client(job)
+        self.notify_client(job)
         self._run()
