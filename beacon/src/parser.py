@@ -40,6 +40,8 @@ import logging
 # kaa imports
 from kaa.strutils import str_to_unicode
 import kaa.metadata
+import kaa.imlib2
+import thumbnail
 
 # get logging object
 log = logging.getLogger('beacon.parser')
@@ -102,15 +104,31 @@ def parse(db, item, store=False):
         item._beacon_database_update(data)
 
 
+    # Thumbnail / Cover / Image stuff.
+    #
+    # FIXME: when beacon is stopped after the parsing is saved and before the
+    # thumbnail generation is complete, the thumbnails won't be created
+    # before the user needs them. But he can request the thumbnails himself.
+
     if type == 'dir':
         for cover in ('cover.jpg', 'cover.png'):
             if os.path.isfile(item.filename + cover):
                 attributes['image'] = item.filename + cover
                 break
         # TODO: do some more stuff here:
-        # Audio directories may hve a different cover if there is only
+        # Audio directories may have a different cover if there is only
         # one jpg in a dir of mp3 files or a files with 'front' in the name.
         # They need to be added here as special kind of cover
+
+    elif type == 'image':
+        attributes['image'] = item.filename
+
+        if metadata and metadata.get('thumbnail'):
+            t = thumbnail.Thumbnail(item.filename)
+            if not t.exists():
+                img = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
+                # only store the normal version
+                t.set(img, thumbnail.NORMAL)
 
     else:
         base = os.path.splitext(item.filename)[0]
@@ -122,16 +140,24 @@ def parse(db, item, store=False):
                 attributes['image'] = item.filename + ext
                 break
 
+        if metadata and metadata.get('raw_image'):
+            attributes['thumbnail'] = item.filename
+            t = thumbnail.Thumbnail(item.filename)
+            if not t.exists():
+                t.image = kaa.imlib2.open_from_memory(metadata['raw_image'])
 
+    if attributes.get('image'):
+        t = thumbnail.Thumbnail(attributes.get('image'))
+        if not t.get(thumbnail.LARGE):
+            t.create(thumbnail.LARGE)
+        if not attributes.get('thumbnail'):
+            attributes['thumbnail'] = attributes.get('image')
+        
     # add kaa.metadata results, the db module will add everything known
     # to the db.
     attributes['metadata'] = metadata
 
     # TODO: do some more stuff here:
-    # - check metadata for thumbnail or cover (audio) and use kaa.thumb to
-    #   store it
-    # - schedule thumbnail genereation with kaa.thumb
-    # - search for covers based on the file (should be done by kaa.metadata)
     # - add subitems like dvd tracks for dvd images on hd
 
     # Note: the items are not updated yet, the changes are still in
