@@ -91,10 +91,16 @@ class beaconfs ( fuse.Fuse ):
 
 
 def fuse_main():
+    sys.argv.append("-f")
     server = beaconfs()
     server.multithreaded = 1
     server.parse(errex=1)
     server.main ()
 
+def debug():
+    import time
+    print time.time()
+
 kaa.notifier.Thread(fuse_main).start()
+kaa.notifier.Timer(debug).start(1)
 kaa.notifier.loop()
