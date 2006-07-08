@@ -96,7 +96,7 @@ if mode == 'stop':
     import kaa.beacon.client
 
     def shutdown(client):
-        client.rpc('shutdown')()
+        client.rpc('beacon.shutdown')()
         kaa.notifier.step()
         sys.exit(0)
 
@@ -212,7 +212,7 @@ if logfile:
     log.addHandler(handler)
 elif detach:
     print 'unable to detach without setting a logfile'
-    usage(1)
+    sys.exit(0)
     
 # fork thumbnailer
 pid = os.fork()
