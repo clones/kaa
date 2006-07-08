@@ -34,6 +34,7 @@ import os
 import sys
 import logging
 import time
+import stat
 
 # kaa imports
 import kaa.notifier
@@ -140,11 +141,25 @@ class Thumbnailer(object):
 
         job = self.jobs.pop(0)
 
-        # FIXME: check if there is already a file and it is up to date
-
+        imagefile = job.imagefile + '.png'
+        if os.path.isfile(imagefile):
+            metadata = kaa.metadata.parse(imagefile)
+            mtime = metadata.get('Thumb::MTime')
+            if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
+                # not changed, refuse the recreate thumbnail
+                return True
+            
         if job.filename.lower().endswith('jpg'):
+            imagefile = job.imagefile + '.jpg'
+            if os.path.isfile(imagefile):
+                metadata = kaa.metadata.parse(imagefile)
+                mtime = metadata.get('Thumb::MTime')
+                if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
+                    # not changed, refuse the recreate thumbnail
+                    return True
+
             try:
-                epeg(job.filename, job.imagefile + '.jpg', job.size)
+                epeg(job.filename, imagefile, job.size)
                 job.imagefile += '.jpg'
                 self.notify_client(job)
                 return True
@@ -157,7 +172,6 @@ class Thumbnailer(object):
             self.notify_client(job)
             return True
         except (IOError, ValueError), e:
-            print e
             pass
 
         # maybe this is no image

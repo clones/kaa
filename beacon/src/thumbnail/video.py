@@ -41,6 +41,7 @@ import os
 import stat
 
 # kaa imports
+import kaa.metadata
 import kaa.notifier
 import kaa.imlib2
 
@@ -82,6 +83,15 @@ class VideoThumb(object):
             return True
         self._current = self.jobs.pop(0)
 
+        imagefile = self._current.imagefile + '.png'
+        if os.path.isfile(imagefile):
+            metadata = kaa.metadata.parse(imagefile)
+            mtime = metadata.get('Thumb::MTime')
+            if mtime == str(os.stat(self._current.filename)[stat.ST_MTIME]):
+                # not changed, refuse the recreate thumbnail
+                self._current = None
+                return self._run()
+            
         try:
             mminfo = self._current.metadata
             pos = str(int(mminfo.video[0].length / 2.0))
