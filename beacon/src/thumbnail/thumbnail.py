@@ -40,6 +40,7 @@ import md5
 import time
 import logging
 import stat
+import socket
 
 # kaa imports
 import kaa
@@ -217,8 +218,7 @@ def connect():
         try:
             _client = Client()
             return _client
-        except Exception, e:
-            print e
+        except socket.error, e:
             if start + 3 < time.time():
                 # start time is up, something is wrong here
                 raise RuntimeError('unable to connect to thumbnail server')
