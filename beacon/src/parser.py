@@ -36,6 +36,7 @@
 import os
 import stat
 import logging
+import time
 
 # kaa imports
 from kaa.strutils import str_to_unicode
@@ -47,6 +48,9 @@ import thumbnail
 log = logging.getLogger('beacon.parser')
 
 def parse(db, item, store=False):
+
+    t1 = time.time()
+    
     log.debug('check %s', item.url)
     mtime = item._beacon_mtime()
     if mtime == None:
@@ -126,9 +130,12 @@ def parse(db, item, store=False):
         if metadata and metadata.get('thumbnail'):
             t = thumbnail.Thumbnail(item.filename)
             if not t.exists():
-                img = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
                 # only store the normal version
-                t.set(img, thumbnail.NORMAL)
+                try:
+                    img = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
+                    t.set(img, thumbnail.NORMAL)
+                except Exception:
+                    log.error('image thumbnail')
 
     else:
         base = os.path.splitext(item.filename)[0]
@@ -144,7 +151,10 @@ def parse(db, item, store=False):
             attributes['thumbnail'] = item.filename
             t = thumbnail.Thumbnail(item.filename)
             if not t.exists():
-                t.image = kaa.imlib2.open_from_memory(metadata['raw_image'])
+                try:
+                    t.image = kaa.imlib2.open_from_memory(metadata['raw_image'])
+                except ValueError:
+                    log.error('raw thumbnail')
 
     if attributes.get('image'):
         t = thumbnail.Thumbnail(attributes.get('image'))
@@ -178,4 +188,7 @@ def parse(db, item, store=False):
                       **attributes)
     if store:
         db.commit()
+
+    t2 = time.time()
+#     log.info('--> %s' % (t2 -t1))
     return True
