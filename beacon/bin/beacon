@@ -15,7 +15,7 @@ if not __site__ in sys.path:
     sys.path.insert(0, __site__)
 
 # get logging object
-log = logging.getLogger()
+log = logging.getLogger('beacon')
 
 def usage(error_code):
     print 'beacon [options]'
@@ -92,29 +92,37 @@ if not mode:
 if mode == 'stop':
     # stop a running beacon
     
-    import kaa.ipc
+    import kaa.notifier
+    import kaa.beacon.client
+
+    def shutdown(client):
+        client.rpc('shutdown')()
+        kaa.notifier.step()
+        sys.exit(0)
 
     try:
-        kaa.ipc.IPCClient('beacon').get_object('shutdown')()
-    except kaa.ipc.IPCDisconnectedError:
-        pass
+        client = kaa.beacon.Client()
+        client.signals['connect'].connect(shutdown, client)
+    except Exception, e:
+        print e
     except:
         print 'server not running'
+    kaa.notifier.loop()
     sys.exit(0)
-
+    
 if mode in ("search", "info"):
     # client info/search mode
 
     import kaa.notifier
     import kaa.beacon
-
     try:
         kaa.beacon.connect()
-    except:
+    except Exception, e:
         print 'beacon server not running'
         sys.exit(1)
     
 if mode == "info":
+
     info = kaa.beacon.get_db_info()
     print 'Beacon database information:'
     print
@@ -126,7 +134,7 @@ if mode == "info":
         print (key + ':').rjust(15), info['count'][key]
     sys.exit(0)
 
-elif mode == 'search':
+if mode == 'search':
 
     def progress(cur, total, item):
         n = 0
@@ -145,7 +153,7 @@ elif mode == 'search':
     def uptodate():
         print 'Beacon has finished the query and parsing'
 
-
+        
     query   = {}
     for a in args:
         key, value = a.split('=', 1)
@@ -159,30 +167,30 @@ elif mode == 'search':
         else:
             query[key] = value
 
+    t1 = time.time()
     if 'dirname' in query:
-        t1 = time.time()
-        result = kaa.beacon.get(query['dirname']).listdir()
-        t2 = time.time()
+        if 'recursive' in query:
+            result = kaa.beacon.get(query['dirname']).listdir(recursive=True)
+        else:
+            result = kaa.beacon.get(query['dirname']).listdir()
     else:
-        t1 = time.time()
         result = kaa.beacon.query(**query)
-        t2 = time.time()
+
+    len(result)
+    t2 = time.time()
 
     for r in result:
         print r
     print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
 
-    if monitor:
-        result.signals['changed'].connect(changed, result)
-        result.signals['progress'].connect(progress)
-        result.signals['up-to-date'].connect(uptodate)
-        result.monitor()
-    else:
-        kaa.notifier.OneShotTimer(sys.exit, 0).start(0.1)
-
+    if not monitor:
+        sys.exit(0)
+    result.signals['changed'].connect(changed, result)
+    result.signals['progress'].connect(progress)
+    result.signals['up-to-date'].connect(uptodate)
+    result.monitor()
     kaa.notifier.loop()
     sys.exit(0)
-
 
     
 # When we reach this point we need to start a new beacon server. If run
@@ -212,31 +220,8 @@ pid = os.fork()
 
 if not pid:
     # thumbnailer child
-    import kaa
-    import kaa.notifier
-
     import kaa.beacon.thumbnail.server
-
-    # create tmp dir and change directory to it
-    tmpdir = os.path.join(kaa.TEMP, 'thumb')
-    if not os.path.isdir(tmpdir):
-        os.mkdir(tmpdir)
-    os.chdir(tmpdir)
-
-    # create thumbnailer object
-    try:
-        thumbnailer = kaa.beacon.thumbnail.server.Thumbnailer(tmpdir)
-    except IOError, e:
-        log.error('thumbnail: %s' % e)
-        time.sleep(0.1)
-        sys.exit(0)
-
-    # set nice level
-    os.nice(19)
-    
-    # loop
-    kaa.notifier.loop()
-    log.info('stop thumbnail server')
+    kaa.beacon.thumbnail.server.loop()
     sys.exit(0)
     
 
@@ -244,10 +229,9 @@ if not pid:
 # beacon server
 import kaa
 import kaa.notifier
-import kaa.ipc
 
 import kaa.beacon.server
-import kaa.beacon.thumbnail.thumbnail
+import kaa.beacon.thumbnail
 
 def garbage_collect():
     g = gc.collect()
@@ -262,7 +246,8 @@ def garbage_collect():
 
 # connect thumbnailer
 log.info('connect to thumbnailer')
-kaa.beacon.thumbnail.thumbnail.connect()
+kaa.beacon.thumbnail.connect()
+print 'done'
 
 server = kaa.beacon.server.Server(database)
 if os.environ.get('BEACON_MONITOR'):
@@ -279,11 +264,8 @@ if shutdown:
 kaa.notifier.loop()
 log.info('stop beacon')
 
-try:
-    # try to kill thumbnailer
-    os.kill(pid, 15)
-except OSError:
-    pass
+kaa.beacon.thumbnail.stop()
 
 #wait for dead thumbnailer
 os.waitpid(pid, 0)
+print 'done'
