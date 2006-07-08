@@ -73,7 +73,7 @@ class Mountpoint(object):
         """
         Set name of the mountpoint (== load new media)
         """
-        print 'load', name
+        log.info('load %s', name)
         if name == self.name:
             return False
         self.name = name
