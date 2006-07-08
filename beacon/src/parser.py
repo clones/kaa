@@ -151,8 +151,9 @@ def parse(db, item, store=False):
                thumbnail.support_video:
             attributes['image'] = item.filename
             
-        if metadata and metadata.get('raw_image'):
-            attributes['thumbnail'] = item.filename
+        if metadata and metadata.get('raw_image') and not \
+               attributes.get('image'):
+            attributes['image'] = item.filename
             t = thumbnail.Thumbnail(item.filename)
             if not t.exists(check_mtime=True):
                 try:
@@ -164,8 +165,6 @@ def parse(db, item, store=False):
         t = thumbnail.Thumbnail(attributes.get('image'))
         if not t.get(thumbnail.LARGE, check_mtime=True):
             t.create(thumbnail.LARGE)
-        if not attributes.get('thumbnail'):
-            attributes['thumbnail'] = attributes.get('image')
         
     # add kaa.metadata results, the db module will add everything known
     # to the db.
