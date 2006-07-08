@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'connect', 'get', 'query', 'NORMAL', 'LARGE' ]
+__all__ = [ 'connect', 'get', 'query', 'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE' ]
 
 # python imports
 import os
@@ -41,7 +41,8 @@ import kaa.notifier
 # kaa.beacon imports
 from client import Client, CONNECTED
 import thumbnail
-from thumbnail import Thumbnail, NORMAL, LARGE
+from thumbnail import NORMAL as THUMBNAIL_NORMAL
+from thumbnail import LARGE as THUMBNAIL_LARGE
 
 # get logging object
 log = logging.getLogger('beacon')

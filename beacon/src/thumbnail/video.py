@@ -59,8 +59,9 @@ class VideoThumb(object):
         self.notify_client = thumbnailer.notify_client
         self.create_failed = thumbnailer.create_failed
 
-        self.child = kaa.notifier.Process(['mplayer', '-nosound', '-vo', 'png',
-                                           '-frames', '8', '-zoom', '-ss' ])
+        self.child = kaa.notifier.Process(['mplayer', '-nosound', '-vo',
+                                           'png:z=2', '-frames', '10',
+                                           '-zoom', '-ss' ])
         self.child.signals['completed'].connect(self._completed)
         self.child.signals['stdout'].connect(self._handle_std)
         self.child.signals['stderr'].connect(self._handle_std)
@@ -76,7 +77,8 @@ class VideoThumb(object):
 
 
     def _run(self):
-        if self.child.is_alive() or not self.jobs or self._current:
+        if self.child.is_alive() or not self.jobs or self._current or \
+               kaa.notifier.shutting_down:
             return True
         self._current = self.jobs.pop(0)
 
@@ -120,32 +122,44 @@ class VideoThumb(object):
             self._run()
             return
 
-        # scale thumbnail
-        width, height = job.size
-        image = kaa.imlib2.open_without_cache(captures[-1])
-        if image.width > width or image.height > height:
-            image = image.scale_preserve_aspect((width,height))
-        if image.width * 3 > image.height * 4:
-            # fix image with blank bars to be 4:3
-            nh = (image.width*3)/4
-            ni = kaa.imlib2.new((image.width, nh))
-            ni.blend(image, (0,(nh- image.height) / 2))
-            image = ni
-        elif image.width * 3 < image.height * 4:
-            # strange aspect, let's guess it's 4:3
-            new_size = (image.width, (image.width*3)/4)
-            image = image.scale((new_size))
-
+        # find the best image
+        current_capture = captures[0], os.stat(captures[0])[stat.ST_SIZE]
+        for c in captures[1:]:
+            if os.stat(c)[stat.ST_SIZE] > current_capture[1]:
+                current_capture = c, os.stat(c)[stat.ST_SIZE]
+        current_capture = current_capture[0]
+        
         try:
-            png(job.filename, job.imagefile + '.png', job.size, image._image)
-            job.imagefile += '.png'
-        except (IOError, ValueError):
-            self.create_failed(job)
+            # scale thumbnail
+            width, height = job.size
+            image = kaa.imlib2.open_without_cache(current_capture)
+            if image.width > width or image.height > height:
+                image = image.scale_preserve_aspect((width,height))
+            if image.width * 3 > image.height * 4:
+                # fix image with blank bars to be 4:3
+                nh = (image.width*3)/4
+                ni = kaa.imlib2.new((image.width, nh))
+                ni.draw_rectangle((0,0), (image.width, nh), (0,0,0,255), True)
+                ni.blend(image, dst_pos=(0,(nh- image.height) / 2))
+                image = ni
+            elif image.width * 3 < image.height * 4:
+                # strange aspect, let's guess it's 4:3
+                new_size = (image.width, (image.width*3)/4)
+                image = image.scale((new_size))
 
-        # remove old stuff
-        for capture in captures:
-            os.remove(capture)
+            try:
+                png(job.filename, job.imagefile + '.png', job.size,
+                    image._image)
+                job.imagefile += '.png'
+            except (IOError, ValueError):
+                self.create_failed(job)
 
+            # remove old stuff
+            for capture in captures:
+                os.remove(capture)
+
+        except Exception, e:
+            self.message('error: %s', e)
         # notify client and start next video
         self.notify_client(job)
         self._run()

@@ -147,6 +147,10 @@ def parse(db, item, store=False):
                 attributes['image'] = item.filename + ext
                 break
 
+        if type == 'video' and not attributes.get('image') and \
+               thumbnail.support_video:
+            attributes['image'] = item.filename
+            
         if metadata and metadata.get('raw_image'):
             attributes['thumbnail'] = item.filename
             t = thumbnail.Thumbnail(item.filename)
