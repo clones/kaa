@@ -176,7 +176,7 @@ class Thumbnailer(object):
 
         # maybe this is no image
         metadata = kaa.metadata.parse(job.filename)
-        if metadata and metadata['media'] == 'video':
+        if metadata and metadata['media'] == 'video' and metadata.get('video'):
             # video file
             job.metadata = metadata
             self.videothumb.append(job)
