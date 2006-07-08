@@ -174,8 +174,10 @@ class Monitor(object):
             return True
 
         # Same length, check if the strings itself did not change
+        # or if the item has a new mtime
         for pos, c in enumerate(current):
-            if self.items[pos] != c:
+            i = self.items[pos]
+            if i != c or i._beacon_data['mtime'] != c._beacon_data['mtime']:
                 self.items = current
                 self.notify_client('changed')
                 return True
@@ -205,11 +207,13 @@ class Monitor(object):
             # no changes but it was our first call. Tell the client that
             # everything is checked
             self.notify_client('checked')
+            self._checking = False
             yield False
 
         if not changed:
             # no changes but send the 'changed' ipc to the client
             self.notify_client('changed')
+            self._checking = False
             yield False
 
         if not first_call and len(changed) > 10:
@@ -231,9 +235,10 @@ class Monitor(object):
         self._db.commit()
         self.stop()
 
-        updated = [ (x.url, x._beacon_data) for x in updated ]
-        updated.sort(lambda x,y: cmp(x[0], y[0]))
-        self.notify_client('updated', updated)
+        if updated:
+            updated = [ (x.url, x._beacon_data) for x in updated ]
+            updated.sort(lambda x,y: cmp(x[0], y[0]))
+            self.notify_client('updated', updated)
 
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
