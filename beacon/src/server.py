@@ -192,7 +192,7 @@ class Server(object):
         running will update running query monitors.
         """
         self._db.commit()
-        data = self._db.query(filename=directory)
+        data = self._db.query(filename=os.path.realpath(directory))
         items = []
         for i in data._beacon_tree():
             if i._beacon_id:
