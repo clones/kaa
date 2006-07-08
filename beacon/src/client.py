@@ -117,7 +117,7 @@ class Client(object):
             return
 
         # monitor function from the server to start a new monitor for a query
-        log.error('connecting')
+        log.info('connecting')
         server = kaa.rpc.Client('beacon')
         server.signals["closed"].connect_once(self._disconnected)
         server.connect(self)
