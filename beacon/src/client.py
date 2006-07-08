@@ -89,8 +89,10 @@ class Client(object):
         Return an object for the given filename.
         """
         filename = os.path.realpath(filename)
+        if not os.path.exists(filename):
+            raise OSError('no such file or directory %s' % filename)
         return Query(self, filename=filename).get()
-
+        
 
     def query(self, **query):
         """

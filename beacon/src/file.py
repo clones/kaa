@@ -139,9 +139,11 @@ class File(Item):
             special_exts = ( '.png', '.jpg' )
 
         listdir_file_map = self._beacon_parent._beacon_listdir(cache=True)[1]
-
         # calculate the new modification time
-        mtime = listdir_file_map[fullname][3][stat.ST_MTIME]
+        try:
+            mtime = listdir_file_map[fullname][3][stat.ST_MTIME]
+        except KeyError:
+            return 0
         for ext in special_exts:
             if basename+ext in listdir_file_map:
                 mtime += listdir_file_map[basename+ext][3][stat.ST_MTIME]
