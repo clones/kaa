@@ -95,7 +95,11 @@ int _png_write (const char *file, DATA32 * ptr, int tw, int th, int sw,
       sig_bit.alpha = 8;
       png_set_sBIT (png_ptr, info_ptr, &sig_bit);
 
-      png_set_compression_level (png_ptr, 9);	/* 0?? ### */
+      /* 
+	 Find a good compression level. 0 is fast but results in larger
+	 files, 9 is very slow. So 3 is a good compromise.
+      */
+      png_set_compression_level (png_ptr, 3);
       png_write_info (png_ptr, info_ptr);
       png_set_shift (png_ptr, &sig_bit);
       png_set_packing (png_ptr);
@@ -125,7 +129,7 @@ int _png_write (const char *file, DATA32 * ptr, int tw, int th, int sw,
       ret = 1;
   }
   else
-      printf ("pyimlib2: Unable to open \"%s\" for writing\n", file);
+      printf ("png: Unable to open \"%s\" for writing\n", file);
 
   fflush (fp);
   if (fp)
