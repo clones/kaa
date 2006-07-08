@@ -39,12 +39,14 @@ import os
 import md5
 import time
 import logging
+import stat
 
 # kaa imports
 import kaa
 import kaa.rpc
 from kaa.weakref import weakref
 import kaa.notifier
+import kaa.metadata
 
 # kaa.thumb imports
 from libthumb import png
@@ -88,9 +90,19 @@ class Thumbnail(object):
         self._thumbnail = destdir + '/%s/' + md5.md5(url).hexdigest()
         
 
-    def get(self, type='any'):
+    def get(self, type='any', check_mtime=False):
+        if check_mtime:
+            image = self.get(type)
+            if image:
+                metadata = kaa.metadata.parse(image)
+                mtime = metadata.get('Thumb::MTime')
+                if mtime == str(os.stat(self.name)[stat.ST_MTIME]):
+                    return image
+            # mtime check failed, return no image
+            return None
+
         if type == 'any':
-            image = self.get(LARGE)
+            image = self.get(LARGE, check_mtime)
             if image:
                 return image
             type = NORMAL
@@ -116,8 +128,9 @@ class Thumbnail(object):
         log.info('store %s', i)
 
 
-    def exists(self):
-        return self.get(NORMAL) or self.get(LARGE) or self.get('fail/kaa')
+    def exists(self, check_mtime=False):
+        return self.get(NORMAL, check_mtime) or self.get(LARGE, check_mtime) \
+               or self.get('fail/kaa', check_mtime)
     
 
     def is_failed(self):

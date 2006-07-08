@@ -129,7 +129,7 @@ def parse(db, item, store=False):
 
         if metadata and metadata.get('thumbnail'):
             t = thumbnail.Thumbnail(item.filename)
-            if not t.exists():
+            if not t.exists(check_mtime=True):
                 # only store the normal version
                 try:
                     img = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
@@ -154,7 +154,7 @@ def parse(db, item, store=False):
         if metadata and metadata.get('raw_image'):
             attributes['thumbnail'] = item.filename
             t = thumbnail.Thumbnail(item.filename)
-            if not t.exists():
+            if not t.exists(check_mtime=True):
                 try:
                     t.image = kaa.imlib2.open_from_memory(metadata['raw_image'])
                 except ValueError:
@@ -162,7 +162,7 @@ def parse(db, item, store=False):
 
     if attributes.get('image'):
         t = thumbnail.Thumbnail(attributes.get('image'))
-        if not t.get(thumbnail.LARGE):
+        if not t.get(thumbnail.LARGE, check_mtime=True):
             t.create(thumbnail.LARGE)
         if not attributes.get('thumbnail'):
             attributes['thumbnail'] = attributes.get('image')
