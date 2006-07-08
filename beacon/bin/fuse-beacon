@@ -1,0 +1,99 @@
+#!/usr/bin/python
+
+# python imports
+import os
+import sys
+import gc
+import getopt
+import time
+import logging
+
+import fuse
+
+# insert freevo path information
+__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
+__site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), __site__))
+if not __site__ in sys.path:
+    sys.path.insert(0, __site__)
+
+import kaa.notifier
+
+# get logging object
+log = logging.getLogger('beacon')
+
+class beaconfs ( fuse.Fuse ):
+    def __init__ ( self, *args, **kw ):
+        fuse.Fuse.__init__ ( self, *args, **kw )
+
+    def mythread ( self ):
+        pass
+
+    def chmod ( self, path, mode ):
+        pass
+
+    def chown ( self, path, uid, gid ):
+        pass
+
+    def fsync ( self, path, isFsyncFile ):
+        pass
+
+    def getattr ( self, path ):
+        pass
+
+    def getdir ( self, path ):
+        pass
+    
+    def link ( self, targetPath, linkPath ):
+        pass
+    
+    def mkdir ( self, path, mode ):
+        print path
+        pass
+    
+    def mknod ( self, path, mode, dev ):
+        pass
+    
+    def open ( self, path, flags ):
+        pass
+    
+    def read ( self, path, len, offset ):
+        pass
+    
+    def readlink ( self, path ):
+        pass
+    
+    def release ( self, path, flags ):
+        pass
+    
+    def rename ( self, oldPath, newPath ):
+        pass
+    
+    def rmdir ( self, path ):
+        pass
+    
+    def statfs ( self ):
+        pass
+    
+    def symlink ( self, targetPath, linkPath ):
+        pass
+    
+    def truncate ( self, path, size ):
+        pass
+    
+    def unlink ( self, path ):
+        pass
+    
+    def utime ( self, path, times ):
+        pass
+    
+    def write ( self, path, buf, offset ):
+        pass
+
+
+def fuse_main():
+    server = beaconfs ()
+    server.multithreaded = 1;
+    server.main ()
+
+kaa.notifier.Thread(fuse_main).start()
+kaa.notifier.loop()
