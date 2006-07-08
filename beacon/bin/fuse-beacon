@@ -71,7 +71,6 @@ class beaconfs ( fuse.Fuse ):
             return -errno.ENOENT
                 
     def read(self, path, size, offset):
-        print 'read', path, size, offset
         for q in query:
             if not q.getattr('name') == path[1:]:
                 continue
@@ -98,10 +97,6 @@ def fuse_main():
     kaa.notifier.MainThreadCallback(kaa.notifier.shutdown)()
 
     
-def debug():
-    import time
-    print time.time()
-
 query = {}
 while len(sys.argv) > 2:
     key, value = sys.argv.pop().split('=', 1)
@@ -115,9 +110,12 @@ while len(sys.argv) > 2:
     else:
         query[key] = value
 
+if os.fork():
+    sys.exit(0)
+os.setsid()
+
 kaa.beacon.connect()
 query = kaa.beacon.query(**query)
 len(query)
 kaa.notifier.Thread(fuse_main).start()
-kaa.notifier.Timer(debug).start(1)
 kaa.notifier.loop()
