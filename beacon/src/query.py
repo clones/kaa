@@ -81,11 +81,13 @@ class Query(object):
         """
         if self.monitoring == status:
             return
-        if status:
-            self._client._beacon_monitor_add(self)
-        else:
-            self._client._beacon_monitor_remove(self)
         self.monitoring = status
+        if not self.valid:
+            # do this later
+            return
+        if status:
+            return self._client._beacon_monitor_add(self)
+        self._client._beacon_monitor_remove(self)
 
 
     def __iter__(self):
@@ -158,6 +160,8 @@ class Query(object):
         if isinstance(self.result, kaa.notifier.InProgress):
             self.result.connect(self._beacon_delayed_results)
             return None
+        if not self.valid and self.monitoring:
+            self._client._beacon_monitor_add(self)
         self.valid = True
         if emit_signal:
             self.signals['changed'].emit()
@@ -166,6 +170,8 @@ class Query(object):
 
     def _beacon_delayed_results(self, result):
         self.result = result
+        if not self.valid and self.monitoring:
+            self._client._beacon_monitor_add(self)
         self.valid = True
         self.signals['changed'].emit()
         return None

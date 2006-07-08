@@ -176,14 +176,13 @@ if mode == 'search':
     else:
         result = kaa.beacon.query(**query)
 
-    len(result)
-    t2 = time.time()
+    if not monitor or result.valid:
+        len(result)
+        t2 = time.time()
 
-    for r in result:
-        print r
-    print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
-
-    if not monitor:
+        for r in result:
+            print r
+        print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
         sys.exit(0)
     result.signals['changed'].connect(changed, result)
     result.signals['progress'].connect(progress)
