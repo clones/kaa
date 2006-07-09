@@ -138,6 +138,20 @@ class Query(object):
         return self.result
 
 
+    def refresh(self):
+        """
+        Refresh query from the database. This function will return True if the
+        results are updated or False if still in progress. The 'valid' variable
+        will also be changed to False in that case.
+        """
+        if not self.valid:
+            # already in progress
+            return False
+        self.valid = False
+        self._beacon_start_query(self._query)
+        return self.valid
+    
+        
     # -------------------------------------------------------------------------
     # Internal API
     # -------------------------------------------------------------------------
