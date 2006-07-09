@@ -134,7 +134,7 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
  
     if not choice:
         return None
-               
+ 
     return choice["class"]
 
 

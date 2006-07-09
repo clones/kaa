@@ -126,7 +126,8 @@ class MPlayer(MediaPlayer):
         self._state_data = None
         self._overlay_shmem = None
         self._outbuf_shmem = None
-        self._file = self._file_args = None
+        self._file = None
+        self._file_args = []
 
         self._file_info = {}
         self._position = 0.0
@@ -276,9 +277,9 @@ class MPlayer(MediaPlayer):
             file = line[line.find("file")+5:]
             os.unlink(file)
 
-        elif line.startswith("File not found"):
-            file = line[line.find(":")+2:]
-            raise IOError, (2, "No such file or directory: %s" % file)
+        #elif line.startswith("File not found"):
+        #    file = line[line.find(":")+2:]
+        #    raise IOError, (2, "No such file or directory: %s" % file)
 
         elif line.startswith("FATAL:"):
             raise MPlayerError, line.strip()
@@ -339,6 +340,8 @@ class MPlayer(MediaPlayer):
             args += "-input conf=%s " % keyfile
 
         if user_args:
+            if isinstance(user_args, (list, tuple)):
+                user_args = " ".join(user_args)
             args += "%s " % user_args
         if file:
             args += "\"%s\"" % file
@@ -351,8 +354,8 @@ class MPlayer(MediaPlayer):
         if not self.is_alive():
             return False
 
-        if self._debug >= 1:
-            print "SLAVE:", cmd
+        #if self._debug >= 1:
+        #    print "SLAVE:", cmd
         self._process.write(cmd + "\n")
 
 
@@ -369,14 +372,14 @@ class MPlayer(MediaPlayer):
     def is_alive(self):
         return self._process and self._process.is_alive()
 
-    def open(self, mrl):
+    def open(self, mrl, user_args = None):
         schemes = self.get_supported_schemes()
         scheme, path = parse_mrl(mrl)
 
         if scheme not in schemes:
             raise ValueError, "Unsupported mrl scheme '%s'" % scheme
 
-        self._file_args = None
+        self._file_args = []
         if scheme in ("file", "fifo"):
             self._file = path
         elif scheme == "dvd":
@@ -384,7 +387,7 @@ class MPlayer(MediaPlayer):
             if file not in ("/", "//"):
                 if not os.path.isfile(file):
                     raise ValueError, "Invalid ISO file: %s" % file
-                self._file_args = "-dvd-device \"%s\"" % file
+                self._file_args.append("-dvd-device \"%s\"" % file)
 
             self._file = "dvd://"
             if title:
@@ -392,6 +395,9 @@ class MPlayer(MediaPlayer):
         else:
             self._file = mrl
 
+        if user_args:
+            self._file_args.append(user_args)
+        
         self.signals["open"].emit()
 
 
