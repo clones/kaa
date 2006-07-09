@@ -195,9 +195,14 @@ if mode in ('search', 'mount'):
         result = kaa.beacon.query(**query)
 
     if mode == 'mount':
-        from kaa.beacon.fusefs import BeaconFS
+        from kaa.beacon.fusefs import BeaconFS, FuseError
         fs = BeaconFS(mountpt, result)
-        fs.check()
+        try:
+            fs.check()
+        except FuseError, e:
+            print e
+            sys.exit(1)
+            
         if detach:
             if not logfile:
                 logfile = os.path.join(database, 'fuse.log')

@@ -14,6 +14,7 @@ import kaa.utils
 # get logging object
 log = logging.getLogger('beacon')
 
+FuseError = fuse.FuseError
 
 class MyStat(fuse.Stat):
     def __init__(self):
@@ -40,7 +41,9 @@ class BeaconFS(fuse.Fuse):
         fuse.Fuse.__init__(self, *args, **kw)
 
         self.multithreaded = 1
-        self.parse(args=[mountpoint, "-f"])
+        # make it a real path because we will chdir to /
+        self.mountpoint = os.path.realpath(mountpoint)
+        self.parse(args=[self.mountpoint, "-f"])
 
 
     def _query_changed(self):
@@ -126,7 +129,10 @@ class BeaconFS(fuse.Fuse):
             st = os.stat(fusermount)
             if st[stat.ST_UID] != 0 or not st[stat.ST_MODE] & stat.S_ISUID:
                 raise fuse.FuseError, "fusermount is not suid root and you're not root."
-           
+
+        if os.listdir(self.mountpoint):
+            # mountpoint is not empty, fuse doesn't like that
+            raise fuse.FuseError, "mountpoint %s is not empty" % self.mountpoint
 
     def main(self):
         self.check()
