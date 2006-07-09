@@ -49,11 +49,18 @@ log = logging.getLogger('beacon.parser')
 
 # load extra plugins in the plugins subdirectory
 extention_plugins = {}
-for plugin in os.listdir(os.path.join(os.path.dirname(__file__), 'plugins')):
-    if not plugin.endswith('.py') or plugin == '__init__.py':
-        continue
-    exec('import plugin.%s' % plugin)
 
+def load_plugins(db):
+    """
+    Load external plugins. Called by server on creating. The db object
+    is from kaa.beacon, not kaa.db.
+    """
+    for plugin in os.listdir(os.path.join(os.path.dirname(__file__), 'plugins')):
+        if not plugin.endswith('.py') or plugin == '__init__.py':
+            continue
+        exec('import plugin.%s' % plugin)
+        plugin.create(db, register)
+        
 
 def register(ext, function):
     """

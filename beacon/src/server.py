@@ -118,6 +118,9 @@ class Server(object):
         self.add_mountpoint('hd', None, '/')
         self.set_mountpoint('/', 'kaa.beacon.root')
 
+        # load parser plugins
+        parser.load_plugins(self._db)
+        
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
         # set up.
