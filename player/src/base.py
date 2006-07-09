@@ -77,19 +77,22 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
     """
 
     # Ensure all players have their capabilities fetched.
-    for player_id in _players:
+    for player_id in _players.copy():
         if _players[player_id]["loaded"]:
             continue
 
         player_caps, schemes, exts = _players[player_id]["callback"]()
-        _players[player_id].update({
-            "caps": player_caps,
-            "schemes": schemes,
-            # Prefer this player for these extensions.  (It's not a list of
-            # all supported extensions.)
-            "extensions": exts,
-            "loaded": True,
-        })
+        if player_caps != None:
+            _players[player_id].update({
+                "caps": player_caps,
+                "schemes": schemes,
+                # Prefer this player for these extensions.  (It's not a list of
+                # all supported extensions.)
+                "extensions": exts,
+                "loaded": True,
+            })
+        else:
+            del _players[player_id]
 
 
     if player == mrl == caps == None:

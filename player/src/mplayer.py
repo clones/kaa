@@ -1,6 +1,7 @@
 import os, re, string, tempfile, time, stat, threading, md5, struct
 from kaa import notifier, display, shm
 import kaa
+import kaa.utils
 from base import *
 
 # 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status
@@ -29,7 +30,10 @@ def _get_mplayer_info(path, callback = None, mtime = None):
 
     if not mtime:
         # Fetch the mtime of the binary
-        mtime = os.stat(path)[stat.ST_MTIME]
+        try:
+            mtime = os.stat(path)[stat.ST_MTIME]
+        except (OSError, TypeError):
+            return None
 
         if path in _cache and _cache[path]["mtime"] == mtime:
             # Cache isn't stale, so return that.
@@ -85,12 +89,6 @@ def _get_mplayer_info(path, callback = None, mtime = None):
     return info       
 
 
-def find_mplayer_path():
-    for dir in os.getenv("PATH").split(":"):
-        cmd = os.path.join(dir, "mplayer")
-        if os.path.exists(cmd):
-            return cmd
-
 
 class MPlayerError(Exception):
     pass
@@ -109,7 +107,7 @@ class MPlayer(MediaPlayer):
         super(MPlayer, self).__init__()
         self._mp_cmd = MPlayer.PATH
         if not self._mp_cmd:
-            self._mp_cmd = find_mplayer_path()
+            self._mp_cmd = kaa.utils.which("mplayer")
 
         if not self._mp_cmd:
             raise MPlayerError, "No MPlayer executable found in PATH"
@@ -587,7 +585,11 @@ class MPlayer(MediaPlayer):
 
 def get_capabilities():
     capabilities = [CAP_VIDEO, CAP_AUDIO, CAP_DVD, CAP_VARIABLE_SPEED]
-    info = _get_mplayer_info(find_mplayer_path())
+    mp_cmd = kaa.utils.which("mplayer")
+    info = _get_mplayer_info(mp_cmd)
+    if not info:
+        return None, None, None
+
     if "overlay" in info["video_filters"]:
         capabilities.append(CAP_OSD)
     if "outbuf" in info["video_filters"]:
