@@ -268,6 +268,14 @@ class Client(object):
             self.database.add_mountpoint(type, device, directory)
             self.database.set_mountpoint(directory, name)
         self.signals['connect'].emit()
+        # reconnect query monitors
+        for query in self._queries[:]:
+            if query == None:
+                self._queries.remove(query)
+                continue
+            if query.monitoring:
+                query.monitoring = False
+                query.monitor(True)
 
 
     @kaa.rpc.expose('notify')
