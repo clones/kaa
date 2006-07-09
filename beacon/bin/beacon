@@ -36,6 +36,7 @@ def usage(error_code):
     print '--search args      search mode'
     print '--monitor          do not exit after search and monitor for changes'
     print '--mount args       mount the query at a given mountpoint (requires FUSE)'
+    print '--umount dirname   umounts a beacon fuse mountpoint'
     print
     print 'Examples for client mode when a server is running:'
     print '  beacon --search dirname=/local/video'
@@ -50,7 +51,8 @@ def usage(error_code):
 try:
     # read arguments
     opts = [ 'start', 'stop', 'db=', 'fg', 'autoshutdown', 'logfile=',
-             'verbose=', 'help', 'search', 'monitor', 'info', 'mount' ]
+             'verbose=', 'help', 'search', 'monitor', 'info', 'mount',
+             'umount' ]
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
     usage(1)
@@ -64,7 +66,7 @@ monitor  = False
 database = os.path.expanduser("~/.beacon")
 
 for o, a in opts:
-    if o in ('--start', '--stop', '--search', '--info', '--mount'):
+    if o in ('--start', '--stop', '--search', '--info', '--mount', '--umount'):
         if mode:
             usage(1)
         mode = o[2:]
@@ -111,6 +113,11 @@ if mode == 'stop':
         print 'server not running'
         sys.exit(1)
     kaa.notifier.loop()
+    sys.exit(0)
+
+if mode == 'umount':
+    mountpt = args.pop(0)
+    os.system('fusermount -u %s' % mountpt)
     sys.exit(0)
     
 if mode in ("search", "info", "mount"):
@@ -190,8 +197,11 @@ if mode in ('search', 'mount'):
         fs = BeaconFS(mountpt, result)
         fs.check()
         if detach:
+            if not logfile:
+                logfile = os.path.join(database, 'fuse.log')
+                print "Using default logfile of", logfile
             # FIXME: should only daemonize when we know fs is mounted.
-            kaa.utils.daemonize()
+            kaa.utils.daemonize(stdout=logfile)
 
         thread = kaa.notifier.Thread(fs.main)
         thread.signals["exception"].connect(lambda dummy: kaa.notifier.shutdown())
@@ -224,9 +234,10 @@ if mode in ('search', 'mount'):
 import kaa.utils
 
 if detach:
+    logfile = os.path.join(database, 'server.log')
     if not logfile:
-        print "Using default logfile of /tmp/beacon.log"
-        logfile = "/tmp/beacon.log"
+        logfile = os.path.join(database, 'server.log')
+        print 'Using default logfile of', logfile
 
     kaa.utils.daemonize()
     
