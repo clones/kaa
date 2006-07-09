@@ -1,0 +1,94 @@
+This is a dump of the wiki, please keep this file in sync with 
+http://www.freevo.org/cgi-bin/freevo-2.0/SourceDoc/KaaBeacon
+
+= Beacon API =
+
+Before using beacon in your program, you need to have the beacon
+server running. Just start 'beacon --start' and it will run in the
+background. The database will be in $HOME/.beacon. It is possible to
+change that on the command line.
+
+In application using beacon should call 'kaa.beacon.connect()' before
+doing anything else. It is not needed, each query will also call
+connect if needed, but connect raises an exception if the server is
+not running and it is easier to handle this only once. Once you are
+connected it is possible to stop and start the server again. But while
+stopped, kaa.beacon will delay the results until the server is running
+again.
+
+
+== Query ==
+
+To do a query you can all 'kaa.beacon.query(...)' and you get a Query
+object back. This object feels like a list, you can iterate over the
+results, access items based on position and get the length of the
+results. It is possible that beacon is still working on the query even
+when the query function has returned. In this case the memeber 'valid'
+is False. If you access the results while it is invalid, the query
+object will call kaa.notifier.step() until the results arrived. For
+async usage, you can connect to the signal 'changed' to get
+notification when the results arrive. In case the results are alreadt
+valid, the signal will not be emitted.
+
+A query object also has a monitor function which can be used to monitor
+the database for changes and update the results. In that case you
+should register to the 'changed' signal to get notified. Other signals
+are 'up-to-date' which is fired once beacon has checked and updated
+the database for the monitored request (e.g. files changed and need to
+be parsed again) and 'progress' which will send updates while the
+scanning is in progress. See the beacon script in bin for an example.
+
+Besides 'query' you can also call 'kaa.beacon.get(filename)' to get
+the item for one file. If the database is not connected yet, this
+function will call kaa.notifier.step until connected. This small
+version of a query can not be monitored for changes.
+
+If you have a directory item you can call the memeber function
+'listdir' to get Query object with all files in that directory. Using
+the parameter recursive=True will return all files (not directories)
+recursive inside the dir. Symlinks will not be followed (except if the
+starting dir is a symlink).
+
+Note: only a nornal directory listing (not recursive) and no other
+kind of query will check the filesystem if the file is still there or
+if there are newer files that would match.
+
+
+== Items ==
+
+The items returned by a query can either be a 'Directory', a 'File' or
+a simple 'Item' (e.g. tracks on a DVD). They have functions to get and
+set attributes in the database (getattr and setattr). It could be
+possible that an item for a new file is not scanned, in that case the
+attributes returned are limited to the basic filesystem information.
+To force scanning for such an item, add 'force' to getattr and the
+function will block using kaa.notifier.step until the item is
+scanned. You can use the function 'scanned' to get information if the
+item is already scanned or not. If you set information with setattr,
+the information will be added to the database. If the attribute starts
+with 'tmp:', it will be stored only in this object and not added to
+the database. A new query with the same item in the database will not
+contain that attribute. The function 'keys' will return all known keys
+you can use. Special attributes are 'title' (generate a nice title
+based on the name), 'image' (the filename that contains an image for
+this item) and 'thumbnail' (same as image, but as Thumbnail
+object). If an attribute does not exist, None will be returned.
+
+
+== Thumbnails ==
+
+A Thumbnail object returned by getattr('thumbnail') has a memeber
+variable 'image' to get the filename of the thumbnail. It can either
+be a large thumbnail (256x256), a normal one (128x128) or a blank
+image for failed thumbnails. If it is None, the thumbnail is not yet
+created. You can force a large or normal thumbnail by using the get
+function with the parameter THUMBNAIL_NORMAL or THUMBNAIL_LARGE and
+you can check if it is a failed thumbnail by calling 'is_failed'.
+
+If the thumbnail does not exist, you can call the create function with
+THUMBNAIL_LARGE or THUMBNAIL_NORMAL as attribute (normal is
+default). This function will return a signal that will be emitted once
+the thumbnail is generated. If you loose the reference to the
+Thumbnail object the generation will be set to a lower priority and
+the signal will not be emitted.
+
