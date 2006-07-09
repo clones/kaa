@@ -152,13 +152,12 @@ class Client(object):
             # still dead
             return True
 
-        # reset monitors to queries
+        # Reset monitors to queries
         for query in self._queries:
             if query != None and query.monitoring:
                 self._beacon_monitor_add(query)
 
-        # FIXME: also set up all information in the database again, like
-        # mountpoints and directories to monitor
+        # FIXME: re-add crawler dirs and mountpoints
         log.info('beacon connected again')
         return False
 
@@ -235,12 +234,8 @@ class Client(object):
         # do the update now
         items = []
         for i in self._changed:
-            id = i._beacon_id
-            if not id:
-                # FIXME: How to update an item not in the db? Right now we
-                # can't do that and will drop the item.
-                continue
-            items.append((id, i._beacon_changes))
+            # we have a valid item with id thanks to _beacon_update
+            items.append((i._beacon_id, i._beacon_changes))
             i._beacon_changes = {}
         self._changed = []
         self.rpc('item.update')(items)

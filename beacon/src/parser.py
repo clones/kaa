@@ -130,7 +130,7 @@ def parse(db, item, store=False):
 
     # Thumbnail / Cover / Image stuff.
     #
-    # FIXME: when beacon is stopped after the parsing is saved and before the
+    # Note: when beacon is stopped after the parsing is saved and before the
     # thumbnail generation is complete, the thumbnails won't be created
     # before the user needs them. But he can request the thumbnails himself.
 

@@ -136,7 +136,7 @@ class Monitor(object):
             return True
         
         if self._checking:
-            # Still checking. FIXME: what happens if new files are added during
+            # Still checking. Question: What happens if new files are added during
             # scan? For one part, the changes here here the item changes
             # itself, so we would update the client all the time. So it is
             # better to wait here. Note: with inotify support this should not
@@ -199,7 +199,7 @@ class Monitor(object):
             if c > 20:
                 # stop it and continue in the next step
                 yield YieldContinue
-            # FIXME: check parents
+            # TODO: maybe also check parents?
             if i._beacon_changed():
                 changed.append(i)
 
