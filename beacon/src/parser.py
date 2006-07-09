@@ -47,6 +47,23 @@ import thumbnail
 # get logging object
 log = logging.getLogger('beacon.parser')
 
+# load extra keyword plugins
+extention_plugins = {}
+for plugin in os.listdir(os.path.join(os.path.dirname(__file__), 'plugins')):
+    if not plugin.endswith('.py') or plugin == '__init__.py':
+        continue
+    exec('import plugin.%s' % plugin)
+
+
+def register(ext, function):
+    """
+    Register a plugin to the parser.
+    """
+    if not ext in extention_plugins:
+        extention_plugins[ext] = []
+    extention_plugins[ext].append(function)
+
+    
 def parse(db, item, store=False):
 
     t1 = time.time()
@@ -176,6 +193,13 @@ def parse(db, item, store=False):
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
+    # no call extention plugins
+    if hasattr(item, 'filename'):
+        ext = os.path.splitext(item.filename)[1]
+        if ext in extention_plugins:
+            for function in extention_plugins[ext]:
+                function(item, attributes)
+                
     if item._beacon_id:
         # Update
         db.update_object(item._beacon_id, **attributes)
