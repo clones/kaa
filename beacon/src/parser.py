@@ -4,7 +4,7 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: add more data to the item (cover) and start thumbnailing
+# Note: this file is only imported by the server
 #
 # -----------------------------------------------------------------------------
 # kaa-beacon - A virtual filesystem with metadata
@@ -47,7 +47,7 @@ import thumbnail
 # get logging object
 log = logging.getLogger('beacon.parser')
 
-# load extra keyword plugins
+# load extra plugins in the plugins subdirectory
 extention_plugins = {}
 for plugin in os.listdir(os.path.join(os.path.dirname(__file__), 'plugins')):
     if not plugin.endswith('.py') or plugin == '__init__.py':
@@ -57,7 +57,8 @@ for plugin in os.listdir(os.path.join(os.path.dirname(__file__), 'plugins')):
 
 def register(ext, function):
     """
-    Register a plugin to the parser.
+    Register a plugin to the parser. This function gets called by the
+    external plugins in the plugins subdir.
     """
     if not ext in extention_plugins:
         extention_plugins[ext] = []
@@ -65,7 +66,9 @@ def register(ext, function):
 
     
 def parse(db, item, store=False):
-
+    """
+    Main beacon parse function.
+    """
     t1 = time.time()
     
     log.debug('check %s', item.url)
@@ -193,7 +196,7 @@ def parse(db, item, store=False):
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
-    # no call extention plugins
+    # now call extention plugins
     if hasattr(item, 'filename'):
         ext = os.path.splitext(item.filename)[1]
         if ext in extention_plugins:
