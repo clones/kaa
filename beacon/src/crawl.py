@@ -327,6 +327,7 @@ class Crawler(object):
             else:
                 self.scan_directory_items.append([directory, recursive])
             self.check_mtime(directory)
+            log.info("scanning directory: %s" % directory.filename)
             return True
 
         if not self.timer:
