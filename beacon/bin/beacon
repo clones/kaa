@@ -23,7 +23,7 @@ def usage(error_code):
     print '--start             start beacon'
     print '--stop              stop running beacon'
     print '--db directory      directory of the database (default ~/.beacon)'
-    print '--daemon            detach for parent process'
+    print '--fg                Run in foreground'
     print '--autoshutdown      stop server when no clients are connected'
     print '--logfile file      use file for logging'
     print '--verbose modules   comma separated list of modules which should be more'
@@ -43,13 +43,13 @@ def usage(error_code):
     print '  beacon --search artist=Silbermond'
     print '  beacon --search attr=album type=audio'
     print '  beacon --search "keywords=Helden Blind"'
-    print '  beacon --daemon --mount ~/buffy keywords=buffy'
+    print '  beacon --mount ~/buffy keywords=buffy'
     sys.exit(error_code)
 
     
 try:
     # read arguments
-    opts = [ 'start', 'stop', 'db=', 'daemon', 'autoshutdown', 'logfile=',
+    opts = [ 'start', 'stop', 'db=', 'fg', 'autoshutdown', 'logfile=',
              'verbose=', 'help', 'search', 'monitor', 'info', 'mount' ]
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
@@ -58,7 +58,7 @@ except getopt.GetoptError:
 logfile  = ''
 mountpt  = ''
 mode     = None
-detach   = False
+detach   = True
 shutdown = False
 monitor  = False
 database = os.path.expanduser("~/.beacon")
@@ -70,8 +70,8 @@ for o, a in opts:
         mode = o[2:]
     elif o == '--db':
         database = a
-    elif o == '--daemon':
-        detach = True
+    elif o == '--fg':
+        detach = False
     elif o == '--autoshutdown':
         shutdown = True
     elif o == '--logfile':
@@ -225,8 +225,8 @@ import kaa.utils
 
 if detach:
     if not logfile:
-        print 'unable to detach without setting a logfile'
-        sys.exit(0)
+        print "Using default logfile of /tmp/beacon.log"
+        logfile = "/tmp/beacon.log"
 
     kaa.utils.daemonize()
     
