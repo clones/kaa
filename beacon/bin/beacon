@@ -25,7 +25,8 @@ def usage(error_code):
     print '--db directory      directory of the database (default ~/.beacon)'
     print '--fg                Run in foreground'
     print '--autoshutdown      stop server when no clients are connected'
-    print '--logfile file      use file for logging'
+    print '--logfile file      use file for logging. The default logfile for the server'
+    print '                    is $(dbdir)/server.log and $(dbdir)/fuse.log for mount'
     print '--verbose modules   comma separated list of modules which should be more'
     print '                    verbose. Possible modules are db, crawler, monitor,'
     print '                    parser, server. Use \'all\' to increase every module.'
@@ -206,7 +207,6 @@ if mode in ('search', 'mount'):
         if detach:
             if not logfile:
                 logfile = os.path.join(database, 'fuse.log')
-                print "Using default logfile of", logfile
             # FIXME: should only daemonize when we know fs is mounted.
             kaa.utils.daemonize(stdout=logfile)
 
@@ -244,7 +244,6 @@ if detach:
     logfile = os.path.join(database, 'server.log')
     if not logfile:
         logfile = os.path.join(database, 'server.log')
-        print 'Using default logfile of', logfile
 
     kaa.utils.daemonize()
     
