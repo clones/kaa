@@ -47,12 +47,14 @@ def usage(error_code):
     print '  beacon --mount ~/buffy keywords=buffy'
     sys.exit(error_code)
 
-    
+
 try:
+    # list of modes this script can start in
+    possible_modes = [ 'start', 'stop', 'search', 'info', 'mount', 'umount' ]
+
     # read arguments
-    opts = [ 'start', 'stop', 'db=', 'fg', 'autoshutdown', 'logfile=',
-             'verbose=', 'help', 'search', 'monitor', 'info', 'mount',
-             'umount' ]
+    opts = [ 'db=', 'fg', 'autoshutdown', 'logfile=', 'verbose=', 'help',
+             'monitor' ] + possible_modes
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
     usage(1)
@@ -66,7 +68,7 @@ monitor  = False
 database = os.path.expanduser("~/.beacon")
 
 for o, a in opts:
-    if o in ('--start', '--stop', '--search', '--info', '--mount', '--umount'):
+    if o.startswith('--') and o[2:] in possible_modes:
         if mode:
             usage(1)
         mode = o[2:]
