@@ -1,6 +1,6 @@
-import sys, os, md5, shm, time, fcntl, struct
+import sys, os, md5, time, fcntl, struct
 import kaa
-from kaa import notifier, display
+from kaa import notifier, display, shm
 from kaa.config import Group, Var
 
 try:

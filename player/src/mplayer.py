@@ -1,5 +1,5 @@
-import os, re, string, tempfile, time, stat, threading, md5, shm, struct
-from kaa import notifier, display
+import os, re, string, tempfile, time, stat, threading, md5, struct
+from kaa import notifier, display, shm
 import kaa
 from base import *
 
@@ -418,6 +418,9 @@ class MPlayer(MediaPlayer):
             # Use the user specified size, or some sensible default.
             win_size = self._size or (640, 480)
             self._window = display.X11Window(size = win_size, title = "MPlayer Window")
+            # TODO: get from config value
+            self._window.set_cursor_hide_timeout(0.5)
+
 
         if not self._mp_info:
             # We're probably waiting for _get_mplayer_info() to finish; set
