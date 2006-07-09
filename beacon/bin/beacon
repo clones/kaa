@@ -241,7 +241,8 @@ if logfile:
     log.addHandler(handler)
     
 # fork thumbnailer
-if kaa.utils.daemonize(exit = False) == 0:
+pid = os.fork()
+if not pid:
     # thumbnailer child
     import kaa.beacon.thumbnail.server
     kaa.beacon.thumbnail.server.loop()
