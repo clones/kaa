@@ -35,6 +35,7 @@ def usage(error_code):
     print '--info             displays info about the database'
     print '--search args      search mode'
     print '--monitor          do not exit after search and monitor for changes'
+    print '--mount args       mount the query at a given mountpoint (requires FUSE)'
     print
     print 'Examples for client mode when a server is running:'
     print '  beacon --search dirname=/local/video'
@@ -42,18 +43,20 @@ def usage(error_code):
     print '  beacon --search artist=Silbermond'
     print '  beacon --search attr=album type=audio'
     print '  beacon --search "keywords=Helden Blind"'
+    print '  beacon --daemon --mount ~/buffy keywords=buffy'
     sys.exit(error_code)
 
     
 try:
     # read arguments
     opts = [ 'start', 'stop', 'db=', 'daemon', 'autoshutdown', 'logfile=',
-             'verbose=', 'help', 'search', 'monitor', 'info' ]
+             'verbose=', 'help', 'search', 'monitor', 'info', 'mount' ]
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
     usage(1)
 
 logfile  = ''
+mountpt  = ''
 mode     = None
 detach   = False
 shutdown = False
@@ -61,7 +64,7 @@ monitor  = False
 database = os.path.expanduser("~/.beacon")
 
 for o, a in opts:
-    if o in ('--start', '--stop', '--search', "--info"):
+    if o in ('--start', '--stop', '--search', '--info', '--mount'):
         if mode:
             usage(1)
         mode = o[2:]
@@ -94,6 +97,7 @@ if mode == 'stop':
     
     import kaa.notifier
     import kaa.beacon.client
+    import socket
 
     def shutdown(client):
         client.rpc('beacon.shutdown')()
@@ -103,14 +107,13 @@ if mode == 'stop':
     try:
         client = kaa.beacon.Client()
         client.signals['connect'].connect(shutdown, client)
-    except Exception, e:
-        print e
-    except:
+    except socket.error: # FIXME: beacon needs an exception class for this.
         print 'server not running'
+        sys.exit(1)
     kaa.notifier.loop()
     sys.exit(0)
     
-if mode in ("search", "info"):
+if mode in ("search", "info", "mount"):
     # client info/search mode
 
     import kaa.notifier
@@ -134,7 +137,13 @@ if mode == "info":
         print (key + ':').rjust(15), info['count'][key]
     sys.exit(0)
 
-if mode == 'search':
+if mode == 'mount':
+    mountpt = args.pop(0)
+    if not os.path.isdir(mountpt):
+        print "Mount point %s is not a directory" % mountpt
+        sys.exit(1)
+
+if mode in ('search', 'mount'):
 
     def progress(cur, total, item):
         n = 0
@@ -153,7 +162,7 @@ if mode == 'search':
     def uptodate():
         print 'Beacon has finished the query and parsing'
 
-        
+ 
     query   = {}
     for a in args:
         key, value = a.split('=', 1)
@@ -176,6 +185,22 @@ if mode == 'search':
     else:
         result = kaa.beacon.query(**query)
 
+    if mode == 'mount':
+        from kaa.beacon.fusefs import BeaconFS
+        fs = BeaconFS(mountpt, result)
+        fs.check()
+        if detach:
+            # FIXME: should only daemonize when we know fs is mounted.
+            kaa.utils.daemonize()
+
+        thread = kaa.notifier.Thread(fs.main)
+        thread.signals["exception"].connect(lambda dummy: kaa.notifier.shutdown())
+        thread.start()
+
+        kaa.notifier.loop()
+        sys.exit(0)
+
+
     if not monitor or result.valid:
         len(result)
         t2 = time.time()
@@ -196,10 +221,14 @@ if mode == 'search':
 # in daemon mode we fork and detach from the parent. After that a logger
 # is created and the thumbnail server will be forked out.
 
+import kaa.utils
+
 if detach:
-    if os.fork():
+    if not logfile:
+        print 'unable to detach without setting a logfile'
         sys.exit(0)
-    os.setsid()
+
+    kaa.utils.daemonize()
     
 # create logger
 if logfile:
@@ -210,20 +239,14 @@ if logfile:
                           '%(filename)s %(lineno)s: %(message)s')
     handler.setFormatter(f)
     log.addHandler(handler)
-elif detach:
-    print 'unable to detach without setting a logfile'
-    sys.exit(0)
     
 # fork thumbnailer
-pid = os.fork()
-
-if not pid:
+if kaa.utils.daemonize(exit = False) == 0:
     # thumbnailer child
     import kaa.beacon.thumbnail.server
     kaa.beacon.thumbnail.server.loop()
     sys.exit(0)
     
-
 
 # beacon server
 import kaa
@@ -244,9 +267,9 @@ def garbage_collect():
 
 
 # connect thumbnailer
-log.info('connect to thumbnailer')
+log.info('connect to thumbnailer ...')
 kaa.beacon.thumbnail.connect()
-print 'done'
+log.info('connection to thumbnailer established')
 
 server = kaa.beacon.server.Server(database)
 if os.environ.get('BEACON_MONITOR'):
@@ -267,4 +290,4 @@ kaa.beacon.thumbnail.stop()
 
 #wait for dead thumbnailer
 os.waitpid(pid, 0)
-print 'done'
+print 'Beacon done.'
