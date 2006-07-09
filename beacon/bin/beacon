@@ -7,12 +7,19 @@ import gc
 import getopt
 import time
 import logging
+import socket
 
 # insert freevo path information
 __site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
 __site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), __site__))
 if not __site__ in sys.path:
     sys.path.insert(0, __site__)
+
+# kaa imports
+import kaa.notifier
+import kaa.db
+import kaa.beacon
+import kaa.utils
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -100,10 +107,6 @@ if not mode:
 if mode == 'stop':
     # stop a running beacon
     
-    import kaa.notifier
-    import kaa.beacon.client
-    import socket
-
     def shutdown(client):
         client.rpc('beacon.shutdown')()
         kaa.notifier.step()
@@ -126,8 +129,6 @@ if mode == 'umount':
 if mode in ("search", "info", "mount"):
     # client info/search mode
 
-    import kaa.notifier
-    import kaa.beacon
     try:
         kaa.beacon.connect()
     except Exception, e:
@@ -238,8 +239,6 @@ if mode in ('search', 'mount'):
 # in daemon mode we fork and detach from the parent. After that a logger
 # is created and the thumbnail server will be forked out.
 
-import kaa.utils
-
 if detach:
     logfile = os.path.join(database, 'server.log')
     if not logfile:
@@ -267,9 +266,6 @@ if not pid:
     
 
 # beacon server
-import kaa
-import kaa.notifier
-
 import kaa.beacon.server
 import kaa.beacon.thumbnail
 
