@@ -1,1 +1,3 @@
 o Symlinks again
+o When client loses connection and has monitored queries, when client regains
+  connection, queries don't get reactivated.
