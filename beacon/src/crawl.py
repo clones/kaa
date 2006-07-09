@@ -39,7 +39,7 @@ from kaa.notifier import Timer, OneShotTimer
 
 # kaa.beacon imports
 from parser import parse
-from inotify import INotify
+from kaa.inotify import INotify
 from directory import Directory
 
 # get logging object

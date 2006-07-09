@@ -1,5 +1,5 @@
 try:
-    from kaa.beacon.inotify import _inotify
+    from kaa.inotify import _inotify
 except ImportError:
     _inotify = None
 

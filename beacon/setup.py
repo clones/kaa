@@ -59,23 +59,7 @@ if thumb_ext.check_library('epeg', '0.9'):
 else:
     print 'epeg extention disabled'
 
-
-inotify_ext = Extension("kaa.beacon.inotify._inotify",
-                        ["src/inotify/inotify.c"],
-                        config='src/inotify/config.h')
-
-ext_modules = [ thumb_ext, inotify_ext ]
-
-if not inotify_ext.check_cc(["<sys/inotify.h>"], "inotify_init();"):
-    if not inotify_ext.check_cc(["<sys/syscall.h>"], "syscall(0);"):
-        print "inotify not enabled: doesn't look like a Linux system."
-        ext_modules.remove(inotify_ext)
-    else:
-        print "inotify not supported in glibc; using fallback."
-        inotify_ext.config("#define USE_FALLBACK")
-
-else:
-    print "inotify supported by glibc; good."
+ext_modules = [ thumb_ext ]
 
 
 setup (module      = 'beacon',
