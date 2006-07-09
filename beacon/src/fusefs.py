@@ -21,8 +21,8 @@ class MyStat(fuse.Stat):
         self.st_ino = 0
         self.st_dev = 0
         self.st_nlink = 0
-        self.st_uid = 0
-        self.st_gid = 0
+        self.st_uid = os.getuid()
+        self.st_gid = os.getgid()
         self.st_size = 0
         self.st_atime = 0
         self.st_mtime = 0
@@ -93,7 +93,16 @@ class BeaconFS(fuse.Fuse):
 
 
     def check(self):
-        # Do some sanity checks to catch common gotchas.
+        """
+        Do some sanity checks to catch common gotchas with fuse.
+        """
+
+        # Python 2.4.1 (maybe 2.4.2?) has a bug that python-fuse triggers.
+        # 2.4.3 known working.
+        if sys.hexversion < 0x2040300:
+            ver = sys.version.split()[0]
+            raise fuse.FuseError, "Python versions before 2.4.3 have a bug with fuse; your version is %s" % ver
+
         # Check for kernel support.
         if not os.path.exists("/dev/fuse"):
             raise fuse.FuseError, "/dev/fuse not present; fuse module not loaded?"
