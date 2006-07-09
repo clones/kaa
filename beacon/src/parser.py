@@ -64,14 +64,11 @@ def register(ext, function):
         extention_plugins[ext] = []
     extention_plugins[ext].append(function)
 
-    
+
 def parse(db, item, store=False):
     """
     Main beacon parse function.
     """
-    t1 = time.time()
-    
-    log.debug('check %s', item.url)
     mtime = item._beacon_mtime()
     if mtime == None:
         log.warning('no mtime, skip %s' % item)
@@ -104,10 +101,11 @@ def parse(db, item, store=False):
         if data:
             item._beacon_database_update(data)
             if item._beacon_data['mtime'] == mtime:
-                log.info('up-to-date %s' % item)
+                log.debug('up-to-date %s' % item)
                 return
 
     log.info('scan %s' % item)
+
     attributes = { 'mtime': mtime }
     metadata = kaa.metadata.parse(item.filename)
     if metadata and metadata['media'] and \
@@ -170,14 +168,14 @@ def parse(db, item, store=False):
         if type == 'video' and not attributes.get('image') and \
                thumbnail.support_video:
             attributes['image'] = item.filename
-            
-        if metadata and metadata.get('raw_image') and not \
+
+        if metadata and metadata.get('thumbnail') and not \
                attributes.get('image'):
             attributes['image'] = item.filename
             t = thumbnail.Thumbnail(item.filename)
             if not t.exists(check_mtime=True):
                 try:
-                    t.image = kaa.imlib2.open_from_memory(metadata['raw_image'])
+                    t.image = kaa.imlib2.open_from_memory(metadata['thumbnail'])
                 except ValueError:
                     log.error('raw thumbnail')
 
@@ -185,7 +183,7 @@ def parse(db, item, store=False):
         t = thumbnail.Thumbnail(attributes.get('image'))
         if not t.get(thumbnail.LARGE, check_mtime=True):
             t.create(thumbnail.LARGE)
-        
+
     # add kaa.metadata results, the db module will add everything known
     # to the db.
     attributes['metadata'] = metadata
@@ -193,16 +191,15 @@ def parse(db, item, store=False):
     # TODO: do some more stuff here:
     # - add subitems like dvd tracks for dvd images on hd
 
+    # now call extention plugins
+    ext = os.path.splitext(item.filename)[1]
+    if ext in extention_plugins:
+        for function in extention_plugins[ext]:
+            function(item, attributes)
+
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
-    # now call extention plugins
-    if hasattr(item, 'filename'):
-        ext = os.path.splitext(item.filename)[1]
-        if ext in extention_plugins:
-            for function in extention_plugins[ext]:
-                function(item, attributes)
-                
     if item._beacon_id:
         # Update
         db.update_object(item._beacon_id, **attributes)
@@ -218,7 +215,4 @@ def parse(db, item, store=False):
                       **attributes)
     if store:
         db.commit()
-
-    t2 = time.time()
-#     log.info('--> %s' % (t2 -t1))
     return True
