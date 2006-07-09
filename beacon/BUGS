@@ -1,6 +1,2 @@
-o Symlinks again
 o When client loses connection and has monitored queries, when client regains
   connection, queries don't get reactivated.
-o Having a symbolic link in a dir pointing to itself 'ln -s . foo' confuses 
-  crawler and causes 100% cpu usage (yes, I actually have a real directory 
-  like this :))

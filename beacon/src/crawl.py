@@ -77,6 +77,7 @@ class Crawler(object):
         self.db = db
         self.monitoring = []
         self.scan_directory_items = []
+        self.scan_directory_items_done = []
         self.check_mtime_items = []
         self.update_items = []
         Crawler.nextid += 1
@@ -284,6 +285,7 @@ class Crawler(object):
         self.timer.stop()
         self.timer = None
         self.scan_directory_items = []
+        self.scan_directory_items_done = []
         self.check_mtime_items = []
         self.update_items = []
         self.db.commit()
@@ -317,6 +319,22 @@ class Crawler(object):
         function later.
         """
         if directory:
+            if directory._beacon_islink:
+                # WARNING: directory is a link, we need to follow it
+                dirname = os.path.realpath(directory.filename)
+                newdir = self.db.query(filename=dirname)
+                if hasattr(directory, '_beacon_prevent_recursion'):
+                    newdir._beacon_prevent_recursion = True
+                directory = newdir
+
+            # check if we have a problem with recursion
+            if hasattr(directory, '_beacon_prevent_recursion'):
+                for d in self.scan_directory_items_done:
+                    if d.filename == directory.filename:
+                        # we already checked that item in our current
+                        # loop of scan_directory, ignore it.
+                        return True
+                
             # add directory to the scanning list and if necessary start a timer
             # to do the scanning the mtime and the directory
             for entry in self.scan_directory_items:
@@ -341,18 +359,16 @@ class Crawler(object):
         item, recursive = self.scan_directory_items.pop(0)
         if not isinstance(item, Directory):
             log.warning('%s is no directory item', item)
-            if hasattr(item, 'filename') and item.filename + '/' in self.monitoring:
+            if hasattr(item, 'filename') and \
+                   item.filename + '/' in self.monitoring:
                 self.monitoring.remove(item.filename + '/')
             return True
 
         if not item.filename in self.monitoring and self.inotify:
-            # add directory to the inotify list. Do that before the real checking
-            # to avoid changes we would miss between checking and adding the
-            # inotifier.
+            # add directory to the inotify list. Do that before the real
+            # checking to avoid changes we would miss between checking and
+            # adding the inotifier.
             dirname = item.filename[:-1]
-            if item._beacon_islink:
-                # WARNING: item is a link, we need to follow it
-                dirname = os.path.realpath(item.filename)
             log.info('add inotify for %s' % dirname)
             try:
                 self.inotify.watch(dirname, WATCH_MASK)
@@ -363,6 +379,7 @@ class Crawler(object):
             if child._beacon_isdir and recursive:
                 # A directory. Check if it is already scanned or in the list of
                 # items to be scanned. If not, add it.
+                child._beacon_prevent_recursion = True
                 self.scan_directory(child)
                 continue
             # add file to the list of items to be checked
@@ -373,6 +390,7 @@ class Crawler(object):
             self.monitoring.append(item.filename)
 
         # start checking the mtime of files
+        self.scan_directory_items_done.append(item)
         self.check_mtime()
         return True
 
