@@ -97,7 +97,7 @@ class BeaconFS(fuse.Fuse):
         Do some sanity checks to catch common gotchas with fuse.
         """
 
-        # Python 2.4.1 (maybe 2.4.2?) has a bug that python-fuse triggers.
+        # Python 2.4.2 and earlier has a bug that python-fuse triggers.
         # 2.4.3 known working.
         if sys.hexversion < 0x2040300:
             ver = sys.version.split()[0]

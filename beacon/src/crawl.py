@@ -99,6 +99,7 @@ class Crawler(object):
         # 0 so that we do initial indexing as quickly as possible.  Mainly
         # used for debugging/testing.
         if os.getenv("BEACON_EAT_CYCLES"):
+            log.info('all your cpu are belong to me')
             self.UPDATE_TIMER = 0
             self.PARSE_TIMER = 0
 
