@@ -4,7 +4,8 @@ import kaa
 import kaa.utils
 from base import *
 
-# 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status
+# 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status, 
+# 4 = everything + status + run through gdb
 DEBUG=0
 
 BUFFER_UNLOCKED = 0x10
@@ -143,8 +144,18 @@ class MPlayer(MediaPlayer):
 
 
     def _spawn(self, args, hook_notifier = True):
-        self._process = notifier.Process(self._mp_cmd)
-        self._process.start(args)
+        if self._debug > 0:
+            print "Spawn:", self._mp_cmd, args
+
+        if self._debug > 3:
+            # With debug > 3, run mplayer through gdb.
+            self._process = notifier.Process("gdb")
+            self._process.start(self._mp_cmd)
+            self._process.write("run %s\n" % args)
+        else:
+            self._process = notifier.Process(self._mp_cmd)
+            self._process.start(args)
+
         if hook_notifier:
             self._process.signals["stdout"].connect_weak(self._handle_line)
             self._process.signals["stderr"].connect_weak(self._handle_line)
@@ -282,6 +293,10 @@ class MPlayer(MediaPlayer):
         elif line.startswith("FATAL:"):
             raise MPlayerError, line.strip()
 
+        elif self._debug > 3 and line.startswith("Program received signal SIGSEGV"):
+            # Mplayer crashed, issue backtrace.
+            self._process.write("thread apply all bt\n")
+
         if self._debug:
             if re.search("@@@|outbuf|overlay", line, re.I) and self._debug == 1:
                 print line
@@ -352,8 +367,8 @@ class MPlayer(MediaPlayer):
         if not self.is_alive():
             return False
 
-        #if self._debug >= 1:
-        #    print "SLAVE:", cmd
+        if self._debug >= 1:
+            print "SLAVE:", cmd
         self._process.write(cmd + "\n")
 
 
