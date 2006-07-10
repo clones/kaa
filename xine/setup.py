@@ -38,19 +38,6 @@ except ImportError:
 # config file
 config = Configfile('src/config.h')
 
-# check for X11
-x11 = Extension('kaa.display._Displaymodule',
-                [ 'src/display.c', 'src/sdl.c', 'src/x11display.c',
-                  'src/x11window.c', 'src/imlib2.c', 'src/evas.c' ],
-                libraries = ['png', 'rt'])
-
-# check if X11 is actually present
-if not x11.check_cc(['<X11/Xlib.h>'], '', '-lX11'):
-    print "System without X11 detected! Disabling all X11 dependencies..."
-    x11 = None
-else:
-    config.define('HAVE_X11')
-
 files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
          'src/post.c', 'src/drivers/video_out_kaa.c',
          'src/post_out.c', 'src/post_in.c', 'src/event.c', 'src/event_queue.c',
@@ -59,20 +46,29 @@ files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
          'src/drivers/video_out_dummy.c', 'src/drivers/common.c', 'src/drivers/fb.c'
         ]
 
-if x11:
-    files.append('src/drivers/x11.c')
-    xineso = Extension('kaa.xine._xinemodule', files,
-                       libraries = ["X11"], 
-                       # FIXME: don't hardcode this path
-                       library_dirs = ["/usr/X11R6/lib"])
-else:
-    xineso = Extension('kaa.xine._xinemodule', files)
-    
+
+xineso = Extension('kaa.xine._xinemodule', files,
+                   extra_compile_args = ['-DPIC'])
+
 if not xineso.check_library('xine', '1.1.1'):
     print 'xine >= 1.1.1 not found'
     print 'Download from http://xinehq.de'
     config.unlink()
     sys.exit(1)
+
+# FIXME: this logic still needs to be smarter
+libdirs = ['/usr/X11R6/lib', '/usr/X11R6/lib64', '/usr/lib64', '/usr/lib']
+for dir in libdirs:
+    # check for X11 in the given directory
+    if xineso.check_cc(['<X11/Xlib.h>'], '', '-lX11 -L%s' % dir):
+        config.define('HAVE_X11')
+        xineso.files.append('src/drivers/x11.c')
+        xineso.libraries.append("X11")
+        xineso.library_dirs.append(dir)
+        print "X11 found in %s; X11 support enabled." % dir
+        break
+else:
+    print "X11 not found; disabling X11 support."
 
 arch = os.popen("uname -i").read().strip()
 if arch == "x86_64":

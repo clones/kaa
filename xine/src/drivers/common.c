@@ -3,6 +3,7 @@
 #include "x11.h"
 #endif
 #include "kaa.h"
+#include "fb.h"
 #include "dummy.h"
 
 int
