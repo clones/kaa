@@ -96,9 +96,10 @@ class Thumbnail(object):
             image = self.get(type)
             if image:
                 metadata = kaa.metadata.parse(image)
-                mtime = metadata.get('Thumb::MTime')
-                if mtime == str(os.stat(self.name)[stat.ST_MTIME]):
-                    return image
+                if metadata:
+                    mtime = metadata.get('Thumb::MTime')
+                    if mtime == str(os.stat(self.name)[stat.ST_MTIME]):
+                        return image
             # mtime check failed, return no image
             return None
 
