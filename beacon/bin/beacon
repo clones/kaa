@@ -239,6 +239,14 @@ if mode in ('search', 'mount'):
 # in daemon mode we fork and detach from the parent. After that a logger
 # is created and the thumbnail server will be forked out.
 
+try:
+    # this should not be possible
+    kaa.beacon.connect()
+    print 'beacon server already running'
+    sys.exit(1)
+except socket.error: # FIXME: beacon needs an exception class for this.
+    pass
+
 if detach:
     logfile = os.path.join(database, 'server.log')
     if not logfile:
