@@ -1,0 +1,2 @@
+o Creating or removing a file in a directory causes scan_directory() to be 
+  called even when inotify is used.  It's not necessary with inotify.
