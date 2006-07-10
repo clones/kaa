@@ -52,7 +52,12 @@ log = logging.getLogger('beacon.server')
 config = Config(desc='Beacon configuration', schema = [
     List(name = 'monitors',
          schema = Var(type = str, desc='Path of directory', default = ''),
-         desc = 'List of directories to monitor'),
+         desc = '''
+         List of directories to monitor, e.g.
+
+         monitors[0] = /media/mp3
+         monitors[1] = $(HOME)/mp3
+         '''),
     Dict(name = 'plugins',
          schema = Var(type = bool, desc = 'Enable this plugin', default = False),
          desc = 'Dict of plugins to enable (True/False)')
@@ -132,11 +137,12 @@ class Server(object):
         
         config.set_filename(os.path.join(dbdir, "config"))
         if not config.load():
-            config.monitors[0] = os.path.expanduser("~/media")
+            config.save()
         config.watch()
 
         for dir in config.monitors:
-            self.monitor_dir(dir)
+            # FIXME: make this make generic
+            self.monitor_dir(dir.replace('$(HOME)', os.environ.get('HOME')))
 
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
