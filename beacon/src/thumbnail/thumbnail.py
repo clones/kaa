@@ -173,7 +173,7 @@ class Client(object):
     def schedule(self, id, filename, imagename, type):
         if not self.id:
             # Not connected yet, schedule job later
-            self._schedules.append(id, filename, imagename, type)
+            self._schedules.append((id, filename, imagename, type))
             return
         self._schedule((self.id, id), filename, imagename, type)
         
@@ -182,7 +182,7 @@ class Client(object):
     def _server_callback_connected(self, id):
         self.id = id
         for s in self._schedules:
-            schedule(*s)
+            self.schedule(*s)
         self._schedules = []
 
 
