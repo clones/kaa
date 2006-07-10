@@ -39,6 +39,7 @@ import logging
 import kaa.rpc
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Timer, Callback
+from kaa.config import Config, Var, List, Dict
 
 # kaa.beacon imports
 import parser
@@ -48,6 +49,14 @@ from monitor import Monitor
 # get logging object
 log = logging.getLogger('beacon.server')
 
+config = Config(desc='Beacon configuration', schema = [
+    List(name = 'monitors',
+         schema = Var(type = str, desc='Path of directory', default = ''),
+         desc = 'List of directories to monitor'),
+    Dict(name = 'plugins',
+         schema = Var(type = bool, desc = 'Enable this plugin', default = False),
+         desc = 'Dict of plugins to enable (True/False)')
+])
 
 class Server(object):
     """
@@ -121,6 +130,14 @@ class Server(object):
         # load parser plugins
         parser.load_plugins(self._db)
         
+        config.set_filename(os.path.join(dbdir, "config"))
+        if not config.load():
+            config.monitors[0] = os.path.expanduser("~/media")
+        config.watch()
+
+        for dir in config.monitors:
+            self.monitor_dir(dir)
+
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
         # set up.
@@ -195,7 +212,13 @@ class Server(object):
         running will update running query monitors.
         """
         self._db.commit()
-        data = self._db.query(filename=os.path.realpath(directory))
+        if not os.path.isdir(directory):
+            log.warning("monitor_dir: %s not a directory; ignoring." % directory)
+            return False
+        # TODO: check if directory is already being monitored.
+
+        directory = os.path.realpath(directory)
+        data = self._db.query(filename = directory)
         items = []
         for i in data._beacon_tree():
             if i._beacon_id:
