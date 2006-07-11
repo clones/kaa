@@ -559,9 +559,9 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 }
 
 static inline void
-blend_plane_C(int w, int slice_h, uint8_t *dst, uint8_t *src,
-              uint8_t *overlay, uint8_t *alpha, int frame_stride,
-              int overlay_stride)
+blend_plane_C(long w, long slice_h, uint8_t *dst, uint8_t *src,
+              uint8_t *overlay, uint8_t *alpha, long frame_stride,
+              long overlay_stride)
 {
     int x, y;
     for (y = 0; y < slice_h; y++) {
@@ -577,9 +577,9 @@ blend_plane_C(int w, int slice_h, uint8_t *dst, uint8_t *src,
 
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
 static inline void
-blend_plane_MMX(int w, int slice_h, uint8_t *dst, uint8_t *src,
-                uint8_t *overlay, uint8_t *alpha, int frame_stride,
-                int overlay_stride)
+blend_plane_MMX(long w, long slice_h, uint8_t *dst, uint8_t *src,
+                uint8_t *overlay, uint8_t *alpha, long frame_stride,
+                long overlay_stride)
 {
     int i, y, q = w / 8, r = w % 8;
 
@@ -645,9 +645,9 @@ blend_plane_MMX(int w, int slice_h, uint8_t *dst, uint8_t *src,
 #endif
 
 static void
-(*blend_plane)(int w, int slice_h, uint8_t *dst, uint8_t *src,
-               uint8_t *overlay, uint8_t *alpha, int frame_stride,
-               int overlay_stride);
+(*blend_plane)(long w, long slice_h, uint8_t *dst, uint8_t *src,
+               uint8_t *overlay, uint8_t *alpha, long frame_stride,
+               long overlay_stride);
 
 
 static inline void
