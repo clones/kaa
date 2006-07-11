@@ -1,4 +1,4 @@
-__all__ = [ 'signals', 'Device' ]
+__all__ = [ 'signals', 'Device', 'start' ]
 
 import sys
 import os
@@ -7,6 +7,7 @@ import signal
 import logging
 
 import kaa.notifier
+import kaa.metadata
 
 # check for dbus and it's version
 import dbus 
@@ -14,10 +15,11 @@ if getattr(dbus, 'version', (0,0,0)) < (0,51,0):
     raise ImportError('dbus >= 0.51.0 not found')
 import dbus.glib
 
-from utils import fstab
-
 # use gtk main loop
 kaa.notifier.init('gtk')
+
+from utils import fstab
+from cdrom import eject
 
 # get logging object
 log = logging.getLogger('beacon.hal')
@@ -47,7 +49,7 @@ class Device(object):
         """
         Mount or umount the device.
         """
-        if self.prop.get('volume.mount_point'):
+        if self.prop.get('volume.mount_point') and not umount:
             # already mounted
             return False
         for device, mountpoint, type, options in fstab():
@@ -80,8 +82,9 @@ class Device(object):
             self._eject = True
             return self.mount(umount=True)
         # remove from list
-        return _device_remove(self.udi)
-
+        _device_remove(self.udi)
+        if self.prop.get('volume.is_disc'):
+            eject(self.prop['block.device'])
         
     # -------------------------------------------------------------------------
     # Callbacks
@@ -116,7 +119,7 @@ class Device(object):
 # -----------------------------------------------------------------------------
 
 _bus = None
-_connection_timeout = 2
+_connection_timeout = 5
 
 def _connect_to_hal():
     global _bus
@@ -131,7 +134,7 @@ def _connect_to_hal():
             # give up
             signals['failed'].emit('unable to connect to dbus')
             return False
-        kaa.notifier.OneShotTimer(_connect_to_hal).start(1)
+        kaa.notifier.OneShotTimer(_connect_to_hal).start(2)
         return False
     obj = _bus.get_object('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
     # DONT ASK! dbus sucks!
@@ -147,7 +150,7 @@ def _connect_to_hal_because_dbus_sucks(obj):
             # give up
             signals['failed'].emit('unable to connect to hal')
             return False
-        kaa.notifier.OneShotTimer(_connect_to_hal).start(1)
+        kaa.notifier.OneShotTimer(_connect_to_hal).start(2)
         return False
     hal = dbus.Interface(obj, 'org.freedesktop.Hal.Manager')
     hal.GetAllDevices(reply_handler=_device_all, error_handler=log.error)
@@ -212,120 +215,24 @@ def _device_add(prop):
             # Error reading info. Either file not found, linux.sysfs_path_device
             # not in prop or no read permissions. So not removable in that case.
             return
-    
+    elif prop.get('block.device'):
+        # set nice beacon unique id
+        try:
+            prop['volume.uuid'] = kaa.metadata.getid(prop.get('block.device'))[1]
+        except Exception, e:
+            log.exception('device checking')
+            return
+        
     dev = Device(prop, _bus)
     _devices.append(dev)
     sig = _bus.add_signal_receiver
     sig(dev._modified, "PropertyModified", 'org.freedesktop.Hal.Device',
         "org.freedesktop.Hal", prop['info.udi'])
-    # mount this device, if it is not mounted
-    if not prop.get('volume.mount_point'):
-        dev.mount()
     # signal changes
     signals['add'].emit(dev)
         
 
 
 # connect to hal
-_connect_to_hal()
-
-
-if __name__ == '__main__':
-
-    # -------------------------------------------------------------------------
-    # Test
-    # -------------------------------------------------------------------------
-
-    def changed(dev, prop):
-        print "device modified"
-        print "    UID: %s" %  dev.udi
-        if prop.get('volume.mount_point') == dev.prop.get('volume.mount_point'):
-            return
-        if prop.get('volume.mount_point'):
-            print "    Volume mounted to: %s" %  prop.get('volume.mount_point')
-            kaa.notifier.OneShotTimer(dev.eject).start(1)
-        else:
-            print "    Volume unmounted"
-        print
-        
-    def remove(dev):
-        print "lost device"
-        print "    UID: %s" % dev.udi
-        print
-
-
-    def add(dev):
-        print "\nnew device"
-        print "    UID: %s" %  dev.prop['info.udi']
-        #product name of the device
-        if 'info.product' in dev.prop:
-            print "    Product Name: %s" % dev.prop['info.product']
-        #manufacturer
-        if 'usb_device.vendor' in dev.prop:
-            print "    Manufacturer: %s" % dev.prop['usb_device.vendor']
-        #serial number
-        if 'usb_device.serial' in dev.prop:
-            print "    Serial Number: %s" % dev.prop['usb_device.serial']
-        #speed (Speed of device, in Mbit/s, in BCD with two decimals)
-        if 'usb.speed_bcd' in dev.prop:
-            print "    Speed: %s" % dev.prop['usb.speed_bcd']
-        #vendor id
-        if 'usb.vendor_id' in dev.prop:
-            print "    Vendor Id: %s" % dev.prop['usb.vendor_id']
-        #product id
-        if 'usb_device.product_id' in dev.prop:
-            print "    Product Id: %s" % dev.prop['usb_device.product_id']
-
-        #is disc?
-        if dev.prop.get('volume.is_disc') == True:
-            if 'volume.disc.volume.label' in dev.prop :
-                print "    Label: %s" % dev.prop['volume.label']
-            if 'volume.disc.type' in dev.prop :
-                print "    Type: %s" % dev.prop['volume.disc.type']
-            if dev.prop.get('volume.disc.is_videodvd'):
-                print "    Disc: Video-DvD"
-            if dev.prop.get('volume.disc.is_svcd'):
-                print "    Disc: SVCD"
-            if dev.prop.get('volume.disc.is_rewritable'):
-                print "    Disc is rewritable"
-            if dev.prop.get('volume.disc.is_blank'):
-                print "    Disc is empty"
-            if 'volume.disc.capacity' in dev.prop :
-                print "    Capacity: %s" % dev.prop['volume.disc.capacity']
-
-        #usb device?
-        if 'info.bus' in dev.prop:
-            print "    Hardware: %s" % dev.prop['info.bus']
-        #block device
-        if 'block.device' in dev.prop:
-            print "    Block Device: %s" % dev.prop['block.device']
-        #filesystem
-        if dev.prop.get('volume.fstype'):
-            if dev.prop.get('volume.fsversion'):
-                print "    Filesystem: %s , Version: " % \
-                      dev.prop['volume.fstype'], dev.prop['volume.fsversion']
-            else:
-                print "    Filesystem: %s" % dev.prop['volume.fstype']
-        #volume uuid
-        if 'volume.uuid' in dev.prop:
-            print "    Volume UUID: %s" % dev.prop['volume.uuid']
-        #mount point
-        if dev.prop.get('volume.mount_point'):
-            print "    Mount Point: %s" % dev.prop['volume.mount_point']
-        else:
-            print "    Volume not mounted"
-        #volume size
-        if 'volume.size' in dev.prop:
-            print "    Volume Size: %s" % dev.prop['volume.size']
-        print
-
-
-    def failed(reason):
-        print reason
-
-        
-    signals['failed'].connect(failed)
-    signals['add'].connect(add)
-    signals['changed'].connect(changed)
-    signals['remove'].connect(remove)
-    kaa.notifier.loop()
+def start():
+    _connect_to_hal()
