@@ -1,6 +1,10 @@
 __all__ = ["create_canvas_tree", "get_object_from_xml"]
 
-import libxml2
+try:
+    import libxml2
+except ImportError:
+    libxml2 = None
+
 import kaa.canvas
 import os
 import re
@@ -163,11 +167,14 @@ def _get_doc(filename_or_string):
 
 
 def create_canvas_tree(filename_or_string, canvas_object, classname = None, path = []):
+    if not libxml2:
+        raise SystemError, "libxml2 not present on this system; XML support not available."
     doc = _get_doc(filename_or_string)
     _process_node(doc, canvas_object, ["."] + path, classname)
 
 
 def get_object_from_xml(filename_or_string, classname, path = []):
+    if not libxml2:
+        raise SystemError, "libxml2 not present on this system; XML support not available."
     doc = _get_doc(filename_or_string)
     return _process_node(doc, None, ["."] + path, classname)
-    
