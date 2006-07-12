@@ -193,6 +193,14 @@ class MPlayer(MediaPlayer):
 
 
     def _handle_line(self, line):
+        if self._debug:
+            if re.search("@@@|outbuf|overlay", line, re.I) and self._debug == 1:
+                print line
+            elif line[:2] not in ("A:", "V:") and self._debug == 2:
+                print line
+            elif self._debug == 3:
+                print line
+
         if line.startswith("V:") or line.startswith("A:"):
             m = MPlayer.RE_STATUS.search(line)
             if m:
@@ -296,14 +304,6 @@ class MPlayer(MediaPlayer):
         elif self._debug > 3 and line.startswith("Program received signal SIGSEGV"):
             # Mplayer crashed, issue backtrace.
             self._process.write("thread apply all bt\n")
-
-        if self._debug:
-            if re.search("@@@|outbuf|overlay", line, re.I) and self._debug == 1:
-                print line
-            elif line[:2] not in ("A:", "V:") and self._debug == 2:
-                print line
-            elif self._debug == 3:
-                print line
 
         if line.strip():
             self.signals["output"].emit(line)
