@@ -45,6 +45,7 @@ from kaa.config import Config, Var, List, Dict
 import parser
 from db import *
 from monitor import Monitor
+import hwmon
 
 # get logging object
 log = logging.getLogger('beacon.server')
@@ -149,7 +150,10 @@ class Server(object):
         # set up.
         self._db.commit()
 
+        # give database to hwmon
+        hwmon.set_database(self._db)
 
+        
     def client_connect(self, client):
         """
         Connect a new client to the server.

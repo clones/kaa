@@ -265,17 +265,26 @@ if logfile:
     log.addHandler(handler)
     
 # fork thumbnailer
-pid = os.fork()
-if not pid:
+thumb_pid = os.fork()
+if not thumb_pid:
     # thumbnailer child
     import kaa.beacon.thumbnail.server
     kaa.beacon.thumbnail.server.loop()
     sys.exit(0)
     
-
+# fork hwmon
+hwmon_pid = os.fork()
+if not hwmon_pid:
+    # hwmon child
+    import kaa.beacon.hwmon.server
+    kaa.beacon.hwmon.server.Server()
+    kaa.notifier.loop()
+    sys.exit(0)
+    
 # beacon server
 import kaa.beacon.server
 import kaa.beacon.thumbnail
+import kaa.beacon.hwmon
 
 def garbage_collect():
     g = gc.collect()
@@ -293,6 +302,11 @@ log.info('connect to thumbnailer ...')
 kaa.beacon.thumbnail.connect()
 log.info('connection to thumbnailer established')
 
+# connect hwmon
+log.info('connect to hwmon ...')
+kaa.beacon.hwmon.connect()
+log.info('connection to hwmon established')
+
 server = kaa.beacon.server.Server(database)
 if os.environ.get('BEACON_MONITOR'):
     for dirname in os.environ.get('BEACON_MONITOR').split(':'):
@@ -309,7 +323,12 @@ kaa.notifier.loop()
 log.info('stop beacon')
 
 kaa.beacon.thumbnail.stop()
+kaa.beacon.hwmon.stop()
 
-#wait for dead thumbnailer
-os.waitpid(pid, 0)
+#wait for dead children
+os.waitpid(thumb_pid, 0)
+try:
+    os.waitpid(hwmon_pid, 0)
+except OSError:
+    pass
 print 'Beacon done.'
