@@ -760,6 +760,8 @@ class Database(object):
         deleted = [ entry ]
         for child in self._db.query(parent = entry):
             deleted.extend(self._delete((child['type'], child['id'])))
+
+        # FIXME: if the item has a thumbnail, delete it!
         self._db.delete_object(entry)
         return deleted
 
