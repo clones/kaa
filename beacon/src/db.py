@@ -445,8 +445,9 @@ class Database(object):
                 timer = time.time()
                 yield kaa.notifier.YieldContinue
 
-        # sort results by url (name is not unique) and return
-        result.sort(lambda x,y: cmp(x.url, y.url))
+        if not 'keywords' in query:
+            # sort results by url (name is not unique) and return
+            result.sort(lambda x,y: cmp(x.url, y.url))
         yield result
 
         
