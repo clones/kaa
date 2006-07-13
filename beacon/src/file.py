@@ -99,7 +99,7 @@ class File(Item):
         """
         Request the item to be scanned.
         """
-        f = self._beacon_db()._beacon_request
+        f = self._beacon_controller()._beacon_request
         f(self.filename, self._beacon_database_update, callback,
           *args, **kwargs)
         return None

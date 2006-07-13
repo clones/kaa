@@ -168,7 +168,7 @@ class Query(object):
             parent = query['parent']
             log.info('force data for %s', parent)
             return parent._beacon_request(self._beacon_start_query, query, True)
-        self.result = self._client.database.query(**query)
+        self.result = self._client.db.query(**query)
         if isinstance(self.result, kaa.notifier.InProgress):
             self.result.connect(self._beacon_delayed_results)
             return None
@@ -240,7 +240,7 @@ class Query(object):
         """
         Changed message from server.
         """
-        result = self._client.database.query(**self._query)
+        result = self._client.db.query(**self._query)
         if isinstance(self.result, kaa.notifier.InProgress):
             result.connect(self._beacon_delayed_results)
             return None

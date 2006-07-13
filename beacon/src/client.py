@@ -48,6 +48,7 @@ from kaa.notifier import OneShotTimer, Signal
 # kaa.beacon imports
 from db import Database
 from query import Query
+from hwmon import medialist
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -63,7 +64,7 @@ class Client(object):
     the same machine doing the file scanning and changing of the db.
     """
     def __init__(self):
-        self.database = None
+        self.db = None
 
         self.signals = {
             'connect'   : Signal(),
@@ -157,7 +158,6 @@ class Client(object):
             if query != None and query.monitoring:
                 self._beacon_monitor_add(query)
 
-        # FIXME: re-add crawler dirs and mountpoints
         log.info('beacon connected again')
         return False
 
@@ -172,7 +172,7 @@ class Client(object):
                 q.monitoring = False
         self._queries = []
         self.rpc = None
-        self.database = None
+        self.db = None
 
 
     # -------------------------------------------------------------------------
@@ -253,15 +253,14 @@ class Client(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose('connect')
-    def _connected(self, id, database, mountpoints):
+    def _connected(self, id, database, media):
         # read only version of the database
-        self.database = Database(database, self)
+        self.db = Database(database, self)
         # connect to server notifications
         self.id = id
         self.status = CONNECTED
-        for type, device, directory, name in mountpoints:
-            self.database.add_mountpoint(type, device, directory)
-            self.database.set_mountpoint(directory, name)
+        for id, prop in media:
+            medialist.add(id, self.db, self, prop)
         self.signals['connect'].emit()
         # reconnect query monitors
         for query in self._queries[:]:
@@ -292,3 +291,20 @@ class Client(object):
                 return callback(*args, **kwargs)
             log.error('Error: unknown message from server: %s' % msg)
             return
+
+
+    @kaa.rpc.expose('device.changed')
+    def media_changed(self, id, prop):
+        """
+        """
+        if medialist.get(id):
+            medialist.get(id).update(prop)
+            return
+        medialist.add(id, self.db, self, prop)
+        
+
+    @kaa.rpc.expose('device.removed')
+    def media_removed(self, id):
+        """
+        """
+        medialist.remove(id)

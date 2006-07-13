@@ -219,6 +219,7 @@ def parse(db, item, store=False):
                       parent=parent._beacon_id,
                       overlay=item._beacon_overlay,
                       callback=item._beacon_database_update,
+                      media=item._beacon_media._beacon_id[1],
                       **attributes)
     if store:
         db.commit()

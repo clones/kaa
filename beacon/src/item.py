@@ -135,7 +135,7 @@ class Item(object):
             return
         self._beacon_data[key] = value
         if not self._beacon_changes:
-            self._beacon_db()._beacon_update(self)
+            self._beacon_controller()._beacon_update(self)
         self._beacon_changes[key] = value
 
 
@@ -180,11 +180,11 @@ class Item(object):
     # Internal API for client
     # -------------------------------------------------------------------------
 
-    def _beacon_db(self):
+    def _beacon_controller(self):
         """
-        Get the database connection (the client)
+        Get the controller (the client or the server)
         """
-        return self._beacon_media.client
+        return self._beacon_media._beacon_controller()
 
 
     def _beacon_request(self):

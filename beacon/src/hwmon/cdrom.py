@@ -116,8 +116,12 @@ class Device(object):
         self.prop = prop
         if self._eject:
             eject(self.prop['block.device'])
+
             
-            
+    def __getattr__(self, attr):
+        return getattr(self.prop, attr)
+
+    
 class RomDrive(object):
     def __init__(self, device, mountpoint, type, options):
         self.device = device

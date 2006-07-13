@@ -4,6 +4,7 @@ import socket
 import kaa.notifier
 
 from hwmon import Client as _Client
+from media import medialist
 
 _client = None
 
@@ -41,7 +42,7 @@ def stop():
     _client = None
 
 
-def set_database(db):
+def set_database(handler, db, rootfs=None):
     if not _client:
         connect()
-    _client.set_database(db)
+    _client.set_database(handler, db, rootfs)

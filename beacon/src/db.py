@@ -46,7 +46,7 @@ from kaa.db import *
 
 # beacon imports
 from item import Item
-from mountpoint import Mountpoint
+from hwmon import medialist
 
 # get logging object
 log = logging.getLogger('beacon.db')
@@ -79,9 +79,6 @@ class Database(object):
         # on commit.
         self.changes = []
 
-        # internal list of mountpoints
-        self._mountpoints = []
-
         # create db
         if not os.path.isdir(self.dbdir):
             os.makedirs(self.dbdir)
@@ -103,14 +100,14 @@ class Database(object):
             [("name", "parent_type", "parent_id")],
             name = (str, ATTR_KEYWORDS),
             overlay = (bool, ATTR_SIMPLE),
-            media = (int, ATTR_SIMPLE),
+            media = (int, ATTR_INDEXED),
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs("file",
             [("name", "parent_type", "parent_id")],
             name = (str, ATTR_KEYWORDS),
             overlay = (bool, ATTR_SIMPLE),
-            media = (int, ATTR_SIMPLE),
+            media = (int, ATTR_INDEXED),
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs("media",
@@ -123,45 +120,6 @@ class Database(object):
 
         # commit
         self._db.commit()
-
-
-    # -------------------------------------------------------------------------
-    # Mountpoint handling
-    # -------------------------------------------------------------------------
-
-    def add_mountpoint(self, type, device, directory):
-        """
-        Add a mountpoint to the system.
-        """
-        for mountpoint in self._mountpoints:
-            if mountpoint.directory == directory:
-                return False
-        mountpoint = Mountpoint(type, device, directory, self.dbdir, self,
-                                self.client)
-        self._mountpoints.append(mountpoint)
-        self._mountpoints.sort(lambda x,y: -cmp(x.directory, y.directory))
-        return True
-
-
-    def get_mountpoints(self, return_objects=False):
-        """
-        Return current list of mountpoints
-        """
-        if return_objects:
-            return self._mountpoints
-        return [ (m.type, m.device, m.directory, m.name) \
-                 for m in self._mountpoints ]
-
-
-    def set_mountpoint(self, directory, name):
-        """
-        Set name of the mountpoint (load a media)
-        """
-        for mountpoint in self._mountpoints:
-            if mountpoint.directory == directory:
-                return mountpoint.load(name)
-        else:
-            raise AttributeError('unknown mountpoint')
 
 
     # -------------------------------------------------------------------------
@@ -183,16 +141,19 @@ class Database(object):
         if not self.client:
             self.commit()
 
+        # query only media we have right now
+        query['media'] = db.QExpr('in', [ m._beacon_id[1] for m in medialist ])
+        
         # do query based on type
-        if 'filename' in query and len(query) == 1:
+        if 'filename' in query and len(query) == 2:
             return self._db_query_filename(query['filename'])
-        if 'id' in query and len(query) == 1:
+        if 'id' in query and len(query) == 2:
             return self._db_query_id(query['id'])
-        if 'parent' in query and len(query) == 1:
+        if 'parent' in query and len(query) == 2:
             if query['parent']._beacon_isdir:
                 return self._db_query_dir(query['parent'])
             raise AttributeError('oops, fix me')
-        if 'parent' in query and 'recursive' in query and len(query) == 2:
+        if 'parent' in query and 'recursive' in query and len(query) == 3:
             if not query['parent']._beacon_isdir:
                 raise AttributeError('parent is no directory')
             return self._db_query_dir_recursive(query['parent'])
@@ -374,12 +335,13 @@ class Database(object):
         """
         dirname = os.path.dirname(filename)
         basename = os.path.basename(filename)
-        # find correct mountpoint
-        for m in self._mountpoints:
-            if dirname.startswith(m.directory):
-                break
-        else:
+        m = medialist.mountpoint(filename)
+        if not m:
             raise AttributeError('mountpoint not found')
+        if os.path.isdir(filename) and not m == medialist.mountpoint(dirname):
+            # the filename is the mountpoint itself
+            e = self._db.query(parent=m._beacon_id, name='')
+            return create_dir(e[0], m)
         parent = self._get_dir(dirname, m)
         if parent._beacon_id:
             # parent is a valid db item, query
@@ -400,10 +362,8 @@ class Database(object):
         # now we need a parent
         if i['name'] == '':
             # root node found, find correct mountpoint
-            for m in self._mountpoints:
-                if m.id == i['parent']:
-                    break
-            else:
+            m = medialist.beacon_id(i['parent'])
+            if not m:
                 raise AttributeError('bad media %s' % str(i['parent']))
             return create_dir(i, m)
 
@@ -457,7 +417,7 @@ class Database(object):
         timer = time.time()
 
         for r in self._db.query(**query):
-
+            
             # get parent
             pid = r['parent']
             if pid in cache:
@@ -555,7 +515,7 @@ class Database(object):
                     result = self._db.update_object(arg1, **kwargs)
                     changed_id.append(arg1)
                 except Exception, e:
-                    log.error('%s not in the db: %s' % (arg1, e))
+                    log.error('%s not in the db: %s: %s' % (arg1, e, kwargs))
                     result = None
             elif function == 'add':
                 # arg1 is the type, kwargs should contain parent and name, the
@@ -612,7 +572,8 @@ class Database(object):
         """
         if metadata:
             for key in self._db._object_types[type][1].keys():
-                if metadata.has_key(key) and metadata[key] != None:
+                if metadata.has_key(key) and metadata[key] != None and \
+                       not key in kwargs:
                     kwargs[key] = metadata[key]
 
         if beacon_immediately:
@@ -633,9 +594,14 @@ class Database(object):
         """
         if metadata:
             for key in self._db._object_types[type][1].keys():
-                if metadata.has_key(key) and metadata[key] != None:
+                if metadata.has_key(key) and metadata[key] != None and \
+                       not key == 'media':
                     kwargs[key] = metadata[key]
 
+        if 'media' in kwargs:
+            del kwargs['media']
+        if isinstance(kwargs.get('media'), str):
+            raise SystemError
         self.changes.append(('update', (type, id), kwargs))
         if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
             self.commit()
@@ -655,6 +621,7 @@ class Database(object):
                 metadata[key] = old_entry[key]
         # add object to db keep the db in sync
         self.commit()
+        # FIXME: media?
         metadata = self._db.add_object(new_type, **metadata)
         new_beacon_id = (type, metadata['id'])
         self._db.commit()
@@ -692,7 +659,7 @@ class Database(object):
         kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
         # TODO: mtime may not e needed for subitems like tracks
         kwargs['overlay'] = (bool, ATTR_SIMPLE)
-        kwargs['media'] = (int, ATTR_SIMPLE)
+        kwargs['media'] = (int, ATTR_INDEXED)
         if not type.startswith('track_'):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
         indices = [("name", "parent_type", "parent_id")]
@@ -717,15 +684,9 @@ class Database(object):
         Get database entry for the given directory. Called recursive to
         find the current entry. Do not cache results, they could change.
         """
-        if not media:
-            # Unknown media and looks like we are read only.
-            # Return None, if the media is not known, the dir also won't
-            # Note: this should never happen
-            log.error('no media set, this should never happen')
-            return None
-        if dirname == media.directory:
+        if dirname == media.mountpoint:
             # we know that '/' is in the db
-            current = self._db.query(type="dir", name='', parent=media.id)[0]
+            current = self._db.query(type="dir", name='', parent=media._beacon_id)[0]
             return create_dir(current, media)
 
         parent = self._get_dir(os.path.dirname(dirname), media)
@@ -741,7 +702,8 @@ class Database(object):
 
         if not current:
             current = self._db.add_object("dir", name=name,
-                                          parent=parent._beacon_id)
+                                          parent=parent._beacon_id,
+                                          media=media._beacon_id[1])
             self._db.commit()
         else:
             current = current[0]

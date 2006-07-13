@@ -86,6 +86,11 @@ class Device(object):
         if self.prop.get('volume.is_disc'):
             eject(self.prop['block.device'])
         
+
+    def __getattr__(self, attr):
+        return getattr(self.prop, attr)
+
+
     # -------------------------------------------------------------------------
     # Callbacks
     # -------------------------------------------------------------------------

@@ -35,7 +35,7 @@ import time
 import logging
 
 # kaa imports
-from kaa.notifier import Timer, OneShotTimer
+from kaa.notifier import Timer, OneShotTimer, WeakOneShotTimer
 
 # kaa.beacon imports
 from parser import parse
@@ -82,15 +82,13 @@ class Crawler(object):
         self.update_items = []
         Crawler.nextid += 1
         self.num = Crawler.nextid
+        self.inotify = None
         if use_inotify:
             try:
                 self.inotify = INotify()
                 self.inotify.signals['event'].connect(self.inotify_callback)
             except SystemError, e:
                 log.warning('%s', e)
-                self.inotify = None
-        else:
-            self.inotify = None
         self.timer = None
         self.restart_timer = None
         self.restart_args = []
@@ -124,7 +122,17 @@ class Crawler(object):
             if timer and timer.active():
                 timer.stop()
         self.last_checked = {}
+        if self.restart_timer:
+            self.restart_timer.stop()
+            self.restart_timer = None
+            
+
+    def __del__(self):
+        print 'del', self
+
         
+    def __repr__(self):
+        return '<kaa.beacon.Crawler>'
 
     # -------------------------------------------------------------------------
     # Internal functions
@@ -295,7 +303,8 @@ class Crawler(object):
             # The restart function will crawl with a much higher intervall to
             # keep the load on the system down.
             log.info('schedule rescan')
-            self.restart_timer = OneShotTimer(self.restart).start(10)
+            self.restart_timer = WeakOneShotTimer(self.restart)
+            self.restart_timer.start(10)
                 
 
     def restart(self):

@@ -102,4 +102,4 @@ def get_db_info():
         connect()
     while not _client.status == CONNECTED:
         kaa.notifier.step()
-    return _client.database.get_db_info()
+    return _client.db.get_db_info()

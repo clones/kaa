@@ -1,7 +1,10 @@
+import sys
+
 import logging
 import kaa.rpc
 
 import kaa.notifier
+import kaa.metadata
 
 try:
     import hal
@@ -22,7 +25,7 @@ class Server(object):
         log.info('start hardware monitor')
         self.master = None
         self.rpc = None
-        self.devices = []
+        self.devices = {}
         self._ipc = kaa.rpc.Server('hwmon')
         self._ipc.signals['client_connected'].connect_once(self.client_connect)
         self._ipc.connect(self)
@@ -63,23 +66,30 @@ class Server(object):
     # -------------------------------------------------------------------------
 
     def _device_new(self, dev):
-        self.devices.append(dev)
+        if dev.prop.get('volume.uuid'):
+            dev.prop['beacon.id'] = str(dev.prop.get('volume.uuid'))
+        else:
+            log.error('impossible to find unique string for beacon.id')
+            return True
+
+        self.devices[dev.get('beacon.id')] = dev
         if not self.rpc:
             return True
         self.rpc('device.add')(dev.prop)
         
         
     def _device_remove(self, dev):
-        self.devices.remove(dev)
+        del self.devices[dev.get('beacon.id')]
         if not self.rpc:
             return True
-        self.rpc('device.remove')(dev.prop)
+        self.rpc('device.remove')(dev.prop.get('beacon.id'))
 
         
     def _device_changed(self, dev, prop):
         if not self.rpc:
             return True
-        self.rpc('device.changed', prop)
+        prop['beacon.id'] = dev.prop.get('beacon.id')
+        self.rpc('device.changed')(dev.prop.get('beacon.id'), prop)
 
 
     # -------------------------------------------------------------------------
@@ -89,10 +99,27 @@ class Server(object):
     @kaa.rpc.expose('connect')
     def connect(self):
         self.rpc = self.master.rpc
-        for dev in self.devices:
+        for dev in self.devices.values():
             self.rpc('device.add')(dev.prop)
 
 
     @kaa.rpc.expose('shutdown')
     def shutdown(self):
         sys.exit(0)
+
+
+    @kaa.rpc.expose('device.scan')
+    def scan(self, id):
+        dev = self.devices.get(id)
+        if not dev:
+            return None
+        return kaa.metadata.parse(dev.get('block.device'))
+
+
+    @kaa.rpc.expose('device.mount')
+    def mount(self, id):
+        dev = self.devices.get(id)
+        if not dev:
+            return None
+        dev.mount()
+        

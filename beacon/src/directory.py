@@ -80,7 +80,7 @@ class Directory(Item):
             id = (data['type'], data['id'])
             media = parent
             parent = None
-            self.filename = media.directory
+            self.filename = media.mountpoint
 
         self._beacon_islink = False
         if os.path.islink(self.filename[:-1]):
@@ -90,7 +90,7 @@ class Directory(Item):
         self._beacon_overlay = False
         self._beacon_isdir = True
         self._beacon_ovdir = media.overlay + '/' + \
-                             self.filename[len(media.directory):]
+                             self.filename[len(media.mountpoint):]
         self._beacon_listdir_cache = None
 
 
@@ -103,8 +103,8 @@ class Directory(Item):
         Interface to kaa.beacon: List all files in the directory.
         """
         if recursive:
-            return self._beacon_db().query(parent=self, recursive=True)
-        return self._beacon_db().query(parent=self)
+            return self._beacon_controller().query(parent=self, recursive=True)
+        return self._beacon_controller().query(parent=self)
 
 
     # -------------------------------------------------------------------------
@@ -206,7 +206,7 @@ class Directory(Item):
         """
         Request the item to be scanned.
         """
-        f = self._beacon_db()._beacon_request
+        f = self._beacon_controller()._beacon_request
         f(self.filename[:-1], self._beacon_database_update, callback,
           *args, **kwargs)
         return None

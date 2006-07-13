@@ -46,6 +46,8 @@ import parser
 from db import *
 from monitor import Monitor
 import hwmon
+from hwmon import medialist
+from crawl import Crawler
 
 # get logging object
 log = logging.getLogger('beacon.server')
@@ -129,10 +131,6 @@ class Server(object):
         # list of current clients
         self._clients = []
         
-        # add root mountpoint
-        self.add_mountpoint('hd', None, '/')
-        self.set_mountpoint('/', 'kaa.beacon.root')
-
         # load parser plugins
         parser.load_plugins(self._db)
         
@@ -141,17 +139,24 @@ class Server(object):
             config.save()
         config.watch()
 
-        for dir in config.monitors:
-            # FIXME: make this make generic
-            self.monitor_dir(dir.replace('$(HOME)', os.environ.get('HOME')))
-
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is
         # set up.
         self._db.commit()
 
         # give database to hwmon
-        hwmon.set_database(self._db)
+        rootfs = {
+            'beacon.id': 'kaa.beacon.root',
+            'block.device': '',
+            'volume.mount_point': '/'
+        }
+
+        hwmon.set_database(self, self._db, rootfs)
+        self._db.commit()
+        
+        for dir in config.monitors:
+            # FIXME: make this make generic
+            self.monitor_dir(dir.replace('$(HOME)', os.environ.get('HOME')))
 
         
     def client_connect(self, client):
@@ -161,7 +166,10 @@ class Server(object):
         client.signals['closed'].connect(self.client_disconnect, client)
         self._next_client += 1
         self._clients.append((self._next_client, client, []))
-        client.rpc('connect')(self._next_client, self._dbdir, self._db.get_mountpoints())
+        media = []
+        for m in medialist:
+            media.append((m.id, m.prop))
+        client.rpc('connect')(self._next_client, self._dbdir, media)
 
 
     def client_disconnect(self, client):
@@ -237,7 +245,8 @@ class Server(object):
         while items:
             parser.parse(self._db, items.pop(), store=True)
         self._db.commit()
-        data._beacon_media.monitor(data)
+        log.info('monitor %s on %s', directory, data._beacon_media)
+        data._beacon_media.crawler.append(data)
         
         
     @kaa.rpc.expose('monitor.add')
@@ -279,20 +288,34 @@ class Server(object):
         log.error('unable to find monitor %s:%s', client_id, request_id)
     
 
-    def add_mountpoint(self, type, device, directory):
+    def media_changed(self, media):
         """
-        Add a mountpoint to the system.
+        Media mountpoint changed or added.
         """
-        self._db.add_mountpoint(type, device, directory)
+        for id, client, monitors in self._clients:
+            client.rpc('device.changed')(media.id, media.prop)
+        if not media.crawler:
+            if not media.get('block.device'):
+                log.info('start crawler for /')
+                media.crawler = Crawler(self._db, use_inotify=True)
+            elif media.get('volume.mount_point'):
+                log.info('start crawler for %s', media.get('volume.mount_point'))
+                media.crawler = Crawler(self._db, use_inotify=False)
+                self.monitor_dir(str(media.get('volume.mount_point')))
+        self._db.signals['changed'].emit([media._beacon_id])
 
-
-    def set_mountpoint(self, directory, name):
+            
+    def media_removed(self, media):
         """
-        Set mountpoint to the given name (e.g. load media)
+        Media mountpoint removed.
         """
-        self._db.set_mountpoint(directory, name)
-
-        
+        for id, client, monitors in self._clients:
+            client.rpc('device.removed')(media.id)
+        self._db.signals['changed'].emit([media._beacon_id])
+        if media.crawler:
+            media.crawler.stop()
+            media.crawler = None
+            
     @kaa.rpc.expose('item.update')
     def update(self, items):
         """

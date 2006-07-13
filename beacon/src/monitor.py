@@ -72,15 +72,18 @@ class Master(object):
         """
         Connect a new monitor.
         """
-        self.monitors.append((weakref(monitor), []))
+        self.monitors.append((weakref(monitor), [ False, [] ]))
 
         
     def changed(self, changes):
         """
         Database callback with changed ids.
         """
+        if len(changes) == 1 and changes[0][0] == 'media':
+            for m, c in self.monitors:
+                c[0] = True
         for m, c in self.monitors:
-            c.extend(changes)
+            c[1].extend(changes)
         if not self.timer.active():
             self.timer.start(0.02)
 
@@ -91,12 +94,13 @@ class Master(object):
         """
         if not self.monitors:
             return False
-        monitor, changes = self.monitors.pop(0)
+        monitor, (force, changes) = self.monitors.pop(0)
         if monitor == None:
             return True
-        if changes:
+        if changes or force:
             monitor.check(changes)
-        self.monitors.append((monitor, []))
+        self.monitors.append((monitor, [ False, [] ]))
+        return len(changes) > 0 or force
 
 _master = None
 
@@ -147,7 +151,7 @@ class Monitor(object):
         if self._check_changes:
             changes = self._check_changes + changes
             self._check_changes = []
-            
+
         current = self._db.query(**self._query)
 
         # The query result length is different, this is a change
