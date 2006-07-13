@@ -37,3 +37,11 @@
 A. Move special_exts in File._beacon_mtime to kaa.metadata
 
 B. Use inotify on overlay directories
+
+10. Try to reduce algorithm complexity in certain places.  e.g. maybe Query
+    objects keep a dict of items keyed on url rather than a sorted item list.
+
+11. Support yield_execution from kaa.db.query
+
+12. Ability to give changes back to the caller in stages; useful for doing
+    live queries while a user is typing in a word.
