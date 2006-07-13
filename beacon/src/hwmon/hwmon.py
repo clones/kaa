@@ -50,6 +50,7 @@ class Client(object):
         # FIXME: rom drives without dir
         if not dev.get('volume.mount_point'):
             # mount first
+            # FIXME: mount on request
             log.info('mount %s', dev.get('block.device'))
             self.mount(id)
             return
