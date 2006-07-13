@@ -91,6 +91,7 @@ class Item(object):
             return self._beacon_parent
 
         if key == 'thumbnail' and hasattr(self, 'filename'):
+            # FIXME: add media .thumbnail dir if needed.
             return Thumbnail(self.filename, url=self.url)
 
         if key == 'image':

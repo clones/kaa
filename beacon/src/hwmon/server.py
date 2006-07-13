@@ -72,6 +72,8 @@ class Server(object):
             log.error('impossible to find unique string for beacon.id')
             return True
 
+        # FIXME: add a nice title
+        
         self.devices[dev.get('beacon.id')] = dev
         if not self.rpc:
             return True
@@ -113,6 +115,8 @@ class Server(object):
         dev = self.devices.get(id)
         if not dev:
             return None
+        # FIXME: we don't the scanning in a thread, this could block.
+        # But it shouldn't matter, but check that.
         return kaa.metadata.parse(dev.get('block.device'))
 
 

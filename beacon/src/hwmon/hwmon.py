@@ -29,6 +29,9 @@ class Client(object):
         
     @kaa.rpc.expose('device.add')
     def _device_add(self, dev):
+
+        # FIXME: check if the device is still valid
+
         id = dev.get('beacon.id')
         if medialist.get(id):
             # already in db
@@ -51,6 +54,7 @@ class Client(object):
             self.mount(id)
             return
 
+        # FIXME: create overlay + .thumbnail dirs
         m = medialist.add(id, self.db, self, dev)
         self.handler.media_changed(m)
         return
@@ -59,10 +63,6 @@ class Client(object):
     @kaa.rpc.expose('device.remove')
     def _device_remove(self, id):
         log.info('remove device %s' % id)
-        # remove from list
-
-        # notify the server, if needed stop crawler
-        # notify all clients
         self.handler.media_removed(medialist.get(id))
         medialist.remove(id)
 
@@ -74,6 +74,9 @@ class Client(object):
 
 
     def _device_scanned(self, result, dev):
+
+        # FIXME: check if the device is still valid
+        
         id = dev.get('beacon.id')
         log.info('create media entry for %s' % id)
         if ADD_DISC_SUPPORT:

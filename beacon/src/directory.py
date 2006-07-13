@@ -129,6 +129,10 @@ class Directory(Item):
             # three seconds ago
             yield self._beacon_listdir_cache[1:]
 
+
+        # FIXME: this could block for everything except media 1. So this
+        # should be done in the hwmon process. But the server doesn't like
+        # an InProgress return.
         try:
             # Try to list the overlay directory
             overlay_results = os.listdir(self._beacon_ovdir)

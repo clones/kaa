@@ -138,6 +138,8 @@ def parse(db, item, store=False):
     # Note: when beacon is stopped after the parsing is saved and before the
     # thumbnail generation is complete, the thumbnails won't be created
     # before the user needs them. But he can request the thumbnails himself.
+    #
+    # FIXME: add media .thumbnail dir if needed
 
     if type == 'dir':
         for cover in ('cover.jpg', 'cover.png'):

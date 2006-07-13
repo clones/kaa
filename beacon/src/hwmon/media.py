@@ -16,7 +16,7 @@ class Media(object):
         self.id = id
         self.update(prop)
 
-        # needed by server
+        # needed by server. FIXME: make it nicer
         self.crawler = None
         
         log.info('new mountpoint %s', self.id)
@@ -24,14 +24,6 @@ class Media(object):
         # when we are here the media is in the database and also
         # the item for it
 
-        # so when we reach this point we need to get all info out
-        # this into the db, notify the server to start a crawler
-        # and the server should notify the client
-
-        # are we beacon client or server???? We could get that info
-        # based on if db has client or if we have self._server
-        
-        
     def _beacon_controller(self):
         """
         Get the controller (the client or the server)
@@ -45,12 +37,13 @@ class Media(object):
 
     def get_item(self):
         # return our root item (dir or item)
+        # FIXME: do we need this?
         pass
 
 
     def update(self, prop):
         self.prop = prop
-        # FIXME: could str()
+        # FIXME: could str() crash?
         self.device = str(prop.get('block.device'))
         self.mountpoint = str(prop.get('volume.mount_point'))
         if not self.mountpoint:
@@ -61,9 +54,11 @@ class Media(object):
         self._beacon_id = ('media', media['id'])
         self.url = media['content'] + '//' + self.mountpoint
         self.overlay = os.path.join(self._db.dbdir, self.id)
+        # FIXME: do this directly in hwmon?
         if not os.path.isdir(self.overlay):
             os.mkdir(self.overlay)
-
+        # FIXME: add .thumbnail dir
+        
     def __del__(self):
         print 'del', self
 
