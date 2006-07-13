@@ -114,6 +114,10 @@ def parse(db, item, store=False):
     log.info('scan %s' % item)
 
     attributes = { 'mtime': mtime }
+    # FIXME: add force parameter from config file:
+    # - always force (slow but best result)
+    # - never force (faster but maybe wrong)
+    # - only force on media 1 (good default)
     metadata = kaa.metadata.parse(item.filename)
     if metadata and metadata['media'] and \
              db.object_types().has_key(metadata['media']):
