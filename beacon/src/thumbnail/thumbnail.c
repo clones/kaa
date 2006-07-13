@@ -142,11 +142,16 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
     iw = imlib_image_get_width ();
     ih = imlib_image_get_height ();
     if (iw > tw || ih > th) {
-	if (iw / tw > ih / th)
+	if (iw / tw > ih / th) {
 	    th = (ih * tw) / iw;
-	else
+	    if (!th)
+		th = 1;
+	} else {
 	    tw = (iw * th) / ih;
-
+	    if (!tw)
+		tw = 1;
+	}
+	
 	/* scale image down to thumbnail size */
 	imlib_context_set_cliprect (0, 0, tw, th);
 	src = imlib_create_cropped_scaled_image (0, 0, iw, ih, tw, th);
