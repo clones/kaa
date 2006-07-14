@@ -81,6 +81,7 @@ class Thumbnail(object):
         
         if not url:
             # create url to be placed in the thumbnail
+            # FIXME: handle media.mountpoint
             url = 'file://' + os.path.normpath(name)
         self.url = url
 

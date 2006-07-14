@@ -129,7 +129,7 @@ class Directory(Item):
             # three seconds ago
             yield self._beacon_listdir_cache[1:]
 
-        # FIXME: gc doesn't like that. The items have a ref back to parent
+        # FIXME: This doesn't hold a reference to items, so what does?
 
         # FIXME: this could block for everything except media 1. So this
         # should be done in the hwmon process. But the server doesn't like
