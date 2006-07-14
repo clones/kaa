@@ -297,29 +297,34 @@ def garbage_collect():
     return True
 
 
-# connect thumbnailer
-log.info('connect to thumbnailer ...')
-kaa.beacon.thumbnail.connect()
-log.info('connection to thumbnailer established')
+try:
+    # connect thumbnailer
+    log.info('connect to thumbnailer ...')
+    kaa.beacon.thumbnail.connect()
+    log.info('connection to thumbnailer established')
 
-# connect hwmon
-log.info('connect to hwmon ...')
-kaa.beacon.hwmon.connect()
-log.info('connection to hwmon established')
+    # connect hwmon
+    log.info('connect to hwmon ...')
+    kaa.beacon.hwmon.connect()
+    log.info('connection to hwmon established')
 
-server = kaa.beacon.server.Server(database)
-if os.environ.get('BEACON_MONITOR'):
-    for dirname in os.environ.get('BEACON_MONITOR').split(':'):
-        log.info('monitor %s', dirname)
-        server.monitor_dir(dirname)
+    server = kaa.beacon.server.Server(database)
+    if os.environ.get('BEACON_MONITOR'):
+        for dirname in os.environ.get('BEACON_MONITOR').split(':'):
+            log.info('monitor %s', dirname)
+            server.monitor_dir(dirname)
             
-# start garbage collector
-kaa.notifier.Timer(garbage_collect).start(10)
-if shutdown:
-    log.info('set autoshutdown timer to 3 seconds')
-    server.autoshutdown(3)
+    # start garbage collector
+    kaa.notifier.Timer(garbage_collect).start(10)
+    if shutdown:
+        log.info('set autoshutdown timer to 3 seconds')
+        server.autoshutdown(3)
 
-kaa.notifier.loop()
+    kaa.notifier.loop()
+
+except Exception, e:
+    log.exception('beacon startup')
+    
 log.info('stop beacon')
 
 kaa.beacon.thumbnail.stop()
