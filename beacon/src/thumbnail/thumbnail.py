@@ -112,6 +112,8 @@ class Thumbnail(object):
             return self._thumbnail % type + '.png'
         if os.path.isfile(self._thumbnail % type + '.jpg'):
             return self._thumbnail % type + '.jpg'
+        if not type == 'fail/kaa':
+            return self.get('fail/kaa', check_mtime)
         return None
 
 

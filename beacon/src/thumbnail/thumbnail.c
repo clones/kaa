@@ -196,6 +196,8 @@ PyObject *fail_thumbnail(PyObject *self, PyObject *args)
     char *source;
     char *dest;
     char format[32];
+    int mtime;
+    struct stat filestatus;
 
     if (!PyArg_ParseTuple(args, "ss", &source, &dest))
         return NULL;
@@ -205,11 +207,19 @@ PyObject *fail_thumbnail(PyObject *self, PyObject *args)
     imlib_image_set_has_alpha(1);
     imlib_image_clear_color(0, 0, 0, 0);
 
+    if (stat (source, &filestatus) != 0)
+	mtime = 0;
+    else
+	mtime = filestatus.st_mtime;
+	
+      
+    mtime = filestatus.st_mtime;
+
     snprintf (uri, PATH_MAX, "file://%s", source);
     snprintf (format, 32, "image/%s", imlib_image_format ());
     
     if (_png_write (dest, imlib_image_get_data (), 1, 1, 1, 1, 
-		    format, 0, uri)) {
+		    format, mtime, uri)) {
         imlib_free_image_and_decache ();
 	Py_INCREF(Py_None);
 	return Py_None;
