@@ -3,6 +3,8 @@ __all__ = [ 'medialist' ]
 import os
 import logging
 
+from kaa.weakref import weakref
+
 # get logging object
 log = logging.getLogger('beacon.hwmon')
 
@@ -45,6 +47,8 @@ class Media(object):
         if not self.mountpoint.endswith('/'):
             self.mountpoint += '/'
         self.overlay = os.path.join(self._db.dbdir, self.id)
+        # FIXME: gc doesn't like that
+        self._beacon_media = self
         # get basic information from database
         media, self._beacon_id, self.root = \
                self._db.query_media(self.id, self)
@@ -55,15 +59,9 @@ class Media(object):
         self.thumbnails = os.path.join(self.overlay, '.thumbnails')
         if self.mountpoint == '/':
             self.thumbnails = os.path.join(os.environ['HOME'], '.thumbnails')
-
         
-    def get_media(self):
-        return self
-
-    _beacon_media = property(get_media, None, None, 'get media object')
-
-    def __del__(self):
-        print 'del', self
+#     def __del__(self):
+#         print 'del', self
 
     def get(self, key):
         return self.prop.get(key)
