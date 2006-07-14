@@ -35,12 +35,6 @@ class Media(object):
         self._controller.eject(self)
 
 
-    def get_item(self):
-        # return our root item (dir or item)
-        # FIXME: do we need this?
-        pass
-
-
     def update(self, prop):
         self.prop = prop
         # FIXME: could str() crash?
@@ -50,20 +44,31 @@ class Media(object):
             self.mountpoint = self.device
         if not self.mountpoint.endswith('/'):
             self.mountpoint += '/'
-        media = self._db.query_raw(type="media", name=self.id)[0]
-        self._beacon_id = ('media', media['id'])
-        self.url = media['content'] + '//' + self.mountpoint
         self.overlay = os.path.join(self._db.dbdir, self.id)
-        # FIXME: do this directly in hwmon?
-        if not os.path.isdir(self.overlay):
-            os.mkdir(self.overlay)
-        # FIXME: add .thumbnail dir
+        # get basic information from database
+        media, self._beacon_id, self.root = \
+               self._db.query_media(self.id, self)
+        prop['beacon.content'] = media['content']
+        self._beacon_isdir = False
+        if media['content'] == 'file':
+            self._beacon_isdir = True
         
+    def get_media(self):
+        return self
+
+    _beacon_media = property(get_media, None, None, 'get media object')
+
     def __del__(self):
         print 'del', self
 
-    def __getattr__(self, attr):
-        return getattr(self.prop, attr)
+    def get(self, key):
+        return self.prop.get(key)
+
+    def __getitem__(self, key):
+        return self.prop[key]
+
+    def __setitem__(self, key, value):
+        self.prop[key] = value
 
     def __repr__(self):
         return '<kaa.beacon.Media %s>' % self.id
@@ -73,12 +78,23 @@ class MediaList(object):
 
     def __init__(self):
         self._dict = dict()
+        self.db = None
+        self.controller = None
 
         
-    def add(self, id, db, controller, prop):
+    def connect(self, db, controller):
+        for media in self._dict:
+            self.remove(media)
+        self.db = db
+        self.controller = controller
+
+        
+    def add(self, id, prop):
+        if not self.db:
+            raise RuntimeError('not connected to database')
         if id in self._dict:
             return self._dict.get(id)
-        m = Media(id, db, controller, prop)
+        m = Media(id, self.db, self.controller, prop)
         self._dict[id] = m
         return m
 
@@ -86,9 +102,11 @@ class MediaList(object):
     def remove(self, id):
         if not id in self._dict:
             log.error('%s not in list' % id)
-            return
+            return None
+        m = self._dict[id]
         del self._dict[id]
-
+        return m
+    
         
     def get(self, id):
         return self._dict.get(id)

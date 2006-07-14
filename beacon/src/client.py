@@ -68,7 +68,9 @@ class Client(object):
 
         self.signals = {
             'connect'   : Signal(),
-            'disconnect': Signal()
+            'disconnect': Signal(),
+            'media.add' : Signal(),
+            'media.remove': Signal()
         }
 
         # internal list of active queries
@@ -259,8 +261,10 @@ class Client(object):
         # connect to server notifications
         self.id = id
         self.status = CONNECTED
+        new_media = []
+        medialist.connect(self.db, self)
         for id, prop in media:
-            medialist.add(id, self.db, self, prop)
+            new_media.append(medialist.add(id, prop))
         self.signals['connect'].emit()
         # reconnect query monitors
         for query in self._queries[:]:
@@ -270,7 +274,9 @@ class Client(object):
             if query.monitoring:
                 query.monitoring = False
                 query.monitor(True)
-
+        for m in new_media:
+            if not m.mountpoint == '/':
+                self.signals['media.add'].emit(m)
 
     @kaa.rpc.expose('notify')
     def notify(self, id, msg, *args, **kwargs):
@@ -300,11 +306,13 @@ class Client(object):
         if medialist.get(id):
             medialist.get(id).update(prop)
             return
-        medialist.add(id, self.db, self, prop)
-        
+        media = medialist.add(id, prop)
+        self.signals['media.add'].emit(media)
 
     @kaa.rpc.expose('device.removed')
     def media_removed(self, id):
         """
         """
-        medialist.remove(id)
+        media = medialist.remove(id)
+        if media:
+            self.signals['media.remove'].emit(media)

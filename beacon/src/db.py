@@ -56,7 +56,7 @@ MAX_BUFFER_CHANGES = 30
 # Item generation mapping
 from directory import Directory as create_dir
 from file import File as create_file
-
+from item import create_item
 
 class Database(object):
     """
@@ -141,19 +141,26 @@ class Database(object):
         if not self.client:
             self.commit()
 
-        # query only media we have right now
-        query['media'] = db.QExpr('in', [ m._beacon_id[1] for m in medialist ])
-        
+        qlen = len(query)
+        if not 'media' in query:
+            # query only media we have right now
+            query['media'] = db.QExpr('in', [ m._beacon_id[1] for m in medialist ])
+        else:
+            if query['media'] == 'ignore':
+                del query['media']
+            qlen -= 1
+            
         # do query based on type
-        if 'filename' in query and len(query) == 2:
+        if 'filename' in query and qlen == 1:
             return self._db_query_filename(query['filename'])
-        if 'id' in query and len(query) == 2:
+        if 'id' in query and qlen == 1:
             return self._db_query_id(query['id'])
-        if 'parent' in query and len(query) == 2:
-            if query['parent']._beacon_isdir:
-                return self._db_query_dir(query['parent'])
-            raise AttributeError('oops, fix me')
-        if 'parent' in query and 'recursive' in query and len(query) == 3:
+        if 'parent' in query:
+            if qlen == 1:
+                if query['parent']._beacon_isdir:
+                    return self._db_query_dir(query['parent'])
+            query['parent'] = query['parent']._beacon_id
+        if 'parent' in query and 'recursive' in query and qlen == 2:
             if not query['parent']._beacon_isdir:
                 raise AttributeError('parent is no directory')
             return self._db_query_dir_recursive(query['parent'])
@@ -167,14 +174,28 @@ class Database(object):
         return self._db_query_raw(query)
     
 
-    def query_raw(self, *args, **kwargs):
+    def query_media(self, id, media):
         """
-        Query kaa.db database object directly.
+        Get media and the root filesystem. If 'media' is None,
+        the root filesystem is also None. You have to pass a media
+        object to get media and root filesystem.
+        Returns dbinfo, beacon_id, root
         """
-        self.commit()
-        return self._db.query(*args, **kwargs)
+        result = self._db.query(type="media", name=id)
+        if not result:
+            return None, None, None
+        result = result[0]
+        id = ('media', result['id'])
+        if not media:
+            return result, id, None
+        # TODO: it's a bit ugly to set url here, but we have no other choice
+        media.url = result['content'] + ':/' + media.mountpoint[:-1]
+        root = self._db.query(parent=id)[0]
+        if root['type'] == 'dir':
+            return result, id, create_dir(root, media)
+        return result, id, create_item(root, media)
 
-
+        
     @kaa.notifier.yield_execution()
     def _db_query_dir(self, parent):
         """
@@ -415,6 +436,10 @@ class Database(object):
         cache = {}
         counter = 0
         timer = time.time()
+
+        for media in medialist:
+            cache[media._beacon_id] = media
+            cache[media.root._beacon_id] = media.root
 
         for r in self._db.query(**query):
             

@@ -125,7 +125,7 @@ class VideoThumb(object):
         captures = glob.glob('000000??.png')
         if not captures:
             # strange, no image files found
-            self.message(self._child_std)
+#             self.message(self._child_std)
             self.create_failed(job)
             self.notify_client(job)
             job = None

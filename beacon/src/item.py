@@ -154,6 +154,15 @@ class Item(object):
         return self._beacon_id is not None
 
 
+    def list(self):
+        """
+        Return all subitems to his item.
+        """
+        if not self._beacon_id:
+            return []
+        return self._beacon_controller().query(parent=self)
+
+    
     # -------------------------------------------------------------------------
     # Internal API for client and server
     # -------------------------------------------------------------------------
@@ -237,3 +246,10 @@ class ParentIterator(object):
         ret = self.item
         self.item = self.item._beacon_parent
         return ret
+
+
+def create_item(data, parent):
+    url = parent.url
+    if data['name']:
+        url = parent.url + '/' + data['name']
+    return Item((data['type'], data['id']), url, data, parent, parent._beacon_media)
