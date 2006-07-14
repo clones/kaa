@@ -143,6 +143,8 @@ class Thumbnail(object):
         Thumbnail.next_id += 1
         
         dest = '%s/%s' % (self.destdir, type)
+        if not os.path.isdir(dest):
+            os.makedirs(dest, 0700)
 
         # schedule thumbnail creation
         _client.schedule(Thumbnail.next_id, self.name,
