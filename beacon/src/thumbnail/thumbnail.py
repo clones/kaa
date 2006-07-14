@@ -55,9 +55,6 @@ from libthumb import png
 # get logging object
 log = logging.getLogger('beacon.thumb')
 
-# default .thumbnail dir
-DOT_THUMBNAIL = os.path.join(os.environ['HOME'], '.thumbnails')
-
 # sizes for the thumbnails
 SIZE = { NORMAL: (128, 128), LARGE: (256, 256) }
 
@@ -78,9 +75,9 @@ class Thumbnail(object):
 
     next_id = 0
 
-    def __init__(self, name, destdir=DOT_THUMBNAIL, url=None):
+    def __init__(self, name, media, url=None):
         self.name = os.path.realpath(name)
-        self.destdir = destdir
+        self.destdir = media.thumbnails
         
         if not url:
             # create url to be placed in the thumbnail
@@ -88,7 +85,7 @@ class Thumbnail(object):
         self.url = url
 
         # create digest for filename (with %s for the size)
-        self._thumbnail = destdir + '/%s/' + md5.md5(url).hexdigest()
+        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(url).hexdigest()
         
 
     def get(self, type='any', check_mtime=False):

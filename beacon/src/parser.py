@@ -143,7 +143,6 @@ def parse(db, item, store=False):
     # thumbnail generation is complete, the thumbnails won't be created
     # before the user needs them. But he can request the thumbnails himself.
     #
-    # FIXME: add media .thumbnail dir if needed
 
     if type == 'dir':
         for cover in ('cover.jpg', 'cover.png'):
@@ -159,7 +158,7 @@ def parse(db, item, store=False):
         attributes['image'] = item.filename
 
         if metadata and metadata.get('thumbnail'):
-            t = thumbnail.Thumbnail(item.filename)
+            t = thumbnail.Thumbnail(item.filename, item._beacon_media)
             if not t.exists(check_mtime=True):
                 # only store the normal version
                 try:
@@ -185,7 +184,7 @@ def parse(db, item, store=False):
         if metadata and metadata.get('thumbnail') and not \
                attributes.get('image'):
             attributes['image'] = item.filename
-            t = thumbnail.Thumbnail(item.filename)
+            t = thumbnail.Thumbnail(item.filename, item._beacon_media)
             if not t.exists(check_mtime=True):
                 try:
                     t.image = kaa.imlib2.open_from_memory(metadata['thumbnail'])
@@ -193,7 +192,7 @@ def parse(db, item, store=False):
                     log.error('raw thumbnail')
 
     if attributes.get('image'):
-        t = thumbnail.Thumbnail(attributes.get('image'))
+        t = thumbnail.Thumbnail(attributes.get('image'), item._beacon_media)
         if not t.get(thumbnail.LARGE, check_mtime=True):
             t.create(thumbnail.LARGE)
 

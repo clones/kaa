@@ -52,6 +52,10 @@ class Media(object):
         self._beacon_isdir = False
         if media['content'] == 'file':
             self._beacon_isdir = True
+        self.thumbnails = os.path.join(self.overlay, '.thumbnails')
+        if self.mountpoint == '/':
+            self.thumbnails = os.path.join(os.environ['HOME'], '.thumbnails')
+
         
     def get_media(self):
         return self
