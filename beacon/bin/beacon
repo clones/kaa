@@ -226,7 +226,8 @@ if mode in ('search', 'mount'):
         for r in result:
             print r
         print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
-        sys.exit(0)
+        if not monitor:
+            sys.exit(0)
     result.signals['changed'].connect(changed, result)
     result.signals['progress'].connect(progress)
     result.signals['up-to-date'].connect(uptodate)
