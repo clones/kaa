@@ -52,7 +52,7 @@ class Directory(Item):
     Attributes:
     url:      unique url of the item
     filename: filename of the directory on hd
-    listdir:  list all items in that directory
+    list:     list all items in that directory
     getattr:  function to get an attribute
     setattr:  function to set an attribute
     keys:     function to return all known attributes of the item
@@ -98,7 +98,7 @@ class Directory(Item):
     # Public API
     # -------------------------------------------------------------------------
 
-    def listdir(self, recursive=False):
+    def list(self, recursive=False):
         """
         Interface to kaa.beacon: List all files in the directory.
         """

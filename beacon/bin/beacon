@@ -190,9 +190,9 @@ if mode in ('search', 'mount'):
     t1 = time.time()
     if 'dirname' in query:
         if 'recursive' in query:
-            result = kaa.beacon.get(query['dirname']).listdir(recursive=True)
+            result = kaa.beacon.get(query['dirname']).list(recursive=True)
         else:
-            result = kaa.beacon.get(query['dirname']).listdir()
+            result = kaa.beacon.get(query['dirname']).list()
     else:
         result = kaa.beacon.query(**query)
 
