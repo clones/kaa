@@ -265,22 +265,25 @@ if logfile:
     handler.setFormatter(f)
     log.addHandler(handler)
     
-# fork thumbnailer
-thumb_pid = os.fork()
-if not thumb_pid:
-    # thumbnailer child
-    import kaa.beacon.thumbnail.server
-    kaa.beacon.thumbnail.server.loop()
-    sys.exit(0)
-    
-# fork hwmon
-hwmon_pid = os.fork()
-if not hwmon_pid:
-    # hwmon child
+# fork thumbnailer / hwmon
+pid = os.fork()
+if not pid:
+    # hwmon part (import this first because of hal/gtk)
     import kaa.beacon.hwmon.server
     kaa.beacon.hwmon.server.Server()
+
+    # thumbnailer part
+    import kaa.beacon.thumbnail.server
+    kaa.beacon.thumbnail.server.init()
+
+    # set nice level
+    os.nice(19)
+    
+    # loop
     kaa.notifier.loop()
+    log.info('stop thumbnail/hwmon')
     sys.exit(0)
+
     
 # beacon server
 import kaa.beacon.server
@@ -320,7 +323,6 @@ try:
     if shutdown:
         log.info('set autoshutdown timer to 3 seconds')
         server.autoshutdown(3)
-
     kaa.notifier.loop()
 
 except Exception, e:
@@ -328,13 +330,15 @@ except Exception, e:
     
 log.info('stop beacon')
 
-kaa.beacon.thumbnail.stop()
-kaa.beacon.hwmon.stop()
-
-#wait for dead children
-os.waitpid(thumb_pid, 0)
+# stop child
 try:
-    os.waitpid(hwmon_pid, 0)
-except OSError:
+    kaa.beacon.thumbnail.stop()
+except IOError:
+    # gtk notifier seems to handle shutdown itself
+    # somehow.
     pass
+
+#wait for dead child
+os.waitpid(pid, 0)
+
 print 'Beacon done.'
