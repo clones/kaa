@@ -62,13 +62,14 @@ class Client(object):
             self.mount(id)
             return
 
+        m = medialist.add(id, dev)
+
         # create overlay directory structure
-        for d in ('.thumbnails/large', '.thumbnails/normal', '.thumbnails/fail/kaa'):
-            dirname = os.path.join(self.db.dbdir, id, d)
+        for d in ('large', 'normal', 'fail/kaa'):
+            dirname = os.path.join(m.thumbnails, d)
             if not os.path.isdir(dirname):
                 os.makedirs(dirname, 0700)
 
-        m = medialist.add(id, dev)
         self.handler.media_changed(m)
         return
     
