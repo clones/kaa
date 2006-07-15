@@ -35,6 +35,7 @@ import time
 import logging
 
 # kaa imports
+import kaa.notifier
 from kaa.notifier import Timer, OneShotTimer, WeakOneShotTimer
 
 # kaa.beacon imports
@@ -101,6 +102,8 @@ class Crawler(object):
             log.info('all your cpu are belong to me')
             self.UPDATE_TIMER = 0
             self.PARSE_TIMER = 0
+        kaa.signals["shutdown"].connect_weak(self.stop)
+
 
     def append(self, item):
         """
@@ -115,6 +118,7 @@ class Crawler(object):
         """
         Stop the crawler and remove the inotify watching.
         """
+        kaa.signals["shutdown"].disconnect(self.stop)
         self.finished()
         self.monitoring = []
         self.inotify = None
