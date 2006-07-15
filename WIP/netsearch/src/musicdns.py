@@ -22,12 +22,12 @@ class MusicDNS(object):
                          'exception': kaa.notifier.Signal() }
         
     def search(self, filename):
-        t = kaa.notifier.ThreadCallback(self._detect_thread, filename)
-        for s in ('completed', 'exception'):
-            t.signals[s].connect_once(self.signals[s].emit)
-        t.register('webinfo')
+        sig = self._detect_thread(filename)
+        sig.connect(self.signals['completed'].emit)
+        sig.exception.connect(self.signals['exception'].emit)
 
-        
+
+    @kaa.notifier.execute_in_thread('netsearch')
     def _detect_thread(self, filename):
         wav = '%s/musicdns.wav' % kaa.TEMP
         if os.path.isfile(wav):
@@ -70,14 +70,15 @@ class MusicDNS(object):
             for r in Query().getTracks(TrackFilter(puid=puid)):
                 # filter out possible bad results (duration += 20 sec)
                 # adding duration to TrackFilter doesn't help :(
-                if r.track.duration - 20000 > ms or \
-                   r.track.duration + 20000 < ms:
+                if r.track.duration and \
+                       (r.track.duration - 20000 > ms or \
+                        r.track.duration + 20000 < ms):
                     continue
                 for rel in r.track.releases:
                     results.append((
                         r.track.title,                  # title
                         r.track.artist.name,            # artist
-                        r.track.duration,               # length
+                        ms,                             # length
                         rel.title,                      # album
                         rel.asin,                       # ASIN
                         ))
