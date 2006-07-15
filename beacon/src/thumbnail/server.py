@@ -132,7 +132,7 @@ class Thumbnailer(object):
 
 
     def step(self):
-        if not self.jobs:
+        if not self.jobs or kaa.notifier.shutdown:
             return False
 
         job = self.jobs.pop(0)
@@ -217,6 +217,7 @@ class Thumbnailer(object):
 
     @kaa.rpc.expose('shutdown')
     def shutdown(self):
+        sys.info('shutdown thumbnail server')
         sys.exit(0)
 
 
