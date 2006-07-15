@@ -88,14 +88,10 @@ class Thumbnailer(object):
         """
         Connect a new client to the server.
         """
-        if not self.clients:
-            # use first client (beacon server) as debug handler
-            self.message = client.rpc('log.info')
-            self.videothumb.message = self.message
         client.signals['closed'].connect(self.client_disconnect, client)
         self.next_client_id += 1
         self.clients.append((self.next_client_id, client))
-        client.rpc('connect')(self.next_client_id)
+        client.rpc('connect', self.next_client_id)
 
 
     def client_disconnect(self, client):
@@ -122,7 +118,7 @@ class Thumbnailer(object):
     def notify_client(self, job):
         for id, client in self.clients:
             if id == job.client:
-                client.rpc('finished')(job.id, job.filename, job.imagefile)
+                client.rpc('finished', job.id, job.filename, job.imagefile)
                 return
 
 
@@ -185,12 +181,12 @@ class Thumbnailer(object):
         # maybe the image is gone now
         if not os.path.exists(job.filename):
             # ignore it in this case
-            self.message('no file %s', job.filename)
+            log.info('no file %s', job.filename)
             self.notify_client(job)
             return True
             
         # broken file
-        self.message('unable to create thumbnail for %s', job.filename)
+        log.info('unable to create thumbnail for %s', job.filename)
         self.create_failed(job)
         self.notify_client(job)
         return True
@@ -214,7 +210,7 @@ class Thumbnailer(object):
             for job in schedule:
                 if id != (job.client, job.id):
                     continue
-                self.message('reduce priority %s' % job.id)
+                log.info('reduce priority %s' % job.id)
                 job.priority = PRIORITY_LOW
                 schedule.sort(lambda x,y: cmp(x.priority, y.priority))
                 return
@@ -225,7 +221,11 @@ class Thumbnailer(object):
 
 
 
-def loop():
+thumbnailer = None
+
+def init():
+    global thumbnailer
+    
     # create tmp dir and change directory to it
     tmpdir = os.path.join(kaa.TEMP, 'thumb')
     if not os.path.isdir(tmpdir):
@@ -239,11 +239,3 @@ def loop():
         log.error('thumbnail: %s' % e)
         time.sleep(0.1)
         sys.exit(0)
-
-    # set nice level
-    os.nice(19)
-    
-    # loop
-    kaa.notifier.loop()
-    log.info('stop thumbnail server')
-    sys.exit(0)

@@ -189,8 +189,12 @@ class Client(object):
             return
         q = copy.copy(query._query)
         if 'parent' in q:
+            if not q['parent']._beacon_id:
+                # we need the get the id first
+                q['parent']._beacon_request(self._beacon_monitor_add, query)
+                return
             q['parent'] = q['parent']._beacon_id
-        self.rpc('monitor.add')(self.id, query.id, q)
+        self.rpc('monitor.add', self.id, query.id, q)
 
 
     def _beacon_monitor_remove(self, query):
@@ -199,7 +203,7 @@ class Client(object):
         """
         if not self.status == CONNECTED:
             return
-        self.rpc('monitor.remove')(self.id, query.id)
+        self.rpc('monitor.remove', self.id, query.id)
 
 
     def _beacon_request(self, filename, callback, *args, **kwargs):
@@ -208,7 +212,7 @@ class Client(object):
         """
         if not self.status == CONNECTED:
             return False
-        self.rpc('item.request', callback, *args, **kwargs)(filename)
+        self.rpc('item.request', filename).connect(callback, *args, **kwargs)
         return True
 
 
@@ -240,7 +244,7 @@ class Client(object):
             items.append((i._beacon_id, i._beacon_changes))
             i._beacon_changes = {}
         self._changed = []
-        self.rpc('item.update')(items)
+        self.rpc('item.update', items)
 
 
     def __repr__(self):

@@ -20,7 +20,8 @@
 # WITHOUT ANY WARRANTY; without even the implied warranty of MER-
 # CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
 # Public License for more details.
-## You should have received a copy of the GNU General Public License along
+#
+# You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
@@ -34,6 +35,7 @@ import logging
 # kaa imports
 import kaa.db
 import kaa.rpc
+import kaa.notifier
 from kaa.notifier import Signal, OneShotTimer, execute_in_timer
 
 # kaa.epg imports
@@ -161,11 +163,13 @@ class Client(object):
             kwargs["start"] = kaa.db.QExpr("range", (int(start) - max, int(stop)))
             kwargs["stop"]  = kaa.db.QExpr(">=", int(start))
 
+        in_progress = self.server.rpc('guide.query', type='program', **kwargs)
         if callback:
-            rpc = self.server.rpc('guide.query', self._program_rows_to_objects, callback)
-            rpc(type='program', **kwargs)
+            in_progress.connect(self._program_rows_to_objects, callback)
             return None
-        data = self.server.rpc('guide.query', 'blocking')(type='program', **kwargs)
+        # ugly!!!!!
+        while not in_progress.is_finished:
+            kaa.notifier.step()
         return self._program_rows_to_objects(data)
 
 
@@ -239,4 +243,4 @@ class Client(object):
         """
         if self.status == DISCONNECTED:
             return False
-        self.server.rpc('guide.update')(*args, **kwargs)
+        self.server.rpc('guide.update', *args, **kwargs)

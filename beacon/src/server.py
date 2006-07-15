@@ -169,7 +169,7 @@ class Server(object):
         media = []
         for m in medialist:
             media.append((m.id, m.prop))
-        client.rpc('connect')(self._next_client, self._dbdir, media)
+        client.rpc('connect', self._next_client, self._dbdir, media)
 
 
     def client_disconnect(self, client):
@@ -293,7 +293,7 @@ class Server(object):
         Media mountpoint changed or added.
         """
         for id, client, monitors in self._clients:
-            client.rpc('device.changed')(media.id, media.prop)
+            client.rpc('device.changed', media.id, media.prop)
         if not media.crawler:
             if not media.get('block.device'):
                 log.info('start crawler for /')
@@ -312,7 +312,7 @@ class Server(object):
         Media mountpoint removed.
         """
         for id, client, monitors in self._clients:
-            client.rpc('device.removed')(media.id)
+            client.rpc('device.removed', media.id)
         self._db.signals['changed'].emit([media._beacon_id])
         if media.crawler:
             media.crawler.stop()

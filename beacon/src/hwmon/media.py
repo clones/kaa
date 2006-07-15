@@ -85,7 +85,7 @@ class MediaList(object):
 
         
     def connect(self, db, controller):
-        for media in self._dict:
+        for media in self._dict.keys()[:]:
             self.remove(media)
         self.db = db
         self.controller = controller

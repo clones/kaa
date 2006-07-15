@@ -140,7 +140,7 @@ class Server(object):
         Connect a new client to the server.
         """
         info = self._channel_list, self._max_program_length, self._num_programs
-        client.rpc('guide.update')(info)
+        client.rpc('guide.update', info)
         client.signals['closed'].connect(self.client_closed, client)
         self._clients.append(client)
 
@@ -168,7 +168,7 @@ class Server(object):
         info = self._channel_list, self._max_program_length, self._num_programs
         for client in self._clients:
             log.info('update client %s', client)
-            client.rpc('guide.update')(info)
+            client.rpc('guide.update', info)
 
 
     def add_channel(self, tuner_id, name, long_name):

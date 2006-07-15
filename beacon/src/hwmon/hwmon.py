@@ -15,9 +15,7 @@ class Client(object):
     def __init__(self):
         server = kaa.rpc.Client('hwmon')
         server.connect(self)
-        self.shutdown = server.rpc('shutdown')
         self.rpc = server.rpc
-        self.mount = self.rpc('device.mount')
 
 
     def set_database(self, handler, db, rootfs):
@@ -25,13 +23,20 @@ class Client(object):
         # handler == beacon.Server
         self.handler = handler
         medialist.connect(self.db, self)
-        self.rpc('connect')()
+        self.rpc('connect')
         self._device_add(rootfs)
         
-        
+
+    def shutdown(self):
+        return self.rpc('shutdown')
+
+    
+    def mount(self):
+        return self.rpc('device.mount')
+
+    
     @kaa.rpc.expose('device.add')
     def _device_add(self, dev):
-
         # FIXME: check if the device is still valid
 
         id = dev.get('beacon.id')
@@ -48,7 +53,7 @@ class Client(object):
                 # fake scanning for other media than rom drives
                 return self._device_scanned(None, dev)
             # scan the disc in background
-            self.rpc('device.scan', self._device_scanned, dev)(id)
+            self.rpc('device.scan', id).connect(self._device_scanned, dev)
             return
 
         if media['content'] == 'file' and not dev.get('volume.mount_point'):

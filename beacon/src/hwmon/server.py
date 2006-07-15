@@ -77,21 +77,21 @@ class Server(object):
         self.devices[dev.get('beacon.id')] = dev
         if not self.rpc:
             return True
-        self.rpc('device.add')(dev.prop)
+        self.rpc('device.add', dev.prop)
         
         
     def _device_remove(self, dev):
         del self.devices[dev.get('beacon.id')]
         if not self.rpc:
             return True
-        self.rpc('device.remove')(dev.prop.get('beacon.id'))
+        self.rpc('device.remove', dev.prop.get('beacon.id'))
 
         
     def _device_changed(self, dev, prop):
         if not self.rpc:
             return True
         prop['beacon.id'] = dev.prop.get('beacon.id')
-        self.rpc('device.changed')(dev.prop.get('beacon.id'), prop)
+        self.rpc('device.changed', dev.prop.get('beacon.id'), prop)
 
 
     # -------------------------------------------------------------------------
@@ -102,7 +102,7 @@ class Server(object):
     def connect(self):
         self.rpc = self.master.rpc
         for dev in self.devices.values():
-            self.rpc('device.add')(dev.prop)
+            self.rpc('device.add', dev.prop)
 
 
     @kaa.rpc.expose('shutdown')

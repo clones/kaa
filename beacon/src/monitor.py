@@ -47,12 +47,12 @@ log = logging.getLogger('beacon.monitor')
 
 class Notification(object):
     def __init__(self, client, id):
-        self.remote = client.rpc('notify')
+        self.rpc = client.rpc
         self.id = id
 
     def __call__(self, *args, **kwargs):
         try:
-            self.remote(self.id, *args, **kwargs)
+            self.rpc('notify', self.id, *args, **kwargs)
         except IOError:
             pass
 

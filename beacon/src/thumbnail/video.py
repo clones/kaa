@@ -39,6 +39,7 @@
 import glob
 import os
 import stat
+import logging
 
 # kaa imports
 import kaa.metadata
@@ -47,6 +48,9 @@ import kaa.imlib2
 
 # kaa.thumb imports
 from libthumb import epeg, png, failed
+
+# get logging object
+log = logging.getLogger('beacon.thumbnail')
 
 
 class VideoThumb(object):
@@ -125,7 +129,6 @@ class VideoThumb(object):
         captures = glob.glob('000000??.png')
         if not captures:
             # strange, no image files found
-#             self.message(self._child_std)
             self.create_failed(job)
             self.notify_client(job)
             job = None
@@ -169,7 +172,7 @@ class VideoThumb(object):
                 os.remove(capture)
 
         except Exception, e:
-            self.message('error: %s', e)
+            log.exception('video')
         # notify client and start next video
         self.notify_client(job)
         self._run()

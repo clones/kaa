@@ -162,19 +162,20 @@ class Client(object):
         server = kaa.rpc.Client('thumb/socket')
         server.connect(self)
         self._schedules = []
-
-        # server rpc calls
-        self.reduce_priority = server.rpc('reduce_priority')
-        self.shutdown = server.rpc('shutdown')
-        self._schedule = server.rpc('schedule')
+        self.rpc = server.rpc
 
 
+    def shutdown(self):
+        return self.rpc('shutdown')
+        
     def schedule(self, id, filename, imagename, type):
         if not self.id:
             # Not connected yet, schedule job later
             self._schedules.append((id, filename, imagename, type))
             return
-        self._schedule((self.id, id), filename, imagename, type)
+        
+        # server rpc calls
+        self.rpc('schedule', (self.id, id), filename, imagename, type)
         
         
     @kaa.rpc.expose('connect')
@@ -203,7 +204,7 @@ class Client(object):
                 continue
             # set old jobs to lower priority
             Job.all.remove(job)
-            self.reduce_priority((self.id, job.id))
+            self.rpc('reduce_priority', (self.id, job.id))
 
 
 def connect():
@@ -229,6 +230,11 @@ def stop():
     if not _client:
         return
 
-    _client.shutdown()
-    kaa.notifier.step()
+    in_progress = _client.shutdown()
+    # ugly, but we have no choice. we need to wait until the child got the
+    # shutdown event. And since it calls sys.exit(0), we can't wait for a
+    # result.
+    start = time.time()
+    while start + 0.5 < time.time():
+        kaa.notifier.step()
     _client = None

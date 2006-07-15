@@ -216,11 +216,9 @@ class Database(object):
         
         if isinstance(listing, kaa.notifier.InProgress):
             # oops, something takes more time than we had in mind,
-            callback = kaa.notifier.YieldCallback()
-            listing.connect(callback)
-            yield callback
+            yield listing
             # when we reach this point, we can continue
-            listing = callback.get()
+            listing = listing()
 
         items = []
         if parent._beacon_id:
