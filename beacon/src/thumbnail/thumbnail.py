@@ -165,9 +165,6 @@ class Client(object):
         self.rpc = server.rpc
 
 
-    def shutdown(self):
-        return self.rpc('shutdown')
-        
     def schedule(self, id, filename, imagename, type):
         if not self.id:
             # Not connected yet, schedule job later
@@ -223,18 +220,3 @@ def connect():
                 # start time is up, something is wrong here
                 raise RuntimeError('unable to connect to thumbnail server')
             time.sleep(0.01)
-
-def stop():
-    global _client
-    
-    if not _client:
-        return
-
-    in_progress = _client.shutdown()
-    # ugly, but we have no choice. we need to wait until the child got the
-    # shutdown event. And since it calls sys.exit(0), we can't wait for a
-    # result.
-    start = time.time()
-    while start + 0.5 < time.time():
-        kaa.notifier.step()
-    _client = None

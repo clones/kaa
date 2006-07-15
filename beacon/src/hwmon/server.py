@@ -59,8 +59,10 @@ class Server(object):
         """
         log.info('beacon <-> hwmon connected')
         self.master = client
+        # exit when the main server dies
+        client.signals['closed'].connect(sys.exit)
 
-            
+        
     # -------------------------------------------------------------------------
     # Device handling
     # -------------------------------------------------------------------------
@@ -103,11 +105,6 @@ class Server(object):
         self.rpc = self.master.rpc
         for dev in self.devices.values():
             self.rpc('device.add', dev.prop)
-
-
-    @kaa.rpc.expose('shutdown')
-    def shutdown(self):
-        sys.exit(0)
 
 
     @kaa.rpc.expose('device.scan')

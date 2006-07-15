@@ -27,10 +27,6 @@ class Client(object):
         self._device_add(rootfs)
         
 
-    def shutdown(self):
-        return self.rpc('shutdown')
-
-    
     def mount(self):
         return self.rpc('device.mount')
 

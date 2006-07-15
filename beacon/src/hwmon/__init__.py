@@ -27,20 +27,6 @@ def connect():
                 raise RuntimeError('unable to connect to hardware monitor')
             time.sleep(0.01)
 
-def stop():
-    """
-    Stop hardware monitor process.
-    """
-    global _client
-    if not _client:
-        return
-    try:
-        _client.shutdown()
-        kaa.notifier.step()
-    except IOError:
-        pass
-    _client = None
-
 
 def set_database(handler, db, rootfs=None):
     if not _client:

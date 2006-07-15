@@ -1,5 +1,5 @@
 import os
-from thumbnail import Thumbnail, NORMAL, LARGE, connect, stop
+from thumbnail import Thumbnail, NORMAL, LARGE, connect
 
 support_video = False
 for path in os.environ.get('PATH').split(':'):

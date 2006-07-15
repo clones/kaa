@@ -108,7 +108,7 @@ if mode == 'stop':
     # stop a running beacon
     
     def shutdown(client):
-        client.rpc('beacon.shutdown')()
+        client.rpc('beacon.shutdown')
         kaa.notifier.step()
         sys.exit(0)
 
@@ -329,14 +329,6 @@ except Exception, e:
     log.exception('beacon startup')
     
 log.info('stop beacon')
-
-# stop child
-try:
-    kaa.beacon.thumbnail.stop()
-except IOError:
-    # gtk notifier seems to handle shutdown itself
-    # somehow.
-    pass
 
 #wait for dead child
 os.waitpid(pid, 0)

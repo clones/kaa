@@ -107,6 +107,9 @@ class Thumbnailer(object):
                 for j in self.videothumb.jobs[:]:
                     if j.client == id:
                         self.videothumb.jobs.remove(j)
+                if client_info == self.clients[0]:
+                    # the main beacon process stopped
+                    sys.exit(0)
                 self.clients.remove(client_info)
                 return
 
@@ -214,12 +217,6 @@ class Thumbnailer(object):
                 job.priority = PRIORITY_LOW
                 schedule.sort(lambda x,y: cmp(x.priority, y.priority))
                 return
-
-    @kaa.rpc.expose('shutdown')
-    def shutdown(self):
-        sys.info('shutdown thumbnail server')
-        sys.exit(0)
-
 
 
 thumbnailer = None

@@ -136,7 +136,7 @@ class RomDrive(object):
 
 
     def remove_disc(self):
-        if not sef.disc:
+        if not self.disc:
             return
         MainThreadCallback(signals['remove'].emit)(self.disc)
         self.disc = None
