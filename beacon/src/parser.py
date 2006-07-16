@@ -79,11 +79,11 @@ def parse(db, item, store=False):
     mtime = item._beacon_mtime()
     if mtime == None:
         log.warning('no mtime, skip %s' % item)
-        return
+        return False
     parent = item._beacon_parent
     if not parent:
         log.warning('no parent, skip %s' % item)
-        return
+        return False
 
     if not parent._beacon_id:
         # There is a parent without id, update the parent now. We know that the
@@ -99,7 +99,7 @@ def parse(db, item, store=False):
             raise AttributeError('parent for %s has no dbid' % item)
     if item._beacon_data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
-        return
+        return False
 
     if not item._beacon_id:
         # New file, maybe already added? Do a small check to be sure we don't
@@ -109,7 +109,7 @@ def parse(db, item, store=False):
             item._beacon_database_update(data)
             if item._beacon_data['mtime'] == mtime:
                 log.debug('up-to-date %s' % item)
-                return
+                return False
 
     log.info('scan %s' % item)
 
