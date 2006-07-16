@@ -61,6 +61,8 @@ class Client(object):
         m = medialist.add(id, dev)
 
         # create overlay directory structure
+        if not os.path.isdir(m.overlay):
+            os.makedirs(m.overlay, 0700)
         for d in ('large', 'normal', 'fail/kaa'):
             dirname = os.path.join(m.thumbnails, d)
             if not os.path.isdir(dirname):
