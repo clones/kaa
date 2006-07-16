@@ -85,6 +85,7 @@ if get_library('evas'):
         int main(int argc, char **argv) {
             Evas_List *p = evas_render_method_list();
             for (;p; p = p->next) printf("%s\\n", (char *)p->data);
+            return 0;
         }
     ''')
     p.tochild.close()
