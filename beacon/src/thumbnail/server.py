@@ -135,7 +135,7 @@ class Thumbnailer(object):
 
 
     def step(self):
-        if not self.jobs or kaa.notifier.shutdown:
+        if not self.jobs or kaa.notifier.shutting_down:
             return False
 
         job = self.jobs.pop(0)
@@ -146,6 +146,7 @@ class Thumbnailer(object):
             mtime = metadata.get('Thumb::MTime')
             if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                 # not changed, refuse the recreate thumbnail
+                self.notify_client(job)
                 return True
             
         if job.filename.lower().endswith('jpg'):
@@ -155,6 +156,7 @@ class Thumbnailer(object):
                 mtime = metadata.get('Thumb::MTime')
                 if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                     # not changed, refuse the recreate thumbnail
+                    self.notify_client(job)
                     return True
 
             try:
@@ -201,7 +203,6 @@ class Thumbnailer(object):
 
     @kaa.rpc.expose('schedule')
     def schedule(self, id, filename, imagefile, size):
-
         self.jobs.append(Job(id, filename, imagefile, size))
         if not self._timer.active():
             self._timer.start(0.001)
