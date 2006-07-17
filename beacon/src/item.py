@@ -47,18 +47,27 @@ class Item(object):
     A database item.
 
     Attributes:
-    url:      unique url of the item
-    getattr:  function to get an attribute
-    setattr:  function to set an attribute
-    keys:     function to return all known attributes of the item
-    scanned:  returns True if the item is scanned
+    url:         unique url of the item
+    filename:    empty string
+
+    Functions:
+    get:         get an attribute, optional argument force
+    __getitem__: get an attribute
+    __setitem__: set an attribute
+    keys:        return all known attributes of the item
+    scanned:     return True if the item is scanned
+    list:        return list of subitems
+    isdir:       return False
+    isfile:      return False
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
+
     def __init__(self, _beacon_id, url, data, parent, media):
         # url of the item
         self.url = url
-
+        self.filename = ''
+        
         # internal data
         self._beacon_id = _beacon_id
         self._beacon_data = data
@@ -74,7 +83,7 @@ class Item(object):
     # Public API for the client
     # -------------------------------------------------------------------------
 
-    def getattr(self, key, request=False):
+    def get(self, key, request=False):
         """
         Interface to kaa.beacon. Return the value of a given attribute. If
         the attribute is not in the db, return None. If the key starts with
@@ -90,18 +99,22 @@ class Item(object):
         if key == 'parent':
             return self._beacon_parent
 
-        if key == 'thumbnail' and hasattr(self, 'filename'):
-            return Thumbnail(self.filename, self._beacon_media, url=self.url)
-
-        if key == 'image':
+        if key in ('image', 'thumbnail'):
             image = ''
             if self._beacon_data.has_key('image'):
                 image = self._beacon_data['image']
             if not image and self._beacon_parent:
                 # This is not a good solution, maybe the parent is not
                 # up to date. Well, we have to live with that for now.
-                return self._beacon_parent.getattr('image')
-            return image
+                image = self._beacon_parent.get('image')
+                if not image:
+                    return None
+            if key == 'image':
+                return image
+
+            if key == 'thumbnail':
+                return Thumbnail(image, self._beacon_media)
+
 
         if key == 'title':
             if self._beacon_data.has_key('title'):
@@ -124,7 +137,11 @@ class Item(object):
         return None
 
 
-    def setattr(self, key, value):
+    def __getitem__(self, key):
+        return self.get(key)
+    
+
+    def __setitem__(self, key, value):
         """
         Interface to kaa.beacon. Set the value of a given attribute. If the key
         starts with 'tmp:', the data will only be valid in this item and not
@@ -146,6 +163,14 @@ class Item(object):
         return self._beacon_data.keys() + self._beacon_tmpdata.keys()
 
 
+    def has_key(self, key):
+        """
+        Returns True if the key is stored in the item.
+        """
+        return key in self._beacon_data.keys() or \
+               key in self._beacon_tmpdata.keys()
+
+
     def scanned(self):
         """
         Return True if the item is in the database and fully scanned.
@@ -160,6 +185,20 @@ class Item(object):
         if not self._beacon_id:
             return []
         return self._beacon_controller().query(parent=self)
+
+
+    def isdir(self):
+        """
+        Return if the item is a directory.
+        """
+        return self._beacon_isdir
+
+    
+    def isfile(self):
+        """
+        Return if the item is a regular file.
+        """
+        return not self._beacon_isdir and self.filename
 
     
     # -------------------------------------------------------------------------

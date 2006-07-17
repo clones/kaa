@@ -50,16 +50,22 @@ class Directory(Item):
     A directory based database item.
 
     Attributes:
-    url:      unique url of the item
-    filename: filename of the directory on hd
-    list:     list all items in that directory
-    getattr:  function to get an attribute
-    setattr:  function to set an attribute
-    keys:     function to return all known attributes of the item
-    scanned:  returns True if the item is scanned
+    url:         unique url of the item
+    filename:    complete dirname, ends with '/'
+
+    Functions:
+    get:         get an attribute, optional argument force
+    __getitem__: get an attribute
+    __setitem__: set an attribute
+    keys:        return all known attributes of the item
+    scanned:     return True if the item is scanned
+    list:        return list of subitems
+    isdir:       return True
+    isfile:      return False
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
+
     def __init__(self, data, parent):
         # Notes: filename end with '/'
         if isinstance(data, str):

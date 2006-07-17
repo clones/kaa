@@ -49,15 +49,22 @@ class File(Item):
     A file based database item.
 
     Attributes:
-    url:      unique url of the item
-    filename: filename of the item on hd
-    getattr:  function to get an attribute
-    setattr:  function to set an attribute
-    keys:     function to return all known attributes of the item
-    scanned:  returns True if the item is scanned
+    url:         unique url of the item
+    filename:    complete filename
+
+    Functions:
+    get:         get an attribute, optional argument force
+    __getitem__: get an attribute
+    __setitem__: set an attribute
+    keys:        return all known attributes of the item
+    scanned:     return True if the item is scanned
+    list:        return list of subitems
+    isdir:       return False
+    isfile:      return True
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
+
     def __init__(self, data, parent, overlay=False):
         if isinstance(data, str):
             # fake item, there is no database entry
