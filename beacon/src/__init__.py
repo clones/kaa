@@ -29,7 +29,8 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'connect', 'get', 'query', 'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE' ]
+__all__ = [ 'connect', 'get', 'query', 'register_filter', 'Item',
+            'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE' ]
 
 # python imports
 import os
@@ -43,6 +44,8 @@ from client import Client, CONNECTED
 import thumbnail
 from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
+from query import register_filter
+from item import Item
 
 # get logging object
 log = logging.getLogger('beacon')
