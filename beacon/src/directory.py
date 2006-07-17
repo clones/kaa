@@ -71,7 +71,7 @@ class Directory(Item):
         if isinstance(data, str):
             # fake item, there is no database entry
             id = None
-            self.filename = parent.filename + data + '/'
+            filename = parent.filename + data + '/'
             data = { 'name': data, 'mtime': UNKNOWN }
             if parent and parent._beacon_id:
                 data['parent_type'], data['parent_id'] = parent._beacon_id
@@ -80,25 +80,25 @@ class Directory(Item):
             # db data
             id = (data['type'], data['id'])
             media = parent._beacon_media
-            self.filename = parent.filename + data['name'] + '/'
+            filename = parent.filename + data['name'] + '/'
         else:
             # root directory
             id = (data['type'], data['id'])
             media = parent
             parent = None
-            self.filename = media.mountpoint
+            filename = media.mountpoint
 
         self._beacon_islink = False
-        if os.path.islink(self.filename[:-1]):
+        if os.path.islink(filename[:-1]):
             self._beacon_islink = True
 
-        Item.__init__(self, id, 'file://' + self.filename, data, parent, media)
+        Item.__init__(self, id, 'file://' + filename, data, parent, media)
         self._beacon_overlay = False
         self._beacon_isdir = True
-        self._beacon_ovdir = media.overlay + '/' + \
-                             self.filename[len(media.mountpoint):]
+        self._beacon_ovdir = media.overlay + '/' + filename[len(media.mountpoint):]
         self._beacon_listdir_cache = None
-
+        self.filename = filename
+        
 
     # -------------------------------------------------------------------------
     # Public API
