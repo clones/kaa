@@ -50,7 +50,7 @@ class BeaconFS(fuse.Fuse):
         self._filename_map = {}
         self._query_update_time = int(time.time())
         for item in self._query:
-            name = item.getattr('name')
+            name = item.get('name')
             if name in self._filename_map:
                 n = 1
                 file, ext = os.path.splitext(name)
@@ -75,7 +75,7 @@ class BeaconFS(fuse.Fuse):
             st.st_mode = stat.S_IFREG | 0444 | stat.S_IFLNK
             st.st_nlink = 1
             st.st_size = len(item.filename)
-            st.st_atime = st.st_mtime = st.st_ctime = item.getattr('mtime')
+            st.st_atime = st.st_mtime = st.st_ctime = item.get('mtime')
             return st
         else:
             return -errno.ENOENT
