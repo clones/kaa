@@ -44,6 +44,12 @@ log = logging.getLogger('beacon')
 
 CONNECTED = 'connected'
 
+_query_filter = {}
+
+def register_filter(name, function):
+    _query_filter[name] = function
+
+    
 class Query(object):
     """
     Query object for the client. Created by Client.query()
@@ -63,6 +69,7 @@ class Query(object):
         self.monitoring = False
         self.valid = False
         self.result = []
+        self._filter_result = {}
         if client.status == CONNECTED:
             return self._beacon_start_query(query, False)
         # The client is not connected, wait with the query until this is
@@ -128,14 +135,22 @@ class Query(object):
         return len(self.result)
 
 
-    def get(self):
+    def get(self, filter=None):
         """
         Get the result. This function will block using kaa.notifier.step() if
         self.valid is False.
         """
         while not self.valid:
             kaa.notifier.step()
-        return self.result
+        if filter == None:
+            # no spcial filter
+            return self.result
+        if not filter in _query_filter:
+            raise AttributeError('unknown filter')
+        if not filter in self._filter_result:
+            # filter results
+            self._filter_result[filter] = _query_filter[filter](self.result)
+        return self._filter_result[filter]
 
 
     def refresh(self):
@@ -180,6 +195,7 @@ class Query(object):
 
     def _beacon_delayed_results(self, result):
         self.result = result
+        self._filter_result = {}
         self.valid = True
         self.signals['changed'].emit()
         return None
