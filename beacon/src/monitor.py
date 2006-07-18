@@ -39,7 +39,6 @@ from kaa.notifier import OneShotTimer, Timer, yield_execution, YieldContinue
 
 # kaa.beacon imports
 import parser
-import cdrom
 from item import Item
 
 # get logging object
