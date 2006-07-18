@@ -52,16 +52,17 @@ class PlayerOSDCanvas(BufferCanvas):
         # 0 <= alpha < = 255
         a = max(0, min(255, a))
         if hasattr(self, "_osd_alpha") and self._osd_alpha != a:
-            # If the alpha set here is different than the vf_overlay alpha,
-            # then we need to queue a render.
             self._osd_alpha = a
-            self._queue_render()
 
-        # But tell the lower canvas objects we're still fully opaque,
+        # Tell the lower canvas objects we're still fully opaque,
         # otherwise our children will get blended to the new alpha by
         # evas, which is unnecessary since vf_overlay supports global
-        # alpha.
-        super(PlayerOSDCanvas, self)._set_property_color((255,255,255,255))
+        # alpha.  We use _set_property_generic to force this property to
+        # become dirty, which guarantees _render() will be called next main
+        # loop iteration.  We are technically tricking the canvas, because
+        # our color property never changes from (255,255,255,255) but we 
+        # want _render() invoked anyway so we can call Player.osd_update().
+        self._set_property_generic("color", (255, 255, 255, 255))
 
     def get_color(self):
         return (255, 255, 255, self._osd_alpha)
