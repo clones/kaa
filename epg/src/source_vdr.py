@@ -149,7 +149,6 @@ def _update_data_thread(epg, vdr_dir=None, channels_file=None, epg_file=None,
     info.progress_step    = info.total / 100
 
     timer = kaa.notifier.Timer(_update_process_step, info)
-    timer.set_prevent_recursion()
     timer.start(0)
 
 

@@ -239,7 +239,6 @@ def _update_parse_xml_thread(epg, username, passwd, start, stop):
     info.progress_step = info.total / 100
    
     timer = kaa.notifier.Timer(_update_process_step, info)
-    timer.set_prevent_recursion()
     timer.start(0)
      
     

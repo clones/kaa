@@ -290,7 +290,6 @@ def _update_parse_xml_thread(epg):
 
     # start parser in main loop again, thread is done
     timer = Timer(_update_process_step, info)
-    timer.set_prevent_recursion()
     timer.start(0)
 
 
