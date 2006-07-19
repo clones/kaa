@@ -78,7 +78,7 @@ class DirectFBCanvas(BitmapCanvas):
         for k, v in layer_config.items():
             if not k in ('width', 'height', 'pixelformat'):
                 print '  %s:  %s' % (k, v)
-        print '  goemetry: %dx%d' % (layer_config.get('width'),
+        print '  geometry: %dx%d' % (layer_config.get('width'),
                                      layer_config.get('height'))
         print '  pixelformat: %s' % \
               _pixel_format[layer_config.get('pixelformat')]
