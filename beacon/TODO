@@ -45,3 +45,5 @@ B. Use inotify on overlay directories
 
 12. Ability to give changes back to the caller in stages; useful for doing
     live queries while a user is typing in a word.
+
+13. When an image is deleted, beacon should delete any corresponding thumbnail.
