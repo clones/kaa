@@ -49,7 +49,7 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
     void *bytes = NULL;
 	char *from_format = "BGRA";
     PyObject *data = NULL;
-    Imlib_Image *image;
+    Imlib_Image *image = NULL;
     Image_PyObject *o;
 
     if (!PyArg_ParseTuple(args, "(ii)|Osi", &w, &h, &data, &from_format, &copy))
