@@ -232,7 +232,6 @@ class SizeAnimator(Animator):
         return self._object()._get_intrinsic_size()
 
     def _apply_state(self, state):
-        print "SIZE", state
         self._object().resize(*state)
 
     def _compute_target(self, target):
