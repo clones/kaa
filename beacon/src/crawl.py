@@ -36,7 +36,7 @@ import logging
 
 # kaa imports
 import kaa.notifier
-from kaa.notifier import Timer, OneShotTimer, WeakOneShotTimer
+from kaa.notifier import Timer, OneShotTimer, WeakOneShotTimer, YieldFunction
 
 # kaa.beacon imports
 from parser import parse
@@ -56,15 +56,41 @@ except:
 # timer for growing files (cp, download)
 GROWING_TIMER = 5
 
+class MonitorList(dict):
 
+    def __init__(self, inotify):
+        dict.__init__(self)
+        self._inotify = inotify
+
+    def add(self, dirname, use_inotify=True):
+        if self._inotify and use_inotify:
+            log.info('add inotify for %s' % dirname)
+            try:
+                self._inotify.watch(dirname[:-1], WATCH_MASK)
+                self[dirname] = True
+                return
+            except IOError, e:
+                log.error(e)
+        self[dirname] = False
+
+    def remove(self, dirname, recursive=False):
+        if recursive:
+            for d in self.keys()[:]:
+                if s.startswith(dirname):
+                    self.remove(d)
+            return
+        if self.pop(dirname):
+            log.info('remove inotify for %s' % dirname)
+            self._inotify.ignore(dirname[:-1])
+
+            
 class Crawler(object):
     """
     Class to crawl through a filesystem and check for changes. If inotify
     support is enabled in the kernel, this class will use it to avoid
     polling the filesystem.
     """
-    PARSE_TIMER  = 0.02
-    UPDATE_TIMER = 0.03
+    PARSE_TIMER  = 0.03
 
     active = 0
     nextid = 0
@@ -73,45 +99,50 @@ class Crawler(object):
         """
         Init the Crawler.
         Parameter db is a beacon.db.Database object.
-        The Crawler is used by Mountpoint
         """
         self.db = db
-        self.monitoring = []
-        self.scan_directory_items = []
-        self.scan_directory_items_done = []
-        self.check_mtime_items = []
-        self.update_items = []
         Crawler.nextid += 1
         self.num = Crawler.nextid
-        self.inotify = None
+
+        # set up inotify
+        self._inotify = None
+        self._inotify_timer = {}
         if use_inotify:
             try:
-                self.inotify = INotify()
-                self.inotify.signals['event'].connect(self.inotify_callback)
+                self._inotify = INotify()
+                self._inotify.signals['event'].connect(self._inotify_event)
             except SystemError, e:
                 log.warning('%s', e)
-        self.timer = None
-        self.restart_timer = None
-        self.restart_args = []
-        self.last_checked = {}
+
+        # create monitoring list with inotify
+        self.monitoring = MonitorList(self._inotify)
+
+        # root items that are 'appended'
+        self._root_items = []
 
         # If this env var is non-zero, initialize the update timer to
         # 0 so that we do initial indexing as quickly as possible.  Mainly
         # used for debugging/testing.
         if os.getenv("BEACON_EAT_CYCLES"):
             log.info('all your cpu are belong to me')
-            self.UPDATE_TIMER = 0
             self.PARSE_TIMER = 0
+
         kaa.signals["shutdown"].connect_weak(self.stop)
 
+        # create internal scan variables
+        self._scan_list = []
+        self._scan_dict = {}
+        self._scan_function = None
+        self._scan_restart_timer = None
 
+        
     def append(self, item):
         """
         Append a directory to be crawled and monitored.
         """
         log.info('crawl %s', item)
-        self.restart_args.append(item)
-        self.scan_directory(item)
+        self._root_items.append(item)
+        self._scan_add(item, True)
 
 
     def stop(self):
@@ -119,16 +150,23 @@ class Crawler(object):
         Stop the crawler and remove the inotify watching.
         """
         kaa.signals["shutdown"].disconnect(self.stop)
-        self.finished()
-        self.monitoring = []
-        self.inotify = None
-        for wait, timer in self.last_checked:
+        # stop running scan process
+        self._scan_list = []
+        self._scan_dict = []
+        if self._scan_function:
+            self._scan_function.stop()
+            self._scan_function = None
+            self._scan_stop([], False)
+        # stop inotify and inotify timer
+        self._inotify = None
+        for wait, timer in self._inotify_timer:
             if timer and timer.active():
                 timer.stop()
-        self.last_checked = {}
-        if self.restart_timer:
-            self.restart_timer.stop()
-            self.restart_timer = None
+        self._inotify_timer = {}
+        # stop restart timer
+        if self._scan_restart_timer:
+            self._scan_restart_timer.stop()
+            self._scan_restart_timer = None
             
 
     def __del__(self):
@@ -139,15 +177,15 @@ class Crawler(object):
         return '<kaa.beacon.Crawler>'
 
     # -------------------------------------------------------------------------
-    # Internal functions
+    # Internal functions - INotify
     # -------------------------------------------------------------------------
     
-    def inotify_callback(self, mask, name, *args):
+    def _inotify_event(self, mask, name, *args):
         """
         Callback for inotify.
         """
-        if mask & INotify.MODIFY and name in self.last_checked and \
-               self.last_checked[name][1]:
+        if mask & INotify.MODIFY and name in self._inotify_timer and \
+               self._inotify_timer[name][1]:
             # A file was modified. Do this check as fast as we can because the
             # events may come in bursts when a file is just copied. In this case
             # a timer is already active and we can return. It still uses too
@@ -160,6 +198,10 @@ class Crawler(object):
         if item._beacon_name.startswith('.'):
             # hidden file, ignore
             return True
+
+        # ---------------------------------------------------------------------
+        # MOVE_FROM -> MOVE_TO
+        # ---------------------------------------------------------------------
         
         if mask & INotify.MOVE and args and item._beacon_id:
             # Move information with source and destination
@@ -180,8 +222,8 @@ class Crawler(object):
             self.db.commit()
 
             # Now both directories need to be checked again
-            self.scan_directory(item._beacon_parent, recursive=False)
-            self.scan_directory(move._beacon_parent, recursive=False)
+            self._scan_add(item._beacon_parent, recursive=False)
+            self._scan_add(move._beacon_parent, recursive=False)
 
             if not mask & INotify.ISDIR:
                 return True
@@ -189,129 +231,166 @@ class Crawler(object):
             # The directory is a dir. We now remove all the monitors to that
             # directory and crawl it again. This keeps track for softlinks that
             # may be different or broken now.
-            for m in self.monitoring[:]:
-                if not m.startswith(name + '/'):
-                    continue
-                self.inotify.ignore(m)
-                log.info('remove inotify for %s', m)
-                self.monitoring.remove(m)
+            self.monitoring.remove(name + '/', recursive=True)
             # now make sure the directory is parsed recursive again
-            self.scan_directory(move, recursive=True)
+            self._scan_add(move, recursive=True)
             return True
+
+        # ---------------------------------------------------------------------
+        # MOVE_TO, CREATE, MODIFY or CLOSE_WRITE
+        # ---------------------------------------------------------------------
 
         if mask & INotify.MOVE and args:
             # We have a move with to and from, but the from item is not in
             # the db. So we handle it as a simple MOVE_TO
             name = args[0]
         
-        if mask & INotify.CREATE or mask & INotify.DELETE or mask & INotify.MOVE:
-            # directory changed, too
-            self.scan_directory(item._beacon_parent, recursive=False)
-        
         if os.path.exists(name):
             # The file exists. So it is either created or modified, we don't
             # care right now.
             if item._beacon_isdir:
                 # It is a directory. Just do a full directory rescan.
-                self.scan_directory(item, recursive=False)
+                self._scan_add(item, recursive=False)
                 return True
-            # Check if the item is already in our watch list
-            for i in self.check_mtime_items:
-                if i.filename == item.filename:
-                    # already in the checking list, ignore it
-                    return True
-            for i, r in self.scan_directory_items:
-                if i.filename == item._beacon_parent.filename:
-                    # will be added later, ignore
-                    return True
 
+            # handle bursts of inotify events when a file is growing very
+            # fast (e.g. cp)
             now = time.time()
-            if name in self.last_checked:
-                last_check, timer = self.last_checked[name]
+            if name in self._inotify_timer:
+                last_check, timer = self._inotify_timer[name]
                 if mask & INotify.CLOSE_WRITE:
                     # The file is closed. So we can remove the current running
                     # timer and check now
                     if timer:
                         timer.stop()
-                    del self.last_checked[name]
+                    del self._inotify_timer[name]
                 else:
                     # Do not check again, but restart the timer, it is expired
-                    timer = OneShotTimer(self.inotify_timer_callback, name)
+                    timer = OneShotTimer(self._inotify_timer_callback, name)
                     timer.start(GROWING_TIMER)
-                    self.last_checked[name][1] = timer
+                    self._inotify_timer[name][1] = timer
                     return True
             elif INotify.MODIFY:
                 # store the current time
-                self.last_checked[name] = [ now, None ]
-            if not mask & (INotify.CREATE | INotify.MOVE):
-                # add to mtime checking when not CREATE or MOVE. When it is one
-                # of these two, we already to a full directory rescan.
-                self.check_mtime(item)
+                self._inotify_timer[name] = [ now, None ]
+
+            # parent directory changed, too. Even for a simple modify of an
+            # item another item may be affected (xml metadata, images)
+            # so scan the file by rechecking the parent dir
+            self._scan_add(item._beacon_parent, recursive=False)
             return True
+
+        # ---------------------------------------------------------------------
+        # DELETE
+        # ---------------------------------------------------------------------
 
         # The file does not exist, we need to delete it in the database
         if self.db.get_object(item._beacon_data['name'],
                               item._beacon_parent._beacon_id):
             # Still in the db, delete it
             self.db.delete_object(item._beacon_id, beacon_immediately=True)
-        # Remove item from list of files to check
-        for i in self.check_mtime_items:
-            if i.filename == item.filename:
-                self.check_mtime_items.remove(i)
-                break
+
         # remove directory and all subdirs from the inotify. The directory
         # is gone, so all subdirs are invalid, too.
         if name + '/' in self.monitoring:
-            for m in self.monitoring[:]:
-                # FIXME: This is not correct when you deal with softlinks.
-                # If you move a directory with relative softlinks, the new
-                # directory to monitor is different.
-                if not m.startswith(name + '/'):
-                    continue
-                if self.inotify:
-                    self.inotify.ignore(m)
-                    log.info('remove inotify for %s', m)
-                self.monitoring.remove(m)
+            # FIXME: This is not correct when you deal with softlinks.
+            # If you move a directory with relative softlinks, the new
+            # directory to monitor is different.
+            self.monitoring.remove(name + '/', recursive=True)
+        # rescan parent directory
+        self._scan_add(item._beacon_parent, recursive=False)
         return True
 
 
-    def inotify_timer_callback(self, name):
+    def _inotify_timer_callback(self, name):
         """
         Callback for delayed inotify MODIFY events.
         """
-        if not name in self.last_checked:
+        if not name in self._inotify_timer:
             return
-        del self.last_checked[name]
-        self.inotify_callback(INotify.MODIFY, name)
+        del self._inotify_timer[name]
+        self._inotify_event(INotify.MODIFY, name)
 
 
-    def finished(self):
+    # -------------------------------------------------------------------------
+    # Internal functions - Scanner
+    # -------------------------------------------------------------------------
+    
+    def _scan_add(self, directory, recursive):
         """
-        Crawler is finished with all directories and subdirectories and all
-        files are now up to date.
+        Add a directory to the list of directories to scan.
         """
-        if not self.timer:
+        if directory.filename in self._scan_dict:
+            # ok then, already in list and close to the beginning
+            # if we are called bu inotify (because it has to be scanned
+            # once) or somewhere else in normal mode. In both cases we
+            # don't do anything.
+            return False
+        
+        if not recursive:
+            # called from inotify. this means the file can not be in
+            # the list as recursive only again from inotify. Add to the
+            # beginning of the list, it is important and fast.
+            self._scan_list.insert(0, (directory, False))
+        else:
+            # called from inside the crawler recursive or by massive changes
+            # from inotify. In both cases, add to the end of the list because
+            # this takes much time.
+            if directory.filename in self.monitoring:
+                # already scanned
+                # TODO: softlink dirs are not handled correctly, they may be
+                # scanned twiece.
+                return False
+            self._scan_list.append((directory, recursive))
+        self._scan_dict[directory.filename] = directory
+
+        # start ._scan_function
+        if self._scan_function == None:
+            Crawler.active += 1
+            self._scan_function = OneShotTimer(self._scan_start)
+            self._scan_function.start(0)
+            
+
+    def _scan_start(self):
+        """
+        Start the scan function using YieldFunction.
+        """
+        interval = self.PARSE_TIMER / Crawler.active
+        self._scan_function = YieldFunction(self._scan, interval)
+        directory, recursive = self._scan_list.pop(0)
+        del self._scan_dict[directory.filename]
+        self._scan_function(directory)
+        self._scan_function.connect(self._scan_stop, recursive)
+
+
+    def _scan_stop(self, subdirs, recursive):
+        """
+        The scan function finished.
+        """
+        if recursive:
+            # add results to the list of files to scan
+            for d in subdirs:
+                self._scan_add(d, True)
+        if self._scan_list:
+            # start again
+            self._scan_start()
             return
+        # crawler finished
+        self._scan_function = None
         log.info('crawler %s finished', self.num)
         Crawler.active -= 1
-        self.timer.stop()
-        self.timer = None
-        self.scan_directory_items = []
-        self.scan_directory_items_done = []
-        self.check_mtime_items = []
-        self.update_items = []
         self.db.commit()
-        if not self.inotify:
+        if not self._inotify:
             # Inotify is not in use. This means we have to start crawling
             # the filesystem again in 10 seconds using the restart function.
             # The restart function will crawl with a much higher intervall to
             # keep the load on the system down.
             log.info('schedule rescan')
-            self.restart_timer = WeakOneShotTimer(self.restart)
-            self.restart_timer.start(10)
-                
+            self._scan_restart_timer = WeakOneShotTimer(self._scan_restart)
+            self._scan_restart_timer.start(10)
 
-    def restart(self):
+
+    def _scan_restart(self):
         """
         Restart the crawler when inotify is not enabled.
         """
@@ -320,161 +399,53 @@ class Crawler(object):
 
         # reset self.monitoring and add all directories once passed to
         # this object with 'append' again.
-        self.monitoring = []
-        for item in self.restart_args:
-            self.scan_directory(item)
+        self.monitoring = MonitorList(self._inotify)
+        for item in self._root_items:
+            self._scan_add(item, recursive=True)
 
+            
+    def _scan(self, directory):
+        """
+        Scan a directory and all files in it, return list of subdirs.
+        """
+        log.info('scan directory %s', directory.filename)
         
-    def scan_directory(self, directory=None, recursive=True):
-        """
-        Scan a directory for changes add all subitems to check_mtime. All
-        subdirs are also added to scan_directory_items to be checked by this
-        function later.
-        """
-        if directory:
-            if directory._beacon_islink:
-                # WARNING: directory is a link, we need to follow it
-                dirname = os.path.realpath(directory.filename)
-                newdir = self.db.query(filename=dirname)
-                if hasattr(directory, '_beacon_prevent_recursion'):
-                    newdir._beacon_prevent_recursion = True
-                directory = newdir
+        # parse directory
+        if parse(self.db, directory):
+            yield kaa.notifier.YieldContinue
 
-            # check if we have a problem with recursion
-            if hasattr(directory, '_beacon_prevent_recursion'):
-                for d in self.scan_directory_items_done:
-                    if d.filename == directory.filename:
-                        # we already checked that item in our current
-                        # loop of scan_directory, ignore it.
-                        return True
+        # check if it is still a directory
+        if not isinstance(directory, Directory):
+            log.warning('%s is no directory item', directory)
+            if hasattr(directory, 'filename') and \
+                   directory.filename + '/' in self.monitoring:
+                self.monitoring.remove(directory.filename + '/', recursive=True)
+            yield []
+
+        if directory._beacon_islink:
+            # it is a softlink. Add directory with inotify to the monitor
+            # list and with inotify using the realpath (later)
+            self.monitoring.add(directory.filename, use_inotify=False)
+            dirname = os.path.realpath(directory.filename)
+            directory = self.db.query(filename=dirname)
+            if parse(self.db, directory):
+                yield kaa.notifier.YieldContinue
+
+        # add to monitor list using inotify
+        self.monitoring.add(directory.filename)
                 
-            # add directory to the scanning list and if necessary start a timer
-            # to do the scanning the mtime and the directory
-            for entry in self.scan_directory_items:
-                if directory.filename == entry[0].filename:
-                    if recursive and not entry[1]:
-                        entry[1] = True
-                    break
-            else:
-                self.scan_directory_items.append([directory, recursive])
-            self.check_mtime(directory)
-            log.info("scanning directory: %s" % directory.filename)
-            return True
-
-        if not self.timer:
-            # we should not run
-            return False
-
-        if not self.scan_directory_items:
-            self.finished()
-            return False
-
-        item, recursive = self.scan_directory_items.pop(0)
-        if not isinstance(item, Directory):
-            log.warning('%s is no directory item', item)
-            if hasattr(item, 'filename') and \
-                   item.filename + '/' in self.monitoring:
-                self.monitoring.remove(item.filename + '/')
-            return True
-
-        if not item.filename in self.monitoring and self.inotify:
-            # add directory to the inotify list. Do that before the real
-            # checking to avoid changes we would miss between checking and
-            # adding the inotifier.
-            dirname = item.filename[:-1]
-            log.info('add inotify for %s' % dirname)
-            try:
-                self.inotify.watch(dirname, WATCH_MASK)
-            except IOError, e:
-                log.error(e)
-                
-        for child in self.db.query(parent=item):
-            if child._beacon_isdir and recursive:
-                # A directory. Check if it is already scanned or in the list of
-                # items to be scanned. If not, add it.
-                child._beacon_prevent_recursion = True
-                self.scan_directory(child)
-                continue
-            # add file to the list of items to be checked
-            self.check_mtime(child)
-
-        if not item.filename in self.monitoring:
-            # add directory to list of files we scanned.
-            self.monitoring.append(item.filename)
-
-        # start checking the mtime of files
-        self.scan_directory_items_done.append(item)
-        self.check_mtime()
-        return True
-
-
-    def check_mtime(self, item=None):
-        """
-        Check the modification time of all items in self.check_mtime_items.
-        This function will start a timer for check_mtime_step.
-        """
-        if item:
-            for i in self.check_mtime_items:
-                if i.filename == item.filename:
-                    return True
-            self.check_mtime_items.append(item)
-            if not self.timer:
-                Crawler.active += 1
-                self.timer = Timer(self.check_mtime_step)
-                self.timer.start(self.PARSE_TIMER / Crawler.active)
-            return True
-
-        # called without item, start stepping
-        self.timer = Timer(self.check_mtime_step)
-        self.timer.start(self.PARSE_TIMER / Crawler.active)
-
-        
-    def check_mtime_step(self):
-        """
-        Check the next up to 30 items for mtime changes. This function is called
-        in a timer and will check all items in self.check_mtime_items. If it is
-        done, it will call self.update to update all changed items.
-        """
-        if not self.timer:
-            return False
+        # iterate through the files
+        subdirs = []
         counter = 0
-        while True:
-            if not self.check_mtime_items:
-                self.update()
-                return False
-            item = self.check_mtime_items.pop(0)
+        for child in self.db.query(parent=directory):
+            if child._beacon_isdir:
+                # add directory to list of files to return
+                subdirs.append(child)
+                continue
+            # check file
+            if parse(self.db, child) or counter == 20:
+                counter = 0
+                yield kaa.notifier.YieldContinue
+                continue
             counter += 1
-            # log.info('mtime %s', item)
-            if item._beacon_changed():
-                self.update_items.append(item)
-            if counter == 20 and len(self.check_mtime_items) > 10:
-                return True
-
-
-    def update(self):
-        """
-        Update all items that are changed. If no items is changed (anymore),
-        call self.scan_directory to keep on crawling. This function will
-        start a timer for update_step.
-        """
-        if self.update_items:
-            self.timer = Timer(self.update_step)
-            self.timer.start(self.UPDATE_TIMER / Crawler.active)
-        else:
-            self.timer = OneShotTimer(self.scan_directory)
-            self.timer.start(self.PARSE_TIMER / 2)
-        
-
-    def update_step(self):
-        """
-        Update (parse) the first item in self.update_items. If the list is
-        empty, call self.scan_directory to keep on crawling.
-        """
-        if not self.timer:
-            return False
-        if not self.update_items:
-            self.scan_directory()
-            return False
-        # parse next item using parse from parser.py
-        parse(self.db, self.update_items.pop(0))
-        return True
+        yield subdirs
