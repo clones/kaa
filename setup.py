@@ -39,6 +39,11 @@ for a in sys.argv:
         distutils.core.setup(name="kaa", version="0.1")
         sys.exit(0)
 
+# if no arguments, or --help* requested, return errormessage from core
+if len(sys.argv) == 1:
+    distutils.core.setup(name="kaa", version="0.1")
+    sys.exit(0)
+
 if len(sys.argv) == 2 and sys.argv[1] == 'clean':
     for m in submodules:
         for file in ('build', 'dist', 'src/version.py', 'MANIFEST'):
