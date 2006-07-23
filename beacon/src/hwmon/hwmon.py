@@ -1,5 +1,6 @@
 import logging
 import os
+import stat
 
 import kaa.rpc
 
@@ -27,8 +28,8 @@ class Client(object):
         self._device_add(rootfs)
         
 
-    def mount(self):
-        return self.rpc('device.mount')
+    def mount(self, id):
+        return self.rpc('device.mount', id)
 
     
     @kaa.rpc.expose('device.add')
@@ -117,10 +118,13 @@ class Client(object):
             log.info('detect %s as normal filesystem' % id)
             mid = self.db.add_object("media", name=id, content='file',
                                      beacon_immediately=True)['id']
+            mtime = 0                   # FIXME: wrong for /
+            if dev.get('block.device'):
+                mtime = os.stat(dev.get('block.device'))[stat.ST_MTIME]
             dir = self.db.add_object("dir",
                                      name="",
                                      parent=('media', mid),
-                                     media=mid,
+                                     media=mid, mtime=mtime,
                                      beacon_immediately=True)
             self.db.commit(force=True)
         self._device_add(dev)
