@@ -298,12 +298,12 @@ class Server(object):
             if not media.get('block.device'):
                 log.info('start crawler for /')
                 media.crawler = Crawler(self._db, use_inotify=True)
-            elif not media.get('beacon.content') == 'file':
-                log.info('no crawler please')
-            elif media.get('volume.mount_point'):
-                log.info('start crawler for %s', media.get('volume.mount_point'))
-                media.crawler = Crawler(self._db, use_inotify=False)
-                self.monitor_dir(str(media.get('volume.mount_point')))
+#             elif not media.get('beacon.content') == 'file':
+#                 log.info('no crawler please')
+#             elif media.get('volume.mount_point'):
+#                 log.info('start crawler for %s', media.get('volume.mount_point'))
+#                 media.crawler = Crawler(self._db, use_inotify=False)
+#                 self.monitor_dir(str(media.get('volume.mount_point')))
         self._db.signals['changed'].emit([media._beacon_id])
 
             
