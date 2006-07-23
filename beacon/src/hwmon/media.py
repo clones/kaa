@@ -59,6 +59,20 @@ class Media(object):
         self.thumbnails = os.path.join(self.overlay, '.thumbnails')
         if self.mountpoint == '/':
             self.thumbnails = os.path.join(os.environ['HOME'], '.thumbnails')
+        if prop.get('volume.label'):
+            self.label = prop.get('volume.label')
+        elif prop.get('info.parent'):
+            self.label = u''
+            parent = prop.get('info.parent')
+            if parent.get('storage.vendor'):
+                self.label += parent.get('storage.vendor') + u' '
+            if parent.get('info.product'):
+                self.label += parent.get('info.product')
+            self.label.strip()
+            if not self.label:
+                self.label = self.id
+        else:
+            self.label = self.id
         
 #     def __del__(self):
 #         print 'del', self

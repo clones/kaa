@@ -111,6 +111,7 @@ class Device(object):
         """
         Update internal property list and call signal.
         """
+        prop['info.parent'] = self.prop.get('info.parent')
         if not prop.get('volume.mount_point') and self._eject:
             self.prop = prop
             return self.eject()
@@ -169,6 +170,7 @@ def _connect_to_hal_because_dbus_sucks(obj):
 # -----------------------------------------------------------------------------
 
 _devices = []
+_blockdevices = {}
 
 #list all devices
 def _device_all(device_names):
@@ -176,37 +178,50 @@ def _device_all(device_names):
     for name in device_names:
         obj = _bus.get_object("org.freedesktop.Hal", str(name))
         obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
-                             reply_handler=_device_add,
+                             reply_handler=kaa.notifier.Callback(_device_add, name),
                              error_handler=log.error)
 
 
 def _device_new(udi):
     obj = _bus.get_object("org.freedesktop.Hal", udi)
     obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
-                         reply_handler=_device_add,
+                         reply_handler=kaa.notifier.Callback(_device_add, udi),
                          error_handler=log.error)
     
 
 #lost device
 def _device_remove(udi):
+    if udi in _blockdevices:
+        del _blockdevices[udi]
+        return True
     for dev in _devices:
         if dev.udi == udi:
             break
     else:
         return True
+    # this causes an error later (no such id). Well, there is no disc with
+    # that id, but we need to unreg, right? FIXME by reading hal doc.
     sig = _bus.remove_signal_receiver
     sig(dev._modified, "PropertyModified", 'org.freedesktop.Hal.Device',
         "org.freedesktop.Hal", udi)
     _devices.remove(dev)
     # signal changes
-    signals['remove'].emit(dev)
+    if isinstance(dev.prop.get('info.parent'), dict):
+        signals['remove'].emit(dev)
     
 
 #add new device
-def _device_add(prop):
+def _device_add(prop, udi):
     # only handle mountable devices
-    if not "volume.mount_point" in prop:
+    if not 'volume.mount_point' in prop:
+        if 'linux.sysfs_path' in prop and 'block.device' in prop:
+            _blockdevices[udi] = prop
+            for dev in _devices:
+                if dev.prop.get('info.parent') == udi:
+                    dev.prop['info.parent'] = prop
+                    signals['add'].emit(dev)
         return
+
     if not prop.get('volume.is_disc'):
         # no disc, check if the device is removable
         try:
@@ -227,15 +242,18 @@ def _device_add(prop):
         except Exception, e:
             log.exception('device checking')
             return
-        
+
     dev = Device(prop, _bus)
     _devices.append(dev)
     sig = _bus.add_signal_receiver
     sig(dev._modified, "PropertyModified", 'org.freedesktop.Hal.Device',
         "org.freedesktop.Hal", prop['info.udi'])
-    # signal changes
-    signals['add'].emit(dev)
-        
+
+    parent = _blockdevices.get(prop.get('info.parent'))
+    if parent:
+        prop['info.parent'] = parent
+        # signal changes
+        signals['add'].emit(dev)
 
 
 # connect to hal
