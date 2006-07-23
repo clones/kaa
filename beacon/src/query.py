@@ -49,6 +49,12 @@ _query_filter = {}
 def register_filter(name, function):
     _query_filter[name] = function
 
+
+def wrap(items, filter):
+    if not filter in _query_filter:
+        raise AttributeError('unknown filter')
+    return _query_filter[filter](items)
+
     
 class Query(object):
     """
