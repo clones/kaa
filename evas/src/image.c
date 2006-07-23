@@ -12,7 +12,9 @@ Evas_Object_PyObject_image_file_set(Evas_Object_PyObject * self, PyObject * args
     if (!PyArg_ParseTuple(args, "s", &filename))
         return NULL;
 
+    BENCH_START
     evas_object_image_file_set(self->object, filename, NULL);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 
 }
@@ -22,7 +24,9 @@ Evas_Object_PyObject_image_file_get(Evas_Object_PyObject * self, PyObject * args
 {
     char *filename;
 
+    BENCH_START
     evas_object_image_file_get(self->object, &filename, NULL);
+    BENCH_END
     return Py_BuildValue("s", filename);
 }
 
@@ -36,7 +40,9 @@ Evas_Object_PyObject_image_fill_set(Evas_Object_PyObject * self, PyObject * args
     if (!PyArg_ParseTuple(args, "(ii)(ii)", &x, &y, &w, &h))
         return NULL;
 
+    BENCH_START
     evas_object_image_fill_set(self->object, x, y, w, h);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -45,7 +51,9 @@ Evas_Object_PyObject_image_fill_get(Evas_Object_PyObject * self, PyObject * args
 {
     Evas_Coord x, y, w, h;
 
+    BENCH_START
     evas_object_image_fill_get(self->object, &x, &y, &w, &h);
+    BENCH_END
     return Py_BuildValue("((ii)(ii))", x, y, w, h);
 }
 
@@ -59,7 +67,9 @@ Evas_Object_PyObject_image_border_set(Evas_Object_PyObject * self, PyObject * ar
     if (!PyArg_ParseTuple(args, "iiii", &l, &r, &t, &b))
         return NULL;
 
+    BENCH_START
     evas_object_image_border_set(self->object, l, r, t, b);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -68,7 +78,9 @@ Evas_Object_PyObject_image_border_get(Evas_Object_PyObject * self, PyObject * ar
 {
     int l, r, t, b;
 
+    BENCH_START
     evas_object_image_border_get(self->object, &l, &r, &t, &b);
+    BENCH_END
     return Py_BuildValue("(iiii)", l, r, t, b);
 }
 
@@ -82,14 +94,20 @@ Evas_Object_PyObject_image_border_center_fill_set(Evas_Object_PyObject * self, P
     if (!PyArg_ParseTuple(args, "i", &fill))
         return NULL;
 
+    BENCH_START
     evas_object_image_border_center_fill_set(self->object, fill);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_Object_PyObject_image_border_center_fill_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    if (evas_object_image_border_center_fill_get(self->object))
+    int result;
+    BENCH_START
+    result = evas_object_image_border_center_fill_get(self->object);
+    BENCH_END
+    if (result)
         return Py_INCREF(Py_True), Py_True;
     return Py_INCREF(Py_False), Py_False;
 }
@@ -103,7 +121,9 @@ Evas_Object_PyObject_image_size_set(Evas_Object_PyObject * self, PyObject * args
     if (!PyArg_ParseTuple(args, "(ii)", &w, &h))
         return NULL;
 
+    BENCH_START
     evas_object_image_size_set(self->object, w, h);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -112,7 +132,9 @@ Evas_Object_PyObject_image_size_get(Evas_Object_PyObject * self, PyObject * args
 {
     int w, h;
 
+    BENCH_START
     evas_object_image_size_get(self->object, &w, &h);
+    BENCH_END
     return Py_BuildValue("(ii)", w, h);
 }
 
@@ -121,7 +143,12 @@ Evas_Object_PyObject_image_size_get(Evas_Object_PyObject * self, PyObject * args
 PyObject *
 Evas_Object_PyObject_image_alpha_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    if (evas_object_image_alpha_get(self->object))
+    int alpha;
+    BENCH_START
+    alpha = evas_object_image_alpha_get(self->object);
+    BENCH_END
+
+    if (alpha)
         return Py_INCREF(Py_True), Py_True;
     return Py_INCREF(Py_False), Py_False;
 }
@@ -134,7 +161,9 @@ Evas_Object_PyObject_image_alpha_set(Evas_Object_PyObject * self, PyObject * arg
     if (!PyArg_ParseTuple(args, "i", &has_alpha))
         return NULL;
 
+    BENCH_START
     evas_object_image_alpha_set(self->object, has_alpha);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -144,7 +173,11 @@ PyObject *
 Evas_Object_PyObject_image_smooth_scale_get(Evas_Object_PyObject * self,
                                      PyObject * args)
 {
-    if (evas_object_image_smooth_scale_get(self->object))
+    int smooth_scale;
+    BENCH_START
+    smooth_scale = evas_object_image_smooth_scale_get(self->object);
+    BENCH_END
+    if (smooth_scale)
         return Py_INCREF(Py_True), Py_True;
     return Py_INCREF(Py_False), Py_False;
 }
@@ -158,7 +191,9 @@ Evas_Object_PyObject_image_smooth_scale_set(Evas_Object_PyObject * self,
     if (!PyArg_ParseTuple(args, "i", &smooth_scale))
         return NULL;
 
+    BENCH_START
     evas_object_image_smooth_scale_set(self->object, smooth_scale);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -168,7 +203,10 @@ PyObject *
 Evas_Object_PyObject_image_load_error_get(Evas_Object_PyObject * self,
                                    PyObject * args)
 {
-    int err = evas_object_image_load_error_get(self->object);
+    int err;
+    BENCH_START
+    err = evas_object_image_load_error_get(self->object);
+    BENCH_END
 
     return Py_BuildValue("i", err);
 }
@@ -177,7 +215,9 @@ Evas_Object_PyObject_image_load_error_get(Evas_Object_PyObject * self,
 PyObject *
 Evas_Object_PyObject_image_reload(Evas_Object_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_object_image_reload(self->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -210,10 +250,12 @@ Evas_Object_PyObject_image_data_set(Evas_Object_PyObject * self, PyObject * args
     }
 
     //printf("DATA SET buf=%x is_write_buffer=%d copy=%d\n", data, is_write_buffer, copy);
+    BENCH_START
     if (copy == 1 || !is_write_buffer)
         evas_object_image_data_copy_set(self->object, data);
     else
         evas_object_image_data_set(self->object, data);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -227,8 +269,10 @@ Evas_Object_PyObject_image_data_get(Evas_Object_PyObject * self, PyObject * args
     if (!PyArg_ParseTuple(args, "|i", &for_writing))
         return NULL;
 
+    BENCH_START
     data = evas_object_image_data_get(self->object, 0);
     evas_object_image_size_get(self->object, &w, &h);
+    BENCH_END
     // FIXME: implement buffer interace for Evas Object pyobject.
     if (for_writing)
         return PyBuffer_FromReadWriteMemory(data, w * h * 4);
@@ -244,7 +288,9 @@ Evas_Object_PyObject_image_data_update_add(Evas_Object_PyObject * self, PyObject
     if (!PyArg_ParseTuple(args, "iiii", &x, &y, &w, &h))
         return NULL;
 
+    BENCH_START
     evas_object_image_data_update_add(self->object, x, y, w, h);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -259,7 +305,9 @@ Evas_Object_PyObject_image_pixels_dirty_set(Evas_Object_PyObject * self,
     if (!PyArg_ParseTuple(args, "i", &dirty))
         return NULL;
 
+    BENCH_START
     evas_object_image_pixels_dirty_set(self->object, dirty);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -268,7 +316,11 @@ PyObject *
 Evas_Object_PyObject_image_pixels_dirty_get(Evas_Object_PyObject * self,
                                      PyObject * args)
 {
-    if (evas_object_image_pixels_dirty_get(self->object))
+    int dirty;
+    BENCH_START
+    dirty = evas_object_image_pixels_dirty_get(self->object);
+    BENCH_END
+    if (dirty)
         return Py_INCREF(Py_True), Py_True;
     return Py_INCREF(Py_False), Py_False;
 }
@@ -335,7 +387,9 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
             else
                 p += stride;
         }
+        BENCH_START
         evas_object_image_pixels_import(self->object, &ps);
+        BENCH_END
         free(ps.rows);
     } 
     else {

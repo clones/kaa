@@ -157,7 +157,9 @@ Evas_Object_PyObject_move(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "(ii)", &x, &y))
         return NULL;
 
+    BENCH_START
     evas_object_move(self->object, x, y);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -169,21 +171,27 @@ Evas_Object_PyObject_resize(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "(ii)", &w, &h))
         return NULL;
 
+    BENCH_START
     evas_object_resize(self->object, w, h);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_Object_PyObject_show(Evas_Object_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_object_show(self->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_Object_PyObject_hide(Evas_Object_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_object_hide(self->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -192,7 +200,9 @@ Evas_Object_PyObject_geometry_get(Evas_Object_PyObject * self, PyObject * args)
 {
     Evas_Coord x, y, w, h;
 
+    BENCH_START
     evas_object_geometry_get(self->object, &x, &y, &w, &h);
+    BENCH_END
     return Py_BuildValue("((ii)(ii))", x, y, w, h);
 }
 
@@ -201,7 +211,9 @@ Evas_Object_PyObject_evas_get(Evas_Object_PyObject * self, PyObject * args)
 {
     PyObject *evas;
 
+    BENCH_START
     evas = evas_object_data_get(self->object, "evas_pyobject");
+    BENCH_END
     if (evas) {
         Py_INCREF(evas);
         return evas;
@@ -218,20 +230,32 @@ Evas_Object_PyObject_layer_set(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "i", &layer))
         return NULL;
 
+    BENCH_START
     evas_object_layer_set(self->object, layer);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_Object_PyObject_layer_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    return Py_BuildValue("i", evas_object_layer_get(self->object));
+    int layer;
+
+    BENCH_START
+    layer = evas_object_layer_get(self->object);
+    BENCH_END
+
+    return Py_BuildValue("i", layer);
 }
 
 PyObject *
 Evas_Object_PyObject_visible_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    if (evas_object_visible_get(self->object))
+    int visible;
+    BENCH_START
+    visible = evas_object_visible_get(self->object);
+    BENCH_END
+    if (visible)
         return Py_INCREF(Py_True), Py_True;
     return Py_INCREF(Py_False), Py_False;
 }
@@ -244,7 +268,9 @@ Evas_Object_PyObject_color_set(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "iiii", &r, &g, &b, &a))
         return NULL;
 
+    BENCH_START
     evas_object_color_set(self->object, r, g, b, a);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -253,7 +279,9 @@ Evas_Object_PyObject_color_get(Evas_Object_PyObject * self, PyObject * args)
 {
     int r, g, b, a;
 
+    BENCH_START
     evas_object_color_get(self->object, &r, &g, &b, &a);
+    BENCH_END
     return Py_BuildValue("(iiii)", r, g, b, a);
 }
 
@@ -266,14 +294,20 @@ Evas_Object_PyObject_name_set(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "s", &name))
         return NULL;
 
+    BENCH_START
     evas_object_name_set(self->object, name);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_Object_PyObject_name_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    return Py_BuildValue("s", evas_object_name_get(self->object));
+    char *name;
+    BENCH_START
+    name = evas_object_name_get(self->object);
+    BENCH_END
+    return Py_BuildValue("s", name);
 }
 
 PyObject *
@@ -284,7 +318,9 @@ Evas_Object_PyObject_clip_set(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "O!", &Evas_Object_PyObject_Type, &clip_object))
         return NULL;
 
+    BENCH_START
     evas_object_clip_set(self->object, clip_object->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -294,13 +330,17 @@ Evas_Object_PyObject_clip_get(Evas_Object_PyObject * self, PyObject * args)
     Evas_PyObject *evas;
     Evas_Object *clip_object;
     
+    BENCH_START
     clip_object  = evas_object_clip_get(self->object);
+    BENCH_END
     if (!clip_object) {
         Py_INCREF(Py_None);
         return Py_None;
     }
 
+    BENCH_START
     evas = evas_object_data_get(self->object, "evas_pyobject");
+    BENCH_END
     return (PyObject *)wrap_evas_object(clip_object, evas);
 }
 
@@ -308,7 +348,9 @@ Evas_Object_PyObject_clip_get(Evas_Object_PyObject * self, PyObject * args)
 PyObject *
 Evas_Object_PyObject_clip_unset(Evas_Object_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_object_clip_unset(self->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -320,8 +362,10 @@ Evas_Object_PyObject_clipees_get(Evas_Object_PyObject * self, PyObject * args)
     Evas_PyObject *evas;
     PyObject *list = PyList_New(0);
 
+    BENCH_START 
     evas = evas_object_data_get(self->object, "evas_pyobject");
     clipees = evas_object_clipees_get(self->object);
+    BENCH_END
 
     for (p = clipees; p; p = p->next) {
         Evas_Object *o = (Evas_Object *)p->data;
@@ -333,14 +377,18 @@ Evas_Object_PyObject_clipees_get(Evas_Object_PyObject * self, PyObject * args)
 PyObject *
 Evas_Object_PyObject_raise(Evas_Object_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_object_raise(self->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_Object_PyObject_lower(Evas_Object_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_object_lower(self->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -352,7 +400,9 @@ Evas_Object_PyObject_stack_above(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "O!", &Evas_Object_PyObject_Type, &above))
         return NULL;
 
+    BENCH_START
     evas_object_stack_above(self->object, above->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -364,7 +414,9 @@ Evas_Object_PyObject_stack_below(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "O!", &Evas_Object_PyObject_Type, &below))
         return NULL;
 
+    BENCH_START
     evas_object_stack_below(self->object, below->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 

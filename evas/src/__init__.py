@@ -504,5 +504,10 @@ class EvasBuffer(Evas):
         return self._buffer
 
 
+def benchmark_reset():
+    _evas.benchmark_reset()
+
+def benchmark_get():
+    return _evas.benchmark_get()
 #def new(render_method = None, size = None, viewport = None, **kwargs):
 #    return Evas(render_method, size, viewport, **kwargs)

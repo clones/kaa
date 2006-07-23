@@ -13,7 +13,9 @@ Evas_Object_PyObject_text_font_set(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "si", &font, &size))
         return NULL;
 
+    BENCH_START
     evas_object_text_font_set(self->object, font, size);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 
 }
@@ -24,7 +26,9 @@ Evas_Object_PyObject_text_font_get(Evas_Object_PyObject * self, PyObject * args)
     char *font;
     int size;
 
+    BENCH_START
     evas_object_text_font_get(self->object, &font, &size);
+    BENCH_END
     return Py_BuildValue("(si)", font, size);
 }
 
@@ -38,7 +42,9 @@ Evas_Object_PyObject_text_text_set(Evas_Object_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "s", &text))
         return NULL;
 
+    BENCH_START
     evas_object_text_text_set(self->object, text);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 
 }
@@ -46,7 +52,11 @@ Evas_Object_PyObject_text_text_set(Evas_Object_PyObject * self, PyObject * args)
 PyObject *
 Evas_Object_PyObject_text_text_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    return Py_BuildValue("s", evas_object_text_text_get(self->object));
+    const char *text;
+    BENCH_START
+    text = evas_object_text_text_get(self->object);
+    BENCH_END
+    return Py_BuildValue("s", text);
 }
 
 /****************************************************************************/
@@ -60,7 +70,9 @@ Evas_Object_PyObject_text_font_source_set(Evas_Object_PyObject * self,
     if (!PyArg_ParseTuple(args, "s", &source))
         return NULL;
 
+    BENCH_START
     evas_object_text_font_source_set(self->object, source);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 
 }
@@ -69,7 +81,11 @@ PyObject *
 Evas_Object_PyObject_text_font_source_get(Evas_Object_PyObject * self,
                                    PyObject * args)
 {
-    return Py_BuildValue("s", evas_object_text_font_source_get(self->object));
+    const char *source;
+    BENCH_START
+    source = evas_object_text_font_source_get(self->object);
+    BENCH_END
+    return Py_BuildValue("s", source);
 }
 
 /****************************************************************************
@@ -77,11 +93,14 @@ Evas_Object_PyObject_text_font_source_get(Evas_Object_PyObject * self,
  */
 
 #define func_template(func) \
-   PyObject * \
-   Evas_Object_PyObject_text_ ## func (Evas_Object_PyObject *self, PyObject *args) \
-   { \
-      return Py_BuildValue("i", evas_object_text_ ## func (self->object)); \
-   }
+    PyObject * \
+    Evas_Object_PyObject_text_ ## func (Evas_Object_PyObject *self, PyObject *args) { \
+        int val; \
+        BENCH_START \
+        val = evas_object_text_ ## func (self->object); \
+        BENCH_END \
+        return Py_BuildValue("i", val); \
+    }
 
 func_template(ascent_get);
 func_template(descent_get);
@@ -100,7 +119,9 @@ Evas_Object_PyObject_text_char_pos_get(Evas_Object_PyObject * self, PyObject * a
     if (!PyArg_ParseTuple(args, "i", &pos))
         return NULL;
 
+    BENCH_START
     evas_object_text_char_pos_get(self->object, pos, &cx, &cy, &cw, &ch);
+    BENCH_END
     return Py_BuildValue("(iiii)", cx, cy, cw, ch);
 }
 
@@ -114,7 +135,9 @@ Evas_Object_PyObject_text_char_coords_get(Evas_Object_PyObject * self,
     if (!PyArg_ParseTuple(args, "ii", &x, &y))
         return NULL;
 
+    BENCH_START
     evas_object_text_char_coords_get(self->object, x, y, &cx, &cy, &cw, &ch);
+    BENCH_END
     return Py_BuildValue("(iiii)", cx, cy, cw, ch);
 }
 
@@ -126,7 +149,9 @@ Evas_Object_PyObject_text_style_pad_get(Evas_Object_PyObject * self,
 {
     int l, r, t, b;
 
+    BENCH_START
     evas_object_text_style_pad_get(self->object, &l, &r, &t, &b);
+    BENCH_END
     return Py_BuildValue("(iiii)", l, r, t, b);
 }
 

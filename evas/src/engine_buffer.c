@@ -7,7 +7,9 @@ int engine_buffer_setup(Evas_PyObject *o, PyObject *kwargs)
     int res, buflen, w, h;
     PyObject *value;
 
+    BENCH_START
     evas_output_method_set(o->evas, evas_render_method_lookup("buffer"));
+    BENCH_END
 
     einfo = (Evas_Engine_Info_Buffer *) evas_engine_info_get(o->evas);
     einfo->info.func.new_update_region = NULL;
@@ -34,6 +36,8 @@ int engine_buffer_setup(Evas_PyObject *o, PyObject *kwargs)
             return 0;
         }
     }
+    BENCH_START
     evas_engine_info_set(o->evas, (Evas_Engine_Info *) einfo);
+    BENCH_END
     return 1;
 }

@@ -6,6 +6,13 @@
 #include "engine_buffer.h"
 #include <Evas_Engine_Buffer.h>
 
+#include <sys/time.h>
+
+double __benchmark_time;
+struct timezone __bench_tz;
+struct timeval __bench_start, __bench_end;
+
+
 PyObject *evas_error;
 
 // Exported _C_API function
@@ -107,7 +114,9 @@ Evas_PyObject_output_size_set(Evas_PyObject * self, PyObject * args)
 
     if (!PyArg_ParseTuple(args, "(ii)", &w, &h))
         return NULL;
+    BENCH_START
     evas_output_size_set(self->evas, w, h);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -116,7 +125,9 @@ Evas_PyObject_output_size_get(Evas_PyObject * self, PyObject * args)
 {
     int w, h;
 
+    BENCH_START
     evas_output_size_get(self->evas, &w, &h);
+    BENCH_END
     return Py_BuildValue("(ii)", w, h);
 }
 
@@ -127,7 +138,9 @@ Evas_PyObject_viewport_set(Evas_PyObject * self, PyObject * args)
 
     if (!PyArg_ParseTuple(args, "(ii)(ii)", &x, &y, &w, &h))
         return NULL;
+    BENCH_START
     evas_output_viewport_set(self->evas, x, y, w, h);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -136,7 +149,9 @@ Evas_PyObject_viewport_get(Evas_PyObject * self, PyObject * args)
 {
     Evas_Coord x, y, w, h;
 
+    BENCH_START
     evas_output_viewport_get(self->evas, &x, &y, &w, &h);
+    BENCH_END
     return Py_BuildValue("((ii)(ii))", x, y, w, h);
 }
 
@@ -147,7 +162,9 @@ Evas_PyObject_render(Evas_PyObject * self, PyObject * args)
     PyObject *list = PyList_New(0);
 
     Py_BEGIN_ALLOW_THREADS
+    BENCH_START
     updates = evas_render_updates(self->evas);
+    BENCH_END
     for (p = updates; p; p = p->next) {
         Evas_Rectangle *r = p->data;
         PyList_Append(list, Py_BuildValue("(iiii)", r->x, r->y, r->w, r->h));
@@ -187,6 +204,7 @@ Evas_PyObject_output_set(Evas_PyObject * self, PyObject * args, PyObject * kwarg
         return NULL;
     }
 
+    BENCH_START
     if (!strcmp(render_method, "buffer")) {
         if (!engine_buffer_setup(self, kwargs))
             return NULL;
@@ -194,6 +212,7 @@ Evas_PyObject_output_set(Evas_PyObject * self, PyObject * args, PyObject * kwarg
         PyErr_Format(evas_error, "Unsupported output method '%s'.", render_method);
         return NULL;
     }
+    BENCH_END
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -202,14 +221,18 @@ Evas_PyObject_output_set(Evas_PyObject * self, PyObject * args, PyObject * kwarg
 PyObject *
 Evas_PyObject_image_cache_flush(Evas_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_image_cache_flush(self->evas);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_PyObject_image_cache_reload(Evas_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_image_cache_reload(self->evas);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -220,52 +243,73 @@ Evas_PyObject_image_cache_set(Evas_PyObject * self, PyObject * args)
 
     if (!PyArg_ParseTuple(args, "i", &size))
         return NULL;
+    BENCH_START
     evas_image_cache_set(self->evas, size);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
 PyObject *
 Evas_PyObject_image_cache_get(Evas_PyObject * self, PyObject * args)
 {
-    return Py_BuildValue("i", evas_image_cache_get(self->evas));
+    int cache;
+    BENCH_START
+    cache = evas_image_cache_get(self->evas);
+    BENCH_END
+    return Py_BuildValue("i", cache);
 }
 
 PyObject *
 Evas_PyObject_object_rectangle_add(Evas_PyObject * self, PyObject * args)
 {
-    return (PyObject *)
-        wrap_evas_object(evas_object_rectangle_add(self->evas), self);
+    Evas_Object *o;
+    BENCH_START
+    o = evas_object_rectangle_add(self->evas);
+    BENCH_END
+    return (PyObject *)wrap_evas_object(o, self);
 }
 
 PyObject *
 Evas_PyObject_object_gradient_add(Evas_PyObject * self, PyObject * args)
 {
-    return (PyObject *)
-        wrap_evas_object(evas_object_gradient_add(self->evas), self);
+    Evas_Object *o;
+    BENCH_START
+    o = evas_object_gradient_add(self->evas);
+    BENCH_END
+    return (PyObject *)wrap_evas_object(o, self);
 }
 
 PyObject *
 Evas_PyObject_object_image_add(Evas_PyObject * self, PyObject * args)
 {
+    Evas_Object *o;
     if (!check_evas(self->evas))
         return NULL;
 
-    return (PyObject *) wrap_evas_object(evas_object_image_add(self->evas),
-                                         self);
+    BENCH_START
+    o = evas_object_image_add(self->evas);
+    BENCH_END
+    return (PyObject *)wrap_evas_object(o, self);
 }
 
 PyObject *
 Evas_PyObject_object_text_add(Evas_PyObject * self, PyObject * args)
 {
-    return (PyObject *) wrap_evas_object(evas_object_text_add(self->evas),
-                                         self);
+    Evas_Object *o;
+    BENCH_START
+    o = evas_object_text_add(self->evas);
+    BENCH_END
+    return (PyObject *)wrap_evas_object(o, self);
 }
 
 PyObject *
 Evas_PyObject_object_textblock_add(Evas_PyObject * self, PyObject * args)
 {
-    return (PyObject *) wrap_evas_object(evas_object_textblock_add(self->evas),
-                                         self);
+    Evas_Object *o;
+    BENCH_START
+    o = evas_object_textblock_add(self->evas);
+    BENCH_END
+    return (PyObject *)wrap_evas_object(o, self);
 }
 
 PyObject *
@@ -276,7 +320,9 @@ Evas_PyObject_object_name_find(Evas_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "s", &name))
         return NULL;
 
+    BENCH_START
     obj = evas_object_name_find(self->evas, name);
+    BENCH_END
     if (obj)
         return (PyObject *) wrap_evas_object(obj, self);
     Py_INCREF(Py_None);
@@ -293,6 +339,7 @@ Evas_PyObject_font_path_set(Evas_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "O!", &PyList_Type, &list))
         return NULL;
 
+    BENCH_START
     evas_font_path_clear(self->evas);
     for (i = 0; i < PyList_Size(list); i++) {
         // printf("FONT PATH %d: %s\n", i,
@@ -300,6 +347,7 @@ Evas_PyObject_font_path_set(Evas_PyObject * self, PyObject * args)
         evas_font_path_append(self->evas,
                               PyString_AsString(PyList_GetItem(list, i)));
     }
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -312,7 +360,9 @@ Evas_PyObject_damage_rectangle_add(Evas_PyObject * self, PyObject * args)
     if (!PyArg_ParseTuple(args, "iiii", &x, &y, &w, &h))
         return NULL;
 
+    BENCH_START
     evas_damage_rectangle_add(self->evas, x, y, w, h);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -413,8 +463,24 @@ render_method_list(PyObject *module, PyObject *args)
     return pylist;
 }
 
+PyObject *
+evas_benchmark_reset(PyObject *module, PyObject *args)
+{
+    __benchmark_time = 0;
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *
+evas_benchmark_get(PyObject *module, PyObject *args)
+{
+    return Py_BuildValue("d", __benchmark_time);
+}
+
 PyMethodDef evas_methods[] = {
     {"render_method_list", (PyCFunction) render_method_list, METH_VARARGS},
+    {"benchmark_reset", (PyCFunction) evas_benchmark_reset, METH_VARARGS},
+    {"benchmark_get", (PyCFunction) evas_benchmark_get, METH_VARARGS},
     {NULL}
 };
 

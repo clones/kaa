@@ -6,7 +6,9 @@
 PyObject *
 Evas_Object_PyObject_textblock_clear(Evas_Object_PyObject * self, PyObject * args)
 {
+    BENCH_START
     evas_object_textblock_clear(self->object);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }
 
@@ -19,10 +21,12 @@ Evas_Object_PyObject_textblock_style_set(Evas_Object_PyObject * self, PyObject *
     if (!PyArg_ParseTuple(args, "s", &style))
         return NULL;
 
+    BENCH_START
     st = evas_textblock_style_new();
     evas_textblock_style_set(st, style);
     evas_object_textblock_style_set(self->object, st);
     evas_textblock_style_free(st);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 
 }
@@ -34,7 +38,9 @@ Evas_Object_PyObject_textblock_markup_set(Evas_Object_PyObject * self, PyObject 
     if (!PyArg_ParseTuple(args, "s", &markup))
         return NULL;
 
+    BENCH_START
     evas_object_textblock_text_markup_set(self->object, markup);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
 
 }
@@ -42,7 +48,10 @@ Evas_Object_PyObject_textblock_markup_set(Evas_Object_PyObject * self, PyObject 
 PyObject *
 Evas_Object_PyObject_textblock_markup_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    const char *markup = evas_object_textblock_text_markup_get(self->object);
+    const char *markup;
+    BENCH_START
+    markup = evas_object_textblock_text_markup_get(self->object);
+    BENCH_END
     if (!markup)
         return Py_INCREF(Py_None), Py_None;
     return PyString_FromString(markup);
@@ -52,7 +61,9 @@ PyObject *
 Evas_Object_PyObject_textblock_size_formatted_get(Evas_Object_PyObject * self, PyObject * args)
 {
     int w, h;
+    BENCH_START
     evas_object_textblock_size_formatted_get(self->object, &w, &h);
+    BENCH_END
     return Py_BuildValue("(ii)", w, h);
 }
 
@@ -60,7 +71,9 @@ PyObject *
 Evas_Object_PyObject_textblock_size_native_get(Evas_Object_PyObject * self, PyObject * args)
 {
     int w, h;
+    BENCH_START
     evas_object_textblock_size_native_get(self->object, &w, &h);
+    BENCH_END
     return Py_BuildValue("(ii)", w, h);
 }
 
@@ -68,14 +81,19 @@ PyObject *
 Evas_Object_PyObject_textblock_style_insets_get(Evas_Object_PyObject * self, PyObject * args)
 {
     int l, r, t, b;
+    BENCH_START
     evas_object_textblock_style_insets_get(self->object, &l, &r, &t, &b);
+    BENCH_END
     return Py_BuildValue("(iiii)", l, r, t, b);
 }
 
 PyObject *
 Evas_Object_PyObject_textblock_cursor_get(Evas_Object_PyObject *self, PyObject * args)
 {
-    const Evas_Textblock_Cursor *cursor = evas_object_textblock_cursor_get(self->object);
+    const Evas_Textblock_Cursor *cursor;
+    BENCH_START
+    cursor = evas_object_textblock_cursor_get(self->object);
+    BENCH_END
     if (!cursor) {
         Py_INCREF(Py_None);
         return Py_None;
@@ -86,10 +104,13 @@ Evas_Object_PyObject_textblock_cursor_get(Evas_Object_PyObject *self, PyObject *
 PyObject *
 Evas_Object_PyObject_textblock_line_number_geometry_get(Evas_Object_PyObject *self, PyObject * args)
 {
-    int x, y, w, h, line;
+    int x, y, w, h, line, result;
     if (!PyArg_ParseTuple(args, "i", &line))
         return NULL;
-    if (!evas_object_textblock_line_number_geometry_get(self->object, line, &x, &y, &w, &h)) {
+    BENCH_START
+    result = evas_object_textblock_line_number_geometry_get(self->object, line, &x, &y, &w, &h);
+    BENCH_END
+    if (!result) {
         Py_INCREF(Py_None);
         return Py_None;
     }
@@ -113,7 +134,9 @@ Evas_Textblock_Cursor_PyObject__new(PyTypeObject *type, PyObject * args, PyObjec
 
     self = (Evas_Textblock_Cursor_PyObject *)type->tp_alloc(type, 0);
     if (textblock) {
+        BENCH_START
         self->cursor = evas_object_textblock_cursor_new(textblock->object);
+        BENCH_END
         self->textblock = textblock;
         Py_INCREF(textblock);
     }
@@ -131,8 +154,10 @@ void
 Evas_Textblock_Cursor_PyObject__dealloc(Evas_Textblock_Cursor_PyObject * self)
 {
     printf("Textblock Cursor dealloc: %p\n", self->cursor);
+    BENCH_START
     if (self->cursor)
         evas_textblock_cursor_free(self->cursor);
+    BENCH_END
     if (self->textblock) {
         Py_DECREF(self->textblock);
     }
@@ -157,8 +182,11 @@ wrap_evas_textblock_cursor(Evas_Textblock_Cursor *cursor, Evas_Object_PyObject *
 PyObject *
 Evas_Textblock_Cursor_PyObject__copy(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    Evas_Textblock_Cursor *new_cursor = evas_object_textblock_cursor_new(self->textblock->object);
+    Evas_Textblock_Cursor *new_cursor;
+    BENCH_START
+    new_cursor = evas_object_textblock_cursor_new(self->textblock->object);
     evas_textblock_cursor_copy(self->cursor, new_cursor);
+    BENCH_END
     return (PyObject *)wrap_evas_textblock_cursor(new_cursor, self->textblock);
 }
 
@@ -169,7 +197,9 @@ Evas_Textblock_Cursor_PyObject__char_coord_set(Evas_Textblock_Cursor_PyObject *s
     if (!PyArg_ParseTuple(args, "ii", &x, &y))
         return NULL;
 
+    BENCH_START
     ret = evas_textblock_cursor_char_coord_set(self->cursor, x, y);
+    BENCH_END
     return PyBool_FromLong(ret);
 }
 
@@ -177,7 +207,9 @@ PyObject *
 Evas_Textblock_Cursor_PyObject__char_geometry_get(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
     int x, y, w, h, line;
-    line  = evas_textblock_cursor_char_geometry_get(self->cursor, &x, &y, &w, &h);
+    BENCH_START
+    line = evas_textblock_cursor_char_geometry_get(self->cursor, &x, &y, &w, &h);
+    BENCH_END
     if (line == -1) {
         Py_INCREF(Py_None);
         return Py_None;
@@ -189,7 +221,9 @@ Evas_Textblock_Cursor_PyObject__char_geometry_get(Evas_Textblock_Cursor_PyObject
 PyObject *
 Evas_Textblock_Cursor_PyObject__char_delete(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_char_delete(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -201,7 +235,9 @@ Evas_Textblock_Cursor_PyObject__range_delete(Evas_Textblock_Cursor_PyObject *sel
     if (!PyArg_ParseTuple(args, "O!", &Evas_Textblock_Cursor_PyObject_Type, &cur2))
         return NULL;
 
+    BENCH_START
     evas_textblock_cursor_range_delete(self->cursor, cur2->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -215,14 +251,19 @@ Evas_Textblock_Cursor_PyObject__range_text_get(Evas_Textblock_Cursor_PyObject *s
     if (!PyArg_ParseTuple(args, "O!i", &Evas_Textblock_Cursor_PyObject_Type, &cur2, &format))
         return NULL;
 
+    BENCH_START
     str = evas_textblock_cursor_range_text_get(self->cursor, cur2->cursor, format);
+    BENCH_END
     return Py_BuildValue("s", str); 
 }
 
 PyObject *
 Evas_Textblock_Cursor_PyObject__pos_get(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    int pos = evas_textblock_cursor_pos_get(self->cursor);
+    int pos;
+    BENCH_START
+    pos = evas_textblock_cursor_pos_get(self->cursor);
+    BENCH_END
     return Py_BuildValue("i", pos);
 }
 
@@ -233,7 +274,9 @@ Evas_Textblock_Cursor_PyObject__pos_set(Evas_Textblock_Cursor_PyObject *self, Py
     if (!PyArg_ParseTuple(args, "i", &pos))
         return NULL;
 
+    BENCH_START
     evas_textblock_cursor_pos_set(self->cursor, pos);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -241,7 +284,9 @@ Evas_Textblock_Cursor_PyObject__pos_set(Evas_Textblock_Cursor_PyObject *self, Py
 PyObject *
 Evas_Textblock_Cursor_PyObject__char_first(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_char_first(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -249,20 +294,28 @@ Evas_Textblock_Cursor_PyObject__char_first(Evas_Textblock_Cursor_PyObject *self,
 PyObject *
 Evas_Textblock_Cursor_PyObject__char_prev(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    int ret = evas_textblock_cursor_char_prev(self->cursor);
+    int ret;
+    BENCH_START
+    ret = evas_textblock_cursor_char_prev(self->cursor);
+    BENCH_END
     return PyBool_FromLong(ret);
 }
 
 PyObject *
 Evas_Textblock_Cursor_PyObject__char_next(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    int ret = evas_textblock_cursor_char_next(self->cursor);
+    int ret;
+    BENCH_START
+    ret = evas_textblock_cursor_char_next(self->cursor);
+    BENCH_END
     return PyBool_FromLong(ret);
 }
 PyObject *
 Evas_Textblock_Cursor_PyObject__char_last(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_char_last(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -270,7 +323,9 @@ Evas_Textblock_Cursor_PyObject__char_last(Evas_Textblock_Cursor_PyObject *self, 
 PyObject *
 Evas_Textblock_Cursor_PyObject__line_first(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_line_first(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -278,7 +333,9 @@ Evas_Textblock_Cursor_PyObject__line_first(Evas_Textblock_Cursor_PyObject *self,
 PyObject *
 Evas_Textblock_Cursor_PyObject__line_last(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_line_last(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -290,7 +347,9 @@ Evas_Textblock_Cursor_PyObject__line_set(Evas_Textblock_Cursor_PyObject *self, P
     if (!PyArg_ParseTuple(args, "i", &line))
         return NULL;
 
+    BENCH_START
     ret = evas_textblock_cursor_line_set(self->cursor, line);
+    BENCH_END
     return PyBool_FromLong(ret);
 }
 
@@ -301,7 +360,9 @@ Evas_Textblock_Cursor_PyObject__line_coord_set(Evas_Textblock_Cursor_PyObject *s
     if (!PyArg_ParseTuple(args, "i", &y))
         return NULL;
 
+    BENCH_START
     line = evas_textblock_cursor_line_coord_set(self->cursor, y);
+    BENCH_END
     return Py_BuildValue("i", line);
 }
 
@@ -309,21 +370,28 @@ PyObject *
 Evas_Textblock_Cursor_PyObject__line_geometry_get(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
     int x, y, w, h;
+    BENCH_START
     evas_textblock_cursor_line_geometry_get(self->cursor, &x, &y, &w, &h);
+    BENCH_END
     return Py_BuildValue("(iiii)", x, y, w, h);
 }
 
 PyObject *
 Evas_Textblock_Cursor_PyObject__node_text_get(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    const char *str = evas_textblock_cursor_node_text_get(self->cursor);
+    const char *str;
+    BENCH_START
+    str = evas_textblock_cursor_node_text_get(self->cursor);
+    BENCH_END
     return Py_BuildValue("s", str);
 }
 
 PyObject *
 Evas_Textblock_Cursor_PyObject__node_first(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_node_first(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -331,21 +399,29 @@ Evas_Textblock_Cursor_PyObject__node_first(Evas_Textblock_Cursor_PyObject *self,
 PyObject *
 Evas_Textblock_Cursor_PyObject__node_prev(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    int ret = evas_textblock_cursor_node_prev(self->cursor);
+    int ret;
+    BENCH_START
+    ret = evas_textblock_cursor_node_prev(self->cursor);
+    BENCH_END
     return PyBool_FromLong(ret);
 }
 
 PyObject *
 Evas_Textblock_Cursor_PyObject__node_next(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    int ret = evas_textblock_cursor_node_next(self->cursor);
+    int ret;
+    BENCH_START
+    ret = evas_textblock_cursor_node_next(self->cursor);
+    BENCH_END
     return PyBool_FromLong(ret);
 }
 
 PyObject *
 Evas_Textblock_Cursor_PyObject__node_last(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_node_last(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -353,7 +429,9 @@ Evas_Textblock_Cursor_PyObject__node_last(Evas_Textblock_Cursor_PyObject *self, 
 PyObject *
 Evas_Textblock_Cursor_PyObject__node_delete(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
+    BENCH_START
     evas_textblock_cursor_node_delete(self->cursor);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -361,7 +439,10 @@ Evas_Textblock_Cursor_PyObject__node_delete(Evas_Textblock_Cursor_PyObject *self
 PyObject *
 Evas_Textblock_Cursor_PyObject__node_format_get(Evas_Textblock_Cursor_PyObject *self, PyObject * args)
 {
-    const char *str = evas_textblock_cursor_node_format_get(self->cursor);
+    const char *str;
+    BENCH_START
+    str = evas_textblock_cursor_node_format_get(self->cursor);
+    BENCH_END
     return Py_BuildValue("s", str);
 }
 
@@ -373,7 +454,9 @@ Evas_Textblock_Cursor_PyObject__text_append(Evas_Textblock_Cursor_PyObject *self
     if (!PyArg_ParseTuple(args, "s", &text))
         return NULL;
 
+    BENCH_START
     evas_textblock_cursor_text_append(self->cursor, text);
+    BENCH_END
     Py_INCREF(Py_None);
     return Py_None;
 }
