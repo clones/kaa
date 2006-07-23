@@ -708,11 +708,14 @@ class Database(object):
         Get database entry for the given directory. Called recursive to
         find the current entry. Do not cache results, they could change.
         """
-        if dirname == media.mountpoint:
+        if dirname == media.mountpoint or dirname +'/' == media.mountpoint:
             # we know that '/' is in the db
             current = self._db.query(type="dir", name='', parent=media._beacon_id)[0]
             return create_dir(current, media)
 
+        if dirname == '/':
+            raise RuntimeError('media not found')
+        
         parent = self._get_dir(os.path.dirname(dirname), media)
         name = os.path.basename(dirname)
 
