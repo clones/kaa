@@ -245,7 +245,7 @@ try:
     kaa.beacon.connect()
     print 'beacon server already running'
     sys.exit(1)
-except socket.error: # FIXME: beacon needs an exception class for this.
+except kaa.beacon.ConnectError:
     pass
 
 if detach:

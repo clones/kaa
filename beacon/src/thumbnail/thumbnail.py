@@ -215,7 +215,7 @@ def connect():
         try:
             _client = Client()
             return _client
-        except socket.error, e:
+        except kaa.rpc.ConnectError, e:
             if start + 3 < time.time():
                 # start time is up, something is wrong here
                 raise RuntimeError('unable to connect to thumbnail server')

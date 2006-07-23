@@ -58,6 +58,9 @@ CONNECTING   = 'connecting'
 CONNECTED    = 'connected'
 SHUTDOWN     = 'shutdown'
 
+class ConnectError(Exception):
+    pass
+
 class Client(object):
     """
     Beacon client. This client uses the db read only and needs a server on
@@ -128,7 +131,10 @@ class Client(object):
 
         # monitor function from the server to start a new monitor for a query
         log.info('connecting')
-        server = kaa.rpc.Client('beacon')
+        try:
+            server = kaa.rpc.Client('beacon')
+        except kaa.rpc.ConnectError, e:
+            raise ConnectError(e)
         server.signals["closed"].connect_once(self._disconnected)
         server.connect(self)
         self.rpc = server.rpc
@@ -151,7 +157,7 @@ class Client(object):
         # Got disconnected; reconnect.
         try:
             self._connect()
-        except Exception, e:
+        except ConnectError, e:
             # still dead
             return True
 

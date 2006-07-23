@@ -40,12 +40,13 @@ import logging
 import kaa.notifier
 
 # kaa.beacon imports
-from client import Client, CONNECTED
+from client import Client, CONNECTED, ConnectError
 import thumbnail
 from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
-from query import register_filter
+from query import register_filter, wrap
 from item import Item
+from hwmon import medialist as media
 
 # get logging object
 log = logging.getLogger('beacon')
