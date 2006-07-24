@@ -303,7 +303,7 @@ Evas_Object_PyObject_name_set(Evas_Object_PyObject * self, PyObject * args)
 PyObject *
 Evas_Object_PyObject_name_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    char *name;
+    const char *name;
     BENCH_START
     name = evas_object_name_get(self->object);
     BENCH_END

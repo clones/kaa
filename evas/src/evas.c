@@ -8,9 +8,8 @@
 
 #include <sys/time.h>
 
-double __benchmark_time;
-struct timezone __bench_tz;
-struct timeval __bench_start, __bench_end;
+unsigned long long __benchmark_time = 0;
+unsigned long long __benchmark_start, __benchmark_end;
 
 
 PyObject *evas_error;
@@ -474,13 +473,37 @@ evas_benchmark_reset(PyObject *module, PyObject *args)
 PyObject *
 evas_benchmark_get(PyObject *module, PyObject *args)
 {
-    return Py_BuildValue("d", __benchmark_time);
+    return Py_BuildValue("K", __benchmark_time);
+}
+
+PyObject *
+evas_benchmark_calibrate(PyObject *module, PyObject *args)
+{
+#ifdef BENCHMARK
+    int sleep_usecs;
+    unsigned long long t0, t1, tvdiff;
+    struct timeval tv0, tv1;
+
+    if (!PyArg_ParseTuple(args, "i", &sleep_usecs))
+        return NULL;
+    rdtscll(t0);
+    gettimeofday(&tv0, NULL);
+    usleep(sleep_usecs);
+    rdtscll(t1);
+    gettimeofday(&tv1, NULL);
+    tvdiff = ((tv1.tv_sec - tv0.tv_sec) * 1000000) + (tv1.tv_usec - tv0.tv_usec);
+    return Py_BuildValue("d", (double)(t1-t0)/(double)tvdiff);
+#else
+    return Py_BuildValue("d", 0.0);
+#endif
+
 }
 
 PyMethodDef evas_methods[] = {
     {"render_method_list", (PyCFunction) render_method_list, METH_VARARGS},
     {"benchmark_reset", (PyCFunction) evas_benchmark_reset, METH_VARARGS},
     {"benchmark_get", (PyCFunction) evas_benchmark_get, METH_VARARGS},
+    {"benchmark_calibrate", (PyCFunction) evas_benchmark_calibrate, METH_VARARGS},
     {NULL}
 };
 
