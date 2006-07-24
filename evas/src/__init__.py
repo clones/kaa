@@ -504,22 +504,22 @@ class EvasBuffer(Evas):
         return self._buffer
 
 
-_jiffies_factor = None
+_tsc_factor = None
 
 def benchmark_reset():
     _evas.benchmark_reset()
 
 def benchmark_get():
-    global _jiffies_factor
-    if not _jiffies_factor:
-        # Figure out the jiffies-to-seconds factor.  benchmark_calibrate
-        # will time a sleep (argument is in usecs) and compare the jiffies
-        # value to what gettimeofday produces, returning the ratio.  This
-        # ratio is then used to convert jiffies to seconds.
+    global _tsc_factor
+    if not _tsc_factor:
+        # Figure out the timestamp-counter-to-seconds factor.  benchmark_calibrate
+        # will time a sleep (argument is in usecs) and compare the time stamp
+        # counter to what gettimeofday produces, returning the ratio.  This
+        # ratio is then used to convert tsc to seconds.
         s = sum([ _evas.benchmark_calibrate(10**pow) for pow in range(3, 6) ])
-        _jiffies_factor = (s / 3.0) * 1000000
+        _tsc_factor = (s / 3.0) * 1000000
  
-    return _evas.benchmark_get() / _jiffies_factor
+    return _evas.benchmark_get() / _tsc_factor
 
 #def new(render_method = None, size = None, viewport = None, **kwargs):
 #    return Evas(render_method, size, viewport, **kwargs)
