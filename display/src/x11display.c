@@ -33,7 +33,9 @@
 #include <Python.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#ifdef ENABLE_ENGINE_GL_X11
 #include <GL/glx.h>
+#endif
 #include "x11display.h"
 #include "structmember.h"
 
