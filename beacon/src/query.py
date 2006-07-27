@@ -256,6 +256,7 @@ class Query(object):
                 url, data = items.pop(0)
         if items:
             log.error('not all items found')
+        self.signals['changed'].emit()
 
 
     def _beacon_callback_changed(self):
