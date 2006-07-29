@@ -75,7 +75,6 @@ class Query(object):
         self.monitoring = False
         self.valid = False
         self.result = []
-        self._filter_result = {}
         if client.status == CONNECTED:
             return self._beacon_start_query(query, False)
         # The client is not connected, wait with the query until this is
@@ -153,10 +152,7 @@ class Query(object):
             return self.result
         if not filter in _query_filter:
             raise AttributeError('unknown filter')
-        if not filter in self._filter_result:
-            # filter results
-            self._filter_result[filter] = _query_filter[filter](self.result)
-        return self._filter_result[filter]
+        return _query_filter[filter](self.result)
 
 
     def refresh(self):
@@ -201,7 +197,6 @@ class Query(object):
 
     def _beacon_delayed_results(self, result):
         self.result = result
-        self._filter_result = {}
         self.valid = True
         self.signals['changed'].emit()
         return None
