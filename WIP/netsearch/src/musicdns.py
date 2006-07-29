@@ -24,7 +24,7 @@ class MusicDNS(object):
     def search(self, filename):
         sig = self._detect_thread(filename)
         sig.connect(self.signals['completed'].emit)
-        sig.exception.connect(self.signals['exception'].emit)
+        sig.exception_handler.connect(self.signals['exception'].emit)
 
 
     @kaa.notifier.execute_in_thread('netsearch')
