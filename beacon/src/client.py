@@ -116,6 +116,15 @@ class Client(object):
         return result
 
 
+    def monitor_directory(self, directory):
+        """
+        Monitor a directory with subdirectories for changes. This is done in
+        the server and will keep the database up to date.
+        """
+        if self.status != DISCONNECTED:
+            self.rpc('monitor.directory', directory)
+
+        
     # -------------------------------------------------------------------------
     # Server connect / disconnect / reconnect handling
     # -------------------------------------------------------------------------
@@ -318,6 +327,7 @@ class Client(object):
             return
         media = medialist.add(id, prop)
         self.signals['media.add'].emit(media)
+
 
     @kaa.rpc.expose('device.removed')
     def media_removed(self, id):

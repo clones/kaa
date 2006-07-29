@@ -224,6 +224,7 @@ class Server(object):
         return self._db.register_object_type_attrs('track_%s' % name, **kwargs)
 
 
+    @kaa.rpc.expose('monitor.directory')
     def monitor_dir(self, directory):
         """
         Monitor a directory in the background. One directories with a monitor

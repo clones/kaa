@@ -97,6 +97,16 @@ def query(**args):
     return _client.query(**args)
 
 
+def monitor(directory):
+    """
+    Monitor a directory with subdirectories for changes. This is done in
+    the server and will keep the database up to date.
+    """
+    if not _client:
+        connect()
+    return _client.monitor_directory(directory)
+
+
 def get_db_info():
     """
     Gets statistics about the database. This function will block using
