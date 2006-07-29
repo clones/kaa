@@ -149,7 +149,9 @@ class Thumbnail(object):
                          self._thumbnail % type, SIZE[type])
 
         job = Job(self, Thumbnail.next_id)
+        return job.signal
 
+    
     image  = property(get, set, None, "thumbnail image")
     failed = property(is_failed, set, None, "true if thumbnailing failed")
 
