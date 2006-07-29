@@ -94,7 +94,7 @@ class Item(object):
         When request is True this function may call kaa.notifier.step()
         """
         if key.startswith('tmp:'):
-            return self._beacon_tmpdata[key[4:]]
+            return self._beacon_tmpdata.get(key[4:])
 
         if key == 'parent':
             return self._beacon_parent
