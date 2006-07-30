@@ -191,7 +191,7 @@ class RomDrive(object):
             self.remove_disc()
             return
 
-        id = kaa.metadata.getid(self.device)[1]
+        type, id = kaa.metadata.getid(self.device)
         if not id:
             # bad disc, let us assume it is no disc
             self.remove_disc()
@@ -204,6 +204,11 @@ class RomDrive(object):
                }
         if os.path.ismount(self.mountpoint):
             prop['volume.mount_point'] = self.mountpoint
+        # FIXME: make this vars in kaa.metadata
+        if type in (1,4):
+            prop['volume.disc.has_audio'] = True
+        if type in (2,4):
+            prop['volume.disc.has_data'] = True
         self.disc = Device(prop)
         MainThreadCallback(signals['add'].emit)(self.disc)
 
