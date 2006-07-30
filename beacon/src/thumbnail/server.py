@@ -205,7 +205,7 @@ class Thumbnailer(object):
     def schedule(self, id, filename, imagefile, size):
         self.jobs.append(Job(id, filename, imagefile, size))
         if not self._timer.active():
-            self._timer.start(0.001)
+            self._timer.start(0.1)
 
 
     @kaa.rpc.expose('reduce_priority')

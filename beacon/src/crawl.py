@@ -90,7 +90,7 @@ class Crawler(object):
     support is enabled in the kernel, this class will use it to avoid
     polling the filesystem.
     """
-    PARSE_TIMER  = 0.03
+    PARSE_TIMER  = 0.04
 
     active = 0
     nextid = 0
