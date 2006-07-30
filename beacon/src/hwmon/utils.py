@@ -35,7 +35,9 @@ def get_title(name):
         name = name[:name.rfind('.')]
 
     # TODO: take more hints
-    name = name[0].upper() + name[1:].lower()
+    if name.upper() == name.lower():
+        name = name.lower()
+    name = name[0].upper() + name[1:]
     while True:
         m = FILENAME_REGEXP.match(name)
         if not m:
