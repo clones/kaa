@@ -115,7 +115,7 @@ if mode == 'stop':
     try:
         client = kaa.beacon.Client()
         client.signals['connect'].connect(shutdown, client)
-    except socket.error: # FIXME: beacon needs an exception class for this.
+    except kaa.beacon.ConnectError:
         print 'server not running'
         sys.exit(1)
     kaa.notifier.loop()
@@ -131,7 +131,7 @@ if mode in ("search", "info", "mount"):
 
     try:
         kaa.beacon.connect()
-    except Exception, e:
+    except kaa.beacon.ConnectError:
         print 'beacon server not running'
         sys.exit(1)
     
