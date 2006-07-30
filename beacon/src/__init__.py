@@ -35,6 +35,7 @@ __all__ = [ 'connect', 'get', 'query', 'register_filter', 'Item',
 # python imports
 import os
 import logging
+import time
 
 # kaa imports
 import kaa.notifier
@@ -68,13 +69,41 @@ def connect():
     if _client:
         return _client
 
-    log.info('beacon connect')
     _client = Client()
     thumbnail.connect()
     signals = _client.signals
+    log.info('beacon connected')
     return _client
 
 
+def launch(autoshutdown=False, wait=False, verbose='none'):
+    """
+    Lauch a beacon server. If wait is True, this function will block
+    until the server is started and connect to it or raise an exception
+    if this doesn't work for 5 seconds.
+    """
+    beacon = os.path.dirname(__file__), '../../../../../bin/beacon'
+    beacon = os.path.realpath(os.path.join(*beacon))
+    if not os.path.isfile(beacon):
+        # we hope it is in the PATH somewhere
+        beacon = 'beacon'
+
+    cmd = 'beacon --start --verbose=%s' % verbose
+    if autoshutdown:
+        cmd += ' --autoshutdown'
+    os.system(cmd)
+    if not wait:
+        return
+    start = time.time()
+    while time.time() < start + 5:
+        time.sleep(0.1)
+        try:
+            return connect()
+        except ConnectError:
+            pass
+    raise ConnectError('unable to connect to server')
+
+    
 def get(filename):
     """
     Get object for the given filename. This function will raise an exception if
