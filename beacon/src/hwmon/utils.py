@@ -35,7 +35,7 @@ def get_title(name):
         name = name[:name.rfind('.')]
 
     # TODO: take more hints
-    if name.upper() == name.lower():
+    if name.upper() == name:
         name = name.lower()
     name = name[0].upper() + name[1:]
     while True:
