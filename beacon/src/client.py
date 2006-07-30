@@ -139,7 +139,6 @@ class Client(object):
             return
 
         # monitor function from the server to start a new monitor for a query
-        log.info('connecting')
         try:
             server = kaa.rpc.Client('beacon')
         except kaa.rpc.ConnectError, e:
@@ -153,7 +152,7 @@ class Client(object):
     def _disconnected(self):
         if self.status != CONNECTED:
             return
-        log.warning('disconnected from beacon server')
+        log.info('disconnected from beacon server')
         kaa.notifier.WeakTimer(self._reconnect).start(2)
         self.status = DISCONNECTED
         self.signals['disconnect'].emit()
@@ -175,7 +174,6 @@ class Client(object):
             if query != None and query.monitoring:
                 self._beacon_monitor_add(query)
 
-        log.info('beacon connected again')
         return False
 
 
