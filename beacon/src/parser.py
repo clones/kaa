@@ -75,16 +75,19 @@ def register(ext, function):
 
 def parse(db, item, store=False):
     """
-    Main beacon parse function.
+    Main beacon parse function. Return the load this function produced:
+    0 == nothing done
+    1 == normal parsing
+    2 == thumbnail storage
     """
     mtime = item._beacon_mtime()
     if mtime == None:
         log.warning('no mtime, skip %s' % item)
-        return False
+        return 0
     parent = item._beacon_parent
     if not parent:
         log.warning('no parent, skip %s' % item)
-        return False
+        return 0
 
     if not parent._beacon_id:
         # There is a parent without id, update the parent now. We know that the
@@ -100,7 +103,7 @@ def parse(db, item, store=False):
             raise AttributeError('parent for %s has no dbid' % item)
     if item._beacon_data['mtime'] == mtime:
         log.debug('up-to-date %s' % item)
-        return False
+        return 0
 
     if not item._beacon_id:
         # New file, maybe already added? Do a small check to be sure we don't
@@ -110,7 +113,7 @@ def parse(db, item, store=False):
             item._beacon_database_update(data)
             if item._beacon_data['mtime'] == mtime:
                 log.debug('up-to-date %s' % item)
-                return False
+                return 0
 
     log.info('scan %s' % item)
 
@@ -146,6 +149,8 @@ def parse(db, item, store=False):
     # before the user needs them. But he can request the thumbnails himself.
     #
 
+    produced_load = 1
+    
     if type == 'dir':
         for cover in ('cover.jpg', 'cover.png'):
             if os.path.isfile(item.filename + cover):
@@ -164,6 +169,7 @@ def parse(db, item, store=False):
             if not t.exists(check_mtime=True):
                 # only store the normal version
                 try:
+                    produced_load = 2
                     img = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
                     t.set(img, thumbnail.NORMAL)
                 except Exception:
@@ -189,6 +195,7 @@ def parse(db, item, store=False):
             t = thumbnail.Thumbnail(item.filename, item._beacon_media)
             if not t.exists(check_mtime=True):
                 try:
+                    produced_load = 2
                     t.image = kaa.imlib2.open_from_memory(metadata['thumbnail'])
                 except ValueError:
                     log.error('raw thumbnail')
@@ -235,4 +242,5 @@ def parse(db, item, store=False):
                       **attributes)
     if store:
         db.commit()
-    return True
+    return produced_load
+

@@ -443,9 +443,9 @@ class Crawler(object):
                 subdirs.append(child)
                 continue
             # check file
-            if parse(self.db, child) or counter == 20:
-                counter = 0
+            counter += parse(self.db, child) * 20
+            while counter >= 20:
+                counter -= 20
                 yield kaa.notifier.YieldContinue
-                continue
             counter += 1
         yield subdirs

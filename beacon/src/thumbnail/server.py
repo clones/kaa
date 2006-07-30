@@ -51,6 +51,8 @@ log = logging.getLogger('beacon.thumbnail')
 
 PRIORITY_HIGH, PRIORITY_LOW = range(2)
 
+THUMBNAIL_TIMER = 0.1
+
 class Job(object):
     """
     A job with thumbnail information.
@@ -71,7 +73,7 @@ class Thumbnailer(object):
         self.next_client_id = 0
         self.clients = []
         self.jobs = []
-        self._timer = kaa.notifier.Timer(self.step)
+        self._activate = kaa.notifier.OneShotTimer(self.step).start
         self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
         self._ipc.signals['client_connected'].connect(self.client_connect)
         self._ipc.connect(self)
@@ -147,6 +149,7 @@ class Thumbnailer(object):
             if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                 # not changed, refuse the recreate thumbnail
                 self.notify_client(job)
+                self._activate(0.01)
                 return True
             
         if job.filename.lower().endswith('jpg'):
@@ -157,12 +160,14 @@ class Thumbnailer(object):
                 if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                     # not changed, refuse the recreate thumbnail
                     self.notify_client(job)
+                    self._activate(0.01)
                     return True
 
             try:
                 epeg(job.filename, imagefile, job.size)
                 job.imagefile += '.jpg'
                 self.notify_client(job)
+                self._activate(THUMBNAIL_TIMER)
                 return True
             except (IOError, ValueError):
                 pass
@@ -171,6 +176,7 @@ class Thumbnailer(object):
             png(job.filename, job.imagefile + '.png', job.size)
             job.imagefile += '.png'
             self.notify_client(job)
+            self._activate(THUMBNAIL_TIMER)
             return True
         except (IOError, ValueError), e:
             pass
@@ -181,6 +187,7 @@ class Thumbnailer(object):
             # video file
             job.metadata = metadata
             self.videothumb.append(job)
+            self._activate(THUMBNAIL_TIMER)
             return True
 
         # maybe the image is gone now
@@ -188,12 +195,14 @@ class Thumbnailer(object):
             # ignore it in this case
             log.info('no file %s', job.filename)
             self.notify_client(job)
+            self._activate(THUMBNAIL_TIMER)
             return True
             
         # broken file
         log.info('unable to create thumbnail for %s', job.filename)
         self.create_failed(job)
         self.notify_client(job)
+        self._activate(THUMBNAIL_TIMER)
         return True
 
 
@@ -204,8 +213,7 @@ class Thumbnailer(object):
     @kaa.rpc.expose('schedule')
     def schedule(self, id, filename, imagefile, size):
         self.jobs.append(Job(id, filename, imagefile, size))
-        if not self._timer.active():
-            self._timer.start(0.1)
+        self._activate(THUMBNAIL_TIMER)
 
 
     @kaa.rpc.expose('reduce_priority')
