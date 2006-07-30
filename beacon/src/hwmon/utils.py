@@ -1,6 +1,8 @@
 import os
 import re
 
+FILENAME_REGEXP = re.compile("^(.*?)_(.)(.*)$")
+
 def fstab():
     if not os.path.isfile('/etc/fstab'):
         return []
@@ -20,3 +22,25 @@ def fstab():
         result.append((device, mountpoint, type, options))
     fd.close()
     return result
+
+
+def get_title(name):
+    """
+    Convert name into a nice title
+    """
+    if len(name) < 2:
+        return name
+
+    if name.find('.') > 0 and not name.endswith('.'):
+        name = name[:name.rfind('.')]
+
+    # TODO: take more hints
+    name = name[0].upper() + name[1:].lower()
+    while True:
+        m = FILENAME_REGEXP.match(name)
+        if not m:
+            break
+        name = m.group(1) + ' ' + m.group(2).upper() + m.group(3)
+    if name.endswith('_'):
+        name = name[:-1]
+    return name
