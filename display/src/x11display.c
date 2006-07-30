@@ -30,6 +30,8 @@
  * ----------------------------------------------------------------------------
  */
 
+#include "config.h"
+
 #include <Python.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -39,7 +41,6 @@
 #include "x11display.h"
 #include "structmember.h"
 
-#include "config.h"
 
 extern PyTypeObject X11Display_PyObject_Type;
 
