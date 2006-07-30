@@ -43,6 +43,7 @@ from kaa.strutils import str_to_unicode
 import kaa.metadata
 import kaa.imlib2
 import thumbnail
+import hwmon.utils
 
 # get logging object
 log = logging.getLogger('beacon.parser')
@@ -119,8 +120,9 @@ def parse(db, item, store=False):
     # - never force (faster but maybe wrong)
     # - only force on media 1 (good default)
     metadata = kaa.metadata.parse(item.filename)
-    if metadata and metadata['media'] and \
-             db.object_types().has_key(metadata['media']):
+    if not metadata:
+        metadata = {}
+    if db.object_types().has_key(metadata.get('media')):
         type = metadata['media']
     elif item._beacon_isdir:
         type = 'dir'
@@ -157,7 +159,7 @@ def parse(db, item, store=False):
     elif type == 'image':
         attributes['image'] = item.filename
 
-        if metadata and metadata.get('thumbnail'):
+        if metadata.get('thumbnail'):
             t = thumbnail.Thumbnail(item.filename, item._beacon_media)
             if not t.exists(check_mtime=True):
                 # only store the normal version
@@ -181,7 +183,7 @@ def parse(db, item, store=False):
                thumbnail.support_video:
             attributes['image'] = item.filename
 
-        if metadata and metadata.get('thumbnail') and not \
+        if metadata.get('thumbnail') and not \
                attributes.get('image'):
             attributes['image'] = item.filename
             t = thumbnail.Thumbnail(item.filename, item._beacon_media)
@@ -196,6 +198,11 @@ def parse(db, item, store=False):
         if not t.get(thumbnail.LARGE, check_mtime=True):
             t.create(thumbnail.LARGE)
 
+    if not metadata.get('title'):
+        # try to set a good title
+        title = hwmon.utils.get_title(item._beacon_data['name'])
+        metadata['title'] = str_to_unicode(title)
+        
     # add kaa.metadata results, the db module will add everything known
     # to the db.
     attributes['metadata'] = metadata

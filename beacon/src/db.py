@@ -113,9 +113,6 @@ class Database(object):
         self._db.register_object_type_attrs("media",
             [("name", "parent_type", "parent_id")],
             name = (str, ATTR_KEYWORDS),
-            title = (unicode, ATTR_KEYWORDS),
-            overlay = (bool, ATTR_SIMPLE),
-            length = (int, ATTR_SIMPLE),
             content = (str, ATTR_SIMPLE))
 
         # commit
@@ -189,7 +186,7 @@ class Database(object):
         if not media:
             return result, id, None
         # TODO: it's a bit ugly to set url here, but we have no other choice
-        media.url = result['content'] + ':/' + media.mountpoint[:-1]
+        media.url = result['content'] + '://' + media.mountpoint
         root = self._db.query(parent=id)[0]
         if root['type'] == 'dir':
             return result, id, create_dir(root, media)

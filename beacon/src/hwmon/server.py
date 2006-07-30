@@ -69,6 +69,7 @@ class Server(object):
 
     def _device_new(self, dev):
         if dev.prop.get('volume.uuid'):
+            # FIMXE: make this make unique if possible
             dev.prop['beacon.id'] = str(dev.prop.get('volume.uuid'))
         else:
             log.error('impossible to find unique string for beacon.id')
@@ -83,7 +84,11 @@ class Server(object):
         
         
     def _device_remove(self, dev):
-        del self.devices[dev.get('beacon.id')]
+        try:
+            del self.devices[dev.get('beacon.id')]
+        except KeyError:
+            log.error('unable to find %s in %s' % \
+                      (dev.get('beacon.id'), self.devices.keys()))
         if not self.rpc:
             return True
         self.rpc('device.remove', dev.prop.get('beacon.id'))
@@ -123,4 +128,12 @@ class Server(object):
         if not dev:
             return None
         dev.mount()
+
+
+    @kaa.rpc.expose('device.eject')
+    def eject(self, id):
+        dev = self.devices.get(id)
+        if not dev:
+            return None
+        dev.eject()
         

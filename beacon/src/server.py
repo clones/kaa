@@ -122,11 +122,9 @@ class Server(object):
         self.register_track_type_attrs("vcd",
             audio = (list, ATTR_SIMPLE))
 
-        self.register_track_type_attrs("cd",
+        self.register_track_type_attrs("cdda",
             title = (unicode, ATTR_KEYWORDS),
-            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED),
-            album = (unicode, ATTR_KEYWORDS),
-            genre = (unicode, ATTR_INDEXED))
+            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED))
 
         # list of current clients
         self._clients = []
@@ -347,3 +345,12 @@ class Server(object):
     @kaa.rpc.expose('beacon.shutdown')
     def shutdown(self):
         sys.exit(0)
+
+
+    @kaa.rpc.expose('media.eject')
+    def eject(self, id):
+        dev = medialist.get(id)
+        if not dev:
+            log.error('eject: no device %s' % id)
+            return False
+        dev.eject()

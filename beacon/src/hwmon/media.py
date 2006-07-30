@@ -5,6 +5,8 @@ import logging
 
 from kaa.weakref import weakref
 
+import utils
+
 # get logging object
 log = logging.getLogger('beacon.hwmon')
 
@@ -21,7 +23,7 @@ class Media(object):
         # needed by server. FIXME: make it nicer
         self.crawler = None
         
-        log.info('new mountpoint %s', self.id)
+        log.info('new media %s', self.id)
 
         # when we are here the media is in the database and also
         # the item for it
@@ -59,8 +61,10 @@ class Media(object):
         self.thumbnails = os.path.join(self.overlay, '.thumbnails')
         if self.mountpoint == '/':
             self.thumbnails = os.path.join(os.environ['HOME'], '.thumbnails')
-        if prop.get('volume.label'):
-            self.label = prop.get('volume.label')
+        if self.root.get('title'):
+            self.label = self.root.get('title')
+        elif prop.get('volume.label'):
+            self.label = utils.get_title(prop.get('volume.label'))
         elif prop.get('info.parent'):
             self.label = u''
             parent = prop.get('info.parent')
@@ -73,7 +77,7 @@ class Media(object):
                 self.label = self.id
         else:
             self.label = self.id
-        
+
 #     def __del__(self):
 #         print 'del', self
 

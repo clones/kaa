@@ -38,6 +38,7 @@ import kaa.notifier
 
 # kaa.beacon imports
 from thumbnail import Thumbnail
+from hwmon.utils import get_title
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -99,6 +100,9 @@ class Item(object):
         if key == 'parent':
             return self._beacon_parent
 
+        if key == 'media':
+            return self._beacon_media
+
         if key in ('image', 'thumbnail'):
             image = ''
             if self._beacon_data.has_key('image'):
@@ -117,14 +121,10 @@ class Item(object):
 
 
         if key == 'title':
-            if self._beacon_data.has_key('title'):
-                t = self._beacon_data['title']
-                if t:
-                    return t
-            t = self._beacon_data['name']
-            if t.find('.') > 0:
-                t = t[:t.rfind('.')]
-            return str_to_unicode(t)
+            t = self._beacon_data.get('title')
+            if t:
+                return t
+            return str_to_unicode(get_title(self._beacon_data['name']))
 
         if request and not self._beacon_id:
             log.info('requesting data for %s', self)
@@ -198,7 +198,7 @@ class Item(object):
         """
         Return if the item is a regular file.
         """
-        return not self._beacon_isdir and self.filename
+        return not self._beacon_isdir and self.filename != ''
 
     
     # -------------------------------------------------------------------------
@@ -289,5 +289,8 @@ class ParentIterator(object):
 def create_item(data, parent):
     url = parent.url
     if data['name']:
-        url = parent.url + '/' + data['name']
+        if parent.url.endswith('/'):
+            url = parent.url + data['name']
+        else:
+            url = parent.url + '/' + data['name']
     return Item((data['type'], data['id']), url, data, parent, parent._beacon_media)

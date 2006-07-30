@@ -5,6 +5,7 @@ import stat
 import kaa.rpc
 
 from media import medialist
+import utils
 
 # get logging object
 log = logging.getLogger('beacon.hwmon')
@@ -28,8 +29,18 @@ class Client(object):
         self._device_add(rootfs)
         
 
-    def mount(self, id):
+    def mount(self, dev):
+        if hasattr(dev, 'prop'):
+            # media object
+            id = dev.prop.get('beacon.id')
+        else:
+            # raw device dict
+            id = dev.get('beacon.id')
         return self.rpc('device.mount', id)
+
+    
+    def eject(self, dev):
+        return self.rpc('device.eject', dev.prop.get('beacon.id'))
 
     
     @kaa.rpc.expose('device.add')
@@ -56,7 +67,7 @@ class Client(object):
         if media['content'] == 'file' and not dev.get('volume.mount_point'):
             # FIXME: mount only on request
             log.info('mount %s', dev.get('block.device'))
-            self.mount(id)
+            self.mount(dev)
             return
 
         m = medialist.add(id, dev)
@@ -92,7 +103,7 @@ class Client(object):
         # FIXME: handle failed dvd detection
         id = dev.get('beacon.id')
         if dev.get('volume.is_disc') == True and metadata and \
-               metadata['mime'] in ('video/vcd', 'video/dvd'):
+               metadata.get('mime') in ('video/vcd', 'video/dvd'):
             # pass rom drive
             type = metadata['mime'][6:]
             log.info('detect %s as %s' % (id, type))
@@ -102,7 +113,7 @@ class Client(object):
             vid = self.db.add_object("video",
                                      name="",
                                      parent=('media', mid),
-                                     title=unicode(metadata['label']),
+                                     title=unicode(utils.get_title(metadata['label'])),
                                      media = mid,
                                      beacon_immediately=True)['id']
             self.db.commit(force=True)
@@ -111,9 +122,33 @@ class Client(object):
                                    parent=('video', vid),
                                    media=mid,
                                    mtime=0,
-                                   chapters=track.chapters, audio=len(track.audio),
-                                   subtitles=len(track.subtitles))
+                                   chapters=track.chapters, audio=track.audio,
+                                   subtitles=track.subtitles)
             self.db.commit()
+        elif dev.get('volume.disc.has_audio') and metadata:
+            # Audio CD
+            log.info('detect %s as audio cd' % id)
+            mid = self.db.add_object("media", name=id, content='cdda',
+                                     beacon_immediately=True)['id']
+            # FIXME: better label
+            aid = self.db.add_object("audio",
+                                     name='',
+                                     title = metadata.get('title'),
+                                     artist = metadata.get('artist'),
+                                     parent=('media', mid),
+                                     media = mid,
+                                     beacon_immediately=True)['id']
+            self.db.commit(force=True)
+            for track in metadata.tracks:
+                self.db.add_object('track_cdda', name=str(track.trackno),
+                                   title=track.get('title'),
+                                   artist=track.get('artist'),
+                                   album=metadata.get('title'),
+                                   parent=('audio', aid),
+                                   media=mid,
+                                   mtime=0)
+            self.db.commit()
+            
         else:
             log.info('detect %s as normal filesystem' % id)
             mid = self.db.add_object("media", name=id, content='file',
