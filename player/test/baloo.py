@@ -96,12 +96,11 @@ class Baloo(object):
         if not len(self.search):
             return False
         self.current = self.search[index]
-        #self.player.signals["open"].connect_once(self.player.play, video=False)
         self.player.open(self.current.filename)
         self.player.play(video=False)
         for t in ('title', 'artist', 'album'):
             label = self.xml.get_widget(t)
-            value = self.current.getattr(t) or ''
+            value = self.current.get(t) or ''
             if t == 'title':
                 value = "<b>%s</b>" % value
             label.set_markup(value)
