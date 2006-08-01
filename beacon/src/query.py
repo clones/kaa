@@ -244,6 +244,11 @@ class Query(object):
         """
         Check changes if there are only small changes created by ourself.
         """
+        if len(self.result) != len(result):
+            # The query result length is different
+            self.result = result
+            self.signals['changed'].emit()
+            return True
         current = self.result[:]
         for item in result:
             c = current.pop(0)
