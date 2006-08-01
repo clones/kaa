@@ -226,7 +226,10 @@ class Query(object):
 
     def _beacon_callback_updated(self, items):
         """
-        Updated message from server.
+        Updated message from server. Called in the initial scan to send the
+        updates to items as fast as possible. This will not emit the changed
+        signal, this will be done later when all items in this directory are
+        scanned.
         """
         url, data = items.pop(0)
         for r in self.result:
@@ -235,16 +238,13 @@ class Query(object):
                 if not items:
                     break
                 url, data = items.pop(0)
-        if items:
-            log.error('not all items found')
-        self.signals['changed'].emit()
 
 
-    def _beacon_callback_changed_check(self, result):
+    def _beacon_callback_changed_check(self, result, send_signal):
         """
         Check changes if there are only small changes created by ourself.
         """
-        if len(self.result) != len(result):
+        if send_signal or len(self.result) != len(result):
             # The query result length is different
             self.result = result
             self.signals['changed'].emit()
@@ -265,12 +265,12 @@ class Query(object):
                 c._beacon_database_update(item._beacon_data)
 
 
-    def _beacon_callback_changed(self):
+    def _beacon_callback_changed(self, send_signal):
         """
         Changed message from server.
         """
         result = self._client.db.query(**self._query)
         if isinstance(self.result, kaa.notifier.InProgress):
-            result.connect(self._beacon_callback_changed_check)
+            result.connect(self._beacon_callback_changed_check, send_signal)
             return None
-        self._beacon_callback_changed_check(result)
+        self._beacon_callback_changed_check(result, send_signal)

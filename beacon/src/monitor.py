@@ -156,7 +156,7 @@ class Monitor(object):
         # The query result length is different, this is a change
         if len(current) != len(self.items):
             self.items = current
-            self.notify_client('changed')
+            self.notify_client('changed', True)
             return True
 
         # Same length and length is 0. No change here
@@ -165,15 +165,23 @@ class Monitor(object):
 
         # Same length, check for changes inside the items
         if isinstance(current[0], Item):
+            changes = False
             for i in current:
                 # We only compare the ids. If an item had no id before and
                 # has now we can't detect it. But we only call this function
                 # if we have a full scanned db. So an empty id also triggers
                 # the update call.
-                if i._beacon_id in changes or not i._beacon_id:
+                if not i._beacon_id:
                     self.items = current
-                    self.notify_client('changed')
+                    self.notify_client('changed', True)
                     return True
+                if not changes and i._beacon_id in changes:
+                    changes = True
+            if changes:
+                # only small stuff
+                self.items = current
+                self.notify_client('changed', False)
+                return True
             return True
 
         # Same length and items are not type Item. This means they are strings
@@ -182,7 +190,7 @@ class Monitor(object):
         for c in current:
             if last.pop(0) != c:
                 self.items = current
-                self.notify_client('changed')
+                self.notify_client('changed', True)
                 return True
         return True
 
@@ -215,13 +223,13 @@ class Monitor(object):
 
         if not changed:
             # no changes but send the 'changed' ipc to the client
-            self.notify_client('changed')
+            self.notify_client('changed', False)
             self._checking = False
             yield False
 
         if not first_call and len(changed) > 10:
             # do not wait to send the changed signal, it may take a while.
-            self.notify_client('changed')
+            self.notify_client('changed', True)
 
         updated = []
         for pos, item in enumerate(changed):
