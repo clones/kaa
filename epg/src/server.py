@@ -70,7 +70,7 @@ class Server(object):
             subtitle = (unicode, ATTR_SIMPLE),
             genre = (unicode, ATTR_SIMPLE),
             date = (int, ATTR_SEARCHABLE),
-            ratings = (dict, ATTR_SIMPLE)
+            rating = (dict, ATTR_SIMPLE)
         )
 
         self._clients = []
@@ -124,11 +124,7 @@ class Server(object):
                 kwargs["parent"] = [("channel", x) for x in channel]
             else:
                 kwargs["parent"] = "channel", channel
-
-        res  = self._db.query_raw(**kwargs)
-        cols = "parent_id", "id", "start", "stop", "title", "desc", \
-               "subtitle", "episode", "genre", "rating"
-        return [ r for r in kaa.db.iter_raw_data(res, cols) ]
+        return [ dict(row) for row in self._db.query(**kwargs) ]
 
 
     # -------------------------------------------------------------------------
@@ -331,6 +327,5 @@ class Server(object):
                     self._tuner_ids.append(t)
 
         # get channel list to be passed to a client on connect / update
-        channels = self._db.query_raw(type="channel")
-        values = ("id", "tuner_id", "name", "long_name")
-        self._channel_list = [ r for r in kaa.db.iter_raw_data(channels, values)]
+        self._channel_list = [ (r['id'], r['tuner_id'], r['name'], r['long_name']) \
+                               for r in self._db.query(type="channel") ]

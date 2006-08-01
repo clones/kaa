@@ -125,11 +125,11 @@ class Client(object):
         results = []
         channel = None
         for row in query_data:
-            if not channel or row[0] != channel.db_id:
-                if row[0] not in self._channels_by_db_id:
+            if not channel or row['parent_id'] != channel.db_id:
+                if row['parent_id'] not in self._channels_by_db_id:
                     continue
-                channel = self._channels_by_db_id[row[0]]
-            results.append(Program(channel, *row[2:]))
+                channel = self._channels_by_db_id[row['parent_id']]
+            results.append(Program(channel, row))
         if callback:
             callback(results)
         return results
@@ -170,7 +170,7 @@ class Client(object):
         # ugly!!!!!
         while not in_progress.is_finished:
             kaa.notifier.step()
-        return self._program_rows_to_objects(data)
+        return self._program_rows_to_objects(in_progress())
 
 
     def new_channel(self, tuner_id=None, name=None, long_name=None):

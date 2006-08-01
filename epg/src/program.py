@@ -30,13 +30,14 @@ class Program(object):
     """
     kaa.epg program class.
     """
-    def __init__(self, channel, start, stop, title, description=u'',
-                 subtitle=u'', episode=u'', genre=u'', rating=u""):
+    def __init__(self, channel, dbdata):
         self.channel = channel
-        self.start = start
-        self.stop = stop
-        self.title = title
-        self.description = description
-        self.subtitle = subtitle
-        self.episode = episode
-        self.genre = genre
+        self._dbdata = dbdata
+
+        self.start = dbdata['start'] or 0
+        self.stop = dbdata['stop'] or 0
+        self.title = dbdata['title'] or u''
+        self.description = dbdata['desc'] or u''
+        self.subtitle = dbdata['subtitle'] or u''
+        self.episode = dbdata['episode'] or u''
+        self.genre = dbdata['genre'] or u''
