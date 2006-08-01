@@ -677,7 +677,7 @@ class Database(object):
         Register a new object with attributes. Special keywords like name and
         mtime are added by default.
         """
-        kwargs['name'] = (str, ATTR_KEYWORDS_FILENAME)
+        kwargs['name'] = (str, ATTR_KEYWORDS)
         # TODO: mtime may not e needed for subitems like tracks
         kwargs['overlay'] = (bool, ATTR_SIMPLE)
         kwargs['media'] = (int, ATTR_INDEXED)
