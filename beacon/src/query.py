@@ -224,22 +224,6 @@ class Query(object):
         return
 
 
-    def _beacon_callback_updated(self, items):
-        """
-        Updated message from server. Called in the initial scan to send the
-        updates to items as fast as possible. This will not emit the changed
-        signal, this will be done later when all items in this directory are
-        scanned.
-        """
-        url, data = items.pop(0)
-        for r in self.result:
-            if r.url == url:
-                r._beacon_database_update(data)
-                if not items:
-                    break
-                url, data = items.pop(0)
-
-
     def _beacon_callback_changed_check(self, result, send_signal):
         """
         Check changes if there are only small changes created by ourself.

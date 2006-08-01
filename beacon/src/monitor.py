@@ -55,6 +55,7 @@ class Notification(object):
         except IOError:
             pass
 
+
 class Master(object):
     """
     Master Monitor. This monitor will connect to the db and will call all
@@ -231,25 +232,15 @@ class Monitor(object):
             # do not wait to send the changed signal, it may take a while.
             self.notify_client('changed', True)
 
-        updated = []
         for pos, item in enumerate(changed):
             self.notify_client('progress', pos+1, len(changed), item.url)
             parser.parse(self._db, item)
-            if item._beacon_id:
-                self.notify_client('updated', [ (item.url, item._beacon_data) ])
-            else:
-                updated.append(item)
             yield YieldContinue
             if not self._checking:
                 break
             
         self._db.commit()
         self.stop()
-
-        if updated:
-            updated = [ (x.url, x._beacon_data) for x in updated ]
-            updated.sort(lambda x,y: cmp(x[0], y[0]))
-            self.notify_client('updated', updated)
 
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
