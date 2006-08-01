@@ -155,20 +155,6 @@ class Query(object):
         return _query_filter[filter](self.result)
 
 
-    def refresh(self):
-        """
-        Refresh query from the database. This function will return True if the
-        results are updated or False if still in progress. The 'valid' variable
-        will also be changed to False in that case.
-        """
-        if not self.valid:
-            # already in progress
-            return False
-        self.valid = False
-        self._beacon_start_query(self._query)
-        return self.valid
-    
-        
     # -------------------------------------------------------------------------
     # Internal API
     # -------------------------------------------------------------------------
@@ -254,13 +240,32 @@ class Query(object):
         self.signals['changed'].emit()
 
 
+    def _beacon_callback_changed_check(self, result):
+        """
+        Check changes if there are only small changes created by ourself.
+        """
+        current = self.result[:]
+        for item in result:
+            c = current.pop(0)
+            if c._beacon_data != item._beacon_data:
+                # something changed inside this item.
+                if c._beacon_id != item._beacon_id or \
+                       c._beacon_data.get('mtime') != item._beacon_data.get('mtime'):
+                    self.result = result
+                    self.signals['changed'].emit()
+                    return
+                # This item was only updated by a client
+                # FIXME: we don't fire the changed signal here. Maybe we need
+                # a second signal to get information about internal changes
+                c._beacon_database_update(item._beacon_data)
+
+
     def _beacon_callback_changed(self):
         """
         Changed message from server.
         """
         result = self._client.db.query(**self._query)
         if isinstance(self.result, kaa.notifier.InProgress):
-            result.connect(self._beacon_delayed_results)
+            result.connect(self._beacon_callback_changed_check)
             return None
-        self.result = result
-        self.signals['changed'].emit()
+        self._beacon_callback_changed_check(result)
