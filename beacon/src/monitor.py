@@ -176,11 +176,11 @@ class Monitor(object):
                     return True
             return True
 
-        # Same length, check if the strings itself did not change
-        # or if the item has a new mtime
-        for pos, c in enumerate(current):
-            i = self.items[pos]
-            if i != c or i._beacon_data['mtime'] != c._beacon_data['mtime']:
+        # Same length and items are not type Item. This means they are strings
+        # from 'attr' query.
+        last = self.items[:]
+        for c in current:
+            if last.pop(0) != c:
                 self.items = current
                 self.notify_client('changed')
                 return True
