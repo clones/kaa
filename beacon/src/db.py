@@ -411,8 +411,8 @@ class Database(object):
         attr = query['attr']
         del query['attr']
 
-        result = self._db.query_raw(attrs=[attr], distinct=True, **query)[1]
-        result = [ x[1] for x in result if x[1] ]
+        result = self._db.query(attrs=[attr], distinct=True, **query)
+        result = [ x[attr] for x in result if x[attr] ]
 
         # sort results and return
         result.sort()
