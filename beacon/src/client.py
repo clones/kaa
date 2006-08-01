@@ -304,8 +304,9 @@ class Client(object):
             if not m.mountpoint == '/':
                 self.signals['media.add'].emit(m)
 
+
     @kaa.rpc.expose('notify')
-    def notify(self, id, msg, *args, **kwargs):
+    def notify(self, id, msg, *args):
         """
         Internal notification callback from the server. The Monitor does not
         has a reference to the Query because this would result in circular
@@ -318,9 +319,12 @@ class Client(object):
                 continue
             if not query.id == id:
                 continue
-            callback = getattr(query, '_beacon_callback_%s' % msg, None)
-            if callback:
-                return callback(*args, **kwargs)
+            if id == 'progress':
+                return query.signals['progress'].emit(*args)
+            if id == 'changed':
+                return query._beacon_callback_changed(*args)
+            if id == 'checked':
+                return query.signals['up-to-date'].emit()
             log.error('Error: unknown message from server: %s' % msg)
             return
 

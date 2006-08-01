@@ -205,24 +205,8 @@ class Query(object):
 
 
     # -------------------------------------------------------------------------
-    # Server callbacks (called by client.notify)
+    # Server callbacks for changes (called by client.notify)
     # -------------------------------------------------------------------------
-
-    def _beacon_callback_progress(self, pos, max, url):
-        """
-        Progress message from server.
-        """
-        self.signals['progress'].emit(pos, max, url)
-        return
-
-
-    def _beacon_callback_checked(self):
-        """
-        Checked message from server.
-        """
-        self.signals['up-to-date'].emit()
-        return
-
 
     def _beacon_callback_changed_check(self, result, send_signal):
         """
