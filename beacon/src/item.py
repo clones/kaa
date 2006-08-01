@@ -71,7 +71,9 @@ class Item(object):
         
         # internal data
         self._beacon_id = _beacon_id
-        self._beacon_data = data
+        # FIXME: ugly, maybe use the ObjectRow stuff from kaa.db
+        # with extra write support. Or copy on write.
+        self._beacon_data = dict(data)
         self._beacon_tmpdata = {}
         self._beacon_parent = parent
         self._beacon_media = media
