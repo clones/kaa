@@ -16,7 +16,7 @@ if getattr(dbus, 'version', (0,0,0)) < (0,51,0):
 import dbus.glib
 
 # use gtk main loop
-kaa.notifier.init('gtk')
+kaa.notifier.init('gtk', x11=False)
 
 from utils import fstab
 from cdrom import eject
