@@ -166,7 +166,7 @@ class Monitor(object):
 
         # Same length, check for changes inside the items
         if isinstance(current[0], Item):
-            changes = False
+            small_changes = False
             for i in current:
                 # We only compare the ids. If an item had no id before and
                 # has now we can't detect it. But we only call this function
@@ -177,8 +177,8 @@ class Monitor(object):
                     self.notify_client('changed', True)
                     return True
                 if not changes and i._beacon_id in changes:
-                    changes = True
-            if changes:
+                    small_changes = True
+            if small_changes:
                 # only small stuff
                 self.items = current
                 self.notify_client('changed', False)
