@@ -3,6 +3,12 @@ MeBox Canvas System
 
 NOTE: some of the stuff in this README is obsolete.
 
+NOTE: kaa.mevas has been depricated by kaa.canvas. This documentation is not
+being maintained any longer, and does unfortunately not represent the latest
+version of the code in svn.
+
+More info on kaa.mevas and kaa.canvas (as well as the rest of the kaa project)
+can be found at http://freevo.sourceforge.net/cgi-bin/freevo-2.0/Kaa
 
 About
 -----
