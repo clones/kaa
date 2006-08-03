@@ -319,11 +319,11 @@ class Client(object):
                 continue
             if not query.id == id:
                 continue
-            if id == 'progress':
+            if msg == 'progress':
                 return query.signals['progress'].emit(*args)
-            if id == 'changed':
+            if msg == 'changed':
                 return query._beacon_callback_changed(*args)
-            if id == 'checked':
+            if msg == 'checked':
                 return query.signals['up-to-date'].emit()
             log.error('Error: unknown message from server: %s' % msg)
             return
