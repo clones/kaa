@@ -105,6 +105,11 @@ class Item(object):
         if key == 'media':
             return self._beacon_media
 
+        if key == 'read_only':
+            # FIXME: this is not correct, a directory can also be
+            # read only on a rw filesystem.
+            return self._beacon_media.get('volume.read_only')
+
         if key in ('image', 'thumbnail'):
             image = ''
             if self._beacon_data.has_key('image'):

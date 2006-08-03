@@ -80,6 +80,10 @@ class Client(object):
             if not os.path.isdir(dirname):
                 os.makedirs(dirname, 0700)
 
+        # FIXME: Yes, a disc is read only, but other media may also
+        # be read only and the flag is not set.
+        if dev.get('volume.is_disc'):
+            dev['volume.read_only'] = True
         self.handler.media_changed(m)
         return
     
