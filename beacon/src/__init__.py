@@ -133,9 +133,27 @@ def monitor(directory):
     """
     if not _client:
         connect()
-    return _client.monitor_directory(directory)
+    return _client.monitor(directory)
 
 
+def register_file_type_attrs(name, **kwargs):
+    """
+    Register new attrs and types for files.
+    """
+    if not _client:
+        connect()
+    return _client.register_file_type_attrs(name, **kwargs)
+
+        
+def register_track_type_attrs(name, **kwargs):
+    """
+    Register new attrs and types for files.
+    """
+    if not _client:
+        connect()
+    return _client.register_track_type_attrs(name, **kwargs)
+
+        
 def get_db_info():
     """
     Gets statistics about the database. This function will block using

@@ -206,6 +206,7 @@ class Server(object):
         return True
     
 
+    @kaa.rpc.expose('db.register_file_type_attrs')
     def register_file_type_attrs(self, name, **kwargs):
         """
         Register new attrs and types for files. The basics are already
@@ -214,6 +215,7 @@ class Server(object):
         return self._db.register_object_type_attrs(name, **kwargs)
 
 
+    @kaa.rpc.expose('db.register_track_type_attrs')
     def register_track_type_attrs(self, name, **kwargs):
         """
         Register new attrs and types for files. The basics are already

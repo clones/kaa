@@ -116,13 +116,29 @@ class Client(object):
         return result
 
 
-    def monitor_directory(self, directory):
+    def monitor(self, directory):
         """
         Monitor a directory with subdirectories for changes. This is done in
         the server and will keep the database up to date.
         """
         if self.status != DISCONNECTED:
             self.rpc('monitor.directory', directory)
+
+
+    def register_file_type_attrs(self, name, **kwargs):
+        """
+        Register new attrs and types for files.
+        """
+        if self.status != DISCONNECTED:
+            self.rpc('db.register_file_type_attrs', name, **kwargs)
+
+        
+    def register_track_type_attrs(self, name, **kwargs):
+        """
+        Register new attrs and types for files.
+        """
+        if self.status != DISCONNECTED:
+            self.rpc('db.register_track_type_attrs', name, **kwargs)
 
         
     # -------------------------------------------------------------------------
