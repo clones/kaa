@@ -216,7 +216,7 @@ class Item(object):
         """
         Callback from db with new data
         """
-        self._beacon_data = data
+        self._beacon_data = dict(data)
         self._beacon_id = (data['type'], data['id'])
         for key, value in self._beacon_changes.items():
             self._beacon_data[key] = value
