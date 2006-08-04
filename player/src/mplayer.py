@@ -143,6 +143,13 @@ class MPlayer(MediaPlayer):
         self._cur_outbuf_mode = [True, False, None] # vo, shmem, size
 
 
+    def __del__(self):
+        if self._outbuf_shmem:
+            self._outbuf_shmem.detach()
+        if self._overlay_shmem:
+            self._overlay_shmem.detach()
+
+
     def _spawn(self, args, hook_notifier = True):
         if self._debug > 0:
             print "Spawn:", self._mp_cmd, args
@@ -527,7 +534,8 @@ class MPlayer(MediaPlayer):
         try:
             if ord(self._overlay_shmem.read(1)) == BUFFER_UNLOCKED:
                 return True
-        except:
+        except shm.error:
+            self._overlay_shmem.detach()
             self._overlay_shmem = None
 
         return False
@@ -538,6 +546,7 @@ class MPlayer(MediaPlayer):
             if self._overlay_shmem and self._overlay_shmem.attached:
                 self._overlay_shmem.write(chr(byte))
         except shm.error:
+            self._overlay_shmem.detach()
             self._overlay_shmem = None
 
 
@@ -547,7 +556,8 @@ class MPlayer(MediaPlayer):
 
         try:
             lock, width, height, aspect = struct.unpack("hhhd", self._outbuf_shmem.read(16))
-        except:
+        except shm.error:
+            self._outbuf_shmem.detach()
             self._outbuf_shmem = None
             return
 
@@ -561,6 +571,7 @@ class MPlayer(MediaPlayer):
         try:
             self._outbuf_shmem.write(chr(BUFFER_UNLOCKED))
         except shm.error:
+            self._outbuf_shmem.detach()
             self._outbuf_shmem = None
 
 

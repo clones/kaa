@@ -570,7 +570,8 @@ class XinePlayer(MediaPlayer):
         try:
             if ord(self._osd_shmem.read(1)) == BUFFER_UNLOCKED:
                 return True
-        except:
+        except shm.error:
+            self._osd_shmem.detach()
             self._osd_shmem = None
 
         return False
@@ -626,7 +627,8 @@ class XinePlayer(MediaPlayer):
 
         try:
             lock, width, height, aspect = struct.unpack("hhhd", self._frame_shmem.read(16))
-        except:
+        except shm.error:
+            self._frame_shmem.detach()
             self._frame_shmem = None
             return
 
@@ -641,6 +643,7 @@ class XinePlayer(MediaPlayer):
         try:
             self._frame_shmem.write(chr(BUFFER_UNLOCKED))
         except shm.error:
+            self._frame_shmem.detach()
             self._frame_shmem = None
 
 
