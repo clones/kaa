@@ -105,7 +105,7 @@ def launch(autoshutdown=False, wait=False, verbose='none'):
             pass
     raise ConnectError('unable to connect to server')
 
-    
+
 def get(filename):
     """
     Get object for the given filename. This function will raise an exception if
@@ -146,7 +146,7 @@ def register_file_type_attrs(name, **kwargs):
         connect()
     return _client.register_file_type_attrs(name, **kwargs)
 
-        
+
 def register_track_type_attrs(name, **kwargs):
     """
     Register new attrs and types for files.
@@ -155,7 +155,7 @@ def register_track_type_attrs(name, **kwargs):
         connect()
     return _client.register_track_type_attrs(name, **kwargs)
 
-        
+
 def get_db_info():
     """
     Gets statistics about the database. This function will block using

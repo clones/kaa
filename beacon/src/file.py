@@ -58,9 +58,9 @@ class File(Item):
     __setitem__: set an attribute
     keys:        return all known attributes of the item
     scanned:     return True if the item is scanned
-    list:        return list of subitems
-    isdir:       return False
-    isfile:      return True
+    list:        return list of subitems or directory content
+    isdir:       return True if it is a directory
+    isfile:      return True if it is a regular file
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
@@ -91,18 +91,18 @@ class File(Item):
             filename = media.mountpoint
         else:
             raise ValueError('unable to create File item from %s', data)
-        
+
         Item.__init__(self, id, 'file://' + filename, data, parent, media)
         self._beacon_overlay = overlay
         self._beacon_isdir = isdir
         self._beacon_islink = False
         self.filename = filename
         if isdir:
-            self._beacon_ovdir = media.overlay + '/' + filename[len(media.mountpoint):]
+            ovdir = filename[len(media.mountpoint):]
+            self._beacon_ovdir = media.overlay + '/' + ovdir
             self._beacon_listdir_cache = None
             if os.path.islink(filename[:-1]):
                 self._beacon_islink = True
-
 
 
     # -------------------------------------------------------------------------
@@ -241,6 +241,10 @@ class File(Item):
         or for foo.mp3 the mtime is the sum of foo.mp3 and foo.jpg.
         """
         if self._beacon_isdir:
+            # Directory handling. Maybe add directory cover images
+            # to the mtime list. But in most cases it is not needed. A
+            # new file for the cover would also effect the directory
+            # mtime itself.
             try:
                 mtime = os.stat(self.filename)[stat.ST_MTIME]
             except (OSError, IOError):
@@ -249,7 +253,7 @@ class File(Item):
                 return max(os.stat(self._beacon_ovdir)[stat.ST_MTIME], mtime)
             except (OSError, IOError):
                 return mtime
-            
+
         fullname = self._beacon_data['name']
         basename, ext = fullname, ''
         pos = basename.rfind('.')

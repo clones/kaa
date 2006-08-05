@@ -68,7 +68,7 @@ class Item(object):
         # url of the item
         self.url = url
         self.filename = ''
-        
+
         # internal data
         self._beacon_id = _beacon_id
         # FIXME: ugly, maybe use the ObjectRow stuff from kaa.db
@@ -146,7 +146,7 @@ class Item(object):
 
     def __getitem__(self, key):
         return self.get(key)
-    
+
 
     def __setitem__(self, key, value):
         """
@@ -200,14 +200,14 @@ class Item(object):
         """
         return self._beacon_isdir
 
-    
+
     def isfile(self):
         """
         Return if the item is a regular file.
         """
         return not self._beacon_isdir and self.filename != ''
 
-    
+
     # -------------------------------------------------------------------------
     # Internal API for client and server
     # -------------------------------------------------------------------------
@@ -300,4 +300,5 @@ def create_item(data, parent):
             url = parent.url + data['name']
         else:
             url = parent.url + '/' + data['name']
-    return Item((data['type'], data['id']), url, data, parent, parent._beacon_media)
+    return Item((data['type'], data['id']), url, data, parent,
+                parent._beacon_media)

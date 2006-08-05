@@ -67,14 +67,14 @@ class Master(object):
         self.timer = Timer(self.check)
         db.signals['changed'].connect(self.changed)
 
-        
+
     def connect(self, monitor):
         """
         Connect a new monitor.
         """
         self.monitors.append((weakref(monitor), [ False, [] ]))
 
-        
+
     def changed(self, changes):
         """
         Database callback with changed ids.
@@ -129,7 +129,7 @@ class Monitor(object):
         # FIXME: how to get updates on directories not monitored by
         # inotify? Maybe poll the dirs when we have a query with
         # dirname it it?
-        
+
 
     def check(self, changes):
         """
@@ -138,10 +138,10 @@ class Monitor(object):
         """
         if not self._running:
             return True
-        
+
         if self._checking:
-            # Still checking. Question: What happens if new files are added during
-            # scan? For one part, the changes here here the item changes
+            # Still checking. Question: What happens if new files are added
+            # during scan? For one part, the changes here here the item changes
             # itself, so we would update the client all the time. So it is
             # better to wait here. Note: with inotify support this should not
             # happen often.
@@ -238,7 +238,7 @@ class Monitor(object):
             yield YieldContinue
             if not self._checking:
                 break
-            
+
         self._db.commit()
         self.stop()
 
@@ -257,7 +257,7 @@ class Monitor(object):
         self._checking = False
         yield False
 
-        
+
     def stop(self):
         """
         Stop checking.

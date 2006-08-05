@@ -56,12 +56,13 @@ def load_plugins(db):
     Load external plugins. Called by server on creating. The db object
     is from kaa.beacon, not kaa.db.
     """
-    for plugin in os.listdir(os.path.join(os.path.dirname(__file__), 'plugins')):
+    plugindir = os.path.join(os.path.dirname(__file__), 'plugins')
+    for plugin in os.listdir(plugindir):
         if not plugin.endswith('.py') or plugin == '__init__.py':
             continue
         exec('import plugin.%s' % plugin)
         plugin.create(db, register)
-        
+
 
 def register(ext, function):
     """
@@ -150,7 +151,7 @@ def parse(db, item, store=False):
     #
 
     produced_load = 1
-    
+
     if type == 'dir':
         for cover in ('cover.jpg', 'cover.png'):
             if os.path.isfile(item.filename + cover):
@@ -209,7 +210,7 @@ def parse(db, item, store=False):
         # try to set a good title
         title = hwmon.utils.get_title(item._beacon_data['name'])
         metadata['title'] = str_to_unicode(title)
-        
+
     # add kaa.metadata results, the db module will add everything known
     # to the db.
     attributes['metadata'] = metadata
@@ -246,4 +247,3 @@ def parse(db, item, store=False):
     log.info('scan %s (%0.3f)' % (item, time.time() - t1))
 
     return produced_load
-

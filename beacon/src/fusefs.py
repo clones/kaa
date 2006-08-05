@@ -1,3 +1,36 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# fusefs.py - Beacon Fuse Bindings
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa-beacon - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
+#
+# First Edition: Jason Tackaberry <tack@sault.org>
+#                Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Jason Tackaberry <tack@sault.org>
+#                Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
 # python imports
 import os
 import sys
@@ -37,7 +70,7 @@ class BeaconFS(fuse.Fuse):
         self._query_update_time = 0
         query.signals["changed"].connect_weak(self._query_changed)
         query.monitor()
-        
+
         fuse.Fuse.__init__(self, *args, **kw)
 
         self.multithreaded = 1
@@ -47,9 +80,15 @@ class BeaconFS(fuse.Fuse):
 
 
     def _query_changed(self):
+        """
+        Notification from beacon.
+        """
         self._filename_map = {}
         self._query_update_time = int(time.time())
         for item in self._query:
+            if not item.isfile() and not item.isdir():
+                # no file or dir, we can't link to it
+                continue
             name = item.get('name')
             if name in self._filename_map:
                 n = 1
@@ -57,11 +96,14 @@ class BeaconFS(fuse.Fuse):
                 while name in self._filename_map:
                     name = "%s-%d%s" % (file, n, ext)
                     n += 1
-    
+
             self._filename_map[name] = item
-        
+
 
     def getattr(self, path):
+        """
+        Return stat attributes.
+        """
         st = MyStat()
         if path == '/':
             st.st_mode = stat.S_IFDIR | 0755
@@ -79,9 +121,12 @@ class BeaconFS(fuse.Fuse):
             return st
         else:
             return -errno.ENOENT
-    
+
 
     def readdir(self, path, offset):
+        """
+        Return directory listing.
+        """
         for r in  '.', '..':
             yield fuse.Direntry(r)
         for file in self._filename_map:
@@ -89,6 +134,9 @@ class BeaconFS(fuse.Fuse):
 
 
     def readlink(self, path):
+        """
+        Return destination of the link.
+        """
         file = path[1:] # assume prefixed with single /
         if file not in self._filename_map:
             return -errno.ENOENT
@@ -103,19 +151,22 @@ class BeaconFS(fuse.Fuse):
         # Python 2.4.2 and earlier has a bug that python-fuse triggers.
         # 2.4.3 known working.
         if sys.hexversion < 0x2040300:
-            ver = sys.version.split()[0]
-            raise fuse.FuseError, "Python versions before 2.4.3 have a bug with fuse; your version is %s" % ver
+            err = "Python versions before 2.4.3 have a bug with fuse;" + \
+                  "your version is %s" % sys.version.split()[0]
+            raise fuse.FuseError, err
 
         # Check for kernel support.
         if not os.path.exists("/dev/fuse"):
-            raise fuse.FuseError, "/dev/fuse not present; fuse module not loaded?"
+            err = "/dev/fuse not present; fuse module not loaded?"
+            raise fuse.FuseError, err
 
         # Check that we have write access to /dev/fuse
         try:
             file("/dev/fuse", "w")
         except IOError, (err, msg):
             if err == 13:
-                raise fuse.FuseError, "No write access to /dev/fuse; check permissions."
+                err = "No write access to /dev/fuse; check permissions."
+                raise fuse.FuseError, err
             raise
 
         # Make sure fusermount is found in path.
@@ -128,13 +179,20 @@ class BeaconFS(fuse.Fuse):
             # This shouldn't fail, because kaa.utils.which already statted it.
             st = os.stat(fusermount)
             if st[stat.ST_UID] != 0 or not st[stat.ST_MODE] & stat.S_ISUID:
-                raise fuse.FuseError, "fusermount is not suid root and you're not root."
+                err = "fusermount is not suid root and you're not root."
+                raise fuse.FuseError, err
 
         if os.listdir(self.mountpoint):
             # mountpoint is not empty, fuse doesn't like that
-            raise fuse.FuseError, "mountpoint %s is not empty" % self.mountpoint
+            err = "mountpoint %s is not empty" % self.mountpoint
+            raise fuse.FuseError, err
+
 
     def main(self):
+        """
+        Main loop for fuse. This needs to be called in a thread. On fuse
+        shutdown, the kaa notifier main loop will be stopped.
+        """
         self.check()
         fuse.Fuse.main(self)
         kaa.notifier.MainThreadCallback(kaa.notifier.shutdown)()

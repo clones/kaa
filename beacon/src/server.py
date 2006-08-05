@@ -62,7 +62,7 @@ config = Config(desc='Beacon configuration', schema = [
          monitors[1] = $(HOME)/mp3
          '''),
     Dict(name = 'plugins',
-         schema = Var(type = bool, desc = 'Enable this plugin', default = False),
+         schema = Var(type = bool, desc = 'Enable plugin', default = False),
          desc = 'Dict of plugins to enable (True/False)')
 ])
 
@@ -83,13 +83,13 @@ class Server(object):
 
         self.ipc.signals['client_connected'].connect(self.client_connect)
         self.ipc.connect(self)
-        
+
         self._dbdir = dbdir
         self._db = Database(dbdir, None)
         self._next_client = 0
-        
+
         # files
-        
+
         self.register_file_type_attrs("video",
             title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             width = (int, ATTR_SIMPLE),
@@ -113,7 +113,7 @@ class Server(object):
             date = (unicode, ATTR_SEARCHABLE))
 
         # tracks for rom discs or iso files
-        
+
         self.register_track_type_attrs("dvd",
             audio = (list, ATTR_SIMPLE),
             chapters = (int, ATTR_SIMPLE),
@@ -128,10 +128,10 @@ class Server(object):
 
         # list of current clients
         self._clients = []
-        
+
         # load parser plugins
         parser.load_plugins(self._db)
-        
+
         config.set_filename(os.path.join(dbdir, "config"))
         if not config.load():
             config.save()
@@ -151,12 +151,12 @@ class Server(object):
 
         hwmon.set_database(self, self._db, rootfs)
         self._db.commit()
-        
+
         for dir in config.monitors:
             # FIXME: make this make generic
             self.monitor_dir(dir.replace('$(HOME)', os.environ.get('HOME')))
 
-        
+
     def client_connect(self, client):
         """
         Connect a new client to the server.
@@ -204,7 +204,7 @@ class Server(object):
             log.info('beacon timeout')
             sys.exit(0)
         return True
-    
+
 
     @kaa.rpc.expose('db.register_file_type_attrs')
     def register_file_type_attrs(self, name, **kwargs):
@@ -232,7 +232,7 @@ class Server(object):
         """
         self._db.commit()
         if not os.path.isdir(directory):
-            log.warning("monitor_dir: %s not a directory; ignoring." % directory)
+            log.warning("monitor_dir: %s is not a directory." % directory)
             return False
         # TODO: check if directory is already being monitored.
 
@@ -248,8 +248,8 @@ class Server(object):
         self._db.commit()
         log.info('monitor %s on %s', directory, data._beacon_media)
         data._beacon_media.crawler.append(data)
-        
-        
+
+
     @kaa.rpc.expose('monitor.add')
     def monitor_add(self, client_id, request_id, query):
         """
@@ -267,7 +267,7 @@ class Server(object):
             raise AttributeError('Unknown client id %s', client_id)
         m = Monitor(client, self._db, self, request_id, query)
         monitors.append(m)
-    
+
 
     @kaa.rpc.expose('monitor.remove')
     def monitor_remove(self, client_id, request_id):
@@ -287,7 +287,7 @@ class Server(object):
                 monitors.remove(m)
                 return None
         log.error('unable to find monitor %s:%s', client_id, request_id)
-    
+
 
     def media_changed(self, media):
         """
@@ -299,15 +299,9 @@ class Server(object):
             if not media.get('block.device'):
                 log.info('start crawler for /')
                 media.crawler = Crawler(self._db, use_inotify=True)
-#             elif not media.get('beacon.content') == 'file':
-#                 log.info('no crawler please')
-#             elif media.get('volume.mount_point'):
-#                 log.info('start crawler for %s', media.get('volume.mount_point'))
-#                 media.crawler = Crawler(self._db, use_inotify=False)
-#                 self.monitor_dir(str(media.get('volume.mount_point')))
         self._db.signals['changed'].emit([media._beacon_id])
 
-            
+
     def media_removed(self, media):
         """
         Media mountpoint removed.
@@ -318,7 +312,7 @@ class Server(object):
         if media.crawler:
             media.crawler.stop()
             media.crawler = None
-            
+
     @kaa.rpc.expose('item.update')
     def update(self, items):
         """
@@ -328,7 +322,7 @@ class Server(object):
             self._db.update_object(dbid, **attributes)
         self._db.commit()
 
-        
+
     @kaa.rpc.expose('item.request')
     def request(self, filename):
         self._db.commit()
@@ -343,7 +337,7 @@ class Server(object):
         self._db.commit()
         return data._beacon_data
 
-    
+
     @kaa.rpc.expose('beacon.shutdown')
     def shutdown(self):
         sys.exit(0)

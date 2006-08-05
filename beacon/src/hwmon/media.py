@@ -98,6 +98,7 @@ class MediaList(object):
 
     def __init__(self):
         self._dict = dict()
+        self.idlist = []
         self.db = None
         self.controller = None
 
@@ -116,6 +117,7 @@ class MediaList(object):
             return self._dict.get(id)
         m = Media(id, self.db, self.controller, prop)
         self._dict[id] = m
+        self.idlist = [ m._beacon_id[1] for m in self._dict.values() ]
         return m
 
 
@@ -125,6 +127,7 @@ class MediaList(object):
             return None
         m = self._dict[id]
         del self._dict[id]
+        self.idlist = [ m._beacon_id[1] for m in self._dict.values() ]
         return m
     
         

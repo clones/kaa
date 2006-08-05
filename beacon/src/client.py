@@ -98,7 +98,7 @@ class Client(object):
         if not os.path.exists(filename):
             raise OSError('no such file or directory %s' % filename)
         return Query(self, filename=filename).get()
-        
+
 
     def query(self, **query):
         """
@@ -132,7 +132,7 @@ class Client(object):
         if self.status != DISCONNECTED:
             self.rpc('db.register_file_type_attrs', name, **kwargs)
 
-        
+
     def register_track_type_attrs(self, name, **kwargs):
         """
         Register new attrs and types for files.
@@ -140,7 +140,7 @@ class Client(object):
         if self.status != DISCONNECTED:
             self.rpc('db.register_track_type_attrs', name, **kwargs)
 
-        
+
     # -------------------------------------------------------------------------
     # Server connect / disconnect / reconnect handling
     # -------------------------------------------------------------------------
@@ -214,7 +214,8 @@ class Client(object):
         if self.rpc:
             return self.rpc('media.eject', dev.id)
         return False
-    
+
+
     # -------------------------------------------------------------------------
     # Internal API
     # -------------------------------------------------------------------------
@@ -298,6 +299,9 @@ class Client(object):
 
     @kaa.rpc.expose('connect')
     def _connected(self, id, database, media):
+        """
+        Callback to pass the database information to the client.
+        """
         # read only version of the database
         self.db = Database(database, self)
         # connect to server notifications
@@ -348,6 +352,7 @@ class Client(object):
     @kaa.rpc.expose('device.changed')
     def media_changed(self, id, prop):
         """
+        Notification that the media with the given id changed.
         """
         if medialist.get(id):
             medialist.get(id).update(prop)
@@ -359,6 +364,7 @@ class Client(object):
     @kaa.rpc.expose('device.removed')
     def media_removed(self, id):
         """
+        Notification that the media with the given id was removed.
         """
         media = medialist.remove(id)
         if media:

@@ -5,7 +5,6 @@
 # $Id$
 #
 # TODO: o Make it possible to override create_file
-#       o Support tracks and other non file based items
 #
 # -----------------------------------------------------------------------------
 # kaa-beacon - A virtual filesystem with metadata
@@ -57,6 +56,7 @@ MAX_BUFFER_CHANGES = 30
 from file import File as create_file
 from item import create_item
 
+
 class Database(object):
     """
     A kaa.db based database.
@@ -90,7 +90,7 @@ class Database(object):
         if self.client:
             # client mode, nothing more to do
             return
-        
+
         # register basic types
         self._db.register_object_type_attrs("dir",
             # This multi-column index optimizes queries on (name,parent) which
@@ -140,12 +140,12 @@ class Database(object):
         qlen = len(query)
         if not 'media' in query:
             # query only media we have right now
-            query['media'] = db.QExpr('in', [ m._beacon_id[1] for m in medialist ])
+            query['media'] = db.QExpr('in', medialist.idlist)
         else:
             if query['media'] == 'ignore':
                 del query['media']
             qlen -= 1
-            
+
         # do query based on type
         if 'dirname' in query:
             query['dirname'] = os.path.realpath(query['dirname'] + '/')
@@ -172,7 +172,7 @@ class Database(object):
                 return m[0]
             return None
         return self._db_query_raw(query)
-    
+
 
     def query_media(self, id, media):
         """
@@ -195,7 +195,7 @@ class Database(object):
             return result, id, create_file(root, media, isdir=True)
         return result, id, create_item(root, media)
 
-        
+
     @kaa.notifier.yield_execution()
     def _db_query_dir(self, parent):
         """
@@ -213,7 +213,7 @@ class Database(object):
             dirname = parent.filename[:-1]
 
         listing = parent._beacon_listdir(async=self.client)
-        
+
         if isinstance(listing, kaa.notifier.InProgress):
             # oops, something takes more time than we had in mind,
             yield listing
@@ -222,15 +222,8 @@ class Database(object):
 
         items = []
         if parent._beacon_id:
-            # XXX: This loop is a performance hotspot, accounting for nearly
-            # 70% of execution time in this function.  The time in this loop
-            # is comprised of about 60-70% for the db query, and the rest in
-            # File object creation.  Of the query itself, 70% of
-            # that time is spent normalizing the query results.  So if
-            # normalization can be deferred, we can get results to the
-            # caller .7*.7*.7 =~ 35% faster.
-            for i in self._db.query(parent = parent._beacon_id):
-                items.append(create_file(i, parent, isdir=i['type'] == 'dir'))
+            items = [ create_file(i, parent, isdir=i['type'] == 'dir') \
+                      for i in self._db.query(parent = parent._beacon_id) ]
 
         # sort items based on name. The listdir is also sorted by name,
         # that makes checking much faster
@@ -450,7 +443,7 @@ class Database(object):
             cache[media.root._beacon_id] = media.root
 
         for r in self._db.query(**query):
-            
+
             # get parent
             pid = r['parent']
             if pid in cache:
@@ -483,7 +476,7 @@ class Database(object):
             result.sort(lambda x,y: cmp(x.url, y.url))
         yield result
 
-        
+
     # -------------------------------------------------------------------------
     # Database access
     #
@@ -498,27 +491,6 @@ class Database(object):
         """
         if self.client or (not self.changes and not force):
             return
-
-        # Before we start with the commit, we make sure that all items we want
-        # to add are not in the db already.
-        # FIXME: can this still happen?
-        # for pos, (function, arg1, kwargs, callback) in enumerate(self.changes):
-        #     if not function == 'add' or not 'parent' in kwargs or \
-        #            not 'name' in kwargs:
-        #         continue
-        #     # check the db
-        #     result = self._db.query(name=kwargs['name'], parent=kwargs['parent'])
-        #     if not result:
-        #         continue
-        #     # change 'add' to 'update'
-        #     log.info('switch from add to update for %s', kwargs['name'])
-        #     result = result[0]
-        #     if callback:
-        #         callback(result)
-        #     self.changes[pos] = ('update', (result['type'], result['id']), kwargs, None)
-
-        # Now we did everything we can to make it as fast as possible. Let
-        # us start with the real db changes now
 
         # get time for debugging
         t1 = time.time()
@@ -715,12 +687,12 @@ class Database(object):
         """
         if dirname == media.mountpoint or dirname +'/' == media.mountpoint:
             # we know that '/' is in the db
-            current = self._db.query(type="dir", name='', parent=media._beacon_id)[0]
-            return create_file(current, media, isdir=True)
+            c = self._db.query(type="dir", name='', parent=media._beacon_id)[0]
+            return create_file(c, media, isdir=True)
 
         if dirname == '/':
             raise RuntimeError('media not found')
-        
+
         parent = self._get_dir(os.path.dirname(dirname), media)
         name = os.path.basename(dirname)
 
@@ -758,5 +730,3 @@ class Database(object):
         # FIXME: if the item has a thumbnail, delete it!
         self._db.delete_object(entry)
         return deleted
-
-

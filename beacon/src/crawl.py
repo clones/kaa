@@ -82,7 +82,7 @@ class MonitorList(dict):
             log.info('remove inotify for %s' % dirname)
             self._inotify.ignore(dirname[:-1])
 
-            
+
 class Crawler(object):
     """
     Class to crawl through a filesystem and check for changes. If inotify
@@ -93,7 +93,7 @@ class Crawler(object):
 
     active = 0
     nextid = 0
-    
+
     def __init__(self, db, use_inotify=True):
         """
         Init the Crawler.
@@ -134,7 +134,7 @@ class Crawler(object):
         self._scan_function = None
         self._scan_restart_timer = None
 
-        
+
     def append(self, item):
         """
         Append a directory to be crawled and monitored.
@@ -166,19 +166,16 @@ class Crawler(object):
         if self._scan_restart_timer:
             self._scan_restart_timer.stop()
             self._scan_restart_timer = None
-            
 
-    def __del__(self):
-        print 'del', self
 
-        
     def __repr__(self):
         return '<kaa.beacon.Crawler>'
+
 
     # -------------------------------------------------------------------------
     # Internal functions - INotify
     # -------------------------------------------------------------------------
-    
+
     def _inotify_event(self, mask, name, *args):
         """
         Callback for inotify.
@@ -201,7 +198,7 @@ class Crawler(object):
         # ---------------------------------------------------------------------
         # MOVE_FROM -> MOVE_TO
         # ---------------------------------------------------------------------
-        
+
         if mask & INotify.MOVE and args and item._beacon_id:
             # Move information with source and destination
             move = self.db.query(filename=args[0])
@@ -243,7 +240,7 @@ class Crawler(object):
             # We have a move with to and from, but the from item is not in
             # the db. So we handle it as a simple MOVE_TO
             name = args[0]
-        
+
         if os.path.exists(name):
             # The file exists. So it is either created or modified, we don't
             # care right now.
@@ -317,7 +314,7 @@ class Crawler(object):
     # -------------------------------------------------------------------------
     # Internal functions - Scanner
     # -------------------------------------------------------------------------
-    
+
     def _scan_add(self, directory, recursive):
         """
         Add a directory to the list of directories to scan.
@@ -328,7 +325,7 @@ class Crawler(object):
             # once) or somewhere else in normal mode. In both cases we
             # don't do anything.
             return False
-        
+
         if not recursive:
             # called from inotify. this means the file can not be in
             # the list as recursive only again from inotify. Add to the
@@ -351,7 +348,7 @@ class Crawler(object):
             Crawler.active += 1
             self._scan_function = OneShotTimer(self._scan_start)
             self._scan_function.start(0)
-            
+
 
     def _scan_start(self):
         """
@@ -405,13 +402,13 @@ class Crawler(object):
         for item in self._root_items:
             self._scan_add(item, recursive=True)
 
-            
+
     def _scan(self, directory):
         """
         Scan a directory and all files in it, return list of subdirs.
         """
         log.info('scan directory %s', directory.filename)
-        
+
         # parse directory
         if parse(self.db, directory):
             yield kaa.notifier.YieldContinue
@@ -435,7 +432,7 @@ class Crawler(object):
 
         # add to monitor list using inotify
         self.monitoring.add(directory.filename)
-                
+
         # iterate through the files
         subdirs = []
         counter = 0

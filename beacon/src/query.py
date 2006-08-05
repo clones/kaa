@@ -55,7 +55,7 @@ def wrap(items, filter):
         raise AttributeError('unknown filter')
     return _query_filter[filter](items)
 
-    
+
 class Query(object):
     """
     Query object for the client. Created by Client.query()
@@ -187,7 +187,7 @@ class Query(object):
         self.signals['changed'].emit()
         return None
 
-        
+
     def __repr__(self):
         """
         Convert object to string (usefull for debugging)
@@ -223,7 +223,8 @@ class Query(object):
             if c._beacon_data != item._beacon_data:
                 # something changed inside this item.
                 if c._beacon_id != item._beacon_id or \
-                       c._beacon_data.get('mtime') != item._beacon_data.get('mtime'):
+                       c._beacon_data.get('mtime') != \
+                       item._beacon_data.get('mtime'):
                     self.result = result
                     self.signals['changed'].emit()
                     return
