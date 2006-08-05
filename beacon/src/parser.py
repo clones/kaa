@@ -115,7 +115,7 @@ def parse(db, item, store=False):
                 log.debug('up-to-date %s' % item)
                 return 0
 
-    log.info('scan %s' % item)
+    t1 = time.time()
 
     attributes = { 'mtime': mtime }
     # FIXME: add force parameter from config file:
@@ -242,5 +242,8 @@ def parse(db, item, store=False):
                       **attributes)
     if store:
         db.commit()
+
+    log.info('scan %s (%0.3f)' % (item, time.time() - t1))
+
     return produced_load
 
