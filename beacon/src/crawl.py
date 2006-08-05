@@ -54,7 +54,7 @@ except:
     WATCH_MASK = None
 
 # timer for growing files (cp, download)
-GROWING_TIMER = 5
+GROWING_TIMER = 10
 
 class MonitorList(dict):
 
@@ -309,6 +309,9 @@ class Crawler(object):
         if not name in self._inotify_timer:
             return
         del self._inotify_timer[name]
+        # FIXME: do not create video thumbnails every GROWING_TIMER seconds.
+        # It takes too much CPU time. Maybe every 6th step (1 minute) is
+        # a good solution.
         self._inotify_event(INotify.MODIFY, name)
 
 
