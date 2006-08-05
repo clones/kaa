@@ -41,7 +41,6 @@ from kaa.notifier import Timer, OneShotTimer, WeakOneShotTimer, YieldFunction
 # kaa.beacon imports
 from parser import parse
 from kaa.inotify import INotify
-from directory import Directory
 
 # get logging object
 log = logging.getLogger('beacon.crawler')
@@ -418,7 +417,7 @@ class Crawler(object):
             yield kaa.notifier.YieldContinue
 
         # check if it is still a directory
-        if not isinstance(directory, Directory):
+        if not directory._beacon_isdir:
             log.warning('%s is no directory item', directory)
             if hasattr(directory, 'filename') and \
                    directory.filename + '/' in self.monitoring:
