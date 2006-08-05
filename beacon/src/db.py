@@ -626,7 +626,8 @@ class Database(object):
         if not old_entry:
             # already changed by something
             return None
-        old_entry = old_entry[0]
+        # FIXME: crashes with new ObjectRows code
+        old_entry = dict(old_entry[0])
 
         # copy metadata to new object
         metadata = {}
