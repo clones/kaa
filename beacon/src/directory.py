@@ -43,8 +43,6 @@ from item import Item
 # get logging object
 log = logging.getLogger('beacon')
 
-UNKNOWN = -1
-
 class Directory(Item):
     """
     A directory based database item.
@@ -72,7 +70,7 @@ class Directory(Item):
             # fake item, there is no database entry
             id = None
             filename = parent.filename + data + '/'
-            data = { 'name': data, 'mtime': UNKNOWN }
+            data = { 'name': data }
             if parent and parent._beacon_id:
                 data['parent_type'], data['parent_id'] = parent._beacon_id
             media = parent._beacon_media
@@ -204,7 +202,7 @@ class Directory(Item):
         Convert object to string
         """
         str = '<beacon.Directory %s' % self.filename
-        if self._beacon_data['mtime'] == UNKNOWN:
+        if self._beacon_data.get('mtime') == None:
             str += ' (new)'
         return str + '>'
 

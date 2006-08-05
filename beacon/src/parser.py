@@ -101,7 +101,7 @@ def parse(db, item, store=False):
         if not parent._beacon_id:
             # This should never happen
             raise AttributeError('parent for %s has no dbid' % item)
-    if item._beacon_data['mtime'] == mtime:
+    if item._beacon_data.get('mtime') == mtime:
         log.debug('up-to-date %s' % item)
         return 0
 
@@ -111,7 +111,7 @@ def parse(db, item, store=False):
         data = db.get_object(item._beacon_data['name'], parent._beacon_id)
         if data:
             item._beacon_database_update(data)
-            if item._beacon_data['mtime'] == mtime:
+            if item._beacon_data.get('mtime') == mtime:
                 log.debug('up-to-date %s' % item)
                 return 0
 

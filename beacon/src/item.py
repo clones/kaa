@@ -265,7 +265,7 @@ class Item(object):
         Return if the item is changed (based on modification time of
         the data and in the database).
         """
-        return self._beacon_mtime() != self._beacon_data['mtime']
+        return self._beacon_mtime() != self._beacon_data.get('mtime')
 
 
     def _beacon_tree(self):
