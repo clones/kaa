@@ -145,6 +145,9 @@ class Thumbnailer(object):
         imagefile = job.imagefile + '.png'
         if os.path.isfile(imagefile):
             metadata = kaa.metadata.parse(imagefile)
+            if not metadata:
+                log.error('unable to parse %s', imagefile)
+                metadata = {}
             mtime = metadata.get('Thumb::MTime')
             if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                 # not changed, refuse the recreate thumbnail
@@ -156,6 +159,9 @@ class Thumbnailer(object):
             imagefile = job.imagefile + '.jpg'
             if os.path.isfile(imagefile):
                 metadata = kaa.metadata.parse(imagefile)
+                if not metadata:
+                    log.error('unable to parse %s', imagefile)
+                    metadata = {}
                 mtime = metadata.get('Thumb::MTime')
                 if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                     # not changed, refuse the recreate thumbnail
