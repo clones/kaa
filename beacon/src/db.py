@@ -4,7 +4,7 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: o Make it possible to override create_file and create_dir
+# TODO: o Make it possible to override create_file
 #       o Support tracks and other non file based items
 #
 # -----------------------------------------------------------------------------
@@ -54,7 +54,6 @@ log = logging.getLogger('beacon.db')
 MAX_BUFFER_CHANGES = 30
 
 # Item generation mapping
-from directory import Directory as create_dir
 from file import File as create_file
 from item import create_item
 
@@ -149,9 +148,11 @@ class Database(object):
             
         # do query based on type
         if 'dirname' in query:
+            query['dirname'] = os.path.realpath(query['dirname'] + '/')
             return self._db_query_dirname(query)
         if 'filename' in query and qlen == 1:
-            return self._db_query_filename(query['filename'])
+            fname = os.path.realpath(query['filename'])
+            return self._db_query_filename(fname)
         if 'id' in query and qlen == 1:
             return self._db_query_id(query['id'])
         if 'parent' in query:
@@ -191,7 +192,7 @@ class Database(object):
         media.url = result['content'] + '://' + media.mountpoint
         root = self._db.query(parent=id)[0]
         if root['type'] == 'dir':
-            return result, id, create_dir(root, media)
+            return result, id, create_file(root, media, isdir=True)
         return result, id, create_item(root, media)
 
         
@@ -224,15 +225,12 @@ class Database(object):
             # XXX: This loop is a performance hotspot, accounting for nearly
             # 70% of execution time in this function.  The time in this loop
             # is comprised of about 60-70% for the db query, and the rest in
-            # File/Directory object creation.  Of the query itself, 70% of
+            # File object creation.  Of the query itself, 70% of
             # that time is spent normalizing the query results.  So if
             # normalization can be deferred, we can get results to the
             # caller .7*.7*.7 =~ 35% faster.
             for i in self._db.query(parent = parent._beacon_id):
-                if i['type'] == 'dir':
-                    items.append(create_dir(i, parent))
-                else:
-                    items.append(create_file(i, parent))
+                items.append(create_file(i, parent, isdir=i['type'] == 'dir'))
 
         # sort items based on name. The listdir is also sorted by name,
         # that makes checking much faster
@@ -253,9 +251,9 @@ class Database(object):
                 # new file at the end
                 if isdir:
                     if not overlay:
-                        items.append(create_dir(f, parent))
+                        items.append(create_file(f, parent, isdir=True))
                     continue
-                items.append(create_file(f, parent, overlay))
+                items.append(create_file(f, parent, overlay, isdir=False))
                 continue
             while pos < len(items) and f > items[pos]._beacon_name:
                 # file deleted
@@ -273,9 +271,9 @@ class Database(object):
             # new file
             if isdir:
                 if not overlay:
-                    items.insert(pos, create_dir(f, parent))
+                    items.insert(pos, create_file(f, parent, isdir=True))
                 continue
-            items.insert(pos, create_file(f, parent, overlay))
+            items.insert(pos, create_file(f, parent, overlay, isdir=False))
 
         if pos + 1 < len(items):
             # deleted files at the end
@@ -329,11 +327,11 @@ class Database(object):
                 continue
             for i in self._db.query(parent = parent._beacon_id):
                 if i['type'] == 'dir':
-                    child = create_dir(i, parent)
+                    child = create_file(i, parent, isdir=True)
                     if not child._beacon_islink:
                         directories.append(child)
                 else:
-                    items.append(create_file(i, parent))
+                    items.append(create_file(i, parent, isdir=False))
             if async and time.time() > timer + 0.1:
                 # we are in async mode and already use too much time.
                 # call yield YieldContinue at this point to continue
@@ -359,7 +357,7 @@ class Database(object):
         if os.path.isdir(filename) and not m == medialist.mountpoint(dirname):
             # the filename is the mountpoint itself
             e = self._db.query(parent=m._beacon_id, name='')
-            return create_dir(e[0], m)
+            return create_file(e[0], m, isdir=True)
         parent = self._get_dir(dirname, m)
         if parent._beacon_id:
             # parent is a valid db item, query
@@ -368,7 +366,7 @@ class Database(object):
                 # entry is in the db
                 basename = e[0]
         if os.path.isdir(filename):
-            return create_dir(basename, parent)
+            return create_file(basename, parent, isdir=True)
         return create_file(basename, parent)
 
 
@@ -396,7 +394,7 @@ class Database(object):
             m = medialist.beacon_id(i['parent'])
             if not m:
                 raise AttributeError('bad media %s' % str(i['parent']))
-            return create_dir(i, m)
+            return create_file(i, m, isdir=True)
 
         # query for parent
         pid = i['parent']
@@ -409,7 +407,7 @@ class Database(object):
 
         if i['type'] == 'dir':
             # it is a directory, make a dir item
-            return create_dir(i, parent)
+            return create_file(i, parent, isdir=True)
         if parent._beacon_isdir:
             # parent is dir, this item is not
             return create_file(i, parent)
@@ -464,7 +462,7 @@ class Database(object):
             # create item
             if r['type'] == 'dir':
                 # it is a directory, make a dir item
-                result.append(create_dir(r, parent))
+                result.append(create_file(r, parent, isdir=True))
             elif parent._beacon_isdir:
                 # parent is dir, this item is not
                 result.append(create_file(r, parent))
@@ -718,7 +716,7 @@ class Database(object):
         if dirname == media.mountpoint or dirname +'/' == media.mountpoint:
             # we know that '/' is in the db
             current = self._db.query(type="dir", name='', parent=media._beacon_id)[0]
-            return create_dir(current, media)
+            return create_file(current, media, isdir=True)
 
         if dirname == '/':
             raise RuntimeError('media not found')
@@ -727,12 +725,12 @@ class Database(object):
         name = os.path.basename(dirname)
 
         if not parent._beacon_id:
-            return create_dir(name, parent)
+            return create_file(name, parent, isdir=True)
 
         current = self._db.query(type="dir", name=name,
                                  parent=parent._beacon_id)
         if not current and self.client:
-            return create_dir(name, parent)
+            return create_file(name, parent, isdir=True)
 
         if not current:
             current = self._db.add_object("dir", name=name,
@@ -741,7 +739,7 @@ class Database(object):
             self._db.commit()
         else:
             current = current[0]
-        return create_dir(current, parent)
+        return create_file(current, parent, isdir=True)
 
 
     def _delete(self, entry):
