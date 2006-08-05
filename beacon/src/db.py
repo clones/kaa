@@ -148,6 +148,8 @@ class Database(object):
             qlen -= 1
             
         # do query based on type
+        if 'dirname' in query:
+            return self._db_query_dirname(query)
         if 'filename' in query and qlen == 1:
             return self._db_query_filename(query['filename'])
         if 'id' in query and qlen == 1:
@@ -368,6 +370,19 @@ class Database(object):
         if os.path.isdir(filename):
             return create_dir(basename, parent)
         return create_file(basename, parent)
+
+
+    @kaa.notifier.yield_execution()
+    def _db_query_dirname(self, dirname, **query):
+        """
+        Return items in a directory
+        """
+        dobject = self._db_query_filename(dirname)
+        if isinstance(dobject, kaa.notifier.InProgress):
+            yield dobject
+            dobject = dobject()
+        query['parent'] = dobject
+        yield self.query(**query)
 
 
     def _db_query_id(self, (type, id), cache=None):
@@ -636,7 +651,7 @@ class Database(object):
                 metadata[key] = old_entry[key]
         # add object to db keep the db in sync
         self.commit()
-        # FIXME: media?
+
         metadata = self._db.add_object(new_type, **metadata)
         new_beacon_id = (type, metadata['id'])
         self._db.commit()
