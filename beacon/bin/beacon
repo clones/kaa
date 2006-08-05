@@ -6,8 +6,10 @@ import sys
 import gc
 import getopt
 import time
-import logging
 import socket
+
+import logging
+from logging.handlers import RotatingFileHandler
 
 # insert freevo path information
 __site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
@@ -249,17 +251,16 @@ except kaa.beacon.ConnectError:
     pass
 
 if detach:
-    logfile = os.path.join(database, 'server.log')
     if not logfile:
         logfile = os.path.join(database, 'server.log')
-
     kaa.utils.daemonize()
     
 # create logger
 if logfile:
-    if not os.path.isdir(os.path.dirname(logfile)):
+    if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
         os.makedirs(os.path.dirname(logfile))
-    handler = logging.FileHandler(logfile)
+    # create rotating log file with 1MB for each file with a backup of 3
+    handler = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=3)
     f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
                           '%(filename)s %(lineno)s: %(message)s')
     handler.setFormatter(f)
