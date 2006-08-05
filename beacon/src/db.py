@@ -677,6 +677,7 @@ class Database(object):
         kwargs['media'] = (int, ATTR_INDEXED)
         if not type.startswith('track_'):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
+            kwargs['image'] = (str, ATTR_SIMPLE)
         indices = [("name", "parent_type", "parent_id")]
         return self._db.register_object_type_attrs(type, indices, *args,
                                                    **kwargs)
