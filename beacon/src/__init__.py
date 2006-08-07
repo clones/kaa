@@ -94,16 +94,7 @@ def launch(autoshutdown=False, wait=False, verbose='none'):
     if autoshutdown:
         cmd += ' --autoshutdown'
     os.system(cmd)
-    if not wait:
-        return
-    start = time.time()
-    while time.time() < start + 5:
-        time.sleep(0.1)
-        try:
-            return connect()
-        except ConnectError:
-            pass
-    raise ConnectError('unable to connect to server')
+    return connect()
 
 
 def get(filename):

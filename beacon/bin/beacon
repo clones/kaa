@@ -253,7 +253,7 @@ except kaa.beacon.ConnectError:
 if detach:
     if not logfile:
         logfile = os.path.join(database, 'server.log')
-    kaa.utils.daemonize()
+    daemonize_lock = kaa.utils.daemonize(wait=True)
     
 # create logger
 if logfile:
@@ -279,7 +279,11 @@ if not pid:
 
     # set nice level
     os.nice(19)
-    
+
+    if detach:
+        # close fifo from daemonize
+        daemonize_lock.ignore()
+        
     # loop
     kaa.notifier.loop()
     log.info('stop thumbnail/hwmon')
@@ -324,11 +328,21 @@ try:
     if shutdown:
         log.info('set autoshutdown timer to 3 seconds')
         server.autoshutdown(3)
+    if detach:
+        # release waiting main process
+        daemonize_lock.release(0)
     kaa.notifier.loop()
 
 except Exception, e:
     log.exception('beacon startup')
-    
+    try:
+        os.kill(pid, 15)
+    except (OSError, IOError):
+        pass
+    if detach:
+        # release waiting main process with error
+        daemonize_lock.release(1)
+
 log.info('stop beacon')
 
 #wait for dead child
