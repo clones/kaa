@@ -34,10 +34,10 @@ class Program(object):
         self.channel = channel
         self._dbdata = dbdata
 
-        self.start = dbdata['start'] or 0
-        self.stop = dbdata['stop'] or 0
-        self.title = dbdata['title'] or u''
-        self.description = dbdata['desc'] or u''
-        self.subtitle = dbdata['subtitle'] or u''
-        self.episode = dbdata['episode'] or u''
-        self.genre = dbdata['genre'] or u''
+        self.start = dbdata.get('start', 0)
+        self.stop = dbdata.get('stop', 0)
+        self.title = dbdata.get('title', u'')
+        self.description = dbdata.get('desc', u'')
+        self.subtitle = dbdata.get('subtitle',  u'')
+        self.episode = dbdata.get('episode', u'')
+        self.genre = dbdata.get('genre', u'')
