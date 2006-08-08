@@ -238,6 +238,8 @@ def _update_parse_xml_thread(epg):
     if config.grabber:
         log.info('grabbing listings using %s', config.grabber)
         xmltv_file = os.path.join(TEMP, 'TV.xml')
+        if config.data_file:
+            xmltv_file = config.data_file
         log_file = os.path.join(TEMP, 'TV.xml.log')
         # TODO: using os.system is ugly because it blocks ... but we can make this
         # nicer using kaa.notifier.Process later. We are inside a thread so it
