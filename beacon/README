@@ -81,5 +81,16 @@ export BEACON_MONITOR=/home/dmeyer/video:/home/dmeyer/mp3
 beacon --start --verbose crawler,db
 
 
+Logging
+
+The default logfile for the server is $(dbdir)/server.log and $(dbdir)/fuse.log
+for mount where $(dbdir) is $HOME/.beacon (the default) or as specified by the
+--db command line option.  If --fg is specified, to make the process run in the
+foreground, there will be no log files created and the logs will go to stderr.
+If you would like to run in the foreground and also log to a file then you must
+explicitly use --logfile /path/to/server.log.  This is especially useful for 
+running beacon from /etc/inittab.
+
+
 
 More about kaa.beacon later
