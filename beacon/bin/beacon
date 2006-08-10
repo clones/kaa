@@ -26,6 +26,16 @@ import kaa.utils
 # get logging object
 log = logging.getLogger('beacon')
 
+# make sure HOME and USER are valid (when started as service)
+# FIXME: handle beacon to be started as daemon user. This requires
+# access to beacon outside /tmp/kaa-uid and thumbnails in a different
+# directory with umask not 700.
+if os.environ.get('HOME') in ('', '/', None):
+    os.environ['HOME'] = '/root'
+if not os.environ.get('USER'):
+    os.environ['USER'] = 'root'
+
+
 def usage(error_code):
     print 'beacon [options]'
     print 'options:'
