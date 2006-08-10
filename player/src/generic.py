@@ -49,6 +49,8 @@ class Player(object):
         return self._open(mrl, cls)
 
     def _open(self, mrl, cls):
+        # TODO: Don't create new player instance if player class is the same
+        # as the current player.
         self._player = cls()
 
         for signal in self.signals:
