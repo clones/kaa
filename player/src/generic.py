@@ -5,6 +5,7 @@ from base import *
 class Player(object):
     def __init__(self):
         self._player = None
+        self._size = None
 
         # We update the signals dict if it already exists in order to play 
         # friendly with multiple inheritance.
@@ -55,6 +56,8 @@ class Player(object):
                 self._player.signals[signal].connect_weak(self.signals[signal].emit)
 
         self._player.open(mrl)
+        if self._size:
+            self._player.set_size(self._size)
 
 
     def play(self, **kwargs):
@@ -144,3 +147,8 @@ class Player(object):
     def die(self):
         if self._player:
             return self._player.die()
+
+    def set_size(self, size):
+        self._size = size
+        if self._player:
+            return self._player.set_size(size)
