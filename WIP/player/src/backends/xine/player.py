@@ -10,6 +10,7 @@ import kaa.xine as xine
 
 # player skeleton
 from kaa.player.skeleton import *
+from kaa.player.utils import ChildProcess
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -60,22 +61,15 @@ class Xine(MediaPlayer):
     def _spawn(self):
         # Launch self (-u is unbuffered stdout)
         script = os.path.join(os.path.dirname(__file__), 'child.py')
-        self._process = kaa.notifier.Process("%s -u %s" % (sys.executable, script))
-        self._process.signals["stdout"].connect_weak(self._handle_line)
-        self._process.signals["stderr"].connect_weak(self._handle_line)
-        self._process.signals["completed"].connect_weak(self._exited)
-        self._process.set_stop_command(kaa.notifier.WeakCallback(self._end_child))
-        self._process.start(str(self._instance_id))
+        self._xine = ChildProcess(self, script, str(self._instance_id))
+        self._xine.signals["completed"].connect_weak(self._exited)
+        self._xine.set_stop_command(notifier.WeakCallback(self._end_child))
+        self._xine.start()
 
-
-
-    def rpc(self, command, *args, **kwargs):
-        s = repr((command, args, kwargs))
-        self._process.write(s + "\n")
 
 
     def _end_child(self):
-        self.rpc("die")
+        self._xine.die()
 
 
     def die(self):
@@ -94,15 +88,7 @@ class Xine(MediaPlayer):
     # Commands from child
     # #############################################################################
 
-    def _handle_line(self, line):
-        if line and line[0] == "!":
-            command, args, kwargs = eval(line[1:])
-            getattr(self, "_handle_command_" + command)(*args, **kwargs)
-        else:
-            print "CHILD[%d]: %s" % (self._process.child.pid, line)
-
-
-    def _handle_command_set_status(self, pos, time, length, status, speed):
+    def _child_set_status(self, pos, time, length, status, speed):
         old_pos = self._position
         self._position = float(time)
         self._stream_info["length"] = length
@@ -130,7 +116,7 @@ class Xine(MediaPlayer):
                 self.signals["end"].emit()
 
 
-    def _handle_command_osd_configure(self, width, height, aspect):
+    def _child_osd_configure(self, width, height, aspect):
         if not self._osd_shmem:
             shmid = kaa.shm.getshmid(self._osd_shmkey)
             if shmid:
@@ -148,24 +134,24 @@ class Xine(MediaPlayer):
                                            width, height)
 
 
-    def _handle_command_resize(self, size):
+    def _child_resize(self, size):
         pass
         #self._window.resize(size)
 
 
-    def _handle_command_set_stream_info(self, info):
+    def _child_set_stream_info(self, info):
         changed = info != self._stream_info
         self._stream_info = info
 
         if self._state == STATE_OPENING:
             self._state = STATE_IDLE
-            self.rpc("play")
+            self._xine.play()
             self.set_frame_output_mode()
 
         if changed:
             self.signals["stream_changed"].emit()
 
-    def _handle_command_xine_event(self, event, data):
+    def _child_xine_event(self, event, data):
         if event == xine.EVENT_UI_NUM_BUTTONS:
             self._is_in_menu = data["num_buttons"] > 0
 
@@ -176,16 +162,16 @@ class Xine(MediaPlayer):
 
 
     def _window_visibility_event(self):
-        self.rpc("window_changed", self._window.get_id(), self._window.get_size(),
-                 self._window.get_visible(), [])
+        self._xine.window_changed(self._window.get_id(), self._window.get_size(),
+                                   self._window.get_visible(), [])
 
     def _window_expose_event(self, regions):
-        self.rpc("window_changed", self._window.get_id(), self._window.get_size(),
-                 self._window.get_visible(), regions)
+        self._xine.window_changed(self._window.get_id(), self._window.get_size(),
+                                   self._window.get_visible(), regions)
 
     def _window_configure_event(self, pos, size):
-        self.rpc("window_changed", self._window.get_id(), size,
-                 self._window.get_visible(), [])
+        self._xine.window_changed(self._window.get_id(), size,
+                                   self._window.get_visible(), [])
 
 
 
@@ -206,21 +192,21 @@ class Xine(MediaPlayer):
 
     def play(self, video=True):
         if self.get_state() == STATE_PAUSED:
-            self.rpc("play")
+            self._xine.play()
             return
 
         wid = None
         if self._window:
             wid = self._window.get_id()
-        self.rpc("setup", wid=wid)
+        self._xine.setup(wid=wid)
 
         self._position = 0.0
-        self.rpc("open", self._mrl)
+        self._xine.open(self._mrl)
         self._state = STATE_OPENING
 
 
     def pause(self):
-        self.rpc("pause")
+        self._xine.pause()
 
 
     def pause_toggle(self):
@@ -230,27 +216,27 @@ class Xine(MediaPlayer):
             self.play()
 
     def stop(self):
-        self.rpc("stop")
+        self._xine.stop()
 
 
     def seek_relative(self, offset):
-        self.rpc("seek", 0, offset)
+        self._xine.seek(0, offset)
 
 
     def seek_absolute(self, position):
-        self.rpc("seek", 1, position)
+        self._xine.seek(1, position)
 
 
     def seek_percentage(self, percent):
         pos = (percent / 100.0) * 65535
-        self.rpc("seek", 2, pos)
+        self._xine.seek(2, pos)
 
     def get_info(self):
         return self._stream_info
 
 
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
-        self.rpc("osd_update", alpha, visible, invalid_regions)
+        self._xine.osd_update(alpha, visible, invalid_regions)
 
 
     def osd_can_update(self):
@@ -284,7 +270,7 @@ class Xine(MediaPlayer):
         else:
             self._check_new_frame_timer.stop()
 
-        self.rpc("frame_output", vo, notify, size)
+        self._xine.frame_output(vo, notify, size)
 
 
     def set_window(self, window):
@@ -368,7 +354,7 @@ class Xine(MediaPlayer):
             "9": xine.EVENT_INPUT_NUMBER_9
         }
         if input in map:
-            self.rpc("input", map[input])
+            self._xine.input(map[input])
 
 
     def is_in_menu(self):
