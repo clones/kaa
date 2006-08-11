@@ -3,7 +3,7 @@ import os
 
 import kaa.notifier
 
-from kaa.player.base import *
+from kaa.player.skeleton import *
 from kaa.player.utils import ChildProcess
 
 class GStreamer(MediaPlayer):

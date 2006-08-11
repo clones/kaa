@@ -1,5 +1,5 @@
 from player import GStreamer
-from kaa.player.base import *
+from kaa.player.skeleton import *
 
 def get_capabilities():
     caps = (CAP_VIDEO, CAP_AUDIO, CAP_OSD, CAP_CANVAS, CAP_DVD, CAP_DVD_MENUS,

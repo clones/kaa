@@ -1,9 +1,15 @@
 import backends
 
-from base import *
+from skeleton import *
 
 class Player(object):
     def __init__(self, window):
+
+        global backends
+        if backends:
+            backends.init()
+            backends = None
+
         self._player = None
         self._size = window.get_size()
         self._window = window
