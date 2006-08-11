@@ -4,9 +4,9 @@ import kaa
 import kaa.utils
 from base import *
 
-# 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status, 
+# 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status,
 # 4 = everything + status + run through gdb
-DEBUG=0
+DEBUG=1
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -52,8 +52,8 @@ def _get_mplayer_info(path, callback = None, mtime = None):
 
     # At this point we're running in a thread.
 
-    info = { 
-        "version": None, 
+    info = {
+        "version": None,
         "mtime": mtime,
         "video_filters": {},
         "video_drivers": {},
@@ -85,9 +85,9 @@ def _get_mplayer_info(path, callback = None, mtime = None):
                 info[key][m.group(1)] = m.group(2)
             else:
                 info[key].append(m.group(1))
- 
+
     _cache[path] = info
-    return info       
+    return info
 
 
 
@@ -118,8 +118,6 @@ class MPlayer(MediaPlayer):
         self._instance_id = "%d-%d" % (os.getpid(), MPlayer._instance_count)
         MPlayer._instance_count += 1
 
-        # Size of the window as reported by MPlayer (aspect-corrected)
-        self._vo_size = None 
         self._process = None
         self._state = STATE_NOT_RUNNING
         self._state_data = None
@@ -133,7 +131,7 @@ class MPlayer(MediaPlayer):
         self._filters_pre = []
         self._filters_add = []
         self._last_line = None
-        
+
         self.signals.update({
             "output": notifier.Signal(),
         })
@@ -169,7 +167,7 @@ class MPlayer(MediaPlayer):
             self._process.signals["completed"].connect_weak(self._exited)
             self._process.set_stop_command(notifier.WeakCallback(self._end_child))
         return self._process
-    
+
 
     def _make_dummy_input_config(self):
         """
@@ -186,6 +184,7 @@ class MPlayer(MediaPlayer):
             os.write(fp, "%s noop\n" % key)
         os.close(fp)
         return filename
+
 
     def _handle_mp_info(self, info):
         if isinstance(info, Exception):
@@ -233,7 +232,7 @@ class MPlayer(MediaPlayer):
             self._state = STATE_PAUSED
             self.signals["pause_toggle"].emit()
             self.signals["pause"].emit()
-            
+
         elif line.startswith("ID_") and line.find("=") != -1:
             attr, value = line.split("=")
             attr = attr[3:]
@@ -259,9 +258,7 @@ class MPlayer(MediaPlayer):
         elif line.startswith("VO:"):
             m = re.search("=> (\d+)x(\d+)", line)
             if m:
-                self._vo_size = vo_w, vo_h = int(m.group(1)), int(m.group(2))
-                if self._window:
-                    self._window.resize(self._vo_size)
+                vo_w, vo_h = int(m.group(1)), int(m.group(2))
                 if "aspect" not in self._file_info or self._file_info["aspect"] == 0:
                     # No aspect defined, so base it on vo size.
                     self._file_info["aspect"] = vo_w / float(vo_h)
@@ -332,39 +329,35 @@ class MPlayer(MediaPlayer):
         keyfile = self._make_dummy_input_config()
 
         filters = self._filters_pre[:]
-        filters += ["outbuf=%s:yv12" % self._get_outbuf_shm_key()]
+        if 'outbuf' in self._mp_info['video_filters']:
+            filters += ["outbuf=%s:yv12" % self._get_outbuf_shm_key()]
 
-        # FIXME: hardcoded
-        #self._size = 800, 600
-        #self._size = 854, 640
-        #self._size = 640, 480
+        filters += ["scale=%d:-2" % self._size[0], "expand=%d:%d" % self._size,
+                    "dsize=%d:%d" % self._size ]
 
-        if self._size:
-            w, h = self._size
-            filters += ["scale=%d:-2" % w, "expand=%d:%d" % (w, h), "dsize=%d:%d" % (w,h) ]
-
-        args = "-v -slave -osdlevel 0 -nolirc -nojoystick -nomouseinput " \
-               "-nodouble -fixed-vo -identify -framedrop -idle "
+        # FIXME: check freevo filter list and add stuff like pp
 
         filters += self._filters_add
-        if not self._size:
-            filters += ["expand=:::::4/3"]
-        filters += ["overlay=%s" % self._get_overlay_shm_key()]
+        if 'overlay' in self._mp_info['video_filters']:
+            filters += ["overlay=%s" % self._get_overlay_shm_key()]
 
-        if filters:
-            args += "-vf %s " % string.join(filters, ",")
+        args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
+                 "-nomouseinput", "-nodouble", "-fixed-vo", "-identify", \
+                 "-framedrop", "-idle", "-vf", ",".join(filters) ]
 
-        if self._window:
-            args += "-wid %s " % hex(self._window.get_id())
-            args += "-display %s " % self._window.get_display().get_string()
-            args += "-input conf=%s " % keyfile
+        if isinstance(self._window, display.X11Window):
+            args.extend((
+                "-wid", hex(self._window.get_id()),
+                "-display", self._window.get_display().get_string(),
+                "-input", "conf=%s" % keyfile))
 
         if user_args:
-            if isinstance(user_args, (list, tuple)):
-                user_args = " ".join(user_args)
-            args += "%s " % user_args
+            if isinstance(user_args, str):
+                user_args = user_args.split(' ')
+            args.extend(user_args)
+
         if file:
-            args += "\"%s\"" % file
+            args.append(file)
 
         self._spawn(args)
         self._state = STATE_OPENING
@@ -417,7 +410,7 @@ class MPlayer(MediaPlayer):
 
         if user_args:
             self._file_args.append(user_args)
-        
+
         self.signals["open"].emit()
 
 
@@ -433,14 +426,6 @@ class MPlayer(MediaPlayer):
 
         if state != STATE_NOT_RUNNING:
             return
-
-        if self._window == None:
-            # Use the user specified size, or some sensible default.
-            win_size = self._size or (640, 480)
-            self._window = display.X11Window(size = win_size, title = "MPlayer Window")
-            # TODO: get from config value
-            self._window.set_cursor_hide_timeout(0.5)
-
 
         if not self._mp_info:
             # We're probably waiting for _get_mplayer_info() to finish; set
@@ -463,7 +448,7 @@ class MPlayer(MediaPlayer):
     def pause_toggle(self):
         if self.get_state() == STATE_PAUSED:
             self.play()
-        else:       
+        else:
             self.pause()
 
 
@@ -490,9 +475,6 @@ class MPlayer(MediaPlayer):
     def die(self):
         if self._process:
             self._process.stop()
-
-    def get_vo_size(self):
-        return self._vo_size
 
     def get_position(self):
         return self._position
