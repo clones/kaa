@@ -614,6 +614,10 @@ class XinePlayer(MediaPlayer):
             window.signals["unmap_event"].connect_weak(self._handle_window_visibility_event)
             window.signals["expose_event"].connect_weak(self._handle_window_expose_event)
 
+        # Sends a window_changed command to slave.
+        self._handle_window_visibility_event()
+
+
     def get_position(self):
         return self._position
 
