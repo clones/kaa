@@ -1,7 +1,5 @@
 import sys
-import os
 import md5
-import fcntl
 import gc
 
 import kaa
@@ -38,7 +36,6 @@ class XinePlayerChild(Player):
 
         self._xine = xine.Xine()
         self._stream = self._vo = self._ao = None
-        self._stdin_data = ''
         self._osd_shmkey = int(md5.md5(instance_id + "osd").hexdigest()[:7], 16)
         self._frame_shmkey = int(md5.md5(instance_id + "frame").hexdigest()[:7], 16)
         self._osd_shmem = self._frame_shmem = None
@@ -48,11 +45,6 @@ class XinePlayerChild(Player):
         self._status = kaa.notifier.WeakTimer(self._status_output)
         self._status.start(0.1)
         self._status_last = None
-
-        monitor = kaa.notifier.WeakSocketDispatcher(self._handle_line)
-        monitor.register(sys.stdin.fileno())
-        flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
-        fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
         self._xine.set_config_value("effects.goom.fps", 20)
         self._xine.set_config_value("effects.goom.width", 512)
