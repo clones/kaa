@@ -1,0 +1,32 @@
+I use this file for now for some findings:
+
+mplayer
+
++ many filter
++ supports X, fb, directfb, mga and many other vo
+- no changes of the filter chain during runtime
+- no dvd menus
+- no way to add filtrs not in the mplayer binary. This means Jasons
+  overlay filter has to be shipped with a release
+
+
+xine
+
++ overlay support
++ supports X, fb, directfb and vidixfb
++ change filter during runtime
+- limited (but maybe enough) filters
+- when started with a given window, xine does not resize the video the
+  fit the video
+- no real software scaler. This means (I guess) that kaa.canvas has to
+  scale to fit the video. Without a software scaler, xine is more or
+  less useless.
+
+
+gstreamer
+
++ many filter
++ change filter during runtime
+- supports only xv and x for now
+- no overlay filter
+- the doc sucks
