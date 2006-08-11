@@ -4,7 +4,7 @@ import os
 import kaa.notifier
 
 from kaa.player.base import *
-from ipc import Child
+from kaa.player.utils import ChildProcess
 
 class GStreamer(MediaPlayer):
 
@@ -19,7 +19,7 @@ class GStreamer(MediaPlayer):
         self._position = 0.0
 
         script = os.path.join(os.path.dirname(__file__), 'child.py')
-        self.player = Child(self, script, str(self._instance_id))
+        self.player = ChildProcess(self, script, str(self._instance_id))
         self.player.signals["completed"].connect_weak(self._exited)
         self.player.set_stop_command(notifier.WeakCallback(self._end_child))
         self.player.start()

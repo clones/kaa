@@ -14,7 +14,7 @@ class ChildCommand(object):
         self._fd(repr((self._cmd, args, kwargs)) + "\n")
 
         
-class Child(object):
+class ChildProcess(object):
     def __init__(self, parent, *args):
         # Launch (-u is unbuffered stdout)
         self._parent = weakref(parent)

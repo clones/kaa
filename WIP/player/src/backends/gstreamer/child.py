@@ -8,9 +8,10 @@ import gst
 
 import kaa.notifier
 
-from ipc import Player
-
 kaa.notifier.init('gtk', x11=False)
+
+from kaa.player.utils import Player
+
 
 class GStreamer(Player):
 
