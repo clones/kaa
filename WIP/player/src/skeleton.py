@@ -26,6 +26,9 @@ def register_player(player_id, cls, get_caps_callback):
     if player_id in _players:
         raise ValueError, "Player '%s' already registered" % name
 
+    # set player id
+    cls._player_id = player_id
+
     # FIXME: we just defer calling get_caps_callback until the first time
     # a player is needed, but we should do this in a thread when the system
     # is idle.
@@ -175,10 +178,10 @@ class MediaPlayer(object):
 
 
     def get_capabilities(self):
-        return _players[self.get_player_id()]["caps"]
+        return _players[self._player_id]["caps"]
 
     def get_supported_schemes(self):
-        return _players[self.get_player_id()]["schemes"]
+        return _players[self._player_id]["schemes"]
 
     def has_capability(self, cap):
         supported_caps = self.get_capabilities()
@@ -246,9 +249,6 @@ class MediaPlayer(object):
         has just been opened.
         """
         pass
-
-    def get_player_id(self):
-        return None
 
     def nav_command(self, input):
         return input in (

@@ -297,10 +297,6 @@ class Xine(MediaPlayer):
     def get_position(self):
         return self._position
 
-    def get_player_id(self):
-        return "xine"
-
-
     def _check_new_frame(self):
         if not self._frame_shmem:
             return

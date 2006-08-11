@@ -94,10 +94,6 @@ class GStreamer(MediaPlayer):
         return self._position
 
 
-    def get_player_id(self):
-        return "gstreamer"
-
-
     def nav_command(self, input):
         return False
     

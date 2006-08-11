@@ -583,7 +583,3 @@ class MPlayer(MediaPlayer):
 
     def nav_command(self, input):
         return False
-
-
-    def get_player_id(self):
-        return "mplayer"
