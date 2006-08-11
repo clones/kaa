@@ -1,12 +1,18 @@
 import mplayer
-import xine
+
+try:
+    import xine
+except ImportError:
+    pass
+
 from base import *
 
 class Player(object):
-    def __init__(self):
+    def __init__(self, window):
         self._player = None
-        self._size = None
-
+        self._size = window.get_size()
+        self._window = window
+        
         # We update the signals dict if it already exists in order to play 
         # friendly with multiple inheritance.
         if not hasattr(self, "signals"):
@@ -48,6 +54,7 @@ class Player(object):
 
         return self._open(mrl, cls)
 
+
     def _open(self, mrl, cls):
         # TODO: Don't create new player instance if player class is the same
         # as the current player.
@@ -58,8 +65,8 @@ class Player(object):
                 self._player.signals[signal].connect_weak(self.signals[signal].emit)
 
         self._player.open(mrl)
-        if self._size:
-            self._player.set_size(self._size)
+        self._player.set_window(self._window)
+        self._player.set_size(self._size)
 
 
     def play(self, **kwargs):
