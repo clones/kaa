@@ -102,7 +102,7 @@ class Xine(MediaPlayer):
             print "CHILD[%d]: %s" % (self._process.child.pid, line)
 
 
-    def _handle_command_status(self, pos, time, length, status, speed):
+    def _handle_command_set_status(self, pos, time, length, status, speed):
         old_pos = self._position
         self._position = float(time)
         self._stream_info["length"] = length
@@ -153,7 +153,7 @@ class Xine(MediaPlayer):
         #self._window.resize(size)
 
 
-    def _handle_command_stream_info(self, info):
+    def _handle_command_set_stream_info(self, info):
         changed = info != self._stream_info
         self._stream_info = info
 
