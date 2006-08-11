@@ -6,7 +6,7 @@ from kaa.config import Group, Var
 from kaa import xine
 
 # player base
-from base import *
+from kaa.player.base import *
 
 
 # Config group for xine player

@@ -2,7 +2,7 @@ import os, re, string, tempfile, time, stat, threading, md5, struct
 from kaa import notifier, display, shm
 import kaa
 import kaa.utils
-from base import *
+from kaa.player.base import *
 
 # 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status,
 # 4 = everything + status + run through gdb

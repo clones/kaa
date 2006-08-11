@@ -1,10 +1,4 @@
-import mplayer
 import backends
-
-try:
-    import xine
-except ImportError:
-    pass
 
 from base import *
 
