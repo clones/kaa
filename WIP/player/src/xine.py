@@ -3,10 +3,7 @@ import kaa
 from kaa import notifier, display, shm
 from kaa.config import Group, Var
 
-try:
-    from kaa import xine
-except ImportError:
-    xine = None
+from kaa import xine
 
 # player base
 from base import *
@@ -54,22 +51,8 @@ class XinePlayerChild(object):
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
 
 
-
-    def _send_command(self, command, *args, **kwargs):
+    def rpc(self, command, *args, **kwargs):
         sys.stderr.write("!" + repr( (command, args, kwargs) ) + "\n")
-
-
-    def _handle_line(self):
-        data = sys.stdin.read()
-        if len(data) == 0:
-            # Parent likely died.
-            self._handle_command_die()
-        self._stdin_data += data
-        while self._stdin_data.find('\n') >= 0:
-            line = self._stdin_data[:self._stdin_data.find('\n')]
-            self._stdin_data = self._stdin_data[self._stdin_data.find('\n')+1:]
-            command, args, kwargs = eval(line)
-            reply = getattr(self, "_handle_command_" + command)(*args, **kwargs)
 
 
     def _status_output(self):
@@ -89,29 +72,49 @@ class XinePlayerChild(object):
         cur_status = (t[0], t[1], t[2], status, speed)
 
         if cur_status != self._status_last:
-            #sys.stderr.write("S: %s\n" % line)
             self._status_last = cur_status
-            self._send_command("status", *cur_status)
+            self.rpc("status", *cur_status)
 
 
-    def _handle_command_window_changed(self, wid, size, visible, exposed_regions):
-        self._x11_window_size = size
-        self._wid = wid
-        if self._vo:
-            self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
-            self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
-        
+    def get_stream_info(self):
+        if not self._stream:
+            return {}
+
+        info = {
+            "vfourcc": self._stream.get_info(xine.STREAM_INFO_VIDEO_FOURCC),
+            "afourcc": self._stream.get_info(xine.STREAM_INFO_AUDIO_FOURCC),
+            "vcodec": self._stream.get_meta_info(xine.META_INFO_VIDEOCODEC),
+            "acodec": self._stream.get_meta_info(xine.META_INFO_AUDIOCODEC),
+            "width": self._stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH),
+            "height": self._stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT),
+            "aspect": self._stream.get_info(xine.STREAM_INFO_VIDEO_RATIO) / 10000.0,
+            "fps": self._stream.get_info(xine.STREAM_INFO_FRAME_DURATION),
+            "length": self._stream.get_length(),
+        }
+        if self._x11_last_aspect != -1:
+            # Use the aspect ratio as given to the frame output callback
+            # as it tends to be more reliable (particularly for DVDs).
+            info["aspect"] = self._x11_last_aspect
+        if info["aspect"] == 0 and info["height"] > 0:
+            info["aspect"] = info["width"] / float(info["height"])
+        if info["fps"]:
+            info["fps"] = 90000.0 / info["fps"]
+        return info
+
+
+    # #############################################################################
+    # kaa.xine callbacks
+    # #############################################################################
 
     def _x11_frame_output_cb(self, width, height, aspect):
         #print "Frame output", width, height, aspect
         w, h, a = self._xine._get_vo_display_size(width, height, aspect)
         if abs(self._x11_last_aspect - a) > 0.01:
             print "VO: %dx%d -> %dx%d" % (width, height, w, h)
-            self._send_command("resize", (w, h))
+            self.rpc("resize", (w, h))
             self._x11_last_aspect = a
         if self._x11_window_size != (0, 0):
             w, h = self._x11_window_size
-
         return (0, 0), (0, 0), (w, h), 1.0
 
 
@@ -136,11 +139,44 @@ class XinePlayerChild(object):
             self._osd_shmem.attach()
             self._osd_shmem.write(chr(BUFFER_UNLOCKED))
 
-
-        # FIXME: don't hardcore buffer dimensions
+        # FIXME: don't hardcode buffer dimensions
         assert(width*height*4 < 2000*2000*4)
-        self._send_command("osd_configure", width, height, aspect)
+        self.rpc("osd_configure", width, height, aspect)
         return self._osd_shmem.addr + 16, width * 4, self._frame_shmem.addr
+
+
+    def handle_xine_event(self, event):
+        if len(event.data) > 1:
+            del event.data["data"]
+        print "EVENT", event.type, event.data
+        if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
+            self.rpc("stream_info", self.get_stream_info())
+        self.rpc("xine_event", event.type, event.data)
+
+
+    # #############################################################################
+    # Commands from parent process
+    # #############################################################################
+
+    def _handle_line(self):
+        data = sys.stdin.read()
+        if len(data) == 0:
+            # Parent likely died.
+            self._handle_command_die()
+        self._stdin_data += data
+        while self._stdin_data.find('\n') >= 0:
+            line = self._stdin_data[:self._stdin_data.find('\n')]
+            self._stdin_data = self._stdin_data[self._stdin_data.find('\n')+1:]
+            command, args, kwargs = eval(line)
+            reply = getattr(self, "_handle_command_" + command)(*args, **kwargs)
+
+
+    def _handle_command_window_changed(self, wid, size, visible, exposed_regions):
+        self._x11_window_size = size
+        self._wid = wid
+        if self._vo:
+            self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
+            self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
     def _handle_command_setup(self, wid):
@@ -174,7 +210,7 @@ class XinePlayerChild(object):
             self._vo = self._xine.open_video_driver("none")
             self._driver_control = None
 
-        self._stream = self._xine.new_stream(self._ao, self._vo) 
+        self._stream = self._xine.new_stream(self._ao, self._vo)
         #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
         self._stream.signals["event"].connect_weak(self.handle_xine_event)
 
@@ -188,7 +224,7 @@ class XinePlayerChild(object):
 
         #self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
         self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
-        self._deint_post.set_parameters(method = config.deinterlacer.method, 
+        self._deint_post.set_parameters(method = config.deinterlacer.method,
                                         chroma_filter = config.deinterlacer.chroma_filter)
 
         #self._stream.get_video_source().wire(self._deint_post.get_default_input())
@@ -216,49 +252,7 @@ class XinePlayerChild(object):
         except xine.XineError:
             # TODO: ipc this
             print "Open failed:", self._stream.get_error()
-        self._send_command("stream_info", self.get_stream_info())
-
-
-    def get_xine(self):
-        return self._xine
-
-    def get_stream(self):
-        return self._stream
-
-
-    def get_stream_info(self):
-        if not self._stream:
-            return {}
-
-        info = {
-            "vfourcc": self._stream.get_info(xine.STREAM_INFO_VIDEO_FOURCC),
-            "afourcc": self._stream.get_info(xine.STREAM_INFO_AUDIO_FOURCC),
-            "vcodec": self._stream.get_meta_info(xine.META_INFO_VIDEOCODEC),
-            "acodec": self._stream.get_meta_info(xine.META_INFO_AUDIOCODEC),
-            "width": self._stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH),
-            "height": self._stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT),
-            "aspect": self._stream.get_info(xine.STREAM_INFO_VIDEO_RATIO) / 10000.0,
-            "fps": self._stream.get_info(xine.STREAM_INFO_FRAME_DURATION),
-            "length": self._stream.get_length(),
-        }
-        if self._x11_last_aspect != -1:
-            # Use the aspect ratio as given to the frame output callback
-            # as it tends to be more reliable (particularly for DVDs).
-            info["aspect"] = self._x11_last_aspect
-        if info["aspect"] == 0 and info["height"] > 0:
-            info["aspect"] = info["width"] / float(info["height"])
-        if info["fps"]:
-            info["fps"] = 90000.0 / info["fps"]
-        return info
-
-
-    def handle_xine_event(self, event):
-        if len(event.data) > 1:
-            del event.data["data"]
-        print "EVENT", event.type, event.data
-        if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
-            self._send_command("stream_info", self.get_stream_info())
-        self._send_command("xine_event", event.type, event.data)
+        self.rpc("stream_info", self.get_stream_info())
 
 
     def _handle_command_osd_update(self, alpha, visible, invalid_regions):
@@ -329,6 +323,9 @@ class XinePlayerChild(object):
 
 
 
+# #############################################################################
+# Main App Class
+# #############################################################################
 
 
 class XinePlayer(MediaPlayer):
@@ -372,7 +369,7 @@ class XinePlayer(MediaPlayer):
             except shm.error:
                 pass
             self._frame_shmem = None
-        
+
 
     def _spawn(self):
         # Launch self (-u is unbuffered stdout)
@@ -385,13 +382,14 @@ class XinePlayer(MediaPlayer):
 
 
 
-    def _send_command(self, command, *args, **kwargs):
+    def rpc(self, command, *args, **kwargs):
         s = repr((command, args, kwargs))
         self._process.write(s + "\n")
 
 
     def _end_child(self):
-        self._send_command("die")
+        self.rpc("die")
+
 
     def die(self):
         if self._process:
@@ -403,6 +401,11 @@ class XinePlayer(MediaPlayer):
         self._remove_shmem()
         self.signals["quit"].emit()
 
+
+
+    # #############################################################################
+    # Commands from child
+    # #############################################################################
 
     def _handle_line(self, line):
         if line and line[0] == "!":
@@ -436,7 +439,7 @@ class XinePlayer(MediaPlayer):
         elif status in (0, 1):
             if self.get_state() in (STATE_PAUSED, STATE_PLAYING):
                 # Stream ended.
-                self._state = STATE_IDLE 
+                self._state = STATE_IDLE
                 self.signals["end"].emit()
 
 
@@ -454,10 +457,10 @@ class XinePlayer(MediaPlayer):
 
         # TODO: remember these values and emit them to new connections to
         # this signal after this point.
-        self.signals["osd_configure"].emit(width, height, self._osd_shmem.addr + 16, 
+        self.signals["osd_configure"].emit(width, height, self._osd_shmem.addr + 16,
                                            width, height)
- 
-            
+
+
     def _handle_command_resize(self, size):
         pass
         #self._window.resize(size)
@@ -466,10 +469,10 @@ class XinePlayer(MediaPlayer):
     def _handle_command_stream_info(self, info):
         changed = info != self._stream_info
         self._stream_info = info
- 
+
         if self._state == STATE_OPENING:
             self._state = STATE_IDLE
-            self._send_command("play")
+            self.rpc("play")
             self.set_frame_output_mode()
 
         if changed:
@@ -480,19 +483,28 @@ class XinePlayer(MediaPlayer):
             self._is_in_menu = data["num_buttons"] > 0
 
 
-    def _handle_window_visibility_event(self):
-        self._send_command("window_changed", self._window.get_id(), self._window.get_size(), self._window.get_visible(), [])
+    # #############################################################################
+    # Window handling
+    # #############################################################################
 
-    def _handle_window_expose_event(self, regions):
-        self._send_command("window_changed", self._window.get_id(), self._window.get_size(), self._window.get_visible(), regions)
 
-    def _handle_window_configure_event(self, pos, size):
-        self._send_command("window_changed", self._window.get_id(), size, self._window.get_visible(), [])
+    def _window_visibility_event(self):
+        self.rpc("window_changed", self._window.get_id(), self._window.get_size(),
+                 self._window.get_visible(), [])
 
-    def _show_window(self):
-        if self._window:
-            self._window.show()
-            self._handle_window_visibility_event()
+    def _window_expose_event(self, regions):
+        self.rpc("window_changed", self._window.get_id(), self._window.get_size(),
+                 self._window.get_visible(), regions)
+
+    def _window_configure_event(self, pos, size):
+        self.rpc("window_changed", self._window.get_id(), size,
+                 self._window.get_visible(), [])
+
+
+
+    # #############################################################################
+    # Public API
+    # #############################################################################
 
 
     def open(self, mrl):
@@ -507,7 +519,7 @@ class XinePlayer(MediaPlayer):
 
     def play(self, video=True):
         if self.get_state() == STATE_PAUSED:
-            self._send_command("play")
+            self.rpc("play")
             return
 
         if self.get_state() == STATE_NOT_RUNNING:
@@ -522,46 +534,46 @@ class XinePlayer(MediaPlayer):
         wid = None
         if self._window:
             wid = self._window.get_id()
-        self._send_command("setup", wid=wid)
+        self.rpc("setup", wid=wid)
 
         self._position = 0.0
-        self._send_command("open", self._mrl)
-        self._state = STATE_OPENING 
- 
+        self.rpc("open", self._mrl)
+        self._state = STATE_OPENING
+
 
     def pause(self):
-        self._send_command("pause")
-        
+        self.rpc("pause")
+
 
     def pause_toggle(self):
         if self.get_state() == STATE_PLAYING:
             self.pause()
         else:
             self.play()
-  
+
     def stop(self):
-        self._send_command("stop")
-        
+        self.rpc("stop")
+
 
     def seek_relative(self, offset):
-        self._send_command("seek", 0, offset)
+        self.rpc("seek", 0, offset)
 
 
     def seek_absolute(self, position):
-        self._send_command("seek", 1, position)
+        self.rpc("seek", 1, position)
 
 
     def seek_percentage(self, percent):
         pos = (percent / 100.0) * 65535
-        self._send_command("seek", 2, pos)
+        self.rpc("seek", 2, pos)
 
     def get_info(self):
         return self._stream_info
 
 
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
-        self._send_command("osd_update", alpha, visible, invalid_regions)
-        
+        self.rpc("osd_update", alpha, visible, invalid_regions)
+
 
     def osd_can_update(self):
         if not self._osd_shmem:
@@ -594,7 +606,7 @@ class XinePlayer(MediaPlayer):
         else:
             self._check_new_frame_timer.stop()
 
-        self._send_command("frame_output", vo, notify, size)
+        self.rpc("frame_output", vo, notify, size)
 
 
     def set_window(self, window):
@@ -603,19 +615,19 @@ class XinePlayer(MediaPlayer):
 
         if old_window and old_window != self._window:
             # Disconnect signals from existing window.
-            old_window.signals["configure_event"].disconnect(self._handle_window_configure_event)
-            old_window.signals["map_event"].disconnect(self._handle_window_visibility_event)
-            old_window.signals["unmap_event"].disconnect(self._handle_window_visibility_event)
-            old_window.signals["expose_event"].disconnect(self._handle_window_expose_event)
+            old_window.signals["configure_event"].disconnect(self._window_configure_event)
+            old_window.signals["map_event"].disconnect(self._window_visibility_event)
+            old_window.signals["unmap_event"].disconnect(self._window_visibility_event)
+            old_window.signals["expose_event"].disconnect(self._window_expose_event)
 
-        if window and window.signals:
-            window.signals["configure_event"].connect_weak(self._handle_window_configure_event)
-            window.signals["map_event"].connect_weak(self._handle_window_visibility_event)
-            window.signals["unmap_event"].connect_weak(self._handle_window_visibility_event)
-            window.signals["expose_event"].connect_weak(self._handle_window_expose_event)
+        if window and window.signals and old_window != self._window:
+            window.signals["configure_event"].connect_weak(self._window_configure_event)
+            window.signals["map_event"].connect_weak(self._window_visibility_event)
+            window.signals["unmap_event"].connect_weak(self._window_visibility_event)
+            window.signals["expose_event"].connect_weak(self._window_expose_event)
 
         # Sends a window_changed command to slave.
-        self._handle_window_visibility_event()
+        self._window_visibility_event()
 
 
     def get_position(self):
@@ -638,7 +650,7 @@ class XinePlayer(MediaPlayer):
 
         if lock & BUFFER_UNLOCKED:
             return
- 
+
         if width > 0 and height > 0 and aspect > 0:
             self.signals["frame"].emit(width, height, aspect, self._frame_shmem.addr + 16, "bgr32")
 
@@ -678,11 +690,11 @@ class XinePlayer(MediaPlayer):
             "9": xine.EVENT_INPUT_NUMBER_9
         }
         if input in map:
-            self._send_command("input", map[input])
+            self.rpc("input", map[input])
 
 
     def is_in_menu(self):
-        return self._is_in_menu 
+        return self._is_in_menu
 
 def get_capabilities():
     caps = (CAP_VIDEO, CAP_AUDIO, CAP_OSD, CAP_CANVAS, CAP_DVD, CAP_DVD_MENUS,
@@ -697,7 +709,7 @@ def get_capabilities():
 if __name__ == "__main__":
     # We're being called as a child.
     import gc
-    #gc.set_debug(gc.DEBUG_COLLECTABLE | gc.DEBUG_UNCOLLECTABLE | gc.DEBUG_INSTANCES | gc.DEBUG_OBJECTS)
+
     player = XinePlayerChild(sys.argv[1])
     kaa.main()
 
@@ -713,8 +725,7 @@ if __name__ == "__main__":
     del player
     gc.collect()
 
+    sys.exit(0)
 
-else:
-    if xine:
-        register_player("xine", XinePlayer, get_capabilities)
 
+register_player("xine", XinePlayer, get_capabilities)
