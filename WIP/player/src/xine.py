@@ -522,15 +522,6 @@ class XinePlayer(MediaPlayer):
             self.rpc("play")
             return
 
-        if self.get_state() == STATE_NOT_RUNNING:
-            if self._window == None and video:
-                # Use the user specified size, or some sensible default.
-                win_size = self._size or (640, 480)
-                window = display.X11Window(size = win_size, title = "Movie Window")
-                # TODO: get from config value
-                window.set_cursor_hide_timeout(0.5)
-                self.set_window(window)
-
         wid = None
         if self._window:
             wid = self._window.get_id()
