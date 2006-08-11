@@ -1,4 +1,5 @@
 import mplayer
+import backends
 
 try:
     import xine
