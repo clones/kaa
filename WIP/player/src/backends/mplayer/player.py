@@ -555,4 +555,5 @@ class MPlayer(MediaPlayer):
             self._slave_cmd("outbuf %d %d %d" % (mode, size[0], size[1]))
 
     def nav_command(self, input):
+        # MPlayer has no dvdnav support (yet).
         return False

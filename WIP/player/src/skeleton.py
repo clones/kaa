@@ -237,14 +237,14 @@ class MediaPlayer(object):
 
     def nav_command(self, input):
         """
-        Get navigation command.
-        FIXME: this function does different stuff in xine
+        Issue the navigation command to the player.  'input' is a string
+        that contains the command.  See Player.nav_command() for possible
+        values.
+
+        Returns True if the nav command is valid for the player, or False
+        otherwise.
         """
-        return input in (
-            "up", "down", "left", "right", "select", "next", "previous",
-            "angle_prev", "angle_next", "menu1", "menu2", "menu3", "menu4"
-            "menu5", "menu6", "menu7", "0", "1", "2", "3", "4", "5", "6" "7",
-            "8", "9")
+        return False
 
 
     def is_in_menu(self):

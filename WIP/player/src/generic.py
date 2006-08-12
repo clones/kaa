@@ -258,10 +258,16 @@ class Player(object):
 
     def nav_command(self, input):
         """
-        Get navigation command.
+        Issue the navigation command to the player.  'input' is a string
+        that contains the command.  Valid commands are: up, down, left, right,
+        select, prev, next, angle_prev, angle_next, menu1, menu2, menu3, menu4,
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
+
+        Returns True if the nav command is valid for the player, or False
+        otherwise.
         """
         if self._player:
-            self._player.nav_command(input)
+            return self._player.nav_command(input)
         return False
 
 

@@ -350,6 +350,8 @@ class Xine(MediaPlayer):
         }
         if input in map:
             self._xine.input(map[input])
+            return True
+        return False
 
 
     def is_in_menu(self):
