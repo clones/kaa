@@ -3,7 +3,8 @@ import os
 
 import kaa.notifier
 
-from kaa.player.skeleton import *
+from kaa.player.skeleton import MediaPlayer
+from kaa.player.ptypes import *
 from kaa.player.utils import ChildProcess
 
 from gst_types import Status

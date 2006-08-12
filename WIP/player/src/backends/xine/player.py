@@ -8,9 +8,9 @@ import kaa.notifier
 import kaa.shm
 import kaa.xine as xine
 
-# player skeleton
-from kaa.player.skeleton import *
-from kaa.player.utils import ChildProcess
+from kaa.player.skeleton import MediaPlayer
+from kaa.player.ptypes import *
+from kaa.player.utils import ChildProcess, parse_mrl
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20

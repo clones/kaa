@@ -1,158 +1,8 @@
 import kaa.notifier
 import threading, re, os, stat, sets
 
-CAP_NONE  = 0
-CAP_VIDEO = 1
-CAP_AUDIO = 2
-CAP_OSD   = 3
-CAP_DVD = 4
-CAP_DVD_MENUS = 5
-CAP_DYNAMIC_FILTERS = 6
-CAP_VARIABLE_SPEED = 7
-CAP_VISUALIZATION = 8
-CAP_DEINTERLACE = 9
-CAP_CANVAS = 10
-
-STATE_NOT_RUNNING = 0
-STATE_IDLE = 1
-STATE_OPENING = 2
-STATE_PLAYING = 3
-STATE_PAUSED = 4
-
-_players = {}
-
-def register_player(player_id, cls, get_caps_callback):
-    assert(issubclass(cls, MediaPlayer))
-    if player_id in _players:
-        raise ValueError, "Player '%s' already registered" % name
-
-    # set player id
-    cls._player_id = player_id
-
-    # FIXME: we just defer calling get_caps_callback until the first time
-    # a player is needed, but we should do this in a thread when the system
-    # is idle.
-    _players[player_id] = {
-        "class": cls,
-        "callback": get_caps_callback,
-        "loaded": False
-    }
-
-def parse_mrl(mrl):
-    """
-    Parses a mrl, returning a 2-tuple (scheme, path) where scheme is the mrl
-    scheme such as file, dvd, fifo, udp, etc., and path is the whatever
-    follows the mrl scheme.  If no mrl scheme is specified in 'mrl', it
-    attempts to make an intelligent choice.
-    """
-    scheme, path = re.search("^(\w{,4}:)?(.*)", mrl).groups()
-    if not scheme:
-        scheme = "file"
-        try:
-            stat_info = os.stat(path)
-        except OSError:
-            return scheme, path
-
-        if stat_info[stat.ST_MODE] & stat.S_IFIFO:
-            scheme = "fifo"
-        else:
-            try:
-                f = open(path)
-            except (OSError, IOError):
-                return scheme, path
-            f.seek(32768, 0)
-            b = f.read(60000)
-            if b.find("UDF") != -1:
-                b = f.read(550000)
-                if b.find('OSTA UDF Compliant') != -1 or b.find("VIDEO_TS") != -1:
-                    scheme = "dvd"
-    else:
-        scheme = scheme[:-1]
-    return scheme, path
-
-
-
-def get_all_player():
-    """
-    Return all player id strings.
-    """
-    return _players.keys()
-
-
-def get_player_class(mrl = None, caps = None, player = None, exclude = None):
-    """
-    Searches the registered players for the most capable player given the mrl
-    or required capabilities.  A specific player can be returned by specifying
-    the player id.  If exclude is specified, it is a name (or list of names)
-    of players to skip (in case one or more players are known not to work with
-    the given mrl).  The player's class object is returned if a suitable
-    player is found, otherwise None.
-    """
-
-    # Ensure all players have their capabilities fetched.
-    for player_id in _players.copy():
-        if _players[player_id]["loaded"]:
-            continue
-
-        player_caps, schemes, exts = _players[player_id]["callback"]()
-        if player_caps != None:
-            _players[player_id].update({
-                "caps": player_caps,
-                "schemes": schemes,
-                # Prefer this player for these extensions.  (It's not a list of
-                # all supported extensions.)
-                "extensions": exts,
-                "loaded": True,
-            })
-        else:
-            del _players[player_id]
-
-
-    if player == mrl == caps == None:
-        # FIXME: return default player?
-        return _players.values()[0]["class"]
-
-    if player != None and player in _players:
-        return _players[player]["class"]
-
-    if mrl != None:
-        scheme, path = parse_mrl(mrl)
-        ext = os.path.splitext(path)[1]
-        if ext:
-            ext = ext[1:]  # Eat leading '.'
-
-    if caps != None and type(caps) not in (tuple, list):
-        caps = (caps,)
-    if exclude != None and type(exclude) not in (tuple, list):
-        exclude  = (exclude,)
-
-    choice = None
-    for player_id, player in _players.items():
-        if mrl != None and scheme not in player["schemes"]:
-            # mrl scheme not supported by this player
-            continue
-        if exclude and player_id in exclude:
-            continue
-        if caps != None:
-            if not sets.Set(caps).issubset(sets.Set(player["caps"])):
-                # Requested capabilities not present.
-                continue
-            if scheme == "dvd" and choice and CAP_DVD_MENUS in choice["caps"] and \
-               CAP_DVD_MENUS not in player["caps"]:
-                # If the mrl is dvd, make sure we prefer the player that
-                # supports CAP_DVD_MENUS
-                continue
-        if mrl and choice and ext in choice["extensions"] and \
-           ext not in player["extensions"]:
-            continue
-
-        choice = player
- 
-    if not choice:
-        return None
- 
-    return choice["class"]
-
+from ptypes import *
+from utils import parse_mrl
 
 class PlayerError(Exception):
     pass
@@ -189,10 +39,10 @@ class MediaPlayer(object):
 
 
     def get_capabilities(self):
-        return _players[self._player_id]["caps"]
+        return self._player_caps        # filled by generic
 
     def get_supported_schemes(self):
-        return _players[self._player_id]["schemes"]
+        return self._player_schemes     # filled by generic
 
     def has_capability(self, cap):
         supported_caps = self.get_capabilities()
@@ -232,8 +82,6 @@ class MediaPlayer(object):
         # get created in the play() call.
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
-
-#         assert(isinstance(window, display.X11Window))
         self._window = window
         
     def set_size(self, size):

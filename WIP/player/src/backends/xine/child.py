@@ -9,8 +9,6 @@ import kaa.xine as xine
 
 from kaa.config import Group, Var
 
-# player skeleton
-from kaa.player.skeleton import *
 from kaa.player.utils import Player
 
 

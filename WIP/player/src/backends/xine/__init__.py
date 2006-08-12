@@ -1,5 +1,6 @@
 from player import Xine
-from kaa.player.skeleton import *
+from kaa.player.generic import register_player
+from kaa.player.ptypes import *
 
 def get_capabilities():
     caps = (CAP_VIDEO, CAP_AUDIO, CAP_OSD, CAP_CANVAS, CAP_DVD, CAP_DVD_MENUS,
