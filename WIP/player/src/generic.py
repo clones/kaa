@@ -42,7 +42,6 @@ import kaa.notifier
 
 # kaa.player imports
 from ptypes import *
-from skeleton import MediaPlayer
 from backends.manager import get_player_class, get_all_players
 
 # get logging object
@@ -70,7 +69,11 @@ class Player(object):
             # Stream ended (either stopped by user or finished)
             "end": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
+            # Emitted when a new frame is availabnle.  See 
+            # set_frame_output_mode() doc for more info.
             "frame": kaa.notifier.Signal(), # CAP_CANVAS
+            # Emitted when OSD buffer has changed.  See osd_update() doc
+            # for more info.
             "osd_configure": kaa.notifier.Signal(),  # CAP_OSD
             # Process is about to die (shared memory will go away)
             "quit": kaa.notifier.Signal()
@@ -335,38 +338,159 @@ class Player(object):
 
     def osd_can_update(self):
         """
-        Return True if the player has an ODS to update.
+        Returns True if it is safe to write to the player's shared memory
+        buffer used for OSD, and False otherwise.  If this buffer is written
+        to even though this function returns False, the OSD may exhibit 
+        corrupt output or tearing during animations.
+
+        The shared memory buffer is provided when the player starts via the
+        'osd_configure' signal.  See osd_update() for more details.
         """
         if self._player:
             return self._player.osd_can_update()
         return False
 
 
-    def osd_update(self, *args, **kwargs):
+    def osd_update(self, alpha = None, visible = None, invalid_regions = None):
         """
-        Update player OSD.
+        Updates the OSD of the player based on the given argments:
+            alpha:  
+                the global alpha level of the OSD, 0 <= x <= 256.  255 means
+                fully opaque, but per-pixel alpha is still considered.  If
+                alpha is 256, the alpha channel of the OSD buffer is ignored
+                and the OSD will fully obstruct the video.  0 is equivalent
+                to setting visible=False.
+
+            visible: 
+                True if the OSD should be visible, False otherwise.  The
+                default state is False.
+
+            invalid_regions: 
+                A list of 4-tuples (left, top, width, height) that indicate
+                regions of the OSD shmem buffer that have been written to and
+                require synchronization with the actual OSD of the player.
+                
+        It is guaranteed that all OSD changes contained in single osd_update()
+        call will be reflected between frames.  Multiple, sequential calls to
+        osd_update() may occur within one or more frames, but it is
+        non-deterministic.
+
+        The typical flow happens like this: the application draws to the OSD
+        using a higher level canvas API.  When finished, it then waits for
+        osd_can_update() to return True.  The canvas then renders the updates
+        to the shared memory buffer (passed in 'osd_configure' signal, see
+        below) and returns a list of regions that were updated.  osd_update()
+        is then called, providing the list of regions in invalid_regions.  The
+        alpha and visible parameters can optionally be passed at this time as
+        well.
+
+        It is only ever necessary to check osd_can_update() when you intend to
+        pass invalid_regions to osd_update().  If you just want to update the
+        alpha or visibiliy, you can call osd_update() at any time.
+
+        The shared memory address for the OSD buffer is passed via the
+        'osd_configure' signal.  Callbacks that connect to this signal will
+        receive 5 arguments: width, height, buffer_addr, buffer_width,
+        buffer_height.
+
+            width, height:
+                Indicates the size of the OSD, which is probably the size of
+                the video.  This is the drawable area for the OSD overlay.
+
+            buffer_addr:
+                The address to the shared memory buffer.  Pixels are in BGRA
+                format.  Note that although this is refered to as a buffer,
+                it's an integer value representing memory address of the
+                buffer, not a Python buffer object.
+
+            buffer_width, buffer_height:
+                Indicates the size of the OSD buffer.  The buffer pointed to
+                by buffer_addr is at least buffer_width*buffer_height*4 bytes
+                in size.  The rowstride of the image is buffer_width*4.
+
+        This signal is typically emitted as soon as the resolution of the video
+        is known.
+
         """
         if self._player:
-            return self._player.osd_update(*args, **kwargs)
+            return self._player.osd_update(alpha, visible, invalid_regions)
 
 
     # For CAP_CANVAS
 
     def set_frame_output_mode(self, vo = None, notify = None, size = None):
         """
-        If vo is True, render video to the vo driver's video window.  If
-        False, suppress.  If notify is True, emit 'frame' signal when new
-        frame available.  size is a 2-tuple containing the target size of the
-        frame as given to the 'frame' signal callback.  If any are None, do
-        not alter the status since last call.
+        Controls if and how frames are delivered via the 'frame' signal, and
+        whether or not frames are drawn to the vo driver's video window.
+
+            vo:
+                If True, video will be passed to the player's vo driver for
+                rendering (as is the case during normal operation).  If False,
+                video will be suppressed.
+
+            notify:
+                If True, each time the player is about to draw a new video
+                frame, a 'frame' signal is emitted with the particulars (see
+                below).
+
+            size:
+                A 2-tuple of (width, height) that specifies the desired target
+                size of the frame as provided to callbacks connected to the
+                'frame' signal.  It's not guaranteed that the frame size will
+                be this size, so consider this only a "serving suggestion."
+                This does not affect the video rendered to the vo driver's
+                output.
+
+        If any of these parameters are None, their state will not be altered.
+     
+        When notify is True, the 'frame' signal will be emitted for every new
+        frame.  Callbacks connected to this signal will receive 5 argments:
+        width, height, aspect, buffer_addr, format.  
+        
+            width, height:
+                Width and height specify the size of the frame.  Note that this
+                size may not be the size that was passed to the last call to
+                set_frame_output_mode() (perhaps the player's scaler couldn't
+                scale to the requested size, or the frame was deposited before
+                the resize request was received.)  
+
+            aspect:
+                A float specifying the aspect ratio of the given frame.
+
+            buffer_addr:
+                The memory address containing frame data.  The format of this
+                data depends on the format parameter.  Note that although this
+                is refered to as a buffer, it's an integer value representing
+                memory address of the buffer, not a Python buffer object.
+
+            format:
+                A string specifying the format of the frame.  Supported formats
+                are "yv12" or "bgr32".  If bgr32, the buffer pointed to by
+                'buffer_addr' will be width*height*4 in size and pixels will be
+                in BGR32 format.  If yv12, frame is in planar format, where
+                each plane is stored contiguously in memory.  The buffer size
+                will be width*height*2, and planes are stored in YCrCb order.
+
+        After handling a frame delivered by the frame signal, you must call
+        unlock_frame_buffer().
         """
+        # TODO: ability to specify colorspace of frame.
         if self._player:
             return self._player.set_frame_output_mode()
 
 
     def unlock_frame_buffer(self):
         """
-        Unlocks the frame buffer provided by 'frame' signal.
+        Unlocks the frame buffer provided by the last 'frame' signal
+
+        When a frame is delivered via the frame signal, its buffer is locked,
+        preventing the player from writing a new frame to the buffer, giving
+        you the opportunity to process the frame without the risk that it gets
+        munged.  When you're done with the frame buffer, call this function.
+
+        Failure to call this function will cause the player to drop frames.
+        Audio may stutter, depending on how gracefully the player handles this
+        delay.
         """
         if self._player:
             return self._player.unlock_frame_buffer()

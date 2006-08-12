@@ -35,7 +35,7 @@ __all__ = [ 'register', 'get_player_class', 'get_all_players' ]
 import os
 
 # kaa.player imports
-from kaa.player.generic import MediaPlayer
+from kaa.player.backends.base import MediaPlayer
 from kaa.player.ptypes import *
 
 # internal list of players

@@ -8,7 +8,7 @@ import kaa.notifier
 import kaa.shm
 import kaa.xine as xine
 
-from kaa.player.skeleton import MediaPlayer
+from kaa.player.backends.base import MediaPlayer
 from kaa.player.ptypes import *
 from kaa.player.utils import ChildProcess, parse_mrl
 

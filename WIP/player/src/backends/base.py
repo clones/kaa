@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# skeleton.py - Skeleton for backend player
+# base.py - Base class (protocol) for backend players
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-player - Generic Player API
+# Kaa-player - Generic Player API
 # Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
@@ -36,8 +36,8 @@ import sets
 import kaa.notifier
 
 # kaa.player imports
-from ptypes import *
-from utils import parse_mrl
+from kaa.player.ptypes import *
+from kaa.player.utils import parse_mrl
 
 class PlayerError(Exception):
     pass
@@ -238,8 +238,8 @@ class MediaPlayer(object):
     def nav_command(self, input):
         """
         Issue the navigation command to the player.  'input' is a string
-        that contains the command.  See Player.nav_command() for possible
-        values.
+        that contains the command.  See Player class for possible
+        values and more documentation.
 
         Returns True if the nav command is valid for the player, or False
         otherwise.
@@ -258,14 +258,16 @@ class MediaPlayer(object):
 
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
         """
-        Return True if the player has an ODS to update.
+        Updates the player OSD.  See Player.osd_update() for full doc.
         """
         pass
 
 
     def osd_can_update(self):
         """
-        Update player OSD.
+        Returns True if it's safe to write to the OSD shmem buffer.  
+        
+        See Player class for full doc.
         """
         pass
 
@@ -274,11 +276,9 @@ class MediaPlayer(object):
 
     def set_frame_output_mode(self, vo = None, notify = None, size = None):
         """
-        If vo is True, render video to the vo driver's video window.  If
-        False, suppress.  If notify is True, emit 'frame' signal when new
-        frame available.  size is a 2-tuple containing the target size of the
-        frame as given to the 'frame' signal callback.  If any are None, do
-        not alter the status since last call.
+        Controls if and how frames are delivered via the 'frame' signal.
+
+        See Player class for full doc.
         """
         pass
 
@@ -286,5 +286,7 @@ class MediaPlayer(object):
     def unlock_frame_buffer(self):
         """
         Unlocks the frame buffer provided by 'frame' signal.
+
+        See Player class for full doc.
         """
         pass

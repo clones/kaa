@@ -2,7 +2,7 @@ import os, re, string, tempfile, time, stat, threading, md5, struct
 from kaa import notifier, display, shm
 import kaa
 import kaa.utils
-from kaa.player.skeleton import MediaPlayer
+from kaa.player.backends.base import MediaPlayer
 from kaa.player.ptypes import *
 from kaa.player.utils import parse_mrl
 
