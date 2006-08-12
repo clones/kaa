@@ -1,5 +1,5 @@
 from player import Xine
-from kaa.player.generic import register_player
+from kaa.player.backends import register
 from kaa.player.ptypes import *
 
 def get_capabilities():
@@ -12,4 +12,4 @@ def get_capabilities():
     return caps, schemes, exts
 
 
-register_player("xine", Xine, get_capabilities)
+register("xine", Xine, get_capabilities)

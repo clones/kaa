@@ -1,7 +1,7 @@
 import kaa.utils
 
 from player import MPlayer, _get_mplayer_info
-from kaa.player.generic import register_player
+from kaa.player.backends import register
 from kaa.player.ptypes import *
 
 def get_capabilities():
@@ -22,4 +22,4 @@ def get_capabilities():
     exts = ["avi", "wmv", "mkv", "asf", "mov"]  # FIXME: complete.
     return capabilities, schemes, exts
 
-register_player("mplayer", MPlayer, get_capabilities)
+register("mplayer", MPlayer, get_capabilities)
