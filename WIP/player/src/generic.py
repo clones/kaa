@@ -128,8 +128,9 @@ class Player(object):
 
     def get_player_id(self):
         if self._player:
-            return self._player.get_player_id()
-
+            return self._player._player_id
+        return ''
+    
     def get_window(self):
         if self._player:
             return self._player.get_window()
