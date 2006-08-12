@@ -62,6 +62,8 @@ _kaa_frame_to_buffer(kaa_vo_user_data *user_data, vo_frame_t *frame, kaa_frame_u
     if (dst_width <= 0 || dst_height <= 0)
         return;
 
+    // TODO: use swscaler when it's available.
+
     if (frame->format == XINE_IMGFMT_YUY2 && dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
         y_stride = 8*((frame->width + 7) / 8);
         uv_stride = 8*((frame->width + 15) / 16);
@@ -166,6 +168,9 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
             header.aspect = frame->ratio;
             memcpy(user_data->frame_buffer, &header, sizeof(header));
             *user_data->frame_buffer = 0x20;
+
+            // TODO: could callback into python to notify new frame.  (Note:
+            // we're in a thread here, will require GIL.)
             break;
         }
     }
