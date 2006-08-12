@@ -6,6 +6,8 @@ import kaa.notifier
 from kaa.player.skeleton import *
 from kaa.player.utils import ChildProcess
 
+from gst_types import Status
+
 class GStreamer(MediaPlayer):
 
     _instance_count = 0
@@ -23,7 +25,8 @@ class GStreamer(MediaPlayer):
         self.player.signals["completed"].connect_weak(self._exited)
         self.player.set_stop_command(notifier.WeakCallback(self._end_child))
         self.player.start()
-
+        self._play_wait = None
+        
 
     def _exited(self, exitcode):
         self._state = STATE_NOT_RUNNING
@@ -36,11 +39,16 @@ class GStreamer(MediaPlayer):
 
     # child handling
     
-    def _child_set_status(self, pos):
-        if self.get_state() not in (STATE_PAUSED, STATE_PLAYING):
-            self.signals["start"].emit()
-            self._state = STATE_PLAYING
-        self._position = pos
+    def _child_set_status(self, status, pos):
+        if status == Status.PLAYING:
+            if self._play_wait:
+                self._play_wait.finished(True)
+            self._position = pos
+            return True
+
+        self._position = 0
+        if status == Status.IDLE and self._play_wait:
+            self._play_wait.finished(False)
 
         
     # public API
@@ -52,10 +60,16 @@ class GStreamer(MediaPlayer):
         self.signals["open"].emit()
 
 
+    @kaa.notifier.yield_execution()
     def play(self, video=True):
+        """
+        Start playing. If playback is paused, resume. If not wait
+        async until either the playing has started or an error
+        occurred.
+        """
         if self.get_state() == STATE_PAUSED:
             self.player.play()
-            return
+            yield True
 
         wid = None
         if self._window:
@@ -65,6 +79,21 @@ class GStreamer(MediaPlayer):
         self._position = 0.0
         self.player.open(self._mrl)
         self._state = STATE_OPENING
+
+        # wait for child to start
+        self._play_wait = kaa.notifier.InProgress()
+        yield self._play_wait
+        playing = self._play_wait()
+        self._play_wait = None
+
+        if not playing:
+            self._state = STATE_IDLE
+            print 'Unable to play the stream'
+            yield False
+            
+        self.signals["start"].emit()
+        self._state = STATE_PLAYING
+        yield True
 
 
     def pause(self):
