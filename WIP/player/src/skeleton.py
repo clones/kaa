@@ -1,6 +1,41 @@
-import kaa.notifier
-import threading, re, os, stat, sets
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# skeleton.py - Skeleton for backend player
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa-player - Generic Player API
+# Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
+#
+# First Edition: Jason Tackaberry <tack@sault.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
 
+# python imports
+import sets
+
+# kaa imports
+import kaa.notifier
+
+# kaa.player imports
 from ptypes import *
 from utils import parse_mrl
 
@@ -39,22 +74,42 @@ class MediaPlayer(object):
 
 
     def get_capabilities(self):
+        """
+        Return player capabilities.
+        """
         return self._player_caps        # filled by generic
 
+
     def get_supported_schemes(self):
+        """
+        Return supported schemes.
+        """
         return self._player_schemes     # filled by generic
 
+
     def has_capability(self, cap):
+        """
+        Return if the player has the given capability.
+        """
         supported_caps = self.get_capabilities()
         if type(cap) not in (list, tuple):
             return cap in supported_caps
-
         return sets.Set(cap).issubset(sets.Set(supported_caps))
 
+
+    # state handling
+
     def get_state(self):
+        """
+        Get current state.
+        """
         return self._state_object
 
+
     def _set_state(self, state):
+        """
+        Set state and emit 'failed', 'start' or 'end' signal if needed.
+        """
         # handle state changes
         if self._state == STATE_OPENING and \
                state in (STATE_IDLE, STATE_NOT_RUNNING):
@@ -69,22 +124,37 @@ class MediaPlayer(object):
         # save new state
         self._state_object = state
 
-    _state = property(get_state, _set_state, None, '')
-    
-    def get_window(self):
-        return self._window
+    # state property based on get_state and _set_state
+    _state = property(get_state, _set_state, None, 'state of the player')
 
-    def is_paused(self):
-        return self.state == STATE_PAUSED
 
     def set_window(self, window):
-        # Caller can pass his own X11Window here.  If it's None, it will
-        # get created in the play() call.
+        """
+        Set a window for the player.
+        """
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._window = window
-        
+
+
+    def is_paused(self):
+        """
+        Return if the player is paused.
+        """
+        return self.state == STATE_PAUSED
+
+
+    def is_playing(self):
+        """
+        Return if the player is playing.
+        """
+        return self.state == STATE_PLAYING
+
+
     def set_size(self, size):
+        """
+        Set a new output size.
+        """
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._size = size
@@ -95,31 +165,67 @@ class MediaPlayer(object):
     #
 
     def open(self, mrl):
+        """
+        Open mrl.
+        """
         pass
+
 
     def play(self):
+        """
+        Start or resume playback.
+        """
         pass
 
-    def pause(self):
-        pass
-
-    def pause_toggle(self):
-        pass
 
     def stop(self):
+        """
+        Stop playback.
+        """
         pass
+
+
+    def pause(self):
+        """
+        Pause playback.
+        """
+        pass
+
+
+    def die(self):
+        """
+        Kills the player.  No more files may be played once die() is called.
+        """
+        pass
+
 
     def seek_relative(self, offset):
+        """
+        Seek relative.
+        """
         pass
+
 
     def seek_absolute(self, position):
+        """
+        Seek absolute.
+        """
         pass
+
 
     def seek_percentage(self, percent):
+        """
+        Seek percentage.
+        """
         pass
 
+
     def get_position(self):
+        """
+        Get current playing position.
+        """
         pass
+
 
     def get_info(self):
         """
@@ -128,44 +234,57 @@ class MediaPlayer(object):
         """
         pass
 
+
     def nav_command(self, input):
+        """
+        Get navigation command.
+        FIXME: this function does different stuff in xine
+        """
         return input in (
             "up", "down", "left", "right", "select", "next", "previous",
             "angle_prev", "angle_next", "menu1", "menu2", "menu3", "menu4"
             "menu5", "menu6", "menu7", "0", "1", "2", "3", "4", "5", "6" "7",
             "8", "9")
 
+
     def is_in_menu(self):
+        """
+        Return True if the player is in a navigation menu.
+        """
         return False
+
 
     # For CAP_OSD
 
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
+        """
+        Return True if the player has an ODS to update.
+        """
         pass
+
 
     def osd_can_update(self):
+        """
+        Update player OSD.
+        """
         pass
 
+
     # For CAP_CANVAS
-    
+
     def set_frame_output_mode(self, vo = None, notify = None, size = None):
         """
         If vo is True, render video to the vo driver's video window.  If
-        False, suppress.  If notify is True, emit "frame" signal when new 
+        False, suppress.  If notify is True, emit 'frame' signal when new
         frame available.  size is a 2-tuple containing the target size of the
-        frame as given to the "frame" signal callback.  If any are None, do 
+        frame as given to the 'frame' signal callback.  If any are None, do
         not alter the status since last call.
         """
         pass
 
+
     def unlock_frame_buffer(self):
         """
-        Unlocks the frame buffer provided by "frame" signal.
-        """
-        pass
-
-    def die(self):
-        """
-        Kills the player.  No more files may be played once die() is called.
+        Unlocks the frame buffer provided by 'frame' signal.
         """
         pass

@@ -425,13 +425,6 @@ class MPlayer(MediaPlayer):
         if self.get_state() == STATE_PLAYING:
             self._slave_cmd("pause")
 
-    def pause_toggle(self):
-        if self.get_state() == STATE_PAUSED:
-            self.play()
-        else:
-            self.pause()
-
-
     def seek_relative(self, offset):
         self._slave_cmd("seek %f 0" % offset)
 

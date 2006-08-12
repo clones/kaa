@@ -214,12 +214,6 @@ class Xine(MediaPlayer):
         self._xine.pause()
 
 
-    def pause_toggle(self):
-        if self.get_state() == STATE_PLAYING:
-            self.pause()
-        else:
-            self.play()
-
     def stop(self):
         self._xine.stop()
 

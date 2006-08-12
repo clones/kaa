@@ -1,13 +1,51 @@
-__all__ = [ 'register', 'get_player_class', 'get_all_player' ]
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# manager - manage the loaded backends
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa-player - Generic Player API
+# Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
+#
+# First Edition: Jason Tackaberry <tack@sault.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
 
+__all__ = [ 'register', 'get_player_class', 'get_all_players' ]
+
+# python imports
 import os
 
+# kaa.player imports
 from kaa.player.generic import MediaPlayer
 from kaa.player.ptypes import *
 
+# internal list of players
 _players = {}
 
+
 def register(player_id, cls, get_caps_callback):
+    """
+    Register a new player.
+    """
     assert(issubclass(cls, MediaPlayer))
     if player_id in _players:
         raise ValueError, "Player '%s' already registered" % name
@@ -23,6 +61,7 @@ def register(player_id, cls, get_caps_callback):
         "callback": get_caps_callback,
         "loaded": False
     }
+
 
 def get_player_class(mrl = None, caps = None, player = None, exclude = None):
     """
@@ -57,7 +96,9 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
 
 
     if player == mrl == caps == None:
-        # FIXME: return default player?
+        # FIXME: return the best possible player. This requires a new
+        # register function with more information about how good a player
+        # is for playing a specific mrl.
         return _players.values()[0]["class"]
 
     if player != None and player in _players:
@@ -85,8 +126,9 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
             if not sets.Set(caps).issubset(sets.Set(player["caps"])):
                 # Requested capabilities not present.
                 continue
-            if scheme == "dvd" and choice and CAP_DVD_MENUS in choice["caps"] and \
-               CAP_DVD_MENUS not in player["caps"]:
+            if scheme == "dvd" and choice and \
+                   CAP_DVD_MENUS in choice["caps"] and \
+                   CAP_DVD_MENUS not in player["caps"]:
                 # If the mrl is dvd, make sure we prefer the player that
                 # supports CAP_DVD_MENUS
                 continue
@@ -95,14 +137,14 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
             continue
 
         choice = player
- 
+
     if not choice:
         return None
- 
+
     return choice["class"]
 
 
-def get_all_player():
+def get_all_players():
     """
     Return all player id strings.
     """

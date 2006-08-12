@@ -1,20 +1,72 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# ipc.py - IPC for kaa.player and childs
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# This module defines some code that makes communication between the parent
+# process and a forked python based proces much easier.
+#
+# -----------------------------------------------------------------------------
+# kaa-player - Generic Player API
+# Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+__all__ = [ 'ChildProcess', 'Player' ]
+
+# python imports
 import os
 import sys
 import fcntl
-import kaa.notifier
+import logging
 
+# kaa imports
+import kaa.notifier
 from kaa.weakref import weakref
 
+# get logging object
+log = logging.getLogger('player.child')
+
 class ChildCommand(object):
+    """
+    A command or message for the child.
+    """
     def __init__(self, fd, cmd):
         self._fd = fd
         self._cmd = cmd
 
+
     def __call__(self, *args, **kwargs):
+        """
+        Send command to child.
+        """
         self._fd(repr((self._cmd, args, kwargs)) + "\n")
 
-        
+
 class ChildProcess(object):
+    """
+    A child process with communication helpers.
+    """
     def __init__(self, parent, *args):
         # Launch (-u is unbuffered stdout)
         self._parent = weakref(parent)
@@ -22,37 +74,64 @@ class ChildProcess(object):
         self._child.signals["stdout"].connect_weak(self._handle_line)
         self._child.signals["stderr"].connect_weak(self._handle_line)
 
+
     def start(self):
+        """
+        Start child.
+        """
         self._child.start()
 
+
     def _handle_line(self, line):
-        if line and line[0] == "!":
-            command, args, kwargs = eval(line[1:])
+        """
+        Handle line from child.
+        """
+        if line and line.startswith("!kaa!"):
+            # ipc command from child
+            command, args, kwargs = eval(line[5:])
             getattr(self._parent, "_child_" + command)(*args, **kwargs)
         else:
-            print "CHILD[%d]: %s" % (self._child.child.pid, line)
+            # same debug
+            log.info("CHILD[%d]: %s", self._child.child.pid, line)
+
 
     def __getattr__(self, attr):
+        """
+        Return ChildCommand object.
+        """
         if attr in ('signals', 'set_stop_command'):
             return getattr(self._child, attr)
         return ChildCommand(self._child.write, attr)
 
-    
+
 class ParentCommand(object):
+    """
+    A command for the parent.
+    """
     def __init__(self, cmd):
         self._cmd = cmd
 
+
     def __call__(self, *args, **kwargs):
-        sys.stderr.write("!" + repr( (self._cmd, args, kwargs) ) + "\n")
+        """
+        Send command to parent.
+        """
+        sys.stderr.write("!kaa!" + repr( (self._cmd, args, kwargs) ) + "\n")
 
-        
+
 class Parent(object):
-
+    """
+    Object representing the parent.
+    """
     def __getattr__(self, attr):
         return ParentCommand(attr)
 
 
 class Player(object):
+    """
+    Child app player. The object has a memeber 'parent' to send commands
+    to the parent and need to implement the function the parent is calling.
+    """
     def __init__(self):
         monitor = kaa.notifier.WeakSocketDispatcher(self._handle_line)
         monitor.register(sys.stdin.fileno())
@@ -60,9 +139,12 @@ class Player(object):
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, flags | os.O_NONBLOCK)
         self._stdin_data = ''
         self.parent = Parent()
-    
+
 
     def _handle_line(self):
+        """
+        Handle data from stdin.
+        """
         data = sys.stdin.read()
         if len(data) == 0:
             # Parent likely died.
