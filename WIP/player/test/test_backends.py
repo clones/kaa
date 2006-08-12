@@ -21,6 +21,11 @@ player.signals["end"].connect(print_msg, 'playback end')
 player.signals["failed"].connect(print_msg, 'playback failed')
 
 
-kaa.notifier.OneShotTimer(next, 'gstreamer').start(0)
+kaa.notifier.OneShotTimer(next, 'xine').start(0)
+kaa.notifier.OneShotTimer(next, 'gstreamer').start(5)
+kaa.notifier.OneShotTimer(next, 'mplayer').start(10)
+kaa.notifier.OneShotTimer(next, 'xine').start(15)
+kaa.notifier.OneShotTimer(next, 'gstreamer').start(20)
+kaa.notifier.OneShotTimer(next, 'mplayer').start(25)
 
 kaa.main()

@@ -19,14 +19,17 @@ class GStreamer(MediaPlayer):
 
         self._stream_info = {}
         self._position = 0.0
+        self._state = STATE_NOT_RUNNING
 
+
+    def _span(self):
         script = os.path.join(os.path.dirname(__file__), 'child.py')
         self.player = ChildProcess(self, script, str(self._instance_id))
         self.player.signals["completed"].connect_weak(self._exited)
-        self.player.set_stop_command(notifier.WeakCallback(self._end_child))
+        self.player.set_stop_command(kaa.notifier.WeakCallback(self._end_child))
         self.player.start()
-        self._play_wait = None
-        
+        self._state = STATE_IDLE
+        self._stopping = False
 
     def _exited(self, exitcode):
         self._state = STATE_NOT_RUNNING
@@ -41,16 +44,18 @@ class GStreamer(MediaPlayer):
     
     def _child_set_status(self, status, pos):
         if status == Status.PLAYING:
-            if self._play_wait:
-                self._play_wait.finished(True)
+            if not self.get_state() in (STATE_PLAYING, STATE_PAUSED):
+                self._state = STATE_PLAYING
             self._position = pos
             return True
-
+        if status == Status.IDLE:
+            if self._stopping and self._state == STATE_OPENING:
+                self._stopping = False
+            else:
+                self._state = STATE_IDLE
         self._position = 0
-        if status == Status.IDLE and self._play_wait:
-            self._play_wait.finished(False)
-
         
+
     # public API
     
     def open(self, mrl):
@@ -58,9 +63,10 @@ class GStreamer(MediaPlayer):
             mrl = 'file://' + mrl
         self._mrl = mrl
         self.signals["open"].emit()
+        if self._state == STATE_NOT_RUNNING:
+            self._span()
 
 
-    @kaa.notifier.yield_execution()
     def play(self, video=True):
         """
         Start playing. If playback is paused, resume. If not wait
@@ -69,7 +75,7 @@ class GStreamer(MediaPlayer):
         """
         if self.get_state() == STATE_PAUSED:
             self.player.play()
-            yield True
+            return True
 
         wid = None
         if self._window:
@@ -77,23 +83,10 @@ class GStreamer(MediaPlayer):
         self.player.setup(wid=wid)
 
         self._position = 0.0
+
         self.player.open(self._mrl)
         self._state = STATE_OPENING
-
-        # wait for child to start
-        self._play_wait = kaa.notifier.InProgress()
-        yield self._play_wait
-        playing = self._play_wait()
-        self._play_wait = None
-
-        if not playing:
-            self._state = STATE_IDLE
-            print 'Unable to play the stream'
-            yield False
-            
-        self.signals["start"].emit()
-        self._state = STATE_PLAYING
-        yield True
+        return
 
 
     def pause(self):
@@ -108,7 +101,15 @@ class GStreamer(MediaPlayer):
 
 
     def stop(self):
+        self._stopping = True
         self.player.stop()
+        self._state = STATE_IDLE
+
+
+    def die(self):
+        self.stop()
+        self.player.die()
+        self._state = STATE_NOT_RUNNING
 
 
     def get_info(self):

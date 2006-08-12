@@ -120,7 +120,6 @@ class MPlayer(MediaPlayer):
 
         self._process = None
         self._state = STATE_NOT_RUNNING
-        self._state_data = None
         self._overlay_shmem = None
         self._outbuf_shmem = None
         self._file = None
@@ -192,10 +191,6 @@ class MPlayer(MediaPlayer):
             # TODO: handle me
             raise info
         self._mp_info = info
-        if self._state_data:
-            file, args = self._state_data
-            self._state_data = None
-            self._start(file, args)
 
 
     def _handle_line(self, line):
@@ -222,7 +217,6 @@ class MPlayer(MediaPlayer):
                 if self._state not in (STATE_PAUSED, STATE_PLAYING):
                     self.set_frame_output_mode()
                     self._state = STATE_PLAYING
-                    self.signals["start"].emit()
                     self.signals["stream_changed"].emit()
                 elif self._state != STATE_PLAYING:
                     self._state = STATE_PLAYING
@@ -290,7 +284,6 @@ class MPlayer(MediaPlayer):
 
         elif line.startswith("EOF code"):
             if self._state in (STATE_PLAYING, STATE_PAUSED):
-                self.signals["end"].emit()
                 self._state = STATE_IDLE
 
         elif line.startswith("Parsing input"):
@@ -323,46 +316,6 @@ class MPlayer(MediaPlayer):
         return int(md5.md5(name).hexdigest()[:7], 16)
 
 
-    def _start(self, file, user_args = None):
-        assert(self._mp_info)
-
-        keyfile = self._make_dummy_input_config()
-
-        filters = self._filters_pre[:]
-        if 'outbuf' in self._mp_info['video_filters']:
-            filters += ["outbuf=%s:yv12" % self._get_outbuf_shm_key()]
-
-        filters += ["scale=%d:-2" % self._size[0], "expand=%d:%d" % self._size,
-                    "dsize=%d:%d" % self._size ]
-
-        # FIXME: check freevo filter list and add stuff like pp
-
-        filters += self._filters_add
-        if 'overlay' in self._mp_info['video_filters']:
-            filters += ["overlay=%s" % self._get_overlay_shm_key()]
-
-        args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
-                 "-nomouseinput", "-nodouble", "-fixed-vo", "-identify", \
-                 "-framedrop", "-idle", "-vf", ",".join(filters) ]
-
-        if isinstance(self._window, display.X11Window):
-            args.extend((
-                "-wid", hex(self._window.get_id()),
-                "-display", self._window.get_display().get_string(),
-                "-input", "conf=%s" % keyfile))
-
-        if user_args:
-            if isinstance(user_args, str):
-                user_args = user_args.split(' ')
-            args.extend(user_args)
-
-        if file:
-            args.append(file)
-
-        self._spawn(args)
-        self._state = STATE_OPENING
-
-
     def _slave_cmd(self, cmd):
         if not self.is_alive():
             return False
@@ -373,13 +326,11 @@ class MPlayer(MediaPlayer):
 
 
     def _exited(self, exitcode):
-        if self._state in (STATE_PLAYING, STATE_PAUSED):
-            self.signals["end"].emit()
-
         self._state = STATE_NOT_RUNNING
         self.signals["quit"].emit()
-        if exitcode != 0:
-            raise MPlayerExitError, (exitcode, self._last_line)
+        # exit code is strange somehow
+        # if exitcode != 0:
+        #     raise MPlayerExitError, (exitcode, self._last_line)
 
 
     def is_alive(self):
@@ -414,31 +365,58 @@ class MPlayer(MediaPlayer):
         self.signals["open"].emit()
 
 
-
     def play(self):
         state = self.get_state()
         if state == STATE_PAUSED:
             self._slave_cmd("pause")
-        elif state == STATE_IDLE:
-            # FIXME: DVD ISO files will require a restart (for -dvd-device)
-            #self._slave_cmd("loadfile \"%s\"" % self._file)
-            return
+            return True
 
         if state != STATE_NOT_RUNNING:
-            return
-
-        if not self._mp_info:
-            # We're probably waiting for _get_mplayer_info() to finish; set
-            # state so that _handle_mp_info() will call _start().  There's no
-            # race condition here if we're currently in the main thread,
-            # because _handle_mp_info() is guaranteed to be called in the
-            # main thread.
-            self._state = STATE_OPENING
-            self._state_data = self._file, self._file_args
+            print 'Error: not idle'
             return False
 
-        self._start(self._file, self._file_args)
-        return True
+        # we know that self._mp_info has to be there or the object would
+        # not be selected by the generic one. FIXME: verify that!
+        assert(self._mp_info)
+
+        keyfile = self._make_dummy_input_config()
+
+        filters = self._filters_pre[:]
+        if 'outbuf' in self._mp_info['video_filters']:
+            filters += ["outbuf=%s:yv12" % self._get_outbuf_shm_key()]
+
+        filters += ["scale=%d:-2" % self._size[0], "expand=%d:%d" % self._size,
+                    "dsize=%d:%d" % self._size ]
+
+        # FIXME: check freevo filter list and add stuff like pp
+
+        filters += self._filters_add
+        if 'overlay' in self._mp_info['video_filters']:
+            filters += ["overlay=%s" % self._get_overlay_shm_key()]
+
+        args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
+                 "-nomouseinput", "-nodouble", "-fixed-vo", "-identify", \
+                 "-framedrop", "-vf", ",".join(filters) ]
+
+        if isinstance(self._window, display.X11Window):
+            args.extend((
+                "-wid", hex(self._window.get_id()),
+                "-display", self._window.get_display().get_string(),
+                "-input", "conf=%s" % keyfile))
+
+        if self._file_args:
+            if isinstance(self._file_args, str):
+                args.extend(self._file_args.split(' '))
+            else:
+                args.extend(self._file_args)
+
+        if self._file:
+            args.append(self._file)
+
+        self._spawn(args)
+        self._state = STATE_OPENING
+
+        return
 
 
     def pause(self):

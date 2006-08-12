@@ -1,5 +1,5 @@
 import backends
-
+import kaa.notifier
 from skeleton import *
 
 class Player(object):
@@ -20,28 +20,33 @@ class Player(object):
             self.signals = {}
 
         self.signals.update({
-            "pause": notifier.Signal(),
-            "play": notifier.Signal(),
-            "pause_toggle": notifier.Signal(),
-            "seek": notifier.Signal(),
-            "open": notifier.Signal(),
-            "start": notifier.Signal(),
+            "pause": kaa.notifier.Signal(),
+            "play": kaa.notifier.Signal(),
+            "pause_toggle": kaa.notifier.Signal(),
+            "seek": kaa.notifier.Signal(),
+            "open": kaa.notifier.Signal(),
+            "start": kaa.notifier.Signal(),
+            "failed": kaa.notifier.Signal(),
             # Stream ended (either stopped by user or finished)
-            "end": notifier.Signal(),
-            "stream_changed": notifier.Signal(),
-            "frame": notifier.Signal(), # CAP_CANVAS
-            "osd_configure": notifier.Signal(),  # CAP_OSD
+            "end": kaa.notifier.Signal(),
+            "stream_changed": kaa.notifier.Signal(),
+            "frame": kaa.notifier.Signal(), # CAP_CANVAS
+            "osd_configure": kaa.notifier.Signal(),  # CAP_OSD
             # Process is about to die (shared memory will go away)
-            "quit": notifier.Signal()
+            "quit": kaa.notifier.Signal()
         })
 
 
     def open(self, mrl, caps = None, player = None):
         cls = get_player_class(mrl = mrl, player = player, caps = caps)
+        self._open_mrl = mrl
+        self._open_caps = caps
+        
         if not cls:
             raise PlayerError("No supported player found to play %s", mrl)
 
         if self._player != None:
+            running = self._player.get_state() != STATE_NOT_RUNNING
             self._player.stop()
             if isinstance(self._player, cls):
                 return self._player.open(mrl)
@@ -49,9 +54,10 @@ class Player(object):
             # Continue open once our current player is dead.  We want to wait
             # before spawning the new one so that it releases the audio 
             # device.
-            self._player.signals["quit"].connect_once(self._open, mrl, cls)
-            self._player.die()
-            return
+            if running:
+                self._player.signals["quit"].connect_once(self._open, mrl, cls)
+                self._player.die()
+                return
 
         return self._open(mrl, cls)
 
@@ -62,27 +68,59 @@ class Player(object):
         self._player = cls()
 
         for signal in self.signals:
-            if signal in self._player.signals:
+            if signal in self._player.signals and \
+                   not signal in ('start', 'failed', 'open'):
                 self._player.signals[signal].connect_weak(self.signals[signal].emit)
 
         self._player.open(mrl)
         self._player.set_window(self._window)
         self._player.set_size(self._size)
+        self.signals['open'].emit()
+        
 
-
-    def play(self, **kwargs):
+    @kaa.notifier.yield_execution()
+    def play(self, __player_list=None, **kwargs):
         if not self._player:
             raise PlayerError, "Play called before open"
-            return
+            yield False
 
         if self._open in self._player.signals["quit"]:
-            # Waiting for old player to die.
-            self.signals["open"].connect_once(self.play, **kwargs)
-            return
-
+            block = kaa.notifier.InProgress()
+            self.signals['open'].connect_once(block.finished, True)
+            yield block
+            
+        state = self._player.get_state()
         self._player.play(**kwargs)
+        if state == self._player.get_state() or \
+               self._player.get_state() != STATE_OPENING:
+            yield True
+            
+        block = kaa.notifier.InProgress()
+        self._player.signals['failed'].connect_once(block.finished, False)
+        self._player.signals['start'].connect_once(block.finished, True)
+        yield block
+        self._player.signals['failed'].disconnect(block.finished)
+        self._player.signals['start'].disconnect(block.finished)
+        if not block():
+            if __player_list is None:
+                __player_list = get_all_player()
+            if self._player._player_id in __player_list:
+                __player_list.remove(self._player._player_id)
+            if not __player_list:
+                self.signals['failed'].emit()
+                yield False
+            print 'unable to play with %s, try %s' % \
+                  (self._player._player_id, __player_list[0])
+            self.open(self._open_mrl, self._open_caps, player=__player_list[0])
+            sync = self.play(__player_list, **kwargs)
+            # wait for the recursive call to return and return the
+            # given value (True or False)
+            yield sync
+            yield sync()
+        self.signals['start'].emit()
+        yield True
 
-
+        
     def stop(self):
         if self._player:
             self._player.stop()

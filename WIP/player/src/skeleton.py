@@ -1,4 +1,4 @@
-from kaa import notifier, display
+import kaa.notifier
 import threading, re, os, stat, sets
 
 CAP_NONE  = 0
@@ -56,7 +56,10 @@ def parse_mrl(mrl):
         if stat_info[stat.ST_MODE] & stat.S_IFIFO:
             scheme = "fifo"
         else:
-            f = open(path)
+            try:
+                f = open(path)
+            except (OSError, IOError):
+                return scheme, path
             f.seek(32768, 0)
             b = f.read(60000)
             if b.find("UDF") != -1:
@@ -67,6 +70,13 @@ def parse_mrl(mrl):
         scheme = scheme[:-1]
     return scheme, path
 
+
+
+def get_all_player():
+    """
+    Return all player id strings.
+    """
+    return _players.keys()
 
 
 def get_player_class(mrl = None, caps = None, player = None, exclude = None):
@@ -157,22 +167,23 @@ class MediaPlayer(object):
 
     def __init__(self):
         self.signals = {
-            "pause": notifier.Signal(),
-            "play": notifier.Signal(),
-            "pause_toggle": notifier.Signal(),
-            "seek": notifier.Signal(),
-            "open": notifier.Signal(),
-            "start": notifier.Signal(),
+            "pause": kaa.notifier.Signal(),
+            "play": kaa.notifier.Signal(),
+            "pause_toggle": kaa.notifier.Signal(),
+            "seek": kaa.notifier.Signal(),
+            "open": kaa.notifier.Signal(),
+            "start": kaa.notifier.Signal(),
+            "failed": kaa.notifier.Signal(),
             # Stream ended (either stopped by user or finished)
-            "end": notifier.Signal(),
-            "stream_changed": notifier.Signal(),
-            "frame": notifier.Signal(), # CAP_CANVAS
-            "osd_configure": notifier.Signal(),  # CAP_OSD
+            "end": kaa.notifier.Signal(),
+            "stream_changed": kaa.notifier.Signal(),
+            "frame": kaa.notifier.Signal(), # CAP_CANVAS
+            "osd_configure": kaa.notifier.Signal(),  # CAP_OSD
             # Process is about to die (shared memory will go away)
-            "quit": notifier.Signal()
+            "quit": kaa.notifier.Signal()
         }
 
-        self._state = STATE_NOT_RUNNING
+        self._state_object = STATE_NOT_RUNNING
         self._window = None
         self._size = None
 
@@ -191,13 +202,30 @@ class MediaPlayer(object):
         return sets.Set(cap).issubset(sets.Set(supported_caps))
 
     def get_state(self):
-        return self._state
+        return self._state_object
 
+    def _set_state(self, state):
+        # handle state changes
+        if self._state == STATE_OPENING and \
+               state in (STATE_IDLE, STATE_NOT_RUNNING):
+            self.signals["failed"].emit()
+        if self._state == STATE_OPENING and \
+               state in (STATE_PLAYING, STATE_PAUSED):
+            self.signals["start"].emit()
+        if self._state in (STATE_PLAYING, STATE_PAUSED) and \
+               state in (STATE_IDLE, STATE_NOT_RUNNING):
+            self.signals["end"].emit()
+
+        # save new state
+        self._state_object = state
+
+    _state = property(get_state, _set_state, None, '')
+    
     def get_window(self):
         return self._window
 
     def is_paused(self):
-        return self.get_state() == STATE_PAUSED
+        return self.state == STATE_PAUSED
 
     def set_window(self, window):
         # Caller can pass his own X11Window here.  If it's None, it will
@@ -212,6 +240,8 @@ class MediaPlayer(object):
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._size = size
+
+
     #
     # Methods to be implemented by subclasses.
     #

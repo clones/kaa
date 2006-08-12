@@ -43,7 +43,6 @@ class XinePlayerChild(Player):
         self._x11_window_size = 0, 0
         self._x11_last_aspect = -1
         self._status = kaa.notifier.WeakTimer(self._status_output)
-        self._status.start(0.1)
         self._status_last = None
 
         self._xine.set_config_value("effects.goom.fps", 20)
@@ -147,7 +146,7 @@ class XinePlayerChild(Player):
             del event.data["data"]
         print "EVENT", event.type, event.data
         if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
-            self.parent.set_stream_info(self._get_stream_info())
+            self.parent.set_stream_info(True, self._get_stream_info())
         self.parent.xine_event(event.type, event.data)
 
 
@@ -168,8 +167,8 @@ class XinePlayerChild(Player):
             return
 
         self._wid = wid
-        self._ao = self._xine.open_audio_driver()
 
+        self._ao = self._xine.open_audio_driver()
         control_return = []
         if wid and isinstance(wid, int):
             self._vo = self._xine.open_video_driver(
@@ -234,9 +233,11 @@ class XinePlayerChild(Player):
                 self._stream.get_audio_source().wire(self._ao)
             xine._debug_show_chain(self._stream._obj)
         except xine.XineError:
-            # TODO: ipc this
+            self.parent.set_stream_info(False, self._stream.get_error())
             print "Open failed:", self._stream.get_error()
-        self.parent.set_stream_info(self._get_stream_info())
+            return
+        self.parent.set_stream_info(True, self._get_stream_info())
+        self._status.start(0.1)
 
 
     def osd_update(self, alpha, visible, invalid_regions):
@@ -277,6 +278,7 @@ class XinePlayerChild(Player):
 
 
     def stop(self):
+        self._status.stop()
         if self._stream:
             self._stream.stop()
             self._stream.close()

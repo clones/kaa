@@ -63,7 +63,7 @@ class Xine(MediaPlayer):
         script = os.path.join(os.path.dirname(__file__), 'child.py')
         self._xine = ChildProcess(self, script, str(self._instance_id))
         self._xine.signals["completed"].connect_weak(self._exited)
-        self._xine.set_stop_command(notifier.WeakCallback(self._end_child))
+        self._xine.set_stop_command(kaa.notifier.WeakCallback(self._end_child))
         self._xine.start()
 
 
@@ -73,8 +73,8 @@ class Xine(MediaPlayer):
 
 
     def die(self):
-        if self._process:
-            self._process.stop()
+        if self._xine:
+            self._xine.die()
 
 
     def _exited(self, exitcode):
@@ -95,7 +95,7 @@ class Xine(MediaPlayer):
 
         if status == 2:
             if self.get_state() not in (STATE_PAUSED, STATE_PLAYING):
-                self.signals["start"].emit()
+                self._state = STATE_PLAYING
             if speed == xine.SPEED_PAUSE and self.get_state() != STATE_PAUSED:
                 self._state = STATE_PAUSED
                 self.signals["pause_toggle"].emit()
@@ -139,12 +139,16 @@ class Xine(MediaPlayer):
         #self._window.resize(size)
 
 
-    def _child_set_stream_info(self, info):
+    def _child_set_stream_info(self, status, info):
+        if not status:
+            # failed playback
+            self._state = STATE_IDLE
+            return
+        
         changed = info != self._stream_info
         self._stream_info = info
 
         if self._state == STATE_OPENING:
-            self._state = STATE_IDLE
             self._xine.play()
             self.set_frame_output_mode()
 
@@ -203,7 +207,8 @@ class Xine(MediaPlayer):
         self._position = 0.0
         self._xine.open(self._mrl)
         self._state = STATE_OPENING
-
+        return
+    
 
     def pause(self):
         self._xine.pause()

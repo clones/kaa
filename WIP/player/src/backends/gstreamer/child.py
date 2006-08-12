@@ -37,7 +37,9 @@ class GStreamer(Player):
         if not self.player:
             return
 
-        pos = float(self.player.query_position(gst.FORMAT_TIME)[0] / 1000000) / 1000
+        pos = 0
+        if self.status == Status.PLAYING:
+            pos = float(self.player.query_position(gst.FORMAT_TIME)[0] / 1000000) / 1000
         current = self.status, pos
         
         if current != self._status_last:
@@ -51,17 +53,21 @@ class GStreamer(Player):
             old, new, pending = msg.parse_state_changed()
             if new == gst.STATE_PLAYING:
                 self.status = Status.PLAYING
-            # print 'state', new
             return True
+
         if msg.type == gst.MESSAGE_ERROR:
             for e in msg.parse_error():
                 if not type(e) == gst.GError:
                     return True
                 if e.domain.startswith('gst-stream-error') and \
-                       e.code in (gst.STREAM_ERROR_CODEC_NOT_FOUND,
+                       e.code in (gst.STREAM_ERROR_NOT_IMPLEMENTED,
+                                  gst.STREAM_ERROR_CODEC_NOT_FOUND,
                                   gst.STREAM_ERROR_TYPE_NOT_FOUND,
                                   gst.STREAM_ERROR_WRONG_TYPE):
                     # unable to play
+                    self.status = Status.IDLE
+                    return True
+                if e.domain.startswith('gst-resource-error'):
                     self.status = Status.IDLE
                     return True
                 # print e, e.code, e.domain
@@ -92,11 +98,11 @@ class GStreamer(Player):
 
 
     def stop(self):
-        pass
+        self.player.set_state(gst.STATE_NULL)
+        self.status = Status.IDLE
 
 
     def die(self):
-        self._handle_command_stop()
         sys.exit(0)
 
 
