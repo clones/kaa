@@ -174,10 +174,12 @@ class Player(object):
                         self._player._player_id, __player_list[0])
             self.open(self._open_mrl, self._open_caps, player=__player_list[0])
             sync = self.play(__player_list, **kwargs)
-            # wait for the recursive call to return and return the
-            # given value (True or False)
+            # wait for the recursive call to return
             yield sync
-            yield sync()
+            # now the recursive call is finished. We return the result to signal
+            # if playing is started (True) or failed (False).
+            status = sync()
+            yield status
         # playing
         self.signals['start'].emit()
         yield True
