@@ -638,8 +638,8 @@ class Database(object):
         return metadata
 
 
-    def delete_object(self, (type, id), beacon_immediately=False):
-        self.changes.append(('delete', (type, id), {}, None))
+    def delete_object(self, item_or_type_id_list, beacon_immediately=False):
+        self.changes.append(('delete', item_or_type_id_list, {}, None))
         if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
             self.commit()
 

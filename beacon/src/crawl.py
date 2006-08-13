@@ -204,7 +204,8 @@ class Crawler(object):
             move = self.db.query(filename=args[0])
             if move._beacon_id:
                 # New item already in the db, delete it first
-                self.db.delete_object(move._beacon_id)
+                log.info('inotify delete: %s', item)
+                self.db.delete_object(move)
             changes = {}
             if item._beacon_parent._beacon_id != move._beacon_parent._beacon_id:
                 # Different directory, set new parent
@@ -284,7 +285,8 @@ class Crawler(object):
         if self.db.get_object(item._beacon_data['name'],
                               item._beacon_parent._beacon_id):
             # Still in the db, delete it
-            self.db.delete_object(item._beacon_id, beacon_immediately=True)
+            log.info('inotify delete: %s', item)
+            self.db.delete_object(item, beacon_immediately=True)
 
         # remove directory and all subdirs from the inotify. The directory
         # is gone, so all subdirs are invalid, too.
