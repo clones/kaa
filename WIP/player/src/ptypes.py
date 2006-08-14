@@ -8,9 +8,6 @@
 # kaa-player - Generic Player API
 # Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
-# First Edition: Jason Tackaberry <tack@sault.org>
-# Maintainer:    Jason Tackaberry <tack@sault.org>
-#
 # Please see the file AUTHORS for a complete list of authors.
 #
 # This program is free software; you can redistribute it and/or modify
