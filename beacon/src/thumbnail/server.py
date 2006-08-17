@@ -49,20 +49,18 @@ from video import VideoThumb
 # get logging object
 log = logging.getLogger('beacon.thumbnail')
 
-PRIORITY_HIGH, PRIORITY_LOW = range(2)
-
 THUMBNAIL_TIMER = 0.1
 
 class Job(object):
     """
     A job with thumbnail information.
     """
-    def __init__(self, id, filename, imagefile, size):
+    def __init__(self, id, filename, imagefile, size, priority):
         self.client, self.id = id
         self.filename = filename
         self.imagefile = imagefile
         self.size = size
-        self.priority = PRIORITY_HIGH
+        self.priority = priority
 
 
 class Thumbnailer(object):
@@ -217,19 +215,18 @@ class Thumbnailer(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose('schedule')
-    def schedule(self, id, filename, imagefile, size):
-        self.jobs.append(Job(id, filename, imagefile, size))
+    def schedule(self, id, filename, imagefile, size, priority):
+        self.jobs.append(Job(id, filename, imagefile, size, priority))
         self._activate(THUMBNAIL_TIMER)
 
 
-    @kaa.rpc.expose('reduce_priority')
-    def reduce_priority(self, id):
+    @kaa.rpc.expose('set_priority')
+    def set_priority(self, id, priority):
         for schedule in self.jobs, self.videothumb.jobs:
             for job in schedule:
                 if id != (job.client, job.id):
                     continue
-                log.info('reduce priority %s' % job.id)
-                job.priority = PRIORITY_LOW
+                job.priority = priority
                 schedule.sort(lambda x,y: cmp(x.priority, y.priority))
                 return
 

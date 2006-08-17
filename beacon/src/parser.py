@@ -204,7 +204,7 @@ def parse(db, item, store=False):
     if attributes.get('image'):
         t = thumbnail.Thumbnail(attributes.get('image'), item._beacon_media)
         if not t.get(thumbnail.LARGE, check_mtime=True):
-            t.create(thumbnail.LARGE)
+            t.create(thumbnail.LARGE, thumbnail.PRIORITY_LOW)
 
     if not metadata.get('title'):
         # try to set a good title

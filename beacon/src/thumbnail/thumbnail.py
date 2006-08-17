@@ -34,6 +34,10 @@ __all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'connect', 'stop' ]
 NORMAL  = 'normal'
 LARGE   = 'large'
 
+PRIORITY_HIGH   = 0
+PRIORITY_NORMAL = 1
+PRIORITY_LOW    = 2
+
 # python imports
 import os
 import md5
@@ -62,9 +66,10 @@ class Job(object):
 
     all = []
 
-    def __init__(self, job, id):
+    def __init__(self, job, id, priority):
         self.valid = weakref(job)
         self.id = id
+        self.priority = priority
         self.signal = kaa.notifier.Signal()
         Job.all.append(self)
         
@@ -137,7 +142,7 @@ class Thumbnail(object):
         return self.get('fail/kaa')
 
 
-    def create(self, type=NORMAL):
+    def create(self, type=NORMAL, priority=PRIORITY_NORMAL):
         Thumbnail.next_id += 1
         
         dest = '%s/%s' % (self.destdir, type)
@@ -146,9 +151,9 @@ class Thumbnail(object):
 
         # schedule thumbnail creation
         _client.schedule(Thumbnail.next_id, self.name,
-                         self._thumbnail % type, SIZE[type])
+                         self._thumbnail % type, SIZE[type], priority)
 
-        job = Job(self, Thumbnail.next_id)
+        job = Job(self, Thumbnail.next_id, priority)
         return job.signal
 
     
@@ -167,14 +172,14 @@ class Client(object):
         self.rpc = server.rpc
 
 
-    def schedule(self, id, filename, imagename, type):
+    def schedule(self, id, filename, imagename, type, priority):
         if not self.id:
             # Not connected yet, schedule job later
-            self._schedules.append((id, filename, imagename, type))
+            self._schedules.append((id, filename, imagename, type, priority))
             return
         
         # server rpc calls
-        self.rpc('schedule', (self.id, id), filename, imagename, type)
+        self.rpc('schedule', (self.id, id), filename, imagename, type, priority)
         
         
     @kaa.rpc.expose('connect')
@@ -203,7 +208,8 @@ class Client(object):
                 continue
             # set old jobs to lower priority
             Job.all.remove(job)
-            self.rpc('reduce_priority', (self.id, job.id))
+            if job.priority != PRIORITY_LOW:
+                self.rpc('set_priority', (self.id, job.id), PRIORITY_LOW)
 
 
 def connect():
