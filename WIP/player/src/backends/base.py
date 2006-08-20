@@ -53,7 +53,6 @@ class MediaPlayer(object):
             "play": kaa.notifier.Signal(),
             "pause_toggle": kaa.notifier.Signal(),
             "seek": kaa.notifier.Signal(),
-            "open": kaa.notifier.Signal(),
             "start": kaa.notifier.Signal(),
             "failed": kaa.notifier.Signal(),
             # Stream ended (either stopped by user or finished)
@@ -61,11 +60,15 @@ class MediaPlayer(object):
             "stream_changed": kaa.notifier.Signal(),
             "frame": kaa.notifier.Signal(), # CAP_CANVAS
             "osd_configure": kaa.notifier.Signal(),  # CAP_OSD
-            # Process is about to die (shared memory will go away)
-            "quit": kaa.notifier.Signal()
+
+            # Player released video and audio devices
+            "release": kaa.notifier.Signal(),
+            
+            # Process died (shared memory will go away)
+            "shm_quit": kaa.notifier.Signal()
         }
 
-        self._state_object = STATE_NOT_RUNNING
+        self._state_object = STATE_IDLE
         self._window = None
         self._size = None
 
@@ -107,20 +110,30 @@ class MediaPlayer(object):
         """
         Set state and emit 'failed', 'start' or 'end' signal if needed.
         """
-        # handle state changes
-        if self._state == STATE_OPENING and \
-               state in (STATE_IDLE, STATE_NOT_RUNNING):
-            self.signals["failed"].emit()
-        if self._state == STATE_OPENING and \
-               state in (STATE_PLAYING, STATE_PAUSED):
-            self.signals["start"].emit()
-        if self._state in (STATE_PLAYING, STATE_PAUSED) and \
-               state in (STATE_IDLE, STATE_NOT_RUNNING):
-            self.signals["end"].emit()
-
-        # save new state
+        if self._state_object == state:
+            return
+        old_state = self._state_object
         self._state_object = state
 
+        if old_state == STATE_OPENING and state in (STATE_IDLE, STATE_NOT_RUNNING):
+            # From STATE_OPENING to not playing. This means something went
+            # wrong and the player failed to play.
+            self.signals["failed"].emit()
+
+        if old_state == STATE_OPENING and \
+               state in (STATE_PLAYING, STATE_PAUSED):
+            # From STATE_OPENING to playing. Signal playback start
+            self.signals["start"].emit()
+
+        if old_state in (STATE_PLAYING, STATE_PAUSED) and \
+               state in (STATE_IDLE, STATE_NOT_RUNNING):
+            # From playing to finished. Signal end.
+            self.signals["end"].emit()
+
+        if state == STATE_NOT_RUNNING == self._state_object:
+            self.signals["release"].emit()
+            self.signals["shm_quit"].emit()
+            
     # state property based on get_state and _set_state
     _state = property(get_state, _set_state, None, 'state of the player')
 
@@ -170,7 +183,7 @@ class MediaPlayer(object):
 
     def play(self):
         """
-        Start or resume playback.
+        Start playback.
         """
         pass
 
@@ -189,13 +202,20 @@ class MediaPlayer(object):
         pass
 
 
-    def die(self):
+    def resume(self):
         """
-        Kills the player.  No more files may be played once die() is called.
+        Resume playback.
         """
         pass
 
 
+    def release(self):
+        """
+        Release audio and video devices.
+        """
+        self.die()
+
+        
     def seek_relative(self, offset):
         """
         Seek relative.

@@ -1,8 +1,11 @@
 import sys
+import logging
 
 import kaa
 import kaa.display
 import kaa.player
+
+logging.getLogger('player.child').setLevel(logging.INFO)
 
 def print_msg(msg):
     print '>', msg
@@ -20,11 +23,9 @@ player.signals["start"].connect(print_msg, 'playback started')
 player.signals["end"].connect(print_msg, 'playback end')
 player.signals["failed"].connect(print_msg, 'playback failed')
 
-
 kaa.notifier.OneShotTimer(next, 'xine').start(0)
 kaa.notifier.OneShotTimer(next, 'gstreamer').start(5)
 kaa.notifier.OneShotTimer(next, 'mplayer').start(10)
-
 kaa.notifier.OneShotTimer(next, 'xine').start(15)
 kaa.notifier.OneShotTimer(next, 'xine').start(20)
 kaa.notifier.OneShotTimer(next, 'gstreamer').start(25)

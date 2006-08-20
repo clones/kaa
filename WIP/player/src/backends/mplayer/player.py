@@ -329,7 +329,6 @@ class MPlayer(MediaPlayer):
 
     def _exited(self, exitcode):
         self._state = STATE_NOT_RUNNING
-        self.signals["quit"].emit()
         # exit code is strange somehow
         # if exitcode != 0:
         #     raise MPlayerExitError, (exitcode, self._last_line)
@@ -339,6 +338,11 @@ class MPlayer(MediaPlayer):
         return self._process and self._process.is_alive()
 
     def open(self, mrl, user_args = None):
+
+        if self.get_state() != STATE_NOT_RUNNING:
+            print 'Error: not idle'
+            return False
+
         schemes = self.get_supported_schemes()
         scheme, path = parse_mrl(mrl)
 
@@ -364,19 +368,8 @@ class MPlayer(MediaPlayer):
         if user_args:
             self._file_args.append(user_args)
 
-        self.signals["open"].emit()
-
 
     def play(self):
-        state = self.get_state()
-        if state == STATE_PAUSED:
-            self._slave_cmd("pause")
-            return True
-
-        if state != STATE_NOT_RUNNING:
-            print 'Error: not idle'
-            return False
-
         # we know that self._mp_info has to be there or the object would
         # not be selected by the generic one. FIXME: verify that!
         assert(self._mp_info)
@@ -425,6 +418,11 @@ class MPlayer(MediaPlayer):
         if self.get_state() == STATE_PLAYING:
             self._slave_cmd("pause")
 
+
+    def resume(self):
+        if self.get_state() == STATE_PAUSED:
+            self._slave_cmd("pause")
+
     def seek_relative(self, offset):
         self._slave_cmd("seek %f 0" % offset)
 
@@ -435,10 +433,8 @@ class MPlayer(MediaPlayer):
         self._slave_cmd("seek %f 1" % percent)
 
     def stop(self):
-        #self._slave_cmd("pt_step + 1")
-        #self._state = STATE_IDLE
         self.die()
-        self._state = STATE_NOT_RUNNING
+        self._state = STATE_SHUTDOWN
 
     def _end_child(self):
         self._slave_cmd("quit")

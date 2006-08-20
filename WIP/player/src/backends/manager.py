@@ -34,6 +34,7 @@ import os
 # kaa.player imports
 from kaa.player.backends.base import MediaPlayer
 from kaa.player.ptypes import *
+from kaa.player.utils import parse_mrl
 
 # internal list of players
 _players = {}

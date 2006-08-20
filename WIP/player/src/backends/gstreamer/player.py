@@ -30,14 +30,14 @@ class GStreamer(MediaPlayer):
         self.player.set_stop_command(kaa.notifier.WeakCallback(self._end_child))
         self.player.start()
         self._state = STATE_IDLE
-        self._stopping = False
+
 
     def _exited(self, exitcode):
         self._state = STATE_NOT_RUNNING
-        self.signals["quit"].emit()
 
 
     def _end_child(self):
+        self._state = STATE_SHUTDOWN
         self.player.die()
 
 
@@ -50,10 +50,7 @@ class GStreamer(MediaPlayer):
             self._position = pos
             return True
         if status == Status.IDLE:
-            if self._stopping and self._state == STATE_OPENING:
-                self._stopping = False
-            else:
-                self._state = STATE_IDLE
+            self._state = STATE_IDLE
         self._position = 0
         
 
@@ -63,7 +60,6 @@ class GStreamer(MediaPlayer):
         if mrl.find('://') == -1:
             mrl = 'file://' + mrl
         self._mrl = mrl
-        self.signals["open"].emit()
         if self._state == STATE_NOT_RUNNING:
             self._span()
 
@@ -74,10 +70,6 @@ class GStreamer(MediaPlayer):
         async until either the playing has started or an error
         occurred.
         """
-        if self.get_state() == STATE_PAUSED:
-            self.player.play()
-            return True
-
         wid = None
         if self._window:
             wid = self._window.get_id()
@@ -92,18 +84,22 @@ class GStreamer(MediaPlayer):
 
     def pause(self):
         self.player.pause()
+        self._state = STATE_PAUSED
 
 
+    def resume(self):
+        self.player.resume()
+        self._state = STATE_PLAYING
+
+        
     def stop(self):
-        self._stopping = True
         self.player.stop()
-        self._state = STATE_IDLE
 
 
     def die(self):
         self.stop()
         self.player.die()
-        self._state = STATE_NOT_RUNNING
+        self._state = STATE_SHUTDOWN
 
 
     def get_info(self):

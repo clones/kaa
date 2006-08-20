@@ -17,7 +17,7 @@ class GStreamer(Player):
 
     def __init__(self, instance_id):
         Player.__init__(self)
-        self.player = None
+        self._gst = None
         self._status_object = Status(self._send_status)
         self._status_last = None
 
@@ -34,12 +34,12 @@ class GStreamer(Player):
         """
         Outputs stream status information.
         """
-        if not self.player:
+        if not self._gst:
             return
 
         pos = 0
         if self.status == Status.PLAYING:
-            pos = float(self.player.query_position(gst.FORMAT_TIME)[0] / 1000000) / 1000
+            pos = float(self._gst.query_position(gst.FORMAT_TIME)[0] / 1000000) / 1000
         current = self.status, pos
         
         if current != self._status_last:
@@ -85,20 +85,27 @@ class GStreamer(Player):
         vo.set_property('force-aspect-ratio', True)
 
         # now create the player and set the output
-        self.player = gst.element_factory_make("playbin", "player")
-        self.player.set_property('video-sink', vo)
-        self.player.get_bus().add_watch(self._gst_message)
+        self._gst = gst.element_factory_make("playbin", "player")
+        self._gst.set_property('video-sink', vo)
+        self._gst.get_bus().add_watch(self._gst_message)
 
 
     def open(self, uri):
-        self.player.set_property('uri', uri)
-        self.player.set_state(gst.STATE_PLAYING)
+        self._gst.set_property('uri', uri)
+        self._gst.set_state(gst.STATE_PLAYING)
         self.status = Status.OPENING
-        print 'start', uri
+
+
+    def pause(self):
+        self._gst.set_state(gst.STATE_PAUSED)
+
+
+    def resume(self):
+        self._gst.set_state(gst.STATE_PLAYING)
 
 
     def stop(self):
-        self.player.set_state(gst.STATE_NULL)
+        self._gst.set_state(gst.STATE_NULL)
         self.status = Status.IDLE
 
 

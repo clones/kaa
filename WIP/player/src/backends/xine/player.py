@@ -69,19 +69,14 @@ class Xine(MediaPlayer):
 
 
     def _end_child(self):
+        self._state = STATE_SHUTDOWN
         self._xine.die()
 
 
-    def die(self):
-        if self._xine:
-            self._xine.die()
-
-
     def _exited(self, exitcode):
-        self._state = STATE_NOT_RUNNING
+        self._xine = None
         self._remove_shmem()
-        self.signals["quit"].emit()
-
+        self._state = STATE_NOT_RUNNING
 
 
     # #############################################################################
@@ -113,7 +108,6 @@ class Xine(MediaPlayer):
             if self.get_state() in (STATE_PAUSED, STATE_PLAYING):
                 # Stream ended.
                 self._state = STATE_IDLE
-                self.signals["end"].emit()
 
 
     def _child_osd_configure(self, width, height, aspect):
@@ -144,7 +138,7 @@ class Xine(MediaPlayer):
             # failed playback
             self._state = STATE_IDLE
             return
-        
+
         changed = info != self._stream_info
         self._stream_info = info
 
@@ -155,9 +149,14 @@ class Xine(MediaPlayer):
         if changed:
             self.signals["stream_changed"].emit()
 
+
     def _child_xine_event(self, event, data):
         if event == xine.EVENT_UI_NUM_BUTTONS:
             self._is_in_menu = data["num_buttons"] > 0
+
+
+    def _child_play_stopped(self):
+        self._state = STATE_IDLE
 
 
     # #############################################################################
@@ -180,7 +179,7 @@ class Xine(MediaPlayer):
 
 
     # #############################################################################
-    # Public API
+    # API exposed to generic player
     # #############################################################################
 
 
@@ -190,14 +189,11 @@ class Xine(MediaPlayer):
             raise ValueError, "Unsupported mrl scheme '%s'" % scheme
 
         self._mrl = "%s:%s" % (scheme, path)
-        # Open with kaa.metadata
-        self.signals["open"].emit()
 
 
     def play(self, video=True):
-        if self.get_state() == STATE_PAUSED:
-            self._xine.play()
-            return
+        if not self._xine:
+            self._spawn()
 
         wid = None
         if self._window:
@@ -207,17 +203,25 @@ class Xine(MediaPlayer):
         self._position = 0.0
         self._xine.open(self._mrl)
         self._state = STATE_OPENING
-        return
-    
+
 
     def pause(self):
         self._xine.pause()
+
+
+    def resume(self):
+        self._xine.resume()
 
 
     def stop(self):
         self._xine.stop()
 
 
+    def die(self):
+        self._state = STATE_SHUTDOWN
+        self._xine.die()
+
+        
     def seek_relative(self, offset):
         self._xine.seek(0, offset)
 
@@ -229,6 +233,7 @@ class Xine(MediaPlayer):
     def seek_percentage(self, percent):
         pos = (percent / 100.0) * 65535
         self._xine.seek(2, pos)
+
 
     def get_info(self):
         return self._stream_info
@@ -259,7 +264,7 @@ class Xine(MediaPlayer):
         if size != None:
             self._cur_frame_output_mode[2] = size
 
-        if self.get_state() in (STATE_NOT_RUNNING, STATE_OPENING):
+        if self.get_state() == STATE_OPENING:
             return
 
         vo, notify, size = self._cur_frame_output_mode

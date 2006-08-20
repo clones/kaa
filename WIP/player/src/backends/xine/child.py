@@ -253,13 +253,17 @@ class XinePlayerChild(Player):
 
     def play(self):
         status = self._stream.get_status()
-        if status == xine.STATUS_PLAY:
-            self._stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_NORMAL)
-        elif status == xine.STATUS_STOP:
+        if status == xine.STATUS_STOP:
             self._stream.play()
+
 
     def pause(self):
         self._stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_PAUSE)
+
+
+    def resume(self):
+        self._stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_NORMAL)
+
 
     def seek(self, whence, value):
         if whence == 0:
@@ -270,17 +274,18 @@ class XinePlayerChild(Player):
             self._stream.play(pos = value)
 
 
-    def die(self):
-        self.stop()
-        sys.exit(0)
-
-
     def stop(self):
         self._status.stop()
         if self._stream:
             self._stream.stop()
             self._stream.close()
+        self.parent.play_stopped()
 
+
+    def die(self):
+        self.stop()
+        sys.exit(0)
+        
 
     def frame_output(self, vo, notify, size):
         if not self._driver_control:
@@ -328,5 +333,3 @@ del player
 gc.collect()
 
 sys.exit(0)
-
-
