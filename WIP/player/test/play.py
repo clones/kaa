@@ -22,6 +22,8 @@ def handle_key(key, player):
         player.pause_toggle()
     elif key == "q":
         player.stop()
+    elif key in ("up", "down", "left", "right"):
+        player.seek({"up": 60, "down": -60, "left": -10, "right": 10}[key])
     elif key == "f" and player.get_window():
         win = player.get_window()
         win.set_fullscreen(not win.get_fullscreen())
@@ -40,4 +42,10 @@ if player.get_window():
 
 kaa.notifier.OneShotTimer(next, 'xine').start(0)
 
+def print_pos():
+    print '\r', player.get_position(),
+    sys.stdout.flush()
+    return True
+
+kaa.notifier.Timer(print_pos).start(0.1)
 kaa.main()

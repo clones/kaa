@@ -263,27 +263,15 @@ class Player(object):
 
 
     @required_states(STATE_IDLE, STATE_PLAYING, STATE_PAUSED)
-    def seek_relative(self, offset):
+    def seek(self, value, type=SEEK_RELATIVE):
         """
-        Seek relative.
+        Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
-        self._player.seek_relative(offset)
-
-
-    @required_states(STATE_IDLE, STATE_PLAYING, STATE_PAUSED)
-    def seek_absolute(self, position):
-        """
-        Seek absolute.
-        """
-        self._player.seek_absolute(position)
-
-
-    @required_states(STATE_IDLE, STATE_PLAYING, STATE_PAUSED)
-    def seek_percentage(self, percent):
-        """
-        Seek percentage.
-        """
-        self._player.seek_percent(position)
+        if self.get_state() == STATE_IDLE:
+            # FIXME: make it possible to seek between open() and play() and
+            # add STATE_IDLE to required_states.
+            return False
+        self._player.seek(value, type)
 
 
     def get_position(self):

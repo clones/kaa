@@ -10,6 +10,7 @@ import kaa.notifier
 kaa.notifier.init('gtk', x11=False)
 
 from kaa.player.utils import Player
+from kaa.player.ptypes import *
 
 from gst_types import Status
 
@@ -20,8 +21,8 @@ class GStreamer(Player):
         self._gst = None
         self._status_object = Status(self._send_status)
         self._status_last = None
-
-
+        self._streaminfo = {}
+        
     def get_status(self):
         return self._status_object.get_status()
     
@@ -72,7 +73,10 @@ class GStreamer(Player):
                     return True
                 # print e, e.code, e.domain
             return True
-        # print msg
+        if msg.type == gst.MESSAGE_TAG:
+            taglist = msg.parse_tag()
+            for key in taglist.keys():
+                self._streaminfo[key] = taglist[key]
         return True
     
         
@@ -92,16 +96,16 @@ class GStreamer(Player):
 
     def open(self, uri):
         self._gst.set_property('uri', uri)
-        self._gst.set_state(gst.STATE_PLAYING)
         self.status = Status.OPENING
+        self._streaminfo = {}
+        
+
+    def play(self):
+        self._gst.set_state(gst.STATE_PLAYING)
 
 
     def pause(self):
         self._gst.set_state(gst.STATE_PAUSED)
-
-
-    def resume(self):
-        self._gst.set_state(gst.STATE_PLAYING)
 
 
     def stop(self):
@@ -113,5 +117,17 @@ class GStreamer(Player):
         sys.exit(0)
 
 
+    def seek(self, value, type):
+        pos = 0
+        if type == SEEK_RELATIVE:
+            pos = self._gst.query_position(gst.FORMAT_TIME)[0] + value * 1000000000
+        if type == SEEK_ABSOLUTE:
+            pos = value * 1000000000
+        if type == SEEK_PERCENTAGE and 'duration' in self._streaminfo:
+            pos = (self._streaminfo['duration'] / 100) * value
+        self._gst.seek(1.0, gst.FORMAT_TIME,
+                       gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,
+                       gst.SEEK_TYPE_SET, pos, gst.SEEK_TYPE_NONE, 0)
+        
 player = GStreamer(sys.argv[1])
 kaa.notifier.loop()

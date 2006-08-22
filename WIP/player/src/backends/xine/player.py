@@ -191,7 +191,7 @@ class Xine(MediaPlayer):
         self._mrl = "%s:%s" % (scheme, path)
 
 
-    def play(self, video=True):
+    def play(self):
         if not self._xine:
             self._spawn()
 
@@ -222,17 +222,8 @@ class Xine(MediaPlayer):
         self._xine.die()
 
         
-    def seek_relative(self, offset):
-        self._xine.seek(0, offset)
-
-
-    def seek_absolute(self, position):
-        self._xine.seek(1, position)
-
-
-    def seek_percentage(self, percent):
-        pos = (percent / 100.0) * 65535
-        self._xine.seek(2, pos)
+    def seek(self, value, type):
+        self._xine.seek(value, type)
 
 
     def get_info(self):

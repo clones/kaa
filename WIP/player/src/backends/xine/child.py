@@ -10,7 +10,7 @@ import kaa.xine as xine
 from kaa.config import Group, Var
 
 from kaa.player.utils import Player
-
+from kaa.player.ptypes import *
 
 # Config group for xine player
 config = Group(desc = 'Options for xine player', schema = [
@@ -56,6 +56,7 @@ class XinePlayerChild(Player):
         if not self._stream:
             return
 
+        # FIXME: this gets not updated very often, I have no idea why
         t = self._stream.get_pos_length()
         status = self._stream.get_status()
         speed = self._stream.get_parameter(xine.PARAM_SPEED)
@@ -64,7 +65,6 @@ class XinePlayerChild(Player):
         # Where status is one of XINE_STATUS_ constants, and speed
         # is one of XINE_SPEED constants.
         cur_status = (t[0], t[1], t[2], status, speed)
-
         if cur_status != self._status_last:
             self._status_last = cur_status
             self.parent.set_status(*cur_status)
@@ -235,7 +235,7 @@ class XinePlayerChild(Player):
             print "Open failed:", self._stream.get_error()
             return
         self.parent.set_stream_info(True, self._get_stream_info())
-        self._status.start(0.1)
+        self._status.start(0.001)
 
 
     def osd_update(self, alpha, visible, invalid_regions):
@@ -265,13 +265,13 @@ class XinePlayerChild(Player):
         self._stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_NORMAL)
 
 
-    def seek(self, whence, value):
-        if whence == 0:
+    def seek(self, value, type):
+        if type == SEEK_RELATIVE:
             self._stream.seek_relative(value)
-        elif whence == 1:
+        if type == SEEK_ABSOLUTE:
             self._stream.seek_absolute(value)
-        elif whence == 2:
-            self._stream.play(pos = value)
+        if type == SEEK_PERCENTAGE:
+            self._stream.play(pos = (value / 100.0) * 65535)
 
 
     def stop(self):

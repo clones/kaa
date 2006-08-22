@@ -25,10 +25,10 @@ class GStreamer(MediaPlayer):
 
     def _span(self):
         script = os.path.join(os.path.dirname(__file__), 'child.py')
-        self.player = ChildProcess(self, script, str(self._instance_id))
-        self.player.signals["completed"].connect_weak(self._exited)
-        self.player.set_stop_command(kaa.notifier.WeakCallback(self._end_child))
-        self.player.start()
+        self._gst = ChildProcess(self, script, str(self._instance_id))
+        self._gst.signals["completed"].connect_weak(self._exited)
+        self._gst.set_stop_command(kaa.notifier.WeakCallback(self._end_child))
+        self._gst.start()
         self._state = STATE_IDLE
 
 
@@ -38,7 +38,7 @@ class GStreamer(MediaPlayer):
 
     def _end_child(self):
         self._state = STATE_SHUTDOWN
-        self.player.die()
+        self._gst.die()
 
 
     # child handling
@@ -62,9 +62,10 @@ class GStreamer(MediaPlayer):
         self._mrl = mrl
         if self._state == STATE_NOT_RUNNING:
             self._span()
+        self._position = 0.0
 
 
-    def play(self, video=True):
+    def play(self):
         """
         Start playing. If playback is paused, resume. If not wait
         async until either the playing has started or an error
@@ -73,32 +74,30 @@ class GStreamer(MediaPlayer):
         wid = None
         if self._window:
             wid = self._window.get_id()
-        self.player.setup(wid=wid)
-
-        self._position = 0.0
-
-        self.player.open(self._mrl)
+        self._gst.setup(wid=wid)
+        self._gst.open(self._mrl)
+        self._gst.play()
         self._state = STATE_OPENING
         return
 
 
     def pause(self):
-        self.player.pause()
+        self._gst.pause()
         self._state = STATE_PAUSED
 
 
     def resume(self):
-        self.player.resume()
+        self._gst.play()
         self._state = STATE_PLAYING
 
         
     def stop(self):
-        self.player.stop()
+        self._gst.stop()
 
 
     def die(self):
         self.stop()
-        self.player.die()
+        self._gst.die()
         self._state = STATE_SHUTDOWN
 
 
@@ -112,6 +111,10 @@ class GStreamer(MediaPlayer):
 
     def get_position(self):
         return self._position
+
+
+    def seek(self, value, type):
+        self._gst.seek(value, type)
 
 
     def nav_command(self, input):

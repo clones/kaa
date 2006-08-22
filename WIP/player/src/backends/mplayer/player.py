@@ -423,14 +423,9 @@ class MPlayer(MediaPlayer):
         if self.get_state() == STATE_PAUSED:
             self._slave_cmd("pause")
 
-    def seek_relative(self, offset):
-        self._slave_cmd("seek %f 0" % offset)
-
-    def seek_absolute(self, position):
-        self._slave_cmd("seek %f 2" % position)
-
-    def seek_percentage(self, percent):
-        self._slave_cmd("seek %f 1" % percent)
+    def seek(self, value, type):
+        s = [SEEK_RELATIVE, SEEK_PERCENTAGE, SEEK_ABSOLUTE]
+        self._slave_cmd("seek %f %s" % (value, s.index(type)))
 
     def stop(self):
         self.die()
