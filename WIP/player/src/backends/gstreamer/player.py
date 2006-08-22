@@ -24,7 +24,7 @@ class GStreamer(MediaPlayer):
 
 
     def _span(self):
-        script = os.path.join(os.path.dirname(__file__), 'child.py')
+        script = os.path.join(os.path.dirname(__file__), 'main.py')
         self._gst = ChildProcess(self, script, str(self._instance_id))
         self._gst.signals["completed"].connect_weak(self._exited)
         self._gst.set_stop_command(kaa.notifier.WeakCallback(self._end_child))

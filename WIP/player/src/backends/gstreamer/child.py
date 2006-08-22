@@ -129,5 +129,3 @@ class GStreamer(Player):
                        gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,
                        gst.SEEK_TYPE_SET, pos, gst.SEEK_TYPE_NONE, 0)
         
-player = GStreamer(sys.argv[1])
-kaa.notifier.loop()
