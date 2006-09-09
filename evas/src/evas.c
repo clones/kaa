@@ -166,7 +166,9 @@ Evas_PyObject_render(Evas_PyObject * self, PyObject * args)
     BENCH_END
     for (p = updates; p; p = p->next) {
         Evas_Rectangle *r = p->data;
-        PyList_Append(list, Py_BuildValue("(iiii)", r->x, r->y, r->w, r->h));
+        PyObject *region = Py_BuildValue("(iiii)", r->x, r->y, r->w, r->h);
+        PyList_Append(list, region);
+        Py_DECREF(region);
     }
     evas_render_updates_free(updates);
     Py_END_ALLOW_THREADS
