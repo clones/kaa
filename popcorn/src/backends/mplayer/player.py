@@ -2,9 +2,9 @@ import os, re, string, tempfile, time, stat, threading, md5, struct
 from kaa import notifier, display, shm
 import kaa
 import kaa.utils
-from kaa.player.backends.base import MediaPlayer
-from kaa.player.ptypes import *
-from kaa.player.utils import parse_mrl
+from kaa.popcorn.backends.base import MediaPlayer
+from kaa.popcorn.ptypes import *
+from kaa.popcorn.utils import parse_mrl
 
 # 0 = none, 1 = interesting lines, 2 = everything, 3 = everything + status,
 # 4 = everything + status + run through gdb

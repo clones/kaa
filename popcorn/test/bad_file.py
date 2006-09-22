@@ -2,14 +2,14 @@ import sys
 
 import kaa
 import kaa.display
-import kaa.player
+import kaa.popcorn
 
 def print_msg(msg):
     print '>', msg
 
-window = kaa.display.X11Window(size = (800,600), title = "kaa.player")
+window = kaa.display.X11Window(size = (800,600), title = "kaa.popcorn")
 
-player = kaa.player.Player(window)
+player = kaa.popcorn.Player(window)
 player.signals["start"].connect_once(window.show)
 player.signals["start"].connect(print_msg, 'playback started')
 player.signals["end"].connect(print_msg, 'playback end')

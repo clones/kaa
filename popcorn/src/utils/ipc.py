@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# ipc.py - IPC for kaa.player and childs
+# ipc.py - IPC for kaa.popcorn and childs
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -8,7 +8,7 @@
 # process and a forked python based proces much easier.
 #
 # -----------------------------------------------------------------------------
-# kaa-player - Generic Player API
+# kaa.popcorn - Generic Player API
 # Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
 # Please see the file AUTHORS for a complete list of authors.

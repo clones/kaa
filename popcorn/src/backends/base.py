@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# Kaa-player - Generic Player API
+# kaa.popcorn - Generic Player API
 # Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
 # Please see the file AUTHORS for a complete list of authors.
@@ -32,9 +32,9 @@ import sets
 # kaa imports
 import kaa.notifier
 
-# kaa.player imports
-from kaa.player.ptypes import *
-from kaa.player.utils import parse_mrl
+# kaa.popcorn imports
+from kaa.popcorn.ptypes import *
+from kaa.popcorn.utils import parse_mrl
 
 class PlayerError(Exception):
     pass

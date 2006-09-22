@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# ptypes.py - Types and constants used by kaa.player
+# ptypes.py - Types and constants used by kaa.popcorn
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-player - Generic Player API
+# kaa.popcorn - Generic Player API
 # Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
 # Please see the file AUTHORS for a complete list of authors.

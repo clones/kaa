@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-player - Generic Player API
+# kaa.popcorn - Generic Player API
 # Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
 # Please see the file AUTHORS for a complete list of authors.
@@ -31,10 +31,10 @@ __all__ = [ 'register', 'get_player_class', 'get_all_players' ]
 # python imports
 import os
 
-# kaa.player imports
-from kaa.player.backends.base import MediaPlayer
-from kaa.player.ptypes import *
-from kaa.player.utils import parse_mrl
+# kaa.popcorn imports
+from kaa.popcorn.backends.base import MediaPlayer
+from kaa.popcorn.ptypes import *
+from kaa.popcorn.utils import parse_mrl
 
 # internal list of players
 _players = {}

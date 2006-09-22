@@ -3,9 +3,9 @@ import os
 
 import kaa.notifier
 
-from kaa.player.backends.base import MediaPlayer
-from kaa.player.ptypes import *
-from kaa.player.utils import ChildProcess
+from kaa.popcorn.backends.base import MediaPlayer
+from kaa.popcorn.ptypes import *
+from kaa.popcorn.utils import ChildProcess
 
 from gst_types import Status
 

@@ -8,7 +8,7 @@
 # use a player from backends for the real playback.
 #
 # -----------------------------------------------------------------------------
-# kaa-player - Generic Player API
+# kaa.popcorn - Generic Player API
 # Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
 # Please see the file AUTHORS for a complete list of authors.
@@ -37,7 +37,7 @@ import logging
 # kaa imports
 import kaa.notifier
 
-# kaa.player imports
+# kaa.popcorn imports
 from ptypes import *
 from backends.manager import get_player_class, get_all_players
 

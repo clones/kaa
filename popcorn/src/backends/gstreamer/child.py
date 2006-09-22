@@ -9,8 +9,8 @@ import gst
 import kaa.notifier
 kaa.notifier.init('gtk', x11=False)
 
-from kaa.player.utils import Player
-from kaa.player.ptypes import *
+from kaa.popcorn.utils import Player
+from kaa.popcorn.ptypes import *
 
 from gst_types import Status
 

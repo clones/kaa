@@ -1,6 +1,6 @@
 from player import GStreamer
-from kaa.player.backends import register
-from kaa.player.ptypes import *
+from kaa.popcorn.backends import register
+from kaa.popcorn.ptypes import *
 
 def get_capabilities():
     caps = (CAP_VIDEO, CAP_AUDIO, CAP_OSD, CAP_CANVAS, CAP_DVD, CAP_DVD_MENUS,

@@ -16,7 +16,7 @@ import gtk.glade
 import kaa
 import kaa.notifier
 import kaa.beacon
-import kaa.player
+import kaa.popcorn
 
 class Baloo(object):
     def __init__(self):
@@ -32,7 +32,7 @@ class Baloo(object):
         self.timer = kaa.notifier.Timer(self.update_timer)
         self.search = []
         self.current = None
-        self.player = kaa.player.Player()
+        self.player = kaa.popcorn.Player()
         self.player.signals['end'].connect_weak(self.play_next)
         self.player.signals['pause'].connect_weak(self.player_pause)
         self.player.signals['play'].connect_weak(self.player_play)

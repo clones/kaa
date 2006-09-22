@@ -9,8 +9,8 @@ import kaa.xine as xine
 
 from kaa.config import Group, Var
 
-from kaa.player.utils import Player
-from kaa.player.ptypes import *
+from kaa.popcorn.utils import Player
+from kaa.popcorn.ptypes import *
 
 # Config group for xine player
 config = Group(desc = 'Options for xine player', schema = [

@@ -1,15 +1,14 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# setup.py - Setup script for kaa.player
+# setup.py - Setup script for kaa.popcorn
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-player - Wrapper for media players include Xine and MPlayer
-# Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+# kaa.popcorn - Generic Player API
+# Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
 #
-# First Edition: Jason Tackaberry <tack@sault.org>
-# Maintainer:    Jason Tackaberry <tack@sault.org>
+# Please see the file AUTHORS for a complete list of authors.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,11 +37,11 @@ except ImportError:
     sys.exit(1)
     
 ext_modules = []
-libvisual = Extension("kaa.player._libvisual", ['src/extensions/libvisual.c'])
+libvisual = Extension("kaa.popcorn._libvisual", ['src/extensions/libvisual.c'])
 if libvisual.check_library("libvisual", "0.2.0"):
     print "+ libvisual support enabled"
     ext_modules.append(libvisual)
 else:
     print "- libvisual support disabled"
 
-setup(module = 'player', version = '0.1', ext_modules = ext_modules)
+setup(module = 'popcorn', version = '0.1', ext_modules = ext_modules)

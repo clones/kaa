@@ -1,8 +1,8 @@
 import kaa.utils
 
 from player import MPlayer, _get_mplayer_info
-from kaa.player.backends import register
-from kaa.player.ptypes import *
+from kaa.popcorn.backends import register
+from kaa.popcorn.ptypes import *
 
 def get_capabilities():
     capabilities = [CAP_VIDEO, CAP_AUDIO, CAP_DVD, CAP_VARIABLE_SPEED]
