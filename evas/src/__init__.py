@@ -11,6 +11,19 @@ PIXEL_FORMAT_NONE = 0
 PIXEL_FORMAT_ARGB32 = 1
 PIXEL_FORMAT_YUV420P_601 = 2
 
+RENDER_BLEND     = 0
+RENDER_BLEND_REL = 1
+RENDER_COPY      = 2
+RENDER_COPY_REL  = 3
+RENDER_ADD       = 4
+RENDER_ADD_REL   = 5
+RENDER_SUB       = 6
+RENDER_SUB_REL   = 7
+RENDER_TINT      = 8
+RENDER_TINT_REL  = 9
+RENDER_MASK      = 10
+RENDER_MUL       = 11
+
 # Evas doesn't seem to use anything but NONE or GENERIC yet.
 LOAD_ERROR_NONE                       = 0
 LOAD_ERROR_GENERIC                    = 1
@@ -176,6 +189,11 @@ class Object(object):
     def stack_below(self, below):
         self._object.stack_above(below._object)
 
+    def render_op_set(self, op):
+        self._object.render_op_set(op)
+
+    def render_op_get(self):
+        return self._object.render_op_get()
 
 
 class Rectangle(Object):

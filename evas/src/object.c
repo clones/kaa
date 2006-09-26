@@ -375,6 +375,31 @@ Evas_Object_PyObject_clipees_get(Evas_Object_PyObject * self, PyObject * args)
 }
 
 PyObject *
+Evas_Object_PyObject_render_op_set(Evas_Object_PyObject * self, PyObject * args)
+{
+    int op;
+
+    if (!PyArg_ParseTuple(args, "i", &op))
+        return NULL;
+
+    BENCH_START
+    evas_object_render_op_set(self->object, op);
+    BENCH_END
+    return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_render_op_get(Evas_Object_PyObject * self, PyObject * args)
+{
+    int op;
+
+    BENCH_START
+    op = evas_object_render_op_get(self->object);
+    BENCH_END
+
+    return Py_BuildValue("i", op);
+}
+PyObject *
 Evas_Object_PyObject_raise(Evas_Object_PyObject * self, PyObject * args)
 {
     BENCH_START
@@ -444,6 +469,8 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"clip_get", (PyCFunction) Evas_Object_PyObject_clip_get, METH_VARARGS},
     {"clip_unset", (PyCFunction) Evas_Object_PyObject_clip_unset, METH_VARARGS},
     {"clipees_get", (PyCFunction) Evas_Object_PyObject_clipees_get, METH_VARARGS},
+    {"render_op_set", (PyCFunction) Evas_Object_PyObject_render_op_set, METH_VARARGS},
+    {"render_op_get", (PyCFunction) Evas_Object_PyObject_render_op_get, METH_VARARGS},
 
     // stacking
     {"object_raise", (PyCFunction) Evas_Object_PyObject_raise, METH_VARARGS},

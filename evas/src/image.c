@@ -22,7 +22,7 @@ Evas_Object_PyObject_image_file_set(Evas_Object_PyObject * self, PyObject * args
 PyObject *
 Evas_Object_PyObject_image_file_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    char *filename;
+    const char *filename;
 
     BENCH_START
     evas_object_image_file_get(self->object, &filename, NULL);

@@ -23,7 +23,7 @@ Evas_Object_PyObject_text_font_set(Evas_Object_PyObject * self, PyObject * args)
 PyObject *
 Evas_Object_PyObject_text_font_get(Evas_Object_PyObject * self, PyObject * args)
 {
-    char *font;
+    const char *font;
     int size;
 
     BENCH_START
