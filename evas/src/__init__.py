@@ -506,20 +506,23 @@ class EvasBuffer(Evas):
         bpp = (4, 4, 3, 3)[ kwargs["depth"] ]
         if not kwargs.get("stride"):
             kwargs["stride"] = size[0] * bpp
-        if not kwargs.get("buffer"):
-            kwargs["buffer"] = array.array('c', '\0'*size[0]*size[1]*bpp)
         kwargs["size"] = size
-        assert type(kwargs["buffer"]) in (array.array, buffer, int)
+        if kwargs.get('buffer'):
+            assert type(kwargs["buffer"]) in (array.array, buffer, int)
 
-        result = self._evas.output_set("buffer", **kwargs)
+        # If buffer wasn't specified, it will be created for us.  In any case
+        # the buffer object will be returned by output_set.  If the buffer is
+        # created, evas depends on the memory backed by the buffer to exist.
+        # So we really need to make sure the buffer doesn't go away, hence the
+        # private member variable.
+        self.__buffer = self._evas.output_set("buffer", **kwargs)
         self.output_size_set(size)
         if not viewport:
             viewport = (0, 0), size
         self.viewport_set(viewport[0], viewport[1])
-        self._buffer = kwargs["buffer"]
 
     def buffer_get(self):
-        return self._buffer
+        return self.__buffer
 
 
 _tsc_factor = None
