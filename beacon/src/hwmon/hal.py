@@ -225,6 +225,21 @@ def _device_add(prop, udi):
     if not prop.get('volume.is_disc'):
         # no disc, check if the device is removable
         try:
+
+            # FIXME: This is not working correctly. My USB HD is not
+            # marked as removable as it should be. Same for my MMC
+            # card reader. A normal USB stick works. So we need to
+            # change this somehow. One soultion would be that the user
+            # has to provide a list of fixed devices (e.g. sda, sdb
+            # for two hd), everything else is removable.  Or we could
+            # check if any partition is already mounted and mount
+            # everything on the device if not. E.g. you have sda1 and
+            # sda2 and sda1 is mounted, sda2 will not be mounted, it
+            # seems to be a fixed disc. If nothing is mounted on sdb,
+            # it is handled as removable device and we handle
+            # everything as beacon mountpoint. To avoid problems, the
+            # user could specify a black list.
+            
             fd = open(os.path.dirname(prop["linux.sysfs_path_device"]) + '/removable')
             rm = fd.read(1)
             fd.close()
