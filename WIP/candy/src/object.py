@@ -9,10 +9,12 @@ except ImportError:
 
 log = logging.getLogger('candy')
 
-SYNC_NOOP         = 0
-SYNC_NEEDS_RENDER = 1
-SYNC_NOT_FINISHED = 2
-SYNC_SIZE_CHANGED = 4
+SYNC_NOOP         = 0x000
+SYNC_NEEDS_RENDER = 0x001
+SYNC_NOT_FINISHED = 0x002
+SYNC_SIZE_CHANGED = 0x004
+SYNC_POS_CHANGED  = 0x008
+
 
 class CanvasError(Exception):
     pass
@@ -25,6 +27,11 @@ def debug(*args, **kwargs):
         print
 
 class Object(object):
+    """
+    Base class for all canvas objects.  Implements properties common to all
+    objects (color, padding, pos, etc.) and logic necesary for synchronizing
+    properties, as well as basic layout logic.
+    """
 
     @classmethod
     def _add_properties(cls, prepend = (), append = ()):
@@ -32,11 +39,11 @@ class Object(object):
         Adds new properties to the class object, appending or prepending to
         the current list (of the superclass), removing any duplicates.  This
         is done as a class method because properties are constant for all
-        instances of a clsas, so there's no sense in incurring the overhead
+        instances of a class, so there's no sense in incurring the overhead
         of allocating the property list during instantiation.
         """
         cur_properties = ()
-        if hasattr(cls, "_property_list"):
+        if hasattr(cls, '_property_list'):
             cur_properties = cls._property_list
 
         # Current property list with new prepend/append properties removed.
@@ -79,22 +86,25 @@ class Object(object):
         # Weak reference to our parent.
         self._parent = None
 
-        self['name'] = kwargs.get('name')
+        self['name']    = kwargs.get('name')
+        self['display'] = kwargs.get('display', True)
         self['visible'] = kwargs.get('visible', True)
         self['opacity'] = kwargs.get('opacity', 1.0)
-        self['color'] = kwargs.get('color', (255, 255, 255))
+        self['color']   = kwargs.get('color', (255, 255, 255))
         self['passive'] = kwargs.get('passive', False)
-        self['margin'] = kwargs.get('margin', (0, 0, 0, 0))
-        self['padding'] = kwargs.get('padding', (0, 0, 0, 0))
-        self['size'] = kwargs.get('width', 'auto'), kwargs.get('height', 'auto')
-        if 'size' in kwargs:
-            self['size'] = kwargs.get('size', ('auto', 'auto'))
-
-        self['pos'] = kwargs.get('left', 0), kwargs.get('top', 0), \
-                      kwargs.get('right'), kwargs.get('bottom'), \
-                      kwargs.get('hcenter'), kwargs.get('vcenter')
+        self['margin']  = kwargs.get('margin_top', 0), kwargs.get('margin_right', 0), \
+                          kwargs.get('margin_bottom', 0), kwargs.get('margin_left', 0)
+        self['margin']  = kwargs.get('margin', self['margin'])
+        self['padding'] = kwargs.get('padding_top', 0), kwargs.get('padding_right', 0), \
+                          kwargs.get('padding_bottom', 0), kwargs.get('padding_left', 0)
+        self['padding'] = kwargs.get('padding', self['padding'])
+        self['size']    = kwargs.get('width', 'auto'), kwargs.get('height', 'auto')
+        self['size']    = kwargs.get('size', self['size'])
+        self['pos']     = kwargs.get('left', 0), kwargs.get('top', 0), \
+                          kwargs.get('right'), kwargs.get('bottom'), \
+                          kwargs.get('hcenter'), kwargs.get('vcenter')
         if 'pos' in kwargs:
-            self['pos'] = tuple(kwargs.get('pos')) + (None, None, None, None)
+            self['pos'] = tuple(kwargs['pos']) + (None, None, None, None)
 
 
     def __repr__(self):
@@ -116,17 +126,31 @@ class Object(object):
 
 
     def __setitem__(self, key, value):
+        """
+        Interface to property setters.  Calls _set_property_foo method (where
+        foo is the name of the property) if it exists, otherwise it calls
+        _set_property_generic.  If the property-specific setter returns non-
+        None, then the value returned is passed to _set_property_generic.
+
+        Property setters are passed both key and value as arguments.  This is
+        an implementation idiosynchrasy and is for slight performance gains.
+        """
+
         key = key.replace('-', '_')
         if self._properties.get(key) == value:
             return
 
-        set_func = getattr(self, "_set_property_" + key, self._set_property_generic)
+        set_func = getattr(self, '_set_property_' + key, self._set_property_generic)
         value = set_func(key, value)
         if value is not None:
             self._set_property_generic(key, value)
 
 
     def _set_property_generic(self, key, value):
+        """
+        Generic property setter.  Stores the value in the _properties dict and
+        marks that property as dirty for next resync.
+        """
         self._properties[key] = value
         if key not in ('name',):
             self._dirty_property(key)
@@ -135,10 +159,13 @@ class Object(object):
     def _dirty_property(self, prop):
         """
         Marks a property as dirty, meaning the property value we have is out-
-        of-sync with the property on the canvas.  Next mainloop step, the 
-        property will be synced and the canvas rerendered if necessary.  Any
-        cached computed values for this property will also be deleted, forcing
-        them to be recalculated next time they are needed.
+        of-sync with the property on the canvas.  At the end of the current
+        mainloop step, the property will be synced and the canvas rerendered if
+        necessary.  Any cached computed values for this property will also be
+        deleted, forcing them to be recalculated next time they are needed.
+        Before a computed property is deleted, it is saved as the property name
+        prefixed with last-.  e.g. if pos is deleted, last-pos and last-pos-abs
+        will hold the old values.
         """
         if prop in self._dirty_properties:
             return
@@ -148,9 +175,15 @@ class Object(object):
         except KeyError:
             raise ValueError, "Unknown property '%s'" % prop
 
+        # Remove the property from _computed_properties dict if it exists 
+        # there.
         if prop in self._computed_properties:
             self._computed_properties['last-' + prop] = self._computed_properties[prop]
             del self._computed_properties[prop]
+
+        # Properties suffixed with -abs are the absolute computed value: that
+        # is, the value we give to evas.  Delete these computed values too,
+        # again saving a copy as last-prop-abs.
         prop_abs = prop + '-abs'
         if prop_abs in self._computed_properties:
             self._computed_properties['last-' + prop_abs] = self._computed_properties[prop_abs]
@@ -174,14 +207,17 @@ class Object(object):
         """
         Creates the underlying Evas object and returns it.  To be implemented 
         by subclasses.
+
+        This method is called as soon as we're canvased, which means it is
+        not called implicitly during a canvas sync.
         """
         pass
 
 
     def _queue_sync(self):
         """
-        Requests from our parent that _sync_dirty_properties be called on the next
-        main loop step.
+        Requests from our parent that our _sync_dirty_properties method be
+        called on the next main loop step.
         """
         if not self._is_sync_queued and self._parent:
             #print "queue_sync", self, self._parent, self._is_sync_queued
@@ -191,7 +227,9 @@ class Object(object):
 
     def _adopted(self, parent):
         """
-        Called by our parent when we get adopted.
+        Called by our parent when it adopts us.  Here we grab a weakref to
+        our parent, and mark all our properties as dirty so that they get
+        recomputed against our new parent.
         """
         if self._parent == parent:
             return
@@ -204,18 +242,40 @@ class Object(object):
         self._dirty_all_properties()
 
 
+    def _orphaned(self):
+        """
+        Called by our parent when we are removed and left without a parent.
+        Deletes the underlying evas object as we're no longer part of a 
+        canvas.
+        """
+        # Our parent doesn't want us anymore.  So dirty our display property.
+        # This indirectly dirties visible, which will compute to False if
+        # self._parent is None.   We dirty display instead of visible because
+        # we want to propagate SYNC_SIZE_CHANGED up to our parent on the next
+        # sync.
+        self._dirty_property('display')
+
+        # No parent means no canvas.  Uncanvasing will also delete our 
+        # underlying evas object.
+        self._uncanvased()
+
+        # Now set parent to None.  We do this after _dirty_property() since
+        # we need a reference so the queue sync will bubble up.
+        self._parent = None
+
+
     def _canvased(self, canvas):
         """
         Called by our parent container when the top-most ancestor is a Canvas
-        object.
+        object, or when the canvas object changes (e.g. we're moved to a new
+        canvas).
         """
-        if canvas == self._canvas:
-            return
-
-        # Hold a weakref to the canvas.
-        self._canvas = weakref(canvas)
-        if self["name"]:
-            self._canvas._register_object_name(self["name"], self)
+        if canvas != self._canvas:
+            # Hold a weakref to the canvas.
+            self._canvas = weakref(canvas)
+            if self['name']:
+                # Register our name with the new canvas.
+                self._canvas._register_object_name(self['name'], self)
 
         evas = canvas.get_evas()
         if not self._o and evas:
@@ -226,10 +286,11 @@ class Object(object):
 
     def _uncanvased(self):
         """
-        Called by our parent when we're detached from our current canvas.
+        Called when we're detached from our current canvas.  Unregisters our
+        name with the canvas and deletes the evas object.
         """
-        if self["name"] and self._canvas:
-            self._canvas._unregister_object_name(self["name"])
+        if self['name'] and self._canvas:
+            self._canvas._unregister_object_name(self['name'])
         self._wrap(None)
         self._canvas = None
 
@@ -262,7 +323,7 @@ class Object(object):
         Called just before we are about to sync a property; if this method
         returns False then we defer the sync.
         """
-        return self._o != None or property == "name"
+        return self._o != None or property == 'name'
 
 
     def _sync_dirty_properties(self, debug_prefix = ''):
@@ -283,7 +344,7 @@ class Object(object):
         assert(not self._is_currently_syncing)
         self._is_currently_syncing = True
         return_value = 0
-        debug(debug_prefix, "* sync:", self, " ".join(self._dirty_properties.keys()))
+        debug(debug_prefix, '* sync:', self, ' '.join(self._dirty_properties.keys()))
         # Keep syncing dirty properties until we either have no more dirty
         # properties left, or all the properties we tried to sync either 
         # aren't ready to be synced yet (_can_sync_property() return False)
@@ -303,17 +364,19 @@ class Object(object):
             # scaling independently of the number of properties in the property
             # list.
             for prop in sorted(self._dirty_properties.keys(), key=self._dirty_properties.get):
-                debug(debug_prefix, "   prop=%s can_sync=%s ->" % (prop, self._can_sync_property(prop)), lf=False)
+                debug(debug_prefix, '   prop=%s can_sync=%s ->' % (prop, self._can_sync_property(prop)), lf=False)
                 if self._can_sync_property(prop):
                     try:
-                        result = getattr(self, "_sync_property_" + prop)()
+                        result = getattr(self, '_sync_property_' + prop)()
                     except:
                         log.exception("Exception when syncing property '%s' for %s" % (prop, self))
                         result = 0
 
-                    # If property indicates canvas needs rendering, propagate
-                    # this flag back up to our parent.
-                    return_value |= result & (SYNC_NEEDS_RENDER | SYNC_SIZE_CHANGED)
+                    debug(debug_prefix, ' ret=%d' % result, lf=False)
+
+                    # Propagate all sync flags back up to parent except for 
+                    # SYNC_NOT_FINISHED, which we handle ourselves.
+                    return_value |= result & ~SYNC_NOT_FINISHED
 
                     if not result & SYNC_NOT_FINISHED:
                         # Property sync successful, so remove this property from the
@@ -349,10 +412,10 @@ class Object(object):
         against max.
         """
         if isinstance(val, str):
-            if val.replace("-", "").isdigit():
+            if val.replace('-', '').isdigit():
                 return int(val)
-            elif "%" in val:
-                return int(float(val.replace("%", "")) / 100.0 * max)
+            elif '%' in val:
+                return int(float(val.replace('%', '')) / 100.0 * max)
             else:
                 raise ValueError, "Invalid relative value '%s'" % val
         return val
@@ -360,8 +423,21 @@ class Object(object):
 
     def _get_extents(self):
         """
-        Returns a 2-tuple containing the numeric width and height that
-        defines the maximum size this object can hold.  
+        Returns a 2-tuple containing the numeric width and height that defines
+        the maximum size this object can hold, as constrained by our parent.
+
+        For a non-passive child (passive property is False [default]), the
+        extent for a dimension is the size for that dimension from the nearest
+        ancestor whose value is non-auto, less the cumulative padding of that
+        ancestor and all its children up to and including our parent.  For
+        example, if our parent's size is (50%,auto), parent's padding is 10% in
+        all directions, and our grandparent's size is (640,480), our extents
+        are (192,384).  
+
+        For a passive child (passive property is True), the extents are the
+        parent's computed inner size after all non-passive children have been
+        synced.  In the above example, if we have a single sibling object whose
+        computed size is (150,150), then our extents are (192, 150).
         """
         return self._parent._get_computed_property_for_child('extents', self)
 
@@ -385,11 +461,10 @@ class Object(object):
 
     def _get_computed_size(self):
         """
-        Returns the object's computed size.  The computed size is the size
-        of the object as it appears on the canvas, including padding.  (This
-        therefore implements a traditional box model and not the W3C box
-        model.)  Relative (percentage) values are resolved into numeric 
-        values.
+        Returns the object's computed border size.  The computed border size is
+        the size of the object as it appears on the canvas, including padding.
+        (This therefore implements a traditional box model and not the W3C box
+        model.)  Relative (percentage) values are resolved into numeric values.
 
         If a dimension is not able to be calculated when this method is 
         called, then 0 will be returned for that dimension.  
@@ -400,7 +475,7 @@ class Object(object):
         if size:
             return size
 
-        size = list(self["size"])
+        size = list(self['size'])
         extents = self._get_extents()
 
         if 'auto' in size:
@@ -415,7 +490,7 @@ class Object(object):
             padding_xy = intrinsic_size = None
 
         for index in range(2):
-            if size[index] == "auto":
+            if size[index] == 'auto':
                 # 'auto' dimensions are intrinsic size plus padding.
                 size[index] = intrinsic_size[index] + padding_xy[index]
             else:
@@ -504,14 +579,31 @@ class Object(object):
     # Properties
     ########################################################################
 
+    # --  name  ------------------------------------------------------------
 
     def _sync_property_name(self):
         return SYNC_NOOP
 
 
+
+    # --  display  ---------------------------------------------------------
+
+    def _sync_property_display(self):
+        self._dirty_property('visible')
+        return SYNC_SIZE_CHANGED
+
+
+
+    # --  visible  ---------------------------------------------------------
+
     def _compute_absolute_visible(self):
-        parent_visible = self._parent._get_computed_property_for_child('visible-abs', self, True)
-        visible = parent_visible and self['visible']
+        # If we have no parent, it's probably because we've just been 
+        # orphaned.  In this case, we hide ourselves on the canvas.
+        visible = self['visible'] and self['display'] and self._parent != None
+        if visible:
+            # We only need to check parent's visibility if we are visible.
+            if not self._parent._get_computed_property_for_child('visible-abs', self, True):
+                visible = False
         self._computed_properties['visible-abs'] = visible
         return visible
 
@@ -523,6 +615,9 @@ class Object(object):
             self._o.hide()
         return SYNC_NEEDS_RENDER
 
+
+
+    # --  opacity  ---------------------------------------------------------
 
     def _compute_absolute_opacity(self):
         parent_opacity = self._parent._get_computed_property_for_child('opacity-abs', self, 1.0)
@@ -541,6 +636,9 @@ class Object(object):
         return self._sync_property_color()
 
 
+
+    # --  color  -----------------------------------------------------------
+
     def _set_property_color(self, dummy, color):
         """
         Parse a color that is either a 3-tuple of integers specifying red,
@@ -548,18 +646,20 @@ class Object(object):
         or #rgb.
         """
         if isinstance(color, basestring) and color[0] == '#' and len(color) in (4, 7):
+            # Handle the #rrggbb or #rgb case.
             if len(color) == 4:
                 return int(color[1], 16) * 17, int(color[2], 16) * 17, int(color[3], 16) * 17
             else:
                 return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
 
-        elif isinstance(color, (list, tuple)):
-            # If any color element is none, us the existing value.
+        elif isinstance(color, (list, tuple)) and len(color) == 3:
+            # Handle the (r, g, b) case.
             if None in color:
-                color = tuple(map(lambda x, y: (x,y)[x==None], color, self["color"]))
+                # If any color element is none, us the existing value.
+                color = tuple(map(lambda x, y: (x,y)[x==None], color, self['color']))
             return color
         else:
-            raise ValueError, "Color must be a 3-tuple or html-style #rrggbb"
+            raise ValueError, 'Color must be a 3-tuple or html-style #rrggbb'
 
             
     def _compute_absolute_color(self):
@@ -586,49 +686,129 @@ class Object(object):
 
 
     def _sync_property_color(self):
-        opacity = self._computed_properties['opacity-abs']
-        color = self._compute_absolute_color()
-        color = color + (int(opacity * 255),)
-        self._o.color_set(*color)
+        r, g, b = self._compute_absolute_color()
+        a = int(self._computed_properties['opacity-abs'] * 255)
+        self._o.color_set(r, g, b, a)
         return SYNC_NEEDS_RENDER
 
+
+
+    # --  passive  ---------------------------------------------------------
 
     def _sync_property_passive(self):
         # FIXME: only do properties that are affected by passive property;
         # a property is affected if calls get_extents (i.e. uses a relative
         # value in the property.
-        self._dirty_property("margin")
-        self._dirty_property("padding")
-        self._dirty_property("size")
-        self._dirty_property("pos")
+        self._dirty_property('margin')
+        self._dirty_property('padding')
+        self._dirty_property('size')
+        self._dirty_property('pos')
 
         return SYNC_NOOP
 
+
+
+    # --  margin  ----------------------------------------------------------
+
+    # margin-left, margin-top, etc. aren't real properties in the sense
+    # that they aren't individually synced.  We intercept the setter for
+    # these properties, modify the relevant component in the actual
+    # margin property, and then set the margin property.
+
+    def _set_property_margin_top(self, dummy, value):
+        top, right, bottom, left = self['margin']
+        self._set_property_generic('margin', (value, right, bottom, left))
+
+    def _set_property_margin_right(self, dummy, value):
+        top, right, bottom, left = self['margin']
+        self._set_property_generic('margin', (top, value, bottom, left))
+
+    def _set_property_margin_bottom(self, dummy, value):
+        top, right, bottom, left = self['margin']
+        self._set_property_generic('margin', (top, right, value, left))
+
+    def _set_property_margin_left(self, dummy, value):
+        top, right, bottom, left = self['margin']
+        self._set_property_generic('margin', (top, right, bottom, left))
 
     def _sync_property_margin(self):
         # Margin affects outer pos, and therefore also inner pos.  Need
         # to resync pos.
-        self._dirty_property("pos")
+        self._dirty_property('pos')
         return SYNC_NOOP
 
+
+    # --  padding  ---------------------------------------------------------
+
+    def _set_property_padding_top(self, dummy, value):
+        top, right, bottom, left = self['padding']
+        self._set_property_generic('padding', (value, right, bottom, left))
+
+    def _set_property_padding_right(self, dummy, value):
+        top, right, bottom, left = self['padding']
+        self._set_property_generic('padding', (top, value, bottom, left))
+
+    def _set_property_padding_bottom(self, dummy, value):
+        top, right, bottom, left = self['padding']
+        self._set_property_generic('padding', (top, right, value, left))
+
+    def _set_property_padding_left(self, dummy, value):
+        top, right, bottom, left = self['padding']
+        self._set_property_generic('padding', (top, right, bottom, value))
 
     def _sync_property_padding(self):
         # Padding affects inner size, which is the canvas size.
-        self._dirty_property("size")
+        self._dirty_property('size')
         # Padding also changes inner position, so we must resync pos as well.
-        self._dirty_property("pos")
+        self._dirty_property('pos')
         return SYNC_NOOP
 
+
+
+    # --  size  ------------------------------------------------------------
+
+    def _set_property_width(self, dummy, value):
+        self._set_property_generic('size', (value, self['size'][1]))
+
+    def _set_property_height(self, dummy, value):
+        self._set_property_generic('size', (self['size'][0], value))
 
     def _sync_property_size(self):
         if self['pos'][2:] != (None, None, None, None) and self['passive']:
             # Our position depends on our size, so cause pos resync.
             self._dirty_property('pos')
         size = self.get_computed_inner_size()
-        debug("inner size", size, lf = False)
+        debug('inner size', size, lf = False)
         self._o.resize(size)
         return SYNC_NEEDS_RENDER | SYNC_SIZE_CHANGED
 
+
+
+    # --  pos  -------------------------------------------------------------
+
+    def _set_property_left(self, dummy, value):
+        left, top, right, bottom, hcenter, vcenter = self['pos']
+        self._set_property_generic('pos', (value, top, right, bottom, None, vcenter))
+
+    def _set_property_top(self, dummy, value):
+        left, top, right, bottom, hcenter, vcenter = self['pos']
+        self._set_property_generic('pos', (left, value, right, bottom, hcenter, None))
+
+    def _set_property_right(self, dummy, value):
+        left, top, right, bottom, hcenter, vcenter = self['pos']
+        self._set_property_generic('pos', (left, top, value, bottom, None, vcenter))
+
+    def _set_property_bottom(self, dummy, value):
+        left, top, right, bottom, hcenter, vcenter = self['pos']
+        self._set_property_generic('pos', (left, top, right, value, hcenter, None))
+
+    def _set_property_hcenter(self, dummy, value):
+        left, top, right, bottom, hcenter, vcenter = self['pos']
+        self._set_property_generic('pos', (None, top, None, bottom, value, vcenter))
+
+    def _set_property_vcenter(self, dummy, value):
+        left, top, right, bottom, hcenter, vcenter = self['pos']
+        self._set_property_generic('pos', (left, None, right, None, hcenter, value))
 
     def _set_property_pos(self, dummy, pos):
         return tuple(pos)
@@ -652,9 +832,10 @@ class Object(object):
     def _sync_property_pos(self):
         # Sync the object to the absolute inner position.
         abs_pos = self._compute_absolute_pos()
-        debug("abs pos", abs_pos, lf = False)
+        debug('abs pos', abs_pos, lf = False)
         self._o.move(abs_pos)
-        return SYNC_NEEDS_RENDER
+        return SYNC_NEEDS_RENDER | SYNC_POS_CHANGED
+
 
 
     ########################################################################
@@ -665,13 +846,19 @@ class Object(object):
     def get_computed_size(self):
         """
         Public wrapper for _get_computed_size().  If caller asks for computed
-        size of the object before we've synced properties, we implicitly
+        border size of the object before we've synced properties, we implicitly
         sync the canvas, which calculates layout, which is necessary in order
-        to get the computed size.
+        to get the computed border size.
+
         """
         if not self._canvas:
             return 0, 0
+
         if not self._is_currently_syncing and self._is_sync_queued:
+            # User has requested our computed size before we've been synced.
+            # We must sync (reflow) everything now in order to return a
+            # correct result.
+
             # TODO: this syncs the whole canvas which might not be needed.  
             # Only need to sync objects that would affect our size.
             self._canvas._sync_dirty_properties()
@@ -712,15 +899,20 @@ class Object(object):
         objects affecting our position must first be synced before we can
         correctly compute position.
         """
+        if not self._canvas:
+            return 0, 0
+
         if not self._is_currently_syncing and self._is_sync_queued:
-            if not self._canvas:
-                return 0, 0
+            # User has requested our computed pos before we've been synced.
+            # We must sync (reflow) everything now in order to return a correct
+            # result.
 
             # TODO: this syncs the whole canvas which might not be needed.  
-            # Only need to sync objects that would affect our size.
+            # Only need to sync objects that would affect our pos.
             self._canvas._sync_dirty_properties()
 
         return self._get_computed_position()
+
 
 
     def get_computed_inner_position(self):
@@ -736,7 +928,7 @@ class Object(object):
 
 
     def resize(self, size):
-        self["size"] = size
+        self['size'] = size
 
 
     def move(self, pos):
@@ -746,19 +938,19 @@ class Object(object):
     def get_canvas(self):
         return self._canvas
 
+    def hide(self):
+        self['visible'] = False
+
+    def show(self):
+        self['visible'] = True
+
+
 
 Object._add_properties(
     # Properties will be synchronized in the order they appear in
     # this list.
-            #"name", "expand", "visible", "display", "layer",
-            #"color", "size", "pos", "clip", "margin", "padding"
-    ('name', 'visible', 'opacity', 'color', 'passive', 
-    'margin', 'padding', 'size', 'pos',
-#    'width', 'height', 'left', 'top', 'right', 'bottom', 'vcenter', 'hcenter',
-#    'margin_left', 'margin_top', 'margin_bottom', 'margin_right',
-#    'padding_left', 'padding_top', 'padding_bottom', 'padding_right'
-    
-    )
+    ('name', 'display', 'visible', 'opacity', 'color', 'passive', 
+    'margin', 'padding', 'size', 'pos')
 )
 
 
@@ -782,10 +974,17 @@ class Image(Object):
         super(Image, self).__init__(**kwargs)
 
 
+        self['image']     = kwargs.get('image')
+        self['filename']  = kwargs.get('filename')
+        self['pixels']    = kwargs.get('pixels')
+        self['data']      = kwargs.get('data')
+        self['dirty']     = False
+        self['aspect']    = kwargs.get('aspect', 'auto')
+        self['has_alpha'] = kwargs.get('has_alpha', True)
+
         self._loaded = False
         if image_or_file:
             self.set_image(image_or_file)
-
 
 
     def _create_evas_object(self, evas):
@@ -803,9 +1002,88 @@ class Image(Object):
         return self._o.image_size_get()
 
 
+    def _get_native_aspect(self):
+        size = self._get_intrinsic_size()
+        if 0 in size:
+            return 1.0
+        return size[0] / float(size[1])
+
+
+    def _get_computed_size(self):
+        """
+        Returns the computed border size according to the current aspect
+        property.  Aspect property can be either a numeric value, or one of the
+        literal strings 'preserve', 'ignore', or 'auto'.
+
+        In the case of a numeric value, the image's computed size will conform
+        to the specified aspect.  If only one of the dimensions are specified
+        in the size property (i.e. one of them is 'auto'), the non-auto
+        dimension will be computed from the other dimension and the aspect
+        ratio.  If both dimensions are specified, then the size is considered a
+        maximum, and the computed size will be the largest size that can fit
+        within the area and still conform to the specified aspect.
+
+        If aspect is 'preserve', behave as though a numeric value was given,
+        but use the image's native aspect.
+
+        If aspect is 'ignore', stretch the image to fit the size property.  If
+        one of the size dimensions is 'auto', use the image's intrinsic size
+        for that dimension.
+
+        If aspect is 'auto', behave like 'preserve' if one of the size
+        dimensions is 'auto'.  Otherwise, if both dimensions are specified,
+        behave like 'ignore'.  This is the default aspect.
+        """
+        if 'size' in self._computed_properties:
+            return self._computed_properties['size']
+
+        size = super(Image, self)._get_computed_size()
+        aspect = self['aspect']
+        if aspect == 'ignore' or (aspect == 'auto' and 'auto' not in self['size']) or \
+           (aspect in ('preserve', 'auto') and self['size'] == ('auto', 'auto')):
+            return size
+
+        # Computed size includes padding, so remove it so we can compute the
+        # aspect-corrected size.
+        padding = self._get_computed_padding()
+        size = list((size[0] - padding[1] - padding[3], size[1] - padding[0] - padding[2]))
+        if type(aspect) in (float, int):
+            target_aspect = float(aspect)
+        else:
+            target_aspect = self._get_native_aspect()
+
+        # Handle the case where one of the dimensions is auto.
+        if self['size'][0] == 'auto':
+            # Width is auto, so compute it against the computed height.
+            size[0] = int(size[1] * target_aspect)
+        elif self['size'][1] == 'auto':
+            # Height is auto, so compute it against the computed width.
+            size[1] = int(size[0] / target_aspect)
+
+        # Here both are fixed but we have a target aspect, so treat the
+        # size as a maximum area, and figure out which dimension we want
+        # to discard.
+        elif int(size[0] / target_aspect) > size[1]:
+            # Aspect-corrected height is greater than the specified height,
+            # so aspect-correct width instead.
+            size[0] = int(size[1] * target_aspect)
+        else:
+            # Aspect-corrected width is greater than the specified width,
+            # so aspect-correct heightinstead.
+            size[1] = int(size[0] / target_aspect)
+
+        size = size[0] + padding[1] + padding[3], size[1] + padding[0] + padding[2]
+        print "IMAGE SIZE %s aspect=%s intrinsic=%s computed old=%s new=%s" % (self, target_aspect, self._get_intrinsic_size(), self._computed_properties['size'], size)
+        self._computed_properties['size'] = size
+        return size
+
+
+
     ########################################################################
     # Properties
     ########################################################################
+
+    # --  size -------------------------------------------------------------
 
     def _sync_property_size(self):
         super(Image, self)._sync_property_size()
@@ -815,32 +1093,66 @@ class Image(Object):
         return SYNC_NEEDS_RENDER
 
 
+    # --  image ------------------------------------------------------------
+
     def _sync_property_image(self):
         return SYNC_NOOP
 
 
+    # --  filename ---------------------------------------------------------
+
     def _sync_property_filename(self):
-        debug(self["filename"], lf = False)
-        self._o.image_file_set(self["filename"])
+        debug(self['filename'], lf = False)
+        self._o.image_file_set(self['filename'])
         err = self._o.image_load_error_get()
         if err:
-            raise evas.LoadError, (err, "Unable to load image", self["filename"])
+            raise evas.LoadError, (err, 'Unable to load image', self['filename'])
 
         self._loaded = True
-        self._dirty_property("size")
+        self._dirty_property('size')
         return SYNC_NEEDS_RENDER
 
+
+    # --  pixels  ----------------------------------------------------------
 
     def _sync_property_pixels(self):
         return SYNC_NOOP
 
+
+    # --  data  ------------------------------------------------------------
+
     def _sync_property_data(self):
         return SYNC_NOOP
 
+
+    # --  aspect  ----------------------------------------------------------
+
+    def _set_propery_aspect(self, dummy, value):
+        """
+        Aspect property can be either a numeric value, or one of the literal
+        strings 'preserve', 'ignore', or 'auto'.  The computed size of the
+        image will reflect this property.
+        """
+        if value not in ('auto', 'preserve', 'ignore') and type(value) not in (int, float):
+            raise ValueError, "Aspect property must be 'preserve', 'ignore', 'aspect', or numeric."
+        return value
+
+
     def _sync_property_aspect(self):
+        self._dirty_property('size')
         return SYNC_NOOP
 
 
+    # --  has_alpha  -------------------------------------------------------
+
+    def _sync_property_has_alpha(self):
+        return SYNC_NOOP
+
+
+    # --  dirty  -----------------------------------------------------------
+
+    def _sync_property_dirty(self):
+        return SYNC_NOOP
 
     ########################################################################
     # Public API
@@ -854,19 +1166,19 @@ class Image(Object):
 
         if isinstance(image_or_file, basestring):
             # Load image from file.
-            self["filename"] = image_or_file
-            del self["image"], self["pixels"]
+            self['filename'] = image_or_file
+            del self['image'], self['pixels']
         elif imlib2 and isinstance(image_or_file, imlib2.Image):
             # Use Imlib2 image as source for the evas image.
-            self["image"] = image_or_file
-            #self["image"].signals["changed"].connect_weak(self.set_dirty)
+            self['image'] = image_or_file
+            #self['image'].signals['changed'].connect_weak(self.set_dirty)
         else:
-            raise ValueError, "Unsupported argument to set_image: " + repr(type(image_or_file))
+            raise ValueError, 'Unsupported argument to set_image: ' + repr(type(image_or_file))
 
         self._loaded = False
 
 
-Image._add_properties(('image', 'filename', 'pixels', 'data'), ('aspect', ))
+Image._add_properties(('image', 'filename', 'pixels', 'data', 'dirty', 'aspect'), ('has_alpha', ))
 
 
 
@@ -949,8 +1261,10 @@ class Container(Object):
     def _can_sync_property(self, property):
         # Containers don't actually have an evas object, so we override this
         # method to allow properties to be synced as long as we belong to a
-        # canvas.
-        return self._canvas != None
+        # canvas.  Exception: if property is display or visible and we have
+        # no parent, it likely means we were just deleted.  We allow a sync 
+        # in this case.
+        return self._canvas != None or property in ('display', 'visible')
 
 
     def _get_computed_property_for_child(self, prop, child, default = None):
@@ -958,12 +1272,15 @@ class Container(Object):
         Returns the computed property (specified by prop) within the context of
         the child requesting the property (specified by child).  If the
         computed property doesn't exist, return default.  Subclasses of
-        Container may wish to return different values depending on the child
-        requesting.
+        Container may wish to return different values depending on the 
+        requesting child, in order to implement custom layout policies.
         """
         if default is None and prop not in self._computed_properties:
             raise ValueError, "Property '%s' not computed and no default specified" % prop
+
         if prop == 'extents' and child['passive']:
+            # Passive child is asking for its extents, so we return our inner
+            # size.
             prop = 'size-inner'
 
         value = self._computed_properties.get(prop, default)
@@ -1004,22 +1321,21 @@ class Container(Object):
                 continue
 
             result = child._sync_dirty_properties(debug_prefix)
+            print ' - sync child', child, result
             if not result & SYNC_NOT_FINISHED:
                 # Sync of this child is complete, so remove pending resync
                 # request.
                 del self._queued_children[child]
                 child._is_sync_queued = False
 
-            if result & SYNC_SIZE_CHANGED and not do_passive and 'auto' in self['size']:
+            if result & (SYNC_SIZE_CHANGED | SYNC_POS_CHANGED) and not do_passive and 'auto' in self['size']:
                 # This child's size has changed, so our size may also have changed.
-                # FIXME: our size can change if our child's pos also changes;
-                # need to check for this.
 
                 # If both our dimensions are specified, child cannot
                 # affect our size, so ignore.
                 # Otherwise dirty size of all passive children and delete
                 # our cached computed size.  (Will be recalculated below.)
-                #print "Child %s size changed, force recomputation of our (%s) size" % (child, self)
+                print 'Child %s size changed, force recomputation of our (%s) size' % (child, self)
                 if 'size' in self._computed_properties:
                     del self._computed_properties['size']
                 for child in self._children:
@@ -1058,7 +1374,7 @@ class Container(Object):
 
             return_value |= result & SYNC_NEEDS_RENDER
 
-        if self["debug"]:
+        if self['debug']:
             return_value |= self._update_debug_rect()
 
         self._is_currently_syncing = False
@@ -1078,7 +1394,7 @@ class Container(Object):
         visible = self._computed_properties['visible-abs']
         if (pos, size) != self._debug_rect.geometry_get() or visible != self._debug_rect.visible_get() or \
            (pos_inner, size_inner) != self._debug_rect_inner.geometry_get():
-            #print "SET debug rect %s: pos=%s size=%s" % (self, repr(pos), repr(size))
+            #print 'SET debug rect %s: pos=%s size=%s' % (self, repr(pos), repr(size))
             self._debug_rect.move(pos)
             self._debug_rect.resize(size)
             self._debug_rect_inner.move(pos_inner)
@@ -1105,7 +1421,7 @@ class Container(Object):
             if child['passive']:
                 continue
 
-            child_size = child._get_computed_size()
+            child_size = child.get_computed_outer_size()
             child_pos = child.get_computed_position()
             sum = child_pos[0] + child_size[0], child_pos[1] + child_size[1]
             if sum[0] > size[0]:
@@ -1121,11 +1437,15 @@ class Container(Object):
     # Properties
     ########################################################################
 
+    # --  pos  -------------------------------------------------------------
+
     def _sync_property_pos(self):
         self._compute_absolute_pos()
         self._dirty_property_children('pos')
         return SYNC_NOOP
 
+
+    # --  visible  ---------------------------------------------------------
 
     def _sync_property_visible(self):
         # Compute absolute visibility; children will use this value.
@@ -1134,13 +1454,17 @@ class Container(Object):
         return SYNC_NOOP
 
 
+
+    # --  margin  ----------------------------------------------------------
+
     def _sync_property_margin(self):
         # Margin affects our position.  If we move, so must our children.  So
         # dirty both our pos and our children's pos.
         self._dirty_property('pos')
-        #self._dirty_property_children('pos')
         return SYNC_NOOP
 
+
+    # --  padding  ---------------------------------------------------------
 
     def _sync_property_padding(self):
         # Padding will affect our inner position, so we must dirty our pos
@@ -1173,6 +1497,9 @@ class Container(Object):
         return SYNC_NOOP
 
 
+
+    # --  size  ------------------------------------------------------------
+
     def _compute_extents_for_children(self):
         extents = list(self._get_extents())
         for i, val in enumerate(self['size']):
@@ -1204,11 +1531,15 @@ class Container(Object):
         return SYNC_NOOP
 
 
+    # --  opacity  ---------------------------------------------------------
+
     def _sync_property_opacity(self):
         self._compute_absolute_opacity()
         self._dirty_property_children('opacity')
         return SYNC_NOOP
 
+
+    # --  color  -----------------------------------------------------------
 
     def _sync_property_color(self):
         self._compute_absolute_color()
@@ -1216,8 +1547,10 @@ class Container(Object):
         return SYNC_NOOP
 
 
+    # --  debug  -----------------------------------------------------------
+
     def _sync_property_debug(self):
-        if self["debug"]:
+        if self['debug']:
             if not self._debug_rect:
                 colors = [ random.randint(0, 255) for x in range(3) ]
                 self._debug_rect = self.get_canvas().get_evas().object_rectangle_add()
@@ -1227,7 +1560,7 @@ class Container(Object):
 
             return SYNC_NEEDS_RENDER
 
-        elif not self["debug"] and self._debug_rect:
+        elif not self['debug'] and self._debug_rect:
             self._debug_rect.hide()
             return SYNC_NEEDS_RENDER
 
@@ -1241,12 +1574,21 @@ class Container(Object):
 
     def add_child(self, child):
         if child._parent:
-            raise CanvasError, "Attempt to parent an adopted child."
+            raise CanvasError, 'Attempt to parent an adopted child.'
 
         self._children.append(child)
         child._adopted(self)
         if self.get_canvas():
             child._canvased(self.get_canvas())
+
+
+    def remove_child(self, child):
+        if child not in self._children:
+            return
+        self._children.remove(child)
+        child._orphaned()
+
+
 
 Container._add_properties(append = ('debug',))
 
@@ -1262,7 +1604,7 @@ class Canvas(Container):
 
     def _wrap(self, evas_object):
         super(Canvas, self)._wrap(evas_object)
-        kaa.signals["step"].connect_weak(self._sync_queued)
+        kaa.signals['step'].connect_weak(self._sync_queued)
 
 
     def _sync_dirty_properties(self, debug_prefix=''):
@@ -1273,11 +1615,15 @@ class Canvas(Container):
 
 
     def _sync_queued(self):
-        if len(self._dirty_properties) == len(self._queued_children) == 0:
+        sync_needed = len(self._queued_children) > 0 or len(self._dirty_properties) > 0
+        if not sync_needed and not self._render_needed:
             return
+
         kaa.evas.benchmark_reset()
         t0=time.time()
-        self._sync_dirty_properties()
+        if sync_needed:
+            self._sync_dirty_properties()
+
         t1=time.time()
         if self._render_needed:
             self._render()
@@ -1290,45 +1636,13 @@ class Canvas(Container):
         all=(t2-t0) - _bench_subtract
 
         evas=kaa.evas.benchmark_get()
-        print " @ Canvas sync=%.05f (%.2f%%), render=%.5f (%.2f%%); all=%.05f evas=%f;\n   OVERHEAD=%.05f (%.2f%%)" % \
+        print ' @ Canvas sync=%.05f (%.2f%%), render=%.5f (%.2f%%); all=%.05f evas=%f;\n   OVERHEAD=%.05f (%.2f%%)' % \
             (sync, sync/all*100, render, render/all*100, all, evas, all-evas, (all-evas)/all*100)
 
 
     def _can_sync_property(self, property):
         return Object._can_sync_property(self, property)
 
-
-    def _set_property_size(self, dummy, size):
-        if size != ('auto', 'auto'):
-            output_size = self._o.output_size_get()
-            if size != output_size:
-                raise ValueError, "Canvas with size %s cannot be resized to %s" % (output_size, size)
-
-            self._computed_properties['size'] = size
-        return size
-
-
-    def _sync_property_pos(self):
-        padding = self._get_computed_padding()
-        self._computed_properties['pos-abs'] = padding[3], padding[0]
-        self._computed_properties['pos-inner-abs'] = padding[3], padding[0]
-        self._dirty_property_children('pos')
-        return SYNC_NOOP
-
-
-    def _sync_property_visible(self):
-        self._computed_properties['visible-abs'] = self['visible']
-        self._dirty_property_children('visible')
-        return SYNC_NOOP
-
-
-    def _sync_property_opacity(self):
-        self._computed_properties['opacity-abs'] = self['opacity']
-        return SYNC_NOOP
-
-    def _sync_property_color(self):
-        self._computed_properties['color-abs'] = self['color']
-        return SYNC_NOOP
 
 
     def _render(self):
@@ -1347,14 +1661,70 @@ class Canvas(Container):
     def _get_extents(self):
         return self['size']
 
+
     def _get_computed_size(self):
         return self['size']
+
+
+
+    ########################################################################
+    # Properties
+    ########################################################################
+
+    # --  size  ------------------------------------------------------------
+
+    def _set_property_size(self, dummy, size):
+        if size != ('auto', 'auto'):
+            output_size = self._o.output_size_get()
+            if size != output_size:
+                raise ValueError, 'Canvas with size %s cannot be resized to %s' % (output_size, size)
+
+            self._computed_properties['size'] = size
+        return size
+
+
+    # --  pos  -------------------------------------------------------------
+
+    def _sync_property_pos(self):
+        padding = self._get_computed_padding()
+        self._computed_properties['pos-abs'] = padding[3], padding[0]
+        self._computed_properties['pos-inner-abs'] = padding[3], padding[0]
+        self._dirty_property_children('pos')
+        return SYNC_NOOP
+
+
+    # --  visible  ---------------------------------------------------------
+
+    def _sync_property_visible(self):
+        self._computed_properties['visible-abs'] = self['visible']
+        self._dirty_property_children('visible')
+        return SYNC_NOOP
+
+
+    # --  opacity  ---------------------------------------------------------
+
+    def _sync_property_opacity(self):
+        self._computed_properties['opacity-abs'] = self['opacity']
+        return SYNC_NOOP
+
+
+    # --  color  -----------------------------------------------------------
+
+    def _sync_property_color(self):
+        self._computed_properties['color-abs'] = self['color']
+        return SYNC_NOOP
+
+
+
+    ########################################################################
+    # Public API
+    ########################################################################
 
     def get_computed_size(self):
         return self['size']
 
     def get_evas(self):
-        return None
+        return self._o
 
 
     def get_canvas(self):
@@ -1366,11 +1736,11 @@ class Canvas(Container):
 from kaa import display
 
 class X11Canvas(Canvas):
-    def __init__(self, size, use_gl = None, title = "Canvas", **kwargs):
+    def __init__(self, size, use_gl = None, title = 'Canvas', **kwargs):
         self._window = display.X11Window(size = size, title = title)
 
         if use_gl == None:
-            use_gl = "gl_x11" in evas.render_method_list() and \
+            use_gl = 'gl_x11' in evas.render_method_list() and \
                      self._window.get_display().glx_supported()
 
         self._canvas_window = display.EvasX11Window(use_gl, size = size, parent = self._window)
@@ -1381,12 +1751,7 @@ class X11Canvas(Canvas):
         self._wrap(self._canvas_window.get_evas()._evas)
         self._canvas_window.set_cursor_hide_timeout(1)
 
-        self["size"] = size
-
-
-    def _set_property_visible(self, dummy, visible):
-        self._visibility_on_next_render = visible
-        return visible
+        self['size'] = size
 
 
     def _render(self):
@@ -1403,5 +1768,21 @@ class X11Canvas(Canvas):
             _bench_subtract = 0#time.time()-t0
         return regions
 
-    def get_evas(self):
-        return self._o
+
+
+    ########################################################################
+    # Properties
+    ########################################################################
+
+    # --  visible  ---------------------------------------------------------
+
+    def _set_property_visible(self, dummy, visible):
+        self._visibility_on_next_render = visible
+        return visible
+
+
+
+    ########################################################################
+    # Public API
+    ########################################################################
+
