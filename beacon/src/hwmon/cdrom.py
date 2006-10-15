@@ -61,12 +61,13 @@ def eject(device):
             s = ioctl(fd, CDIOCEJECT, 0)
         else:
             s = ioctl(fd, CDROMEJECT, 0)
-    except Exception, e:
+    except (OSError, IOError), e:
         log.exception('eject error')
+        return
     try:
         # close the fd to the drive
         os.close(fd)
-    except:
+    except (OSError, IOError), e:
         log.exception('close fd')
 
         
@@ -149,6 +150,10 @@ class RomDrive(object):
         # Check drive status
         try:
             fd = os.open(self.device, os.O_RDONLY | os.O_NONBLOCK)
+        except (OSError, IOError), e:
+            return
+
+        try:
             if os.uname()[0] == 'FreeBSD':
                 data = array.array('c', '\000'*4096)
                 (address, length) = data.buffer_info()
@@ -159,13 +164,8 @@ class RomDrive(object):
             else:
                 CDSL_CURRENT = ( (int ) ( ~ 0 >> 1 ) )
                 s = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT)
-        except Exception, e:
-            # maybe we need to close the fd if ioctl fails, maybe
-            # open fails and there is no fd
-            try:
-                os.close(fd)
-            except (OSError, IOError):
-                pass
+        except (OSError, IOError), e:
+            os.close(fd)
             return
 
         # close fd
