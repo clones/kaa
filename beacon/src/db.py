@@ -155,15 +155,15 @@ class Database(object):
             return self._db_query_filename(fname)
         if 'id' in query and qlen == 1:
             return self._db_query_id(query['id'])
+        if 'parent' in query and 'recursive' in query and qlen == 2:
+            if not query['parent']._beacon_isdir:
+                raise AttributeError('parent is no directory')
+            return self._db_query_dir_recursive(query['parent'])
         if 'parent' in query:
             if qlen == 1:
                 if query['parent']._beacon_isdir:
                     return self._db_query_dir(query['parent'])
             query['parent'] = query['parent']._beacon_id
-        if 'parent' in query and 'recursive' in query and qlen == 2:
-            if not query['parent']._beacon_isdir:
-                raise AttributeError('parent is no directory')
-            return self._db_query_dir_recursive(query['parent'])
         if 'attr' in query:
             return self._db_query_attr(query)
         if 'type' in query and query['type'] == 'media':
