@@ -19,49 +19,7 @@ the database.
 
 Access the database
 
-First you need to connect to the database. After that you can get a
-directory object and call the listdir() memeber function. You get a
-Query object in return. Besides some monitoring stuff, the class has
-an interator to walk through the list of results:
-
-| kaa.beacon.connect('/var/lib/freevo/beacondb')
-| directory = kaa.beacon.get('/home/mp3')
-| listing = directory.listdir()
-| for item in listing:
-|     print item
-
-Item is an object of the type Item (or higher classes like File or
-Directory. You will be able to change that in later versions of
-kaa.beacon to your own classes). Directory object have a 'listdir()'
-again (other types will also have a list in the future). You can
-access the attributes from the database with the memeber function
-'getattr()'. A File/Directory also has attributes 'url', 'filename'
-and 'isdir'. To get a list of all possible attributes call 'keys()'.
-Using the attribute 'thumbnail' will return a Thumbnail object for
-that item you can use to get/set/create thumbnails. The thumbnail
-object has (besides other things) a member variable 'image' returning
-the thumbnail filename with the highest resolution or None if no
-thumbnail exists. If no thumbnail exists, you get check the meber
-variable 'failed' to check if you already tried to create a thumbnail
-and failed. If this returns False, you can use the function 'create()'
-to create a thumbnail. The arguments are size (NORMAL or LARGE) and
-the flag 'wait'. If 'wait' is True the function will block using
-notifier.step until the thumbnail is created. If 'wait' is False
-(default), the function will return a Signal you can connect to to get
-notice when thumbnailing is done. NOTICE: you need to keep the
-thumbnail object, if you delete the object, a scheduled thumbnailing
-will be stopped.
-
-| thumbnail = item.getattr('thumbnail')
-| if thumbnail.image:
-|     print 'thumbnail is', thumbnail.image
-|     return
-| if thumbnail.failed:
-|     print 'unable to create thumbnail for', item.filename
-|     return
-| # create one (blocking)
-| thumbnail.create('large', True)
-
+[ see doc/api.txt ]
 
 
 Hidden features

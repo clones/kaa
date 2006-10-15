@@ -43,36 +43,40 @@ the item for one file. If the database is not connected yet, this
 function will call kaa.notifier.step until connected. This small
 version of a query can not be monitored for changes.
 
-If you have a directory item you can call the memeber function
-'listdir' to get Query object with all files in that directory. Using
-the parameter recursive=True will return all files (not directories)
-recursive inside the dir. Symlinks will not be followed (except if the
-starting dir is a symlink).
+If you have a directory item you can call the member function 'list to
+get Query object with all files in that directory. Using the parameter
+recursive=True will return all files (not directories) recursive
+inside the dir. Symlinks will not be followed (except if the starting
+dir is a symlink).
 
-Note: only a nornal directory listing (not recursive) and no other
-kind of query will check the filesystem if the file is still there or
-if there are newer files that would match.
+Note: that the none-recursive call will return all files in the
+directory regardless of whether it has been scanned; the recursive
+call will only return scanned files. Only a normal directory listing
+(not recursive) and no other kind of query will check the filesystem
+if the file is still there or if there are newer files that would
+match.
 
 
 == Items ==
 
-The items returned by a query can either be a 'Directory', a 'File' or
-a simple 'Item' (e.g. tracks on a DVD). They have functions to get and
-set attributes in the database (getattr and setattr). It could be
-possible that an item for a new file is not scanned, in that case the
-attributes returned are limited to the basic filesystem information.
-To force scanning for such an item, add 'force' to getattr and the
-function will block using kaa.notifier.step until the item is
-scanned. You can use the function 'scanned' to get information if the
-item is already scanned or not. If you set information with setattr,
-the information will be added to the database. If the attribute starts
-with 'tmp:', it will be stored only in this object and not added to
-the database. A new query with the same item in the database will not
-contain that attribute. The function 'keys' will return all known keys
-you can use. Special attributes are 'title' (generate a nice title
-based on the name), 'image' (the filename that contains an image for
-this item) and 'thumbnail' (same as image, but as Thumbnail
-object). If an attribute does not exist, None will be returned.
+The items returned by a query can either be a 'File' or a simple
+'Item' (e.g. tracks on a DVD, use 'list' to get all tracks). They have
+functions to get and set attributes in the database (getattr and
+setattr). It could be possible that an item for a new file is not
+scanned, in that case the attributes returned are limited to the basic
+filesystem information.  To force scanning for such an item, add
+'force' to getattr and the function will block using kaa.notifier.step
+until the item is scanned. You can use the function 'scanned' to get
+information if the item is already scanned or not. If you set
+information with setattr, the information will be added to the
+database. If the attribute starts with 'tmp:', it will be stored only
+in this object and not added to the database. A new query with the
+same item in the database will not contain that attribute. The
+function 'keys' will return all known keys you can use. Special
+attributes are 'title' (generate a nice title based on the name),
+'image' (the filename that contains an image for this item) and
+'thumbnail' (same as image, but as Thumbnail object). If an attribute
+does not exist, None will be returned.
 
 
 == Thumbnails ==
