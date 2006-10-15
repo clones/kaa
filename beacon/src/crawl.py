@@ -445,8 +445,18 @@ class Crawler(object):
                 continue
             # check file
             counter += parse(self.db, child) * 20
+
+            # TODO: If the file is unchanged, check if we have the defined
+            # thumbnail generated. If not, do it.
+
             while counter >= 20:
                 counter -= 20
                 yield kaa.notifier.YieldContinue
             counter += 1
+
+        # TODO: when all files and subdirs are scanned, check some extra
+        # stuff. If all items have the same Artist/Album/Image, set this
+        # for the directory, too. Also sum up all 'length' values of the
+        # items and set it for directory
+        
         yield subdirs
