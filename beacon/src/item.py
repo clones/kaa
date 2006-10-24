@@ -111,13 +111,12 @@ class Item(object):
             return self._beacon_media.get('volume.read_only')
 
         if key in ('image', 'thumbnail'):
-            image = ''
-            if self._beacon_data.has_key('image'):
-                image = self._beacon_data['image']
-            if not image and self._beacon_parent:
-                # This is not a good solution, maybe the parent is not
-                # up to date. Well, we have to live with that for now.
-                image = self._beacon_parent.get('image')
+            image = self._beacon_data.get('image')
+            if not image:
+                if self._beacon_parent:
+                    # This is not a good solution, maybe the parent is not
+                    # up to date. Well, we have to live with that for now.
+                    image = self._beacon_parent.get('image')
                 if not image:
                     return None
             if key == 'image':
