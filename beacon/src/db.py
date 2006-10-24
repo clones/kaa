@@ -147,11 +147,6 @@ class Database(object):
             qlen -= 1
 
         # do query based on type
-        if 'dirname' in query:
-            query['dirname'] = os.path.realpath(query['dirname'] + '/')
-            if query['dirname'] == '//':
-                query['dirname'] = '/'
-            return self._db_query_dirname(query)
         if 'filename' in query and qlen == 1:
             fname = os.path.realpath(query['filename'])
             return self._db_query_filename(fname)
