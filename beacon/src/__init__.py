@@ -45,7 +45,7 @@ from client import Client, CONNECTED, ConnectError
 import thumbnail
 from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
-from query import register_filter, wrap
+from query import register_filter, wrap, Query
 from item import Item
 from hwmon import medialist as media
 from kaa.db import QExpr, ATTR_SIMPLE, ATTR_SEARCHABLE, ATTR_IGNORE_CASE, \
