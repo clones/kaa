@@ -149,6 +149,8 @@ class Database(object):
         # do query based on type
         if 'dirname' in query:
             query['dirname'] = os.path.realpath(query['dirname'] + '/')
+            if query['dirname'] == '//':
+                query['dirname'] = '/'
             return self._db_query_dirname(query)
         if 'filename' in query and qlen == 1:
             fname = os.path.realpath(query['filename'])
@@ -347,7 +349,9 @@ class Database(object):
         m = medialist.mountpoint(filename)
         if not m:
             raise AttributeError('mountpoint not found')
-        if os.path.isdir(filename) and not m == medialist.mountpoint(dirname):
+
+        if (os.path.isdir(filename) and m != medialist.mountpoint(dirname)) \
+           or filename == '/':
             # the filename is the mountpoint itself
             e = self._db.query(parent=m._beacon_id, name='')
             return create_file(e[0], m, isdir=True)
