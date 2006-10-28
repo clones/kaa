@@ -71,7 +71,8 @@ class MediaPlayer(object):
         self._state_object = STATE_IDLE
         self._window = None
         self._size = None
-
+        self._config = None
+        
 
     def get_capabilities(self):
         """
@@ -97,6 +98,15 @@ class MediaPlayer(object):
         return sets.Set(cap).issubset(sets.Set(supported_caps))
 
 
+    # config setting
+
+    def set_config(self, config):
+        """
+        Set config object.
+        """
+        self._config = config
+
+        
     # state handling
 
     def get_state(self):

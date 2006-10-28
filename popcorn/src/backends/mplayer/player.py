@@ -399,6 +399,9 @@ class MPlayer(MediaPlayer):
                 "-display", self._window.get_display().get_string(),
                 "-input", "conf=%s" % keyfile))
 
+        # FIXME, add more settings here
+        args += [ '-ao', self._config.audio.driver ]
+        
         if self._file_args:
             if isinstance(self._file_args, str):
                 args.extend(self._file_args.split(' '))

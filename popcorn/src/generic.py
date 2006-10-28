@@ -38,6 +38,7 @@ import logging
 import kaa.notifier
 
 # kaa.popcorn imports
+from config import config as default_config
 from ptypes import *
 from backends.manager import get_player_class, get_all_players
 
@@ -73,12 +74,13 @@ class Player(object):
     Generic player. On object of this class will use the players from the
     backend subdirectory for playback.
     """
-    def __init__(self, window):
+    def __init__(self, window, config=default_config):
 
         self._player = None
         self._size = window.get_size()
         self._window = window
-
+        self._config = config
+        
         self.signals = {
 
             # signals created by this class
@@ -180,6 +182,7 @@ class Player(object):
         The real open function called from 'open'.
         """
         log.info('open')
+        self._player.set_config(self._config)
         self._player.open(mrl)
         self._player.set_window(self._window)
         self._player.set_size(self._size)
