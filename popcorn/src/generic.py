@@ -74,10 +74,12 @@ class Player(object):
     Generic player. On object of this class will use the players from the
     backend subdirectory for playback.
     """
-    def __init__(self, window, config=default_config):
+    def __init__(self, window=None, config=default_config):
 
         self._player = None
-        self._size = window.get_size()
+        self._size = (0,0)
+        if window:
+            self._size = window.get_size()
         self._window = window
         self._config = config
         

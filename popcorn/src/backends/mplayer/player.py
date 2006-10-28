@@ -288,7 +288,7 @@ class MPlayer(MediaPlayer):
             if self._state in (STATE_PLAYING, STATE_PAUSED):
                 self._state = STATE_IDLE
 
-        elif line.startswith("Parsing input"):
+        elif line.startswith("Parsing input") and self._window:
             # Delete the temporary key input file.
             file = line[line.find("file")+5:]
             os.unlink(file)
@@ -398,7 +398,10 @@ class MPlayer(MediaPlayer):
                 "-wid", hex(self._window.get_id()),
                 "-display", self._window.get_display().get_string(),
                 "-input", "conf=%s" % keyfile))
-
+        else:
+            # no window == no video out
+            args.extend(('-vo', 'null'))
+            
         # FIXME, add more settings here
         args += [ '-ao', self._config.audio.driver ]
         
