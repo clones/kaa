@@ -9,11 +9,7 @@
 
 3. Update doc
 
-4. Support information in hidden directories. The free-desktop standard
-   says that title and images about a directory can be stored inside
-   a .directory dir inside the dir. So on every change in this dir 
-   (that doesn't need to be scanned but needs inotify) we need to
-   rescan the directory itself.
+4. Set rom drive speed
 
 5. Move special_exts in File._beacon_mtime to kaa.metadata
 
