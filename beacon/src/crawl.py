@@ -133,6 +133,7 @@ class Crawler(object):
         self._scan_dict = {}
         self._scan_function = None
         self._scan_restart_timer = None
+        self._startup = True
 
 
     def append(self, item):
@@ -212,6 +213,9 @@ class Crawler(object):
                 changes['parent'] = move._beacon_parent._beacon_id
             if item._beacon_data['name'] != move._beacon_data['name']:
                 # New name, set name to item
+                if move._beacon_data['image'] == move._beacon_data['name']:
+                    # update image to new filename
+                    changes['image'] = move._beacon_data['name']
                 changes['name'] = move._beacon_data['name']
             if changes:
                 log.info('move: %s', changes)
@@ -378,6 +382,7 @@ class Crawler(object):
             return
         # crawler finished
         self._scan_function = None
+        self._startup = False
         log.info('crawler %s finished', self.num)
         Crawler.active -= 1
         self.db.commit()
@@ -412,7 +417,7 @@ class Crawler(object):
         log.info('scan directory %s', directory.filename)
 
         # parse directory
-        if parse(self.db, directory):
+        if parse(self.db, directory, check_image=self._startup):
             yield kaa.notifier.YieldContinue
 
         # check if it is still a directory
@@ -429,7 +434,7 @@ class Crawler(object):
             self.monitoring.add(directory.filename, use_inotify=False)
             dirname = os.path.realpath(directory.filename)
             directory = self.db.query(filename=dirname)
-            if parse(self.db, directory):
+            if parse(self.db, directory, check_image=self._startup):
                 yield kaa.notifier.YieldContinue
 
         # add to monitor list using inotify
@@ -444,7 +449,7 @@ class Crawler(object):
                 subdirs.append(child)
                 continue
             # check file
-            counter += parse(self.db, child) * 20
+            counter += parse(self.db, child, check_image=self._startup) * 20
 
             # TODO: If the file is unchanged, check if we have the defined
             # thumbnail generated. If not, do it.
@@ -458,5 +463,5 @@ class Crawler(object):
         # stuff. If all items have the same Artist/Album/Image, set this
         # for the directory, too. Also sum up all 'length' values of the
         # items and set it for directory
-        
+
         yield subdirs

@@ -74,7 +74,7 @@ def register(ext, function):
     extention_plugins[ext].append(function)
 
 
-def parse(db, item, store=False):
+def parse(db, item, store=False, check_image=False):
     """
     Main beacon parse function. Return the load this function produced:
     0 == nothing done
@@ -104,7 +104,18 @@ def parse(db, item, store=False):
             raise AttributeError('parent for %s has no dbid' % item)
     if item._beacon_data.get('mtime') == mtime:
         log.debug('up-to-date %s' % item)
-        return 0
+        if check_image and item._beacon_data.get('image'):
+            image = item._beacon_data.get('image')
+            if os.path.isfile(image):
+                t = thumbnail.Thumbnail(image, item._beacon_media)
+                if not t.get(thumbnail.LARGE, check_mtime=True):
+                    log.info('create missing image %s for %s', image, item)
+                    t.create(thumbnail.LARGE, thumbnail.PRIORITY_LOW)
+                return 0
+            else:
+                log.info('image "%s" for %s is gone, rescan', image, item)
+        else:
+            return 0
 
     if not item._beacon_id:
         # New file, maybe already added? Do a small check to be sure we don't
@@ -118,7 +129,7 @@ def parse(db, item, store=False):
 
     t1 = time.time()
 
-    attributes = { 'mtime': mtime }
+    attributes = { 'mtime': mtime, 'image': None }
     # FIXME: add force parameter from config file:
     # - always force (slow but best result)
     # - never force (faster but maybe wrong)
