@@ -88,6 +88,12 @@ class Server(object):
         self._db = Database(dbdir, None)
         self._next_client = 0
 
+        self._db.register_object_type_attrs("dir",
+            image_from_items = (bool, ATTR_SIMPLE),
+            artist = (unicode, ATTR_SIMPLE),
+            album = (unicode, ATTR_SIMPLE),
+            length = (int, ATTR_SIMPLE))
+
         # files
 
         self.register_file_type_attrs("video",

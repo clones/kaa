@@ -129,7 +129,6 @@ def parse(db, item, store=False, check_image=False):
 
     t1 = time.time()
 
-    attributes = { 'mtime': mtime, 'image': None }
     # FIXME: add force parameter from config file:
     # - always force (slow but best result)
     # - never force (faster but maybe wrong)
@@ -137,6 +136,9 @@ def parse(db, item, store=False, check_image=False):
     metadata = kaa.metadata.parse(item.filename)
     if not metadata:
         metadata = {}
+
+    attributes = { 'mtime': mtime, 'image': metadata.get('image') }
+    
     if db.object_types().has_key(metadata.get('media')):
         type = metadata['media']
     elif item._beacon_isdir:
@@ -164,10 +166,12 @@ def parse(db, item, store=False, check_image=False):
     produced_load = 1
 
     if type == 'dir':
-        for cover in ('cover.jpg', 'cover.png'):
-            if os.path.isfile(item.filename + cover):
-                attributes['image'] = item.filename + cover
-                break
+        attributes['image_from_items'] = False
+        if not attributes.get('image'):
+            for cover in ('cover.jpg', 'cover.png'):
+                if os.path.isfile(item.filename + cover):
+                    attributes['image'] = item.filename + cover
+                    break
         # TODO: do some more stuff here:
         # Audio directories may have a different cover if there is only
         # one jpg in a dir of mp3 files or a files with 'front' in the name.

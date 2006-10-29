@@ -459,9 +459,65 @@ class Crawler(object):
                 yield kaa.notifier.YieldContinue
             counter += 1
 
-        # TODO: when all files and subdirs are scanned, check some extra
-        # stuff. If all items have the same Artist/Album/Image, set this
-        # for the directory, too. Also sum up all 'length' values of the
-        # items and set it for directory
-
+        if not subdirs:
+            # No subdirectories that need to be checked. Add some extra
+            # attributes based on the found items (recursive back to parents)
+            self._add_directory_attributes(directory)
         yield subdirs
+
+
+    def _add_directory_attributes(self, directory):
+        """
+        Add some extra attributes for a directory recursive. This function
+        checkes album, artist, image and length. When there are changes,
+        go up to the parent and check it, too.
+        """
+        data = { 'length': 0, 'artist': u'', 'album': u'', 'image': '' }
+        check_attr = data.keys()[:]
+        check_attr.remove('length')
+        
+        for child in self.db.query(parent=directory):
+            data['length'] += child._beacon_data.get('length', 0) or 0
+            for attr in check_attr:
+                value = child._beacon_data.get(attr, data[attr])
+                if data[attr] == '':
+                    data[attr] = value
+                if data[attr] != value:
+                    data[attr] = None
+                    check_attr.remove(attr)
+
+        if data['image'] and not (data['artist'] or data['album']):
+            # We have neither artist nor album. So this seems to be a video
+            # or an image directory and we don't want to set the image from
+            # maybe one item in that directory as our directory image.
+            data['image'] = None
+            
+        if not directory._beacon_data['image_from_items'] and \
+               directory._beacon_data['image']:
+            # The directory had an image defined and found by the parser.
+            # Delete image from data, we don't want to override it.
+            del data['image']
+            
+        for attr in data.keys():
+            if not data[attr]:
+                # Set empty string to None
+                data[attr] = None
+        for attr in data.keys():
+            if data[attr] != directory._beacon_data[attr]:
+                break
+        else:
+            # no changes.
+            return True
+
+        if 'image' in data:
+            # Mark that this image was taken based on this function, later
+            # scans can remove it if it differs.
+            data['image_from_items'] = True
+
+        # update directory in database
+        self.db.update_object(directory._beacon_id, **data)
+        directory._beacon_data.update(data)
+
+        # check parent
+        if directory._beacon_parent.filename in self.monitoring:
+            self._add_directory_attributes(directory._beacon_parent)
