@@ -4,24 +4,27 @@
 # -----------------------------------------------------------------------------
 # $Id$
 # -----------------------------------------------------------------------------
-# Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+# kaa.imlib2 - An imlib2 wrapper for Python
+# Copyright (C) 2004-2006 Dirk Meyer, Jason Tackaberry
 #
-# Maintainers: Jason Tackaberry <tack@sault.org>
-#              Dirk Meyer <dmeyer@tzi.de>
+# First Edition: Jason Tackaberry <tack@sault.org>
+# Maintainer:    Jason Tackaberry <tack@sault.org>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# Please see the file AUTHORS for a complete list of authors.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -235,7 +238,7 @@ class Image(object):
     def blurr(self, radius):
         """
         Blur the image
-        
+
         Returns: None.
         """
         self._image.blurr(radius)
@@ -245,7 +248,7 @@ class Image(object):
     def sharpen(self, radius):
         """
         Sharpen the image
-        
+
         Returns: None.
         """
         self._image.sharpen(radius)
@@ -487,13 +490,13 @@ class Image(object):
                 glow2 = font.glow2
             elif len(glow2) == 3:
                 glow2 = tuple(glow2) + (255,)
-                
+
             metrics = self._image.draw_text_with_style(font._font, int(x), int(y),
                                                        utf8(text), style, color,
                                                        shadow, outline, glow, glow2)
         self._changed()
         return metrics
-        
+
 
 
     def draw_rectangle(self, (x, y), (w, h), color, fill = True):

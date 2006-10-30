@@ -5,24 +5,27 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+ * kaa.imlib2 - An imlib2 wrapper for Python
+ * Copyright (C) 2004-2006 Jason Tackaberry <tack@sault.org>
  *
  * First Edition: Jason Tackaberry <tack@sault.org>
- * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+ * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ----------------------------------------------------------------------------
  */
@@ -52,7 +55,7 @@ unsigned int get_raw_bytes_size(char *format)
 
 
 unsigned char* convert_raw_rgba_bytes(char *from_format, char *to_format,
-				      unsigned char *from_buf, 
+				      unsigned char *from_buf,
 				      unsigned char *to_buf,
 				      int w, int h)
 {
@@ -81,14 +84,14 @@ unsigned char* convert_raw_rgba_bytes(char *from_format, char *to_format,
             *(to_ptr++) = *(from_ptr + 0);
         }
     return to_buf;
-    } 
+    }
     if (!strcmp(from_format, "BGRA") && !strcmp(to_format, "RGBA")) {
         LOOP_START {
             *(to_ptr++) = *(from_ptr + 2); *(to_ptr++) = *(from_ptr + 1);
             *(to_ptr++) = *(from_ptr + 0); *(to_ptr++) = *(from_ptr + 3);
         }
     return to_buf;
-    } 
+    }
 
     // Initialize these values to shut the compiler up during -Wall.  We
     // don't bother checking the validity of to_format and from_format
@@ -112,11 +115,11 @@ unsigned char* convert_raw_rgba_bytes(char *from_format, char *to_format,
         *(to_ptr + tr) = *(from_ptr + fr);
         *(to_ptr + tg) = *(from_ptr + fg);
         *(to_ptr + tb) = *(from_ptr + fb);
-        if (to_bpp == 4) 
+        if (to_bpp == 4)
             *(to_ptr + ta) = (from_bpp==4)?*(from_ptr + fa):255;
 
         to_ptr += to_bpp;
-    } 
+    }
     return to_buf;
 }
 
@@ -134,8 +137,8 @@ unsigned char* get_raw_bytes(char *format, unsigned char *dstbuf)
     srcbuf = (unsigned char *)imlib_image_get_data_for_reading_only();
     if (dstbuf == 0)
         dstbuf = (unsigned char *)malloc(bufsize);
-    
-    if (!strcmp(format, "BGRA")) 
+
+    if (!strcmp(format, "BGRA"))
         memcpy(dstbuf, srcbuf, bufsize);
     else
         dstbuf = convert_raw_rgba_bytes("BGRA", format, srcbuf, dstbuf, w, h);

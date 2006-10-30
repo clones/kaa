@@ -4,24 +4,27 @@
 # -----------------------------------------------------------------------------
 # $Id$
 # -----------------------------------------------------------------------------
-# Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+# kaa.imlib2 - An imlib2 wrapper for Python
+# Copyright (C) 2004-2006 Dirk Meyer, Jason Tackaberry
 #
-# Maintainers: Jason Tackaberry <tack@sault.org>
-#              Dirk Meyer <dmeyer@tzi.de>
+# First Edition: Jason Tackaberry <tack@sault.org>
+# Maintainer:    Jason Tackaberry <tack@sault.org>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# Please see the file AUTHORS for a complete list of authors.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -74,7 +77,7 @@ class Font(object):
         self.size = fontdesc[sep + 1:]
         self.set_color(color)
         self.style = TEXT_STYLE_PLAIN
-        
+
 
     def get_text_size(self, text):
         """
@@ -113,8 +116,8 @@ class Font(object):
         fontdesc = self.fontname + '/' + str(size)
         self._font = _Imlib2.load_font(fontdesc)
         self.size = int(size)
-        
-        
+
+
     def set_style(self, style, shadow=(0,0,0,0), outline=(0,0,0,0),
                   glow=(0,0,0,0), glow2=(0,0,0,0)):
         """
@@ -126,7 +129,7 @@ class Font(object):
             shadow:  shadow color for TEXT_STYLE_SHADOW, TEXT_STYLE_OUTLINE_SHADOW,
                      TEXT_STYLE_FAR_SHADOW, TEXT_STYLE_OUTLINE_SOFT_SHADOW,
                      TEXT_STYLE_SOFT_SHADOW and TEXT_STYLE_FAR_SOFT_SHADOW
-            outline: outline color for TEXT_STYLE_OUTLINE, TEXT_STYLE_SOFT_OUTLINE, 
+            outline: outline color for TEXT_STYLE_OUTLINE, TEXT_STYLE_SOFT_OUTLINE,
                      TEXT_STYLE_OUTLINE_SHADOW and TEXT_STYLE_OUTLINE_SOFT_SHADOW
             glow:    glow color 1 for TEXT_STYLE_GLOW
             glow2:   glow color 2 for TEXT_STYLE_GLOW
@@ -160,7 +163,7 @@ class Font(object):
         """
         return TEXT_STYLE_GEOMETRY[self.style]
 
-    
+
     def __getattr__(self, attr):
         """
         These attributes are available:

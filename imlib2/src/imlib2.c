@@ -5,24 +5,27 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+ * kaa.imlib2 - An imlib2 wrapper for Python
+ * Copyright (C) 2004-2006 Jason Tackaberry <tack@sault.org>
  *
  * First Edition: Jason Tackaberry <tack@sault.org>
- * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+ * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ----------------------------------------------------------------------------
  */
@@ -131,7 +134,7 @@ Image_PyObject *_imlib2_open(char *filename, int use_cache)
         if (error_return == IMLIB_LOAD_ERROR_NO_LOADER_FOR_FILE_FORMAT)
             PyErr_Format(PyExc_IOError, "no loader for file format");
         else
-            PyErr_Format(PyExc_IOError, "Could not open %s: %d", filename, 
+            PyErr_Format(PyExc_IOError, "Could not open %s: %d", filename,
 	    	     error_return);
         return NULL;
     }
@@ -146,10 +149,10 @@ PyObject *imlib2_open(PyObject *self, PyObject *args)
     char *file;
     Image_PyObject *image;
     int use_cache = 1;
-    
+
     if (!PyArg_ParseTuple(args, "s|i", &file, &use_cache))
         return NULL;
- 
+
     image = _imlib2_open(file, use_cache);
     if (!image)
         return NULL;
@@ -224,7 +227,7 @@ PyObject *imlib2_add_font_path(PyObject *self, PyObject *args)
     imlib_add_path_to_font_path(font_path);
     Py_INCREF(Py_None);
     return Py_None;
-} 
+}
 
 
 PyObject *imlib2_load_font(PyObject *self, PyObject *args)
@@ -244,15 +247,15 @@ PyObject *imlib2_load_font(PyObject *self, PyObject *args)
     o = PyObject_NEW(Font_PyObject, &Font_PyObject_Type);
     o->font = font;
     return (PyObject *)o;
-} 
+}
 
 
 PyMethodDef Imlib2_methods[] = {
-    { "add_font_path", imlib2_add_font_path, METH_VARARGS }, 
-    { "load_font", imlib2_load_font, METH_VARARGS }, 
-    { "create", imlib2_create, METH_VARARGS }, 
-    { "open", imlib2_open, METH_VARARGS }, 
-    { "open_from_memory", imlib2_open_from_memory, METH_VARARGS }, 
+    { "add_font_path", imlib2_add_font_path, METH_VARARGS },
+    { "load_font", imlib2_load_font, METH_VARARGS },
+    { "create", imlib2_create, METH_VARARGS },
+    { "open", imlib2_open, METH_VARARGS },
+    { "open_from_memory", imlib2_open_from_memory, METH_VARARGS },
     { NULL }
 };
 

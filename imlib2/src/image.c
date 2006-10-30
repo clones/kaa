@@ -5,24 +5,27 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+ * kaa.imlib2 - An imlib2 wrapper for Python
+ * Copyright (C) 2004-2006 Jason Tackaberry <tack@sault.org>
  *
  * First Edition: Jason Tackaberry <tack@sault.org>
- * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+ * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ----------------------------------------------------------------------------
  */
@@ -45,9 +48,9 @@ int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *, int, void **);
 int Image_PyObject_Buffer__get_seg_count(PyObject *, int *);
 
 PyBufferProcs buffer_procs = {
-    Image_PyObject_Buffer__get_read_buffer, 
-    Image_PyObject_Buffer__get_readwrite_buffer, 
-    Image_PyObject_Buffer__get_seg_count, 
+    Image_PyObject_Buffer__get_read_buffer,
+    Image_PyObject_Buffer__get_readwrite_buffer,
+    Image_PyObject_Buffer__get_seg_count,
     NULL
 };
 
@@ -118,7 +121,7 @@ int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, int segment, voi
     if (ptr) {
         if (o->raw_data)
             *ptr = o->raw_data;
-        else 
+        else
             *ptr = o->raw_data = (void *)imlib_image_get_data();
     }
     return imlib_image_get_width() * imlib_image_get_height() * 4;
@@ -415,7 +418,7 @@ PyObject *Image_PyObject__draw_text(PyObject *self, PyObject *args)
     int x, y, w, h, advance_w, advance_h, r, g, b, a;
     char *text;
     Font_PyObject *font;
-    
+
     if (!PyArg_ParseTuple(args, "O!iis(iiii)", &Font_PyObject_Type, &font, &x,
 			  &y, &text, &r, &g, &b, &a))
         return NULL;
@@ -442,7 +445,7 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
     Text_Style_Type style;
     char *text;
     Font_PyObject *font;
-    
+
     const char vals[5][5] = {
 	{0, 1, 2, 1, 0},
 	{1, 3, 4, 3, 1},
@@ -451,18 +454,18 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 	{0, 1, 2, 1, 0}
     };
 
-    if (!PyArg_ParseTuple(args, "O!iisi(iiii)(iiii)(iiii)(iiii)(iiii)", 
+    if (!PyArg_ParseTuple(args, "O!iisi(iiii)(iiii)(iiii)(iiii)(iiii)",
 			  &Font_PyObject_Type, &font, &x, &y, &text, &style,
-			  &color.r, &color.g, &color.b, &color.a, 
+			  &color.r, &color.g, &color.b, &color.a,
 			  &shadow.r, &shadow.g, &shadow.b, &shadow.a,
 			  &outline.r, &outline.g, &outline.b, &outline.a,
 			  &glow.r, &glow.g, &glow.b, &glow.a,
 			  &glow2.r, &glow2.g, &glow2.b, &glow2.a))
         return NULL;
-	
+
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_context_set_font(((Font_PyObject *)font)->font);
-    
+
     /* FIXME: change x,y based on effect */
 
     /* The following code is more or less copied from evas_object_text */
@@ -472,13 +475,13 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 	COLOR_SET(shadow);
 	DRAW_TEXT(1, 1);
     }
-    
+
     else if ((style == TEXT_STYLE_OUTLINE_SHADOW) ||
 	     (style == TEXT_STYLE_FAR_SHADOW)) {
 	COLOR_SET(shadow);
 	DRAW_TEXT(2, 2);
     }
-    
+
     else if ((style == TEXT_STYLE_OUTLINE_SOFT_SHADOW) ||
 	     (style == TEXT_STYLE_FAR_SOFT_SHADOW)) {
 	for (j = 0; j < 5; j++) {
@@ -500,7 +503,7 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 	    }
 	}
     }
-			  
+
     /* glows */
     if (style == TEXT_STYLE_GLOW) {
 	for (j = 0; j < 5; j++) {
@@ -517,7 +520,7 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 	DRAW_TEXT(0, -1);
 	DRAW_TEXT(0, 1);
     }
-    
+
 
     /* outlines */
     if ((style == TEXT_STYLE_OUTLINE) ||
@@ -674,7 +677,7 @@ PyObject *Image_PyObject__put_back_raw_data(PyObject *self, PyObject *args)
     PyObject *buffer_object;
     unsigned char *buffer;
     int len;
-    
+
     if (!PyArg_ParseTuple(args, "O!", &PyBuffer_Type, &buffer_object))
         return NULL;
 
