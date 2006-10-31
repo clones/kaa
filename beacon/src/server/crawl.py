@@ -37,10 +37,10 @@ import logging
 # kaa imports
 import kaa.notifier
 from kaa.notifier import Timer, OneShotTimer, WeakOneShotTimer, YieldFunction
+from kaa.inotify import INotify
 
 # kaa.beacon imports
 from parser import parse
-from kaa.inotify import INotify
 
 # get logging object
 log = logging.getLogger('beacon.crawler')

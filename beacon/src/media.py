@@ -8,7 +8,7 @@ from kaa.weakref import weakref
 import utils
 
 # get logging object
-log = logging.getLogger('beacon.hwmon')
+log = logging.getLogger('beacon')
 
 class Media(object):
 

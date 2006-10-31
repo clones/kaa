@@ -47,7 +47,7 @@ from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
 from query import register_filter, wrap, Query
 from item import Item
-from hwmon import medialist as media
+from media import medialist as media
 from kaa.db import QExpr, ATTR_SIMPLE, ATTR_SEARCHABLE, ATTR_IGNORE_CASE, \
      ATTR_INDEXED, ATTR_INDEXED_IGNORE_CASE, ATTR_KEYWORDS
 

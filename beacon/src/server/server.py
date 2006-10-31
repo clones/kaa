@@ -42,11 +42,13 @@ from kaa.notifier import OneShotTimer, Timer, Callback
 from kaa.config import Config, Var, List, Dict
 
 # kaa.beacon imports
+from kaa.beacon.db import *
+import kaa.beacon.hwmon
+from kaa.beacon.media import medialist
+
+# kaa.beacon server imports
 import parser
-from db import *
 from monitor import Monitor
-import hwmon
-from hwmon import medialist
 from crawl import Crawler
 
 # get logging object
@@ -156,7 +158,7 @@ class Server(object):
             'volume.mount_point': '/'
         }
 
-        hwmon.set_database(self, self._db, rootfs)
+        kaa.beacon.hwmon.set_database(self, self._db, rootfs)
         self._db.commit()
 
         for dir in config.monitors:

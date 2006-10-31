@@ -18,7 +18,7 @@ import dbus.glib
 # use gtk main loop
 kaa.notifier.init('gtk', x11=False)
 
-from utils import fstab
+from kaa.beacon.utils import fstab
 from cdrom import eject
 
 # get logging object

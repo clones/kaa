@@ -38,8 +38,10 @@ from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Timer, yield_execution, YieldContinue
 
 # kaa.beacon imports
+from kaa.beacon.item import Item
+
+# kaa.beacon server imports
 import parser
-from item import Item
 
 # get logging object
 log = logging.getLogger('beacon.monitor')

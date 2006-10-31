@@ -48,7 +48,7 @@ from kaa.notifier import OneShotTimer, Signal
 # kaa.beacon imports
 from db import Database
 from query import Query
-from hwmon import medialist
+from media import medialist
 
 # get logging object
 log = logging.getLogger('beacon')

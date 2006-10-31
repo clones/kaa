@@ -45,7 +45,7 @@ from kaa.db import *
 
 # beacon imports
 from item import Item
-from hwmon import medialist
+from media import medialist
 
 # get logging object
 log = logging.getLogger('beacon.db')

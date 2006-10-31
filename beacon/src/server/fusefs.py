@@ -41,7 +41,6 @@ import fuse
 import errno
 
 import kaa.notifier
-import kaa.beacon
 import kaa.utils
 
 # get logging object

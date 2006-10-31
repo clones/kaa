@@ -4,7 +4,7 @@ import socket
 import kaa.notifier
 
 from hwmon import Client as _Client
-from media import medialist
+from kaa.beacon.media import medialist
 
 _client = None
 

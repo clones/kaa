@@ -42,8 +42,10 @@ import time
 from kaa.strutils import str_to_unicode
 import kaa.metadata
 import kaa.imlib2
-import thumbnail
-import hwmon.utils
+
+# kaa.beacon imports
+import kaa.beacon.thumbnail as thumbnail
+from kaa.beacon.utils import get_title
 
 # get logging object
 log = logging.getLogger('beacon.parser')
@@ -223,7 +225,7 @@ def parse(db, item, store=False, check_image=False):
 
     if not metadata.get('title'):
         # try to set a good title
-        title = hwmon.utils.get_title(item._beacon_data['name'])
+        title = get_title(item._beacon_data['name'])
         metadata['title'] = str_to_unicode(title)
 
     # add kaa.metadata results, the db module will add everything known

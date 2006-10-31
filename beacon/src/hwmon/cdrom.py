@@ -38,7 +38,7 @@ from kaa.notifier import Timer, MainThreadCallback, Signal
 from kaa.ioctl import ioctl
 import kaa.metadata
 
-from utils import fstab
+from kaa.beacon.utils import fstab
 
 # get logging object
 log = logging.getLogger('beacon.hal')

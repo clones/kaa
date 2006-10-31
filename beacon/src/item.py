@@ -38,7 +38,7 @@ import kaa.notifier
 
 # kaa.beacon imports
 from thumbnail import Thumbnail
-from hwmon.utils import get_title
+from utils import get_title
 
 # get logging object
 log = logging.getLogger('beacon')

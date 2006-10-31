@@ -4,8 +4,8 @@ import stat
 
 import kaa.rpc
 
-from media import medialist
-import utils
+from kaa.beacon.media import medialist
+import kaa.beacon.utils as utils
 
 # get logging object
 log = logging.getLogger('beacon.hwmon')
