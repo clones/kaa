@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-beacon - A virtual filesystem with metadata
+# kaa.beacon.server - A virtual filesystem with metadata
 # Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>

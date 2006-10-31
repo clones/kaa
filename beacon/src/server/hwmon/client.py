@@ -1,16 +1,52 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# client.py - client part of the hardware monitor
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# This module is used inside the beacon server to communicate with the
+# hardware monitor process.
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon.server - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+# python imports
 import logging
 import os
 import stat
 
+# kaa imports
 import kaa.rpc
 
+# kaa.beacon imports
 from kaa.beacon.media import medialist
-import kaa.beacon.utils as utils
+from kaa.beacon.utils import get_title
 
 # get logging object
 log = logging.getLogger('beacon.hwmon')
 
-ADD_DISC_SUPPORT = 1
 
 class Client(object):
 
@@ -27,7 +63,7 @@ class Client(object):
         medialist.connect(self.db, self)
         self.rpc('connect')
         self._device_add(rootfs)
-        
+
 
     def mount(self, dev):
         if hasattr(dev, 'prop'):
@@ -38,11 +74,11 @@ class Client(object):
             id = dev.get('beacon.id')
         return self.rpc('device.mount', id)
 
-    
+
     def eject(self, dev):
         return self.rpc('device.eject', dev.prop.get('beacon.id'))
 
-    
+
     @kaa.rpc.expose('device.add')
     def _device_add(self, dev):
         # FIXME: check if the device is still valid
@@ -86,7 +122,7 @@ class Client(object):
             dev['volume.read_only'] = True
         self.handler.media_changed(m)
         return
-    
+
 
     @kaa.rpc.expose('device.remove')
     def _device_remove(self, id):
@@ -117,7 +153,7 @@ class Client(object):
             vid = self.db.add_object("video",
                                      name="",
                                      parent=('media', mid),
-                                     title=unicode(utils.get_title(metadata['label'])),
+                                     title=unicode(get_title(metadata['label'])),
                                      media = mid,
                                      beacon_immediately=True)['id']
             self.db.commit(force=True)
@@ -152,7 +188,7 @@ class Client(object):
                                    media=mid,
                                    mtime=0)
             self.db.commit()
-            
+
         else:
             log.info('detect %s as normal filesystem' % id)
             mid = self.db.add_object("media", name=id, content='file',

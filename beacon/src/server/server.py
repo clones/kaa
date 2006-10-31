@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-beacon - A virtual filesystem with metadata
+# kaa.beacon.server - A virtual filesystem with metadata
 # Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -118,7 +118,7 @@ class Server(object):
             width = (int, ATTR_SEARCHABLE),
             height = (int, ATTR_SEARCHABLE),
             comment = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
-            rotation = (int, ATTR_SIMPLE), 
+            rotation = (int, ATTR_SIMPLE),
             date = (unicode, ATTR_SEARCHABLE))
 
         # tracks for rom discs or iso files

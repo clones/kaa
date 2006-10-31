@@ -1,3 +1,34 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# hal.py - dbus/hal based monitor
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon.server - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
 __all__ = [ 'signals', 'Device', 'start' ]
 
 import sys
@@ -10,7 +41,7 @@ import kaa.notifier
 import kaa.metadata
 
 # check for dbus and it's version
-import dbus 
+import dbus
 if getattr(dbus, 'version', (0,0,0)) < (0,51,0):
     raise ImportError('dbus >= 0.51.0 not found')
 import dbus.glib
@@ -40,7 +71,7 @@ class Device(object):
         self.prop = prop
         self._eject = False
         self._bus = bus
-        
+
     # -------------------------------------------------------------------------
     # Public API
     # -------------------------------------------------------------------------
@@ -85,7 +116,7 @@ class Device(object):
         _device_remove(self.udi)
         if self.prop.get('volume.is_disc'):
             eject(self.prop['block.device'])
-        
+
 
     def __getattr__(self, attr):
         return getattr(self.prop, attr)
@@ -163,7 +194,7 @@ def _connect_to_hal_because_dbus_sucks(obj):
     hal.connect_to_signal('DeviceAdded', _device_new)
     hal.connect_to_signal('DeviceRemoved', _device_remove)
     return False
-    
+
 
 # -----------------------------------------------------------------------------
 # Device handling
@@ -187,7 +218,7 @@ def _device_new(udi):
     obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
                          reply_handler=kaa.notifier.Callback(_device_add, udi),
                          error_handler=log.error)
-    
+
 
 #lost device
 def _device_remove(udi):
@@ -208,7 +239,7 @@ def _device_remove(udi):
     # signal changes
     if isinstance(dev.prop.get('info.parent'), dict):
         signals['remove'].emit(dev)
-    
+
 
 #add new device
 def _device_add(prop, udi):
@@ -239,7 +270,7 @@ def _device_add(prop, udi):
             # it is handled as removable device and we handle
             # everything as beacon mountpoint. To avoid problems, the
             # user could specify a black list.
-            
+
             fd = open(os.path.dirname(prop["linux.sysfs_path_device"]) + '/removable')
             rm = fd.read(1)
             fd.close()

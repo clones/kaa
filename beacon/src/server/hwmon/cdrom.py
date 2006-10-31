@@ -1,3 +1,34 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# cdrom.py - CDROM monitor not using HAL
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon.server - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
 __all__ = [ 'signals', 'Device', 'start', 'eject' ]
 
 import os
@@ -70,7 +101,7 @@ def eject(device):
     except (OSError, IOError), e:
         log.exception('close fd')
 
-        
+
 
 class Device(object):
     def __init__(self, prop):
@@ -118,11 +149,11 @@ class Device(object):
         if self._eject:
             eject(self.prop['block.device'])
 
-            
+
     def __getattr__(self, attr):
         return getattr(self.prop, attr)
 
-    
+
 class RomDrive(object):
     def __init__(self, device, mountpoint, type, options):
         self.device = device
@@ -141,8 +172,8 @@ class RomDrive(object):
             return
         MainThreadCallback(signals['remove'].emit)(self.disc)
         self.disc = None
-        
-        
+
+
     @kaa.notifier.execute_in_thread('beacon.cdrom')
     def check(self):
         log.debug('check drive status %s', self.device)

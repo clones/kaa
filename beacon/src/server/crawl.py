@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-beacon - A virtual filesystem with metadata
+# kaa.beacon.server - A virtual filesystem with metadata
 # Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -475,7 +475,7 @@ class Crawler(object):
         data = { 'length': 0, 'artist': u'', 'album': u'', 'image': '' }
         check_attr = data.keys()[:]
         check_attr.remove('length')
-        
+
         for child in self.db.query(parent=directory):
             data['length'] += child._beacon_data.get('length', 0) or 0
             for attr in check_attr:
@@ -491,13 +491,13 @@ class Crawler(object):
             # or an image directory and we don't want to set the image from
             # maybe one item in that directory as our directory image.
             data['image'] = None
-            
+
         if not directory._beacon_data['image_from_items'] and \
                directory._beacon_data['image']:
             # The directory had an image defined and found by the parser.
             # Delete image from data, we don't want to override it.
             del data['image']
-            
+
         for attr in data.keys():
             if not data[attr]:
                 # Set empty string to None

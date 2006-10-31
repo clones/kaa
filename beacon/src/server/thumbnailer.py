@@ -1,12 +1,12 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# server.py - Server interface for the thumbnailer
+# thumbnailer.py - Server interface for the thumbnailer
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-thumb - Thumbnailing module
-# Copyright (C) 2005-2006 Dirk Meyer, et al.
+# kaa.beacon.server - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -75,7 +75,7 @@ class Thumbnailer(object):
         self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
         self._ipc.signals['client_connected'].connect(self.client_connect)
         self._ipc.connect(self)
-        
+
         # video module
         self.videothumb = VideoThumb(self)
 
@@ -152,7 +152,7 @@ class Thumbnailer(object):
                 self.notify_client(job)
                 self._activate(0.01)
                 return True
-            
+
         if job.filename.lower().endswith('jpg'):
             imagefile = job.imagefile + '.jpg'
             if os.path.isfile(imagefile):
@@ -201,7 +201,7 @@ class Thumbnailer(object):
             self.notify_client(job)
             self._activate(THUMBNAIL_TIMER)
             return True
-            
+
         # broken file
         log.info('unable to create thumbnail for %s', job.filename)
         self.create_failed(job)
@@ -235,7 +235,7 @@ thumbnailer = None
 
 def init():
     global thumbnailer
-    
+
     # create tmp dir and change directory to it
     tmpdir = os.path.join(kaa.TEMP, 'thumb')
     if not os.path.isdir(tmpdir):

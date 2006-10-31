@@ -1,10 +1,48 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# server.py - hardware monitor
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# This module is used inside the beacon server to communicate with the
+# hardware monitor process.
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon.server - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+# python imports
 import sys
-
 import logging
-import kaa.rpc
 
+# kaa imports
+import kaa.rpc
 import kaa.notifier
 import kaa.metadata
+
+# import the different hardware monitor modules
+# this server is going to use
 
 try:
     import hal
@@ -41,13 +79,13 @@ class Server(object):
         service.signals['remove'].connect(self._device_remove)
         service.signals['changed'].connect(self._device_changed)
         service.start()
-        
+
 
     def _hal_failure(self, reason):
         log.error(reason)
         if cdrom:
             self._start_service(cdrom)
-            
+
 
     # -------------------------------------------------------------------------
     # Client handling
@@ -62,7 +100,7 @@ class Server(object):
         # exit when the main server dies
         client.signals['closed'].connect(sys.exit)
 
-        
+
     # -------------------------------------------------------------------------
     # Device handling
     # -------------------------------------------------------------------------
@@ -76,13 +114,13 @@ class Server(object):
             return True
 
         # FIXME: add a nice title
-        
+
         self.devices[dev.get('beacon.id')] = dev
         if not self.rpc:
             return True
         self.rpc('device.add', dev.prop)
-        
-        
+
+
     def _device_remove(self, dev):
         try:
             del self.devices[dev.get('beacon.id')]
@@ -93,7 +131,7 @@ class Server(object):
             return True
         self.rpc('device.remove', dev.prop.get('beacon.id'))
 
-        
+
     def _device_changed(self, dev, prop):
         if not self.rpc:
             return True
@@ -136,4 +174,3 @@ class Server(object):
         if not dev:
             return None
         dev.eject()
-        

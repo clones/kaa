@@ -11,8 +11,8 @@
 # Loosly based on videothumb.py commited to the freevo wiki
 #
 # -----------------------------------------------------------------------------
-# kaa-thumb - Thumbnailing module
-# Copyright (C) 2005-2006 Dirk Meyer, et al.
+# kaa.beacon.server - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -95,7 +95,7 @@ class VideoThumb(object):
                 # not changed, refuse the recreate thumbnail
                 self._current = None
                 return self._run()
-            
+
         try:
             mminfo = self._current.metadata
             pos = str(int(mminfo.video[0].length / 2.0))
@@ -141,7 +141,7 @@ class VideoThumb(object):
             if os.stat(c)[stat.ST_SIZE] > current_capture[1]:
                 current_capture = c, os.stat(c)[stat.ST_SIZE]
         current_capture = current_capture[0]
-        
+
         try:
             # scale thumbnail
             width, height = job.size

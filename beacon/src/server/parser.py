@@ -7,7 +7,7 @@
 # Note: this file is only imported by the server
 #
 # -----------------------------------------------------------------------------
-# kaa-beacon - A virtual filesystem with metadata
+# kaa.beacon.server - A virtual filesystem with metadata
 # Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -140,7 +140,7 @@ def parse(db, item, store=False, check_image=False):
         metadata = {}
 
     attributes = { 'mtime': mtime, 'image': metadata.get('image') }
-    
+
     if db.object_types().has_key(metadata.get('media')):
         type = metadata['media']
     elif item._beacon_isdir:
