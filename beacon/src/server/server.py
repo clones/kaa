@@ -43,11 +43,11 @@ from kaa.config import Config, Var, List, Dict
 
 # kaa.beacon imports
 from kaa.beacon.db import *
-import kaa.beacon.hwmon
 from kaa.beacon.media import medialist
 
 # kaa.beacon server imports
 import parser
+import hwmon
 from monitor import Monitor
 from crawl import Crawler
 
@@ -158,7 +158,7 @@ class Server(object):
             'volume.mount_point': '/'
         }
 
-        kaa.beacon.hwmon.set_database(self, self._db, rootfs)
+        hwmon.set_database(self, self._db, rootfs)
         self._db.commit()
 
         for dir in config.monitors:
