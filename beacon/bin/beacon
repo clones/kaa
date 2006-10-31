@@ -288,8 +288,8 @@ if not pid:
     kaa.beacon.server.hwmon.server.Server()
 
     # thumbnailer part
-    import kaa.beacon.thumbnail.server
-    kaa.beacon.thumbnail.server.init()
+    import kaa.beacon.server.thumbnailer
+    kaa.beacon.server.thumbnailer.init()
 
     # set nice level
     os.nice(19)

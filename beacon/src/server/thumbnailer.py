@@ -43,8 +43,8 @@ import kaa.imlib2
 import kaa.rpc
 
 # kaa.thumb imports
-from libthumb import epeg, png, failed
-from video import VideoThumb
+from kaa.beacon._libthumb import epeg, png, failed
+from videothumb import VideoThumb
 
 # get logging object
 log = logging.getLogger('beacon.thumbnail')

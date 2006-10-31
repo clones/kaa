@@ -47,7 +47,7 @@ import kaa.notifier
 import kaa.imlib2
 
 # kaa.thumb imports
-from libthumb import epeg, png, failed
+from kaa.beacon._libthumb import epeg, png, failed
 
 # get logging object
 log = logging.getLogger('beacon.thumbnail')

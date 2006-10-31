@@ -255,12 +255,12 @@ void **get_module_api(char *module)
 }
 
 
-void initlibthumb()
+void init_libthumb()
 {
     PyObject *m;
     void **imlib2_api_ptrs;
 
-    m = Py_InitModule("libthumb", thumbnail_methods);
+    m = Py_InitModule("_libthumb", thumbnail_methods);
 
     // Import kaa-imlib2's C api
     imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");

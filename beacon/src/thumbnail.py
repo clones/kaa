@@ -54,7 +54,7 @@ import kaa.notifier
 import kaa.metadata
 
 # kaa.thumb imports
-from libthumb import png
+from _libthumb import png
 
 # get logging object
 log = logging.getLogger('beacon.thumb')
@@ -228,3 +228,12 @@ def connect():
                 # start time is up, something is wrong here
                 raise RuntimeError('unable to connect to thumbnail server')
             time.sleep(0.01)
+
+
+
+
+support_video = False
+for path in os.environ.get('PATH').split(':'):
+    if os.path.isfile(path + '/mplayer'):
+        support_video = True
+        
