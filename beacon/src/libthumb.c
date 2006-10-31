@@ -5,27 +5,31 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * Copyright (C) 2005 Dirk Meyer <dmeyer@tzi.de>
+ * kaa.beacon - A virtual filesystem with metadata
+ * Copyright (C) 2006 Dirk Meyer
  *
- * First Edition: Dirk Meyer <dmeyer@tzi.de>
- * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+ * First Edition: Jason Tackaberry <tack@sault.org>
+ * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ----------------------------------------------------------------------------
  */
+
 
 #include <Python.h>
 #include "config.h"
@@ -59,7 +63,7 @@ PyObject *epeg_thumbnail(PyObject *self, PyObject *args)
     char *dest;
 
     Epeg_Image *im;
-    
+
     if (!PyArg_ParseTuple(args, "ss(ii)", &source, &dest, &tw, &th))
         return NULL;
 
@@ -76,11 +80,11 @@ PyObject *epeg_thumbnail(PyObject *self, PyObject *args)
             tw = iw;
             th = ih;
         }
-    
+
         epeg_decode_size_set(im, tw, th);
         epeg_quality_set(im, 80);
         epeg_thumbnail_comments_enable(im, 1);
-    
+
         epeg_file_output_set(im, dest);
         ret = epeg_encode (im);
 
@@ -89,12 +93,12 @@ PyObject *epeg_thumbnail(PyObject *self, PyObject *args)
             Py_INCREF(Py_None);
             return Py_None;
         }
-        
+
         epeg_close(im);
         PyErr_SetString(PyExc_IOError, "epeg failed");
     } else
         PyErr_SetString(PyExc_IOError, "epeg failed");
-      
+
 #else
     PyErr_SetString(PyExc_IOError, "epeg support missing");
 #endif
@@ -123,7 +127,7 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "thumbnail: no such file");
         return NULL;
     }
-      
+
     mtime = filestatus.st_mtime;
 
     if (!pyimg) {
@@ -131,12 +135,12 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
 	if (!(tmp = imlib_load_image_immediately_without_cache (source))) {
 	    PyErr_SetString(PyExc_ValueError, "imlib2: unable to load image");
 	    return NULL;
-	} 
+	}
     } else {
 	/* extract from kaa.imlib2 object */
 	tmp = imlib_image_from_pyobject(pyimg);
     }
-    
+
     imlib_context_set_image (tmp);
     snprintf (format, 32, "image/%s", imlib_image_format ());
     iw = imlib_image_get_width ();
@@ -151,7 +155,7 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
 	    if (!tw)
 		tw = 1;
 	}
-	
+
 	/* scale image down to thumbnail size */
 	imlib_context_set_cliprect (0, 0, tw, th);
 	src = imlib_create_cropped_scaled_image (0, 0, iw, ih, tw, th);
@@ -170,7 +174,7 @@ PyObject *png_thumbnail(PyObject *self, PyObject *args)
 	tw = iw;
 	th = ih;
     }
-    
+
     imlib_image_set_has_alpha (1);
     imlib_image_set_format ("argb");
     snprintf (uri, PATH_MAX, "file://%s", source);
@@ -211,14 +215,14 @@ PyObject *fail_thumbnail(PyObject *self, PyObject *args)
 	mtime = 0;
     else
 	mtime = filestatus.st_mtime;
-	
-      
+
+
     mtime = filestatus.st_mtime;
 
     snprintf (uri, PATH_MAX, "file://%s", source);
     snprintf (format, 32, "image/%s", imlib_image_format ());
-    
-    if (_png_write (dest, imlib_image_get_data (), 1, 1, 1, 1, 
+
+    if (_png_write (dest, imlib_image_get_data (), 1, 1, 1, 1,
 		    format, mtime, uri)) {
         imlib_free_image_and_decache ();
 	Py_INCREF(Py_None);
@@ -231,9 +235,9 @@ PyObject *fail_thumbnail(PyObject *self, PyObject *args)
 
 
 PyMethodDef thumbnail_methods[] = {
-    { "epeg", epeg_thumbnail, METH_VARARGS }, 
-    { "png", png_thumbnail, METH_VARARGS }, 
-    { "failed", fail_thumbnail, METH_VARARGS }, 
+    { "epeg", epeg_thumbnail, METH_VARARGS },
+    { "png", png_thumbnail, METH_VARARGS },
+    { "failed", fail_thumbnail, METH_VARARGS },
     { NULL }
 };
 
