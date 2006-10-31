@@ -249,3 +249,5 @@ def init():
         log.error('thumbnail: %s' % e)
         time.sleep(0.1)
         sys.exit(0)
+
+    return thumbnailer

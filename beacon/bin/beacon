@@ -279,17 +279,18 @@ if logfile:
                           '%(filename)s %(lineno)s: %(message)s')
     handler.setFormatter(f)
     log.addHandler(handler)
-    
+
+
+import kaa.beacon.server
+
 # fork thumbnailer / hwmon
 pid = os.fork()
 if not pid:
     # hwmon part (import this first because of hal/gtk)
-    import kaa.beacon.server.hwmon.server
-    kaa.beacon.server.hwmon.server.Server()
+    hwmon = kaa.beacon.server.HardwareMonitorServer()
 
     # thumbnailer part
-    import kaa.beacon.server.thumbnailer
-    kaa.beacon.server.thumbnailer.init()
+    thumb = kaa.beacon.server.Thumbnailer()
 
     # set nice level
     os.nice(19)
@@ -305,9 +306,7 @@ if not pid:
 
     
 # beacon server
-import kaa.beacon.server.server
 import kaa.beacon.thumbnail
-import kaa.beacon.server.hwmon
 
 def garbage_collect():
     g = gc.collect()
@@ -328,10 +327,10 @@ try:
 
     # connect hwmon
     log.info('connect to hwmon ...')
-    kaa.beacon.server.hwmon.connect()
+    kaa.beacon.server.HardwareMonitorClient().connect()
     log.info('connection to hwmon established')
 
-    server = kaa.beacon.server.server.Server(database)
+    server = kaa.beacon.server.BeaconServer(database)
     if os.environ.get('BEACON_MONITOR'):
         for dirname in os.environ.get('BEACON_MONITOR').split(':'):
             log.info('monitor %s', dirname)

@@ -41,7 +41,7 @@ except ImportError:
     sys.exit(1)
 
 thumb_ext = Extension("kaa.beacon._libthumb",
-                      ["src/thumbnail.c", "src/libpng.c" ],
+                      ["src/libthumb.c", "src/libpng.c" ],
                       config='src/config.h')
 
 if not thumb_ext.check_library('imlib2', '1.1.1'):
