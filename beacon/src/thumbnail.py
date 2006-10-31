@@ -1,31 +1,31 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# thumbnail.py - Client part for thumbnailing files
+# thumbnail.py - client part for thumbnailing
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-thumb - Thumbnailing module
-# Copyright (C) 2005-2006 Dirk Meyer, et al.
+# kaa.beacon - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
 #
 # Please see the file AUTHORS for a complete list of authors.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ class Job(object):
         self.priority = priority
         self.signal = kaa.notifier.Signal()
         Job.all.append(self)
-        
+
 
 _client = None
 
@@ -83,7 +83,7 @@ class Thumbnail(object):
     def __init__(self, name, media, url=None):
         self.name = os.path.realpath(name)
         self.destdir = media.thumbnails
-        
+
         if not url:
             # create url to be placed in the thumbnail
             # FIXME: handle media.mountpoint
@@ -92,7 +92,7 @@ class Thumbnail(object):
 
         # create digest for filename (with %s for the size)
         self._thumbnail = media.thumbnails + '/%s/' + md5.md5(url).hexdigest()
-        
+
 
     def get(self, type='any', check_mtime=False):
         if check_mtime:
@@ -136,7 +136,7 @@ class Thumbnail(object):
     def exists(self, check_mtime=False):
         return self.get(NORMAL, check_mtime) or self.get(LARGE, check_mtime) \
                or self.get('fail/kaa', check_mtime)
-    
+
 
     def is_failed(self):
         return self.get('fail/kaa')
@@ -144,7 +144,7 @@ class Thumbnail(object):
 
     def create(self, type=NORMAL, priority=PRIORITY_NORMAL):
         Thumbnail.next_id += 1
-        
+
         dest = '%s/%s' % (self.destdir, type)
         if not os.path.isdir(dest):
             os.makedirs(dest, 0700)
@@ -156,7 +156,7 @@ class Thumbnail(object):
         job = Job(self, Thumbnail.next_id, priority)
         return job.signal
 
-    
+
     image  = property(get, set, None, "thumbnail image")
     failed = property(is_failed, set, None, "true if thumbnailing failed")
 
@@ -177,11 +177,11 @@ class Client(object):
             # Not connected yet, schedule job later
             self._schedules.append((id, filename, imagename, type, priority))
             return
-        
+
         # server rpc calls
         self.rpc('schedule', (self.id, id), filename, imagename, type, priority)
-        
-        
+
+
     @kaa.rpc.expose('connect')
     def _server_callback_connected(self, id):
         self.id = id
@@ -217,7 +217,7 @@ def connect():
 
     if _client:
         return _client
-    
+
     start = time.time()
     while True:
         try:
@@ -236,4 +236,4 @@ support_video = False
 for path in os.environ.get('PATH').split(':'):
     if os.path.isfile(path + '/mplayer'):
         support_video = True
-        
+

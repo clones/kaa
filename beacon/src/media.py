@@ -1,14 +1,49 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# media.py - Medialist handling
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon - A virtual filesystem with metadata
+# Copyright (C) 2006 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
+#
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
+#
+# -----------------------------------------------------------------------------
+
 __all__ = [ 'medialist' ]
 
+# python imports
 import os
 import logging
 
+# kaa imports
 from kaa.weakref import weakref
 
+# kaa.beacon imports
 import utils
 
 # get logging object
 log = logging.getLogger('beacon')
+
 
 class Media(object):
 
@@ -22,7 +57,7 @@ class Media(object):
 
         # needed by server. FIXME: make it nicer
         self.crawler = None
-        
+
         log.info('new media %s', self.id)
 
         # when we are here the media is in the database and also
@@ -34,7 +69,7 @@ class Media(object):
         """
         return self._controller
 
-    
+
     def eject(self):
         self._controller.eject(self)
 
@@ -93,7 +128,7 @@ class Media(object):
     def __repr__(self):
         return '<kaa.beacon.Media %s>' % self.id
 
-    
+
 class MediaList(object):
 
     def __init__(self):
@@ -102,14 +137,14 @@ class MediaList(object):
         self.db = None
         self.controller = None
 
-        
+
     def connect(self, db, controller):
         for media in self._dict.keys()[:]:
             self.remove(media)
         self.db = db
         self.controller = controller
 
-        
+
     def add(self, id, prop):
         if not self.db:
             raise RuntimeError('not connected to database')
@@ -129,8 +164,8 @@ class MediaList(object):
         del self._dict[id]
         self.idlist = [ m._beacon_id[1] for m in self._dict.values() ]
         return m
-    
-        
+
+
     def get(self, id):
         return self._dict.get(id)
 
@@ -145,16 +180,16 @@ class MediaList(object):
                 return m
         return None
 
-    
+
     def beacon_id(self, id):
         for m in self._dict.values():
             if m._beacon_id == id:
                 return m
         return None
 
-        
+
     def __iter__(self):
         return self._dict.values().__iter__()
-    
+
 
 medialist = MediaList()
