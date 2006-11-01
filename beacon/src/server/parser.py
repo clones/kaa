@@ -44,7 +44,7 @@ import kaa.metadata
 import kaa.imlib2
 
 # kaa.beacon imports
-import kaa.beacon.thumbnail as thumbnail
+from kaa.beacon import thumbnail
 from kaa.beacon.utils import get_title
 
 # get logging object
@@ -204,7 +204,7 @@ def parse(db, item, store=False, check_image=False):
                 break
 
         if type == 'video' and not attributes.get('image') and \
-               thumbnail.support_video:
+               thumbnail.SUPPORT_VIDEO:
             attributes['image'] = item.filename
 
         if metadata.get('thumbnail') and not \

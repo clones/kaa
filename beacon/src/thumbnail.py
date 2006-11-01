@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'connect', 'stop' ]
+__all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'SUPPORT_VIDEO', 'connect' ]
 
 NORMAL  = 'normal'
 LARGE   = 'large'
@@ -62,6 +62,11 @@ log = logging.getLogger('beacon.thumb')
 # sizes for the thumbnails
 SIZE = { NORMAL: (128, 128), LARGE: (256, 256) }
 
+SUPPORT_VIDEO = False
+for path in os.environ.get('PATH').split(':'):
+    if os.path.isfile(path + '/mplayer'):
+        SUPPORT_VIDEO = True
+
 class Job(object):
 
     all = []
@@ -72,7 +77,6 @@ class Job(object):
         self.priority = priority
         self.signal = kaa.notifier.Signal()
         Job.all.append(self)
-
 
 _client = None
 
@@ -231,9 +235,4 @@ def connect():
 
 
 
-
-support_video = False
-for path in os.environ.get('PATH').split(':'):
-    if os.path.isfile(path + '/mplayer'):
-        support_video = True
 

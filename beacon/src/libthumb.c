@@ -259,7 +259,7 @@ void **get_module_api(char *module)
 }
 
 
-void init_libthumb()
+void init_libthumb(void)
 {
     PyObject *m;
     void **imlib2_api_ptrs;
