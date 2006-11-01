@@ -8,27 +8,27 @@
 # by DirectFB knowledge is close to zero.
 #
 # -----------------------------------------------------------------------------
-# kaa-display - Generic Display Module
-# Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+# kaa.display - Generic Display Module
+# Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
 #
 # Please see the file AUTHORS for a complete list of authors.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -58,7 +58,7 @@ class _DirectFB(object):
         """
         return 'dfb'
 
-    
+
     def __del__(self):
         print 'close dfb'
         dfb.close()
@@ -74,9 +74,9 @@ class DirectFB(_DirectFB):
 class EvasDirectFB(_DirectFB):
     """
     Frambuffer using evas for drawing
-    The 'mode' argument can either be a size (width, height) matching one of the
-    specified framebuffer resolutions, a list for fbset or None. If set to None,
-    the current framebuffer size will be used.
+    The 'mode' argument can either be a size (width, height) matching one of
+    the specified framebuffer resolutions, a list for fbset or None. If set to
+    None, the current framebuffer size will be used.
     """
     def __init__(self, size):
         _DirectFB.__init__(self, size)
@@ -84,7 +84,7 @@ class EvasDirectFB(_DirectFB):
         self._evas = kaa.evas.Evas()
         dfb.new_evas_dfb(self._evas._evas)
 
-        
+
     def get_evas(self):
         """
         Return evas object.
@@ -96,4 +96,3 @@ class EvasDirectFB(_DirectFB):
         print 'delete evas object'
         del self._evas
         _DirectFB.__del__(self)
-

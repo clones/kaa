@@ -5,27 +5,27 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - Generic Display Module
- * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+ * kaa.display - Generic Display Module
+ * Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Dirk Meyer <dmeyer@tzi.de>
  * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
  *
  * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ------------------------------------------------------------------------- */
 
@@ -81,7 +81,7 @@ PyObject *fb_update(PyObject *self, PyObject *args)
 	PyErr_Format(PyExc_SystemError, "imlib2 image as parameter needed");
 	return NULL;
     }
-  
+
     img = imlib_image_from_pyobject(pyimg);
     imlib_context_set_image(img);
     pixels = (unsigned char *)imlib_image_get_data_for_reading_only();
@@ -97,9 +97,9 @@ PyObject *fb_update(PyObject *self, PyObject *args)
 PyObject *fb_open(PyObject *self, PyObject *args)
 {
     tty_disable ();
-  
+
     fb_fd = open ("/dev/fb0", O_RDWR);
-  
+
     if (fb_fd < 0) {
 	perror ("open");
 	PyErr_Format(PyExc_SystemError, "unable to open device");
@@ -125,14 +125,14 @@ PyObject *fb_open(PyObject *self, PyObject *args)
 
     /* OK, this is ugly but we need this. */
     fb_var.bits_per_pixel = 32;
-  
+
     /* try to set fbsettings */
-    PyArg_ParseTuple(args, "|(iiiiiiiiiiiiiiiii)", &fb_var.xres, &fb_var.yres, 
-		     &fb_var.xres_virtual, &fb_var.yres_virtual, 
-		     &fb_var.xoffset, &fb_var.yoffset, &fb_var.height, 
-		     &fb_var.height, &fb_var.pixclock, &fb_var.left_margin, 
-		     &fb_var.right_margin, &fb_var.upper_margin, 
-		     &fb_var.lower_margin, &fb_var.vsync_len, 
+    PyArg_ParseTuple(args, "|(iiiiiiiiiiiiiiiii)", &fb_var.xres, &fb_var.yres,
+		     &fb_var.xres_virtual, &fb_var.yres_virtual,
+		     &fb_var.xoffset, &fb_var.yoffset, &fb_var.height,
+		     &fb_var.height, &fb_var.pixclock, &fb_var.left_margin,
+		     &fb_var.right_margin, &fb_var.upper_margin,
+		     &fb_var.lower_margin, &fb_var.vsync_len,
 		     &fb_var.hsync_len,
 		     &fb_var.sync, &fb_var.vmode);
 
@@ -153,7 +153,8 @@ PyObject *fb_open(PyObject *self, PyObject *args)
 	return NULL;
     }
 
-    fb_mem = mmap ((void *) NULL, fb_var.xres * fb_var.yres * fb_var.bits_per_pixel / 8,
+    fb_mem = mmap ((void *) NULL, fb_var.xres * fb_var.yres * \
+		   fb_var.bits_per_pixel / 8,
 		   PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, 0);
 
     if (fb_mem == MAP_FAILED) {
@@ -190,12 +191,12 @@ PyObject *fb_depth(PyObject *self, PyObject *args)
 
 PyObject *fb_info(PyObject *self, PyObject *args)
 {
-    return Py_BuildValue("(iiiiiiiiiiiiiiiii)", fb_var.xres, fb_var.yres, 
-			 fb_var.xres_virtual, fb_var.yres_virtual, 
-			 fb_var.xoffset, fb_var.yoffset, fb_var.height, 
-			 fb_var.height, fb_var.pixclock, fb_var.left_margin, 
-			 fb_var.right_margin, fb_var.upper_margin, 
-			 fb_var.lower_margin, fb_var.vsync_len, 
+    return Py_BuildValue("(iiiiiiiiiiiiiiiii)", fb_var.xres, fb_var.yres,
+			 fb_var.xres_virtual, fb_var.yres_virtual,
+			 fb_var.xoffset, fb_var.yoffset, fb_var.height,
+			 fb_var.height, fb_var.pixclock, fb_var.left_margin,
+			 fb_var.right_margin, fb_var.upper_margin,
+			 fb_var.lower_margin, fb_var.vsync_len,
 			 fb_var.hsync_len,
 			 fb_var.sync, fb_var.vmode);
 }
@@ -216,7 +217,7 @@ static void tty_disable (void)
 	close(tty);
 	exit (1);
     }
-  
+
     close(tty);
 
 }
@@ -225,7 +226,7 @@ static void tty_disable (void)
 static void tty_enable (void)
 {
     int tty;
-  
+
     tty = open ("/dev/tty0", O_RDWR);
     if(tty < 0) {
 	perror("Error can't open /dev/tty0");
@@ -237,7 +238,7 @@ static void tty_enable (void)
 	close(tty);
 	exit (1);
     }
-  
+
     close(tty);
 
 }
@@ -307,10 +308,10 @@ void **get_module_api(char *module)
 }
 
 
-void init_FBmodule() {
+void init_FBmodule(void) {
     void **imlib2_api_ptrs, **evas_api_ptrs;
     (void) Py_InitModule("_FBmodule", fb_methods);
-  
+
     // Import kaa-imlib2's C api
     imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");
     if (imlib2_api_ptrs == NULL)

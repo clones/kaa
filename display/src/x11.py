@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-display - Generic Display Module
+# kaa.display - Generic Display Module
 # Copyright (C) 2005-2006 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
@@ -13,19 +13,19 @@
 #
 # Please see the file AUTHORS for a complete list of authors.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ _keysym_names = {
     427: "kp_plus",
     429: "kp_minus"
 }
- 
+
 class X11Display(object):
 
     XEVENT_MOTION_NOTIFY = 6
@@ -96,7 +96,7 @@ class X11Display(object):
     XEVENT_UNMAP_NOTIFY = 18
     XEVENT_MAP_NOTIFY = 19
     XEVENT_CONFIGURE_NOTIFY = 22
-    
+
     #XEVENT_WINDOW_EVENTS = (6, 12, 4, 2, 22, 18, 19)
 
     def __init__(self, dispname = ""):
@@ -122,7 +122,7 @@ class X11Display(object):
                 if event == X11Display.XEVENT_CONFIGURE_NOTIFY:
                     # Remove any existing configure events in the list (only
                     # the last one applies)
-                    window_events[wid] = [ x for x in window_events[wid] if x[0] != 
+                    window_events[wid] = [ x for x in window_events[wid] if x[0] !=
                                            X11Display.XEVENT_CONFIGURE_NOTIFY ]
                 window_events[wid].append((event, data))
 
@@ -137,7 +137,7 @@ class X11Display(object):
 
         # call the socket again
         return True
-    
+
 
     def __getattr__(self, attr):
         if attr in ("socket,"):
@@ -213,7 +213,7 @@ class X11Window(object):
             "resize_event": Signal(),
             "configure_event": Signal(),
         }
-        
+
     def get_display(self):
         return self._display
 
@@ -290,11 +290,11 @@ class X11Window(object):
                 self.signals["focus_in_event"].emit()
             elif event == X11Display.XEVENT_FOCUS_OUT:
                 self.signals["focus_out_event"].emit()
-                
+
 
         if len(expose_regions) > 0:
             self.signals["expose_event"].emit(expose_regions)
-                
+
 
     def move(self, pos, force = False):
         return self.set_geometry(pos, (-1, -1))
@@ -352,7 +352,7 @@ class X11Window(object):
 
     def get_fullscreen(self):
         return self._fs_size_save != None
-     
+
     def get_id(self):
         return self._window.ptr
 
@@ -361,7 +361,7 @@ class X11Window(object):
 
 
 class EvasX11Window(X11Window):
-    def __init__(self, gl = False, display = None, size = (640, 480), 
+    def __init__(self, gl = False, display = None, size = (640, 480),
                  title = "Evas", **kwargs):
         import kaa.evas
 
@@ -383,7 +383,7 @@ class EvasX11Window(X11Window):
         self._evas.viewport_set((0, 0), size)
 
         # Ensures the display remains alive until after Evas gets deallocated
-        # during garbage collection.  
+        # during garbage collection.
         self._evas._dependencies.append(display._display)
         self._evas._dependencies.append(window)
         if "parent" in kwargs:

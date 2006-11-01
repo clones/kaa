@@ -5,27 +5,27 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-display - Display module
-# Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+# kaa.display - Display module
+# Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
 #
-# Please see the file doc/CREDITS for a complete list of authors.
+# Please see the file AUTHORS for a complete list of authors.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -66,7 +66,7 @@ try:
     print 'ok'
     check_library('sdl', '1.2.5')
     pygame = inc
-    
+
 except ImportError, e:
     print 'not installed'
     pygame = False
@@ -118,13 +118,13 @@ if get_library('evas'):
 modules = []
 
 if get_library('X11'):
-    
+
     # the display so module
     x11 = Extension('kaa.display._X11module',
                     [ 'src/display.c', 'src/x11display.c', 'src/x11window.c',
                       'src/imlib2.c', 'src/evas.c' ],
                     libraries = ['png', 'rt'])
-    
+
     config.define('HAVE_X11')
     features = []
     if get_library('imlib2') and 'X11' in get_library('imlib2').libraries:
@@ -189,7 +189,7 @@ if pygame and get_library('sdl') and get_library('imlib2'):
     print "+ SDL (imlib2)"
 else:
     print "- SDL"
-    
+
 
 setup(module  = 'display',
       version = '0.1',

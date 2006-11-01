@@ -5,27 +5,27 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - Generic Display Module
- * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+ * kaa.display - Generic Display Module
+ * Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Jason Tackaberry <tack@sault.org>
  * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
  * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ----------------------------------------------------------------------------
  */
@@ -41,9 +41,11 @@
 PyMethodDef display_methods[] = {
     { "render_imlib2_image", (PyCFunction) render_imlib2_image, METH_VARARGS },
 #ifdef USE_EVAS
-    { "new_evas_software_x11", (PyCFunction) new_evas_software_x11, METH_VARARGS | METH_KEYWORDS },
+    { "new_evas_software_x11", (PyCFunction) new_evas_software_x11,
+      METH_VARARGS | METH_KEYWORDS },
 #ifdef ENABLE_ENGINE_GL_X11
-    { "new_evas_gl_x11", (PyCFunction) new_evas_gl_x11, METH_VARARGS | METH_KEYWORDS },
+    { "new_evas_gl_x11", (PyCFunction) new_evas_gl_x11,
+      METH_VARARGS | METH_KEYWORDS },
 #endif
 #endif
     { NULL }
@@ -65,7 +67,7 @@ void **get_module_api(char *module)
     return ptrs;
 }
 
-void init_X11()
+void init_X11(void)
 {
     PyObject *m, *display_c_api;
     void **imlib2_api_ptrs, **evas_api_ptrs;

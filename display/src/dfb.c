@@ -5,27 +5,27 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - Generic Display Module
- * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+ * kaa.display - Generic Display Module
+ * Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Dirk Meyer <dmeyer@tzi.de>
  * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
  *
  * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ------------------------------------------------------------------------- */
 
@@ -74,7 +74,8 @@ PyObject *dfb_open(PyObject *self, PyObject *args)
     DFBCHECK(DirectFBCreate(&dfb), "DirectFBCreate");
     dfb->SetCooperativeLevel(dfb, DFSCL_FULLSCREEN);
 
-    DFBCHECK(dfb->GetDisplayLayer(dfb, DLID_PRIMARY, &layer), "GetDisplayLayer");
+    DFBCHECK(dfb->GetDisplayLayer(dfb, DLID_PRIMARY, &layer), 
+	     "GetDisplayLayer");
     layer->GetConfiguration(layer, &layer_config);
 
     /* get the primary surface, i.e. the surface of the primary layer we have
@@ -138,7 +139,8 @@ PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
     printf("surface %dx%d\n", layer_config.width, layer_config.height);
 
     evas_output_size_set(evas, layer_config.width, layer_config.height);
-    evas_output_viewport_set(evas, 0, 0, layer_config.width, layer_config.height);
+    evas_output_viewport_set(evas, 0, 0, layer_config.width, 
+			     layer_config.height);
 
     /* the following is specific to the engine */
     einfo->info.dfb = dfb;
@@ -156,7 +158,8 @@ PyMethodDef dfb_methods[] = {
     { "close", (PyCFunction) dfb_close, METH_VARARGS },
     { "size", (PyCFunction) dfb_size, METH_VARARGS },
 #ifdef ENABLE_ENGINE_DIRECTFB
-    { "new_evas_dfb", (PyCFunction) new_evas_dfb, METH_VARARGS | METH_KEYWORDS },
+    { "new_evas_dfb", (PyCFunction) new_evas_dfb, METH_VARARGS | \
+      METH_KEYWORDS },
 #endif
     { NULL }
 };
@@ -178,7 +181,7 @@ void **get_module_api(char *module)
 }
 
 
-void init_DFBmodule() {
+void init_DFBmodule(void) {
     (void) Py_InitModule("_DFBmodule", dfb_methods);
 
 #ifdef ENABLE_ENGINE_DIRECTFB
@@ -190,7 +193,7 @@ void init_DFBmodule() {
 	evas_object_from_pyobject = evas_api_ptrs[0];
 	Evas_PyObject_Type = evas_api_ptrs[1];
     }
-    
+
 #endif
 
 }

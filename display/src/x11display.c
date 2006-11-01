@@ -5,27 +5,27 @@
  * $Id$
  *
  * ----------------------------------------------------------------------------
- * kaa-display - Generic Display Module
- * Copyright (C) 2005 Dirk Meyer, Jason Tackaberry
+ * kaa.display - Generic Display Module
+ * Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
  *
  * First Edition: Jason Tackaberry <tack@sault.org>
  * Maintainer:    Jason Tackaberry <tack@sault.org>
  *
  * Please see the file AUTHORS for a complete list of authors.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
- * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details.
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
  * ----------------------------------------------------------------------------
  */
@@ -102,9 +102,9 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
         XNextEvent(self->display, &ev);
         //printf("EVENT: %d\n", ev.type);
         if (ev.type == Expose) {
-            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii)})", Expose, 
+            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii)})", Expose,
                               "window", ev.xexpose.window,
-                              "pos", ev.xexpose.x, ev.xexpose.y, 
+                              "pos", ev.xexpose.x, ev.xexpose.y,
                               "size", ev.xexpose.width, ev.xexpose.height);
             PyList_Append(events, o);
             Py_DECREF(o);
@@ -119,8 +119,8 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             XLookupString(&ev.xkey, buf, sizeof(buf), &keysym, &stat);
             key = ((keysym & 0xff00) != 0 ? ((keysym & 0x00ff) + 256) : (keysym));
 
-            o = Py_BuildValue("(i{s:i,s:i})", KeyPress, 
-                              "window", ev.xkey.window, 
+            o = Py_BuildValue("(i{s:i,s:i})", KeyPress,
+                              "window", ev.xkey.window,
                               "key", key);
             PyList_Append(events, o);
             Py_DECREF(o);
