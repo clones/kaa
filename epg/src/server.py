@@ -8,21 +8,22 @@
 # Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
-# Maintainer:    Dirk Meyer <dischi@freevo.org>
-#                Rob Shortt <rob@tvcentric.com>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# Please see the file AUTHORS for a complete list of authors.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
-## You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
+#
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -169,21 +170,22 @@ class Server(object):
 
     def add_channel(self, tuner_id, name, long_name):
         """
-        This method requires at least one of tuner_id, name, long_name.
-        Depending on the source (various XMLTV sources, Zap2it, etc.) not all
-        of the information we would like is available.  Also, channels are
-        perceived differently around the world and handled differently by
-        differnent systems (DVB, analog TV).
+        This method requires at least one of tuner_id, name,
+        long_name.  Depending on the source (various XMLTV sources,
+        Zap2it, etc.) not all of the information we would like is
+        available.  Also, channels are perceived differently around
+        the world and handled differently by differnent systems (DVB,
+        analog TV).
 
-        Following the KISS philosophy (Keep It Simple Stupid) we can follow some
-        simple rules.
+        Following the KISS philosophy (Keep It Simple Stupid) we can
+        follow some simple rules.
 
-        The most important field here is name.  If there's no name
-        we make it based on tuner_id or long_name.  If there's no long_name we
-        base that on name or tuner_id.  If there's no tuner_id it does
-        not matter because we will then always have a value for name.
-        If there is a tuner_id then it will assist programs using kaa.epg to
-        match real channels and EPG data.
+        The most important field here is name.  If there's no name we
+        make it based on tuner_id or long_name.  If there's no
+        long_name we base that on name or tuner_id.  If there's no
+        tuner_id it does not matter because we will then always have a
+        value for name.  If there is a tuner_id then it will assist
+        programs using kaa.epg to match real channels and EPG data.
         """
 
         if type(tuner_id) != ListType and tuner_id:

@@ -1,9 +1,47 @@
-import libxml2
-import md5, time, httplib, gzip, calendar
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# source_zap2it.py - Zap2It source for the epg
+# -----------------------------------------------------------------------------
+# $Id$
+# -----------------------------------------------------------------------------
+# kaa.epg - EPG Database
+# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+#
+# First Edition: Jason Tackaberry <tack@sault.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
+#
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
+#
+# -----------------------------------------------------------------------------
+
+# python imports
+import md5
+import time
+import httplib
+import gzip
+import calendar
 from StringIO import StringIO
+
+import libxml2
+
+# kaa imports
+import kaa
 from kaa.strutils import str_to_unicode
 from kaa.config import Var, Group
-import kaa
+
 
 ZAP2IT_HOST = "datadirect.webservices.zap2it.com:80"
 ZAP2IT_URI = "/tvlistings/xtvdService"
@@ -12,7 +50,7 @@ ZAP2IT_URI = "/tvlistings/xtvdService"
 config = \
        Group(name='zap2it', desc='''
        Zap2it settings
-       
+
        Add more doc here please!
        ''',
              desc_type='group',
@@ -21,7 +59,7 @@ config = \
     Var(name='activate',
         default=False,
         desc='Use Zap2it service to populate database.'
-       ), 
+       ),
 
     Var(name='username',
         default='',
@@ -67,12 +105,12 @@ def get_auth_digest_response_header(username, passwd, uri, auth):
 
     A1 = "%s:%s:%s" % (username, params["realm"], passwd)
     A2 = "%s:%s" % ("POST", uri)
-    response = "%s:%s:%s:%s:%s:%s" % (H(A1), params["nonce"], nc, cnonce, 
+    response = "%s:%s:%s:%s:%s:%s" % (H(A1), params["nonce"], nc, cnonce,
                                       params["qop"], H(A2))
 
     response = md5.md5(response).hexdigest()
 
-    hdr = ('Digest username="%s", realm="%s", qop="%s", algorithm="MD5", ' + 
+    hdr = ('Digest username="%s", realm="%s", qop="%s", algorithm="MD5", ' +
           'uri="%s", nonce="%s", nc="%s", cnonce="%s", response="%s"') % \
           (username, params["realm"], params["qop"], uri, params["nonce"],
            nc, cnonce, response)
@@ -156,7 +194,7 @@ def parse_map(node, info):
         return
 
     channel = int(node.prop("channel"))
-    db_id = info.epg.add_channel(tuner_id=channel, 
+    db_id = info.epg.add_channel(tuner_id=channel,
                                  name=info.stations_by_id[id]["station"],
                                  long_name=info.stations_by_id[id]["name"])
     info.stations_by_id[id]["db_id"] = db_id
@@ -167,7 +205,7 @@ def parse_schedule(node, info):
     program_id = node.prop("program")
     if program_id not in info.schedules_by_id:
         return
-    d = info.schedules_by_id[program_id]      
+    d = info.schedules_by_id[program_id]
     d["station_id"] = node.prop("station")
     t = time.strptime(node.prop("time")[:-1], "%Y-%m-%dT%H:%M:%S")
     d["start"] = int(calendar.timegm(t))
@@ -210,10 +248,10 @@ def find_roots(node, roots = {}):
             find_roots(child, roots)
         if len(roots) == 5:
             return
-     
+
 class UpdateInfo:
     pass
-         
+
 def _update_parse_xml_thread(epg, username, passwd, start, stop):
     data = request(username, passwd, ZAP2IT_HOST, ZAP2IT_URI, start, stop)
     doc = libxml2.parseMemory(data, len(data))
@@ -237,11 +275,11 @@ def _update_parse_xml_thread(epg, username, passwd, start, stop):
     info.stations_by_id = stations_by_id
     info.epg = epg
     info.progress_step = info.total / 100
-   
+
     timer = kaa.notifier.Timer(_update_process_step, info)
     timer.start(0)
-     
-    
+
+
 def _update_process_step(info):
     t0=time.time()
     if not info.node and info.roots:
@@ -266,7 +304,7 @@ def _update_process_step(info):
 
 def update(epg, start = None, stop = None):
     if not start:
-        # If start isn't specified, choose current time (rounded down to the 
+        # If start isn't specified, choose current time (rounded down to the
         # nearest hour).
         start = int(time.time()) / 3600 * 3600
     if not stop:

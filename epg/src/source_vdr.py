@@ -5,27 +5,26 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa-epg - Python EPG module
-# Copyright (C) 2002-2005 Dirk Meyer, Rob Shortt, et al.
+# kaa.epg - EPG Database
+# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Rob Shortt <rob@tvcentric.com>
-# Maintainer:    Rob Shortt <rob@tvcentric.com>
 #
-# Please see the file doc/AUTHORS for a complete list of authors.
+# Please see the file AUTHORS for a complete list of authors.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -50,7 +49,7 @@ log = logging.getLogger('epg')
 config = \
        Group(name='vdr', desc=u'''
        VDR settings
-       
+
        Add more doc here please!
        ''',
              desc_type='group',
@@ -67,7 +66,7 @@ config = \
     Var(name='channels_file',
         default='channels.conf',
         desc=u'VDR channels file name.'),
-    
+
     Var(name='epg_file',
         default='epg.data',
         desc=u'VDR EPG file name.'
@@ -77,7 +76,7 @@ config = \
         default='localhost',
         desc=u'VDR SVDRP host.'
        ),
-    
+
     Var(name='port',
         default=2001,
         desc=u'VDR SVDRP port.'
@@ -103,7 +102,7 @@ class UpdateInfo:
     pass
 
 def _update_data_thread(epg, vdr_dir=None, channels_file=None, epg_file=None,
-                        host=None, port=None, access_by='sid', 
+                        host=None, port=None, access_by='sid',
                         limit_channels='conf', exclude_channels=None):
     """
     Update the guide.
@@ -175,8 +174,8 @@ def _update_process_step(info):
 
         log.info('Adding channel: %s as %s' % (c.id, access_id))
 
-        chan_db_id = info.epg.add_channel(tuner_id=strutils.str_to_unicode(access_id), 
-                                          name=strutils.str_to_unicode(c.name), 
+        chan_db_id = info.epg.add_channel(tuner_id=strutils.str_to_unicode(access_id),
+                                          name=strutils.str_to_unicode(c.name),
                                           long_name=None)
 
         for e in c.events:
@@ -197,7 +196,7 @@ def update(epg, vdr_dir=None, channels_file=None, epg_file=None,
            host=None, port=None, access_by='sid', limit_channels=''):
     log.debug('update')
 
-    thread = kaa.notifier.Thread(_update_data_thread, epg, vdr_dir, 
+    thread = kaa.notifier.Thread(_update_data_thread, epg, vdr_dir,
                                  channels_file, epg_file, host, port, access_by,
                                  limit_channels)
     thread.start()

@@ -5,25 +5,25 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2005 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
-# Maintainer:    Dirk Meyer <dischi@freevo.org>
-#                Rob Shortt <rob@tvcentric.com>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# Please see the file AUTHORS for a complete list of authors.
 #
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
-# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-# Public License for more details.
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ class Client(object):
         self.status = CONNECTING
         self.server = kaa.rpc.Client(server_or_socket, auth_secret = auth_secret)
         self.server.connect(self)
-        
+
         self._channels_list = []
         self.signals = {
             "updated": Signal(),
@@ -101,8 +101,8 @@ class Client(object):
             for t in tuner_id:
                 if self._channels_by_tuner_id.has_key(t):
                     log.warning('loading channel %s with tuner_id %s '+\
-                                'allready claimed by channel %s', 
-                                chan.name, t, 
+                                'allready claimed by channel %s',
+                                chan.name, t,
                                 self._channels_by_tuner_id[t].name)
                 else:
                     self._channels_by_tuner_id[t] = chan
@@ -117,7 +117,7 @@ class Client(object):
             self.signals["connected"].emit()
         self.signals["updated"].emit()
 
-        
+
     def _program_rows_to_objects(self, query_data, callback=None):
         """
         Convert raw search result data from the server into python objects.
@@ -184,14 +184,14 @@ class Client(object):
         if not tuner_id and not name and not long_name:
             log.error('need at least one field to create a channel')
             return None
-        
+
         if not name:
             # then there must be one of the others
             if tuner_id:
                 name = tuner_id[0]
             else:
                 name = long_name
-             
+
         if not long_name:
             # then there must be one of the others
             if name:

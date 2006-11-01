@@ -34,13 +34,8 @@ o Make updates possible. If I already have a valid db and add a new
 o Clean up db. It would be nice to have some sort of history. But on
   update, delete every program older than lets say 7 days.
 
+o Import more data from sources (like ratings, advisories, actor names, etc.)
 
-If everything is done, move this as kaa.epg in the main tree and
-update all apps using kaa.epg (freevo)
-
-
-After that
-
-o Add support for calling the xmltv grabber
-
-o Add support for external grabber we don't know abaout (dbox2)
+o Assign ids to unique programs regardless of air times (this is already
+  given by zap2it, but not sure about other listing providers -- may need to
+  code custom heuristics).

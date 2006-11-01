@@ -1,7 +1,0 @@
-- Import more data from sources (like ratings, advisories, actor names, etc.)
-- Merge program data on update, instead of wiping existing data.
-- Assign ids to unique programs regardless of air times (this is already
-  given by zap2it, but not sure about other listing providers -- may need to
-  code custom heuristics).
-- Finish API :)
-
