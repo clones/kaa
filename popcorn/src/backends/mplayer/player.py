@@ -1,3 +1,4 @@
+import logging
 import os, re, string, tempfile, time, stat, threading, md5, struct
 from kaa import notifier, display, shm
 import kaa
@@ -12,6 +13,9 @@ DEBUG=1
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
+
+# get logging object
+log = logging.getLogger('popcorn.mplayer')
 
 
 # A cache holding values specific to an MPlayer executable (version,
@@ -150,8 +154,7 @@ class MPlayer(MediaPlayer):
 
 
     def _spawn(self, args, hook_notifier = True):
-        if self._debug > 0:
-            print "Spawn:", self._mp_cmd, args
+        log.debug("Spawn: %s %s", self._mp_cmd, args)
 
         if self._debug > 3:
             # With debug > 3, run mplayer through gdb.
@@ -328,6 +331,7 @@ class MPlayer(MediaPlayer):
 
 
     def _exited(self, exitcode):
+        log.debug('mplayer exited')
         self._state = STATE_NOT_RUNNING
         # exit code is strange somehow
         # if exitcode != 0:
@@ -370,6 +374,8 @@ class MPlayer(MediaPlayer):
 
 
     def play(self):
+        log.debug('mplayer start playback')
+        
         # we know that self._mp_info has to be there or the object would
         # not be selected by the generic one. FIXME: verify that!
         assert(self._mp_info)
