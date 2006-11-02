@@ -218,10 +218,11 @@ class Xine(MediaPlayer):
 
 
     def die(self):
-        self._state = STATE_SHUTDOWN
-        self._xine.die()
+        if self._xine:
+            self._state = STATE_SHUTDOWN
+            self._xine.die()
 
-        
+
     def seek(self, value, type):
         self._xine.seek(value, type)
 
@@ -286,7 +287,8 @@ class Xine(MediaPlayer):
             window.signals["expose_event"].connect_weak(self._window_expose_event)
 
         # Sends a window_changed command to slave.
-        self._window_visibility_event()
+        if window:
+            self._window_visibility_event()
 
 
     def get_position(self):
