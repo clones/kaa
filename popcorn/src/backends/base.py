@@ -36,12 +36,6 @@ import kaa.notifier
 from kaa.popcorn.ptypes import *
 from kaa.popcorn.utils import parse_mrl
 
-class PlayerError(Exception):
-    pass
-
-class PlayerCapError(PlayerError):
-    pass
-
 class MediaPlayer(object):
     """
     Base class for players
@@ -63,7 +57,7 @@ class MediaPlayer(object):
 
             # Player released video and audio devices
             "release": kaa.notifier.Signal(),
-            
+
             # Process died (shared memory will go away)
             "shm_quit": kaa.notifier.Signal()
         }
@@ -72,7 +66,7 @@ class MediaPlayer(object):
         self._window = None
         self._size = None
         self._config = None
-        
+
 
     def get_capabilities(self):
         """
@@ -106,7 +100,7 @@ class MediaPlayer(object):
         """
         self._config = config
 
-        
+
     # state handling
 
     def get_state(self):
@@ -122,6 +116,7 @@ class MediaPlayer(object):
         """
         if self._state_object == state:
             return
+
         old_state = self._state_object
         self._state_object = state
 
@@ -143,7 +138,7 @@ class MediaPlayer(object):
         if state == STATE_NOT_RUNNING == self._state_object:
             self.signals["release"].emit()
             self.signals["shm_quit"].emit()
-            
+
     # state property based on get_state and _set_state
     _state = property(get_state, _set_state, None, 'state of the player')
 
@@ -225,7 +220,7 @@ class MediaPlayer(object):
         """
         self.die()
 
-        
+
     def seek_relative(self, offset):
         """
         Seek relative.
@@ -292,8 +287,8 @@ class MediaPlayer(object):
 
     def osd_can_update(self):
         """
-        Returns True if it's safe to write to the OSD shmem buffer.  
-        
+        Returns True if it's safe to write to the OSD shmem buffer.
+
         See Player class for full doc.
         """
         pass

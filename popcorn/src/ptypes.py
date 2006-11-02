@@ -49,3 +49,8 @@ SEEK_RELATIVE = 'SEEK_RELATIVE'
 SEEK_ABSOLUTE = 'SEEK_ABSOLUTE'
 SEEK_PERCENTAGE = 'SEEK_PERCENTAGE'
 
+class PlayerError(Exception):
+    pass
+
+class PlayerCapError(PlayerError):
+    pass
