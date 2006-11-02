@@ -2,6 +2,7 @@ import sys
 import os
 import md5
 import struct
+import logging
 
 import kaa
 import kaa.notifier
@@ -11,6 +12,9 @@ import kaa.xine as xine
 from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
 from kaa.popcorn.utils import ChildProcess, parse_mrl
+
+# get logging object
+log = logging.getLogger('popcorn.xine')
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -74,6 +78,7 @@ class Xine(MediaPlayer):
 
 
     def _exited(self, exitcode):
+        log.debug('xine child dead')
         self._xine = None
         self._remove_shmem()
         self._state = STATE_NOT_RUNNING
@@ -107,6 +112,7 @@ class Xine(MediaPlayer):
         elif status in (0, 1):
             if self.get_state() in (STATE_PAUSED, STATE_PLAYING):
                 # Stream ended.
+                log.debug('xine stream ended')
                 self._state = STATE_IDLE
 
 
@@ -156,6 +162,7 @@ class Xine(MediaPlayer):
 
 
     def _child_play_stopped(self):
+        log.debug('xine stopped')
         self._state = STATE_IDLE
 
 
@@ -201,6 +208,7 @@ class Xine(MediaPlayer):
         self._xine.setup(wid=wid)
 
         self._position = 0.0
+        log.debug('xine play')
         self._xine.open(self._mrl)
         self._state = STATE_OPENING
 
@@ -214,6 +222,7 @@ class Xine(MediaPlayer):
 
 
     def stop(self):
+        log.debug('xine stop')
         self._xine.stop()
 
 
