@@ -210,7 +210,7 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            if not self._player.get_state() in STATE_IDLE:
+            if not self._player.get_state() in (STATE_IDLE,):
                 self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
@@ -236,8 +236,7 @@ class Player(object):
         """
         # FIXME: handle player that are in a deadlock and do not
         # want to be killed.
-        if not self._player.get_state() in STATE_IDLE:
-            self._player.stop()
+        self._player.stop()
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
