@@ -96,6 +96,7 @@ class Xine(MediaPlayer):
         if status == 2:
             if self.get_state() not in (STATE_PAUSED, STATE_PLAYING):
                 self._state = STATE_PLAYING
+                self.signals["play"].emit()
             if speed == xine.SPEED_PAUSE and self.get_state() != STATE_PAUSED:
                 self._state = STATE_PAUSED
                 self.signals["pause_toggle"].emit()
