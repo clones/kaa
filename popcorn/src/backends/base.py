@@ -179,6 +179,24 @@ class MediaPlayer(object):
     # Methods to be implemented by subclasses.
     #
 
+    # Please set self._state when something changes, signals will be send
+    # by this base class when you change the state. The following states
+    # are valid:
+
+    # STATE_NOT_RUNNING: the player is not running and has released audio
+    #     and video device. It doesn't matter if a child process is still
+    #     running or not.
+    # STATE_IDLE: the player is not running but may still have video and
+    #     audio devices locked for a next file.
+    # STATE_OPENING: the player is about to open the file and will start
+    #     playing in a few seconds. If the player goes from STATE_OPENING
+    #     to STATE_IDLE or STATE_NOT_RUNNING again without being in
+    #     STATE_PLAYING, the 'failed' signal will be emited.
+    # STATE_PLAYING: player is playing
+    # STATE_PAUSED: player is in playback mode but pausing
+    # STATE_SHUTDOWN: player is going releasing the video and audio devices,
+    #     next state has to be STATE_NOT_RUNNING
+
     def open(self, mrl):
         """
         Open mrl.
