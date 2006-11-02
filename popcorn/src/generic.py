@@ -38,12 +38,13 @@ import logging
 import kaa.notifier
 
 # kaa.popcorn imports
+import backends.manager
 from config import config as default_config
 from ptypes import *
-from backends.manager import get_player_class, get_all_players
 
 # get logging object
 log = logging.getLogger('popcorn')
+
 
 def required_states(*states):
     """
@@ -114,6 +115,21 @@ class Player(object):
         self._failed_player = []
         
 
+    def _get_player_class(self, player=None):
+        """
+        Return player class object to play the current mrl. This function
+        uses self._open_mrl, self._open_caps as mrl and caps and respects
+        the failed player and the player deactived in the config. If player
+        is given as argument, this player will be used.
+        """
+        exclude = self._failed_player[:]
+        for p in backends.manager.get_all_players():
+            if not getattr(self._config, p).activate and not p in exclude:
+                exclude.append(p)
+        return backends.manager.get_player_class(\
+            self._open_mrl, self._open_caps, player, exclude)
+
+        
     def _state_change(self, signal):
         """
         The used player changed its state and emited a signal. This function
@@ -131,8 +147,7 @@ class Player(object):
             self._failed_player.append(self.get_player_id())
             self._pending = []
             self._player.release()
-            cls = get_player_class(mrl = self._open_mrl, caps = self._open_caps,
-                                   exclude = self._failed_player)
+            cls = self._get_player_class()
             if cls:
                 # a new possible player is found, try it
                 self._create_player(cls)
@@ -200,15 +215,15 @@ class Player(object):
         player must have. If 'player' is given, force playback with the
         given player.
         """
-        cls = get_player_class(mrl = mrl, player = player, caps = caps)
         self._open_mrl = mrl
         self._open_caps = caps
+        self._failed_player = []
+        cls = self._get_player_class(player)
         
         if not cls:
             raise PlayerError("No supported player found to play %s", mrl)
 
         self._pending = []
-        self._failed_player = []
         if not self._player:
             self._create_player(cls)
         else:

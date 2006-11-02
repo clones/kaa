@@ -30,16 +30,23 @@
 import os
 import sys
 
+config = []
+
 if not __file__.startswith(sys.argv[0]):
     # import only when we are not a called child process
-
     from manager import *
 
     for backend in os.listdir(os.path.dirname(__file__)):
         dirname = os.path.join(os.path.dirname(__file__), backend)
         if os.path.isdir(dirname):
             try:
+                # import the backend config
+                exec('from %s.config import config as c' % backend)
+                config.append((backend, c))
+            except ImportError:
+                continue
+            try:
                 # import the backend
                 exec('import %s' % backend)
-            except ImportError:
+            except ImportError, e:
                 pass
