@@ -49,6 +49,19 @@ class XinePlayerChild(Player):
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
 
 
+    def _check_stream_handles(self):
+        """
+        Check if stream is ok.
+        """
+        v_unhandled = self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO) and \
+            not self._stream.get_info(xine.STREAM_INFO_IGNORE_VIDEO) and \
+            not self._stream.get_info(xine.STREAM_INFO_VIDEO_HANDLED)
+        a_unhandled = self._stream.get_info(xine.STREAM_INFO_HAS_AUDIO) and \
+            not self._stream.get_info(xine.STREAM_INFO_IGNORE_AUDIO) and \
+            not self._stream.get_info(xine.STREAM_INFO_AUDIO_HANDLED)
+        return not (v_unhandled or a_unhandled)
+
+
     def _status_output(self):
         """
         Outputs stream status information.
@@ -233,6 +246,10 @@ class XinePlayerChild(Player):
         except xine.XineError:
             self.parent.set_stream_info(False, self._stream.get_error())
             print "Open failed:", self._stream.get_error()
+            return
+        if not self._check_stream_handles():
+            self.parent.set_stream_info(False, None)
+            print "unable to play stream"
             return
         self.parent.set_stream_info(True, self._get_stream_info())
         self._status.start(0.001)
