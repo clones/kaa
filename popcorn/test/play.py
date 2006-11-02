@@ -6,7 +6,8 @@ import kaa.display
 import kaa.popcorn
 import kaa.input.stdin
 
-logging.getLogger('player').setLevel(logging.INFO)
+logging.getLogger('popcorn').setLevel(logging.INFO)
+# logging.getLogger('popcorn.child').setLevel(logging.ERROR)
 
 
 def print_msg(msg):
@@ -30,10 +31,11 @@ def handle_key(key, player):
 
 window = kaa.display.X11Window(size = (800,600), title = "kaa.popcorn")
 
-player = kaa.popcorn.Player(window)
-player.signals["start"].connect_once(window.show)
+player = kaa.popcorn.Player() #window)
+#player.signals["start"].connect_once(window.show)
 player.signals["start"].connect(print_msg, 'playback started')
 player.signals["end"].connect(print_msg, 'playback end')
+player.signals["end"].connect(next, 'xine')
 player.signals["failed"].connect(print_msg, 'playback failed')
 
 kaa.signals["stdin_key_press_event"].connect(handle_key, player)
@@ -41,10 +43,11 @@ if player.get_window():
     player.get_window().signals["key_press_event"].connect(handle_key, player)
 
 kaa.notifier.OneShotTimer(next, 'xine').start(0)
+kaa.notifier.OneShotTimer(player.stop).start(1)
 
 def print_pos():
-    print '\r', player.get_position(),
-    sys.stdout.flush()
+#     print '\r', player.get_position(),
+#     sys.stdout.flush()
     return True
 
 kaa.notifier.Timer(print_pos).start(0.1)

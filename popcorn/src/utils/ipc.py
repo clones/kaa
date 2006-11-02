@@ -42,7 +42,7 @@ import kaa.notifier
 from kaa.weakref import weakref
 
 # get logging object
-log = logging.getLogger('player.child')
+log = logging.getLogger('popcorn.child')
 
 class ChildCommand(object):
     """
@@ -70,6 +70,7 @@ class ChildProcess(object):
         self._child = kaa.notifier.Process([sys.executable, '-u'] + list(args))
         self._child.signals["stdout"].connect_weak(self._handle_line)
         self._child.signals["stderr"].connect_weak(self._handle_line)
+        self._name = os.path.basename(os.path.dirname(args[0]))
 
 
     def start(self):
@@ -89,7 +90,7 @@ class ChildProcess(object):
             getattr(self._parent, "_child_" + command)(*args, **kwargs)
         else:
             # same debug
-            log.info("CHILD[%d]: %s", self._child.child.pid, line)
+            log.info("[%s-%d] %s", self._name, self._child.child.pid, line)
 
 
     def __getattr__(self, attr):

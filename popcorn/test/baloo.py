@@ -96,8 +96,8 @@ class Baloo(object):
         if not len(self.search):
             return False
         self.current = self.search[index]
-        self.player.open(self.current.filename)
-        self.player.play(video=False)
+        self.player.open(self.current.filename, player='xine')
+        self.player.play()
         for t in ('title', 'artist', 'album'):
             label = self.xml.get_widget(t)
             value = self.current.get(t) or ''
