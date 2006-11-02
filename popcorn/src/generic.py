@@ -43,7 +43,7 @@ from ptypes import *
 from backends.manager import get_player_class, get_all_players
 
 # get logging object
-log = logging.getLogger('player')
+log = logging.getLogger('popcorn')
 
 def required_states(*states):
     """
@@ -183,7 +183,6 @@ class Player(object):
         """
         The real open function called from 'open'.
         """
-        log.info('open')
         self._player.set_config(self._config)
         self._player.open(mrl)
         self._player.set_window(self._window)
@@ -211,7 +210,8 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            self._player.stop()
+            if not self._player.get_state() in STATE_IDLE:
+                self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
                 self._create_player(cls)
@@ -236,7 +236,8 @@ class Player(object):
         """
         # FIXME: handle player that are in a deadlock and do not
         # want to be killed.
-        self._player.stop()
+        if not self._player.get_state() in STATE_IDLE:
+            self._player.stop()
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
