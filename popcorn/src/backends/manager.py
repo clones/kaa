@@ -32,9 +32,11 @@ __all__ = [ 'register', 'get_player_class', 'get_all_players' ]
 import os
 
 # kaa.popcorn imports
-from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
 from kaa.popcorn.utils import parse_mrl
+
+# backend imports
+from base import MediaPlayer
 
 # internal list of players
 _players = {}
