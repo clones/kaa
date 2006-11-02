@@ -120,6 +120,8 @@ class Player(object):
         will emit the same signal to the application, handles some internal
         changes and will call the pending calls based on the new state.
         """
+        log.debug('player signal: %s', signal)
+        
         if signal == 'failed':
             # The playing has failed. This means that the player we wanted to
             # use was unable to play this file. In that case we add the player
@@ -178,7 +180,7 @@ class Player(object):
             self._player.signals[sig].connect_weak(self._state_change, sig)
 
     
-    @required_states(STATE_IDLE)
+    @required_states(STATE_NOT_RUNNING, STATE_IDLE)
     def _open(self, mrl):
         """
         The real open function called from 'open'.
@@ -210,7 +212,7 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            if not self._player.get_state() in (STATE_IDLE,):
+            if not self._player.get_state() in (STATE_IDLE, STATE_NOT_RUNNING):
                 self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
