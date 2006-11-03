@@ -89,14 +89,17 @@ class Player(object):
             # signals created by this class
             "open": kaa.notifier.Signal(),
             "start": kaa.notifier.Signal(),
-            "failed": kaa.notifier.Signal(),
+            "play": kaa.notifier.Signal(),
             "end": kaa.notifier.Signal(),
+            "failed": kaa.notifier.Signal(),
+            "pause": kaa.notifier.Signal(),
+            "pause_toggle": kaa.notifier.Signal(),
+
+            # "seek": kaa.notifier.Signal(),
+            # Process died (shared memory will go away)
+            # "shm_quit": kaa.notifier.Signal()
 
             # pass thru signals from player
-            "pause": kaa.notifier.Signal(),
-            "play": kaa.notifier.Signal(),
-            "pause_toggle": kaa.notifier.Signal(),
-            "seek": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
             # Emitted when a new frame is availabnle.  See 
             # set_frame_output_mode() doc for more info.
@@ -104,8 +107,6 @@ class Player(object):
             # Emitted when OSD buffer has changed.  See osd_update() doc
             # for more info.
             "osd_configure": kaa.notifier.Signal(),  # CAP_OSD
-            # Process died (shared memory will go away)
-            "shm_quit": kaa.notifier.Signal()
         }
 
         # pending commands
@@ -130,20 +131,21 @@ class Player(object):
             self._open_mrl, self._open_caps, player, exclude)
 
         
-    def _state_change(self, signal):
+    def _state_change(self, old_state, state):
         """
-        The used player changed its state and emited a signal. This function
-        will emit the same signal to the application, handles some internal
-        changes and will call the pending calls based on the new state.
         """
-        log.debug('player signal: %s', signal)
-        
-        if signal == 'failed':
-            # The playing has failed. This means that the player we wanted to
-            # use was unable to play this file. In that case we add the player
-            # the list of of failed_player and try to find a better one.
-            # TODO: What happens if the user tries to open a new file while
-            # we are trying to find a good player for the old mrl?
+        log.debug('player %s -> %s', old_state, state)
+
+        if old_state in (STATE_OPENING, STATE_OPEN) and \
+               state in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            # From STATE_OPEN(ING) to not playing. This means something
+            # went wrong and the player failed to play.  This means
+            # that the player we wanted to use was unable to play this
+            # file. In that case we add the player the list of of
+            # failed_player and try to find a better one.
+            # TODO: What happens if the user tries to open a new file
+            # while we are trying to find a good player for the old
+            # mrl?
             self._failed_player.append(self.get_player_id())
             self._pending = []
             self._player.release()
@@ -153,23 +155,44 @@ class Player(object):
                 self._create_player(cls)
                 self._open(self._open_mrl)
                 self.play()
-                return
+                return True
+            # everything failed
+            self.signals["failed"].emit()
+
+        if old_state == STATE_OPENING and state == STATE_OPEN:
+            # stream open now for playing
+            print self._player.get_info()
+            self.signals["open"].emit(self._player.get_info())
             
-        if signal in self.signals:
-            # signal the change
-            self.signals[signal].emit()
+        if old_state == STATE_OPEN and \
+               state in (STATE_PLAYING, STATE_PAUSED):
+            # From STATE_OPENING to playing. Signal playback start
+            self.signals["start"].emit()
+            self.signals["play"].emit()
 
-        if signal in ('end', 'failed') and self.get_state() == STATE_IDLE \
-               and not self._pending:
-            # no new mrl to play, release player
-            log.info('release player')
-            return self._player.release()
+        if old_state in (STATE_PLAYING, STATE_PAUSED) and \
+               state in (STATE_IDLE, STATE_NOT_RUNNING):
+            # From playing to finished. Signal end.
+            self.signals["end"].emit()
 
-        if signal == 'release':
+        if old_state == STATE_PLAYING and state == STATE_PAUSED:
+            self.signals["pause"].emit()
+            self.signals["pause_toggle"].emit()
+            
+        if old_state == STATE_PAUSED and state == STATE_PLAYING:
+            self.signals["play"].emit()
+            self.signals["pause_toggle"].emit()
+            
+        if state == STATE_NOT_RUNNING == self._player.get_state():
             # Player released the video and audio device. Right now we set
             # self._player to None to simulate STATE_NOT_RUNNING.
             # This needs to be fixed.
             self._player = None
+        
+        if self.get_state() == STATE_IDLE and not self._pending:
+            # no new mrl to play, release player
+            log.info('release player')
+            return self._player.release()
 
         # Handle pending calls based on the new state. The variable blocked is
         # used to avoid calling this function recursive.
@@ -187,13 +210,10 @@ class Player(object):
         Create a player based on cls.
         """
         self._player = cls()
-        for sig in self.signals:
-            if sig in self._player.signals and \
-                   not sig in ('start', 'failed', 'end'):
-                self._player.signals[sig].connect_weak(self.signals[sig].emit)
-        for sig in ('start', 'end', 'release', 'failed'):
-            self._player.signals[sig].connect_weak(self._state_change, sig)
-
+        self._player._state_changed.connect_weak(self._state_change)
+        for signal in self._player.signals:
+            self._player.signals[signal].connect_weak(self.signals[signal].emit)
+            
     
     @required_states(STATE_NOT_RUNNING, STATE_IDLE)
     def _open(self, mrl):
@@ -227,7 +247,7 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            if not self._player.get_state() in (STATE_IDLE, STATE_NOT_RUNNING):
+            if not self.get_state() in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
                 self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
@@ -235,7 +255,7 @@ class Player(object):
         self._open(mrl)
 
 
-    @required_states(STATE_IDLE, STATE_PLAYING, STATE_PAUSED)
+    @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
     def play(self):
         if self.get_state() in (STATE_PLAYING, STATE_PAUSED):
             # called to toggle play/pause
@@ -261,7 +281,8 @@ class Player(object):
         """
         Pause playback.
         """
-        self._player.pause()
+        if self.get_state() == STATE_PLAYING:
+            self._player.pause()
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
@@ -269,7 +290,8 @@ class Player(object):
         """
         Resume playback.
         """
-        self._player.resume()
+        if self.get_state() == STATE_PAUSED:
+            self._player.resume()
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
@@ -277,21 +299,19 @@ class Player(object):
         """
         Toggle play / pause.
         """
-        state = self.get_state()
-        if state == STATE_PLAYING:
+        if self.get_state() == STATE_PLAYING:
             self._player.pause()
-        if state == STATE_PAUSED:
+        else:
             self._player.resume()
 
 
-    @required_states(STATE_IDLE, STATE_PLAYING, STATE_PAUSED)
+    @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
     def seek(self, value, type=SEEK_RELATIVE):
         """
         Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
-        if self.get_state() == STATE_IDLE:
-            # FIXME: make it possible to seek between open() and play() and
-            # add STATE_IDLE to required_states.
+        if self.get_state() == STATE_OPEN:
+            # FIXME: make it possible to seek between open() and play()
             return False
         self._player.seek(value, type)
 

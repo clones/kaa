@@ -28,6 +28,8 @@
 
 # python imports
 import sets
+import os
+import md5
 
 # kaa imports
 import kaa.notifier
@@ -41,32 +43,30 @@ class MediaPlayer(object):
     Base class for players
     """
 
+    _instance_count = 0
+
     def __init__(self):
         self.signals = {
-            "pause": kaa.notifier.Signal(),
-            "play": kaa.notifier.Signal(),
-            "pause_toggle": kaa.notifier.Signal(),
-            "seek": kaa.notifier.Signal(),
-            "start": kaa.notifier.Signal(),
-            "failed": kaa.notifier.Signal(),
-            # Stream ended (either stopped by user or finished)
-            "end": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
-            "frame": kaa.notifier.Signal(), # CAP_CANVAS
-            "osd_configure": kaa.notifier.Signal(),  # CAP_OSD
-
-            # Player released video and audio devices
-            "release": kaa.notifier.Signal(),
-
-            # Process died (shared memory will go away)
-            "shm_quit": kaa.notifier.Signal()
+            "frame": kaa.notifier.Signal(),
+            "osd_configure": kaa.notifier.Signal(),
         }
-
+        self._state_changed = kaa.notifier.Signal()
         self._state_object = STATE_IDLE
         self._window = None
         self._size = None
         self._config = None
+        self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
+        MediaPlayer._instance_count += 1
 
+        # shared memory keys
+        key = md5.md5(self._instance_id + "osd").hexdigest()[:7]
+        self._osd_shmkey = int(key, 16)
+        self._osd_shmem = None
+        key = md5.md5(self._instance_id + "frame").hexdigest()[:7]
+        self._frame_shmkey = int(key, 16)
+        self._frame_shmem = None
+        
 
     def get_capabilities(self):
         """
@@ -120,24 +120,7 @@ class MediaPlayer(object):
         old_state = self._state_object
         self._state_object = state
 
-        if old_state == STATE_OPENING and state in (STATE_IDLE, STATE_NOT_RUNNING):
-            # From STATE_OPENING to not playing. This means something went
-            # wrong and the player failed to play.
-            self.signals["failed"].emit()
-
-        if old_state == STATE_OPENING and \
-               state in (STATE_PLAYING, STATE_PAUSED):
-            # From STATE_OPENING to playing. Signal playback start
-            self.signals["start"].emit()
-
-        if old_state in (STATE_PLAYING, STATE_PAUSED) and \
-               state in (STATE_IDLE, STATE_NOT_RUNNING):
-            # From playing to finished. Signal end.
-            self.signals["end"].emit()
-
-        if state == STATE_NOT_RUNNING == self._state_object:
-            self.signals["release"].emit()
-            self.signals["shm_quit"].emit()
+        self._state_changed.emit(old_state, state)
 
     # state property based on get_state and _set_state
     _state = property(get_state, _set_state, None, 'state of the player')
@@ -236,7 +219,7 @@ class MediaPlayer(object):
         """
         Release audio and video devices.
         """
-        self.die()
+        pass
 
 
     def seek_relative(self, offset):
