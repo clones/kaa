@@ -79,10 +79,29 @@ G_BEGIN_DECLS
    } while(0);
 
 
-#define GST_DVBTUNER_FN_MAX_LEN  255
+#define GST_DVBTUNER_FN_MAX_LEN          255
+#define GST_DVBTUNER_INIT_PIDLIST_LEN    5
 
 typedef struct _GstDvbTuner      GstDvbTuner;
 typedef struct _GstDvbTunerClass GstDvbTunerClass;
+typedef struct _PidList          GstDvbTunerPidList;
+typedef struct _GstDvbTunerClass GstDvbTunerPidListEntry;
+
+
+struct _PidListEntry
+{
+  gint   pid;
+  gint   fd;
+};
+
+
+struct _PidList
+{
+  gint           cnt;
+  gint           free;
+  struct _PidListEntry  *array;
+};
+
 
 struct _GstDvbTuner
 {
@@ -108,12 +127,24 @@ struct _GstDvbTuner
   gint      fd_frontend_dev;
   gint      fd_video_dev;
 
+  GstDvbTunerPidList  pidlist;
+
+  gboolean  hor_polarisation;
+  guint32   sat_no;
+  gint      tone;
+
   struct dvb_frontend_info       feinfo;
+  struct dvb_frontend_parameters feparam;
 };
 
 struct _GstDvbTunerClass 
 {
   GstElementClass parent_class;
+
+  void          (*add_pid)          (GstDvbTuner *filter, uint pid);
+  void          (*remove_pid)       (GstDvbTuner *filter, uint pid);
+  void          (*clear_pids)       (GstDvbTuner *filter);
+  void          (*tune)             (GstDvbTuner *filter);
 };
 
 GType gst_dvbtuner_get_type (void);
@@ -121,6 +152,11 @@ GType gst_dvbtuner_get_type (void);
 static void gst_dvbtuner_set_new_adapter_fn(GstDvbTuner *filter);
 static void gst_dvbtuner_tuner_init(GstDvbTuner *filter);
 static void gst_dvbtuner_tuner_release(GstDvbTuner *filter);
+static void gst_dvbtuner_add_pid (GstDvbTuner *filter, uint pid);
+static void gst_dvbtuner_remove_pid (GstDvbTuner *filter, uint pid);
+static void gst_dvbtuner_clear_pids (GstDvbTuner *filter);
+static void gst_dvbtuner_tune (GstDvbTuner *filter);
+static gchar* gst_dvbtuner_get_status(GstDvbTuner *filter);
 
 G_END_DECLS
 
