@@ -160,7 +160,7 @@ class Crawler(object):
         # stop inotify and inotify timer
         self._inotify = None
         for wait, timer in self._inotify_timer.items():
-            if timer and timer.active():
+            if timer and timer[1].active():
                 timer.stop()
         self._inotify_timer = {}
         # stop restart timer
