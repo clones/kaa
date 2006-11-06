@@ -157,8 +157,6 @@ class MPlayer(MediaPlayer):
         self._file = None
         self._file_args = []
 
-        self._file_info = {}
-        self._position = 0.0
         self._filters_pre = []
         self._filters_add = []
         self._last_line = None
@@ -237,20 +235,20 @@ class MPlayer(MediaPlayer):
                      "LENGTH": ("length", float),
                      "FILENAME": ("filename", str) }
             if attr in info:
-                self._file_info[info[attr][0]] = info[attr][1](value)
+                self._streaminfo[info[attr][0]] = info[attr][1](value)
 
         elif line.startswith("Movie-Aspect"):
             aspect = line[16:].split(":")[0].replace(",", ".")
             if aspect[0].isdigit():
-                self._file_info["aspect"] = float(aspect)
+                self._streaminfo["aspect"] = float(aspect)
 
         elif line.startswith("VO:"):
             m = re.search("=> (\d+)x(\d+)", line)
             if m:
                 vo_w, vo_h = int(m.group(1)), int(m.group(2))
-                if "aspect" not in self._file_info or self._file_info["aspect"] == 0:
+                if "aspect" not in self._streaminfo or self._streaminfo["aspect"] == 0:
                     # No aspect defined, so base it on vo size.
-                    self._file_info["aspect"] = vo_w / float(vo_h)
+                    self._streaminfo["aspect"] = vo_w / float(vo_h)
 
         elif line.startswith("overlay:") and line.find("reusing") == -1:
             m = re.search("(\d+)x(\d+)", line)
@@ -491,20 +489,6 @@ class MPlayer(MediaPlayer):
         """
         s = [SEEK_RELATIVE, SEEK_PERCENTAGE, SEEK_ABSOLUTE]
         self._child_write("seek %f %s" % (value, s.index(type)))
-
-
-    def get_position(self):
-        """
-        Get current playing position.
-        """
-        return self._position
-
-
-    def get_info(self):
-        """
-        Get information about the stream.
-        """
-        return self._file_info
 
 
     #
