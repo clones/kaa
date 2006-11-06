@@ -142,7 +142,8 @@ class MPlayer(MediaPlayer):
 
     PATH = None
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
-
+    RE_SWS = re.compile("^SwScaler: [0-9]+x[0-9]+ -> ([0-9]+)x([0-9]+)")
+    
     def __init__(self):
         super(MPlayer, self).__init__()
         self._state = STATE_NOT_RUNNING
@@ -160,7 +161,8 @@ class MPlayer(MediaPlayer):
         self._filters_pre = []
         self._filters_add = []
         self._last_line = None
-
+        self._scaled = None
+        
         self._mp_info = _get_mplayer_info(self._mp_cmd, self._handle_mp_info)
         self._check_new_frame_timer = kaa.notifier.WeakTimer(self._check_new_frame)
         self._cur_outbuf_mode = [True, False, None] # vo, shmem, size
@@ -210,12 +212,12 @@ class MPlayer(MediaPlayer):
 
                 # XXX this logic won't work with seek-while-paused patch; state
                 # will be "playing" after a seek.
-                if self._state not in (STATE_PAUSED, STATE_PLAYING):
+                if self._state == STATE_PAUSED:
+                    self._state = STATE_PLAYING
+                if self._state == STATE_OPEN:
                     self.set_frame_output_mode()
                     self._state = STATE_PLAYING
                     self.signals["stream_changed"].emit()
-                elif self._state != STATE_PLAYING:
-                    self._state = STATE_PLAYING
 
         elif line.startswith("  =====  PAUSE"):
             self._state = STATE_PAUSED
@@ -237,6 +239,9 @@ class MPlayer(MediaPlayer):
             if attr in info:
                 self._streaminfo[info[attr][0]] = info[attr][1](value)
 
+        elif line.startswith("SwScaler: ") and self.RE_SWS.search(line):
+            self._scaled = [ int(i) for i in self.RE_SWS.search(line).groups() ]
+            
         elif line.startswith("Movie-Aspect"):
             aspect = line[16:].split(":")[0].replace(",", ".")
             if aspect[0].isdigit():
@@ -280,7 +285,8 @@ class MPlayer(MediaPlayer):
             if self._state in (STATE_PLAYING, STATE_PAUSED):
                 self._state = STATE_IDLE
 
-        elif line.startswith("Parsing input") and self._window:
+        elif line.startswith("Parsing input") and self._window and \
+                 self._state == STATE_OPEN:
             # Delete the temporary key input file.
             file = line[line.find("file")+5:]
             os.unlink(file)
@@ -351,11 +357,23 @@ class MPlayer(MediaPlayer):
 
         # We have a problem at this point. The 'open' function is used to
         # open the stream and provide information about it. After that, the
-        # caller can still change stuff before calling play. But the current
-        # code uses -identify in mplayer on startup. This will give us the
-        # information just before starting. So we change from STATE_OPENING
-        # to STATE_OPEN just now and do not have information at this point.
+        # caller can still change stuff before calling play. Mplayer doesn't
+        # work that way so we have to run mplayer with -identify first.
+        args = "-nolirc -nojoystick -nomouseinput -identify " +\
+               "-vo null -ao null -frames 1 -v"
+        if self._size and self._size[0] and self._size[1]:
+            args += ' -vf scale=%d:-2' % self._size[0]
+        ident = kaa.notifier.Process(self._mp_cmd)
+        ident.start(args.split(' ') + [ self._file ])
+        ident.signals["stdout"].connect_weak(self._child_handle_line)
+        ident.signals["stderr"].connect_weak(self._child_handle_line)
+        ident.signals["completed"].connect_weak(self._ident_exited)
 
+
+    def _ident_exited(self, code):
+        """
+        mplayer -identify finished
+        """
         self._state = STATE_OPEN
 
 
@@ -397,8 +415,31 @@ class MPlayer(MediaPlayer):
         # of the monitor, e.g. a 800x600 window on a 16:9 should always keep the
         # aspect of the monitor and not the window.
         #
-        filters += ["scale=%d:-2" % self._size[0], "expand=%d:%d" % self._size,
-                    "dsize=%d:%d" % self._size ]
+
+        # The only problem we have is a 4:3 movie on a 16:9 tv. Or in different words:
+        # If the aspect of the movie is larger than the one of the window, everything
+        # works ok and we have black bars. Otherwise we need to do some hacks.
+
+        if self._scaled:
+            # we did a test on scaling and got our return values
+            if float(self._scaled[0]) / self._scaled[1] < \
+                   float(self._size[0]) / self._size[1]:
+                # 4:3 on 16:9 screen
+                if self._config.widescreen == 'bars':
+                    # use black bar mode
+                    filters += ["scale=-2:%d" % self._size[1] ]
+                elif self._config.widescreen == 'scale':
+                    # ignore aspect
+                    filters += ["scale=%d:%d" % self._size ]
+                else:
+                    crop = (self._scaled[1] - self._size[1]) / 2
+                    filters += [ "scale=%d:-2" % self._size[0],
+                                 "crop=%d:%d" % self._size + ":0:%d" % crop ]
+            else:
+                # normal scaling
+                filters += ["scale=%d:-2" % self._size[0] ]
+
+            filters += [ "expand=%d:%d" % self._size, "dsize=%d:%d" % self._size ]
 
         # FIXME: check freevo filter list and add stuff like pp
 
@@ -408,7 +449,10 @@ class MPlayer(MediaPlayer):
 
         args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
                  "-nomouseinput", "-nodouble", "-fixed-vo", "-identify", \
-                 "-framedrop", "-vf", ",".join(filters) ]
+                 "-framedrop" ]
+
+        if filters:
+            args.extend(("-vf", ",".join(filters)))
 
         if isinstance(self._window, kaa.display.X11Window):
             args.extend((

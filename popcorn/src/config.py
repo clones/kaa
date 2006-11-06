@@ -11,6 +11,14 @@ i18n = gettext.translation('kaa.popcorn', path, fallback=True).ugettext
 
 config = Config(desc=i18n('Player configuration'), schema=[
 
+    Var(name='widescreen', default='bars', type=('bars', 'zoom', 'scale'),
+        desc=i18n("""
+        How to handle 4:3 content on 16:9 screens. Possible values are
+        bars:  add black bars on the left and on the right
+        zoom:  zoom into the video, drop content on top and bottom
+        scale: ignore aspect ratio and fill the screen
+        """)),
+        
     # audio group
     Group(name='audio', desc=i18n('Audio settings'), schema=[
     Var(name='driver', type=('alsa', 'oss'), default='alsa',
