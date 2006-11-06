@@ -59,6 +59,10 @@ class MediaPlayer(object):
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
         MediaPlayer._instance_count += 1
 
+        # some variables for the inherting class
+        self._position = 0.0
+        self._streaminfo = {}
+        
         # shared memory keys
         key = md5.md5(self._instance_id + "osd").hexdigest()[:7]
         self._osd_shmkey = int(key, 16)
@@ -222,23 +226,9 @@ class MediaPlayer(object):
         pass
 
 
-    def seek_relative(self, offset):
+    def seek(self, value, type):
         """
-        Seek relative.
-        """
-        pass
-
-
-    def seek_absolute(self, position):
-        """
-        Seek absolute.
-        """
-        pass
-
-
-    def seek_percentage(self, percent):
-        """
-        Seek percentage.
+        Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
         pass
 
@@ -247,7 +237,7 @@ class MediaPlayer(object):
         """
         Get current playing position.
         """
-        pass
+        return self._position
 
 
     def get_info(self):
@@ -255,7 +245,7 @@ class MediaPlayer(object):
         Returns info about the currently playing stream, or the file that
         has just been opened.
         """
-        pass
+        return self._streaminfo
 
 
     def nav_command(self, input):
