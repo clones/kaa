@@ -189,7 +189,8 @@ class Player(object):
             # This needs to be fixed.
             self._player = None
         
-        if self.get_state() == STATE_IDLE and not self._pending:
+        if self.get_state() == STATE_IDLE and not self._pending and \
+               not old_state == STATE_NOT_RUNNING:
             # no new mrl to play, release player
             log.info('release player')
             return self._player.release()
@@ -221,9 +222,9 @@ class Player(object):
         The real open function called from 'open'.
         """
         self._player.set_config(self._config)
-        self._player.open(mrl)
         self._player.set_window(self._window)
         self._player.set_size(self._size)
+        self._player.open(mrl)
         self.signals['open'].emit()
 
 
