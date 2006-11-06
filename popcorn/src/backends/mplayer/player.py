@@ -391,8 +391,7 @@ class MPlayer(MediaPlayer):
         if isinstance(self._window, kaa.display.X11Window):
             args.extend((
                 "-wid", hex(self._window.get_id()),
-                "-display", self._window.get_display().get_string(),
-                "-input"))
+                "-display", self._window.get_display().get_string()))
         else:
             # no window == no video out
             args.extend(('-vo', 'null'))
@@ -411,7 +410,7 @@ class MPlayer(MediaPlayer):
         for key in keys:
             os.write(fp, "%s noop\n" % key)
         os.close(fp)
-        args.append("conf=%s" % keyfile)
+        args.extend(('-input', 'conf=%s' % keyfile))
 
         if self._file_args:
             if isinstance(self._file_args, str):
@@ -422,7 +421,7 @@ class MPlayer(MediaPlayer):
         if self._file:
             args.append(self._file)
 
-        log.info("spawn: %s %s", self._mp_cmd, args)
+        log.info("spawn: %s %s", self._mp_cmd, ' '.join(args))
 
         if USE_GDB:
             self._child_app = kaa.notifier.Process("gdb")
