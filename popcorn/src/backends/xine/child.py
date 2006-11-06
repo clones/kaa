@@ -83,7 +83,7 @@ class XinePlayerChild(Player):
             self.parent.set_status(*cur_status)
 
 
-    def _get_stream_info(self):
+    def _get_streaminfo(self):
         if not self._stream:
             return {}
 
@@ -157,7 +157,7 @@ class XinePlayerChild(Player):
             del event.data["data"]
         print "EVENT", event.type, event.data
         if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
-            self.parent.set_stream_info(True, self._get_stream_info())
+            self.parent.set_streaminfo(True, self._get_streaminfo())
         self.parent.xine_event(event.type, event.data)
 
 
@@ -183,15 +183,23 @@ class XinePlayerChild(Player):
         control_return = []
         if wid and isinstance(wid, int):
             self._vo = self._xine.open_video_driver(
-                "kaa", control_return = control_return,
-                passthrough = "xv", wid = wid,
+                "xv", control_return = control_return, wid = wid,
                 osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-                # osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4,
-                # osd_rows = 2000,
-                # self._vo = self._xine.open_video_driver("xv", wid = wid,
                 frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
                 dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
-            self._driver_control = control_return[0]
+            self._driver_control = None
+
+            # This segfaults right now:
+            # self._vo = self._xine.open_video_driver(
+            #     "kaa", control_return = control_return,
+            #     passthrough = "xv", wid = wid,
+            #     osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
+            #     # osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4,
+            #     # osd_rows = 2000,
+            #     # self._vo = self._xine.open_video_driver("xv", wid = wid,
+            #     frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
+            #     dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
+            # self._driver_control = control_return[0]
         elif wid and isinstance(wid, str) and wid.startswith('fb'):
             self._vo = self._xine.open_video_driver(
                 "kaa", control_return = control_return,
@@ -208,30 +216,24 @@ class XinePlayerChild(Player):
         #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
         self._stream.signals["event"].connect_weak(self.handle_xine_event)
 
+        # self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
+        # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
+        # self._stream.get_video_source().wire(self._noise_post.get_default_input())
 
-        # FIXME: plugin stuff should be exposed via api, or configurable
-        # somehow.
+        # self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
+        # self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
+        # self._deint_post.set_parameters(method = config.deinterlacer.method,
+-       #                                 chroma_filter = config.deinterlacer.chroma_filter)
 
-        #self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
-        #self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
-        #self._stream.get_video_source().wire(self._noise_post.get_default_input())
-
-        #self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
-        self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
-        self._deint_post.set_parameters(method = config.deinterlacer.method,
-                                        chroma_filter = config.deinterlacer.chroma_filter)
-
-        #self._stream.get_video_source().wire(self._deint_post.get_default_input())
-        #self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
-        self._expand_post = self._xine.post_init("expand", video_targets = [self._deint_post.get_default_input()])
+        self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
+        # self._expand_post.set_parameters(enable_automatic_shift = True, aspect=16.0/9)
         self._expand_post.set_parameters(enable_automatic_shift = True)
         self._stream.get_video_source().wire(self._expand_post.get_default_input())
 
         self._goom_post = None
-        if wid:
-            self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
-
-        #self._driver_control("set_passthrough", False)
+        # if wid:
+        #   self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
+        # self._driver_control("set_passthrough", False)
         return self._stream
 
 
@@ -244,14 +246,14 @@ class XinePlayerChild(Player):
                 self._stream.get_audio_source().wire(self._ao)
             xine._debug_show_chain(self._stream._obj)
         except xine.XineError:
-            self.parent.set_stream_info(False, self._stream.get_error())
+            self.parent.set_streaminfo(False, self._stream.get_error())
             print "Open failed:", self._stream.get_error()
             return
         if not self._check_stream_handles():
-            self.parent.set_stream_info(False, None)
+            self.parent.set_streaminfo(False, None)
             print "unable to play stream"
             return
-        self.parent.set_stream_info(True, self._get_stream_info())
+        self.parent.set_streaminfo(True, self._get_streaminfo())
         self._status.start(0.001)
 
 
