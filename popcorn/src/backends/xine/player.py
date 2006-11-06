@@ -56,8 +56,6 @@ class Xine(MediaPlayer):
         super(Xine, self).__init__()
         self._check_new_frame_timer = kaa.notifier.WeakTimer(self._check_new_frame)
         self._is_in_menu = False
-        self._stream_info = {}
-        self._position = 0.0
         self._cur_frame_output_mode = [True, False, None] # vo, shmem, size
         self._child_spawn()
 
@@ -106,7 +104,7 @@ class Xine(MediaPlayer):
     def _child_set_status(self, pos, time, length, status, speed):
         old_pos = self._position
         self._position = float(time)
-        self._stream_info["length"] = length
+        self._streaminfo["length"] = length
 
         if status == 2:
             if self.get_state() not in (STATE_PAUSED, STATE_PLAYING):
@@ -149,14 +147,14 @@ class Xine(MediaPlayer):
         #self._window.resize(size)
 
 
-    def _child_set_stream_info(self, status, info):
+    def _child_set_streaminfo(self, status, info):
         if not status:
             # failed playback
             self._state = STATE_IDLE
             return
 
-        changed = info != self._stream_info
-        self._stream_info = info
+        changed = info != self._streaminfo
+        self._streaminfo = info
 
         if self._state == STATE_OPENING:
             self._state = STATE_OPEN
@@ -197,7 +195,7 @@ class Xine(MediaPlayer):
         """
         old_window = self._window
         super(Xine, self).set_window(window)
-
+        
         if old_window and old_window != self._window:
             # Disconnect signals from existing window.
             old_window.signals["configure_event"].disconnect(self._window_configure_event)
@@ -287,20 +285,6 @@ class Xine(MediaPlayer):
         Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
         self._xine.seek(value, type)
-
-
-    def get_position(self):
-        """
-        Get current playing position.
-        """
-        return self._position
-
-
-    def get_info(self):
-        """
-        Get information about the stream.
-        """
-        return self._stream_info
 
 
     def nav_command(self, input):
