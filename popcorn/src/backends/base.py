@@ -55,6 +55,7 @@ class MediaPlayer(object):
         self._state_object = STATE_IDLE
         self._window = None
         self._size = None
+        self._aspect = None
         self._config = None
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
         MediaPlayer._instance_count += 1
@@ -160,6 +161,27 @@ class MediaPlayer(object):
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._size = size
+        self._aspect = None
+        if size and size[0] and size[1]:
+            self._aspect = float(size[0]) / size[1]
+
+
+    def get_size(self):
+        """
+        Get output size.
+        """
+        if not self.has_capability(CAP_VIDEO):
+            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
+        return self._size
+
+
+    def get_aspect(self):
+        """
+        Get output aspect ratio.
+        """
+        if not self.has_capability(CAP_VIDEO):
+            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
+        return self._aspect
 
 
     #

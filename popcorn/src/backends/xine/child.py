@@ -173,7 +173,7 @@ class XinePlayerChild(Player):
             self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
-    def setup(self, wid):
+    def setup(self, wid, aspect=None):
         if self._stream:
             return
 
@@ -226,7 +226,8 @@ class XinePlayerChild(Player):
         # chroma_filter = config.deinterlacer.chroma_filter)
 
         self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
-        # self._expand_post.set_parameters(enable_automatic_shift = True, aspect=16.0/9)
+        if aspect:
+            self._expand_post.set_parameters(aspect=aspect)
         self._expand_post.set_parameters(enable_automatic_shift = True)
         self._stream.get_video_source().wire(self._expand_post.get_default_input())
 

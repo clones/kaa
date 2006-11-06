@@ -229,11 +229,11 @@ class Xine(MediaPlayer):
         if not self._xine:
             self._child_spawn()
 
-        wid = None
         if self._window:
-            wid = self._window.get_id()
-        self._xine.setup(wid=wid)
-
+            self._xine.setup(wid=self._window.get_id(), aspect=self.get_aspect())
+        else:
+            self._xine.setup()
+            
         self._position = 0.0
         log.debug('xine open')
         self._xine.open(self._mrl)

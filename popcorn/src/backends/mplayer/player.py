@@ -361,7 +361,7 @@ class MPlayer(MediaPlayer):
         # work that way so we have to run mplayer with -identify first.
         args = "-nolirc -nojoystick -nomouseinput -identify " +\
                "-vo null -ao null -frames 1 -v"
-        if self._size and self._size[0] and self._size[1]:
+        if self.get_aspect():
             args += ' -vf scale=%d:-2' % self._size[0]
         ident = kaa.notifier.Process(self._mp_cmd)
         ident.start(args.split(' ') + [ self._file ])
@@ -422,8 +422,7 @@ class MPlayer(MediaPlayer):
 
         if self._scaled:
             # we did a test on scaling and got our return values
-            if float(self._scaled[0]) / self._scaled[1] < \
-                   float(self._size[0]) / self._size[1]:
+            if float(self._scaled[0]) / self._scaled[1] < self.get_aspect():
                 # 4:3 on 16:9 screen
                 if self._config.widescreen == 'bars':
                     # use black bar mode
