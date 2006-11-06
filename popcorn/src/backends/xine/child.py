@@ -223,7 +223,7 @@ class XinePlayerChild(Player):
         # self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
         # self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
         # self._deint_post.set_parameters(method = config.deinterlacer.method,
--       #                                 chroma_filter = config.deinterlacer.chroma_filter)
+        # chroma_filter = config.deinterlacer.chroma_filter)
 
         self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
         # self._expand_post.set_parameters(enable_automatic_shift = True, aspect=16.0/9)
