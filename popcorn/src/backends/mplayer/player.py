@@ -375,6 +375,30 @@ class MPlayer(MediaPlayer):
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
+        # OK, this filter list is only correct when having a 4:3 output window
+        # If we play 4:3 content on 16:9 screen we have three choices (examples
+        # on 800x450 display and a 4:3 content.
+        #
+        # 1. change aspect to force 16:9
+        #    scale=800:450,expand=800:450,dsize=800:450
+        # 2. cut of top/bottom
+        #    scale=800:-2,crop=800:450:0:75,expand=800:450,dsize=800:450
+        # 3. blank bars left and right
+        #    scale=-2:450,expand=800:450,dsize=800:450
+        #
+        # Or maybe a mix of these ideas. On the other hand, 4:3 and 16:9 content
+        # on a 16:9 screen plays fine with
+        # scale=800:-2,expand=800:600,dsize=800:600
+        #
+        # This means we need a) the window size before playing a resize is not
+        # allowed and b) the size and aspect of the video itself before mplayer
+        # plays it. So we need either mplayer to test play it or use kaa.meatadata
+        # to get this information.
+        #
+        # A second problem could be that the aspect of the window is not the aspect
+        # of the monitor, e.g. a 800x600 window on a 16:9 should always keep the
+        # aspect of the monitor and not the window.
+        #
         filters += ["scale=%d:-2" % self._size[0], "expand=%d:%d" % self._size,
                     "dsize=%d:%d" % self._size ]
 
