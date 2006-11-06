@@ -87,10 +87,20 @@ class ChildProcess(object):
         if line and line.startswith("!kaa!"):
             # ipc command from child
             command, args, kwargs = eval(line[5:])
-            getattr(self._parent, "_child_" + command)(*args, **kwargs)
-        else:
-            # same debug
-            log.info("[%s-%d] %s", self._name, self._child.child.pid, line)
+            cmd = getattr(self._parent, "_child_" + command, None)
+            if cmd:
+                cmd(*args, **kwargs)
+                return True
+            if command.startswith('set_'):
+               if hasattr(self._parent, command[3:]) and args:
+                   setattr(self._parent, command[3:], args[0])
+                   return True
+               if hasattr(self._parent, command[4:]) and args:
+                   setattr(self._parent, command[4:], args[0])
+                   return True
+            raise AttributeError('parent has no attribute %s', command)
+        # some debug
+        log.info("[%s-%d] %s", self._name, self._child.child.pid, line)
 
 
     def __getattr__(self, attr):
@@ -153,3 +163,8 @@ class Player(object):
             self._stdin_data = self._stdin_data[self._stdin_data.find('\n')+1:]
             command, args, kwargs = eval(line)
             reply = getattr(self, command)(*args, **kwargs)
+
+
+    def die(self):
+        sys.exit(0)
+        
