@@ -1,7 +1,6 @@
-import sys
 import kaa
 
 from child import GStreamer
 
-player = GStreamer(sys.argv[1])
+player = GStreamer()
 kaa.main()
