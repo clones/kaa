@@ -30,6 +30,7 @@
 import sets
 import os
 import md5
+import logging
 
 # kaa imports
 import kaa.notifier
@@ -37,6 +38,10 @@ import kaa.notifier
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
 from kaa.popcorn.utils import parse_mrl
+
+# get logging object
+log = logging.getLogger('popcorn')
+
 
 class MediaPlayer(object):
     """
@@ -154,15 +159,15 @@ class MediaPlayer(object):
         return self.state == STATE_PLAYING
 
 
-    def set_size(self, size):
+    def set_size(self, size, aspect=None):
         """
         Set a new output size.
         """
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._size = size
-        self._aspect = None
-        if size and size[0] and size[1]:
+        self._aspect = aspect
+        if not aspect and size and size[0] and size[1]:
             self._aspect = float(size[0]) / size[1]
 
 
@@ -175,6 +180,15 @@ class MediaPlayer(object):
         return self._size
 
 
+    def get_aspect(self, aspect=None):
+        """
+        Set special output aspect ratio.
+        """
+        if not self.has_capability(CAP_VIDEO):
+            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
+        self._aspect = aspect
+
+
     def get_aspect(self):
         """
         Get output aspect ratio.
@@ -182,6 +196,71 @@ class MediaPlayer(object):
         if not self.has_capability(CAP_VIDEO):
             raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         return self._aspect
+
+
+    def _scale(self, video_width, video_height, video_aspect=None, mode='bars'):
+        """
+        Scale the video to fit the window and respect the given aspects.
+        """
+        if not video_width or not video_height:
+            # one or more of the values is 0
+            log.error('invalid movie size: %sx%s', video_width, video_height)
+            return self._size
+
+        if not self._size:
+            # no size set
+            log.error('no window size specified')
+            return 0,0
+
+        window_width, window_height = self._size
+        if not window_width or not window_height:
+            # one or more of the values is 0
+            log.error('invalid window size: %sx%s', window_width, window_height)
+            return self._size
+
+        # 'scale' mode, ignore aspect, always fill the window
+        if mode == 'scale':
+            return self._size
+            
+        # get window aspect
+        window_aspect = self._aspect
+        if not window_aspect:
+            log.info('calculate window aspect')
+            window_aspect = float(window_width) / window_height
+
+        if video_aspect:
+            log.info('calculate width on video aspect')
+            video_width = float(video_aspect * video_height)
+
+        aspect = float(window_aspect * window_height) / float(window_width)
+
+        s1 = (float(window_width) / video_width)
+        s2 = (float(window_height) / video_height)
+
+        for scaling, aspect_w, aspect_h in (s1, aspect, 1), (s1, 1, aspect), \
+                (s2, aspect, 1), (s2, 1, aspect):
+            width = int((video_width * scaling) / aspect_w)
+            height = int(video_height * scaling * aspect_h)
+            # adjust width and height if off by one
+            if width + 1 == window_width or width - 1 == window_width:
+                width = window_width
+            if height + 1 == window_height or height -1 == window_height:
+                height = window_height
+
+            # 'bar' mode: both values need to fit and at least one should match
+            if mode == 'bars' and width <= window_width and height <= window_height and \
+                   (width == window_width or height == window_height):
+                log.info('scale video to %sx%s for %sx%s window',
+                         width, height, *self._size)
+                return width, height
+
+            # 'zoom' mode: one values as to fit, the other one can be larger
+            if mode == 'zoom' and width >= window_width and height >= window_height and \
+                   (width == window_width or height == window_height):
+                log.info('scale video to %sx%s for %sx%s window',
+                         width, height, *self._size)
+                return width, height
+        raise RuntimeError('unable to scale video')
 
 
     #

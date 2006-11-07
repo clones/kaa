@@ -167,19 +167,31 @@ class XinePlayerChild(Player):
 
     def window_changed(self, wid, size, visible, exposed_regions):
         self._x11_window_size = size
-        self._wid = wid
         if self._vo:
             self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
             self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
-    def setup(self, wid, aspect=None):
+    def setup_stream(self):
+        """
+        Basic stream setup.
+        """
         if self._stream:
             return
 
-        self._wid = wid
+        self._stream = self._xine.new_stream(self._ao, self._vo)
+        #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
+        self._stream.signals["event"].connect_weak(self.handle_xine_event)
 
-        self._ao = self._xine.open_audio_driver()
+
+    def configure_video(self, window, aspect):
+        """
+        Configure video for the stream.
+        """
+        if not self._stream:
+            return
+        
+
         control_return = []
         if wid and isinstance(wid, int):
             self._vo = self._xine.open_video_driver(
@@ -212,10 +224,6 @@ class XinePlayerChild(Player):
             self._vo = self._xine.open_video_driver("none")
             self._driver_control = None
 
-        self._stream = self._xine.new_stream(self._ao, self._vo)
-        #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
-        self._stream.signals["event"].connect_weak(self.handle_xine_event)
-
         # self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
         # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
         # self._stream.get_video_source().wire(self._noise_post.get_default_input())
@@ -235,6 +243,18 @@ class XinePlayerChild(Player):
         # if wid:
         #   self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
         # self._driver_control("set_passthrough", False)
+
+
+    def configure_audio(self):
+        """
+        Configure audio for the stream.
+        """
+        if not self._stream:
+            return
+        
+        self._ao = self._xine.open_audio_driver()
+
+
         return self._stream
 
 

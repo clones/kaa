@@ -79,6 +79,8 @@ class Player(object):
 
         self._player = None
         self._size = (0,0)
+        self._aspect = None
+        
         if window:
             self._size = window.get_size()
         self._window = window
@@ -223,7 +225,7 @@ class Player(object):
         """
         self._player.set_config(self._config)
         self._player.set_window(self._window)
-        self._player.set_size(self._size)
+        self._player.set_size(self._size, self._aspect)
         self._player.open(mrl)
         self.signals['open'].emit()
 
@@ -394,13 +396,23 @@ class Player(object):
         return self._size
 
 
-    def set_size(self, size):
+    def set_size(self, size, aspect=None):
         """
         Set output size.
         """
         self._size = size
+        self._aspect = aspect
         if self._player:
-            return self._player.set_size(size)
+            return self._player.set_size(size, aspect)
+
+
+    def set_aspect(self, aspect):
+        """
+        Set output aspect.
+        """
+        self._aspect = aspect
+        if self._player:
+            return self._player.set_aspect(aspect)
 
 
     def has_capability(self, cap):

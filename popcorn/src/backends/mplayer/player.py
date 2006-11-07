@@ -161,7 +161,6 @@ class MPlayer(MediaPlayer):
         self._filters_pre = []
         self._filters_add = []
         self._last_line = None
-        self._scaled = None
         
         self._mp_info = _get_mplayer_info(self._mp_cmd, self._handle_mp_info)
         self._check_new_frame_timer = kaa.notifier.WeakTimer(self._check_new_frame)
@@ -239,9 +238,6 @@ class MPlayer(MediaPlayer):
             if attr in info:
                 self._streaminfo[info[attr][0]] = info[attr][1](value)
 
-        elif line.startswith("SwScaler: ") and self.RE_SWS.search(line):
-            self._scaled = [ int(i) for i in self.RE_SWS.search(line).groups() ]
-            
         elif line.startswith("Movie-Aspect"):
             aspect = line[16:].split(":")[0].replace(",", ".")
             if aspect[0].isdigit():
@@ -360,9 +356,7 @@ class MPlayer(MediaPlayer):
         # caller can still change stuff before calling play. Mplayer doesn't
         # work that way so we have to run mplayer with -identify first.
         args = "-nolirc -nojoystick -nomouseinput -identify " +\
-               "-vo null -ao null -frames 1 -v"
-        if self.get_aspect():
-            args += ' -vf scale=%d:-2' % self._size[0]
+               "-vo null -ao null -frames 0"
         ident = kaa.notifier.Process(self._mp_cmd)
         ident.start(args.split(' ') + [ self._file ])
         ident.signals["stdout"].connect_weak(self._child_handle_line)
@@ -420,25 +414,15 @@ class MPlayer(MediaPlayer):
         # If the aspect of the movie is larger than the one of the window, everything
         # works ok and we have black bars. Otherwise we need to do some hacks.
 
-        if self._scaled:
-            # we did a test on scaling and got our return values
-            if float(self._scaled[0]) / self._scaled[1] < self.get_aspect():
-                # 4:3 on 16:9 screen
-                if self._config.widescreen == 'bars':
-                    # use black bar mode
-                    filters += ["scale=-2:%d" % self._size[1] ]
-                elif self._config.widescreen == 'scale':
-                    # ignore aspect
-                    filters += ["scale=%d:%d" % self._size ]
-                else:
-                    crop = (self._scaled[1] - self._size[1]) / 2
-                    filters += [ "scale=%d:-2" % self._size[0],
-                                 "crop=%d:%d" % self._size + ":0:%d" % crop ]
-            else:
-                # normal scaling
-                filters += ["scale=%d:-2" % self._size[0] ]
-
+        if self._window:
+            scale =  self._scale(self._streaminfo.get('width'),
+                                 self._streaminfo.get('height'),
+                                 self._streaminfo.get('aspect'),
+                                 self._config.widescreen)
+            filters += ["scale=%d:%d" % scale ]
+            # FIXME: for 'zoom'mode we also need to crop
             filters += [ "expand=%d:%d" % self._size, "dsize=%d:%d" % self._size ]
+
 
         # FIXME: check freevo filter list and add stuff like pp
 
