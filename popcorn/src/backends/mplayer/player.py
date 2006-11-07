@@ -34,7 +34,6 @@ import string
 import tempfile
 import stat
 import threading
-import md5
 import struct
 
 # kaa imports
@@ -88,10 +87,12 @@ def _get_mplayer_info(path, callback = None, mtime = None):
             return _cache[path]
 
         if callback:
-            # We need to run MPlayer to get these values.  Create a signal, call
-            # ourself as a thread, and return the signal back to the caller.
+            # We need to run MPlayer to get these values.  Create a signal,
+            # call ourself as a thread, and return the signal back to the
+            # caller.
             thread = kaa.notifier.Thread(_get_mplayer_info, path, None, mtime)
-            # Thread class ensures the callbacks get invoked in the main thread.
+            # Thread class ensures the callbacks get invoked in the main
+            # thread.
             thread.signals["completed"].connect(callback)
             thread.signals["exception"].connect(callback)
             thread.start()
@@ -143,7 +144,7 @@ class MPlayer(MediaPlayer):
     PATH = None
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
     RE_SWS = re.compile("^SwScaler: [0-9]+x[0-9]+ -> ([0-9]+)x([0-9]+)")
-    
+
     def __init__(self):
         super(MPlayer, self).__init__()
         self._state = STATE_NOT_RUNNING
@@ -161,9 +162,9 @@ class MPlayer(MediaPlayer):
         self._filters_pre = []
         self._filters_add = []
         self._last_line = None
-        
+
         self._mp_info = _get_mplayer_info(self._mp_cmd, self._handle_mp_info)
-        self._check_new_frame_timer = kaa.notifier.WeakTimer(self._check_new_frame)
+        self._check_new_frame_t = kaa.notifier.WeakTimer(self._check_new_frame)
         self._cur_outbuf_mode = [True, False, None] # vo, shmem, size
 
 
@@ -205,9 +206,11 @@ class MPlayer(MediaPlayer):
             m = MPlayer.RE_STATUS.search(line)
             if m:
                 old_pos = self._position
-                self._position = float((m.group(1) or m.group(2)).replace(",", "."))
-#                 if self._position - old_pos < 0 or self._position - old_pos > 1:
-#                     self.signals["seek"].emit(self._position)
+                p = (m.group(1) or m.group(2)).replace(",", ".")
+                self._position = float(p)
+                # if self._position - old_pos < 0 or \
+                # self._position - old_pos > 1:
+                # self.signals["seek"].emit(self._position)
 
                 # XXX this logic won't work with seek-while-paused patch; state
                 # will be "playing" after a seek.
@@ -247,7 +250,8 @@ class MPlayer(MediaPlayer):
             m = re.search("=> (\d+)x(\d+)", line)
             if m:
                 vo_w, vo_h = int(m.group(1)), int(m.group(2))
-                if "aspect" not in self._streaminfo or self._streaminfo["aspect"] == 0:
+                if "aspect" not in self._streaminfo or \
+                       self._streaminfo["aspect"] == 0:
                     # No aspect defined, so base it on vo size.
                     self._streaminfo["aspect"] = vo_w / float(vo_h)
 
@@ -371,6 +375,73 @@ class MPlayer(MediaPlayer):
         self._state = STATE_OPEN
 
 
+    def _scale(self, video_width, video_height, video_aspect, mode):
+        """
+        Scale the video to fit the window and respect the given aspects.
+        """
+        if not video_width or not video_height:
+            # one or more of the values is 0
+            log.error('invalid movie size: %sx%s', video_width, video_height)
+            return self._size
+
+        if not self._size:
+            # no size set
+            log.error('no window size specified')
+            return 0,0
+
+        win_width, win_height = self._size
+        if not win_width or not win_height:
+            # one or more of the values is 0
+            log.error('invalid window size: %sx%s', win_width, win_height)
+            return self._size
+
+        # 'scale' mode, ignore aspect, always fill the window
+        if mode == 'scale':
+            return self._size
+
+        # get window aspect
+        win_aspect = self._aspect
+        if not win_aspect:
+            log.info('calculate window aspect')
+            win_aspect = float(win_width) / win_height
+
+        if video_aspect:
+            log.info('calculate width on video aspect')
+            video_width = float(video_aspect * video_height)
+
+        aspect = float(win_aspect * win_height) / float(win_width)
+
+        s1 = (float(win_width) / video_width)
+        s2 = (float(win_height) / video_height)
+
+        for scaling, aspect_w, aspect_h in (s1, aspect, 1), (s1, 1, aspect), \
+                (s2, aspect, 1), (s2, 1, aspect):
+            width = int((video_width * scaling) / aspect_w)
+            height = int(video_height * scaling * aspect_h)
+            # adjust width and height if off by one
+            if width + 1 == win_width or width - 1 == win_width:
+                width = win_width
+            if height + 1 == win_height or height -1 == win_height:
+                height = win_height
+
+            # 'bar' mode: both values need to fit and at least one should match
+            if mode == 'bars' and width <= win_width and \
+                   height <= win_height and \
+                   (width == win_width or height == win_height):
+                log.info('scale video to %sx%s for %sx%s window',
+                         width, height, *self._size)
+                return width, height
+
+            # 'zoom' mode: one values as to fit, the other one can be larger
+            if mode == 'zoom' and width >= win_width and \
+                   height >= win_height and \
+                   (width == win_width or height == win_height):
+                log.info('scale video to %sx%s for %sx%s window',
+                         width, height, *self._size)
+                return width, height
+        raise RuntimeError('unable to scale video')
+
+
     def play(self):
         """
         Start playback.
@@ -385,43 +456,19 @@ class MPlayer(MediaPlayer):
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
-        # OK, this filter list is only correct when having a 4:3 output window
-        # If we play 4:3 content on 16:9 screen we have three choices (examples
-        # on 800x450 display and a 4:3 content.
-        #
-        # 1. change aspect to force 16:9
-        #    scale=800:450,expand=800:450,dsize=800:450
-        # 2. cut of top/bottom
-        #    scale=800:-2,crop=800:450:0:75,expand=800:450,dsize=800:450
-        # 3. blank bars left and right
-        #    scale=-2:450,expand=800:450,dsize=800:450
-        #
-        # Or maybe a mix of these ideas. On the other hand, 4:3 and 16:9 content
-        # on a 16:9 screen plays fine with
-        # scale=800:-2,expand=800:600,dsize=800:600
-        #
-        # This means we need a) the window size before playing a resize is not
-        # allowed and b) the size and aspect of the video itself before mplayer
-        # plays it. So we need either mplayer to test play it or use kaa.meatadata
-        # to get this information.
-        #
-        # A second problem could be that the aspect of the window is not the aspect
-        # of the monitor, e.g. a 800x600 window on a 16:9 should always keep the
-        # aspect of the monitor and not the window.
-        #
-
-        # The only problem we have is a 4:3 movie on a 16:9 tv. Or in different words:
-        # If the aspect of the movie is larger than the one of the window, everything
-        # works ok and we have black bars. Otherwise we need to do some hacks.
-
         if self._window:
             scale =  self._scale(self._streaminfo.get('width'),
                                  self._streaminfo.get('height'),
                                  self._streaminfo.get('aspect'),
                                  self._config.widescreen)
-            filters += ["scale=%d:%d" % scale ]
-            # FIXME: for 'zoom'mode we also need to crop
-            filters += [ "expand=%d:%d" % self._size, "dsize=%d:%d" % self._size ]
+            filters += [ "scale=%d:%d" % scale ]
+            if self._config.widescreen == 'zoom':
+                filters += [ "crop=%d:%d:%d:%d" % \
+                             (self._size[0], self._size[1],
+                              (scale[0] - self._size[0]) / 2,
+                              (scale[1] - self._size[1]) / 2 )]
+            filters += [ "expand=%d:%d" % self._size,
+                         "dsize=%d:%d" % self._size ]
 
 
         # FIXME: check freevo filter list and add stuff like pp
@@ -447,7 +494,9 @@ class MPlayer(MediaPlayer):
 
         # FIXME, add more settings here
         args += [ '-ao', self._config.audio.driver ]
-
+        if self._config.audio.spdif:
+            args += [ '-ac hwac3,hwdts,' ]
+            
         # There is no way to make MPlayer ignore keys from the X11 window.  So
         # this hack makes a temp input file that maps all keys to a dummy (and
         # non-existent) command which causes MPlayer not to react to any key
@@ -483,7 +532,8 @@ class MPlayer(MediaPlayer):
         self._child_app.signals["stdout"].connect_weak(self._child_handle_line)
         self._child_app.signals["stderr"].connect_weak(self._child_handle_line)
         self._child_app.signals["completed"].connect_weak(self._child_exited)
-        self._child_app.set_stop_command(kaa.notifier.WeakCallback(self._child_stop))
+        stop = kaa.notifier.WeakCallback(self._child_stop)
+        self._child_app.set_stop_command(stop)
         return
 
 
@@ -512,7 +562,7 @@ class MPlayer(MediaPlayer):
 
     def seek(self, value, type):
         """
-        Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
+        SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
         s = [SEEK_RELATIVE, SEEK_PERCENTAGE, SEEK_ABSOLUTE]
         self._child_write("seek %f %s" % (value, s.index(type)))
@@ -620,9 +670,9 @@ class MPlayer(MediaPlayer):
         if notify != None:
             self._cur_outbuf_mode[1] = notify
             if notify:
-                self._check_new_frame_timer.start(0.01)
+                self._check_new_frame_t.start(0.01)
             else:
-                self._check_new_frame_timer.stop()
+                self._check_new_frame_t.stop()
         if size != None:
             self._cur_outbuf_mode[2] = size
 
@@ -630,7 +680,8 @@ class MPlayer(MediaPlayer):
             return
 
         mode = { (False, False): 0, (True, False): 1,
-                 (False, True): 2, (True, True): 3 }[tuple(self._cur_outbuf_mode[:2])]
+                 (False, True): 2, (True, True): 3 }
+        mode = mode[tuple(self._cur_outbuf_mode[:2])]
 
         size = self._cur_outbuf_mode[2]
         if size == None:
