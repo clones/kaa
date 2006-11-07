@@ -29,13 +29,13 @@ BUFFER_LOCKED = 0x20
 
 class XinePlayerChild(Player):
 
-    def __init__(self, instance_id):
+    def __init__(self, osd_shmkey, frame_shmkey):
         Player.__init__(self)
 
         self._xine = xine.Xine()
         self._stream = self._vo = self._ao = None
-        self._osd_shmkey = int(md5.md5(instance_id + "osd").hexdigest()[:7], 16)
-        self._frame_shmkey = int(md5.md5(instance_id + "frame").hexdigest()[:7], 16)
+        self._osd_shmkey = int(osd_shmkey)
+        self._frame_shmkey = int(frame_shmkey)
         self._osd_shmem = self._frame_shmem = None
 
         self._x11_window_size = 0, 0
@@ -172,25 +172,13 @@ class XinePlayerChild(Player):
             self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
-    def setup_stream(self):
+    def setup(self, wid=None, aspect=None):
         """
         Basic stream setup.
         """
         if self._stream:
             return
 
-        self._stream = self._xine.new_stream(self._ao, self._vo)
-        #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
-        self._stream.signals["event"].connect_weak(self.handle_xine_event)
-
-
-    def configure_video(self, window, aspect):
-        """
-        Configure video for the stream.
-        """
-        if not self._stream:
-            return
-        
 
         control_return = []
         if wid and isinstance(wid, int):
@@ -224,6 +212,16 @@ class XinePlayerChild(Player):
             self._vo = self._xine.open_video_driver("none")
             self._driver_control = None
 
+
+
+        self._ao = self._xine.open_audio_driver()
+
+
+        self._stream = self._xine.new_stream(self._ao, self._vo)
+        #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
+        self._stream.signals["event"].connect_weak(self.handle_xine_event)
+
+
         # self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
         # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
         # self._stream.get_video_source().wire(self._noise_post.get_default_input())
@@ -245,6 +243,18 @@ class XinePlayerChild(Player):
         # self._driver_control("set_passthrough", False)
 
 
+
+
+    def configure_video(self):
+        """
+        Configure video for the stream.
+        """
+        if not self._stream:
+            return
+        
+
+
+
     def configure_audio(self):
         """
         Configure audio for the stream.
@@ -252,8 +262,6 @@ class XinePlayerChild(Player):
         if not self._stream:
             return
         
-        self._ao = self._xine.open_audio_driver()
-
 
         return self._stream
 

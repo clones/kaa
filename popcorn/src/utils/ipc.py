@@ -73,11 +73,11 @@ class ChildProcess(object):
         self._name = os.path.basename(os.path.dirname(args[0]))
 
 
-    def start(self):
+    def start(self, *args):
         """
         Start child.
         """
-        self._child.start()
+        self._child.start(args)
 
 
     def _handle_line(self, line):
