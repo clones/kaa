@@ -103,8 +103,7 @@ class Xine(MediaPlayer):
 
     def _child_set_status(self, pos, time, length, status, speed):
         old_pos = self._position
-        if self.get_state() in (STATE_PAUSED, STATE_PLAYING, STATE_OPEN) and \
-               time is not None:
+        if self.get_state() in (STATE_PAUSED, STATE_PLAYING, STATE_OPEN):
             self._position = float(time)
         self._streaminfo["length"] = length
 
