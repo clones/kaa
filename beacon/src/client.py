@@ -199,7 +199,7 @@ class Client(object):
         """
         self.status = SHUTDOWN
         for q in self._queries:
-            if not q == None:
+            if q != None:
                 q.monitoring = False
         self._queries = []
         self.rpc = None
