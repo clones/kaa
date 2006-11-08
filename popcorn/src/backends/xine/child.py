@@ -72,6 +72,13 @@ class XinePlayerChild(Player):
         # FIXME: this gets not updated very often, I have no idea why
         t = self._stream.get_pos_length()
         status = self._stream.get_status()
+        if status == xine.STATUS_PLAY and None in t:
+            # Status is playing, but pos/time is not known for stream,
+            # which likely means we have seeked and are not done seeking
+            # get, so position is not yet determined.  In this case, don't
+            # send a status update to parent yet.
+            return
+
         speed = self._stream.get_parameter(xine.PARAM_SPEED)
 
         # Line format: pos time length status speed
