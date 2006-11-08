@@ -52,6 +52,7 @@ class MediaPlayer(object):
 
     def __init__(self):
         self.signals = {
+            "elapsed": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
             "frame": kaa.notifier.Signal(),
             "osd_configure": kaa.notifier.Signal(),
@@ -66,7 +67,7 @@ class MediaPlayer(object):
         MediaPlayer._instance_count += 1
 
         # some variables for the inherting class
-        self._position = 0.0
+        self._position_value = 0.0
         self._streaminfo = {}
         
         # shared memory keys
@@ -134,6 +135,29 @@ class MediaPlayer(object):
 
     # state property based on get_state and _set_state
     _state = property(get_state, _set_state, None, 'state of the player')
+
+
+    # position handling
+
+    def get_position(self):
+        """
+        Get current playing position.
+        """
+        return self._position_value
+
+
+    def _set_position(self, pos):
+        """
+        Set position and emit 'elapsed' signal.
+        """
+        if self._position_value == pos:
+            return
+        self._position_value = pos
+        self.signals['elapsed'].emit(pos)
+
+    # position property based on get_state and _set_state
+    _position = property(get_position, _set_position, None, 'player position')
+
 
 
     def set_window(self, window):
@@ -267,13 +291,6 @@ class MediaPlayer(object):
         Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
         pass
-
-
-    def get_position(self):
-        """
-        Get current playing position.
-        """
-        return self._position
 
 
     def get_info(self):

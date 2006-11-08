@@ -102,6 +102,7 @@ class Player(object):
             # "shm_quit": kaa.notifier.Signal()
 
             # pass thru signals from player
+            "elapsed": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
             # Emitted when a new frame is availabnle.  See 
             # set_frame_output_mode() doc for more info.
@@ -114,7 +115,6 @@ class Player(object):
         # pending commands
         self._pending = []
         self._blocked = False
-        self._player = None
         self._failed_player = []
         
 
@@ -163,7 +163,6 @@ class Player(object):
 
         if old_state == STATE_OPENING and state == STATE_OPEN:
             # stream open now for playing
-            print self._player.get_info()
             self.signals["open"].emit(self._player.get_info())
             
         if old_state == STATE_OPEN and \
@@ -185,7 +184,8 @@ class Player(object):
             self.signals["play"].emit()
             self.signals["pause_toggle"].emit()
             
-        if state == STATE_NOT_RUNNING == self._player.get_state():
+        if state == STATE_NOT_RUNNING == self._player.get_state() and \
+               not self._pending:
             # Player released the video and audio device. Right now we set
             # self._player to None to simulate STATE_NOT_RUNNING.
             # This needs to be fixed.
@@ -250,7 +250,8 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            if not self.get_state() in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            if not self.get_state() in \
+                   (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
                 self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
