@@ -103,7 +103,8 @@ class Xine(MediaPlayer):
 
     def _child_set_status(self, pos, time, length, status, speed):
         old_pos = self._position
-        self._position = float(time)
+        if self.get_state() in (STATE_PAUSED, STATE_PLAYING, STATE_OPEN):
+            self._position = float(time)
         self._streaminfo["length"] = length
 
         if status == 2:
@@ -170,7 +171,8 @@ class Xine(MediaPlayer):
 
     def _child_play_stopped(self):
         log.debug('xine stopped')
-        self._state = STATE_IDLE
+        if not self._state in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            self._state = STATE_IDLE
 
 
     #
