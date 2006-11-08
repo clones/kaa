@@ -199,7 +199,7 @@ class Player(object):
 
         # Handle pending calls based on the new state. The variable blocked is
         # used to avoid calling this function recursive.
-        if self._blocked:
+        if self._blocked or kaa.notifier.shutting_down:
             return
         self._blocked = True
         while self._pending and self.get_state() in self._pending[0][0]:
@@ -238,6 +238,9 @@ class Player(object):
         player must have. If 'player' is given, force playback with the
         given player.
         """
+        if kaa.notifier.shutting_down:
+            return False
+        
         self._open_mrl = mrl
         self._open_caps = caps
         self._failed_player = []
