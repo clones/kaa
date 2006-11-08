@@ -504,7 +504,9 @@ class Stream(Wrapper):
     def get_pos_length(self):
         pos, time, length = self._obj.get_pos_length()
         if pos == None:
-            return 0, 0, 0
+            # Position and length not known for this stream; perhaps no file
+            # has been opened yet, or perhaps we're in the middle of a seek.
+            return None, None, None
 
         return pos, time / 1000.0, length / 1000.0
 
@@ -549,7 +551,11 @@ class Stream(Wrapper):
         self._seek_thread(time)
         
     def seek_relative(self, offset):
-        t = max(0, self.get_time() + offset)
+        stream_time = self.get_time()
+        if stream_time is None:
+            return False
+
+        t = max(0, stream_time + offset)
         return self._seek(t)
 
     def seek_absolute(self, t):
