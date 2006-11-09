@@ -173,7 +173,7 @@ class Player(object):
             self.signals["play"].emit()
 
         if old_state in (STATE_PLAYING, STATE_PAUSED) and \
-               state in (STATE_IDLE, STATE_NOT_RUNNING):
+               state in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
             # From playing to finished. Signal end.
             self.signals["end"].emit()
 
