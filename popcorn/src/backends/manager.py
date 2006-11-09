@@ -63,7 +63,8 @@ def register(player_id, cls, get_caps_callback):
     }
 
 
-def get_player_class(mrl = None, caps = None, player = None, exclude = None):
+def get_player_class(mrl = None, caps = None, exclude = None, force = None,
+                     prefered = None):
     """
     Searches the registered players for the most capable player given the mrl
     or required capabilities.  A specific player can be returned by specifying
@@ -95,14 +96,17 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
             del _players[player_id]
 
 
-    if player == mrl == caps == None:
+    if force == mrl == caps == None:
+        if prefered != None and prefered in _players:
+            return _players[prefered]["class"]
+            
         # FIXME: return the best possible player. This requires a new
         # register function with more information about how good a player
         # is for playing a specific mrl.
         return _players.values()[0]["class"]
 
-    if player != None and player in _players:
-        return _players[player]["class"]
+    if force != None and force in _players:
+        return _players[force]["class"]
 
     if mrl != None:
         scheme, path = parse_mrl(mrl)
@@ -136,7 +140,8 @@ def get_player_class(mrl = None, caps = None, player = None, exclude = None):
            ext not in player["extensions"]:
             continue
 
-        choice = player
+        if player_id == prefered or not choice:
+            choice = player
 
     if not choice:
         return None
