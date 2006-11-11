@@ -715,7 +715,9 @@ void
 init_xine()
 {
     PyObject *m;
+#ifdef HAVE_X11
     void **display_api_ptrs;
+#endif
 
     m = Py_InitModule("_xine", xine_methods);
     xine_error = PyErr_NewException("xine.XineError", NULL, NULL);
@@ -736,20 +738,19 @@ init_xine()
     if (xine_object_to_pyobject_dict == NULL)
         xine_object_to_pyobject_dict = PyDict_New();
 
-#if 1
+#ifdef HAVE_X11
+    // We need kaa.display for X11 support.
     display_api_ptrs = get_module_api("kaa.display._X11");
-    if (display_api_ptrs == NULL) {
-        PyErr_Format(xine_error, "Failed to import kaa.display");
-        return;
+    if (display_api_ptrs) {
+        // Declared in drivers/x11.c, which is only compiled/linked if HAVE_X11
+        X11Window_PyObject_Type = display_api_ptrs[1];
+        x11window_object_decompose = display_api_ptrs[2];
+    } else {
+        /* kaa.display not compiled with X11 support but kaa.xine wants to be.
+         * We should probably output a warning or something here.
+         */
+        X11Window_PyObject_Type = NULL;
     }
-    #ifdef HAVE_X11
-    X11Window_PyObject_Type = display_api_ptrs[1];
-    x11window_object_decompose = display_api_ptrs[2];
-    #endif
-#else
-    #ifdef HAVE_X11
-    X11Window_PyObject_Type = NULL;
-    #endif
 #endif
 
     PyEval_InitThreads();

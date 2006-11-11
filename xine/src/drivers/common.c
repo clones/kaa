@@ -12,10 +12,12 @@ driver_get_visual_info(Xine_PyObject *xine, char *driver, PyObject *kwargs, int 
 {
     *visual_type_return = XINE_VISUAL_TYPE_NONE;
 #ifdef HAVE_X11
-    if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto") ||
-        !strcmp(driver, "opengl") || !strcmp(driver, "sdl")) {
-        *visual_type_return = XINE_VISUAL_TYPE_X11;
-        return x11_get_visual_info(xine, kwargs, visual_return, driver_info_return);
+    if (X11Window_PyObject_Type) {
+        if (!strcmp(driver, "xv") || !strcmp(driver, "xshm") || !strcmp(driver, "auto") ||
+            !strcmp(driver, "opengl") || !strcmp(driver, "sdl")) {
+            *visual_type_return = XINE_VISUAL_TYPE_X11;
+            return x11_get_visual_info(xine, kwargs, visual_return, driver_info_return);
+        }
     }
 #endif
     if (!strcmp(driver, "none")) {
