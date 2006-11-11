@@ -204,7 +204,7 @@ class MediaPlayer(object):
         return self._size
 
 
-    def get_aspect(self, aspect=None):
+    def set_aspect(self, aspect=None):
         """
         Set special output aspect ratio.
         """
