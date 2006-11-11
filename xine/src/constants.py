@@ -54,6 +54,7 @@ PARAM_AUDIO_AMP_MUTE                  = 29    # 1=>mute, 0=>unmute
 PARAM_FINE_SPEED                      = 30    # 1.000.000 => normal speed
 PARAM_EARLY_FINISHED_EVENT            = 31    # send event when demux finish
 PARAM_GAPLESS_SWITCH                  = 32    # next stream only gapless swi
+PARAM_DELAY_FINISHED_EVENT            = 33    # 1/10sec,0=>disable,-1=>forev
 
 SPEED_PAUSE                           = 0
 SPEED_SLOW_4                          = 1
@@ -74,6 +75,8 @@ PARAM_VO_ZOOM_X                       = 0x01000008    # percent
 PARAM_VO_ZOOM_Y                       = 0x0100000d    # percent
 PARAM_VO_PAN_SCAN                     = 0x01000009    # bool
 PARAM_VO_TVMODE                       = 0x0100000a    # ???
+PARAM_VO_WINDOW_WIDTH                 = 0x0100000f    # readonly
+PARAM_VO_WINDOW_HEIGHT                = 0x01000010    # readonly
 PARAM_VO_CROP_LEFT                    = 0x01000020    # crop frame pixels
 PARAM_VO_CROP_RIGHT                   = 0x01000021    # crop frame pixels
 PARAM_VO_CROP_TOP                     = 0x01000022    # crop frame pixels
@@ -319,8 +322,13 @@ EVENT_VDR_VOLPLUS                     = 329
 EVENT_VDR_VOLMINUS                    = 330
 EVENT_VDR_MUTE                        = 331
 EVENT_VDR_AUDIO                       = 332
+EVENT_VDR_INFO                        = 333
 EVENT_VDR_SETVIDEOWINDOW              = 350
 EVENT_VDR_FRAMESIZECHANGED            = 351
+EVENT_VDR_SELECTAUDIO                 = 352
+EVENT_VDR_TRICKSPEEDMODE              = 353
+EVENT_VDR_PLUGINSTARTED               = 354
+EVENT_POST_TVTIME_FILMMODE_CHANGE     = 400
 
 MSG_NO_ERROR                          = 0     # (messages to UI)
 MSG_GENERAL_WARNING                   = 1     # (warning message)
