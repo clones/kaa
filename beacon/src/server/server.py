@@ -39,7 +39,6 @@ import logging
 import kaa.rpc
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Timer, Callback
-from kaa.config import Config, Var, List, Dict
 
 # kaa.beacon imports
 from kaa.beacon.db import *
@@ -50,23 +49,11 @@ import parser
 import hwmon
 from monitor import Monitor
 from crawl import Crawler
+from config import config
 
 # get logging object
 log = logging.getLogger('beacon.server')
 
-config = Config(desc='Beacon configuration', schema = [
-    List(name = 'monitors',
-         schema = Var(type = str, desc='Path of directory', default = ''),
-         desc = '''
-         List of directories to monitor, e.g.
-
-         monitors[0] = /media/mp3
-         monitors[1] = $(HOME)/mp3
-         '''),
-    Dict(name = 'plugins',
-         schema = Var(type = bool, desc = 'Enable plugin', default = False),
-         desc = 'Dict of plugins to enable (True/False)')
-])
 
 class Server(object):
     """
@@ -142,8 +129,13 @@ class Server(object):
         parser.load_plugins(self._db)
 
         config.set_filename(os.path.join(dbdir, "config"))
-        if not config.load():
-            config.save()
+        config.load()
+        # We need to save at this point because we may have new
+        # variables now we did not have before. This is a very bad
+        # way of doing this, maybe save() should check if saving makes
+        # sense or the complete schema could have a checksum we can
+        # compare.
+        config.save()
         config.watch()
 
         # commit and wait for the results (there are no results,

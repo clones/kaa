@@ -41,6 +41,7 @@ from kaa.inotify import INotify
 
 # kaa.beacon imports
 from parser import parse
+from config import config
 
 # get logging object
 log = logging.getLogger('beacon.crawler')
@@ -89,8 +90,6 @@ class Crawler(object):
     support is enabled in the kernel, this class will use it to avoid
     polling the filesystem.
     """
-    PARSE_TIMER  = 0.04
-
     active = 0
     nextid = 0
 
@@ -122,9 +121,10 @@ class Crawler(object):
         # If this env var is non-zero, initialize the update timer to
         # 0 so that we do initial indexing as quickly as possible.  Mainly
         # used for debugging/testing.
+        self.parse_timer = config.crawler.scantime
         if os.getenv("BEACON_EAT_CYCLES"):
             log.info('all your cpu are belong to me')
-            self.PARSE_TIMER = 0
+            self.parse_timer = 0
 
         kaa.signals["shutdown"].connect_weak(self.stop)
 
@@ -360,7 +360,7 @@ class Crawler(object):
         """
         Start the scan function using YieldFunction.
         """
-        interval = self.PARSE_TIMER / Crawler.active
+        interval = self.parse_timer / Crawler.active
         self._scan_function = YieldFunction(self._scan, interval)
         directory, recursive = self._scan_list.pop(0)
         del self._scan_dict[directory.filename]
@@ -401,7 +401,7 @@ class Crawler(object):
         Restart the crawler when inotify is not enabled.
         """
         # set parser time to one second to keep load down
-        self.PARSE_TIMER = 1
+        self.parse_timer = 1
 
         # reset self.monitoring and add all directories once passed to
         # this object with 'append' again.
