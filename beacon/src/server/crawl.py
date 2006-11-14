@@ -450,10 +450,6 @@ class Crawler(object):
                 continue
             # check file
             counter += parse(self.db, child, check_image=self._startup) * 20
-
-            # TODO: If the file is unchanged, check if we have the defined
-            # thumbnail generated. If not, do it.
-
             while counter >= 20:
                 counter -= 20
                 yield kaa.notifier.YieldContinue

@@ -87,6 +87,7 @@ def parse(db, item, store=False, check_image=False):
     if mtime == None:
         log.warning('no mtime, skip %s' % item)
         return 0
+
     parent = item._beacon_parent
     if not parent:
         log.warning('no parent, skip %s' % item)
@@ -104,8 +105,11 @@ def parse(db, item, store=False, check_image=False):
         if not parent._beacon_id:
             # This should never happen
             raise AttributeError('parent for %s has no dbid' % item)
+
     if item._beacon_data.get('mtime') == mtime:
-        log.debug('up-to-date %s' % item)
+        # The item already is in the database and the mtime is unchanged.
+        # This menas we don't need to scan again, but we check if the
+        # thumbnail is valid or not.
         if check_image and item._beacon_data.get('image'):
             image = item._beacon_data.get('image')
             if os.path.isfile(image):
@@ -126,7 +130,6 @@ def parse(db, item, store=False, check_image=False):
         if data:
             item._beacon_database_update(data)
             if item._beacon_data.get('mtime') == mtime:
-                log.debug('up-to-date %s' % item)
                 return 0
 
     t1 = time.time()

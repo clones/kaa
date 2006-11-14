@@ -254,6 +254,7 @@ class File(Item):
             except (OSError, IOError):
                 return mtime
 
+        # Normal file
         fullname = self._beacon_data['name']
         basename, ext = fullname, ''
         pos = basename.rfind('.')
@@ -282,8 +283,10 @@ class File(Item):
         except KeyError:
             return 0
         for ext in special_exts:
-            if basename+ext in listdir_file_map:
-                mtime += listdir_file_map[basename+ext][3][stat.ST_MTIME]
-            if fullname+ext in listdir_file_map:
-                mtime += listdir_file_map[fullname+ext][3][stat.ST_MTIME]
+            fname = listdir_file_map.get(basename+ext)
+            if fname:
+                mtime += fname[3][stat.ST_MTIME]
+            fname = listdir_file_map.get(fullname+ext)
+            if fname:
+                mtime += fname[3][stat.ST_MTIME]
         return mtime

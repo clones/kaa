@@ -230,9 +230,6 @@ class Database(object):
         # it scan time or something like that. Also make it an option so the
         # user can turn the feature off.
 
-        # XXX: Most of the remaining time for this function is in this loop.
-        # About 25%.  (Assuming stat results are cached by the filesystem so
-        # no disk access is needed.)
         pos = -1
 
         for pos, (f, fullname, overlay, stat_res) in enumerate(listing[0]):
