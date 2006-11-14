@@ -53,8 +53,6 @@ try:
 except:
     WATCH_MASK = None
 
-# timer for growing files (cp, download)
-GROWING_TIMER = 10
 
 class MonitorList(dict):
 
@@ -268,7 +266,7 @@ class Crawler(object):
                 else:
                     # Do not check again, but restart the timer, it is expired
                     timer = OneShotTimer(self._inotify_timer_callback, name)
-                    timer.start(GROWING_TIMER)
+                    timer.start(config.crawler.growscan)
                     self._inotify_timer[name][1] = timer
                     return True
             elif INotify.MODIFY:
@@ -311,7 +309,7 @@ class Crawler(object):
         if not name in self._inotify_timer:
             return
         del self._inotify_timer[name]
-        # FIXME: do not create video thumbnails every GROWING_TIMER seconds.
+        # FIXME: do not create video thumbnails every 'growscan' seconds.
         # It takes too much CPU time. Maybe every 6th step (1 minute) is
         # a good solution.
         self._inotify_event(INotify.MODIFY, name)

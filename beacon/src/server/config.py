@@ -58,10 +58,10 @@ config = Config(desc='Beacon configuration', schema = [
         machines.
         """),
 
-    Var(name = 'rescan_growing',
+    Var(name = 'growscan',
         default = 10,
         desc = """
-        Internal in seconds how often still growing files should be checked
+        Internal in seconds how often still growing files should be scanned
         """)
     ]),
 
