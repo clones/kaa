@@ -40,6 +40,8 @@ import kaa.notifier
 
 _stat = None, None
 _proc = None, None
+_counter = 0
+_cache = None
 
 USER = 0
 NICE = 1
@@ -56,24 +58,41 @@ def _poll(pid):
     """
     global _stat
     global _proc
+    global _counter
+    global _cache
     fp = open('/proc/stat')
     _stat = fp.readline(), _stat[0]
     fp.close()
     fp = open('/proc/%s/stat' % pid)
-    _proc = fp.readline(), _proc[0]
+    _proc = fp.readline(), _proc[0], _timer.get_interval()
     fp.close()
+    _cache = None
+    if _counter == 0:
+        return True
+    _counter -= 1
+    if _counter > 0:
+        return True
+    # no access for 5 seconds, slow down
+    _timer.stop()
+    _timer.start(1)
+
 
 # when this module is imported, use it. The first valid
 # information will be ready in 1 second
+_timer = kaa.notifier.Timer(_poll, os.getpid())
+_timer.start(1)
 _poll(os.getpid())
 _poll(os.getpid())
-kaa.notifier.Timer(_poll, os.getpid()).start(1)
 
 def cpuinfo():
     """
     Returns /proc/stat values and the cpu time the current process
     is using the last second.
     """
+    global _cache
+    if _cache:
+        # nothing changed
+        return _cache
     # user: normal processes executing in user mode
     # nice: niced processes executing in user mode
     # system: processes executing in kernel mode
@@ -93,8 +112,20 @@ def cpuinfo():
         res.append((100 * (long(info[i]) - long(last[i]))) / all)
     info = long(_proc[0].split(' ')[13]) + long(_proc[0].split(' ')[14])
     last = long(_proc[1].split(' ')[13]) + long(_proc[1].split(' ')[14])
-    res.append(info - last)
+    res.append(int((info - last) / _proc[2]))
+
+    global _counter
+    if _counter == 0:
+        # speed up polling
+        _timer.stop()
+        _timer.start(0.1)
+        # poll now and in 0.1 seconds again. We set the _cache after
+        # calling _poll to not mess it up
+        _poll(os.getpid())
+    _counter = 50
+    _cache = res
     return res
+
 
 if __name__ == '__main__':
 
@@ -103,9 +134,12 @@ if __name__ == '__main__':
 
     def add_load():
         x = 0
-        for i in range(7000):
+        for i in range(10000):
             x += i
 
     kaa.notifier.Timer(add_load).start(0.001)
-    kaa.notifier.Timer(debug).start(1)
+    t = kaa.notifier.Timer(debug)
+    t.start(1)
+    kaa.notifier.OneShotTimer(t.stop).start(6)
+    kaa.notifier.OneShotTimer(t.start, 1).start(15)
     kaa.main()
