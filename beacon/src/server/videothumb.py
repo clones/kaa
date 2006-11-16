@@ -132,7 +132,7 @@ class VideoThumb(object):
             self.create_failed(job)
             self.notify_client(job)
             job = None
-            self._run()
+            kaa.notifier.OneShotTimer(self._run).start(1)
             return
 
         # find the best image
@@ -175,4 +175,4 @@ class VideoThumb(object):
             log.exception('video')
         # notify client and start next video
         self.notify_client(job)
-        self._run()
+        kaa.notifier.OneShotTimer(self._run).start(1)
