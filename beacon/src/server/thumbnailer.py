@@ -71,7 +71,7 @@ class Thumbnailer(object):
         self.next_client_id = 0
         self.clients = []
         self.jobs = []
-        self._activate = kaa.notifier.OneShotTimer(self.step).start
+        self._timer = kaa.notifier.OneShotTimer(self.step)
         self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
         self._ipc.signals['client_connected'].connect(self.client_connect)
         self._ipc.connect(self)
@@ -150,7 +150,7 @@ class Thumbnailer(object):
             if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                 # not changed, refuse the recreate thumbnail
                 self.notify_client(job)
-                self._activate(0.01)
+                self.schedule_next(fast=True)
                 return True
 
         if job.filename.lower().endswith('jpg'):
@@ -164,14 +164,14 @@ class Thumbnailer(object):
                 if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
                     # not changed, refuse the recreate thumbnail
                     self.notify_client(job)
-                    self._activate(0.01)
+                    self.schedule_next(fast=True)
                     return True
 
             try:
                 epeg(job.filename, imagefile, job.size)
                 job.imagefile += '.jpg'
                 self.notify_client(job)
-                self._activate(THUMBNAIL_TIMER)
+                self.schedule_next()
                 return True
             except (IOError, ValueError):
                 pass
@@ -180,7 +180,7 @@ class Thumbnailer(object):
             png(job.filename, job.imagefile + '.png', job.size)
             job.imagefile += '.png'
             self.notify_client(job)
-            self._activate(THUMBNAIL_TIMER)
+            self.schedule_next()
             return True
         except (IOError, ValueError), e:
             pass
@@ -191,7 +191,7 @@ class Thumbnailer(object):
             # video file
             job.metadata = metadata
             self.videothumb.append(job)
-            self._activate(THUMBNAIL_TIMER)
+            self.schedule_next()
             return True
 
         # maybe the image is gone now
@@ -199,17 +199,29 @@ class Thumbnailer(object):
             # ignore it in this case
             log.info('no file %s', job.filename)
             self.notify_client(job)
-            self._activate(THUMBNAIL_TIMER)
+            self.schedule_next()
             return True
 
         # broken file
         log.info('unable to create thumbnail for %s', job.filename)
         self.create_failed(job)
         self.notify_client(job)
-        self._activate(THUMBNAIL_TIMER)
+        self.schedule_next()
         return True
 
 
+    def schedule_next(self, fast=False):
+        """
+        Schedule next thumbnail based on priority.
+        """
+        if self._timer.active() or not self.jobs:
+            return
+        delay = (1 + self.jobs[0].priority * 5) * THUMBNAIL_TIMER
+        if fast:
+            delay = delay / 10
+        self._timer.start(delay)
+        
+        
     # -------------------------------------------------------------------------
     # External RPC API
     # -------------------------------------------------------------------------
@@ -217,7 +229,7 @@ class Thumbnailer(object):
     @kaa.rpc.expose('schedule')
     def schedule(self, id, filename, imagefile, size, priority):
         self.jobs.append(Job(id, filename, imagefile, size, priority))
-        self._activate(THUMBNAIL_TIMER)
+        self.schedule_next()
 
 
     @kaa.rpc.expose('set_priority')
