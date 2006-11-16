@@ -101,7 +101,7 @@ def cpuinfo():
     # irq: servicing interrupts
     # softirq: servicing softirqs
     if not _stat or _stat[0] == _stat[1]:
-        return 0, 0, 0, 0, 0, 0, 0, 0
+        return 0, 0, 0, 100, 0, 0, 0, 0
     info = [ i for i in _stat[0].strip().split(' ') if i ]
     last = [ i for i in _stat[1].strip().split(' ') if i ]
     all = 0

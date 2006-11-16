@@ -42,7 +42,7 @@ from kaa.inotify import INotify
 # kaa.beacon imports
 from parser import parse
 from config import config
-from cpuinfo import cpuinfo
+import cpuinfo
 
 # get logging object
 log = logging.getLogger('beacon.crawler')
@@ -442,6 +442,7 @@ class Crawler(object):
         # iterate through the files
         subdirs = []
         counter = 0
+            
         for child in self.db.query(parent=directory):
             if child._beacon_isdir:
                 # add directory to list of files to return
@@ -449,10 +450,13 @@ class Crawler(object):
                 continue
             # check file
             counter += parse(self.db, child, check_image=self._startup) * 20
+            if (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
+                cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15) and \
+                cpuinfo.cpuinfo()[cpuinfo.CURRENT_PROC] > 10:
+                yield kaa.notifier.YieldContinue
             while counter >= 20:
                 counter -= 20
                 yield kaa.notifier.YieldContinue
-                print cpuinfo()
             counter += 1
 
         if not subdirs:
