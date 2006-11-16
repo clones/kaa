@@ -107,10 +107,18 @@ void init_X11(void)
 #ifdef USE_EVAS
     // Import kaa-evas's C api
     evas_api_ptrs = get_module_api("kaa.evas._evas");
-    if (evas_api_ptrs == NULL)
-        return;
-    evas_object_from_pyobject = evas_api_ptrs[0];
-    Evas_PyObject_Type = evas_api_ptrs[1];
+    if (evas_api_ptrs == NULL) {
+	// evas installed, but kaa.evas missing
+	// FIXME: now with Evas_PyObject_Type == NULL we could
+	// crash with a segfault when trying to use it. So we should
+	// always import kaa.evas first before using this in C code
+	// to get the exception in that case.
+	PyErr_Clear();
+	Evas_PyObject_Type = NULL;
+    } else {
+	evas_object_from_pyobject = evas_api_ptrs[0];
+	Evas_PyObject_Type = evas_api_ptrs[1];
+    }
 #else
     Evas_PyObject_Type = NULL;
 #endif
