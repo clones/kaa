@@ -42,6 +42,7 @@ from kaa.inotify import INotify
 # kaa.beacon imports
 from parser import parse
 from config import config
+from cpuinfo import cpuinfo
 
 # get logging object
 log = logging.getLogger('beacon.crawler')
@@ -451,6 +452,7 @@ class Crawler(object):
             while counter >= 20:
                 counter -= 20
                 yield kaa.notifier.YieldContinue
+                print cpuinfo()
             counter += 1
 
         if not subdirs:
