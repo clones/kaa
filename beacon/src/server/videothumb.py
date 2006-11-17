@@ -133,8 +133,8 @@ class VideoThumb(object):
             self.create_failed(job)
             self.notify_client(job)
             job = None
-            if (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
-                cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15):
+            if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
+                cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20):
                 # too much CPU load, slow down
                 return kaa.notifier.OneShotTimer(self._run).start(1)
             self._run()
