@@ -30,13 +30,13 @@ import sys, os
 
 try:
     # kaa base imports
-    from kaa.distribution import Extension, Configfile, setup
+    from kaa.distribution import *
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
 # config file
-config = Configfile('src/config.h')
+config = ConfigFile('src/config.h')
 
 files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
          'src/post.c', 'src/drivers/video_out_kaa.c',

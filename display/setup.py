@@ -37,14 +37,13 @@ import popen2
 
 try:
     # kaa base imports
-    from kaa.distribution import Extension, Configfile, setup, \
-         check_library, get_library
+    from kaa.distribution import *
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
 # config file
-config = Configfile('src/config.h')
+config = ConfigFile('src/config.h')
 
 check_library('X11', ['<X11/Xlib.h>'], '')
 check_library('imlib2', '1.1.1')

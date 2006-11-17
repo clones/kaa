@@ -32,7 +32,7 @@ import sys
 
 try:
     # kaa base imports
-    from kaa.distribution import Extension, setup
+    from kaa.distribution import *
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
@@ -40,13 +40,14 @@ except ImportError:
 files = ["src/evas.c", "src/object.c", "src/image.c", "src/text.c", 
          'src/gradient.c', "src/engine_buffer.c", 'src/textblock.c']
 evasso = Extension('kaa.evas._evasmodule', files, config='src/config.h')
-evasso.config('#define BENCHMARK')
 
 if not evasso.check_library('evas', '0.9.9.032'):
     print 'Evas >= 0.9.9.032 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
+evasso.config('#define BENCHMARK')
+evasso.config('#define EVAS_API_VERSION %d' % evasso.get_library('evas').get_numeric_version())
 setup(module      = 'evas',
       version     = '0.1',
       ext_modules = [ evasso ]
