@@ -37,25 +37,33 @@
 #include "gradient.h"
 
 PyObject *
-Evas_Object_PyObject_gradient_color_add(Evas_Object_PyObject * self, PyObject * args)
+Evas_Object_PyObject_gradient_color_stop_add(Evas_Object_PyObject * self, PyObject * args)
 {
-    int r, g, b, a, distance;
+    int r, g, b, a, delta;
 
-    if (!PyArg_ParseTuple(args, "iiiii", &r, &g, &b, &a, &distance))
+    if (!PyArg_ParseTuple(args, "iiiii", &r, &g, &b, &a, &delta))
         return NULL;
 
     BENCH_START
-    evas_object_gradient_color_add(self->object, r, g, b, a, distance);
+#if EVAS_VERSION >= 2363940
+    evas_object_gradient_color_stop_add(self->object, r, g, b, a, delta);
+#else
+    evas_object_gradient_color_add(self->object, r, g, b, a, delta);
+#endif
     BENCH_END
     return Py_INCREF(Py_None), Py_None;
 
 }
 
 PyObject *
-Evas_Object_PyObject_gradient_colors_clear(Evas_Object_PyObject * self, PyObject * args)
+Evas_Object_PyObject_gradient_clear(Evas_Object_PyObject * self, PyObject * args)
 {
     BENCH_START
+#if EVAS_VERSION >= 2363940
+    evas_object_gradient_clear(self->object);
+#else
     evas_object_gradient_colors_clear(self->object);
+#endif
     BENCH_END
     return Py_INCREF(Py_None), Py_None;
 }

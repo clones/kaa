@@ -47,7 +47,8 @@ if not evasso.check_library('evas', '0.9.9.032'):
     sys.exit(1)
 
 evasso.config('#define BENCHMARK')
-evasso.config('#define EVAS_API_VERSION %d' % evasso.get_library('evas').get_numeric_version())
+evasso.config('#define EVAS_VERSION %d' % evasso.get_library('evas').get_numeric_version())
+print evasso.get_library('evas').get_numeric_version()
 setup(module      = 'evas',
       version     = '0.1',
       ext_modules = [ evasso ]

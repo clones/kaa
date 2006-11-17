@@ -242,11 +242,11 @@ class Gradient(Object):
     def __init__(self, evas_object):
         super(Gradient, self).__init__(evas_object)
 
-    def color_add(self, r, g, b, a, distance):
-        return self._object.gradient_color_add(r, g, b, a, distance)
+    def color_stop_add(self, r, g, b, a, delta):
+        return self._object.gradient_color_stop_add(r, g, b, a, delta)
 
-    def colors_clear(self):
-        return self._object.gradient_colors_clear()
+    def clear(self):
+        return self._object.gradient_clear()
 
     def angle_set(self, angle):
         return self._object.gradient_angle_set(angle)

@@ -572,8 +572,8 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"textblock_line_number_geometry_get", (PyCFunction) Evas_Object_PyObject_textblock_line_number_geometry_get, METH_VARARGS},
 
     // gradient.c
-    {"gradient_color_add", (PyCFunction) Evas_Object_PyObject_gradient_color_add, METH_VARARGS},
-    {"gradient_colors_clear", (PyCFunction) Evas_Object_PyObject_gradient_colors_clear, METH_VARARGS},
+    {"gradient_color_stop_add", (PyCFunction) Evas_Object_PyObject_gradient_color_stop_add, METH_VARARGS},
+    {"gradient_clear", (PyCFunction) Evas_Object_PyObject_gradient_clear, METH_VARARGS},
     {"gradient_angle_set", (PyCFunction) Evas_Object_PyObject_gradient_angle_set, METH_VARARGS},
     {"gradient_angle_get", (PyCFunction) Evas_Object_PyObject_gradient_angle_get, METH_VARARGS},
 
