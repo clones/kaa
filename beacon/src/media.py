@@ -55,7 +55,7 @@ class Media(object):
         self.id = id
         self.update(prop)
 
-        # needed by server. FIXME: make it nicer
+        # needed by server.
         self.crawler = None
 
         log.info('new media %s', self.id)
@@ -76,7 +76,6 @@ class Media(object):
 
     def update(self, prop):
         self.prop = prop
-        # FIXME: could str() crash?
         self.device = str(prop.get('block.device'))
         self.mountpoint = str(prop.get('volume.mount_point'))
         if not self.mountpoint:
@@ -84,8 +83,7 @@ class Media(object):
         if not self.mountpoint.endswith('/'):
             self.mountpoint += '/'
         self.overlay = os.path.join(self._db.dbdir, self.id)
-        # FIXME: gc doesn't like that
-        self._beacon_media = self
+        self._beacon_media = weakref(self)
         # get basic information from database
         media, self._beacon_id, self.root = \
                self._db.query_media(self.id, self)
