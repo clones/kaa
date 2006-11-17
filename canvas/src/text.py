@@ -30,6 +30,7 @@ __all__ = [ 'Text' ]
 
 from object import *
 from kaa.strutils import unicode_to_str
+from kaa import evas
 
 import time
 try:
@@ -133,7 +134,9 @@ class Text(Object):
                 i.draw_mask(_text_fadeout_mask, (max(0, i.size[0] -  _text_fadeout_mask.size[0]), y))
 
         self._o.size_set(i.size)
-        self._o.data_set(i.get_raw_data(), copy = False)
+        buf = i.get_raw_data()
+        evas.data_argb_premul(buf)
+        self._o.data_set(buf, copy = False)
         self._o.resize(i.size)
         self._o.fill_set((0, 0), i.size)
         self._o.alpha_set(True)
@@ -189,7 +192,7 @@ class Text(Object):
             self._font = imlib2.load_font(font_name, font_size)
             self._render_text_to_image()
         else:
-            self._o.font_set((font_name, font_size))
+            self._o.font_set(font_name, font_size)
 
         new_size = self._o.geometry_get()[1]
         if old_size != new_size:

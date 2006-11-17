@@ -30,6 +30,8 @@
  * ----------------------------------------------------------------------------
  */
 
+void *get_ptr_from_pyobject(PyObject *o, int *len);
+
 PyObject *Evas_Object_PyObject_image_file_set(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_file_get(Evas_Object_PyObject *, PyObject *);
 

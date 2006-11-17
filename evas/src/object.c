@@ -38,6 +38,8 @@
 #include "text.h"
 #include "textblock.h"
 #include "gradient.h"
+#include "polygon.h"
+#include "line.h"
 
 PyObject *
 Evas_Object_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
@@ -147,7 +149,7 @@ Evas_Object_PyObject__traverse(Evas_Object_PyObject *self, visitproc visit, void
 void
 Evas_Object_PyObject__dealloc(Evas_Object_PyObject * self)
 {
-    //printf("Evas object dealloc: %s\n", evas_object_type_get(self->object));
+    printf("Evas object dealloc: %s\n", evas_object_type_get(self->object));
     Evas_Object_PyObject__clear(self);
     evas_object_del(self->object);
     self->ob_type->tp_free((PyObject*)self);
@@ -576,6 +578,14 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"gradient_clear", (PyCFunction) Evas_Object_PyObject_gradient_clear, METH_VARARGS},
     {"gradient_angle_set", (PyCFunction) Evas_Object_PyObject_gradient_angle_set, METH_VARARGS},
     {"gradient_angle_get", (PyCFunction) Evas_Object_PyObject_gradient_angle_get, METH_VARARGS},
+
+    // polygon.c
+    {"polygon_point_add", (PyCFunction) Evas_Object_PyObject_polygon_point_add, METH_VARARGS},
+    {"polygon_points_clear", (PyCFunction) Evas_Object_PyObject_polygon_points_clear, METH_VARARGS},
+
+    // line.c
+    {"line_xy_set", (PyCFunction) Evas_Object_PyObject_line_xy_set, METH_VARARGS},
+    {"line_xy_get", (PyCFunction) Evas_Object_PyObject_line_xy_get, METH_VARARGS},
 
     {NULL, NULL}
 };

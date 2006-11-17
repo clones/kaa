@@ -38,7 +38,9 @@ except ImportError:
     sys.exit(1)
     
 files = ["src/evas.c", "src/object.c", "src/image.c", "src/text.c", 
-         'src/gradient.c', "src/engine_buffer.c", 'src/textblock.c']
+         'src/gradient.c', "src/engine_buffer.c", 'src/textblock.c',
+         'src/polygon.c', 'src/line.c']
+
 evasso = Extension('kaa.evas._evasmodule', files, config='src/config.h')
 
 if not evasso.check_library('evas', '0.9.9.032'):
@@ -48,7 +50,6 @@ if not evasso.check_library('evas', '0.9.9.032'):
 
 evasso.config('#define BENCHMARK')
 evasso.config('#define EVAS_VERSION %d' % evasso.get_library('evas').get_numeric_version())
-print evasso.get_library('evas').get_numeric_version()
 setup(module      = 'evas',
       version     = '0.1',
       ext_modules = [ evasso ]

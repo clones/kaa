@@ -357,17 +357,19 @@ Evas_Object_PyObject_image_pixels_dirty_get(Evas_Object_PyObject * self,
     return Py_INCREF(Py_False), Py_False;
 }
 
-static void *
-_get_ptr_from_pyobject(PyObject *o)
+void *
+get_ptr_from_pyobject(PyObject *o, int *len)
 {
     void *data;
-    int len;
+    int data_len;
 
     if (PyNumber_Check(o)) {
         data = (void *) PyLong_AsLong(o);
     } else {
-        if (PyObject_AsReadBuffer(o, (const void **) &data, &len) == -1)
+        if (PyObject_AsReadBuffer(o, (const void **) &data, &data_len) == -1)
             return NULL;
+        if (len)
+            *len = data_len;
     }
     return data;
 }
@@ -389,7 +391,7 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
        plane contiguously, or a tuple of buffer/ints pointing to each
        individual plane. */
     if (!PyTuple_Check(data)) {
-        if ((planes[0] = _get_ptr_from_pyobject(data)) == 0)
+        if ((planes[0] = get_ptr_from_pyobject(data, NULL)) == 0)
             return NULL;
         planes[1] = planes[0] + (ps.w * ps.h);
         planes[2] = planes[1] + ((ps.w * ps.h) >> 2);
@@ -401,7 +403,7 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
         }
         for (i = 0; i < 3; i++) {
             PyObject *o = PyTuple_GetItem(data, i);
-            planes[i] = _get_ptr_from_pyobject(o);
+            planes[i] = get_ptr_from_pyobject(o, NULL);
             if (planes[i] == 0 && i == 0)
                 return NULL;
         }

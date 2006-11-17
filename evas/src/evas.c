@@ -33,6 +33,7 @@
 #include "evas.h"
 #include "structmember.h"
 #include "object.h"
+#include "image.h"
 #include "textblock.h"
 
 #include "engine_buffer.h"
@@ -343,6 +344,26 @@ Evas_PyObject_object_textblock_add(Evas_PyObject * self, PyObject * args)
 }
 
 PyObject *
+Evas_PyObject_object_polygon_add(Evas_PyObject * self, PyObject * args)
+{
+    Evas_Object *o;
+    BENCH_START
+    o = evas_object_polygon_add(self->evas);
+    BENCH_END
+    return (PyObject *)wrap_evas_object(o, self);
+}
+
+PyObject *
+Evas_PyObject_object_line_add(Evas_PyObject * self, PyObject * args)
+{
+    Evas_Object *o;
+    BENCH_START
+    o = evas_object_line_add(self->evas);
+    BENCH_END
+    return (PyObject *)wrap_evas_object(o, self);
+}
+
+PyObject *
 Evas_PyObject_object_name_find(Evas_PyObject * self, PyObject * args)
 {
     char *name;
@@ -420,6 +441,8 @@ PyMethodDef Evas_PyObject_methods[] = {
     {"object_text_add", (PyCFunction) Evas_PyObject_object_text_add, METH_VARARGS},
     {"object_textblock_add", (PyCFunction) Evas_PyObject_object_textblock_add, METH_VARARGS},
     {"object_gradient_add", (PyCFunction) Evas_PyObject_object_gradient_add, METH_VARARGS},
+    {"object_polygon_add", (PyCFunction) Evas_PyObject_object_polygon_add, METH_VARARGS},
+    {"object_line_add", (PyCFunction) Evas_PyObject_object_line_add, METH_VARARGS},
 /* TODO:
     top_at_xy_get
     top_at_pointer_get
@@ -530,11 +553,84 @@ evas_benchmark_calibrate(PyObject *module, PyObject *args)
 
 }
 
+PyObject *
+color_argb_premul(PyObject *module, PyObject *args)
+{
+    int a, r, g, b;
+
+    if (!PyArg_ParseTuple(args, "iiii", &a, &r, &g, &b))
+        return NULL;
+
+#if EVAS_VERSION >= 2363940
+    evas_color_argb_premul(a, &r, &g, &b);
+#endif
+
+    return Py_BuildValue("(iii)", r, g, b);
+}
+
+PyObject *
+color_argb_unpremul(PyObject *module, PyObject *args)
+{
+    int a, r, g, b;
+
+    if (!PyArg_ParseTuple(args, "iiii", &a, &r, &g, &b))
+        return NULL;
+
+#if EVAS_VERSION >= 2363940
+    evas_color_argb_unpremul(a, &r, &g, &b);
+#endif
+    return Py_BuildValue("(iii)", r, g, b);
+}
+
+
+PyObject *
+data_argb_premul(PyObject *module, PyObject *args)
+{
+#if EVAS_VERSION >= 2363940
+    PyObject *o_data;
+    unsigned int *data;
+    int len;
+
+    if (!PyArg_ParseTuple(args, "O|i", &o_data, &len))
+        return NULL;
+    if ((data = (unsigned int *)get_ptr_from_pyobject(o_data, &len)) == NULL)
+        return NULL;
+
+    evas_data_argb_premul(data, (unsigned int)len / sizeof(unsigned int));
+#endif
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *
+data_argb_unpremul(PyObject *module, PyObject *args)
+{
+#if EVAS_VERSION >= 2363940
+    PyObject *o_data;
+    unsigned int *data;
+    int len;
+
+    if (!PyArg_ParseTuple(args, "O|i", &o_data, &len))
+        return NULL;
+    if ((data = (unsigned int *)get_ptr_from_pyobject(o_data, &len)) == NULL)
+        return NULL;
+
+    evas_data_argb_unpremul(data, (unsigned int)len / sizeof(unsigned int));
+#endif
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 PyMethodDef evas_methods[] = {
     {"render_method_list", (PyCFunction) render_method_list, METH_VARARGS},
     {"benchmark_reset", (PyCFunction) evas_benchmark_reset, METH_VARARGS},
     {"benchmark_get", (PyCFunction) evas_benchmark_get, METH_VARARGS},
     {"benchmark_calibrate", (PyCFunction) evas_benchmark_calibrate, METH_VARARGS},
+    {"color_argb_premul", (PyCFunction) color_argb_premul, METH_VARARGS},
+    {"color_argb_unpremul", (PyCFunction) color_argb_unpremul, METH_VARARGS},
+    {"data_argb_premul", (PyCFunction) data_argb_premul, METH_VARARGS},
+    {"data_argb_unpremul", (PyCFunction) data_argb_unpremul, METH_VARARGS},
     {NULL}
 };
 

@@ -33,7 +33,8 @@ import array
 
 # evas c lib imports
 import _evas
-from _evas import EvasError
+from _evas import EvasError, color_argb_premul, color_argb_unpremul, \
+                  data_argb_premul, data_argb_unpremul
 
 
 # Constants
@@ -179,7 +180,8 @@ class Object(object):
             self.hide()
 
     def color_get(self):
-        return self._object.color_get()
+        r, g, b, a = self._object.color_get()
+        return color_argb_unpremul(a, r, g, b) + (a,)
 
     def color_set(self, r=None, g=None, b=None, a=None):
         if None in (r, g, b, a):
@@ -188,6 +190,7 @@ class Object(object):
                 return x
             (r, g, b, a) = map(f, (r, g, b, a), self.color_get())
         (r, g, b, a) =  map(lambda x: min(255, max(0, x)), (r, g, b, a))
+        r, g, b = color_argb_premul(a, r, g, b)
         return self._object.color_set(r, g, b, a)
      
      
@@ -236,6 +239,17 @@ class Rectangle(Object):
     def __init__(self, evas_object):
         super(Rectangle, self).__init__(evas_object)
 
+
+
+class Polygon(Object):
+    def __init__(self, evas_object):
+        super(Polygon, self).__init__(evas_object)
+
+    def point_add(self, x, y):
+        return self._object.polygon_point_add(x, y)
+
+    def points_clear(self):
+        return self._object.polygon_points_clear()
 
 
 class Gradient(Object):
@@ -523,6 +537,8 @@ class Evas(object):
     def object_textblock_add(self):
         return TextBlock(self._evas.object_textblock_add())
         
+    def object_polygon_add(self):
+        return Polygon(self._evas.object_polygon_add())
 
     def damage_rectangle_add(self, ((x, y), (w, h))):
         self._evas.damage_rectangle_add(x, y, w, h)
@@ -577,6 +593,7 @@ def benchmark_get():
         _tsc_factor = (s / 3.0) * 1000000
  
     return _evas.benchmark_get() / _tsc_factor
+
 
 #def new(render_method = None, size = None, viewport = None, **kwargs):
 #    return Evas(render_method, size, viewport, **kwargs)
