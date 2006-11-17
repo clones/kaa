@@ -46,8 +46,9 @@ import kaa.metadata
 import kaa.notifier
 import kaa.imlib2
 
-# kaa.thumb imports
+# kaa.beacon imports
 from kaa.beacon._libthumb import epeg, png, failed
+import cpuinfo
 
 # get logging object
 log = logging.getLogger('beacon.thumbnail')
@@ -132,7 +133,11 @@ class VideoThumb(object):
             self.create_failed(job)
             self.notify_client(job)
             job = None
-            kaa.notifier.OneShotTimer(self._run).start(1)
+            if (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
+                cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15):
+                # too much CPU load, slow down
+                return kaa.notifier.OneShotTimer(self._run).start(1)
+            self._run()
             return
 
         # find the best image

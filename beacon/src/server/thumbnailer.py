@@ -42,9 +42,10 @@ import kaa.metadata
 import kaa.imlib2
 import kaa.rpc
 
-# kaa.thumb imports
+# kaa.beacon imports
 from kaa.beacon._libthumb import epeg, png, failed
 from videothumb import VideoThumb
+import cpuinfo
 
 # get logging object
 log = logging.getLogger('beacon.thumbnail')
@@ -218,10 +219,15 @@ class Thumbnailer(object):
             return
         delay = (1 + self.jobs[0].priority * 5) * THUMBNAIL_TIMER
         if fast:
+            # do fast scanning, we skip the last one
             delay = delay / 10
+        elif (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
+              cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15):
+            # too much CPU load, slow down
+            delay *= 2
         self._timer.start(delay)
-        
-        
+
+
     # -------------------------------------------------------------------------
     # External RPC API
     # -------------------------------------------------------------------------

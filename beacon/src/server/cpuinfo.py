@@ -112,6 +112,11 @@ def cpuinfo():
         res.append((100 * (long(info[i]) - long(last[i]))) / all)
     info = long(_proc[0].split(' ')[13]) + long(_proc[0].split(' ')[14])
     last = long(_proc[1].split(' ')[13]) + long(_proc[1].split(' ')[14])
+
+    # FIXME: This is wrong. We need to call jiffies_to_clock_t() here
+    # to convert this into seconds into percent. For me this is
+    # correct because the value seems to be 100, but it could be
+    # wrong. So a C wrapper is needed here I guess.
     res.append(int((info - last) / _proc[2]))
 
     global _counter

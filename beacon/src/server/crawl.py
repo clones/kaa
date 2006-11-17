@@ -359,7 +359,15 @@ class Crawler(object):
         """
         Start the scan function using YieldFunction.
         """
-        interval = self.parse_timer / Crawler.active
+        interval = self.parse_timer * Crawler.active
+        if (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
+            cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15) and interval < 1:
+            # too much CPU load, slow down
+            interval *= 2
+        if (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 80 or \
+            cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 30) and interval < 1:
+            # way too much CPU load, slow down even more
+            interval *= 2
         self._scan_function = YieldFunction(self._scan, interval)
         directory, recursive = self._scan_list.pop(0)
         del self._scan_dict[directory.filename]
@@ -450,9 +458,8 @@ class Crawler(object):
                 continue
             # check file
             counter += parse(self.db, child, check_image=self._startup) * 20
-            if (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
-                cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15) and \
-                cpuinfo.cpuinfo()[cpuinfo.CURRENT_PROC] > 10:
+            if cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
+                   cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15:
                 yield kaa.notifier.YieldContinue
             while counter >= 20:
                 counter -= 20
