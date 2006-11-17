@@ -221,7 +221,7 @@ class Thumbnailer(object):
         if fast:
             # do fast scanning, we skip the last one
             delay = delay / 10
-        elif (cpuinfo.cpuinfo()[cpuinfo.IDLE] > 40 or \
+        elif (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
               cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15):
             # too much CPU load, slow down
             delay *= 2
