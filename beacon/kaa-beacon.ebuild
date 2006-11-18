@@ -18,6 +18,8 @@ DEPEND="${DEPEND}
 	dev-python/kaa-base
 	dev-python/kaa-metadata
 	dev-python/kaa-imlib2
+	sys-apps/hal
+	sys-apps/dbus
 	>=dev-db/sqlite-3.3.6
 	>=dev-python/pysqlite-2.3.1
 	>=media-libs/libpng-1.2.0
