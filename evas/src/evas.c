@@ -589,14 +589,16 @@ data_argb_premul(PyObject *module, PyObject *args)
 #if EVAS_VERSION >= 2363940
     PyObject *o_data;
     unsigned int *data;
-    int len;
+    int len = 0, offset = 0, data_len = 0;
 
-    if (!PyArg_ParseTuple(args, "O|i", &o_data, &len))
+    if (!PyArg_ParseTuple(args, "O|ii", &o_data, &offset, &len))
         return NULL;
-    if ((data = (unsigned int *)get_ptr_from_pyobject(o_data, &len)) == NULL)
+    if ((data = (unsigned int *)get_ptr_from_pyobject(o_data, &data_len)) == NULL)
         return NULL;
+    if (len == 0)
+        len = data_len;
 
-    evas_data_argb_premul(data, (unsigned int)len / sizeof(unsigned int));
+    evas_data_argb_premul(data + offset / sizeof(unsigned int), (unsigned int)len / sizeof(unsigned int));
 #endif
     Py_INCREF(Py_None);
     return Py_None;
@@ -608,14 +610,16 @@ data_argb_unpremul(PyObject *module, PyObject *args)
 #if EVAS_VERSION >= 2363940
     PyObject *o_data;
     unsigned int *data;
-    int len;
+    int len = 0, offset = 0, data_len = 0;
 
-    if (!PyArg_ParseTuple(args, "O|i", &o_data, &len))
+    if (!PyArg_ParseTuple(args, "O|ii", &o_data, &offset, &len))
         return NULL;
-    if ((data = (unsigned int *)get_ptr_from_pyobject(o_data, &len)) == NULL)
+    if ((data = (unsigned int *)get_ptr_from_pyobject(o_data, &data_len)) == NULL)
         return NULL;
+    if (len == 0)
+        len = data_len;
 
-    evas_data_argb_unpremul(data, (unsigned int)len / sizeof(unsigned int));
+    evas_data_argb_unpremul(data + offset / sizeof(unsigned int), (unsigned int)len / sizeof(unsigned int));
 #endif
     Py_INCREF(Py_None);
     return Py_None;
