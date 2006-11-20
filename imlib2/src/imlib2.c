@@ -188,14 +188,16 @@ PyObject *imlib2_open_from_memory(PyObject *self, PyObject *args)
     snprintf(path, sizeof(path), "/dev/shm/%s", filename);
     fd = shm_open(filename, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fd != -1) {
-        if (write(fd, data, len) == len)
-            image = _imlib2_open(path, 0);
+        int write_success = write(fd, data, len) == len;
         close(fd);
+        if (write_success)
+            image = _imlib2_open(path, 0);
         shm_unlink(filename);
         if (image)
             return (PyObject *)image;
     }
-    // Shmem failed, fall back to file system
+    // Shmem failed, fall back to file system.  Clear any exception raised above.
+    PyErr_Clear();
 #endif
     snprintf(path, sizeof(path), "/tmp/kaa-%d/%s", getuid(), filename);
     fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
