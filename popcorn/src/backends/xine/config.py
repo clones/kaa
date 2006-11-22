@@ -41,5 +41,11 @@ i18n = gettext.translation('kaa.popcorn', path, fallback=True).ugettext
 
 # config variable for xine
 config = Group(desc=i18n('xine configuration'), schema=[
-    Var(name='activate', default=True, desc=i18n('activate backend'))
+    Var(name='activate', default=True, desc=i18n('activate backend')),
+    Group(name = 'deinterlacer', desc = 'Deinterlacer options', schema = [
+        Var(name = 'method', default = 'GreedyH',
+            desc = 'tvtime method to use, e.g. TomsMoComp, GreedyH, LinearBlend, etc.'),
+        Var(name = 'chroma_filter', default = True,
+            desc = 'Enable chroma filtering (better quality, higher cpu usage)')
     ])
+])

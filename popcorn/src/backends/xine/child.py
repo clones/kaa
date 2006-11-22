@@ -7,22 +7,8 @@ import kaa.notifier
 import kaa.shm
 import kaa.xine as xine
 
-from kaa.config import Group, Var
-
 from kaa.popcorn.utils import Player
 from kaa.popcorn.ptypes import *
-
-# Config group for xine player
-config = Group(desc = 'Options for xine player', schema = [
-    Group(name = 'deinterlacer', desc = 'Deinterlacer options', schema = [
-        Var(name = 'method', default = 'GreedyH',
-            desc = 'tvtime method to use, e.g. TomsMoComp, GreedyH, LinearBlend, etc.'),
-        Var(name = 'chroma_filter', default = True,
-            desc = 'Enable chroma filtering (better quality, higher cpu usage')
-    ])
-])
-
-
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
