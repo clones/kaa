@@ -179,15 +179,12 @@ class XinePlayerChild(Player):
             self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
-    def setup(self, wid=None, aspect=None):
+    def configure_video(self, wid, aspect):
         """
-        Basic stream setup.
+        Configure video output.
         """
-        if self._stream:
-            return
-
-
         control_return = []
+        self._vo_visible = True
         if wid and isinstance(wid, int):
             self._vo = self._xine.open_video_driver(
                 "xv", control_return = control_return, wid = wid,
@@ -195,7 +192,7 @@ class XinePlayerChild(Player):
                 frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
                 dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
             self._driver_control = None
-
+            
             # This segfaults right now:
             # self._vo = self._xine.open_video_driver(
             #     "kaa", control_return = control_return,
@@ -218,12 +215,26 @@ class XinePlayerChild(Player):
         else:
             self._vo = self._xine.open_video_driver("none")
             self._driver_control = None
+            self._vo_visible = False
+        
+        self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
+        if aspect:
+            self._expand_post.set_parameters(aspect=aspect)
+        self._expand_post.set_parameters(enable_automatic_shift = True)
+
+
+    def configure_audio(self, driver):
+        """
+        Configure audio output.
+        """
+        self._ao = self._xine.open_audio_driver(driver=driver)
 
 
 
-        self._ao = self._xine.open_audio_driver()
-
-
+    def configure_stream(self):
+        """
+        Basic stream setup.
+        """
         self._stream = self._xine.new_stream(self._ao, self._vo)
         #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
         self._stream.signals["event"].connect_weak(self.handle_xine_event)
@@ -238,45 +249,17 @@ class XinePlayerChild(Player):
         # self._deint_post.set_parameters(method = config.deinterlacer.method,
         # chroma_filter = config.deinterlacer.chroma_filter)
 
-        self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
-        if aspect:
-            self._expand_post.set_parameters(aspect=aspect)
-        self._expand_post.set_parameters(enable_automatic_shift = True)
         self._stream.get_video_source().wire(self._expand_post.get_default_input())
 
-        self._goom_post = None
-        # if wid:
-        #   self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
         # self._driver_control("set_passthrough", False)
-
-
-
-
-    def configure_video(self):
-        """
-        Configure video for the stream.
-        """
-        if not self._stream:
-            return
-        
-
-
-
-    def configure_audio(self):
-        """
-        Configure audio for the stream.
-        """
-        if not self._stream:
-            return
-        
-
-        return self._stream
 
 
     def open(self, mrl):
         try:
             self._stream.open(mrl)
-            if not self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO) and self._goom_post:
+            if not self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO) and self._vo_visible:
+                self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
+
                 self._stream.get_audio_source().wire(self._goom_post.get_default_input())
             else:
                 self._stream.get_audio_source().wire(self._ao)

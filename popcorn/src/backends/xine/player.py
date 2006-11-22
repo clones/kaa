@@ -71,7 +71,8 @@ class Xine(MediaPlayer):
         self._xine.signals["completed"].connect_weak(self._child_exited)
         self._xine.set_stop_command(kaa.notifier.WeakCallback(self._xine.die))
         self._xine.start(str(self._osd_shmkey), str(self._frame_shmkey))
-
+        self._xine_configured = False
+        
 
     def _child_exited(self, exitcode):
         log.debug('xine child dead')
@@ -231,11 +232,14 @@ class Xine(MediaPlayer):
         if not self._xine:
             self._child_spawn()
 
-        if self._window:
-            self._xine.setup(wid=self._window.get_id(), aspect=self.get_aspect())
-        else:
-            self._xine.setup()
-            
+        if not self._xine_configured:
+            self._xine_configured = True
+            if self._window:
+                self._xine.configure_video(self._window.get_id(), self.get_aspect())
+            else:
+                self._xine.configure_video(None, None)
+            self._xine.configure_audio(self._config.audio.driver)
+            self._xine.configure_stream()
         self._position = 0.0
         log.debug('xine open')
         self._xine.open(self._mrl)
