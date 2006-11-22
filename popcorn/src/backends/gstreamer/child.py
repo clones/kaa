@@ -144,6 +144,7 @@ class GStreamer(Player):
         Set audio driver (oss or alsa).
         """
         ao = gst.element_factory_make("%ssink" % driver, "ao")
+        # if alsa: ao.set_property('device', 'hw=0,1')
         self._gst.set_property('audio-sink', ao)
 
 
