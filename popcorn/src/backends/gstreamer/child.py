@@ -101,7 +101,10 @@ class GStreamer(Player):
         if msg.type == gst.MESSAGE_TAG:
             taglist = msg.parse_tag()
             for key in taglist.keys():
-                self._streaminfo[key] = taglist[key]
+                value = taglist[key]
+                if not isinstance(value, (str, unicode, int, long, float)):
+                    value = str(value)
+                self._streaminfo[key] = value
             self.parent.set_streaminfo(self._streaminfo)
         return True
 
@@ -127,6 +130,8 @@ class GStreamer(Player):
             vo = gst.element_factory_make("xvimagesink", "vo")
             vo.set_xwindow_id(long(kwargs.get('window')))
             vo.set_property('force-aspect-ratio', True)
+            goom = gst.element_factory_make("goom", "goom0")
+            self._gst.set_property('vis-plugin', goom)
         elif driver == 'none':
             vo = gst.element_factory_make("fakesink", "vo")
         else:
