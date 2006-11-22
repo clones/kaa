@@ -47,7 +47,7 @@ class XinePlayerChild(Player):
         self._xine.set_config_value("effects.goom.width", 512)
         self._xine.set_config_value("effects.goom.height", 384)
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
-
+        self._config = None
 
     def _check_stream_handles(self):
         """
@@ -179,6 +179,10 @@ class XinePlayerChild(Player):
             self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
+    def set_config(self, config):
+        self._config = config
+
+        
     def configure_video(self, wid, aspect):
         """
         Configure video output.
@@ -228,8 +232,22 @@ class XinePlayerChild(Player):
         Configure audio output.
         """
         self._ao = self._xine.open_audio_driver(driver=driver)
-
-
+        if driver == 'alsa':
+            set = self._xine.set_config_value
+            dev = self._config.get('audio').get('device').get
+            if dev('mono'):
+                set('audio.device.alsa_default_device', dev('mono'))
+            if dev('stereo'):
+                set('audio.device.alsa_front_device', dev('stereo'))
+            if dev('surround40'):
+                set('audio.device.alsa_surround40_device', dev('surround40'))
+            if dev('surround51'):
+                set('audio.device.alsa_surround51_device', dev('surround51'))
+            if dev('passthrough'):
+                set('audio.device.alsa_passthrough_device', dev('passthrough'))
+        # FIXME: it should, but a52_pass_through does not exist.
+        # We need a way to turn on/off passthrough
+        # self._xine.set_config_value('audio.a52_pass_through', 1)
 
     def configure_stream(self):
         """

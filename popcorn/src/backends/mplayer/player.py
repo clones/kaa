@@ -236,6 +236,7 @@ class MPlayer(MediaPlayer):
                      "AUDIO_FORMAT": ("afourcc", str),
                      "AUDIO_CODEC": ("acodec", str),
                      "AUDIO_BITRATE": ("abitrate", int),
+                     "AUDIO_NCH": ("channels", int),
                      "LENGTH": ("length", float),
                      "FILENAME": ("filename", str) }
             if attr in info:
@@ -470,7 +471,6 @@ class MPlayer(MediaPlayer):
             filters += [ "expand=%d:%d" % self._size,
                          "dsize=%d:%d" % self._size ]
 
-
         # FIXME: check freevo filter list and add stuff like pp
 
         filters += self._filters_add
@@ -493,9 +493,25 @@ class MPlayer(MediaPlayer):
             args.extend(('-vo', 'null'))
 
         # FIXME, add more settings here
-        args += [ '-ao', self._config.audio.driver ]
-        if self._config.audio.spdif:
-            args += [ '-ac hwac3,hwdts,' ]
+        if self._config.audio.driver == 'alsa':
+            if self._streaminfo.get('acodec') in ('a52', 'hwac3'):
+                if self._config.audio.passthrough:
+                    args += [ '-ac', 'hwac3,hwdts,' ]
+                device = self._config.audio.device.passthrough
+            elif self._streaminfo.get('channels') == 1:
+                device = self._config.audio.device.mono
+            elif self._streaminfo.get('channels') <= 4:
+                device = self._config.audio.device.surround40
+            elif self._streaminfo.get('channels') <= 6:
+                device = self._config.audio.device.surround51
+            else:
+                device = self._config.audio.device.stereo
+            args += [ '-ao', self._config.audio.driver ]
+            if device != 'auto':
+                args[-1] += ':device=' + device.replace(':', '=')
+        else:
+            # FIXME: how to do device settings with oss?
+            args += [ '-ao', self._config.audio.driver ]
             
         # There is no way to make MPlayer ignore keys from the X11 window.  So
         # this hack makes a temp input file that maps all keys to a dummy (and

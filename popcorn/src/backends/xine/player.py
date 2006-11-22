@@ -234,6 +234,7 @@ class Xine(MediaPlayer):
 
         if not self._xine_configured:
             self._xine_configured = True
+            self._xine.set_config(self._config)
             if self._window:
                 self._xine.configure_video(self._window.get_id(), self.get_aspect())
             else:
