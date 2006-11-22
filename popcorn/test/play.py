@@ -6,7 +6,7 @@ import kaa.display
 import kaa.popcorn
 import kaa.input.stdin
 
-logging.getLogger('popcorn').setLevel(logging.DEBUG)
+logging.getLogger('popcorn').setLevel(logging.INFO)
 # logging.getLogger('popcorn.child').setLevel(logging.ERROR)
 
 BACKEND = 'mplayer'                     # mplayer, xine, gstreamer
@@ -30,6 +30,10 @@ def handle_key(key, player):
     elif key == "f" and player.get_window():
         win = player.get_window()
         win.set_fullscreen(not win.get_fullscreen())
+
+
+kaa.popcorn.config.load('popcorn.conf')
+kaa.popcorn.config.save('popcorn.conf')
 
 if WINDOW == 'none':
     player = kaa.popcorn.Player()
