@@ -494,15 +494,16 @@ class MPlayer(MediaPlayer):
 
         # FIXME, add more settings here
         if self._config.audio.driver == 'alsa':
+            n_channels = self._streaminfo.get('channels')
             if self._streaminfo.get('acodec') in ('a52', 'hwac3'):
                 if self._config.audio.passthrough:
                     args += [ '-ac', 'hwac3,hwdts,' ]
                 device = self._config.audio.device.passthrough
-            elif self._streaminfo.get('channels') == 1:
+            elif n_channels == 1:
                 device = self._config.audio.device.mono
-            elif self._streaminfo.get('channels') <= 4:
+            elif n_channels <= 4:
                 device = self._config.audio.device.surround40
-            elif self._streaminfo.get('channels') <= 6:
+            elif n_channels <= 6:
                 device = self._config.audio.device.surround51
             else:
                 device = self._config.audio.device.stereo
