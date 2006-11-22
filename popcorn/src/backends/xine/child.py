@@ -231,6 +231,12 @@ class XinePlayerChild(Player):
                 set('audio.device.alsa_surround51_device', dev('surround51'))
             if dev('passthrough'):
                 set('audio.device.alsa_passthrough_device', dev('passthrough'))
+            if self._config['audio']['passthrough']:
+                set('audio.output.speaker_arrangement', 'Pass Through')
+            else:
+                channels = { 2: 'Stereo 2.0', 4: 'Surround 4.0', 6: 'Surround 5.1' }
+                num = self._config['audio']['channels']
+                set('audio.output.speaker_arrangement', channels[num])
         # FIXME: it should, but a52_pass_through does not exist.
         # We need a way to turn on/off passthrough
         # self._xine.set_config_value('audio.a52_pass_through', 1)

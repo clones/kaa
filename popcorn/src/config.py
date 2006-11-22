@@ -36,8 +36,8 @@ config = Config(desc=i18n('Player configuration'), schema=[
             Var(name='surround40', default=''),
             Var(name='surround51', default=''),
             Var(name='passthrough', default='') ]),
-        Var(name='channels', type=('auto', 2, 4, 5, 6), default='auto',
-            desc=i18n('number of channels (auto, 2, 4, 5 or 6)')),
+        Var(name='channels', type=(2, 4, 6), default=2,
+            desc=i18n('number of channels (2, 4 or 6)')),
         Var(name='passthrough', default=False,
             desc=i18n('AC3 and DTS passthrough'))
     ])

@@ -492,12 +492,15 @@ class MPlayer(MediaPlayer):
             # no window == no video out
             args.extend(('-vo', 'null'))
 
-        # FIXME, add more settings here
+        if self._config.audio.passthrough:
+            args += [ '-ac', 'hwac3,hwdts,' ]
+        else:
+            args += [ '-channels', str(self._config.audio.channels) ]
+            
+        args += [ '-ao', self._config.audio.driver ]
         if self._config.audio.driver == 'alsa':
             n_channels = self._streaminfo.get('channels')
             if self._streaminfo.get('acodec') in ('a52', 'hwac3'):
-                if self._config.audio.passthrough:
-                    args += [ '-ac', 'hwac3,hwdts,' ]
                 device = self._config.audio.device.passthrough
             elif n_channels == 1:
                 device = self._config.audio.device.mono
@@ -507,12 +510,8 @@ class MPlayer(MediaPlayer):
                 device = self._config.audio.device.surround51
             else:
                 device = self._config.audio.device.stereo
-            args += [ '-ao', self._config.audio.driver ]
             if device != 'auto':
                 args[-1] += ':device=' + device.replace(':', '=')
-        else:
-            # FIXME: how to do device settings with oss?
-            args += [ '-ao', self._config.audio.driver ]
             
         # There is no way to make MPlayer ignore keys from the X11 window.  So
         # this hack makes a temp input file that maps all keys to a dummy (and
