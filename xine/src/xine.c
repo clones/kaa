@@ -566,8 +566,6 @@ Xine_PyObject_config_update_entry(Xine_PyObject *self, PyObject *args, PyObject 
 
     switch(cfg.type) {
         case XINE_CONFIG_TYPE_STRING:
-            if (cfg.str_value)
-                free(cfg.str_value);
             cfg.str_value = strdup(PyString_AsString(value));
             break;
         case XINE_CONFIG_TYPE_ENUM:
