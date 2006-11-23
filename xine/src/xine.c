@@ -577,8 +577,6 @@ Xine_PyObject_config_update_entry(Xine_PyObject *self, PyObject *args, PyObject 
     }
 
     xine_config_update_entry(self->xine, &cfg);
-    if (cfg.callback)
-        cfg.callback(cfg.callback_data, &cfg);
 
     Py_INCREF(Py_None);
     return Py_None;
