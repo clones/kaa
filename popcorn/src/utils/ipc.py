@@ -135,6 +135,11 @@ class Parent(object):
         return ParentCommand(attr)
 
 
+class ConfigDict(dict):
+    def __getattr__(self, attr):
+        return self[attr]
+
+    
 class Player(object):
     """
     Child app player. The object has a memeber 'parent' to send commands
@@ -146,9 +151,23 @@ class Player(object):
         flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, flags | os.O_NONBLOCK)
         self._stdin_data = ''
+        self.config = None
         self.parent = Parent()
 
 
+    def set_config(self, config):
+        """
+        set config object
+        """
+        def _convert(d):
+            r = ConfigDict(d)
+            for key, value in r.items():
+                if isinstance(value, dict):
+                    r[key] = _convert(value)
+            return r
+        self.config = _convert(config)
+
+        
     def _handle_line(self):
         """
         Handle data from stdin.
