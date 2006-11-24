@@ -72,7 +72,7 @@ class Xine(MediaPlayer):
         self._xine.set_stop_command(kaa.notifier.WeakCallback(self._xine.die))
         self._xine.start(str(self._osd_shmkey), str(self._frame_shmkey))
         self._xine_configured = False
-        
+
 
     def _child_exited(self, exitcode):
         log.debug('xine child dead')
@@ -198,7 +198,7 @@ class Xine(MediaPlayer):
         """
         old_window = self._window
         super(Xine, self).set_window(window)
-        
+
         if old_window and old_window != self._window:
             # Disconnect signals from existing window.
             old_window.signals["configure_event"].disconnect(self._window_configure_event)
@@ -363,7 +363,7 @@ class Xine(MediaPlayer):
 
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
         """
-        Updates the OSD of the player based on the given argments:
+        Updates the OSD of the player based on the given argments.
         See generic.osd_update for details.
         """
         self._xine.osd_update(alpha, visible, invalid_regions)

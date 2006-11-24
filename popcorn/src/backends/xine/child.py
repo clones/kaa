@@ -1,14 +1,44 @@
-import sys
-import md5
-import gc
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# xine/child.py - xine backend
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.popcorn - Generic Player API
+# Copyright (C) 2006 Jason Tackaberry, Dirk Meyer
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
 
+# python imports
+import sys
+
+# kaa imports
 import kaa
 import kaa.notifier
 import kaa.shm
 import kaa.xine as xine
 
+# kaa.popcorn imports
 from kaa.popcorn.utils import Player
 from kaa.popcorn.ptypes import *
+
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -34,6 +64,10 @@ class XinePlayerChild(Player):
         self._xine.set_config_value("effects.goom.height", 384)
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
 
+
+    # #############################################################################
+    # stream information utils
+    # #############################################################################
 
     def _check_stream_handles(self):
         """
@@ -77,20 +111,24 @@ class XinePlayerChild(Player):
 
 
     def _get_streaminfo(self):
+        """
+        Get information about the current stream.
+        """
         if not self._stream:
             return {}
 
         info = {
             "vfourcc": self._stream.get_info(xine.STREAM_INFO_VIDEO_FOURCC),
             "afourcc": self._stream.get_info(xine.STREAM_INFO_AUDIO_FOURCC),
-            "vcodec": self._stream.get_meta_info(xine.META_INFO_VIDEOCODEC),
-            "acodec": self._stream.get_meta_info(xine.META_INFO_AUDIOCODEC),
-            "width": self._stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH),
-            "height": self._stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT),
-            "aspect": self._stream.get_info(xine.STREAM_INFO_VIDEO_RATIO) / 10000.0,
-            "fps": self._stream.get_info(xine.STREAM_INFO_FRAME_DURATION),
-            "length": self._stream.get_length(),
+            "vcodec":  self._stream.get_meta_info(xine.META_INFO_VIDEOCODEC),
+            "acodec":  self._stream.get_meta_info(xine.META_INFO_AUDIOCODEC),
+            "width":   self._stream.get_info(xine.STREAM_INFO_VIDEO_WIDTH),
+            "height":  self._stream.get_info(xine.STREAM_INFO_VIDEO_HEIGHT),
+            "aspect":  self._stream.get_info(xine.STREAM_INFO_VIDEO_RATIO) / 10000.0,
+            "fps":     self._stream.get_info(xine.STREAM_INFO_FRAME_DURATION),
+            "length":  self._stream.get_length(),
         }
+
         if self._x11_last_aspect != -1:
             # Use the aspect ratio as given to the frame output callback
             # as it tends to be more reliable (particularly for DVDs).
@@ -146,9 +184,11 @@ class XinePlayerChild(Player):
 
 
     def handle_xine_event(self, event):
+        """
+        Received event from xine.
+        """
         if len(event.data) > 1:
             del event.data["data"]
-        print "EVENT", event.type, event.data
         if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
             self.parent.set_streaminfo(True, self._get_streaminfo())
         self.parent.xine_event(event.type, event.data)
@@ -160,9 +200,11 @@ class XinePlayerChild(Player):
 
     def window_changed(self, wid, size, visible, exposed_regions):
         self._x11_window_size = size
-        if self._vo:
-            self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
-            self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
+        if not self._vo:
+            return
+        # FIXME: what happens if this is no X11 window?
+        self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
+        self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
     def configure_video(self, wid, aspect):
@@ -178,7 +220,7 @@ class XinePlayerChild(Player):
                 frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
                 dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
             self._driver_control = None
-            
+
             # This segfaults right now:
             # self._vo = self._xine.open_video_driver(
             #     "kaa", control_return = control_return,
@@ -190,6 +232,7 @@ class XinePlayerChild(Player):
             #     frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
             #     dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
             # self._driver_control = control_return[0]
+
         elif wid and isinstance(wid, str) and wid.startswith('fb'):
             self._vo = self._xine.open_video_driver(
                 "kaa", control_return = control_return,
@@ -198,11 +241,12 @@ class XinePlayerChild(Player):
                 frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
                 dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
             self._driver_control = control_return[0]
+
         else:
             self._vo = self._xine.open_video_driver("none")
             self._driver_control = None
             self._vo_visible = False
-        
+
         self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
         if aspect:
             self._expand_post.set_parameters(aspect=aspect)
@@ -243,7 +287,6 @@ class XinePlayerChild(Player):
         #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
         self._stream.signals["event"].connect_weak(self.handle_xine_event)
 
-
         # self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
         # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
         # self._stream.get_video_source().wire(self._noise_post.get_default_input())
@@ -259,25 +302,31 @@ class XinePlayerChild(Player):
 
 
     def open(self, mrl):
+        """
+        Open mrl to play.
+        """
         try:
             self._stream.open(mrl)
-            if not self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO) and self._vo_visible:
-                self._goom_post = self._xine.post_init("goom", video_targets = [self._vo], audio_targets=[self._ao])
-
+            if not self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO)\
+                   and self._vo_visible:
+                self._goom_post = self._xine.post_init(
+                    "goom", video_targets = [self._vo], audio_targets=[self._ao])
                 self._stream.get_audio_source().wire(self._goom_post.get_default_input())
             else:
+                self._goom_post = None
                 self._stream.get_audio_source().wire(self._ao)
             xine._debug_show_chain(self._stream._obj)
         except xine.XineError:
             self.parent.set_streaminfo(False, self._stream.get_error())
             print "Open failed:", self._stream.get_error()
-            return
+            return False
         if not self._check_stream_handles():
             self.parent.set_streaminfo(False, None)
             print "unable to play stream"
-            return
+            return False
         self.parent.set_streaminfo(True, self._get_streaminfo())
         self._status.start(0.001)
+        return True
 
 
     def osd_update(self, alpha, visible, invalid_regions):
@@ -327,7 +376,7 @@ class XinePlayerChild(Player):
     def die(self):
         self.stop()
         sys.exit(0)
-        
+
 
     def frame_output(self, vo, notify, size):
         if not self._driver_control:
