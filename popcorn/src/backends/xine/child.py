@@ -218,9 +218,6 @@ class XinePlayerChild(Player):
                 "kaa", control_return = control_return,
                 passthrough = "xv", wid = wid,
                 osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-                # osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4,
-                # osd_rows = 2000,
-                # self._vo = self._xine.open_video_driver("xv", wid = wid,
                 frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
                 dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
             self._driver_control = control_return[0]
@@ -242,6 +239,7 @@ class XinePlayerChild(Player):
         self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
         if aspect:
             self._expand_post.set_parameters(aspect=aspect)
+
         self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
         self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
         self._deint_post.set_parameters(method = self.config.xine.deinterlacer.method,
@@ -371,19 +369,23 @@ class XinePlayerChild(Player):
         sys.exit(0)
 
 
-    def frame_output(self, vo, notify, size):
+    def set_frame_output_mode(self, vo, notify, size):
         if not self._driver_control:
-            # FIXME: Tack, what am I doing here?
+            # If vo driver used isn't kaa (which may not be for testing/
+            # debugging purposes) then _driver_control won't be set.
+            # This could also happen if there is no vo set (i.e. audio only).
+            # In either case, there's nothing to do.
             return
+
         if vo != None:
             self._driver_control("set_passthrough", vo)
         if notify != None:
             if notify:
                 print "DEINTERLACE CHEAP MODE: True"
-#                 self._deint_post.set_parameters(cheap_mode = True)
+                self._deint_post.set_parameters(cheap_mode = True)
             else:
                 print "DEINTERLACE CHEAP MODE: False"
-#                 self._deint_post.set_parameters(cheap_mode = False)
+                self._deint_post.set_parameters(cheap_mode = False)
 
             self._driver_control("set_notify_frame", notify)
         if size != None:

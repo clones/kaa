@@ -397,7 +397,7 @@ class Xine(MediaPlayer):
         else:
             self._check_new_frame_timer.stop()
 
-        self._xine.frame_output(vo, notify, size)
+        self._xine.set_frame_output_mode(vo, notify, size)
 
 
     def unlock_frame_buffer(self):
