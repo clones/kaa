@@ -215,23 +215,15 @@ class XinePlayerChild(Player):
         self._vo_visible = True
         if wid and isinstance(wid, int):
             self._vo = self._xine.open_video_driver(
-                "xv", control_return = control_return, wid = wid,
+                "kaa", control_return = control_return,
+                passthrough = "xv", wid = wid,
                 osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
+                # osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4,
+                # osd_rows = 2000,
+                # self._vo = self._xine.open_video_driver("xv", wid = wid,
                 frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
                 dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
-            self._driver_control = None
-
-            # This segfaults right now:
-            # self._vo = self._xine.open_video_driver(
-            #     "kaa", control_return = control_return,
-            #     passthrough = "xv", wid = wid,
-            #     osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-            #     # osd_buffer = self._osd_shmem.addr + 16, osd_stride = 2000 * 4,
-            #     # osd_rows = 2000,
-            #     # self._vo = self._xine.open_video_driver("xv", wid = wid,
-            #     frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
-            #     dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
-            # self._driver_control = control_return[0]
+            self._driver_control = control_return[0]
 
         elif wid and isinstance(wid, str) and wid.startswith('fb'):
             self._vo = self._xine.open_video_driver(
@@ -250,7 +242,14 @@ class XinePlayerChild(Player):
         self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
         if aspect:
             self._expand_post.set_parameters(aspect=aspect)
+        self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
+        self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
+        self._deint_post.set_parameters(method = self.config.xine.deinterlacer.method,
+        chroma_filter = self.config.xine.deinterlacer.chroma_filter)
+
         self._expand_post.set_parameters(enable_automatic_shift = True)
+        if self._driver_control:
+            self._driver_control("set_passthrough", False)
 
 
     def configure_audio(self, driver):
@@ -291,14 +290,8 @@ class XinePlayerChild(Player):
         # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
         # self._stream.get_video_source().wire(self._noise_post.get_default_input())
 
-        # self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
-        # self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
-        # self._deint_post.set_parameters(method = config.deinterlacer.method,
-        # chroma_filter = config.deinterlacer.chroma_filter)
-
         self._stream.get_video_source().wire(self._expand_post.get_default_input())
 
-        # self._driver_control("set_passthrough", False)
 
 
     def open(self, mrl):
@@ -387,10 +380,10 @@ class XinePlayerChild(Player):
         if notify != None:
             if notify:
                 print "DEINTERLACE CHEAP MODE: True"
-                self._deint_post.set_parameters(cheap_mode = True)
+#                 self._deint_post.set_parameters(cheap_mode = True)
             else:
                 print "DEINTERLACE CHEAP MODE: False"
-                self._deint_post.set_parameters(cheap_mode = False)
+#                 self._deint_post.set_parameters(cheap_mode = False)
 
             self._driver_control("set_notify_frame", notify)
         if size != None:
