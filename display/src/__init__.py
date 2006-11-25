@@ -60,3 +60,5 @@ try:
 except ImportError, e:
     pass
 
+# import LCDProc support
+from lcdproc import LCD
