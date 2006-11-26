@@ -55,10 +55,7 @@
  * </refsect2>
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
+#include <stdint.h>
 #include <gst/gst.h>
 
 #include <assert.h>
@@ -73,6 +70,8 @@
 #include "dvb/frontend.h"
 
 #include "gstdvbtuner.h"
+#include "config.h"
+
 
 /* **********************************************************************************++ */
 

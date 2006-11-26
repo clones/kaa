@@ -5,6 +5,9 @@ import gst
 import sys
 import time
 
+# import kaa.record2 for the dvbtuner module
+import kaa.record2
+
 tuner = gst.element_factory_make("dvbtuner", "tuner")
 
 tuner.set_property('debug-output', True)
