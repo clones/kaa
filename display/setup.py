@@ -116,6 +116,9 @@ if get_library('evas'):
 # extention modules
 modules = []
 
+if get_library('imlib2'):
+    config.define('USE_IMLIB2')
+
 if get_library('X11'):
 
     # the display so module
@@ -127,7 +130,7 @@ if get_library('X11'):
     config.define('HAVE_X11')
     features = []
     if get_library('imlib2') and 'X11' in get_library('imlib2').libraries:
-        config.define('USE_IMLIB2')
+        config.define('USE_IMLIB2_X11')
         x11.add_library('imlib2')
         features.append('imlib2')
     if 'software_x11' in evas_engines:

@@ -38,7 +38,12 @@
 
 #ifdef USE_IMLIB2
 
-#include <X11/Xlib.h>
+#ifdef USE_IMLIB2_X11
+#   include <X11/Xlib.h>
+#else
+#   define X_DISPLAY_MISSING
+#endif
+
 #include <Imlib2.h>
 extern Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
 

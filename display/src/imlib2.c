@@ -35,7 +35,7 @@
 
 PyTypeObject *Image_PyObject_Type;
 
-#ifdef USE_IMLIB2
+#ifdef USE_IMLIB2_X11
 
 #include "imlib2.h"
 Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
