@@ -54,14 +54,10 @@ class BufferCanvas(Canvas):
 
     def _render(self):
         regions = super(BufferCanvas, self)._render()
-        w, h = self['size']
-        stride = w * 4
-        y0 = h
-        y1 = 0
-        for (rx, ry, rw, rh) in regions:
-            y0 = min(y0, ry)
-            y1 = max(y1, rh + ry)
-        evas.data_argb_unpremul(self.get_buffer(), stride*y0, stride*(y1-y0))
+        stride = self['size'][0] * 4
+        buf = self.get_buffer()
+        for x, y, w, h in regions:
+            for i in range(y, y+h):
+                evas.data_argb_unpremul(buf, i*stride+(x*4), w*4)
         return regions
-
 
