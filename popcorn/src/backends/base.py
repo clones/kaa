@@ -67,6 +67,7 @@ class MediaPlayer(object):
         MediaPlayer._instance_count += 1
 
         # some variables for the inherting class
+        self._audio_delay = 0.0
         self._position_value = 0.0
         self._streaminfo = {}
         
