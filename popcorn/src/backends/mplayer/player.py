@@ -500,6 +500,7 @@ class MPlayer(MediaPlayer):
             
         args += [ '-ao', self._config.audio.driver ]
         if self._config.audio.driver == 'alsa':
+            args[-1] += ":noblock"
             n_channels = self._streaminfo.get('channels')
             if self._streaminfo.get('acodec') in ('a52', 'hwac3', 'ffdts', 'hwdts'):
                 device = self._config.audio.device.passthrough
