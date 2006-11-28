@@ -303,13 +303,6 @@ class Xine(MediaPlayer):
         self._xine.set_audio_delay(delay)
 
 
-    def get_audio_delay(self):
-        """
-        Returns the audio delay set by set_audio_delay()
-        """
-        return self._audio_delay
-
-
     def nav_command(self, input):
         """
         Issue the navigation command to the player.

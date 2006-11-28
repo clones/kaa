@@ -343,7 +343,7 @@ class Player(object):
         self._player.set_audio_delay(delay)
 
 
-    def get_audio_delay(self, delay):
+    def get_audio_delay(self):
         """
         Returns the audio delay.
         """
