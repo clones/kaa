@@ -200,3 +200,11 @@ class GStreamer(Player):
         self._gst.seek(1.0, gst.FORMAT_TIME,
                        gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,
                        gst.SEEK_TYPE_SET, pos, gst.SEEK_TYPE_NONE, 0)
+
+
+    def set_audio_delay(self, delay):
+        """
+        Sets audio delay.  Positive value defers audio by delay.
+        """
+        # NYI
+        pass

@@ -363,6 +363,12 @@ class XinePlayerChild(Player):
             self._stream.play(pos = (value / 100.0) * 65535)
 
 
+    def set_audio_delay(self, delay):
+        # xine-lib wants units in 1/90000 sec, so convert.
+        delay = -int(delay * 90000.0)
+        self._stream.set_parameter(xine.PARAM_AV_OFFSET, delay)
+
+
     def stop(self):
         self._status.stop()
         if self._stream:

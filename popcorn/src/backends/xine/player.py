@@ -242,6 +242,7 @@ class Xine(MediaPlayer):
             self._xine.configure_audio(self._config.audio.driver)
             self._xine.configure_stream()
         self._position = 0.0
+        self._audio_delay = 0.0
         log.debug('xine open')
         self._xine.open(self._mrl)
         self._state = STATE_OPENING
@@ -292,6 +293,21 @@ class Xine(MediaPlayer):
         Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
         self._xine.seek(value, type)
+
+
+    def set_audio_delay(self, delay):
+        """
+        Sets audio delay.  Positive value defers audio by delay.
+        """
+        self._audio_delay = delay
+        self._xine.set_audio_delay(delay)
+
+
+    def get_audio_delay(self):
+        """
+        Returns the audio delay set by set_audio_delay()
+        """
+        return self._audio_delay
 
 
     def nav_command(self, input):

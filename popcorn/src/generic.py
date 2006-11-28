@@ -334,6 +334,24 @@ class Player(object):
         return 0.0
 
 
+    @required_states(STATE_PLAYING, STATE_PAUSED)
+    def set_audio_delay(self, delay):
+        """
+        Sets the audio delay relative to the video.  A positive value causes
+        audio to come later, while a negative value plays the audio before.
+        """
+        self._player.set_audio_delay(delay)
+
+
+    def get_audio_delay(self, delay):
+        """
+        Returns the audio delay.
+        """
+        if self._player:
+            return self._player.get_audio_delay()
+        return 0.0
+
+
     def get_info(self):
         """
         Get information about the stream.

@@ -121,3 +121,11 @@ class GStreamer(MediaPlayer):
         SEEK_RELATIVE, SEEK_ABSOLUTE or SEEK_PERCENTAGE.
         """
         self._gst.seek(value, type)
+
+
+    def set_audio_delay(self, delay):
+        """
+        Sets audio delay.  Positive value defers audio by delay.
+        """
+        self._audio_delay = delay
+        self._gst.set_audio_delay(delay)

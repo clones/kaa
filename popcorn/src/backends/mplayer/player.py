@@ -355,6 +355,7 @@ class MPlayer(MediaPlayer):
             self._file = mrl
 
         self._state = STATE_OPENING
+        self._audio_delay = 0.0
 
         # We have a problem at this point. The 'open' function is used to
         # open the stream and provide information about it. After that, the
@@ -510,7 +511,7 @@ class MPlayer(MediaPlayer):
                 device = self._config.audio.device.surround51
             else:
                 device = self._config.audio.device.stereo
-            if device != 'auto':
+            if device != '':
                 args[-1] += ':device=' + device.replace(':', '=')
             
         # There is no way to make MPlayer ignore keys from the X11 window.  So
@@ -582,6 +583,14 @@ class MPlayer(MediaPlayer):
         """
         s = [SEEK_RELATIVE, SEEK_PERCENTAGE, SEEK_ABSOLUTE]
         self._child_write("seek %f %s" % (value, s.index(type)))
+
+
+    def set_audio_delay(self, delay):
+        """
+        Sets audio delay.  Positive value defers audio by delay.
+        """
+        self._audio_delay = delay
+        self._child_write("audio_delay %f 1" % -delay)
 
 
     #

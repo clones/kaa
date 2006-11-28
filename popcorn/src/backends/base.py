@@ -158,6 +158,12 @@ class MediaPlayer(object):
     # position property based on get_state and _set_state
     _position = property(get_position, _set_position, None, 'player position')
 
+ 
+    def get_audio_delay(self):
+        """
+        Returns the audio delay set by set_audio_delay()
+        """
+        return self._audio_delay
 
 
     def set_window(self, window):
