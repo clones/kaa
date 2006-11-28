@@ -254,7 +254,14 @@ class XinePlayerChild(Player):
         """
         Configure audio output.
         """
-        self._ao = self._xine.open_audio_driver(driver=driver)
+        try:
+            self._ao = self._xine.open_audio_driver(driver=driver)
+        except xine.XineError:
+            # Audio driver initialization failed; initialize a dummy driver
+            # instead.
+            self._ao = self._xine.open_audio_driver("none")
+            return
+
         if driver == 'alsa':
             set = self._xine.set_config_value
             dev = self.config.audio.device

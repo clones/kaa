@@ -203,8 +203,12 @@ class Player(object):
         if self._blocked or kaa.notifier.shutting_down:
             return
         self._blocked = True
-        while self._pending and self.get_state() in self._pending[0][0]:
-            self._pending.pop(0)[1]()
+        # Iterate through all pending commands and execute the ones that can
+        # be called in our new state.
+        for states, callback in self._pending:
+            if self.get_state() in states:
+                callback()
+                self._pending.remove((states, callback))
         self._blocked = False
 
 
@@ -313,14 +317,11 @@ class Player(object):
             self._player.resume()
 
 
-    @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
+    @required_states(STATE_PLAYING, STATE_PAUSED)
     def seek(self, value, type=SEEK_RELATIVE):
         """
         Seek. Possible types are SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
-        if self.get_state() == STATE_OPEN:
-            # FIXME: make it possible to seek between open() and play()
-            return False
         self._player.seek(value, type)
 
 
