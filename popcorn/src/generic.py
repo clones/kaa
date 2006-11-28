@@ -133,7 +133,7 @@ class Player(object):
             self._open_mrl, self._open_caps, exclude, player,
             self._config.prefered)
 
-        
+
     def _state_change(self, old_state, state):
         """
         """
@@ -150,7 +150,10 @@ class Player(object):
             # while we are trying to find a good player for the old
             # mrl?
             self._failed_player.append(self.get_player_id())
-            self._pending = []
+            # FIXME: why is this here? If we delete our pending functions
+            # a 'play' after open may get missed. So let's see what happens
+            # if we don't delete the pending calls here :)
+            # self._pending = []
             self._player.release()
             cls = self._get_player_class()
             if cls:
