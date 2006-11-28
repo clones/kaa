@@ -64,7 +64,7 @@ def register(player_id, cls, get_caps_callback):
 
 
 def get_player_class(mrl = None, caps = None, exclude = None, force = None,
-                     prefered = None):
+                     preferred = None):
     """
     Searches the registered players for the most capable player given the mrl
     or required capabilities.  A specific player can be returned by specifying
@@ -97,8 +97,8 @@ def get_player_class(mrl = None, caps = None, exclude = None, force = None,
 
 
     if force == mrl == caps == None:
-        if prefered != None and prefered in _players:
-            return _players[prefered]["class"]
+        if preferred != None and preferred in _players:
+            return _players[preferred]["class"]
             
         # FIXME: return the best possible player. This requires a new
         # register function with more information about how good a player
@@ -140,7 +140,7 @@ def get_player_class(mrl = None, caps = None, exclude = None, force = None,
            ext not in player["extensions"]:
             continue
 
-        if player_id == prefered or not choice:
+        if player_id == preferred or not choice:
             choice = player
 
     if not choice:

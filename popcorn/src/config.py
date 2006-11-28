@@ -19,7 +19,7 @@ config = Config(desc=i18n('Player configuration'), schema=[
         scale: ignore aspect ratio and fill the screen
         """)),
 
-    Var(name='prefered', default='xine', desc=i18n('prefered player')),
+    Var(name='preferred', default='xine', desc=i18n('preferred player')),
 
     # audio group
     Group(name='audio', desc=i18n('Audio settings'), schema=[

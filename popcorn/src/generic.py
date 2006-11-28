@@ -131,7 +131,7 @@ class Player(object):
                 exclude.append(p)
         return backends.manager.get_player_class(\
             self._open_mrl, self._open_caps, exclude, player,
-            self._config.prefered)
+            self._config.preferred)
 
 
     def _state_change(self, old_state, state):

@@ -7,8 +7,8 @@ def get_capabilities():
            CAP_DYNAMIC_FILTERS, CAP_VARIABLE_SPEED, CAP_VISUALIZATION,
            CAP_DEINTERLACE)
     schemes = [ "file", "fifo", "dvd", "vcd", "cdda", "http", "tcp", "udp",
-                "rtp", "smb", "mms", "pnm", "rtsp" ]
-    exts = ["mpg", "mpeg", "iso"]  # FIXME: complete
+                "rtp", "smb", "mms", "pnm", "rtsp", "pvr" ]
+    exts = ["mpg", "mpeg", "iso", "avi", "mkv", "wmv", "mov", "asf"]  # FIXME: complete
     return caps, schemes, exts
 
 
