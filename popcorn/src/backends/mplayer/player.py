@@ -541,7 +541,7 @@ class MPlayer(MediaPlayer):
         if USE_GDB:
             self._child_app = kaa.notifier.Process("gdb")
             self._child_app.start(self._mp_cmd)
-            self._child_app.write("run %s\n" % args)
+            self._child_app.write("run %s\n" % ' '.join(args))
         else:
             self._child_app = kaa.notifier.Process(self._mp_cmd)
             self._child_app.start(args)
@@ -641,6 +641,16 @@ class MPlayer(MediaPlayer):
         """
         if not self._osd_shmem:
             return False
+
+        try:
+            if ord(self._osd_shmem.read(1)) == BUFFER_UNLOCKED:
+                return True
+        except shm.error:
+            self._osd_shmem.detach()
+            self._osd_shmem = None
+
+        return False
+
 
 
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
