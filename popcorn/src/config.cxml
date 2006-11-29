@@ -17,7 +17,7 @@
     </var>
     
     <group name="audio">
-      <desc lang="de">audio settings</desc>
+      <desc lang="en">audio settings</desc>
       <schema>
 	<var name="driver" default="alsa">
 	  <values>
