@@ -906,8 +906,18 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
         }
     }
 
-    if (this->passthrough && this->do_passthrough) 
+    if (this->passthrough && this->do_passthrough)  {
+#ifdef HAVE_OPENGL_VSYNC
+        if (this->glx_display) {
+            unsigned int count;
+            int ret;
+            if (glXMakeCurrent(this->glx_display, this->glx_drawable, this->glx_context))
+                if (glXGetVideoSyncSGI(&count) == 0)
+                    ret = glXWaitVideoSyncSGI(2, (count+1)%2 ,&count);
+        }
+#endif
         this->passthrough->display_frame(this->passthrough, frame->passthrough_frame);
+    }
 
     this->last_frame = frame;
     frame->vo_frame.free(&frame->vo_frame);
@@ -1034,6 +1044,38 @@ kaa_dispose(vo_driver_t *this_gen)
     free(this);
 }
 
+
+#ifdef HAVE_OPENGL_VSYNC
+static void
+_kaa_setup_glx(kaa_driver_t *this, x11_visual_t *vis)
+{
+    int ndummy, ret;
+    const char *xt;
+    int attribList[] = {GLX_RGBA,
+                        GLX_RED_SIZE, 1,
+                        GLX_GREEN_SIZE, 1,
+                        GLX_BLUE_SIZE, 1,
+                        None};
+
+    ret = glXQueryExtension(vis->display, &ndummy, &ndummy);
+    if (ret <= 0)
+        return;
+
+    xt = glXQueryExtensionsString(vis->display, vis->screen);
+    if (!xt || !strstr(xt, "GLX_SGI_video_sync"))
+        return;
+
+    XVisualInfo *vi = glXChooseVisual(vis->display, 0, attribList);
+    if (vi) {
+        this->glx_context = glXCreateContext(vis->display, vi, None, GL_TRUE);
+        if (this->glx_context) {
+            this->glx_drawable = vis->d;
+            this->glx_display = vis->display;
+        }
+    }
+}
+#endif
+
 static vo_driver_t *
 kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
 {
@@ -1089,7 +1131,11 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->osd_w                 = -1;
     this->osd_h                 = -1;
     this->osd_alpha             = 255;
-
+#ifdef HAVE_OPENGL_VSYNC
+    this->glx_display           = NULL;
+    if (visual->use_opengl_vsync)
+        _kaa_setup_glx(this, (x11_visual_t *)visual->passthrough_visual);
+#endif
     return &this->vo_driver;
 }
 

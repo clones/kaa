@@ -26,6 +26,7 @@
  * ----------------------------------------------------------------------------
  */
 
+#include "../config.h"
 #include <xine.h>
 #include <xine/xineutils.h>
 #include <xine/xine_plugin.h>
@@ -33,6 +34,17 @@
 #include <xine/xine_internal.h>
 #include <xine/alphablend.h>
 #include "yuv2rgb.h"
+
+
+
+#ifdef HAVE_OPENGL_VSYNC
+#define GLX_GLXEXT_PROTOTYPES
+#include <X11/Xlib.h>
+#include <GL/glx.h>
+#include <GL/gl.h>
+#undef GLX_ARB_get_proc_address
+#include <GL/glxext.h>
+#endif
 
 extern plugin_info_t xine_vo_kaa_plugin_info[];
 
@@ -108,6 +120,11 @@ typedef struct kaa_driver_s {
     pthread_mutex_t osd_buffer_lock;
     //
 
+#ifdef HAVE_OPENGL_VSYNC
+    GLXContext  glx_context;
+    GLXDrawable glx_drawable;
+    Display *glx_display;
+#endif
 } kaa_driver_t;
 
 
@@ -123,6 +140,7 @@ typedef struct kaa_visual_s {
     int passthrough_visual_type;
     void *passthrough_visual;
     vo_driver_t *passthrough;
+    int use_opengl_vsync;
 
     void (*osd_configure_cb)(int width, int height, double aspect, void *data, 
                              uint8_t **buffer_return, int *buffer_stride_return);

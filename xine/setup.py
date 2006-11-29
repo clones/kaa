@@ -64,11 +64,19 @@ for dir in libdirs:
         config.define('HAVE_X11')
         xineso.files.append('src/drivers/x11.c')
         xineso.libraries.append("X11")
+        xineso.libraries.append("GL")
         xineso.library_dirs.append(dir)
-        print "X11 found in %s; X11 support enabled." % dir
+        print "+ X11 found in %s; X11 support enabled" % dir
+
+        glxtest_code = 'unsigned int count; glXWaitVideoSyncSGI(2, count, &count);'
+        if xineso.check_cc(['<GL/glx.h>'], glxtest_code, '-lGL -DGLX_GLXEXT_PROTOTYPES -Werror -L%s' % dir):
+            config.define("HAVE_OPENGL_VSYNC")
+            print "+ OpenGL vsync support enabled"
+        else:
+            print "- OpenGL vsync support disabled"
         break
 else:
-    print "X11 not found; disabling X11 support."
+    print "- X11 not found; disabling X11 support."
 
 arch = os.popen("uname -i").read().strip()
 if arch == "x86_64":

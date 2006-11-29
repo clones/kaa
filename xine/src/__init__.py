@@ -205,7 +205,6 @@ class Xine(Wrapper):
         return d_width, d_height, win_aspect
 
     def _default_frame_output_cb(self, width, height, aspect, window):
-        #print "FRAME OUTPUT CB", width, height, aspect
         w, h, a = self._get_vo_display_size(width, height, aspect)
         if aspect > 0 and abs(window._aspect - a) > 0.01:
             print "VO: %dx%d -> %dx%d" % (width, height, w, h)
@@ -214,6 +213,7 @@ class Xine(Wrapper):
         if window:
             w, h = window.get_size()
 
+        #print "FRAME OUTPUT CB", width, height, aspect, (w, h)
         # Return order: dst_pos, win_pos, dst_size, aspect
         return (0, 0), (0, 0), (w, h), 1.0
 

@@ -404,6 +404,12 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
     vis.passthrough             = passthrough_driver;
     vis.handle_frame_cb         = handle_frame_cb;
 
+    if (PyMapping_HasKeyString(kwargs, "vsync")) {
+        if (PyBool_Check(PyDict_GetItemString(kwargs, "vsync")) && 
+            passthrough_visual_type == XINE_VISUAL_TYPE_X11)
+            vis.use_opengl_vsync = 1;
+    }
+
     if (PyMapping_HasKeyString(kwargs, "osd_configure_cb")) {
         o = PyDict_GetItemString(kwargs, "osd_configure_cb");
         if (!PyCallable_Check(o)) {
