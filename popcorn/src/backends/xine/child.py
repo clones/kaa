@@ -219,7 +219,8 @@ class XinePlayerChild(Player):
                 passthrough = "xv", wid = wid,
                 osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
                 frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
-                dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
+                dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb),
+                vsync = self.config.xine.vsync)
             self._driver_control = control_return[0]
 
         elif wid and isinstance(wid, str) and wid.startswith('fb'):
@@ -241,9 +242,8 @@ class XinePlayerChild(Player):
             self._expand_post.set_parameters(aspect=aspect)
 
         self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
-        self._deint_post = self._xine.post_init("tvtime", video_targets = [self._vo])
         self._deint_post.set_parameters(method = self.config.xine.deinterlacer.method,
-        chroma_filter = self.config.xine.deinterlacer.chroma_filter)
+                                        chroma_filter = self.config.xine.deinterlacer.chroma_filter)
 
         self._expand_post.set_parameters(enable_automatic_shift = True)
         if self._driver_control:
@@ -295,7 +295,7 @@ class XinePlayerChild(Player):
         # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
         # self._stream.get_video_source().wire(self._noise_post.get_default_input())
 
-        self._stream.get_video_source().wire(self._expand_post.get_default_input())
+        self._stream.get_video_source().wire(self._deint_post.get_default_input())
 
 
 

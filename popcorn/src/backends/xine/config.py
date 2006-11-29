@@ -45,7 +45,9 @@ config = Group(desc=i18n('xine configuration'), schema=[
     Group(name = 'deinterlacer', desc = 'Deinterlacer options', schema = [
         Var(name = 'method', default = 'GreedyH',
             desc = 'tvtime method to use, e.g. TomsMoComp, GreedyH, LinearBlend, etc.'),
-        Var(name = 'chroma_filter', default = True,
-            desc = 'Enable chroma filtering (better quality, higher cpu usage)')
-    ])
+        Var(name = 'chroma_filter', default = False,
+            desc = 'Enable chroma filtering (better quality, higher cpu usage)'),
+    ]),
+    Var(name = 'vsync', default = True,
+        desc = 'Enable vsync via OpenGL (applies only to X11 visuals)')
 ])
