@@ -191,6 +191,13 @@ class XinePlayerChild(Player):
             del event.data["data"]
         if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
             self.parent.set_streaminfo(True, self._get_streaminfo())
+        elif event.type == xine.EVENT_UI_MESSAGE and event.data['type'] == xine.MSG_AUDIO_OUT_UNAVAILABLE:
+            # Failed to open audio driver (async), so create dummy driver and
+            # wire stream to that.
+            self._ao = self._xine.open_audio_driver("none")
+            if self._stream:
+                self._stream.get_audio_source().wire(self._ao)
+
         self.parent.xine_event(event.type, event.data)
 
 
