@@ -323,7 +323,7 @@ class XinePlayerChild(Player):
             print "unable to play stream"
             return False
         self.parent.set_streaminfo(True, self._get_streaminfo())
-        self._status.start(0.001)
+        self._status.start(0.03)
         return True
 
 
