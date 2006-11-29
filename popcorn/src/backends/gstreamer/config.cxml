@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<config>
+  <desc lang="en">gstreamer configuration</desc>
+  <schema>
+    <var name="activate" default="False">
+      <desc lang="en">activate backend</desc>
+    </var>
+  </schema>
+</config>

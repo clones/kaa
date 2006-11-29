@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<config>
+  <desc lang="en">mplayer configuration</desc>
+  <schema>
+    <var name="activate" default="True">
+      <desc lang="en">activate backend</desc>
+    </var>
+    <group name="deinterlacer">
+      <desc>Deinterlacer options</desc>
+      <schema>
+	<var name="method" default="GreedyH">
+	  <desc lang="en">
+	    tvtime method to use, e.g. TomsMoComp, GreedyH, LinearBlend, etc.
+	  </desc>
+	</var>
+	<var name="chroma_filter" default="False">
+	  <desc lang="en">
+	    Enable chroma filtering (better quality, higher cpu usage)	  
+	  </desc>
+	</var>
+      </schema>
+    </group>
+    <var name="vsync" default="True">
+      <desc lang="en">Enable vsync via OpenGL (applies only to X11 visuals)</desc>
+    </var>
+  </schema>
+</config>
