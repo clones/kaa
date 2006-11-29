@@ -2,6 +2,17 @@
 <config>
   <desc lang="en">player configuration</desc>
   <schema>
+    <var name="preferred" default="xine">
+      <values>
+	<value>xine</value>
+	<value>mplayer</value>
+	<value>gstreamer</value>
+      </values>
+      <desc lang="en">
+        Preferred player backend.
+      </desc>
+    </var>
+
     <var name="widescreen" default="bars">
       <values>
 	<value>bars</value>
