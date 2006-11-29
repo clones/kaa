@@ -2,6 +2,7 @@
 <config>
   <desc lang="en">player configuration</desc>
   <schema>
+
     <var name="preferred" default="xine">
       <values>
 	<value>xine</value>
@@ -15,9 +16,9 @@
 
     <var name="widescreen" default="bars">
       <values>
-	<value>bars</value>
-	<value>zoom</value>
-	<value>scale</value>
+        <value>bars</value>
+        <value>zoom</value>
+        <value>scale</value>
       </values>
       <desc lang="en">
         How to handle 4:3 content on 16:9 screens. Possible values are
@@ -30,38 +31,38 @@
     <group name="audio">
       <desc lang="en">audio settings</desc>
       <schema>
-	<var name="driver" default="alsa">
-	  <values>
-	    <value>alsa</value>
-	    <value>oss</value>
-	  </values>
-	  <desc>audio driver (alsa or oss)</desc>
-	</var>
-	<group name="device">
-	  <desc lang="en">
+        <var name="driver" default="alsa">
+          <values>
+            <value>alsa</value>
+            <value>oss</value>
+          </values>
+          <desc>audio driver (alsa or oss)</desc>
+        </var>
+        <group name="device">
+          <desc lang="en">
             Device settings (only used by alsa). Set them to a specific alsa
-	    device, e.g. hw:0,0 or default or special devices like
-	    plug:front:default. If not set, player defaults will be used.
-	  </desc>
-	  <schema>
-	    <var name="mono" type="str"/>
-	    <var name="stereo" type="str"/>
-	    <var name="surround40" type="str"/>
-	    <var name="surround51" type="str"/>
-	    <var name="passthrough" type="str"/>
-	  </schema>
-	</group>
-	<var name="channels" default="2">
-	  <values>
-	    <value>2</value>
-	    <value>4</value>
-	    <value>6</value>
-	  </values>
-	  <desc>number of channels (2, 4 or 6)</desc>
-	</var>
-	<var name="passthrough" default="False">
-	  <desc>AC3 and DTS passthrough</desc>
-	</var>
+            device, e.g. hw:0,0 or default or special devices like
+            plug:front:default. If not set, player defaults will be used.
+          </desc>
+          <schema>
+            <var name="mono" type="str"/>
+            <var name="stereo" type="str"/>
+            <var name="surround40" type="str"/>
+            <var name="surround51" type="str"/>
+            <var name="passthrough" type="str"/>
+          </schema>
+        </group>
+        <var name="channels" default="2">
+          <values>
+            <value>2</value>
+            <value>4</value>
+            <value>6</value>
+          </values>
+          <desc>number of channels (2, 4 or 6)</desc>
+        </var>
+        <var name="passthrough" default="False">
+          <desc>AC3 and DTS passthrough</desc>
+        </var>
       </schema>
     </group>
   </schema>

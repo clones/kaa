@@ -8,16 +8,16 @@
     <group name="deinterlacer">
       <desc>Deinterlacer options</desc>
       <schema>
-	<var name="method" default="GreedyH">
-	  <desc lang="en">
-	    tvtime method to use, e.g. TomsMoComp, GreedyH, LinearBlend, etc.
-	  </desc>
-	</var>
-	<var name="chroma_filter" default="False">
-	  <desc lang="en">
-	    Enable chroma filtering (better quality, higher cpu usage)	  
-	  </desc>
-	</var>
+        <var name="method" default="GreedyH">
+          <desc lang="en">
+            tvtime method to use, e.g. TomsMoComp, GreedyH, LinearBlend, etc.
+          </desc>
+        </var>
+        <var name="chroma_filter" default="False">
+          <desc lang="en">
+            Enable chroma filtering (better quality, higher cpu usage)          
+          </desc>
+        </var>
       </schema>
     </group>
     <var name="vsync" default="True">
