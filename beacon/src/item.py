@@ -293,11 +293,14 @@ class ParentIterator(object):
 
 
 def create_item(data, parent):
-    url = parent.url
-    if data['name']:
-        if parent.url.endswith('/'):
-            url = parent.url + data['name']
-        else:
-            url = parent.url + '/' + data['name']
+    if 'url' in data:
+        url = data['url']
+    else:
+        url = parent.url
+        if data['name']:
+            if parent.url.endswith('/'):
+                url = parent.url + data['name']
+            else:
+                url = parent.url + '/' + data['name']
     return Item((data['type'], data['id']), url, data, parent,
                 parent._beacon_media)
