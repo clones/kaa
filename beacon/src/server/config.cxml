@@ -1,48 +1,40 @@
 <?xml version="1.0"?>
 <config>
-  <desc lang="en">Beacon configuration</desc>
-  <schema>
+    <desc lang="en">Beacon configuration</desc>
 
     <list name="monitors" default="True">
-      <desc lang="en">
-        List of directories to monitor, e.g.
-        monitors[0] = /media/mp3
-        monitors[1] = $(HOME)/mp3
-      </desc>
-      <schema>
+        <desc lang="en">
+            List of directories to monitor, e.g.
+            monitors[0] = /media/mp3
+            monitors[1] = $(HOME)/mp3
+        </desc>
         <var type="str">
-          <desc>Path of directory</desc>
+            <desc>Path of directory</desc>
         </var>
-      </schema>
     </list>
 
     <group name="crawler">
-      <desc>Settings for filesystem crawler</desc>
-      <schema>
+        <desc>Settings for filesystem crawler</desc>
         <var name="scantime" type="float" default="0.04">
-          <desc>
-            Internal timer for scanning. Decreasing it will speed up the scanner
-            but slow down the system. Increasing it will save CPU time and slow
-            machines.
-          </desc>
+            <desc>
+                Internal timer for scanning. Decreasing it will speed up the scanner
+                but slow down the system. Increasing it will save CPU time and slow
+                machines.
+            </desc>
         </var>
         <var name="growscan" default="10">
-          <desc>
-            Internal in seconds how often still growing files should be
-            scanned
-          </desc>
+            <desc>
+                Internal in seconds how often still growing files should be
+                scanned
+            </desc>
         </var>
-      </schema>
     </group>
 
     <dict name="plugins">
-      <desc>Dict of plugins to enable (True/False)</desc>
-      <schema>
+        <desc>Dict of plugins to enable (True/False)</desc>
         <var default="False">
-          <desc>Enable plugin</desc>
+            <desc>Enable plugin</desc>
         </var>
-      </schema>
     </dict>
 
-  </schema>
 </config>

@@ -1,9 +1,7 @@
 <?xml version="1.0"?>
 <config>
-  <desc lang="en">mplayer configuration</desc>
-  <schema>
+    <desc lang="en">mplayer configuration</desc>
     <var name="activate" default="True">
-      <desc lang="en">activate backend</desc>
+        <desc lang="en">activate backend</desc>
     </var>
-  </schema>
 </config>
