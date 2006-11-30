@@ -222,14 +222,14 @@ class Player(object):
         self._blocked = True
         # Iterate through all pending commands and execute the ones that can
         # be called in our new state.
-        for states, callback in self._pending:
+        for states, callback in self._pending[:]:
             if self.get_state() in states:
                 callback()
                 self._pending.remove((states, callback))
         self._blocked = False
 
 
-    @required_states(STATE_NOT_RUNNING, STATE_SHUTDOWN)
+    @required_states(STATE_NOT_RUNNING, STATE_IDLE)
     def _create_player(self, cls):
         """
         Create a player based on cls.
@@ -548,6 +548,7 @@ class Player(object):
 
     # For CAP_CANVAS
 
+    @required_states(STATE_IDLE, STATE_OPENING, STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
     def set_frame_output_mode(self, vo = None, notify = None, size = None):
         """
         Controls if and how frames are delivered via the 'frame' signal, and
