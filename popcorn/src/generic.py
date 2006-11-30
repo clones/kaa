@@ -288,11 +288,14 @@ class Player(object):
             self._player.play()
 
 
-    @required_states(STATE_PLAYING, STATE_PAUSED)
+    @required_states(STATE_PLAYING, STATE_PAUSED, STATE_STOPPING)
     def stop(self):
         """
         Stop playback.
         """
+        if self._get_state() == STATE_STOPPING:
+            # ignore this stop() call
+            return
         # FIXME: handle player that are in a deadlock and do not
         # want to be killed.
         self._player.stop()
