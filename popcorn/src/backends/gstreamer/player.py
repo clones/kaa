@@ -88,6 +88,7 @@ class GStreamer(MediaPlayer):
         """
         Stop playback.
         """
+        self._state = STATE_STOPPING
         self._gst.stop()
 
 

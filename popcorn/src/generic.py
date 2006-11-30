@@ -156,13 +156,6 @@ class Player(object):
             # TODO: What happens if the user tries to open a new file
             # while we are trying to find a good player for the old
             # mrl?
-            # FIXME: if user calls open() and stop(), we ends up here but
-            # this isn't a failed player or broken state.
-            # FIXME: if user calls stop() on a playing video, then open(),
-            # then play(), we could end up here, because stop() does not affect
-            # state in xine backend until child acknowledges, but open()
-            # sets state to STATE_OPENING immediately.  So we go from 
-            # STATE_OPENING to STATE_IDLE.
             self._failed_player.append(self.get_player_id())
             # FIXME: why is this here? If we delete our pending functions
             # a 'play' after open may get missed. So let's see what happens
@@ -189,7 +182,7 @@ class Player(object):
             self.signals["start"].emit()
             self.signals["play"].emit()
 
-        if old_state in (STATE_PLAYING, STATE_PAUSED) and \
+        if old_state in (STATE_PLAYING, STATE_PAUSED, STATE_STOPPING) and \
                state in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
             # From playing to finished. Signal end.
             self.signals["end"].emit()

@@ -276,6 +276,7 @@ class Xine(MediaPlayer):
         Stop playback.
         """
         log.debug('xine stop')
+        self._state = STATE_STOPPING
         self._xine.stop()
 
 
