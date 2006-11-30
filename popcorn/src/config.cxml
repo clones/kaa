@@ -64,6 +64,6 @@
         import backends
 
         for n, c in backends.config:
-        config.add_variable(n, c)
+            config.add_variable(n, c)
     </code>
 </config>
