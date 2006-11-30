@@ -31,7 +31,7 @@ __all__ = ['PlayerOSDCanvas', 'Movie' ]
 from displays.buffer import BufferCanvas
 from displays.x11 import X11Canvas
 from image import *
-import kaa.player
+import kaa.popcorn
 from kaa import notifier, display, evas, weakref
 
 
@@ -54,7 +54,7 @@ class PlayerOSDCanvas(BufferCanvas):
         if self._player:
             self._player.signals["osd_configure"].disconnect(self._osd_configure)
         if player:
-            assert(player.has_capability(kaa.player.CAP_OSD))
+            assert(player.has_capability(kaa.popcorn.CAP_OSD))
             player.signals["osd_configure"].connect_weak(self._osd_configure)
         self._player = player
 
@@ -68,7 +68,6 @@ class PlayerOSDCanvas(BufferCanvas):
 
     def _render(self):
         regions = super(PlayerOSDCanvas, self)._render()
-
         self._player.osd_update(self._osd_alpha, self["visible"], regions)
 
 
@@ -117,7 +116,11 @@ class Movie(Image):
     def __init__(self, mrl = None):
         super(Movie, self).__init__()
         self._supported_sync_properties += ["detached"]
-        self._player = None
+        self._player = kaa.popcorn.Player()
+        self._player.signals["start"].connect_weak(self._video_start)
+        self._player.signals["frame"].connect_weak(self._new_frame)
+        self._player.signals["stream_changed"].connect_weak(self._stream_changed)
+
         self._window = None
         self.osd = None
 
@@ -133,6 +136,9 @@ class Movie(Image):
             "stream_changed": notifier.Signal()
         })
 
+        for signal in self.signals:
+            if signal in self._player.signals:
+                self._player.signals[signal].connect_weak(self.signals[signal].emit)
         self["detached"] = False
         self.set_has_alpha(False)
 
@@ -145,39 +151,14 @@ class Movie(Image):
             self.open(mrl)
 
     def open(self, mrl):
-        #cls = kaa.player.get_player_class(player = "xine")
-        #cls = kaa.player.get_player_class(player = "mplayer")
-        cls = kaa.player.get_player_class(mrl = mrl, caps = kaa.player.CAP_CANVAS)
-        if not cls:
-            raise canvas.CanvasError, "No suitable player found"
-
-        if self._player != None:
-            self._player.stop()
-            if isinstance(self._player, cls):
-                return self._player.open(mrl)
-
-            # Continue open once our current player is dead.  We want to wait
-            # before spawning the new one so that it releases the audio 
-            # device.
-            self._player.signals["quit"].connect_once(self._open, mrl, cls)
-            self._player.die()
-            return
-
-        self._open(mrl, cls)
+        self._player.stop()
+        self._open(mrl)
         self._aspect = 0.0
 
 
-    def _open(self, mrl, cls):
-        self._player = cls()
-        self._player.signals["start"].connect_weak(self._video_start)
-        self._player.signals["frame"].connect_weak(self._new_frame)
-        self._player.signals["stream_changed"].connect_weak(self._stream_changed)
+    def _open(self, mrl):
 
-        for signal in self.signals:
-            if signal in self._player.signals:
-                self._player.signals[signal].connect_weak(self.signals[signal].emit)
-
-        if self._player.has_capability(kaa.player.CAP_OSD):
+        if self._player.has_capability(kaa.popcorn.CAP_OSD):
             self.osd.set_player(weakref.weakref(self._player))
             self.osd._queue_render()
         else:
@@ -193,15 +174,6 @@ class Movie(Image):
 
 
     def play(self):
-        if not self._player:
-            raise SystemError, "Play called before open"
-            return
-
-        if self._open in self._player.signals["quit"]:
-            # Waiting for old player to die.
-            self.signals["open"].connect_once(self.play)
-            return
-
         self._player.play()
 
 
@@ -230,7 +202,7 @@ class Movie(Image):
             return
 
         if not self._window:
-            self._window = display.X11Window(size = (320, 200), parent = canvas.get_window())
+            self._window = display.X11Window(size = canvas.get_window().get_size(), parent = canvas.get_window())
             self._window.set_cursor_hide_timeout(1)
 
         self._window.show(raised = True)
