@@ -122,6 +122,7 @@ class Movie(Image):
         self._player.signals["stream_changed"].connect_weak(self._stream_changed)
 
         self._window = None
+        self._last_format = None
         self.osd = None
 
         self.signals.update({
@@ -151,7 +152,7 @@ class Movie(Image):
             self.open(mrl)
 
     def open(self, mrl):
-        self._player.stop()
+        #self._player.stop()
         self._open(mrl)
         self._aspect = 0.0
 
@@ -296,6 +297,8 @@ class Movie(Image):
             self._aspect = aspect
 
         if format == "yv12":
+            if self._last_format != 'yv12':
+                self._o.data_set(0, False)
             self.import_pixels(ptr, width, height, evas.PIXEL_FORMAT_YUV420P_601)
         else:
             self.set_data(width, height, ptr)
@@ -321,6 +324,7 @@ class Movie(Image):
 
         self.get_canvas().signals["updated"].disconnect(self._sync)
         self.get_canvas().signals["updated"].connect_once(self._sync)
+        self._last_format = format
 
 
     def _sync(self, regions):
