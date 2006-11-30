@@ -268,7 +268,8 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            if self._get_state() not in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            if self._get_state() not in (STATE_IDLE, STATE_NOT_RUNNING,
+                                         STATE_SHUTDOWN, STATE_STOPPING):
                 self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
