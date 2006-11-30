@@ -54,7 +54,7 @@ def required_states(*states):
     def decorator(func):
 
         def newfunc(self, *args, **kwargs):
-            if self.get_state() in states and not self._pending:
+            if self._get_state() in states and not self._pending:
                 return func(self, *args, **kwargs)
             # print 'pending:', func, self.get_state(), states
             callback = kaa.notifier.Callback(func, self, *args, **kwargs)
@@ -209,7 +209,7 @@ class Player(object):
             # This needs to be fixed.
             self._player = None
         
-        if self.get_state() == STATE_IDLE and not self._pending and \
+        if self._get_state() == STATE_IDLE and not self._pending and \
                not old_state == STATE_NOT_RUNNING:
             # no new mrl to play, release player
             log.info('release player')
@@ -223,13 +223,13 @@ class Player(object):
         # Iterate through all pending commands and execute the ones that can
         # be called in our new state.
         for states, callback in self._pending[:]:
-            if self.get_state() in states:
+            if self._get_state() in states:
                 callback()
                 self._pending.remove((states, callback))
         self._blocked = False
 
 
-    @required_states(STATE_NOT_RUNNING, STATE_IDLE)
+    @required_states(STATE_NOT_RUNNING)
     def _create_player(self, cls):
         """
         Create a player based on cls.
@@ -275,7 +275,7 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            if self.get_state() not in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            if self._get_state() not in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
                 self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
@@ -417,6 +417,15 @@ class Player(object):
         return self._window
 
 
+    def _get_state(self):
+        """
+        Get state of the player for internal use.
+        """
+        if not self._player:
+            return STATE_NOT_RUNNING
+        return self._player.get_state()
+
+
     def get_state(self):
         """
         Get state of the player. Note: STATE_NOT_RUNNING is for internal use.
@@ -424,9 +433,9 @@ class Player(object):
         """
         if not self._player:
             return STATE_NOT_RUNNING
-        if self._player.get_state() != STATE_NOT_RUNNING:
-            return self._player.get_state()
-        return STATE_IDLE
+        if self._player.get_state() in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            return STATE_IDLE
+        return self._player.get_state()
 
 
     def get_size(self):
