@@ -3,10 +3,13 @@ import kaa.utils
 from player import MPlayer, _get_mplayer_info
 from kaa.popcorn.backends import register
 from kaa.popcorn.ptypes import *
+from config import config
 
 def get_capabilities():
     capabilities = [CAP_VIDEO, CAP_AUDIO, CAP_DVD, CAP_VARIABLE_SPEED]
-    mp_cmd = kaa.utils.which("mplayer")
+    mp_cmd = config.path
+    if not mp_cmd:
+        mp_cmd = kaa.utils.which("mplayer")
     info = _get_mplayer_info(mp_cmd)
     if not info:
         return None, None, None

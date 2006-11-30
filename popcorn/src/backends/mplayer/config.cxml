@@ -4,4 +4,7 @@
     <var name="activate" default="True">
         <desc lang="en">activate backend</desc>
     </var>
+    <var name="path" type="str">
+        <desc lang="en">Path to mplayer binary (if empty, search $PATH)</desc>
+    </var>
 </config>

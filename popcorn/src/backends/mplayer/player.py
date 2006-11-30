@@ -99,7 +99,6 @@ def _get_mplayer_info(path, callback = None, mtime = None):
             return None
 
     # At this point we're running in a thread.
-
     info = {
         "version": None,
         "mtime": mtime,
@@ -110,30 +109,45 @@ def _get_mplayer_info(path, callback = None, mtime = None):
         "keylist": []
     }
 
-    regexps = (
-        ("video_filters", "-vf help", "\s*(\w+)\s+:\s+(.*)"),
-        ("video_drivers", "-vo help", "\s*(\w+)\s+(.*)"),
-        ("audio_filters", "-af help", "\s*(\w+)\s+:\s+(.*)"),
-        ("audio_drivers", "-ao help", "\s*(\w+)\s+(.*)"),
-        ("keylist", "-input keylist", "^(\w+)$"),
-    )
+    groups = {
+        'video_filters': ('Available video filters', r'\s*(\w+)\s+:\s+(.*)'),
+        'video_drivers': ('Available video output', r'\s*(\w+)\s+(.*)'),
+        'audio_filters': ('Available audio filters', r'\s*(\w+)\s+:\s+(.*)'),
+        'audio_drivers': ('Available audio output', r'\s*(\w+)\s+(.*)')
+    }
+    curgroup = None
+    for line in os.popen('%s -vf help -af help -vo help -ao help' % path):
+        # Check version
+        if line.startswith("MPlayer "):
+            info['version'] = line.split()[1]
+        # Find current group.
+        for group, (header, regexp) in groups.items():
+            if line.startswith(header):
+                curgroup = group
+                break
+        if not curgroup:
+            continue
 
-    for key, args, regexp in regexps:
-        for line in os.popen("%s %s" % (path, args)):
-            # Check version
-            if line.startswith("MPlayer "):
-                info["version"] = line.split()[1]
+        # Check regexp
+        m = re.match(groups[curgroup][1], line.strip())
+        if not m:
+            continue
 
-            # Check regexp
-            m = re.match(regexp, line.strip())
-            if not m:
-                continue
+        if len(m.groups()) == 2:
+            info[curgroup][m.group(1)] = m.group(2)
+        else:
+            info[curgroup].append(m.group(1))
 
-            if len(m.groups()) == 2:
-                info[key][m.group(1)] = m.group(2)
-            else:
-                info[key].append(m.group(1))
+    # Another pass for key list.
+    for line in os.popen('%s -input keylist' % path):
+        # Check regexp
+        m = re.match(r'^(\w+)$', line.strip())
+        if not m:
+            continue
+        info['keylist'].append(m.group(1))
 
+
+    print len(info['video_filters'])
     _cache[path] = info
     return info
 
@@ -141,14 +155,13 @@ def _get_mplayer_info(path, callback = None, mtime = None):
 
 class MPlayer(MediaPlayer):
 
-    PATH = None
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
     RE_SWS = re.compile("^SwScaler: [0-9]+x[0-9]+ -> ([0-9]+)x([0-9]+)")
 
     def __init__(self):
         super(MPlayer, self).__init__()
         self._state = STATE_NOT_RUNNING
-        self._mp_cmd = MPlayer.PATH
+        self._mp_cmd = self._config.path
         if not self._mp_cmd:
             self._mp_cmd = kaa.utils.which("mplayer")
 
