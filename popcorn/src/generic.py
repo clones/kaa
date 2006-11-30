@@ -432,7 +432,7 @@ class Player(object):
         This function will return STATE_IDLE if the player is not running.
         """
         if not self._player:
-            return STATE_NOT_RUNNING
+            return STATE_IDLE
         if self._player.get_state() in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
             return STATE_IDLE
         return self._player.get_state()
