@@ -80,10 +80,8 @@ class Player(object):
         self._player = None
         self._size = (0,0)
         self._aspect = None
-        
-        if window:
-            self._size = window.get_size()
-        self._window = window
+        self.set_window(window)
+
         self._config = config
         
         self.signals = {
@@ -116,7 +114,16 @@ class Player(object):
         self._pending = []
         self._blocked = False
         self._failed_player = []
-        
+ 
+
+    def set_window(self, window):
+        if window:
+            self._size = window.get_size()
+        self._window = window
+        if self._player:
+            self._player.set_window(self._window)
+            self._player.set_size(self._size, self._aspect)
+
 
     def _get_player_class(self, player=None):
         """
@@ -149,6 +156,13 @@ class Player(object):
             # TODO: What happens if the user tries to open a new file
             # while we are trying to find a good player for the old
             # mrl?
+            # FIXME: if user calls open() and stop(), we ends up here but
+            # this isn't a failed player or broken state.
+            # FIXME: if user calls stop() on a playing video, then open(),
+            # then play(), we could end up here, because stop() does not affect
+            # state in xine backend until child acknowledges, but open()
+            # sets state to STATE_OPENING immediately.  So we go from 
+            # STATE_OPENING to STATE_IDLE.
             self._failed_player.append(self.get_player_id())
             # FIXME: why is this here? If we delete our pending functions
             # a 'play' after open may get missed. So let's see what happens
@@ -215,7 +229,7 @@ class Player(object):
         self._blocked = False
 
 
-    @required_states(STATE_NOT_RUNNING)
+    @required_states(STATE_NOT_RUNNING, STATE_SHUTDOWN)
     def _create_player(self, cls):
         """
         Create a player based on cls.
@@ -261,8 +275,7 @@ class Player(object):
         if not self._player:
             self._create_player(cls)
         else:
-            if not self.get_state() in \
-                   (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            if self.get_state() not in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
                 self._player.stop()
             if not isinstance(self._player, cls):
                 self._player.release()
@@ -593,7 +606,7 @@ class Player(object):
         """
         # TODO: ability to specify colorspace of frame.
         if self._player:
-            return self._player.set_frame_output_mode()
+            return self._player.set_frame_output_mode(vo, notify, size)
 
 
     def unlock_frame_buffer(self):

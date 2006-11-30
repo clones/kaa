@@ -122,25 +122,25 @@ def get_player_class(mrl = None, caps = None, exclude = None, force = None,
     choice = None
     for player_id, player in _players.items():
         if mrl != None and scheme not in player["schemes"]:
-            # mrl scheme not supported by this player
+            # MRL scheme is not supported by this player.
             continue
         if exclude and player_id in exclude:
+            # Player is in exclude list.
             continue
-        if caps != None:
-            if not sets.Set(caps).issubset(sets.Set(player["caps"])):
-                # Requested capabilities not present.
-                continue
-            if scheme == "dvd" and choice and \
-                   CAP_DVD_MENUS in choice["caps"] and \
-                   CAP_DVD_MENUS not in player["caps"]:
-                # If the mrl is dvd, make sure we prefer the player that
-                # supports CAP_DVD_MENUS
-                continue
-        if mrl and choice and ext in choice["extensions"] and \
-           ext not in player["extensions"]:
+        if caps != None and not sets.Set(caps).issubset(sets.Set(player["caps"])):
+            # Requested capabilities not present.
+            continue
+        if mrl and choice and ext in choice["extensions"] and ext not in player["extensions"]:
+            # Our current choice lists the mrl's extension while this choice 
+            # doesn't.
             continue
 
-        if player_id == preferred or not choice:
+        if scheme == 'dvd' and choice and CAP_DVD_MENUS in player["caps"] and \
+           CAP_DVD_MENUS not in choice["caps"]:
+            # If the mrl is dvd, make sure we prefer the player that supports
+            # CAP_DVD_MENUS
+            choice = player
+        elif player_id == preferred or not choice:
             choice = player
 
     if not choice:

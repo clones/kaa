@@ -183,7 +183,7 @@ class XinePlayerChild(Player):
         return self._osd_shmem.addr + 16, width * 4, self._frame_shmem.addr
 
 
-    def handle_xine_event(self, event):
+    def _handle_xine_event(self, event):
         """
         Received event from xine.
         """
@@ -201,16 +201,27 @@ class XinePlayerChild(Player):
         self.parent.xine_event(event.type, event.data)
 
 
+    def _wire_ao_driver(self, ao):
+        if self._stream:
+            self._stream.get_audio_source().wire(self._ao)
+        
+    
+    def _wire_vo_driver(self, vo):
+        if self._stream:
+            self._stream.get_video_source().wire(self._deint_post.get_default_input())
+
     # #############################################################################
     # Commands from parent process
     # #############################################################################
 
     def window_changed(self, wid, size, visible, exposed_regions):
-        self._x11_window_size = size
         if not self._vo:
             return
         # FIXME: what happens if this is no X11 window?
-        self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
+        if size is not None:
+            self._x11_window_size = size
+        if visible is not None:
+            self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
         self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
@@ -256,6 +267,8 @@ class XinePlayerChild(Player):
         if self._driver_control:
             self._driver_control("set_passthrough", False)
 
+        self._wire_vo_driver(self._vo)
+
 
     def configure_audio(self, driver):
         """
@@ -289,6 +302,8 @@ class XinePlayerChild(Player):
                 num = self.config.audio.channels
                 set('audio.output.speaker_arrangement', channels[num])
 
+        self._wire_ao_driver(self._ao)
+
 
     def configure_stream(self):
         """
@@ -296,7 +311,7 @@ class XinePlayerChild(Player):
         """
         self._stream = self._xine.new_stream(self._ao, self._vo)
         #self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, 10)
-        self._stream.signals["event"].connect_weak(self.handle_xine_event)
+        self._stream.signals["event"].connect_weak(self._handle_xine_event)
 
         # self._noise_post = self._xine.post_init("noise", video_targets = [self._vo])
         # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")

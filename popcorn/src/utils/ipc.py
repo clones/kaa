@@ -57,6 +57,7 @@ class ChildCommand(object):
         """
         Send command to child.
         """
+        log.debug('Send IPC to child: %s %s %s' % (self._cmd, args, kwargs))
         self._fd(repr((self._cmd, args, kwargs)) + "\n")
 
 
@@ -88,6 +89,7 @@ class ChildProcess(object):
             # ipc command from child
             command, args, kwargs = eval(line[5:])
             cmd = getattr(self._parent, "_child_" + command, None)
+            log.debug('Receive IPC from child: %s %s %s' % (command, args, kwargs))
             if cmd:
                 cmd(*args, **kwargs)
                 return True
@@ -181,6 +183,7 @@ class Player(object):
             line = self._stdin_data[:self._stdin_data.find('\n')]
             self._stdin_data = self._stdin_data[self._stdin_data.find('\n')+1:]
             command, args, kwargs = eval(line)
+            log.debug('Receive IPC from parent: %s %s %s' % (command, args, kwargs))
             reply = getattr(self, command)(*args, **kwargs)
 
 

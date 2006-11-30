@@ -211,10 +211,32 @@ class Xine(MediaPlayer):
             window.signals["map_event"].connect_weak(self._window_visibility_event)
             window.signals["unmap_event"].connect_weak(self._window_visibility_event)
             window.signals["expose_event"].connect_weak(self._window_expose_event)
+            if self._xine:
+                if old_window and window.get_display() == old_window.get_display():
+                    # New window on same display, no need to reconfigure the vo,
+                    # we can just point at the new window.
+                    self._xine.window_changed(window.get_id(), None, None, None)
+                elif self._xine_configured:
+                    # No previous window, must reconfigure vo.
+                    self._xine.configure_video(window.get_id(), self.get_aspect())
 
         # Sends a window_changed command to slave.
-        if window:
+        if window and self._xine:
             self._window_visibility_event()
+
+
+    def configure(self):
+        if self._xine_configured:
+            return
+
+        self._xine_configured = True
+        self._xine.set_config(self._config)
+        if self._window:
+            self._xine.configure_video(self._window.get_id(), self.get_aspect())
+        else:
+            self._xine.configure_video(None, None)
+        self._xine.configure_audio(self._config.audio.driver)
+        self._xine.configure_stream()
 
 
     #
@@ -232,18 +254,10 @@ class Xine(MediaPlayer):
         if not self._xine:
             self._child_spawn()
 
-        if not self._xine_configured:
-            self._xine_configured = True
-            self._xine.set_config(self._config)
-            if self._window:
-                self._xine.configure_video(self._window.get_id(), self.get_aspect())
-            else:
-                self._xine.configure_video(None, None)
-            self._xine.configure_audio(self._config.audio.driver)
-            self._xine.configure_stream()
+        self.configure()
         self._position = 0.0
         self._audio_delay = 0.0
-        log.debug('xine open')
+        log.debug('xine open %s' % self._mrl)
         self._xine.open(self._mrl)
         self._state = STATE_OPENING
 
@@ -406,6 +420,7 @@ class Xine(MediaPlayer):
         else:
             self._check_new_frame_timer.stop()
 
+        log.debug('Setting frame output: vo=%s notify=%s size=%s' % (vo, notify, size))
         self._xine.set_frame_output_mode(vo, notify, size)
 
 
