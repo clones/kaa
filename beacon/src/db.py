@@ -687,7 +687,7 @@ class Database(object):
             return create_file(c, media, isdir=True)
 
         if dirname == '/':
-            raise RuntimeError('media not found')
+            raise RuntimeError('media %s not found' % media)
 
         parent = self._get_dir(os.path.dirname(dirname), media)
         name = os.path.basename(dirname)
