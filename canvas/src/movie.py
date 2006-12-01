@@ -26,13 +26,14 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = ['PlayerOSDCanvas', 'Movie' ]
+__all__ = ['PlayerOSDCanvas', 'Movie', 'SEEK_RELATIVE', 'SEEK_ABSOLUTE', 'SEEK_PERCENTAGE' ]
 
 from displays.buffer import BufferCanvas
 from displays.x11 import X11Canvas
 from image import *
 import kaa.popcorn
 from kaa import notifier, display, evas, weakref
+from kaa.popcorn import SEEK_RELATIVE, SEEK_ABSOLUTE, SEEK_PERCENTAGE
 
 
 class PlayerOSDCanvas(BufferCanvas):
@@ -152,7 +153,7 @@ class Movie(Image):
             self.open(mrl)
 
     def open(self, mrl):
-        #self._player.stop()
+        self._player.stop()
         self._open(mrl)
         self._aspect = 0.0
 
@@ -351,21 +352,14 @@ class Movie(Image):
         if self._player:
             self._player.pause_toggle()
 
-    def seek_relative(self, offset):
+    def seek(self, value, type = SEEK_RELATIVE):
         if self._player:
-            self._player.seek_relative(offset)
-
-    def seek_absolute(self, position):
-        if self._player:
-            self._player.seek_absolute(position)
-
-    def seek_percentage(self, percent):
-        if self._player:
-            self._player.seek_percent(position)
+            self._player.seek(value, type)
 
     def get_position(self):
         if self._player:
             self._player.get_position()
+        return 0.0
 
     def get_info(self):
         if self._player:
