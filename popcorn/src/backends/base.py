@@ -50,7 +50,7 @@ class MediaPlayer(object):
 
     _instance_count = 0
 
-    def __init__(self):
+    def __init__(self, config):
         self.signals = {
             "elapsed": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
@@ -62,7 +62,7 @@ class MediaPlayer(object):
         self._window = None
         self._size = None
         self._aspect = None
-        self._config = None
+        self._config = config
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
         MediaPlayer._instance_count += 1
 
@@ -102,15 +102,6 @@ class MediaPlayer(object):
         if type(cap) not in (list, tuple):
             return cap in supported_caps
         return sets.Set(cap).issubset(sets.Set(supported_caps))
-
-
-    # config setting
-
-    def set_config(self, config):
-        """
-        Set config object.
-        """
-        self._config = config
 
 
     # state handling

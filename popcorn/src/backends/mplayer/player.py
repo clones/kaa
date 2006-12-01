@@ -147,7 +147,6 @@ def _get_mplayer_info(path, callback = None, mtime = None):
         info['keylist'].append(m.group(1))
 
 
-    print len(info['video_filters'])
     _cache[path] = info
     return info
 
@@ -158,10 +157,10 @@ class MPlayer(MediaPlayer):
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
     RE_SWS = re.compile("^SwScaler: [0-9]+x[0-9]+ -> ([0-9]+)x([0-9]+)")
 
-    def __init__(self):
-        super(MPlayer, self).__init__()
+    def __init__(self, config):
+        super(MPlayer, self).__init__(config)
         self._state = STATE_NOT_RUNNING
-        self._mp_cmd = self._config.path
+        self._mp_cmd = self._config.mplayer.path
         if not self._mp_cmd:
             self._mp_cmd = kaa.utils.which("mplayer")
 

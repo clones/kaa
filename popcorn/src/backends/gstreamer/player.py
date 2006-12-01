@@ -41,8 +41,8 @@ from kaa.popcorn.utils import ChildProcess
 
 class GStreamer(MediaPlayer):
 
-    def __init__(self):
-        super(GStreamer, self).__init__()
+    def __init__(self, config):
+        super(GStreamer, self).__init__(config)
         self._state = STATE_NOT_RUNNING
         self._gst = None
 

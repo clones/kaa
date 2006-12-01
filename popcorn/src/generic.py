@@ -227,7 +227,7 @@ class Player(object):
         """
         Create a player based on cls.
         """
-        self._player = cls()
+        self._player = cls(self._config)
         self._player._state_changed.connect_weak(self._state_change)
         for signal in self._player.signals:
             self._player.signals[signal].connect_weak(self.signals[signal].emit)
@@ -238,7 +238,6 @@ class Player(object):
         """
         The real open function called from 'open'.
         """
-        self._player.set_config(self._config)
         self._player.set_window(self._window)
         self._player.set_size(self._size, self._aspect)
         self._player.open(mrl)
