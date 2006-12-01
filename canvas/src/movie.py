@@ -244,7 +244,18 @@ class Movie(Image):
                 self._window.lower_window()
             self._player.set_frame_output_mode(vo = False)
 
- 
+
+    def _compute_size(self, size, child_asking, extents = None):
+        # Intercept computed size and round to nearest multiple of 2.
+        fsize = self.get_image_size()
+        osize = super(Movie, self)._compute_size(size, child_asking, extents)
+        osize = osize[0] & ~1, osize[1] & ~1
+        # If the frame size is within a tolerance of 4 pixels in both 
+        # dimensions from the computed size, just reuse the frame size.
+        if abs(osize[0] - fsize[0]) <= 4 and abs(osize[1] - fsize[1]) <= 4:
+            return fsize
+        return osize
+
 
     def _set_frame_output_size(self):
         info = self._player.get_info()
@@ -259,10 +270,6 @@ class Movie(Image):
         # Have the player scale the video if the area is smaller.
         if w * h >= frame_w * frame_h:
             w, h = frame_w, frame_h
-        w = w & ~1
-        h = h & ~1
-        #w = max(320, w & ~1)
-        #h = max(200, h & ~1)
         self._player.set_frame_output_mode(size = (w, h))
 
 
@@ -308,7 +315,6 @@ class Movie(Image):
         # If we receive more than 5 frames of a certain size, ask the player
         # to do the scaling for us (to width multiples of 2)
         d_width, d_height = self._get_computed_size()
-        d_width, d_height = d_width & ~1, d_height & ~1
         info = self._player.get_info()
         frame_w, frame_h = info["width"], info["height"]
         if (d_width, d_height) != (width, height) and d_width*d_height < frame_w*frame_h:# and \
