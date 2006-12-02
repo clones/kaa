@@ -143,6 +143,8 @@ if get_library('X11'):
             x11.libraries.append("GL")
     if not features:
         features = [ 'yes' ]
+        get_library('X11').libraries.append('X11')
+        x11.add_library('X11')
     else:
         print "+ X11 (%s)" % ', '.join(features)
     modules.append(x11)
