@@ -75,7 +75,7 @@ class MonitorList(dict):
     def remove(self, dirname, recursive=False):
         if recursive:
             for d in self.keys()[:]:
-                if s.startswith(dirname):
+                if d.startswith(dirname):
                     self.remove(d)
             return
         if self.pop(dirname):
@@ -251,6 +251,9 @@ class Crawler(object):
             if item._beacon_isdir:
                 # It is a directory. Just do a full directory rescan.
                 self._scan_add(item, recursive=False)
+                if name.lower().endswith('/video_ts'):
+                    # it could be a dvd on hd
+                    self._scan_add(item._beacon_parent, recursive=False)
                 return True
 
             # handle bursts of inotify events when a file is growing very
@@ -423,6 +426,14 @@ class Crawler(object):
         """
         log.info('scan directory %s', directory.filename)
 
+        if directory._beacon_parent and \
+               not directory._beacon_parent._beacon_isdir:
+            log.warning('parent of %s is no directory item', directory)
+            if hasattr(directory, 'filename') and \
+                   directory.filename + '/' in self.monitoring:
+                self.monitoring.remove(directory.filename + '/', recursive=True)
+            yield []
+            
         # parse directory
         if parse(self.db, directory, check_image=self._startup):
             yield kaa.notifier.YieldContinue

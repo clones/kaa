@@ -215,6 +215,7 @@ class Item(object):
         """
         Callback from db with new data
         """
+        self._beacon_isdir = (data['type'] == 'dir')
         self._beacon_data = dict(data)
         self._beacon_id = (data['type'], data['id'])
         for key, value in self._beacon_changes.items():
@@ -293,6 +294,7 @@ class ParentIterator(object):
 
 
 def create_item(data, parent):
+    data = dict(data)
     if 'url' in data:
         url = data['url']
     else:

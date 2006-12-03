@@ -144,7 +144,11 @@ def parse(db, item, store=False, check_image=False):
 
     attributes = { 'mtime': mtime, 'image': metadata.get('image') }
 
-    if db.object_types().has_key(metadata.get('media')):
+    if metadata.get('media') == 'disc' and \
+           db.object_types().has_key(metadata.get('subtype')):
+        type = metadata['subtype']
+        item._beacon_isdir = False
+    elif db.object_types().has_key(metadata.get('media')):
         type = metadata['media']
     elif item._beacon_isdir:
         type = 'dir'
@@ -235,15 +239,19 @@ def parse(db, item, store=False, check_image=False):
     # to the db.
     attributes['metadata'] = metadata
 
-    # TODO: do some more stuff here:
-    # - add subitems like dvd tracks for dvd images on hd
-
     # now call extention plugins
     ext = os.path.splitext(item.filename)[1]
     if ext in extention_plugins:
         for function in extention_plugins[ext]:
             function(item, attributes)
 
+    if item._beacon_id and item._beacon_id[0] != type:
+        # the type changed, we need to delete the old entry
+        log.warning('change %s to %s for %s', item._beacon_id, type, item)
+        db.delete_object(item._beacon_id)
+        item._beacon_id = None
+        db.commit()
+        
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
@@ -261,6 +269,27 @@ def parse(db, item, store=False, check_image=False):
                       callback=item._beacon_database_update,
                       media=item._beacon_media._beacon_id[1],
                       **attributes)
+
+    if hasattr(metadata, 'tracks'):
+        # The item has tracks, e.g. a dvd image on hd. Sync with the database
+        # now and add the tracks.
+        db.commit()
+        if not metadata.get('type'):
+            log.error('%s metadata has no type', item)
+            return produced_load
+        if not 'track_%s' % metadata.get('type').lower() in \
+           db.object_types().keys():
+            log.error('track_%s not in database keys', metadata.get('type').lower())
+            return produced_load
+        type = 'track_%s' % metadata.get('type').lower()
+        for track in metadata.tracks:
+            db.add_object(type, name=str(track.trackno),
+                               parent=item._beacon_id,
+                               media=item._beacon_media._beacon_id[1],
+                               mtime=0,
+                               metadata=track)
+        db.commit()
+        
     if store:
         db.commit()
 

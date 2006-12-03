@@ -353,10 +353,8 @@ class Database(object):
             e = self._db.query(parent=parent._beacon_id, name=basename)
             if e:
                 # entry is in the db
-                basename = e[0]
-        if os.path.isdir(filename):
-            return create_file(basename, parent, isdir=True)
-        return create_file(basename, parent)
+                return create_file(e[0], parent, isdir=e[0]['type'] == 'dir')
+        return create_file(basename, parent, isdir=os.path.isdir(filename))
 
 
     @kaa.notifier.yield_execution()
