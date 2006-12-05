@@ -162,8 +162,6 @@ class MediaPlayer(object):
         """
         Set a window for the player.
         """
-        if not self.has_capability(CAP_VIDEO):
-            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._window = window
 
 
@@ -185,8 +183,6 @@ class MediaPlayer(object):
         """
         Set a new output size.
         """
-        if not self.has_capability(CAP_VIDEO):
-            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._size = size
         self._aspect = aspect
         if not aspect and size and size[0] and size[1]:
@@ -197,8 +193,6 @@ class MediaPlayer(object):
         """
         Get output size.
         """
-        if not self.has_capability(CAP_VIDEO):
-            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         return self._size
 
 
@@ -206,8 +200,6 @@ class MediaPlayer(object):
         """
         Set special output aspect ratio.
         """
-        if not self.has_capability(CAP_VIDEO):
-            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         self._aspect = aspect
 
 
@@ -215,8 +207,6 @@ class MediaPlayer(object):
         """
         Get output aspect ratio.
         """
-        if not self.has_capability(CAP_VIDEO):
-            raise PlayerCapError, "Player doesn't have CAP_VIDEO"
         return self._aspect
 
 

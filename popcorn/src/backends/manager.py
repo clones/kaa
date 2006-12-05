@@ -75,25 +75,28 @@ def get_player_class(mrl = None, caps = None, exclude = None, force = None,
     """
 
     # Ensure all players have their capabilities fetched.
-    for player_id in _players.copy():
+    for player_id in _players:
         if _players[player_id]["loaded"]:
             continue
 
-        player_caps, schemes, exts = _players[player_id]["callback"]()
-        if player_caps != None:
-            _players[player_id].update({
-                "caps": player_caps,
-                "schemes": schemes,
-                # Prefer this player for these extensions.  (It's not a list of
-                # all supported extensions.)
-                "extensions": exts,
-                "loaded": True,
-            })
-            cls = _players[player_id]['class']
-            cls._player_caps = player_caps
-            cls._player_schemes = schemes
-        else:
-            del _players[player_id]
+        player_caps, schemes, exts, codecs = _players[player_id]["callback"]()
+
+        # FIXME: fix the usage of player_caps everywhere to acceped a
+        # dict with capabilities and the rating
+        player_caps = [ x for x in player_caps.keys() if x ]
+        
+        _players[player_id].update({
+            "caps": player_caps,
+            "schemes": schemes,
+            # Prefer this player for these extensions.
+            "extensions": exts,
+            # Prefer this player for these codecs.
+            "codecs": codecs,
+            "loaded": True,
+        })
+        cls = _players[player_id]['class']
+        cls._player_caps = player_caps
+        cls._player_schemes = schemes
 
 
     if force == mrl == caps == None:
