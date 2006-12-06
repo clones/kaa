@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<config>
+    <desc lang="en">
+        Zap2It settings
+
+        FIXME: more documentation here.
+    </desc>
+    <var name="activate" default="False">
+        <desc lang="en">Use Zap2It service to populate database.</desc>
+    </var>
+    <var name="username" type="str" />
+    <var name="password" type="str" />
+</config>

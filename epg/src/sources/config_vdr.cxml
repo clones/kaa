@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<config>
+    <desc lang="en">
+        VDR settings
+
+        FIXME: more documentation here.
+    </desc>
+    <var name="activate" default="False">
+        <desc lang="en">Use VDR to populate database.</desc>
+    </var>
+    <var name="dir" default="/video">
+        <desc lang="en">VDR main directory.</desc>
+    </var>
+    <var name="channels_file" default="channels.conf">
+        <desc lang="en">VDR channels file name.</desc>
+    </var>
+    <var name="epg_file" default="epg.data">
+        <desc lang="en">VDR EPG file name.</desc>
+    </var>
+    <var name="host" default="localhost">
+        <desc lang="en">VDR SVDPR host.</desc>
+    </var>
+    <var name="port" default="2001">
+        <desc lang="en">VDR SVDPR port.</desc>
+    </var>
+    <var name="access_by" default="sid">
+        <desc lang="en">
+            Which field to access channels by: name, sid (service id), or rid (radio id).
+        </desc>
+        <values>
+            <value>name</value>
+            <value>rid</value>
+            <value>sid</value>
+        </values>
+    </var>
+    <var name="limit_channels" default="chan">
+        <desc lang="en">
+            Limit channels added to those found in the EPG file, the channels file, or 
+            both.  Values: epg, chan, both
+        </desc>
+        <values>
+            <value>epg</value>
+            <value>chan</value>
+            <value>both</value>
+        </values>
+    </var>
+</config>

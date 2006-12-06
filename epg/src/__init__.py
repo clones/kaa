@@ -37,11 +37,12 @@ import logging
 from kaa.db import QExpr
 
 # kaa.epg imports
+from config import config
 from channel import Channel
 from program import Program
 from client import Client, DISCONNECTED, CONNECTING, CONNECTED
 from server import Server
-from source import sources
+from sources import *
 
 # kaa.epg import for internal use
 from util import cmp_channel

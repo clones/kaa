@@ -41,51 +41,10 @@ from kaa import xml, TEMP
 from kaa.config import Var, Group
 from kaa.notifier import Timer, Thread
 
+from config_xmltv import config
+
 # get logging object
 log = logging.getLogger('xmltv')
-
-# configuration
-config = \
-       Group(name='xmltv', desc='''
-       XMLTV settings
-
-       You can use a xmltv rabber to populate the epg database. To activate the xmltv
-       grabber you need to set 'activate' to True and specify a data_file which already
-       contains the current listing or define a grabber to fetch the listings.
-       Optionally you can define arguments for that grabber and the location of a
-       sort program to sort the data after the grabber has finished.
-       ''',
-             desc_type='group',
-             schema = [
-
-    Var(name='activate',
-        default=False,
-        desc='Use XMLTV file to populate database.'
-       ),
-
-    Var(name='data_file',
-        default='',
-        desc='Location of XMLTV data file.'
-       ),
-
-    Var(name='grabber',
-        default='',
-        desc='If you want to run an XMLTV grabber to fetch your listings\n' +\
-        'set this to the full path of your grabber program plus any\n' +\
-        'additional arguments.'
-       ),
-
-    Var(name='days',
-        default=5,
-        desc='How many days of XMLTV data you want to fetch.'
-       ),
-
-    Var(name='sort',
-        default='',
-        desc='Set this to the path of the tv_sort program if you need to\n'
-        'sort your listings.'
-       ),
-    ])
 
 
 def timestr2secs_utc(timestr):

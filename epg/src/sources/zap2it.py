@@ -42,39 +42,13 @@ import libxml2
 # kaa imports
 import kaa
 from kaa.strutils import str_to_unicode
-from kaa.config import Var, Group
+from config_zap2it import config
 
 # get logging object
 log = logging.getLogger('epg')
 
 ZAP2IT_HOST = "datadirect.webservices.zap2it.com:80"
 ZAP2IT_URI = "/tvlistings/xtvdService"
-
-# Source configuration
-config = \
-       Group(name='zap2it', desc='''
-       Zap2it settings
-
-       Add more doc here please!
-       ''',
-             desc_type='group',
-             schema = [
-
-    Var(name='activate',
-        default=False,
-        desc='Use Zap2it service to populate database.'
-       ),
-
-    Var(name='username',
-        default='',
-        desc='Zap2it username.'
-       ),
-
-    Var(name='password',
-        default='',
-        desc='Zap2it password.'
-       ),
-    ])
 
 def H(m):
     return md5.md5(m).hexdigest()

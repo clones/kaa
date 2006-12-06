@@ -40,7 +40,7 @@ import kaa.rpc
 from kaa.notifier import Signal
 
 # kaa.epg imports
-from source import sources
+from sources import *
 
 # get logging object
 log = logging.getLogger('epg')

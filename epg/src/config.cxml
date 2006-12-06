@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<config>
+    <code>
+        from sources import *
+
+        for name, source in sources.items():
+            config.add_variable(name, source.config)
+    </code>
+</config>
+
