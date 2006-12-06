@@ -470,7 +470,21 @@ class MPlayer(MediaPlayer):
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
+        if 0:
+            # Some test code to keep aspect when not using a sws. Mplayer
+            # always uses the full window, so we need to expand the video
+            # to match the window size aspect
+            win_w, win_h = self._size
+            vid_w = self._streaminfo.get('width')
+            vid_h = self._streaminfo.get('height')
+
+            a = float(win_h * vid_w) / (vid_h * win_w)
+            filters += [ "expand=%d:%d" % (vid_w, int(win_h * a)) ]
+
+
         if self._window:
+            # FIXME: check these calculations. What happens when
+            # monitoraspect is added?
             scale =  self._scale(self._streaminfo.get('width'),
                                  self._streaminfo.get('height'),
                                  self._streaminfo.get('aspect'),
