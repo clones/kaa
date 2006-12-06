@@ -18,13 +18,17 @@
         <var name="deinterlace" default="6"/>
     </group>
     <group name="preferred">
-        <var name="extentions" type="str">
+
+        <!-- TODO: find a good default value -->
+        <var name="extentions" default="nuv,rmvb">
             <desc>
                 Comma seperated list of extentions for which this player should
                 be the preferred player.
             </desc>
         </var>
-        <var name="codecs" type="str">
+
+        <!-- TODO: find a good default value -->
+        <var name="codecs" default="AVC1">
             <desc>
                 Comma seperated list of video or audio codecs fourcc codes for
                 which this player should be the preferred player. Use mminfo
