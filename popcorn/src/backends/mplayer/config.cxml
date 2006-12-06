@@ -7,4 +7,29 @@
     <var name="path" type="str">
         <desc lang="en">Path to mplayer binary (if empty, search $PATH)</desc>
     </var>
+    <group name="capability">
+        <desc>
+            Capability rating of the player. The possible values are between
+            0 (unable to play) up to 10 (perfect). Do not change this unless
+            you know what you are doing.
+        </desc>
+        <var name="dvd" default="8"/>
+        <var name="dvdmenu" default="2"/>
+        <var name="deinterlace" default="6"/>
+    </group>
+    <group name="preferred">
+        <var name="extentions" type="str">
+            <desc>
+                Comma seperated list of extentions for which this player should
+                be the preferred player.
+            </desc>
+        </var>
+        <var name="codecs" type="str">
+            <desc>
+                Comma seperated list of video or audio codecs fourcc codes for
+                which this player should be the preferred player. Use mminfo
+                on a file to get to the needed fourcc code.
+            </desc>
+        </var>
+    </group>
 </config>
