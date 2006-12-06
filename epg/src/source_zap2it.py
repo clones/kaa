@@ -28,11 +28,13 @@
 # -----------------------------------------------------------------------------
 
 # python imports
+import os
 import md5
 import time
 import httplib
 import gzip
 import calendar
+import logging
 from StringIO import StringIO
 
 import libxml2
@@ -42,6 +44,8 @@ import kaa
 from kaa.strutils import str_to_unicode
 from kaa.config import Var, Group
 
+# get logging object
+log = logging.getLogger('epg')
 
 ZAP2IT_HOST = "datadirect.webservices.zap2it.com:80"
 ZAP2IT_URI = "/tvlistings/xtvdService"
@@ -121,6 +125,7 @@ def get_auth_digest_response_header(username, passwd, uri, auth):
 
 
 def request(username, passwd, host, uri, start, stop, auth = None):
+    t0 = time.time()
     conn = httplib.HTTPConnection(host)
     start_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start))
     stop_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(stop))
@@ -137,36 +142,38 @@ def request(username, passwd, host, uri, start, stop, auth = None):
     if auth:
         headers["Authorization"] = auth
     else:
-        # FIXME: find a better way to convey this.
-        print "Connecting to zap2it ..."
+        log.info('Connecting to zap2it server')
 
     conn.request("POST", uri, None, headers)
     conn.send(soap_request)
     response = conn.getresponse()
     if response.status == 401 and auth:
         # Failed authentication.
-        raise ValueError, "zap2it authentication failed; bad username or password?"
+        log.error('zap2it authentication failed; bad username or password?')
+        return
 
     if not auth and response.getheader("www-authenticate"):
         header = response.getheader("www-authenticate")
         auth  = get_auth_digest_response_header(username, passwd, uri, header)
         return request(username, passwd, host, uri, start, stop, auth)
 
-    print "Downloading guide update ..."
-    data = response.read()
+    log.info('Connected in %.02f seconds; downloading guide update.' % (time.time() - t0))
 
-    dfile = open("/tmp/zapdebug", "w+")
-    dfile.write(data)
+    t0 = time.time()
+    fname = '/tmp/zap2it.xml.gz'
+    dfile = open(fname, 'w+')
+    # Read data in 50KB chunks.
+    while True:
+        data = response.read(50*1024)
+        if not data:
+            break
+        dfile.write(data)
     dfile.close()
 
-    data = gzip.GzipFile(fileobj = StringIO(data)).read()
-
-    xfile = open("/tmp/guide.xml", "w")
-    xfile.write(data)
-    xfile.close()
-
     conn.close()
-    return data
+    log.info('Downloaded %dKB in %.02f seconds.' % \
+             (os.path.getsize(fname) / 1024.0, time.time() - t0))
+    return fname
 
 
 def iternode(node):
@@ -253,8 +260,10 @@ class UpdateInfo:
     pass
 
 def _update_parse_xml_thread(epg, username, passwd, start, stop):
-    data = request(username, passwd, ZAP2IT_HOST, ZAP2IT_URI, start, stop)
-    doc = libxml2.parseMemory(data, len(data))
+    filename = request(username, passwd, ZAP2IT_HOST, ZAP2IT_URI, start, stop)
+    if not filename:
+        return
+    doc = libxml2.parseFile(filename)
 
     stations_by_id = {}
     roots = {}
@@ -275,6 +284,7 @@ def _update_parse_xml_thread(epg, username, passwd, start, stop):
     info.stations_by_id = stations_by_id
     info.epg = epg
     info.progress_step = info.total / 100
+    info.t0 = time.time()
 
     timer = kaa.notifier.Timer(_update_process_step, info)
     timer.start(0)
@@ -295,8 +305,10 @@ def _update_process_step(info):
             break
 
     if not info.node and not info.roots:
+        os.unlink(info.doc.name)
         info.doc.freeDoc()
         info.epg.guide_changed()
+        log.info('Processed %d programs in %.02f seconds' % (info.epg._num_programs, time.time() - info.t0))
         return False
 
     return True

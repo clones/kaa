@@ -230,7 +230,7 @@ class Server(object):
                         self._tuner_ids.append(t)
 
             # TODO: if everything is the same do not update
-            log.info('update channel %s', name)
+            log.debug('update channel %s', name)
             self._db.update_object(("channel", c2["id"]),
                                    tuner_id = c2["tuner_id"],
                                    long_name = long_name)
@@ -244,7 +244,7 @@ class Server(object):
             else:
                 self._tuner_ids.append(t)
 
-        log.info('add channel %s %s %s', tuner_id, name, long_name)
+        log.debug('add channel %s %s %s', tuner_id, name, long_name)
         o = self._db.add_object("channel", tuner_id = tuner_id, name = name,
                                 long_name = long_name)
         return o["id"]
@@ -289,7 +289,7 @@ class Server(object):
             removed.append(r['id'])
 
         # Now add the new program
-        log.info('adding program: %s', title)
+        log.debug('adding program: %s', title)
         o = self._db.add_object("program", parent = ("channel", channel_db_id),
                                 start = start, stop = stop, title = title,
                                 **attributes)
