@@ -80,30 +80,6 @@ class MediaPlayer(object):
         self._frame_shmem = None
         
 
-    def get_capabilities(self):
-        """
-        Return player capabilities.
-        """
-        return self._player_caps        # filled by generic
-
-
-    def get_supported_schemes(self):
-        """
-        Return supported schemes.
-        """
-        return self._player_schemes     # filled by generic
-
-
-    def has_capability(self, cap):
-        """
-        Return if the player has the given capability.
-        """
-        supported_caps = self.get_capabilities()
-        if type(cap) not in (list, tuple):
-            return cap in supported_caps
-        return sets.Set(cap).issubset(sets.Set(supported_caps))
-
-
     # state handling
 
     def get_state(self):

@@ -39,7 +39,7 @@ def get_capabilities():
     Return capabilities of the gstreamer backend.
     """
     capabilities = {
-        CAP_CANVAS : False,
+        CAP_OSD : False,
         CAP_CANVAS : False,
         CAP_DYNAMIC_FILTERS : False,
         CAP_VARIABLE_SPEED : False,
@@ -54,10 +54,10 @@ def get_capabilities():
                 "rtp", "smb", "mms", "pnm", "rtsp" ]
 
     # list of extentions when to prefer this player
-    exts = config.preferred.extentions.split(' ')
+    exts = config.preferred.extentions.split(',')
 
     # list of codecs when to prefer this player
-    codecs = config.preferred.codecs.split(' ')
+    codecs = config.preferred.codecs.split(',')
 
     return capabilities, schemes, exts, codecs
 

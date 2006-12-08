@@ -30,7 +30,7 @@
         </var>
 
         <!-- TODO: find a good default value -->
-        <var name="codecs" default="AVC1">
+        <var name="codecs" default="AVC1,FLV1">
             <desc>
                 Comma seperated list of video or audio codecs fourcc codes for
                 which this player should be the preferred player. Use mminfo

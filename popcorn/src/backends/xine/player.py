@@ -248,8 +248,7 @@ class Xine(MediaPlayer):
         Open mrl.
         """
         scheme, path = parse_mrl(mrl)
-        if scheme not in self.get_supported_schemes():
-            raise ValueError, "Unsupported mrl scheme '%s'" % scheme
+
         self._mrl = "%s:%s" % (scheme, path)
         if not self._xine:
             self._child_spawn()

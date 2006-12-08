@@ -37,6 +37,7 @@ import logging
 
 # kaa imports
 import kaa.notifier
+import kaa.metadata
 
 # kaa.popcorn imports
 import backends.manager
@@ -79,6 +80,7 @@ class Player(object):
     def __init__(self, window=None, config=default_config):
 
         self._player = None
+        self._media = ( None, None )
         self._size = (0,0)
         self._aspect = None
         self.set_window(window)
@@ -129,7 +131,7 @@ class Player(object):
     def _get_player_class(self, player=None):
         """
         Return player class object to play the current mrl. This function
-        uses self._open_mrl, self._open_caps as mrl and caps and respects
+        uses self._media, self._open_caps as mrl and caps and respects
         the failed player and the player deactived in the config. If player
         is given as argument, this player will be used.
         """
@@ -138,7 +140,7 @@ class Player(object):
             if not getattr(self._config, p).activate and not p in exclude:
                 exclude.append(p)
         return backends.manager.get_player_class(\
-            self._open_mrl, self._open_caps, exclude, player,
+            self._media, self._open_caps, exclude, player,
             self._config.preferred)
 
 
@@ -167,7 +169,7 @@ class Player(object):
             if cls:
                 # a new possible player is found, try it
                 self._create_player(cls)
-                self._open(self._open_mrl)
+                self._open()
                 self.play()
                 return True
             # everything failed
@@ -235,13 +237,14 @@ class Player(object):
             
     
     @required_states(STATE_NOT_RUNNING, STATE_IDLE)
-    def _open(self, mrl):
+    def _open(self):
         """
         The real open function called from 'open'.
         """
         self._player.set_window(self._window)
         self._player.set_size(self._size, self._aspect)
-        self._player.open(mrl)
+        # FIXME: maybe give the whole media object to the child
+        self._player.open(self._media[0])
         self.signals['open'].emit()
 
 
@@ -258,7 +261,8 @@ class Player(object):
 
         if mrl.find('://') == -1:
             mrl = 'file://' + os.path.abspath(mrl)
-        self._open_mrl = mrl
+
+        self._media = mrl, kaa.metadata.parse(mrl)
         self._open_caps = caps
         self._failed_player = []
         cls = self._get_player_class(player)
@@ -276,7 +280,7 @@ class Player(object):
             if not isinstance(self._player, cls):
                 self._player.release()
                 self._create_player(cls)
-        self._open(mrl)
+        self._open()
 
 
     @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
@@ -461,15 +465,6 @@ class Player(object):
         self._aspect = aspect
         if self._player:
             return self._player.set_aspect(aspect)
-
-
-    def has_capability(self, cap):
-        """
-        Return if the player has the given capability.
-        """
-        if self._player:
-            return self._player.has_capability(cap)
-        return False
 
 
     # For CAP_OSD

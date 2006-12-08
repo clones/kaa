@@ -30,6 +30,10 @@ __all__ = [ 'register', 'get_player_class', 'get_all_players' ]
 
 # python imports
 import os
+import logging
+
+# kaa imports
+import kaa.metadata
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
@@ -41,6 +45,8 @@ from base import MediaPlayer
 # internal list of players
 _players = {}
 
+# get logging object
+log = logging.getLogger('popcorn.manager')
 
 def register(player_id, cls, get_caps_callback):
     """
@@ -63,7 +69,7 @@ def register(player_id, cls, get_caps_callback):
     }
 
 
-def get_player_class(mrl = None, caps = None, exclude = None, force = None,
+def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
                      preferred = None):
     """
     Searches the registered players for the most capable player given the mrl
@@ -81,10 +87,6 @@ def get_player_class(mrl = None, caps = None, exclude = None, force = None,
 
         player_caps, schemes, exts, codecs = _players[player_id]["callback"]()
 
-        # FIXME: fix the usage of player_caps everywhere to acceped a
-        # dict with capabilities and the rating
-        player_caps = [ x for x in player_caps.keys() if x ]
-        
         _players[player_id].update({
             "caps": player_caps,
             "schemes": schemes,
@@ -94,62 +96,84 @@ def get_player_class(mrl = None, caps = None, exclude = None, force = None,
             "codecs": codecs,
             "loaded": True,
         })
-        cls = _players[player_id]['class']
-        cls._player_caps = player_caps
-        cls._player_schemes = schemes
 
-
-    if force == mrl == caps == None:
-        if preferred != None and preferred in _players:
-            return _players[preferred]["class"]
-            
-        # FIXME: return the best possible player. This requires a new
-        # register function with more information about how good a player
-        # is for playing a specific mrl.
-        return _players.values()[0]["class"]
 
     if force != None and force in _players:
-        return _players[force]["class"]
+        player = _players[force]
+        if scheme not in player["schemes"]:
+            return None
+        # return forced player, no matter if the other
+        # capabilities match or not
+        return player["class"]
 
-    if mrl != None:
-        scheme, path = parse_mrl(mrl)
-        ext = os.path.splitext(path)[1]
-        if ext:
-            ext = ext[1:]  # Eat leading '.'
+    scheme, path = parse_mrl(mrl)
+    ext = os.path.splitext(path)[1]
+    if ext:
+        ext = ext[1:]  # Eat leading '.'
 
     if caps != None and type(caps) not in (tuple, list):
         caps = (caps,)
     if exclude != None and type(exclude) not in (tuple, list):
         exclude  = (exclude,)
 
+    codecs = []
+    if metadata:
+        if metadata.media == kaa.metadata.MEDIA_AV:
+            codecs.extend( [ x.fourcc for x in metadata.video if x.fourcc ] )
+            codecs.extend( [ x.fourcc for x in metadata.audio if x.fourcc ] )
+        if 'fourcc' in metadata and metadata.fourcc:
+            codecs.append(metadata.fourcc)
+
     choice = None
+
     for player_id, player in _players.items():
-        if mrl != None and scheme not in player["schemes"]:
+        if scheme not in player["schemes"]:
             # MRL scheme is not supported by this player.
+            log.debug('skip %s, does not support %s', player_id, scheme)
             continue
+        
         if exclude and player_id in exclude:
             # Player is in exclude list.
-            continue
-        if caps != None and not sets.Set(caps).issubset(sets.Set(player["caps"])):
-            # Requested capabilities not present.
-            continue
-        if mrl and choice and ext in choice["extensions"] and ext not in player["extensions"]:
-            # Our current choice lists the mrl's extension while this choice 
-            # doesn't.
+            log.debug('skip %s, in exclude list', player_id)
             continue
 
-        if scheme == 'dvd' and choice and CAP_DVD_MENUS in player["caps"] and \
-           CAP_DVD_MENUS not in choice["caps"]:
-            # If the mrl is dvd, make sure we prefer the player that supports
-            # CAP_DVD_MENUS
-            choice = player
-        elif player_id == preferred or not choice:
-            choice = player
+        rating = 0
+        if caps:
+            # Rate player on the given capabilities. If one or more needed
+            # capabilities are False or 0, skip this player
+            for c in caps:
+                r = player['caps'].get(c, None)
+                if not r:
+                    log.debug("%s has no capability %s", player_id, c)
+                    rating = -1
+                    break
+                if not r == True:
+                    rating += r
 
-    if not choice:
-        return None
+            if rating == -1:
+                # bad player
+                continue
 
-    return choice["class"]
+        if ext and ext in player["extensions"]:
+            # player is good at this extension
+            rating += 3
+
+        for c in codecs:
+            if c in player["codecs"]:
+                # player is good at this extension
+                rating += 3
+            
+        if preferred == player_id:
+            rating += 2
+
+        log.debug('%s rating: %s', player_id, rating)
+        if not choice or choice[1] < rating:
+            choice = player, rating
+
+        if not choice:
+            return None
+
+    return choice[0]["class"]
 
 
 def get_all_players():

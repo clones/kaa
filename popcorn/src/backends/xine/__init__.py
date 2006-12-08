@@ -39,7 +39,7 @@ def get_capabilities():
     Return capabilities of the xine backend.
     """
     capabilities = {
-        CAP_CANVAS : True,
+        CAP_OSD : True,
         CAP_CANVAS : True,
         CAP_DYNAMIC_FILTERS : False,
         CAP_VARIABLE_SPEED : True,
@@ -60,10 +60,10 @@ def get_capabilities():
     codecs = []
 
     # list of extentions when to prefer this player
-    exts = config.preferred.extentions.split(' ')
+    exts = config.preferred.extentions.split(',')
 
     # list of codecs when to prefer this player
-    codecs = config.preferred.codecs.split(' ')
+    codecs = config.preferred.codecs.split(',')
 
     return capabilities, schemes, exts, codecs
 

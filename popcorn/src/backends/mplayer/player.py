@@ -344,11 +344,7 @@ class MPlayer(MediaPlayer):
             print 'Error: not idle'
             return False
 
-        schemes = self.get_supported_schemes()
         scheme, path = parse_mrl(mrl)
-
-        if scheme not in schemes:
-            raise ValueError, "Unsupported mrl scheme '%s'" % scheme
 
         self._file_args = []
         if scheme in ("file", "fifo"):

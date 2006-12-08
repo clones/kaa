@@ -71,10 +71,10 @@ def get_capabilities():
                 "rtp", "rtsp", "ftp", "udp", "sdp", "dvd", "fifo" ]
 
     # list of extentions when to prefer this player
-    exts = config.preferred.extentions.split(' ')
+    exts = config.preferred.extentions.split(',')
 
     # list of codecs when to prefer this player
-    codecs = config.preferred.codecs.split(' ')
+    codecs = config.preferred.codecs.split(',')
 
     return capabilities, schemes, exts, codecs
 
