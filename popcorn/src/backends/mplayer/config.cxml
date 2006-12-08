@@ -7,6 +7,7 @@
     <var name="path" type="str">
         <desc lang="en">Path to mplayer binary (if empty, search $PATH)</desc>
     </var>
+
     <group name="capability">
         <desc>
             Capability rating of the player. The possible values are between
@@ -17,6 +18,7 @@
         <var name="dvdmenu" default="2"/>
         <var name="deinterlace" default="6"/>
     </group>
+
     <group name="preferred">
 
         <!-- TODO: find a good default value -->

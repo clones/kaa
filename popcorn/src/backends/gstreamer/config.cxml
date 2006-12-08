@@ -4,4 +4,35 @@
     <var name="activate" default="False">
         <desc lang="en">activate backend</desc>
     </var>
+
+    <group name="capability">
+        <desc>
+            Capability rating of the player. The possible values are between
+            0 (unable to play) up to 10 (perfect). Do not change this unless
+            you know what you are doing.
+        </desc>
+        <var name="dvd" default="0"/>
+        <var name="dvdmenu" default="0"/>
+        <var name="deinterlace" default="0"/>
+    </group>
+
+    <group name="preferred">
+
+        <!-- TODO: find a good default value -->
+        <var name="extentions" type="str">
+            <desc>
+                Comma seperated list of extentions for which this player should
+                be the preferred player.
+            </desc>
+        </var>
+
+        <!-- TODO: find a good default value -->
+        <var name="codecs" type="str">
+            <desc>
+                Comma seperated list of video or audio codecs fourcc codes for
+                which this player should be the preferred player. Use mminfo
+                on a file to get to the needed fourcc code.
+            </desc>
+        </var>
+    </group>
 </config>
