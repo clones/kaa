@@ -186,6 +186,23 @@ class MediaPlayer(object):
         return self._aspect
 
 
+    def get_capabilities(self):
+        """
+        Return player capabilities.
+        """
+        return self._player_caps
+
+
+    def has_capability(self, cap):
+        """
+        Return if the player has the given capability.
+        """
+        supported_caps = self.get_capabilities()
+        if type(cap) not in (list, tuple):
+            return cap in supported_caps
+        return sets.Set(cap).issubset(sets.Set(supported_caps))
+
+
     #
     # Methods to be implemented by subclasses.
     #

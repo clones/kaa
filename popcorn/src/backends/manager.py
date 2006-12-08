@@ -97,6 +97,9 @@ def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
             "loaded": True,
         })
 
+        cls = _players[player_id]['class']
+        # Note: cls._player_caps are without the rating!
+        cls._player_caps = [ x for x in player_caps.keys() if x ]
 
     if force != None and force in _players:
         player = _players[force]
