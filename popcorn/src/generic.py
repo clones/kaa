@@ -32,6 +32,7 @@
 all = [ 'Player' ]
 
 # python imports
+import os
 import logging
 
 # kaa imports
@@ -254,12 +255,14 @@ class Player(object):
         """
         if kaa.notifier.shutting_down:
             return False
-        
+
+        if mrl.find('://') == -1:
+            mrl = 'file://' + os.path.abspath(mrl)
         self._open_mrl = mrl
         self._open_caps = caps
         self._failed_player = []
         cls = self._get_player_class(player)
-        
+
         if not cls:
             raise PlayerError("No supported player found to play %s", mrl)
 

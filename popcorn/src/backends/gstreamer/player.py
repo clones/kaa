@@ -58,8 +58,6 @@ class GStreamer(MediaPlayer):
         """
         Open mrl.
         """
-        if mrl.find('://') == -1:
-            mrl = 'file://' + mrl
         self._mrl = mrl
         if not self._gst:
             script = os.path.join(os.path.dirname(__file__), 'main.py')
