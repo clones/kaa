@@ -58,6 +58,7 @@ class Screen(object):
         self._send = lcd
         self.width, self.height, self.size = lcd.width, lcd.height, lcd.size
         self.name = name
+        self._priority = priority
         self._send = lcd._send
         self._send('screen_add %s' % name)
         self._send('screen_set %s name %s' % (name, name))
@@ -66,6 +67,21 @@ class Screen(object):
         self.widgets = []
         self.nextid = 0
 
+
+    def get_priority(priority):
+        """
+        Get screen priority.
+        """
+        return self._priority
+        
+
+    def set_priority(self, priority):
+        """
+        Set screen priority.
+        """
+        self._send('screen_set %s -priority %s' % (self.name, priority))
+        self._priority = priority
+        
 
     def widget_add(self, type, *args):
         """
