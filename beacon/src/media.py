@@ -148,20 +148,19 @@ class MediaList(object):
             raise RuntimeError('not connected to database')
         if id in self._dict:
             return self._dict.get(id)
-        m = Media(id, self.db, self.controller, prop)
-        self._dict[id] = m
+        media = Media(id, self.db, self.controller, prop)
+        self._dict[id] = media
         self.idlist = [ m._beacon_id[1] for m in self._dict.values() ]
-        return m
+        return media
 
 
     def remove(self, id):
         if not id in self._dict:
             log.error('%s not in list' % id)
             return None
-        m = self._dict[id]
-        del self._dict[id]
+        media = self._dict.pop(id)
         self.idlist = [ m._beacon_id[1] for m in self._dict.values() ]
-        return m
+        return media
 
 
     def get(self, id):
