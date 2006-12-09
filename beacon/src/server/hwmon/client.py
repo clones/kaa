@@ -158,12 +158,11 @@ class Client(object):
                                      beacon_immediately=True)['id']
             self.db.commit(force=True)
             for track in metadata.tracks:
-                self.db.add_object('track_%s' % type, name=str(track.trackno),
-                                   parent=('video', vid),
-                                   media=mid,
-                                   mtime=0,
-                                   chapters=track.chapters, audio=track.audio,
-                                   subtitles=track.subtitles)
+                self.db.add_object('track_%s' % type, name='%02d' % track.trackno,
+                                   parent=('video', vid), media=mid,
+                                   mtime=0, chapters=track.chapters, length=track.length,
+                                   audio=[ x.convert() for x in track.audio ],
+                                   subtitles=[ x.convert() for x in track.subtitles ])
             self.db.commit()
         elif dev.get('volume.disc.has_audio') and metadata:
             # Audio CD

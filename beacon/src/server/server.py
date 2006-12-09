@@ -111,6 +111,7 @@ class Server(object):
         # tracks for rom discs or iso files
 
         self.register_track_type_attrs("dvd",
+            length = (int, ATTR_SIMPLE),
             audio = (list, ATTR_SIMPLE),
             chapters = (int, ATTR_SIMPLE),
             subtitles = (list, ATTR_SIMPLE))
