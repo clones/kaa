@@ -89,7 +89,8 @@ class Server(object):
             title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             width = (int, ATTR_SIMPLE),
             height = (int, ATTR_SIMPLE),
-            length = (int, ATTR_SIMPLE))
+            length = (int, ATTR_SIMPLE),
+            scheme = (int, ATTR_SIMPLE))
 
         self.register_file_type_attrs("audio",
             title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),

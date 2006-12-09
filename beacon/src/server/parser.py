@@ -120,7 +120,7 @@ def parse(db, item, store=False, check_image=False):
         # thumbnail is valid or not.
         if check_image and item._beacon_data.get('image'):
             image = item._beacon_data.get('image')
-            if os.path.isfile(image):
+            if os.path.exists(image):
                 t = thumbnail.Thumbnail(image, item._beacon_media)
                 if not t.get(thumbnail.LARGE, check_mtime=True):
                     log.info('create missing image %s for %s', image, item)
@@ -155,6 +155,8 @@ def parse(db, item, store=False, check_image=False):
     if metadata.get('media') == kaa.metadata.MEDIA_DISC and \
            db.object_types().has_key(metadata.get('subtype')):
         type = metadata['subtype']
+        if metadata.get('type'):
+            attributes['scheme'] = '%s://' % metadata.get('type').lower()
         item._beacon_isdir = False
     elif db.object_types().has_key(media_types.get(metadata.get('media'))):
         type = media_types.get(metadata['media'])
@@ -285,6 +287,9 @@ def parse(db, item, store=False, check_image=False):
         if not metadata.get('type'):
             log.error('%s metadata has no type', item)
             return produced_load
+        # delete all known tracks before adding new
+        for track in db.query(parent=item):
+            db.delete_object(track)
         if not 'track_%s' % metadata.get('type').lower() in \
            db.object_types().keys():
             log.error('track_%s not in database keys', metadata.get('type').lower())

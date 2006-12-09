@@ -304,5 +304,7 @@ def create_item(data, parent):
                 url = parent.url + data['name']
             else:
                 url = parent.url + '/' + data['name']
+        if data.get('scheme'):
+            url = data.get('scheme') + url[url.find('://')+3:]
     return Item((data['type'], data['id']), url, data, parent,
                 parent._beacon_media)

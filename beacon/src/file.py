@@ -93,6 +93,10 @@ class File(Item):
             raise ValueError('unable to create File item from %s', data)
 
         Item.__init__(self, id, 'file://' + filename, data, parent, media)
+        if self._beacon_data.get('scheme'):
+            self.url = self._beacon_data.get('scheme') + \
+                       self.url[self.url.find('://')+3:]
+        
         self._beacon_overlay = overlay
         self._beacon_isdir = isdir
         self._beacon_islink = False
@@ -209,6 +213,8 @@ class File(Item):
         Convert object to string (usefull for debugging)
         """
         str = '<beacon.File %s' % self.filename
+        if not self.url.startswith('file://'):
+            str = '<beacon.File %s' % self.url
         if self._beacon_data.get('mtime') == None:
             str += ' (new)'
         else:
