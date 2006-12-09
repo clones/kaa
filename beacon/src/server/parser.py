@@ -53,6 +53,14 @@ log = logging.getLogger('beacon.parser')
 # load extra plugins in the plugins subdirectory
 extention_plugins = {}
 
+media_types = {
+    kaa.metadata.MEDIA_AUDIO: 'audio',
+    kaa.metadata.MEDIA_VIDEO: 'video',
+    kaa.metadata.MEDIA_IMAGE: 'image',
+    kaa.metadata.MEDIA_AV: 'video',
+    kaa.metadata.MEDIA_DIRECTORY: 'dir'
+}
+
 def load_plugins(db):
     """
     Load external plugins. Called by server on creating. The db object
@@ -144,12 +152,12 @@ def parse(db, item, store=False, check_image=False):
 
     attributes = { 'mtime': mtime, 'image': metadata.get('image') }
 
-    if metadata.get('media') == 'disc' and \
+    if metadata.get('media') == kaa.metadata.MEDIA_DISC and \
            db.object_types().has_key(metadata.get('subtype')):
         type = metadata['subtype']
         item._beacon_isdir = False
-    elif db.object_types().has_key(metadata.get('media')):
-        type = metadata['media']
+    elif db.object_types().has_key(media_types.get(metadata.get('media'))):
+        type = media_types.get(metadata['media'])
     elif item._beacon_isdir:
         type = 'dir'
     else:
