@@ -225,6 +225,14 @@ class Server(object):
         return self._db.register_object_type_attrs('track_%s' % name, **kwargs)
 
 
+    @kaa.rpc.expose('db.media.delete')
+    def delete_media(self, id):
+        """
+        Delete media with the given id.
+        """
+        self._db.delete_media(id)
+
+        
     @kaa.rpc.expose('monitor.directory')
     def monitor_dir(self, directory):
         """

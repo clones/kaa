@@ -57,6 +57,8 @@ def usage(error_code):
     print '--monitor          do not exit after search and monitor for changes'
     print '--mount args       mount the query at a given mountpoint (requires FUSE)'
     print '--umount dirname   umounts a beacon fuse mountpoint'
+    print '--list-media       lists all known media'
+    print '--del-media media  delete given media from the database'
     print
     print 'Examples for client mode when a server is running:'
     print '  beacon --search dirname=/local/video'
@@ -70,7 +72,8 @@ def usage(error_code):
 
 try:
     # list of modes this script can start in
-    possible_modes = [ 'start', 'stop', 'search', 'info', 'mount', 'umount' ]
+    possible_modes = [ 'start', 'stop', 'search', 'info', 'mount', 'umount',
+                       'list-media', 'del-media']
 
     # read arguments
     opts = [ 'db=', 'fg', 'autoshutdown', 'logfile=', 'verbose=', 'help',
@@ -138,7 +141,7 @@ if mode == 'umount':
     os.system('fusermount -u %s' % mountpt)
     sys.exit(0)
     
-if mode in ("search", "info", "mount"):
+if mode in ("search", "info", "mount", "list-media", "del-media"):
     # client info/search mode
 
     try:
@@ -166,6 +169,23 @@ if mode == 'mount':
         print "Mount point %s is not a directory" % mountpt
         sys.exit(1)
 
+if mode == 'list-media':
+    for m in kaa.beacon.query(type='media', media='ignore').get():
+        print '%4d %s' % (m['id'], m['name'])
+    sys.exit(0)
+    
+if mode == 'del-media':
+    try:
+        media = int(args.pop(0))
+    except:
+        print 'media must be an int'
+        sys.exit(1)
+    if media == 0:
+        print 'media 0 can\'t be deleted'
+        sys.exit(1)
+    kaa.beacon.delete_media(media)
+    sys.exit(0)
+    
 if mode in ('search', 'mount'):
 
     def progress(cur, total, item):

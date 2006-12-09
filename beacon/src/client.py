@@ -141,6 +141,14 @@ class Client(object):
             self.rpc('db.register_track_type_attrs', name, **kwargs)
 
 
+    def delete_media(self, id):
+        """
+        Delete media with the given id.
+        """
+        if self.status != DISCONNECTED:
+            self.rpc('db.media.delete', id)
+
+        
     # -------------------------------------------------------------------------
     # Server connect / disconnect / reconnect handling
     # -------------------------------------------------------------------------

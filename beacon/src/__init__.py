@@ -157,3 +157,14 @@ def get_db_info():
     while not _client.status == CONNECTED:
         kaa.notifier.step()
     return _client.db.get_db_info()
+
+
+def delete_media(id):
+    """
+    Delete media with the given id.
+    """
+    if not _client:
+        connect()
+    while not _client.status == CONNECTED:
+        kaa.notifier.step()
+    return _client.delete_media(id)

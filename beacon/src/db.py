@@ -164,10 +164,7 @@ class Database(object):
         if 'attr' in query:
             return self._db_query_attr(query)
         if 'type' in query and query['type'] == 'media':
-            m = self._db.query(**query)
-            if m:
-                return m[0]
-            return None
+            return self._db.query(**query)
         return self._db_query_raw(query)
 
 
@@ -668,6 +665,18 @@ class Database(object):
         kaa.db.Database.get_db_info() for more details.
         """
         return self._db.get_db_info()
+
+
+    def delete_media(self, id):
+        """
+        Delete media with the given id.
+        """
+        log.info('delete media %s', id)
+        self.commit()
+        for child in self._db.query(media = id):
+            self._db.delete_object((str(child['type']), child['id']))
+        self._db.delete_object(('media', id))
+        self._db.commit()
 
 
     # -------------------------------------------------------------------------
