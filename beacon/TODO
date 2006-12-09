@@ -1,8 +1,7 @@
 1. Support DVD directories
 
    Right now it works a little bit. But if a dir is a DVD dump, there
-   is no inotify support in the VIDEO_TS subdir. The items itself also
-   use the file:// scheme which is not correct.
+   is no inotify support in the VIDEO_TS subdir.
 
 2. Update Monitor class
 
