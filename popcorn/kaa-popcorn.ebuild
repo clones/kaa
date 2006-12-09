@@ -19,7 +19,16 @@ DEPEND="${DEPEND}
 	dev-python/kaa-base
 	dev-python/kaa-metadata
 	dev-python/kaa-display
-	mplayer? >=media-video/mplayer-1.0_rc1
+	mplayer? (
+		>=media-video/mplayer-1.0_rc1
+		>=media-libs/gst-plugins-good-0.10.3
+		>=media-libs/gst-plugins-bad-0.10.3
+		>=media-libs/gst-plugins-ugly-0.10.3
+		>=media-plugins/gst-plugins-a52dec-0.10.3
+		>=media-plugins/gst-plugins-dvdread-0.10.4
+		>=media-plugins/gst-plugins-ffmpeg-0.10.1
+		>=media-plugins/gst-plugins-libvisual-0.10.4
+		)
 	gstreamer? >=dev-python/gst-python-0.10.1
 	xine? dev-python/kaa-xine
 	libvisual? >=media-libs/libvisual-0.2.0"
