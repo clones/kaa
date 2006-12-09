@@ -211,6 +211,8 @@ class File(Item):
         str = '<beacon.File %s' % self.filename
         if self._beacon_data.get('mtime') == None:
             str += ' (new)'
+        else:
+            str += ' (type=%s)' % self._beacon_data.get('type')
         return str + '>'
 
 
