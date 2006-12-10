@@ -210,6 +210,11 @@ class Crawler(object):
         if mask & INotify.MOVE and args and item._beacon_id:
             # Move information with source and destination
             move = self.db.query(filename=args[0])
+            if move._beacon_name.startswith('.'):
+                # move to hidden file, delete
+                log.info('inotify: move to hidden file, delete')
+                self._inotify_event(INotify.DELETE, name)
+                return True
             if move._beacon_id:
                 # New item already in the db, delete it first
                 log.info('inotify delete: %s', item)
@@ -226,13 +231,8 @@ class Crawler(object):
                     changes['image'] = move._beacon_data['name']
                 changes['name'] = move._beacon_data['name']
             if changes:
-                if move._beacon_name.startswith('.'):
-                    # move to hidden file, delete
-                    log.info('inotify: move to hidden file, delete')
-                    self.db.delete_object(item._beacon_id)
-                else:
-                    log.info('inotify: move: %s', changes)
-                    self.db.update_object(item._beacon_id, **changes)
+                log.info('inotify: move: %s', changes)
+                self.db.update_object(item._beacon_id, **changes)
             self.db.commit()
 
             # Now both directories need to be checked again
