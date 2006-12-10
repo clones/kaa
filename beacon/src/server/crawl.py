@@ -63,7 +63,7 @@ class MonitorList(dict):
 
     def add(self, dirname, use_inotify=True):
         if self._inotify and use_inotify:
-            log.info('add inotify for %s' % dirname)
+            log.debug('add inotify for %s' % dirname)
             try:
                 self._inotify.watch(dirname[:-1], WATCH_MASK)
                 self[dirname] = True
@@ -189,10 +189,18 @@ class Crawler(object):
             # it.
             return True
 
+        # some debugging to find a bug in beacon
+        log.info('inotify: event %s for "%s"', mask, name)
+        
         item = self.db.query(filename=name)
 
         if item._beacon_name.startswith('.'):
-            # hidden file, ignore
+            # hidden file, ignore except in move operations
+            if mask & INotify.MOVE and args:
+                # we moved from a hidden file to a good one. So handle
+                # this as a create for the new one.
+                log.info('inotify: handle move as create for %s', args[0])
+                self._inotify_event(INotify.CREATE, args[0])
             return True
 
         # ---------------------------------------------------------------------
@@ -212,13 +220,19 @@ class Crawler(object):
                 changes['parent'] = move._beacon_parent._beacon_id
             if item._beacon_data['name'] != move._beacon_data['name']:
                 # New name, set name to item
-                if move._beacon_data['image'] == move._beacon_data['name']:
+                move._beacon_data = dict(move._beacon_data)
+                if move._beacon_data.get('image') == move._beacon_data['name']:
                     # update image to new filename
                     changes['image'] = move._beacon_data['name']
                 changes['name'] = move._beacon_data['name']
             if changes:
-                log.info('move: %s', changes)
-                self.db.update_object(item._beacon_id, **changes)
+                if move._beacon_name.startswith('.'):
+                    # move to hidden file, delete
+                    log.info('inotify: move to hidden file, delete')
+                    self.db.delete_object(item._beacon_id)
+                else:
+                    log.info('inotify: move: %s', changes)
+                    self.db.update_object(item._beacon_id, **changes)
             self.db.commit()
 
             # Now both directories need to be checked again
@@ -291,7 +305,7 @@ class Crawler(object):
         if self.db.get_object(item._beacon_data['name'],
                               item._beacon_parent._beacon_id):
             # Still in the db, delete it
-            log.info('inotify delete: %s', item)
+            log.info('inotify: delete %s', item)
             self.db.delete_object(item, beacon_immediately=True)
 
         # remove directory and all subdirs from the inotify. The directory
@@ -426,6 +440,10 @@ class Crawler(object):
         """
         log.info('scan directory %s', directory.filename)
 
+        if not os.path.exists(directory.filename):
+            log.info('unable to scan %s', directory.filename)
+            yield []
+            
         if directory._beacon_parent and \
                not directory._beacon_parent._beacon_isdir:
             log.warning('parent of %s is no directory item', directory)
