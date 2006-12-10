@@ -259,7 +259,7 @@ new_evas_fb(PyObject *self, PyObject *args, PyObject *kwargs)
     evas_output_method_set(evas, evas_render_method_lookup("fb"));
     einfo = (Evas_Engine_Info_FB *)evas_engine_info_get(evas);
     if (!einfo) {
-        PyErr_Format(PyExc_SystemError, "Unable to initialize FB canvas");
+        PyErr_Format(PyExc_SystemError, "Evas is not built with FB support.");
         return NULL;
     }
 

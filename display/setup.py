@@ -47,7 +47,7 @@ config = ConfigFile('src/config.h')
 
 check_library('X11', ['<X11/Xlib.h>'], '')
 check_library('imlib2', '1.1.1')
-check_library('evas', '0.9.9.010')
+evas = check_library('evas', '0.9.9.010')
 check_library('directfb', '0.9.20')
 
 print 'checking for pygame', '...',
@@ -71,48 +71,6 @@ except ImportError, e:
     pygame = False
 
 
-evas_engines = []
-if get_library('evas'):
-    indent = re.compile("^", re.M)
-    out = "/tmp/a.out.%s" % os.getpid()
-    cmd = "cc -x c - `evas-config --libs --cflags` -o %s" % out
-    p = popen2.Popen4(cmd)
-    p.tochild.write('''
-        #include <Evas.h>
-        #include <stdio.h>
-
-        int main(int argc, char **argv) {
-            Evas_List *p = evas_render_method_list();
-            for (;p; p = p->next) printf("%s\\n", (char *)p->data);
-            return 0;
-        }
-    ''')
-    p.tochild.close()
-    output = p.fromchild.read()
-    if os.waitpid(p.pid, 0)[1] != 0:
-        output = indent.sub("\t", output)
-        print "! Failed to compile evas test program:\n", output
-    else:
-        p = popen2.Popen4(out)
-        output = p.fromchild.read()
-        if os.waitpid(p.pid, 0)[1] != 0:
-            output = indent.sub("\t", output)
-            print "! Failed to run evas test program:\n", output
-        else:
-            config.define("USE_EVAS")
-            for line in output.splitlines():
-                engine = line.strip()
-                config.define("ENABLE_ENGINE_%s" % engine.upper())
-                evas_engines.append(engine)
-                if engine == "gl_x11":
-                    # Determine if libGL.so is linked to evas (this is not
-                    # the case with recent evas); if not, we must link
-                    # explicitly to libGL.
-                    evas_gl_linked = os.system("ldd %s | grep -q libGL.so" % out) == 0
-
-        os.unlink(out)
-
-
 # extention modules
 modules = []
 
@@ -133,14 +91,15 @@ if get_library('X11'):
         config.define('USE_IMLIB2_X11')
         x11.add_library('imlib2')
         features.append('imlib2')
-    if 'software_x11' in evas_engines:
+    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_Software_X11.h>']):
         features.append('evas')
         x11.add_library('evas')
-    if 'gl_x11' in evas_engines:
+        config.define('ENABLE_ENGINE_SOFTWARE_X11')
+    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_GL_X11.h>']):
         features.append('evasGL')
         x11.add_library('evas')
-        if not evas_gl_linked:
-            x11.libraries.append("GL")
+        x11.libraries.append("GL")
+        config.define('ENABLE_ENGINE_GL_X11')
     if not features:
         features = [ 'yes' ]
         get_library('X11').libraries.append('X11')
@@ -157,8 +116,9 @@ if get_library('imlib2'):
     # the framebuffer so module
     fb = Extension('kaa.display._FBmodule', [ 'src/fb.c'] )
     fb.add_library('imlib2')
-    if 'fb' in evas_engines:
+    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_FB.h>']):
         fb.add_library('evas')
+        config.define('ENABLE_ENGINE_FB')
         print "+ Framebuffer (imlib2, evas)"
     else:
         print "+ Framebuffer (imlib2)"
@@ -172,9 +132,10 @@ if get_library('directfb'):
     # the dfb so module
     dfb = Extension('kaa.display._DFBmodule', [ 'src/dfb.c'] )
     dfb.add_library('directfb')
-    if 'directfb' in evas_engines:
+    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_DirectFB.h>']):
         print "+ DirectFB (evas)"
         dfb.add_library('evas')
+        config.define('ENABLE_ENGINE_DIRECTFB')
     else:
         print "+ DirectFB"
     modules.append(dfb)

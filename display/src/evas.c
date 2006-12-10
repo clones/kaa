@@ -136,6 +136,10 @@ new_evas_software_x11(PyObject *self, PyObject *args, PyObject *kwargs)
     evas = evas_object_from_pyobject(evas_pyobject);
     evas_output_method_set(evas, evas_render_method_lookup("software_x11"));
     einfo = (Evas_Engine_Info_Software_X11 *)evas_engine_info_get(evas);
+    if (!einfo) {
+        PyErr_Format(PyExc_SystemError, "Evas is not built with Software X11 support.");
+        return NULL;
+    }
 
     x11 = ENGINE_COMMON_X11_SETUP(evas, kwargs, display, einfo->func,
                                   einfo->info);
@@ -166,7 +170,7 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
     evas_output_method_set(evas, evas_render_method_lookup("gl_x11"));
     einfo = (Evas_Engine_Info_GL_X11 *)evas_engine_info_get(evas);
     if (!einfo) {
-        PyErr_Format(PyExc_SystemError, "Unable to initialize GL canvas");
+        PyErr_Format(PyExc_SystemError, "Evas is not built with GLX support.");
         return NULL;
     }
 

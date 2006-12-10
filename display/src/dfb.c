@@ -132,7 +132,7 @@ PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
     evas_output_method_set(evas, evas_render_method_lookup("directfb"));
     einfo = (Evas_Engine_Info_DirectFB *)evas_engine_info_get(evas);
     if (!einfo) {
-        PyErr_Format(PyExc_SystemError, "Unable to initialize DFB canvas");
+        PyErr_Format(PyExc_SystemError, "Evas is not built with DirectFB support.");
         return NULL;
     }
 
