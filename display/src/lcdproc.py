@@ -33,6 +33,9 @@ __all__ = [ 'LCD' ]
 
 # python imports
 import os
+import socket
+
+# kaa imports
 import kaa.notifier
 import kaa
 from kaa.strutils import unicode_to_str
@@ -73,7 +76,7 @@ class Screen(object):
         Get screen priority.
         """
         return self._priority
-        
+
 
     def set_priority(self, priority):
         """
@@ -81,7 +84,7 @@ class Screen(object):
         """
         self._send('screen_set %s -priority %s' % (self.name, priority))
         self._priority = priority
-        
+
 
     def widget_add(self, type, *args):
         """
@@ -187,9 +190,7 @@ class LCD(object):
         self.signals = {
             'connected': kaa.notifier.Signal()
         }
-        self.socket = kaa.notifier.Socket()
-        self.socket.signals['connected'].connect_once(self._connect)
-        self.socket.connect((server, port), async=True)
+        self._connect(server, port)
 
 
     def create_screen(self, name):
@@ -200,20 +201,37 @@ class LCD(object):
 
 
     def _send(self, line):
+        """
+        Send a command to the server.
+        """
         self.socket.write(line + '\n')
 
 
-    def _handle_hello(self, line):
+    @kaa.notifier.yield_execution()
+    def _connect(self, server, port):
         """
-        Handle initial hello response.
+        Connect to the server and init the connection.
         """
-        line = line.strip().split()
+        self.socket = kaa.notifier.Socket()
+        wait = kaa.notifier.YieldCallback()
+        self.socket.signals['connected'].connect_once(wait)
+        self.socket.connect((server, port), async=True)
+        yield wait
+
+        result = wait.get()
+        print result
+        if isinstance(result, (Exception, socket.error)):
+            # try again later
+            kaa.notifier.OneShotTimer(self._connect, server, port).start(10)
+            yield False
+        wait = kaa.notifier.YieldCallback()
+        self.socket.signals['read'].connect_once(wait)
+        self._send("hello")
+        yield wait
+
+        line = wait.get().strip().split()
         self._send('client_set name kaa')
         self.size = int(line[7]), int(line[9])
         self.width, self.height = self.size
         self.signals['connected'].emit(self.width, self.height)
-
-
-    def _connect(self, result):
-        self.socket.signals['read'].connect_once(self._handle_hello)
-        self._send("hello")
+        yield False
