@@ -127,7 +127,7 @@ class Thumbnailer(object):
 
 
     def create_failed(self, job):
-        dirname = os.path.dirname(os.path.dirname(job.imagefile)) + '/fail/kaa/'
+        dirname = os.path.dirname(os.path.dirname(job.imagefile)) + '/fail/beacon/'
         job.imagefile = dirname + os.path.basename(job.imagefile) + '.png'
         if not os.path.isdir(dirname):
             os.makedirs(dirname, 0700)

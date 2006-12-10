@@ -111,7 +111,7 @@ class Client(object):
         # create overlay directory structure
         if not os.path.isdir(m.overlay):
             os.makedirs(m.overlay, 0700)
-        for d in ('large', 'normal', 'fail/kaa'):
+        for d in ('large', 'normal', 'fail/beacon'):
             dirname = os.path.join(m.thumbnails, d)
             if not os.path.isdir(dirname):
                 os.makedirs(dirname, 0700)

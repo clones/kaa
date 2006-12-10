@@ -119,8 +119,8 @@ class Thumbnail(object):
             return self._thumbnail % type + '.png'
         if os.path.isfile(self._thumbnail % type + '.jpg'):
             return self._thumbnail % type + '.jpg'
-        if not type == 'fail/kaa':
-            return self.get('fail/kaa', check_mtime)
+        if not type == 'fail/beacon':
+            return self.get('fail/beacon', check_mtime)
         return None
 
 
@@ -139,11 +139,11 @@ class Thumbnail(object):
 
     def exists(self, check_mtime=False):
         return self.get(NORMAL, check_mtime) or self.get(LARGE, check_mtime) \
-               or self.get('fail/kaa', check_mtime)
+               or self.get('fail/beacon', check_mtime)
 
 
     def is_failed(self):
-        return self.get('fail/kaa')
+        return self.get('fail/beacon')
 
 
     def create(self, type=NORMAL, priority=PRIORITY_NORMAL):
