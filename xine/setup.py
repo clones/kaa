@@ -78,7 +78,7 @@ for dir in libdirs:
 else:
     print "- X11 not found; disabling X11 support."
 
-arch = os.popen("uname -i").read().strip()
+arch = os.popen("uname -m").read().strip()
 if arch == "x86_64":
     config.define('ARCH_X86_64')
 elif arch == "i386":
