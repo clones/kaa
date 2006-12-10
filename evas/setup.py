@@ -36,17 +36,23 @@ try:
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
+
+if not check_library('evas', '0.9.9.032'):
+    print 'Evas >= 0.9.9.032 not found'
+    print 'Download from http://enlightenment.freedesktop.org/'
+    sys.exit(1)
     
 files = ["src/evas.c", "src/object.c", "src/image.c", "src/text.c", 
          'src/gradient.c', "src/engine_buffer.c", 'src/textblock.c',
          'src/polygon.c', 'src/line.c']
 
 evasso = Extension('kaa.evas._evasmodule', files, config='src/config.h')
-
-if not evasso.check_library('evas', '0.9.9.032'):
-    print 'Evas >= 0.9.9.032 not found'
-    print 'Download from http://enlightenment.freedesktop.org/'
-    sys.exit(1)
+evasso.add_library('evas')
+if evasso.check_cc(['<Evas.h>', '<Evas_Engine_Buffer.h>']):
+    print "+ buffer engine"
+    evasso.configfile.define('ENABLE_ENGINE_BUFFER')
+else:
+    print "- buffer engine"
 
 evasso.config('#define BENCHMARK')
 evasso.config('#define EVAS_VERSION %d' % evasso.get_library('evas').get_numeric_version())

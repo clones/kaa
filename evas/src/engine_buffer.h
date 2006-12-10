@@ -31,5 +31,7 @@
  */
 
 #include "evas.h"
-PyObject *engine_buffer_setup(Evas_PyObject *o, PyObject *kwargs);
 
+#ifdef ENABLE_ENGINE_BUFFER
+PyObject *engine_buffer_setup(Evas_PyObject *o, PyObject *kwargs);
+#endif

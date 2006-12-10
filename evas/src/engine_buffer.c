@@ -31,6 +31,8 @@
  */
 
 #include "engine_buffer.h"
+
+#ifdef ENABLE_ENGINE_BUFFER
 #include <Evas_Engine_Buffer.h>
 
 PyObject *engine_buffer_setup(Evas_PyObject *o, PyObject *kwargs)
@@ -44,6 +46,11 @@ PyObject *engine_buffer_setup(Evas_PyObject *o, PyObject *kwargs)
     BENCH_END
 
     einfo = (Evas_Engine_Info_Buffer *) evas_engine_info_get(o->evas);
+    if (!einfo) {
+        PyErr_Format(PyExc_SystemError, "Evas is not built with buffer engine support.");
+        return NULL;
+    }
+
     einfo->info.func.new_update_region = NULL;
     einfo->info.func.free_update_region = NULL;
     einfo->info.use_color_key = 0;
@@ -83,3 +90,4 @@ PyObject *engine_buffer_setup(Evas_PyObject *o, PyObject *kwargs)
     BENCH_END
     return buffer;
 }
+#endif

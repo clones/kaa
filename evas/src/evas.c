@@ -238,9 +238,12 @@ Evas_PyObject_output_set(Evas_PyObject * self, PyObject * args, PyObject * kwarg
         return NULL;
     }
 
+#ifdef EVAS_ENGINE_BUFFER
     if (!strcmp(render_method, "buffer")) {
         return engine_buffer_setup(self, kwargs);
-    } else {
+    } else 
+#endif
+    {
         PyErr_Format(evas_error, "Unsupported output method '%s'.", render_method);
         return NULL;
     }
