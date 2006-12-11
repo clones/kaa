@@ -37,6 +37,7 @@
 #include "common.h"
 
 #ifdef ENABLE_ENGINE_DIRECTFB
+#include <Evas.h>
 #include <Evas_Engine_DirectFB.h>
 PyTypeObject *Evas_PyObject_Type = NULL;
 Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
