@@ -127,6 +127,7 @@ engine_common_x11_setup(Evas *evas, PyObject *kwargs,
         &info.depth);
 
 
+#ifdef ENABLE_ENGINE_SOFTWARE_X11
 X11Window_PyObject *
 new_evas_software_x11(PyObject *self, PyObject *args, PyObject *kwargs)
 {
@@ -159,6 +160,7 @@ new_evas_software_x11(PyObject *self, PyObject *args, PyObject *kwargs)
     evas_engine_info_set(evas, (Evas_Engine_Info *) einfo);
     return x11;
 }
+#endif
 
 #ifdef ENABLE_ENGINE_GL_X11
 X11Window_PyObject *
@@ -251,9 +253,9 @@ PyMethodDef display_methods[] = {
     { "render_imlib2_image", (PyCFunction) render_imlib2_image, METH_VARARGS },
 #ifdef ENABLE_ENGINE_SOFTWARE_X11
     { "new_evas_software_x11", (PyCFunction) new_evas_software_x11, METH_VARARGS | METH_KEYWORDS },
+#endif
 #ifdef ENABLE_ENGINE_GL_X11
     { "new_evas_gl_x11", (PyCFunction) new_evas_gl_x11, METH_VARARGS | METH_KEYWORDS },
-#endif
 #endif
     { NULL }
 };
