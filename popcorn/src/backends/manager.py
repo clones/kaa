@@ -101,6 +101,8 @@ def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
         # Note: cls._player_caps are without the rating!
         cls._player_caps = [ x for x in player_caps.keys() if x ]
 
+    scheme, path = parse_mrl(mrl)
+
     if force != None and force in _players:
         player = _players[force]
         if scheme not in player["schemes"]:
@@ -109,7 +111,6 @@ def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
         # capabilities match or not
         return player["class"]
 
-    scheme, path = parse_mrl(mrl)
     ext = os.path.splitext(path)[1]
     if ext:
         ext = ext[1:]  # Eat leading '.'
