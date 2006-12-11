@@ -42,6 +42,7 @@ import kaa.metadata
 # kaa.popcorn imports
 import backends.manager
 from config import config as default_config
+from kaa.popcorn.utils import parse_mrl
 from ptypes import *
 
 # get logging object
@@ -260,7 +261,8 @@ class Player(object):
             return False
 
         if mrl.find('://') == -1:
-            mrl = 'file://' + os.path.abspath(mrl)
+            scheme, path = parse_mrl(mrl)
+            mrl = "%s://%s" % (scheme, path)
 
         self._media = mrl, kaa.metadata.parse(mrl)
         self._open_caps = caps
