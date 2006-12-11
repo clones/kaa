@@ -197,10 +197,10 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
 
 
 
-#if defined(USE_IMLIB2_X11) && !defined(X_DISPLAY_MISSING)
 
 PyObject *render_imlib2_image(PyObject *self, PyObject *args)
 {
+#if defined(USE_IMLIB2_X11) && !defined(X_DISPLAY_MISSING)
     X11Window_PyObject *window;
     PyObject *pyimg;
     Imlib_Image *img;
@@ -241,16 +241,11 @@ PyObject *render_imlib2_image(PyObject *self, PyObject *args)
 
     Py_INCREF(Py_None);
     return Py_None;
-}
 #else
-
-PyObject *render_imlib2_image(PyObject *self, PyObject *args)
-{
     PyErr_Format(PyExc_SystemError, "kaa-display compiled without imlib2 display support.");
     return NULL;
-}
-
 #endif
+}
 
 PyMethodDef display_methods[] = {
     { "render_imlib2_image", (PyCFunction) render_imlib2_image, METH_VARARGS },
