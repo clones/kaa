@@ -1,9 +1,8 @@
 /*
  * ----------------------------------------------------------------------------
- * evas.h
+ * common.c
  * ----------------------------------------------------------------------------
- * $Id$
- *
+ * $Id: common.c 2211 2006-12-10 19:33:58Z tack $
  * ----------------------------------------------------------------------------
  * kaa.display - Generic Display Module
  * Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
@@ -30,22 +29,22 @@
  * ----------------------------------------------------------------------------
  */
 
-#include "config.h"
-#include "display.h"
+#include <Python.h>
 
-#ifndef _EVAS_H_
-#define _EVAS_H_
+void **get_module_api(char *module)
+{
+    PyObject *m, *c_api;
+    void **ptrs;
 
-#ifdef USE_EVAS
-#include "x11window.h"
-#include <Evas.h>
-extern Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
+    m = PyImport_ImportModule(module);
+    if (m == NULL)
+       return NULL; 
+    c_api = PyObject_GetAttrString(m, "_C_API");
+    if (c_api == NULL || !PyCObject_Check(c_api))
+        return NULL;
+    ptrs = (void **)PyCObject_AsVoidPtr(c_api);
+    Py_DECREF(c_api);
+    return ptrs;
+}
 
-X11Window_PyObject *new_evas_software_x11(PyObject *, PyObject *, PyObject *);
 
-#ifdef ENABLE_ENGINE_GL_X11
-X11Window_PyObject *new_evas_gl_x11(PyObject *, PyObject *, PyObject *);
-#endif
-
-#endif // USE_EVAS
-#endif // _EVAS_H_

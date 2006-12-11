@@ -34,16 +34,18 @@
 #include <directfb/directfb.h>
 
 #include "config.h"
+#include "common.h"
 
 #ifdef ENABLE_ENGINE_DIRECTFB
-#include "Evas.h"
-#include "Evas_Engine_DirectFB.h"
+#include <Evas_Engine_DirectFB.h>
+PyTypeObject *Evas_PyObject_Type = NULL;
+Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
 #endif
 
 /* macro for a safe call to DirectFB functions */
 #define DFBCHECK(err, err_string) \
           if (err != DFB_OK) {                                        \
-	       PyErr_Format(PyExc_SystemError, err_string);           \
+               PyErr_Format(PyExc_SystemError, err_string);           \
                return NULL;                                           \
           }
 
@@ -54,11 +56,6 @@ IDirectFBDisplayLayer *layer = NULL;
 DFBSurfaceDescription  dsc;
 DFBDisplayLayerConfig  layer_config;
 
-#ifdef ENABLE_ENGINE_DIRECTFB
-/* Evas stuff */
-PyTypeObject *Evas_PyObject_Type;
-Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
-#endif
 
 /* open dfb and create base surface */
 PyObject *dfb_open(PyObject *self, PyObject *args)
@@ -75,7 +72,7 @@ PyObject *dfb_open(PyObject *self, PyObject *args)
     dfb->SetCooperativeLevel(dfb, DFSCL_FULLSCREEN);
 
     DFBCHECK(dfb->GetDisplayLayer(dfb, DLID_PRIMARY, &layer), 
-	     "GetDisplayLayer");
+             "GetDisplayLayer");
     layer->GetConfiguration(layer, &layer_config);
 
     /* get the primary surface, i.e. the surface of the primary layer we have
@@ -124,6 +121,8 @@ PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *evas_pyobject;
     Evas *evas;
 
+    CHECK_EVAS_PYOBJECT
+
     if (!PyArg_ParseTuple(args, "O!", Evas_PyObject_Type, &evas_pyobject))
         return NULL;
 
@@ -140,7 +139,7 @@ PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
 
     evas_output_size_set(evas, layer_config.width, layer_config.height);
     evas_output_viewport_set(evas, 0, 0, layer_config.width, 
-			     layer_config.height);
+                             layer_config.height);
 
     /* the following is specific to the engine */
     einfo->info.dfb = dfb;
@@ -158,42 +157,25 @@ PyMethodDef dfb_methods[] = {
     { "close", (PyCFunction) dfb_close, METH_VARARGS },
     { "size", (PyCFunction) dfb_size, METH_VARARGS },
 #ifdef ENABLE_ENGINE_DIRECTFB
-    { "new_evas_dfb", (PyCFunction) new_evas_dfb, METH_VARARGS | \
-      METH_KEYWORDS },
+    { "new_evas_dfb", (PyCFunction) new_evas_dfb, METH_VARARGS | METH_KEYWORDS },
 #endif
     { NULL }
 };
-
-void **get_module_api(char *module)
-{
-    PyObject *m, *c_api;
-    void **ptrs;
-
-    m = PyImport_ImportModule(module);
-    if (m == NULL)
-	return NULL;
-    c_api = PyObject_GetAttrString(m, "_C_API");
-    if (c_api == NULL || !PyCObject_Check(c_api))
-        return NULL;
-    ptrs = (void **)PyCObject_AsVoidPtr(c_api);
-    Py_DECREF(c_api);
-    return ptrs;
-}
 
 
 void init_DFBmodule(void) {
     (void) Py_InitModule("_DFBmodule", dfb_methods);
 
 #ifdef ENABLE_ENGINE_DIRECTFB
+{
     // Import kaa-evas's C api
-    {
-	void **evas_api_ptrs = get_module_api("kaa.evas._evas");
-	if (evas_api_ptrs == NULL)
-	    return;
-	evas_object_from_pyobject = evas_api_ptrs[0];
-	Evas_PyObject_Type = evas_api_ptrs[1];
-    }
-
+    void **evas_api_ptrs = get_module_api("kaa.evas._evas");
+    if (evas_api_ptrs != NULL) {
+        evas_object_from_pyobject = evas_api_ptrs[0];
+        Evas_PyObject_Type = evas_api_ptrs[1];
+    } else
+        PyErr_Clear();
+}
 #endif
 
 }

@@ -76,13 +76,15 @@ modules = []
 
 if get_library('imlib2'):
     config.define('USE_IMLIB2')
+if get_library('evas'):
+    config.define('USE_EVAS')
 
 if get_library('X11'):
 
     # the display so module
     x11 = Extension('kaa.display._X11module',
-                    [ 'src/display.c', 'src/x11display.c', 'src/x11window.c',
-                      'src/imlib2.c', 'src/evas.c' ],
+                    [ 'src/x11.c', 'src/x11display.c', 'src/x11window.c',
+                      'src/common.c' ],
                     libraries = ['png', 'rt'])
 
     config.define('HAVE_X11')
@@ -114,7 +116,8 @@ else:
 if get_library('imlib2'):
 
     # the framebuffer so module
-    fb = Extension('kaa.display._FBmodule', [ 'src/fb.c'] )
+    fb = Extension('kaa.display._FBmodule', 
+                   [ 'src/fb.c', 'src/common.c'])
     fb.add_library('imlib2')
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_FB.h>']):
         fb.add_library('evas')
@@ -130,7 +133,7 @@ else:
 if get_library('directfb'):
 
     # the dfb so module
-    dfb = Extension('kaa.display._DFBmodule', [ 'src/dfb.c'] )
+    dfb = Extension('kaa.display._DFBmodule', [ 'src/dfb.c', 'src/common.c'] )
     dfb.add_library('directfb')
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_DirectFB.h>']):
         print "+ DirectFB (evas)"
@@ -146,7 +149,7 @@ else:
 if pygame and get_library('sdl') and get_library('imlib2'):
 
     # pygame module
-    sdl = Extension('kaa.display._SDLmodule', ['src/sdl.c'])
+    sdl = Extension('kaa.display._SDLmodule', ['src/sdl.c', 'src/common.c'])
     sdl.add_library('imlib2')
     sdl.add_library('sdl')
     sdl.include_dirs.append(pygame)

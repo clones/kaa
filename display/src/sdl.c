@@ -34,18 +34,23 @@
 
 #include "config.h"
 #include <Python.h>
+#include "common.h"
 
-#include "imlib2.h"
+#define X_DISPLAY_MISSING
+#include <Imlib2.h>
+Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
+PyTypeObject *Image_PyObject_Type = NULL;
 
 PyObject *image_to_surface(PyObject *self, PyObject *args)
 {
-
     PyObject *pyimg;
     Imlib_Image *img;
     PySurfaceObject *pysurf;
     unsigned char *pixels;
 
     static int init = 0;
+
+    CHECK_IMAGE_PYOBJECT
 
     if (init == 0) {
         import_pygame_surface();
@@ -73,22 +78,6 @@ PyMethodDef sdl_methods[] = {
 };
 
 
-void **get_module_api(char *module)
-{
-    PyObject *m, *c_api;
-    void **ptrs;
-
-    m = PyImport_ImportModule(module);
-    if (m == NULL)
-       return NULL;
-    c_api = PyObject_GetAttrString(m, "_C_API");
-    if (c_api == NULL || !PyCObject_Check(c_api))
-        return NULL;
-    ptrs = (void **)PyCObject_AsVoidPtr(c_api);
-    Py_DECREF(c_api);
-    return ptrs;
-}
-
 void init_SDL(void)
 {
     void **imlib2_api_ptrs;
@@ -97,8 +86,9 @@ void init_SDL(void)
 
     // Import kaa-imlib2's C api
     imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");
-    if (imlib2_api_ptrs == NULL)
-        return;
-    imlib_image_from_pyobject = imlib2_api_ptrs[0];
-    Image_PyObject_Type = imlib2_api_ptrs[1];
+    if (imlib2_api_ptrs != NULL) {
+        imlib_image_from_pyobject = imlib2_api_ptrs[0];
+        Image_PyObject_Type = imlib2_api_ptrs[1];
+    } else
+        PyErr_Clear();
 }

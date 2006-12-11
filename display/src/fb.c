@@ -43,22 +43,22 @@
 #include <linux/fb.h>
 #include <errno.h>
 
+#include "config.h"
+#include "common.h"
+
+
 #define X_DISPLAY_MISSING
 #include <Imlib2.h>
+Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
+PyTypeObject *Image_PyObject_Type = NULL;
 
-#include "config.h"
 
 #ifdef ENABLE_ENGINE_FB
 #include <Evas.h>
 #include <Evas_Engine_FB.h>
-
+PyTypeObject *Evas_PyObject_Type = NULL;
 Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
-
 #endif
-
-Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
-PyTypeObject *Image_PyObject_Type;
-PyTypeObject *Evas_PyObject_Type;
 
 int fb_fd = 0;
 int *fb_mem = 0;
@@ -77,9 +77,11 @@ PyObject *fb_update(PyObject *self, PyObject *args)
     Imlib_Image *img;
     unsigned char *pixels;
 
+    CHECK_IMAGE_PYOBJECT
+
     if (!PyArg_ParseTuple(args, "O!", Image_PyObject_Type, &pyimg)) {
-	PyErr_Format(PyExc_SystemError, "imlib2 image as parameter needed");
-	return NULL;
+        PyErr_Format(PyExc_SystemError, "imlib2 image as parameter needed");
+        return NULL;
     }
 
     img = imlib_image_from_pyobject(pyimg);
@@ -87,7 +89,7 @@ PyObject *fb_update(PyObject *self, PyObject *args)
     pixels = (unsigned char *)imlib_image_get_data_for_reading_only();
 
     memcpy(fb_mem, pixels, imlib_image_get_width() *
-	   imlib_image_get_height() * 4);
+           imlib_image_get_height() * 4);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -101,23 +103,23 @@ PyObject *fb_open(PyObject *self, PyObject *args)
     fb_fd = open ("/dev/fb0", O_RDWR);
 
     if (fb_fd < 0) {
-	perror ("open");
-	PyErr_Format(PyExc_SystemError, "unable to open device");
-	return NULL;
+        perror ("open");
+        PyErr_Format(PyExc_SystemError, "unable to open device");
+        return NULL;
     }
 
     if (ioctl (fb_fd, FBIOGET_FSCREENINFO, &fb_fix) != 0) {
-	perror ("ioctl");
-	close (fb_fd);
-	PyErr_Format(PyExc_SystemError, "unable to get screeninfo");
-	return NULL;
+        perror ("ioctl");
+        close (fb_fd);
+        PyErr_Format(PyExc_SystemError, "unable to get screeninfo");
+        return NULL;
     }
 
     if (ioctl (fb_fd, FBIOGET_VSCREENINFO, &fb_var) != 0) {
-	perror ("ioctl");
-	close (fb_fd);
-	PyErr_Format(PyExc_SystemError, "unable to get screen vars");
-	return NULL;
+        perror ("ioctl");
+        close (fb_fd);
+        PyErr_Format(PyExc_SystemError, "unable to get screen vars");
+        return NULL;
     }
 
     /* save settings to restore at the end */
@@ -128,41 +130,41 @@ PyObject *fb_open(PyObject *self, PyObject *args)
 
     /* try to set fbsettings */
     PyArg_ParseTuple(args, "|(iiiiiiiiiiiiiiiii)", &fb_var.xres, &fb_var.yres,
-		     &fb_var.xres_virtual, &fb_var.yres_virtual,
-		     &fb_var.xoffset, &fb_var.yoffset, &fb_var.height,
-		     &fb_var.height, &fb_var.pixclock, &fb_var.left_margin,
-		     &fb_var.right_margin, &fb_var.upper_margin,
-		     &fb_var.lower_margin, &fb_var.vsync_len,
-		     &fb_var.hsync_len,
-		     &fb_var.sync, &fb_var.vmode);
+                     &fb_var.xres_virtual, &fb_var.yres_virtual,
+                     &fb_var.xoffset, &fb_var.yoffset, &fb_var.height,
+                     &fb_var.height, &fb_var.pixclock, &fb_var.left_margin,
+                     &fb_var.right_margin, &fb_var.upper_margin,
+                     &fb_var.lower_margin, &fb_var.vsync_len,
+                     &fb_var.hsync_len,
+                     &fb_var.sync, &fb_var.vmode);
 
     if (ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var) != 0) {
-	perror ("ioctl");
-	close (fb_fd);
-	PyErr_Format(PyExc_SystemError, "unable to set screen vars");
-	return NULL;
+        perror ("ioctl");
+        close (fb_fd);
+        PyErr_Format(PyExc_SystemError, "unable to set screen vars");
+        return NULL;
 
     }
 
     ioctl (fb_fd, FBIOGET_VSCREENINFO, &fb_var);
 
     if (fb_var.bits_per_pixel != 32) {
-	ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var_save);
-	close (fb_fd);
-	PyErr_Format(PyExc_SystemError, "unable to set depth=32");
-	return NULL;
+        ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var_save);
+        close (fb_fd);
+        PyErr_Format(PyExc_SystemError, "unable to set depth=32");
+        return NULL;
     }
 
     fb_mem = mmap ((void *) NULL, fb_var.xres * fb_var.yres * \
-		   fb_var.bits_per_pixel / 8,
-		   PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, 0);
+                   fb_var.bits_per_pixel / 8,
+                   PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, 0);
 
     if (fb_mem == MAP_FAILED) {
-	perror ("mmap");
-	ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var_save);
-	close (fb_fd);
-	PyErr_Format(PyExc_SystemError, "unable to get memory");
-	return NULL;
+        perror ("mmap");
+        ioctl (fb_fd, FBIOPUT_VSCREENINFO, &fb_var_save);
+        close (fb_fd);
+        PyErr_Format(PyExc_SystemError, "unable to get memory");
+        return NULL;
     }
     Py_INCREF(Py_None);
     return Py_None;
@@ -192,13 +194,13 @@ PyObject *fb_depth(PyObject *self, PyObject *args)
 PyObject *fb_info(PyObject *self, PyObject *args)
 {
     return Py_BuildValue("(iiiiiiiiiiiiiiiii)", fb_var.xres, fb_var.yres,
-			 fb_var.xres_virtual, fb_var.yres_virtual,
-			 fb_var.xoffset, fb_var.yoffset, fb_var.height,
-			 fb_var.height, fb_var.pixclock, fb_var.left_margin,
-			 fb_var.right_margin, fb_var.upper_margin,
-			 fb_var.lower_margin, fb_var.vsync_len,
-			 fb_var.hsync_len,
-			 fb_var.sync, fb_var.vmode);
+                         fb_var.xres_virtual, fb_var.yres_virtual,
+                         fb_var.xoffset, fb_var.yoffset, fb_var.height,
+                         fb_var.height, fb_var.pixclock, fb_var.left_margin,
+                         fb_var.right_margin, fb_var.upper_margin,
+                         fb_var.lower_margin, fb_var.vsync_len,
+                         fb_var.hsync_len,
+                         fb_var.sync, fb_var.vmode);
 }
 
 static void tty_disable (void)
@@ -208,14 +210,14 @@ static void tty_disable (void)
 
     tty = open ("/dev/tty0", O_RDWR);
     if(tty < 0) {
-	perror("Error can't open /dev/tty0");
-	exit (1);
+        perror("Error can't open /dev/tty0");
+        exit (1);
     }
 
     if(ioctl (tty, KDSETMODE, KD_GRAPHICS) == -1) {
-	perror("Error setting graphics mode for tty");
-	close(tty);
-	exit (1);
+        perror("Error setting graphics mode for tty");
+        close(tty);
+        exit (1);
     }
 
     close(tty);
@@ -229,14 +231,14 @@ static void tty_enable (void)
 
     tty = open ("/dev/tty0", O_RDWR);
     if(tty < 0) {
-	perror("Error can't open /dev/tty0");
-	exit (1);
+        perror("Error can't open /dev/tty0");
+        exit (1);
     }
 
     if(ioctl (tty, KDSETMODE, KD_TEXT) == -1) {
-	perror("Error setting text mode for tty");
-	close(tty);
-	exit (1);
+        perror("Error setting text mode for tty");
+        close(tty);
+        exit (1);
     }
 
     close(tty);
@@ -250,6 +252,8 @@ new_evas_fb(PyObject *self, PyObject *args, PyObject *kwargs)
     Evas_Engine_Info_FB *einfo;
     PyObject *evas_pyobject;
     Evas *evas;
+
+    CHECK_EVAS_PYOBJECT
 
     if (!PyArg_ParseTuple(args, "O!", Evas_PyObject_Type, &evas_pyobject))
         return NULL;
@@ -291,43 +295,30 @@ PyMethodDef fb_methods[] = {
     { NULL }
 };
 
-void **get_module_api(char *module)
-{
-    PyObject *m, *c_api;
-    void **ptrs;
-
-    m = PyImport_ImportModule(module);
-    if (m == NULL)
-	return NULL;
-    c_api = PyObject_GetAttrString(m, "_C_API");
-    if (c_api == NULL || !PyCObject_Check(c_api))
-        return NULL;
-    ptrs = (void **)PyCObject_AsVoidPtr(c_api);
-    Py_DECREF(c_api);
-    return ptrs;
-}
-
 
 void init_FBmodule(void) {
-    void **imlib2_api_ptrs, **evas_api_ptrs;
+    void **imlib2_api_ptrs;
     (void) Py_InitModule("_FBmodule", fb_methods);
 
     // Import kaa-imlib2's C api
     imlib2_api_ptrs = get_module_api("kaa.imlib2._Imlib2");
-    if (imlib2_api_ptrs == NULL)
-        return;
-    imlib_image_from_pyobject = imlib2_api_ptrs[0];
-    Image_PyObject_Type = imlib2_api_ptrs[1];
+    if (imlib2_api_ptrs != NULL) {
+        imlib_image_from_pyobject = imlib2_api_ptrs[0];
+        Image_PyObject_Type = imlib2_api_ptrs[1];
+    } else 
+        PyErr_Clear();
 
 #ifdef ENABLE_ENGINE_FB
+{
     // Import kaa-evas's C api
-    evas_api_ptrs = get_module_api("kaa.evas._evas");
-    if (evas_api_ptrs == NULL)
-        return;
-    evas_object_from_pyobject = evas_api_ptrs[0];
-    Evas_PyObject_Type = evas_api_ptrs[1];
-#else
-    Evas_PyObject_Type = NULL;
+    void **evas_api_ptrs = get_module_api("kaa.evas._evas");
+    if (evas_api_ptrs != NULL) {
+        evas_object_from_pyobject = evas_api_ptrs[0];
+        Evas_PyObject_Type = evas_api_ptrs[1];
+    } else
+        PyErr_Clear();
+}
+
 #endif
 
 }

@@ -1,9 +1,8 @@
 /*
  * ----------------------------------------------------------------------------
- * imlib2.h - Imlib2 based X11 display
+ * common.h
  * ----------------------------------------------------------------------------
- * $Id$
- *
+ * $Id: common.c 2211 2006-12-10 19:33:58Z tack $
  * ----------------------------------------------------------------------------
  * kaa.display - Generic Display Module
  * Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
@@ -30,26 +29,17 @@
  * ----------------------------------------------------------------------------
  */
 
-#ifndef _IMLIB2_H_
-#define _IMLIB2_H_
+void **get_module_api(char *module);
 
-#include "config.h"
-#include "display.h"
+#define CHECK_EVAS_PYOBJECT \
+    if (!Evas_PyObject_Type) { \
+        PyErr_Format(PyExc_SystemError, "kaa.evas is required but is not available."); \
+        return NULL; \
+    }
 
-#ifdef USE_IMLIB2
 
-#ifdef USE_IMLIB2_X11
-#   include <X11/Xlib.h>
-#else
-#   define X_DISPLAY_MISSING
-#endif
-
-#include <Imlib2.h>
-extern Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
-
-#endif
-
-PyObject *render_imlib2_image(PyObject *self, PyObject *args);
-
-#endif
-
+#define CHECK_IMAGE_PYOBJECT \
+    if (!Image_PyObject_Type) { \
+        PyErr_Format(PyExc_SystemError, "kaa.imlib2 is required but is not available."); \
+        return NULL; \
+    }
