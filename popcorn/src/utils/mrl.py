@@ -37,7 +37,8 @@ def parse_mrl(mrl):
     follows the mrl scheme.  If no mrl scheme is specified in 'mrl', it
     attempts to make an intelligent choice.
     """
-    scheme, path = re.search("^(\w{,4}:)?(.*)", mrl).groups()
+    scheme, path = re.search("^(?:(\w{,4}):(?://)?)?(.*)", mrl).groups()
+
     if not scheme:
         scheme = "file"
         try:
@@ -45,8 +46,12 @@ def parse_mrl(mrl):
         except OSError:
             return scheme, path
 
-        if stat_info[stat.ST_MODE] & stat.S_IFIFO:
+        if stat_info.st_mode & stat.S_IFIFO:
             scheme = "fifo"
+        elif stat_info.st_mode & stat.S_IFDIR:
+            if os.path.isdir(os.path.join(path, 'VIDEO_TS')):
+                scheme = 'dvd'
+                path = os.path.realpath(path)
         else:
             try:
                 f = open(path)
@@ -58,6 +63,4 @@ def parse_mrl(mrl):
                 b = f.read(550000)
                 if b.find('OSTA UDF Compliant') != -1 or b.find("VIDEO_TS") != -1:
                     scheme = "dvd"
-    else:
-        scheme = scheme[:-1]
     return scheme, path

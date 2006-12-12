@@ -630,3 +630,20 @@ class Player(object):
         """
         if self._player:
             return self._player.unlock_frame_buffer()
+
+    def get_capabilities(self):
+        """
+        Return player capabilities.
+        """
+        if not self._player:
+            return ()
+        return self._player.get_capabilities()
+
+
+    def has_capability(self, cap):
+        """
+        Return if the player has the given capability.
+        """
+        if not self._player:
+            return False
+        return self._player.has_capability(cap)

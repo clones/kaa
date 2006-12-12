@@ -174,8 +174,8 @@ def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
         if not choice or choice[1] < rating:
             choice = player, rating
 
-        if not choice:
-            return None
+    if not choice:
+        return None
 
     return choice[0]["class"]
 

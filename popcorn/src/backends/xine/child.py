@@ -417,10 +417,10 @@ class XinePlayerChild(Player):
         if notify != None:
             if notify:
                 print "DEINTERLACE CHEAP MODE: True"
-                self._deint_post.set_parameters(cheap_mode = True)
+                self._deint_post.set_parameters(cheap_mode = True, framerate_mode = 'half_top')
             else:
                 print "DEINTERLACE CHEAP MODE: False"
-                self._deint_post.set_parameters(cheap_mode = False)
+                self._deint_post.set_parameters(cheap_mode = False, framerate_mode = 'full')
 
             self._driver_control("set_notify_frame", notify)
         if size != None:
