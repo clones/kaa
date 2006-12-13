@@ -1,5 +1,3 @@
-#include <dlfcn.h>
-
 #include "xine.h"
 #include "structmember.h"
 #include "vo_driver.h"
@@ -20,6 +18,8 @@
 #endif
 #include "drivers/dummy.h"
 #include "drivers/common.h"
+
+#include <dlfcn.h>
 
 PyObject *xine_error;
 extern PyObject *xine_object_to_pyobject_dict;
