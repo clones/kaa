@@ -1,3 +1,5 @@
+#include <dlfcn.h>
+
 #include "xine.h"
 #include "structmember.h"
 #include "vo_driver.h"
@@ -21,6 +23,11 @@
 
 PyObject *xine_error;
 extern PyObject *xine_object_to_pyobject_dict;
+
+#ifdef HAVE_OPENGL_VSYNC
+int (*glXWaitVideoSyncSGI)(int, int, unsigned int *) = NULL;
+int (*glXGetVideoSyncSGI)(unsigned int *) = NULL;
+#endif
 
 void
 _xine_log_callback(void *xine_pyobject, int section)
@@ -748,6 +755,19 @@ init_xine()
         X11Window_PyObject_Type = NULL;
     }
 #endif
+#ifdef HAVE_OPENGL_VSYNC
+{
+    void *handle = dlopen("libGL.so", RTLD_LAZY);
+    if (handle) {
+        glXWaitVideoSyncSGI = dlsym(handle, "glXWaitVideoSyncSGI");
+        glXGetVideoSyncSGI = dlsym(handle, "glXGetVideoSyncSGI");
+    }
+    if (glXWaitVideoSyncSGI && glXGetVideoSyncSGI)
+        printf("OpenGL vsync supported on this system.\n");
+    else
+        printf("OpenGL vsync not supported on this system.\n");
 
+}
+#endif
     PyEval_InitThreads();
 }

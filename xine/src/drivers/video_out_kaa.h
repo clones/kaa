@@ -38,7 +38,6 @@
 
 
 #ifdef HAVE_OPENGL_VSYNC
-#define GLX_GLXEXT_PROTOTYPES
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 #include <GL/gl.h>

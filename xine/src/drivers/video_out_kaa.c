@@ -45,6 +45,11 @@
 
 static int _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame);
 
+#ifdef HAVE_OPENGL_VSYNC
+// set when module loads
+extern int (*glXWaitVideoSyncSGI)(int, int, unsigned int *);
+extern int (*glXGetVideoSyncSGI)(unsigned int *);
+#endif
 
 #ifdef STOPWATCH
 static void stopwatch(int n, char *text, ...)
@@ -1133,7 +1138,7 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->osd_alpha             = 255;
 #ifdef HAVE_OPENGL_VSYNC
     this->glx_display           = NULL;
-    if (visual->use_opengl_vsync)
+    if (visual->use_opengl_vsync && glXWaitVideoSyncSGI && glXGetVideoSyncSGI)
         _kaa_setup_glx(this, (x11_visual_t *)visual->passthrough_visual);
 #endif
     return &this->vo_driver;
