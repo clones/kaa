@@ -249,6 +249,7 @@ class Xine(MediaPlayer):
         Open mrl.
         """
         scheme, path = parse_mrl(mrl)
+        path = path or '/'
 
         self._mrl = "%s:%s" % (scheme, path)
         if not self._xine:

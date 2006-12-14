@@ -351,7 +351,7 @@ class MPlayer(MediaPlayer):
             self._file = path
         elif scheme == "dvd":
             file, title = re.search("(.*?)(\/\d+)?$", path).groups()
-            if file not in ("/", "//"):
+            if file.replace('/', ''):
                 if not os.path.isfile(file):
                     raise ValueError, "Invalid ISO file: %s" % file
                 self._file_args.append("-dvd-device \"%s\"" % file)
