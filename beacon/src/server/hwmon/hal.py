@@ -284,7 +284,7 @@ def _device_add(prop, udi):
     elif prop.get('block.device'):
         # set nice beacon unique id
         try:
-            prop['volume.uuid'] = kaa.metadata.get_discid(prop.get('block.device'))[1]
+            prop['volume.uuid'] = kaa.metadata.cdrom.status(prop.get('block.device'))[1]
         except Exception, e:
             log.exception('device checking')
             return

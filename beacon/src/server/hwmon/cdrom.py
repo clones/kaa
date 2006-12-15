@@ -222,7 +222,7 @@ class RomDrive(object):
             self.remove_disc()
             return
 
-        type, id = kaa.metadata.get_discid(self.device)
+        type, id = kaa.metadata.cdrom.status(self.device)
         if not id:
             # bad disc, let us assume it is no disc
             self.remove_disc()
