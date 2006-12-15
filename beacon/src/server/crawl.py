@@ -301,6 +301,16 @@ class Crawler(object):
         # DELETE
         # ---------------------------------------------------------------------
 
+        # before we delete, maybe the filesystem was just umounted
+        if mask & INotify.UMOUNT:
+            # Oops, our filesystem was umounted. This should never happen
+            # since all removable drives which could be umounted are on
+            # a different media in beacon. It happens sometimes on system
+            # shutdown, so we just ignore this event for now.
+            if name + '/' in self.monitoring:
+                self.monitoring.remove(name + '/', recursive=True)
+            return True
+            
         # The file does not exist, we need to delete it in the database
         if self.db.get_object(item._beacon_data['name'],
                               item._beacon_parent._beacon_id):
