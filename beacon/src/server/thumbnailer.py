@@ -234,6 +234,7 @@ class Thumbnailer(object):
 
     @kaa.rpc.expose('schedule')
     def schedule(self, id, filename, imagefile, size, priority):
+        # FIXME: check if job is already scheduled!!!
         self.jobs.append(Job(id, filename, imagefile, size, priority))
         self.schedule_next()
 
