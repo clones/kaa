@@ -33,6 +33,7 @@
 #define X_DISPLAY_MISSING
 #include <Imlib2.h>
 #include <string.h>
+#include <stdlib.h>
 
 unsigned int get_format_bpp(char *format)
 {
