@@ -92,7 +92,7 @@ class Device(object):
                 break
         else:
             if umount:
-                cmd = ("pumount-hal", self.udi)
+                cmd = ("pumount", self.prop.get('volume.mount_point'))
             else:
                 cmd = ("pmount-hal", self.udi)
         proc = kaa.notifier.Process(cmd)
