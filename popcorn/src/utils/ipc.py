@@ -65,26 +65,40 @@ class ChildProcess(object):
     """
     A child process with communication helpers.
     """
-    def __init__(self, parent, *args):
+    def __init__(self, parent, script, gdb=False):
         # Launch (-u is unbuffered stdout)
         self._parent = weakref(parent)
-        self._child = kaa.notifier.Process([sys.executable, '-u'] + list(args))
+
+        if gdb:
+            self._child = kaa.notifier.Process("gdb")
+            self._gdb = script
+        else:
+            self._child = kaa.notifier.Process([sys.executable, '-u', script])
+            self._gdb = None
         self._child.signals["stdout"].connect_weak(self._handle_line)
         self._child.signals["stderr"].connect_weak(self._handle_line)
-        self._name = os.path.basename(os.path.dirname(args[0]))
+        self._name = os.path.basename(os.path.dirname(script))
 
 
     def start(self, *args):
         """
         Start child.
         """
-        self._child.start(args)
+        if not self._gdb:
+            return self._child.start(args)
+        self._child.start(sys.executable)
+        self._child.write("run -u %s %s\n" % (self._gdb, ' '.join(args)))
 
 
     def _handle_line(self, line):
         """
         Handle line from child.
         """
+        if self.gdb and line.startswith("Program received signal SIGSEGV"):
+            self._child.write("thread apply all bt\n")
+            self._child.write("quit\n")
+            return
+        
         if line and line.startswith("!kaa!"):
             # ipc command from child
             command, args, kwargs = eval(line[5:])
