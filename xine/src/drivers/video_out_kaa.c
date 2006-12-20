@@ -563,7 +563,7 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
     stopwatch(2, NULL);
 }
 
-static inline void
+static void
 blend_plane_C(long w, long slice_h, uint8_t *dst, uint8_t *src,
               uint8_t *overlay, uint8_t *alpha, long frame_stride,
               long overlay_stride)
@@ -581,7 +581,7 @@ blend_plane_C(long w, long slice_h, uint8_t *dst, uint8_t *src,
 
 
 #if defined(ARCH_X86) || defined(ARCH_X86_64)
-static inline void
+static void
 blend_plane_MMX(long w, long slice_h, uint8_t *dst, uint8_t *src,
                 uint8_t *overlay, uint8_t *alpha, long frame_stride,
                 long overlay_stride)
