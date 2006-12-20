@@ -13,13 +13,17 @@ SRC_URI=""
 LICENSE="LGPL-2"
 SLOT="0"
 KEYWORDS="~amd64 ~ia64 ~ppc ~sparc x86"
+IUSE="hal"
 
 DEPEND="${DEPEND}
 	dev-python/kaa-base
 	dev-python/kaa-metadata
 	dev-python/kaa-imlib2
-	sys-apps/hal
-	sys-apps/dbus
+	hal? ( 
+	    sys-apps/dbus
+		sys-apps/hal
+		sys-apps/pmount
+	)
 	>=dev-db/sqlite-3.3.6
 	>=dev-python/pysqlite-2.3.1
 	>=media-libs/libpng-1.2.0
