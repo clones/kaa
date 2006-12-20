@@ -404,7 +404,7 @@ premultiply_alpha_byte(uint8_t byte, uint8_t alpha,
 /**
  * \brief Alpha-multiplies 8 consecutive bytes. C version.
  */
-static inline void
+static void
 premultiply_alpha_byte_8_C(uint8_t *byte, uint8_t *alpha,
                            uint8_t *dst_byte, uint8_t *dst_alpha,
                            int global_alpha)
@@ -419,7 +419,7 @@ premultiply_alpha_byte_8_C(uint8_t *byte, uint8_t *alpha,
 /**
  * \brief Alpha-multiplies 8 consecutive bytes. MMX version.
  */
-static inline void
+static void
 premultiply_alpha_byte_8_MMX(uint8_t *byte, uint8_t *alpha,
                              uint8_t *dst_byte, uint8_t *dst_alpha,
                              int global_alpha)
