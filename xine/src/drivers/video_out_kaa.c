@@ -531,14 +531,14 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 
     for (y = 0; y < rh; y++) {
         n_planes = 1;
-        for (x = 0; x < rw & ~7; x += 8)
+        for (x = 0; x < (rw & ~7); x += 8)
             premultiply_alpha_byte_8(&ptr[0][x], &alpha_ptr[0][x], &pre_ptr[0][x], &pre_alpha_ptr[0][x], global_alpha);
 
         for (; x < rw; x++)
             premultiply_alpha_byte(ptr[0][x], alpha_ptr[0][x], &pre_ptr[0][x], &pre_alpha_ptr[0][x], global_alpha);
 
         if (y % 2 == 0 && this->osd_format == XINE_IMGFMT_YV12) {
-            for (x = 0; x < (rw >> 1) & ~7; x += 8) {
+            for (x = 0; x < ((rw >> 1) & ~7); x += 8) {
                 premultiply_alpha_byte_8(&ptr[1][x], &alpha_ptr[1][x], &pre_ptr[1][x], &pre_alpha_ptr[1][x], global_alpha);
                 premultiply_alpha_byte_8(&ptr[2][x], &alpha_ptr[2][x], &pre_ptr[2][x], &pre_alpha_ptr[2][x], global_alpha);
             }
