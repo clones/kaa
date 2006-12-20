@@ -155,6 +155,8 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
                 now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
                 usleep(1);
             }
+            if (now - start_time >= 0.1)
+                break;
             
             if (dst_width == -1)
                 dst_width = frame->width;

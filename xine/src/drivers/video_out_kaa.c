@@ -531,14 +531,14 @@ image_premultiply_alpha(kaa_driver_t *this, int rx, int ry, int rw, int rh)
 
     for (y = 0; y < rh; y++) {
         n_planes = 1;
-        for (x = 0; x < rw; x += 8)
+        for (x = 0; x < rw & ~7; x += 8)
             premultiply_alpha_byte_8(&ptr[0][x], &alpha_ptr[0][x], &pre_ptr[0][x], &pre_alpha_ptr[0][x], global_alpha);
 
         for (; x < rw; x++)
             premultiply_alpha_byte(ptr[0][x], alpha_ptr[0][x], &pre_ptr[0][x], &pre_alpha_ptr[0][x], global_alpha);
 
         if (y % 2 == 0 && this->osd_format == XINE_IMGFMT_YV12) {
-            for (x = 0; x < (rw >> 1); x += 8) {
+            for (x = 0; x < (rw >> 1) & ~7; x += 8) {
                 premultiply_alpha_byte_8(&ptr[1][x], &alpha_ptr[1][x], &pre_ptr[1][x], &pre_alpha_ptr[1][x], global_alpha);
                 premultiply_alpha_byte_8(&ptr[2][x], &alpha_ptr[2][x], &pre_ptr[2][x], &pre_alpha_ptr[2][x], global_alpha);
             }
@@ -958,16 +958,21 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
+    // FIXME: handle XINE_GUI_SEND_DRAWABLE_CHANGED for opengl vsync.
     switch(data_type) {
         case GUI_SEND_KAA_VO_SET_PASSTHROUGH:
+            pthread_mutex_lock(&this->osd_buffer_lock);
             this->do_passthrough = (int)data;
             if (this->do_passthrough)
                 this->needs_redraw = 1;
+            pthread_mutex_unlock(&this->osd_buffer_lock);
             break;
 
         case GUI_SEND_KAA_VO_OSD_SET_VISIBILITY:
+            pthread_mutex_lock(&this->osd_buffer_lock);
             this->osd_visible = (int)data;
             this->needs_redraw = 1;
+            pthread_mutex_unlock(&this->osd_buffer_lock);
             break;
 
         case GUI_SEND_KAA_VO_OSD_INVALIDATE_RECT:
@@ -981,8 +986,8 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
                 image_premultiply_alpha(this, r[i].x, r[i].y, r[i].w, r[i].h);
             }
             calculate_slice(this);
-            pthread_mutex_unlock(&this->osd_buffer_lock);
             this->needs_redraw = 1;
+            pthread_mutex_unlock(&this->osd_buffer_lock);
             break;
         }
         case GUI_SEND_KAA_VO_OSD_SET_ALPHA:
