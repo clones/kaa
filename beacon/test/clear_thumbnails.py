@@ -7,6 +7,8 @@ verbose = False
 files = []
 num_deleted = 0
 
+FORCE=True
+
 for directory in ('fail/kaa', 'large', 'normal'):
     path = os.path.expanduser('~/.thumbnails/' + directory)
     for thumbnail in os.listdir(path):
@@ -20,15 +22,21 @@ for pos, thumbnail in enumerate(files):
 
     metadata = kaa.metadata.parse(thumbnail)
     if not metadata:
-        print '\nbad thumbnail: %s' % thumbnail
+        if FORCE:
+            os.unlink(thumbnail)
+            num_deleted += 1
         continue
     uri = metadata['Thumb::URI']
     if not uri:
-        print '\nbad thumbnail: %s' % thumbnail
+        if FORCE:
+            os.unlink(thumbnail)
+            num_deleted += 1
         continue
     uri = kaa.strutils.unicode_to_str(uri)
     if not uri.startswith('file://'):
-        print '\nbad uri %s in thumbnail: %s' % (uri, thumbnail)
+        if FORCE:
+            os.unlink(thumbnail)
+            num_deleted += 1
         continue
     if not os.path.isfile(uri[7:]):
         if verbose:
