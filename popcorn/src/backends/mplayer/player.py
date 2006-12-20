@@ -56,7 +56,7 @@ BUFFER_LOCKED = 0x20
 
 # get logging object
 log = logging.getLogger('popcorn.mplayer')
-
+childlog = logging.getLogger('popcorn.child').debug
 
 # A cache holding values specific to an MPlayer executable (version,
 # filter list, video/audio driver list, input keylist).  This dict is
@@ -208,11 +208,11 @@ class MPlayer(MediaPlayer):
 
     def _child_handle_line(self, line):
         if re.search("@@@|outbuf|overlay", line, re.I):
-            log.info(line)
+            childlog(line)
         elif line[:2] not in ("A:", "V:"):
-            log.debug(line)
+            childlog(line)
         elif USE_GDB:
-            log.debug(line)
+            childlog(line)
 
         if line.startswith("V:") or line.startswith("A:"):
             m = MPlayer.RE_STATUS.search(line)
