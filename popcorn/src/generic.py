@@ -174,9 +174,15 @@ class Player(object):
             cls = self._get_player_class()
             if cls:
                 # a new possible player is found, try it
+                # remove all pending information to make it possible to call
+                # create and open now. After that, add them again.
+                pending = self._pending
+                self._pending = []
                 self._create_player(cls)
                 self._open()
-                self.play()
+                if old_state == STATE_OPEN:
+                    self.play()
+                self._pending.extend(pending)
                 return True
             # everything failed
             self.signals["failed"].emit()
@@ -236,6 +242,7 @@ class Player(object):
         """
         Create a player based on cls.
         """
+        print 'foo'
         self._player = cls(self._config, self._properties)
         self._player._state_changed.connect_weak(self._state_change)
         for signal in self._player.signals:
@@ -273,7 +280,7 @@ class Player(object):
         self._open_caps = caps
         self._failed_player = []
         cls = self._get_player_class(player)
-
+        
         if not cls:
             raise PlayerError("No supported player found to play %s", mrl)
 
