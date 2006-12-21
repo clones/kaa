@@ -142,6 +142,52 @@ class BeaconFS(fuse.Fuse):
         return self._filename_map[file].filename
 
 
+    def getxattr(self, path, name, size):
+        log.info('getxattr(%s, %s, %s)', path, name, size)
+        val = name # for testing
+
+        # FIXME: The following code should work, but this function is
+        # never called. No idea why. If it works one day, we should
+        # also add sexattr (remeber to check the type of the value to
+        # convert it) and removexattr.
+        
+        # file = path[1:] # assume prefixed with single /
+        # if file not in self._filename_map:
+        #     return -errno.ENOENT
+        # 
+        # val = self._filename_map[file].get(name)
+        # if isinstance(val, unicode):
+        #     val = unicode_to_str(val)
+        # val = str(val)
+        
+        if size == 0:
+            # We are asked for size of the value.
+            return len(val)
+        return val
+
+    
+    def listxattr(self, path, size):
+        log.info('listxattr(%s, %s)', path, size)
+        file = path[1:] # assume prefixed with single /
+        if file not in self._filename_map:
+            return -errno.ENOENT
+        item = self._filename_map[file]
+        attributes = []
+        for key in item.keys():
+            if key in ('parent', 'media', 'parent_type', 'overlay',
+                       'parent_id', 'mtime', 'computed_id', 'id'):
+                continue
+            value = item.get(key)
+            if value is not None:
+                # We use the "user" namespace to please XFS utils
+                attributes.append('user.' + key)
+        if size == 0:
+            # We are asked for size of the attr list, ie. joint size of attrs
+            # plus null separators.
+            return len("".join(attributes)) + len(attributes)
+        return attributes
+
+
     def check(self):
         """
         Do some sanity checks to catch common gotchas with fuse.
@@ -192,6 +238,15 @@ class BeaconFS(fuse.Fuse):
         Main loop for fuse. This needs to be called in a thread. On fuse
         shutdown, the kaa notifier main loop will be stopped.
         """
+
+        if True:
+            # activate for debugging to see a logfile in /tmp/fuselog
+            handler = logging.FileHandler('/tmp/fuselog')
+            f = logging.Formatter('%(filename)s %(lineno)s: %(message)s')
+            handler.setFormatter(f)
+            log.addHandler(handler)
+            log.setLevel(logging.INFO)
+            
         self.check()
         fuse.Fuse.main(self)
         kaa.notifier.MainThreadCallback(kaa.notifier.shutdown)()
