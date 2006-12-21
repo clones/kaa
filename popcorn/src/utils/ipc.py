@@ -41,8 +41,9 @@ import logging
 import kaa.notifier
 from kaa.weakref import weakref
 
-# get logging object
-log = logging.getLogger('popcorn.child')
+# get logging objects
+log = logging.getLogger('popcorn.ipc')
+childlog = logging.getLogger('popcorn.child')
 
 class ChildCommand(object):
     """
@@ -94,12 +95,10 @@ class ChildProcess(object):
         """
         Handle line from child.
         """
-        if self.gdb and line.startswith("Program received signal SIGSEGV"):
-            self._child.write("thread apply all bt\n")
-            self._child.write("quit\n")
-            return
+        if not line:
+            return True
         
-        if line and line.startswith("!kaa!"):
+        if line.startswith("!kaa!"):
             # ipc command from child
             command, args, kwargs = eval(line[5:])
             cmd = getattr(self._parent, "_child_" + command, None)
@@ -115,8 +114,20 @@ class ChildProcess(object):
                    setattr(self._parent, command[4:], args[0])
                    return True
             raise AttributeError('parent has no attribute %s', command)
-        # some debug
-        log.info("[%s-%d] %s", self._name, self._child.child.pid, line)
+
+        if self.gdb and line.startswith("Program received signal SIGSEGV"):
+            self._child.write("thread apply all bt\n")
+            self._child.write("quit\n")
+            return
+
+        # do some nice debug. use the log level from child if we can detect it
+        delim = line.find(' ')
+        function = childlog.debug
+        if delim > 0:
+            function = getattr(childlog, line[:delim].lower(), childlog.debug)
+            if function:
+                line = line[delim+1:]
+        function("[%s-%d] %s", self._name, self._child.child.pid, line)
 
 
     def __getattr__(self, attr):
