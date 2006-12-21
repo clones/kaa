@@ -27,6 +27,7 @@ DEPEND="${DEPEND}
 		>=media-libs/gst-plugins-ugly-0.10.3
 		>=media-plugins/gst-plugins-a52dec-0.10.3
 		>=media-plugins/gst-plugins-ffmpeg-0.10.1
+		>=media-plugins/gst-plugins-mad-0.10.3
 		dvd? >=media-plugins/gst-plugins-dvdread-0.10.4
 		libvisual? >=media-plugins/gst-plugins-libvisual-0.10.4
 		media-plugins/gst-plugins-theora
