@@ -245,11 +245,18 @@ class Player(object):
         properties = self._properties
         if copy_properties and self._player:
             properties = self._player._properties
+        properties = properties.copy()
+
+        if properties.get('deinterlace') == 'auto':
+            self._player._properties['deinterlace'] = False
+            if 'interlaced' in self._media an self._media.interlaced:
+                self._player._properties['deinterlace'] = True
+                
         self._player = cls(self._config, properties)
         self._player._state_changed.connect_weak(self._state_change)
         for signal in self._player.signals:
             self._player.signals[signal].connect_weak(self.signals[signal].emit)
-            
+                
     
     @required_states(STATE_NOT_RUNNING, STATE_IDLE)
     def _open(self):
@@ -491,9 +498,8 @@ class Player(object):
         will only affect the current url.
         """
         if self._player:
-            self._player._properties[prop] = value
-        else:
-            self._properties[prop] = value
+            return self._player.set_property(prop, value)
+        self._properties[prop] = value
 
 
     def get_property(self, prop):

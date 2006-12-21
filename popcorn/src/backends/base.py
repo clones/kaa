@@ -31,7 +31,6 @@ import sets
 import os
 import md5
 import logging
-import copy
 
 # kaa imports
 import kaa.notifier
@@ -64,7 +63,7 @@ class MediaPlayer(object):
         self._size = None
         self._aspect = None
         self._config = config
-        self._properties = copy.copy(properties)
+        self._properties = properties
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
         MediaPlayer._instance_count += 1
 
@@ -301,6 +300,13 @@ class MediaPlayer(object):
         Return True if the player is in a navigation menu.
         """
         return False
+
+
+    def set_property(self, prop, value):
+        """
+        Set a property to a new value.
+        """
+        self._properties[prop] = value
 
 
     # For CAP_OSD
