@@ -178,7 +178,7 @@ class Player(object):
                 # create and open now. After that, add them again.
                 pending = self._pending
                 self._pending = []
-                self._create_player(cls)
+                self._create_player(cls, True)
                 self._open()
                 if old_state == STATE_OPEN:
                     self.play()
@@ -238,12 +238,14 @@ class Player(object):
 
 
     @required_states(STATE_NOT_RUNNING)
-    def _create_player(self, cls):
+    def _create_player(self, cls, copy_properties=False):
         """
         Create a player based on cls.
         """
-        print 'foo'
-        self._player = cls(self._config, self._properties)
+        properties = self._properties
+        if copy_properties and self._player:
+            properties = self._player._properties
+        self._player = cls(self._config, properties)
         self._player._state_changed.connect_weak(self._state_change)
         for signal in self._player.signals:
             self._player.signals[signal].connect_weak(self.signals[signal].emit)
@@ -294,6 +296,8 @@ class Player(object):
             if not isinstance(self._player, cls):
                 self._player.release()
                 self._create_player(cls)
+            else:
+                self._player._properties = self._properties.copy()
         self._open()
 
 
