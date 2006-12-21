@@ -258,7 +258,7 @@ class Player(object):
 
         if properties.get('deinterlace') == 'auto':
             self._player._properties['deinterlace'] = False
-            if 'interlaced' in self._media an self._media.interlaced:
+            if 'interlaced' in self._media and self._media.interlaced:
                 self._player._properties['deinterlace'] = True
                 
         self._player = cls(self._config, properties)
