@@ -228,6 +228,9 @@ calculate_slice(kaa_driver_t *this)
     int x, y, n_plane, h, row_stride, slice_y1 = -2, slice_y2 = -2;
     uint8_t *p;
 
+    if (!this->osd_planes[0]) // Not allocated yet.
+        return;
+
     n_plane = this->osd_format == XINE_IMGFMT_YV12 ? 1 : 0;
     p = this->osd_alpha_planes[n_plane];
     row_stride = this->osd_strides[n_plane];
