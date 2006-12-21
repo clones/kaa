@@ -157,8 +157,8 @@ class MPlayer(MediaPlayer):
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
     RE_SWS = re.compile("^SwScaler: [0-9]+x[0-9]+ -> ([0-9]+)x([0-9]+)")
 
-    def __init__(self, config):
-        super(MPlayer, self).__init__(config)
+    def __init__(self, config, properties):
+        super(MPlayer, self).__init__(config, properties)
         self._state = STATE_NOT_RUNNING
         self._mp_cmd = self._config.mplayer.path
         if not self._mp_cmd:

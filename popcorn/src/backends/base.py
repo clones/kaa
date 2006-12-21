@@ -31,6 +31,7 @@ import sets
 import os
 import md5
 import logging
+import copy
 
 # kaa imports
 import kaa.notifier
@@ -50,7 +51,7 @@ class MediaPlayer(object):
 
     _instance_count = 0
 
-    def __init__(self, config):
+    def __init__(self, config, properties):
         self.signals = {
             "elapsed": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
@@ -63,6 +64,7 @@ class MediaPlayer(object):
         self._size = None
         self._aspect = None
         self._config = config
+        self._properties = copy.copy(properties)
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
         MediaPlayer._instance_count += 1
 

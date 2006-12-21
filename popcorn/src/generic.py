@@ -87,6 +87,11 @@ class Player(object):
         self.set_window(window)
 
         self._config = config
+        self._properties = {
+            'deinterlace': 'auto',
+            'postprocessing': True,
+            'software_scaler': True,
+        }
         
         self.signals = {
 
@@ -231,7 +236,7 @@ class Player(object):
         """
         Create a player based on cls.
         """
-        self._player = cls(self._config)
+        self._player = cls(self._config, self._properties)
         self._player._state_changed.connect_weak(self._state_change)
         for signal in self._player.signals:
             self._player.signals[signal].connect_weak(self.signals[signal].emit)
@@ -469,6 +474,35 @@ class Player(object):
             return self._player.set_aspect(aspect)
 
 
+    def set_property(self, prop, value):
+        """
+        Set a property to a new value. If an url is open right now, this 
+        will only affect the current url.
+        """
+        if self._player:
+            self._player._properties[prop] = value
+        else:
+            self._properties[prop] = value
+
+
+    def get_property(self, prop):
+        """
+        Get property value.
+        """
+        if self._player:
+            return self._player._properties.get(prop)
+        return self._properties.get(prop)
+
+
+    def properties(self):
+        """
+        Return a list of all known properties.
+        """
+        if self._player:
+            return self._player._properties.keys()
+        return self._properties.keys()
+        
+        
     # For CAP_OSD
 
     def osd_can_update(self):

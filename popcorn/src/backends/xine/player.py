@@ -52,8 +52,8 @@ BUFFER_LOCKED = 0x20
 
 class Xine(MediaPlayer):
 
-    def __init__(self, config):
-        super(Xine, self).__init__(config)
+    def __init__(self, config, properties):
+        super(Xine, self).__init__(config, properties)
         self._check_new_frame_timer = kaa.notifier.WeakTimer(self._check_new_frame)
         self._is_in_menu = False
         self._cur_frame_output_mode = [True, False, None] # vo, shmem, size
