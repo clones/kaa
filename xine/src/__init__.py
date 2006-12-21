@@ -1,10 +1,16 @@
-import weakref, threading, math, os
-
+import weakref
+import threading
+import math
+import logging
+ 
 import _xine
 import kaa
 from kaa import display, notifier, metadata
 from kaa.version import Version
 from constants import *
+ 
+# get logging object
+log = logging.getLogger('xine')
 
 # FIXME: find a good place to document this:
 #
@@ -207,7 +213,7 @@ class Xine(Wrapper):
     def _default_frame_output_cb(self, width, height, aspect, window):
         w, h, a = self._get_vo_display_size(width, height, aspect)
         if aspect > 0 and abs(window._aspect - a) > 0.01:
-            print "VO: %dx%d -> %dx%d" % (width, height, w, h)
+            log.info('VO: %dx%d -> %dx%d', width, height, w, h)
             window.resize((w, h))
             window._aspect = a
         if window:
@@ -534,7 +540,7 @@ class Stream(Wrapper):
     def _seek_thread(self, time):
         self.set_parameter(PARAM_SPEED, SPEED_NORMAL)
         if not self.get_parameter(STREAM_INFO_SEEKABLE):
-            print "Stream not seekable"
+            log.error('Stream not seekable')
             return False
 
         self.play(time)
@@ -542,7 +548,7 @@ class Stream(Wrapper):
 
     def _seek(self, time):
         if self.get_status() != STATUS_PLAY:
-            print "Stream not playing"
+            log.error('Stream not playing')
             return False
          
         # Need a xine engine mutex for this.  Later.  

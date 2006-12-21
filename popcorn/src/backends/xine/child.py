@@ -28,6 +28,7 @@
 
 # python imports
 import sys
+import logging
 
 # kaa imports
 import kaa
@@ -38,6 +39,10 @@ import kaa.xine as xine
 # kaa.popcorn imports
 from kaa.popcorn.utils import Player
 from kaa.popcorn.ptypes import *
+
+# get and configure logging object
+log = logging.getLogger('xine')
+log.setLevel(logging.DEBUG)
 
 
 BUFFER_UNLOCKED = 0x10
@@ -148,7 +153,7 @@ class XinePlayerChild(Player):
         #print "Frame output", width, height, aspect
         w, h, a = self._xine._get_vo_display_size(width, height, aspect)
         if abs(self._x11_last_aspect - a) > 0.01:
-            print "VO: %dx%d -> %dx%d" % (width, height, w, h)
+            log.debug('VO: %dx%d -> %dx%d', width, height, w, h)
             self.parent.resize((w, h))
             self._x11_last_aspect = a
         if self._x11_window_size != (0, 0):
@@ -338,11 +343,11 @@ class XinePlayerChild(Player):
             xine._debug_show_chain(self._stream._obj)
         except xine.XineError:
             self.parent.set_streaminfo(False, self._stream.get_error())
-            print "Open failed:", self._stream.get_error()
+            log.error('Open failed: %s', self._stream.get_error())
             return False
         if not self._check_stream_handles():
             self.parent.set_streaminfo(False, None)
-            print "unable to play stream"
+            log.error('unable to play stream')
             return False
         self.parent.set_streaminfo(True, self._get_streaminfo())
         self._status.start(0.03)
@@ -416,10 +421,10 @@ class XinePlayerChild(Player):
             self._driver_control("set_passthrough", vo)
         if notify != None:
             if notify:
-                print "DEINTERLACE CHEAP MODE: True"
+                log.info('deinterlace cheap mode: True')
                 self._deint_post.set_parameters(cheap_mode = True, framerate_mode = 'half_top')
             else:
-                print "DEINTERLACE CHEAP MODE: False"
+                log.info('deinterlace cheap mode: False')
                 self._deint_post.set_parameters(cheap_mode = False, framerate_mode = 'full')
 
             self._driver_control("set_notify_frame", notify)
