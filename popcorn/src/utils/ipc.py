@@ -124,9 +124,10 @@ class ChildProcess(object):
         delim = line.find(' ')
         function = childlog.debug
         if delim > 0:
-            function = getattr(childlog, line[:delim].lower(), childlog.debug)
-            if function:
+            f = getattr(childlog, line[:delim].lower(), None)
+            if f:
                 line = line[delim+1:]
+                function = f
         function("[%s-%d] %s", self._name, self._child.child.pid, line)
 
 
