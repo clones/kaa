@@ -90,21 +90,25 @@ class Player(object):
 
         self._properties = {
 
-            # read/write properties
-            'deinterlace': 'auto',
+            # If a property is changed when no uri is loaded
+            # it will affect all uris loaded after this point.
+            # If changed when an uri is loaded it will only
+            # affect this one. Some properties can't be
+            # changed after the stream is started because the
+            # backend does not support it.
+
+            # settings that are set global is most cases
             'postprocessing': True,
             'software-scaler': True,
-            'pixel-aspect-ratio': '1:1',
+            'pixel-aspect-ratio': '1:1', # of the output
+
+            # settings usefull for changing after a stream is
+            # loaded.
+            'deinterlace': 'auto',
             'audio-track': None,
             'audio-filename': None,
             'subtitle-track': None,
             'subtitle-filename': None,
-
-            # read only properties
-            'audio-track-list': None,
-            'subtitle-track-list': None,
-            'elapsed': None,
-            'length': None
         }
         
         self.signals = {
@@ -414,6 +418,8 @@ class Player(object):
         """
         Get information about the stream.
         """
+        # FIXME: more sure the following variables can be accessed:
+        # audio-track-list, subtitle-track-list, elapsed and length
         if self._player:
             return self._player.get_info()
         return {}
