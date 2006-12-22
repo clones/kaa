@@ -326,7 +326,7 @@ class XinePlayerChild(Player):
 
         # wire video stream with needed filter
         chain = []
-        if properties.get('deinterlace'):
+        if properties.get('deinterlace') in (True, 'auto'):
             chain.append('tvtime')
         if properties.get('postprocessing'):
             chain.append('pp')
