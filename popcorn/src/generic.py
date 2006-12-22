@@ -98,7 +98,7 @@ class Player(object):
             # backend does not support it.
 
             # settings that are set global is most cases
-            'postprocessing': True,
+            'postprocessing': False,
             'software-scaler': True,
             'pixel-aspect-ratio': '1:1', # of the output
 
