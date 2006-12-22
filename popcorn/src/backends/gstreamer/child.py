@@ -146,6 +146,14 @@ class GStreamer(Player):
             # For popcorn we should either get both values to the player
             # (xaspect, yaspect) or both variables. The later is much easier
             # for the user to configure.
+            #
+            # Maybe we should create a config option for the monitor aspect
+            # 16/9, 15/9 or 4/3. This is what the user needs. The fullscreen
+            # values could be get during runtime. Maybe we can ask the x server
+            # for the resolution or for non x based code we could ask the given
+            # kaa.display display (fb, dfb). This would be the best choice for
+            # the user.
+
             goom = gst.element_factory_make("goom", "goom0")
             self._gst.set_property('vis-plugin', goom)
         elif driver == 'none':
