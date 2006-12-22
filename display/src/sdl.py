@@ -36,7 +36,7 @@ import time
 import kaa.notifier
 
 # the display module
-import _X11
+import _SDL
 
 class PygameDisplay(object):
     def __init__(self, size):
@@ -77,7 +77,7 @@ class PygameDisplay(object):
         """
         if self._surface:
             # we need to use our tmp surface
-            _X11.image_to_surface(image, self._surface)
+            _SDL.image_to_surface(image, self._surface)
             if areas == None:
                 # copy everything
                 self._screen.blit(self._surface, (0,0))
@@ -87,7 +87,7 @@ class PygameDisplay(object):
                     self._screen.blit(self._surface, pos, pos + size)
         else:
             # copy everything
-            _X11.image_to_surface(image, self._screen)
+            _SDL.image_to_surface(image, self._screen)
 
         # update the screen
         if areas:
