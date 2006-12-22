@@ -366,8 +366,8 @@ class Xine(MediaPlayer):
         Set a property to a new value.
         """
         super(Xine, self).set_property(prop, value)
-        if self.xine:
-            self.xine.set_property(prop, value)
+        if self._xine:
+            self._xine.set_property(prop, value)
 
     #
     # Methods and helper for MediaPlayer subclasses for CAP_OSD

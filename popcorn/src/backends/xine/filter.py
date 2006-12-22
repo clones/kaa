@@ -25,7 +25,7 @@ class FilterChain(object):
 
     def __init__(self):
         self._filter = {}
-
+        self._chain = [ None, None, [], None ]
 
     def get(self, name):
         f = self._filter.get(name)
@@ -34,8 +34,15 @@ class FilterChain(object):
             self._filter[name] = f
         return f
 
+    def get_chain(self):
+        return self._chain[2]
 
+    def rewire(self, chain):
+        self._chain[2] = chain
+        self.wire(*self._chain)
+        
     def wire(self, xine, src, chain, dst):
+        self._chain = [ xine, src, chain, dst ]
         chain = chain[:]
         chain.reverse()
         for f in chain:
@@ -45,3 +52,4 @@ class FilterChain(object):
 
         # FIXME: rewrire support
         src.wire(dst)
+        

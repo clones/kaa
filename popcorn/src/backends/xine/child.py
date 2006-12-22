@@ -450,4 +450,11 @@ class XinePlayerChild(Player):
         """
         Set a property to a new value.
         """
-        pass
+        current = self._vfilter.get_chain()
+        chain = []
+        if (prop == 'deinterlace' and value) or 'tvtime' in current:
+            chain.append('tvtime')
+        if (prop == 'postprocessing' and value) or 'pp' in current:
+            chain.append('pp')
+        chain.append('expand')
+        self._vfilter.rewire(chain)
