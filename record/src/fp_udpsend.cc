@@ -145,7 +145,7 @@ sockaddr_in FPUDPSend::convertStringToSockaddrIn( const std::string addr ) {
 
   // fill struct with address and port
   struct sockaddr_in ucaddr;
-  bzero((char *) &ucaddr, sizeof(ucaddr));
+  memset((char *) &ucaddr, 0, sizeof(ucaddr));
   ucaddr.sin_family      = AF_INET;
   ucaddr.sin_addr.s_addr = INADDR_ANY;
   ucaddr.sin_port        = 0;
