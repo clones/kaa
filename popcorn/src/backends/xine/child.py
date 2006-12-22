@@ -40,6 +40,8 @@ import kaa.xine as xine
 from kaa.popcorn.utils import Player
 from kaa.popcorn.ptypes import *
 
+from filter import FilterChain
+
 # get and configure logging object
 log = logging.getLogger('xine')
 log.setLevel(logging.DEBUG)
@@ -211,10 +213,6 @@ class XinePlayerChild(Player):
             self._stream.get_audio_source().wire(self._ao)
         
     
-    def _wire_vo_driver(self, vo):
-        if self._stream:
-            self._stream.get_video_source().wire(self._deint_post.get_default_input())
-
     # #############################################################################
     # Commands from parent process
     # #############################################################################
@@ -260,19 +258,20 @@ class XinePlayerChild(Player):
             self._driver_control = None
             self._vo_visible = False
 
-        self._expand_post = self._xine.post_init("expand", video_targets = [self._vo])
+        # setup filter chain and configure filter
+        self._vfilter = FilterChain()
+
+        f = self._vfilter.get("tvtime")
+        f.set_parameters(method = self.config.xine.deinterlacer.method,
+                         chroma_filter = self.config.xine.deinterlacer.chroma_filter)
+
+        f = self._vfilter.get("expand")
         if aspect:
-            self._expand_post.set_parameters(aspect=aspect)
+            f.set_parameters(aspect=aspect)
+        f.set_parameters(enable_automatic_shift = True)
 
-        self._deint_post = self._xine.post_init("tvtime", video_targets = [self._expand_post.get_default_input()])
-        self._deint_post.set_parameters(method = self.config.xine.deinterlacer.method,
-                                        chroma_filter = self.config.xine.deinterlacer.chroma_filter)
-
-        self._expand_post.set_parameters(enable_automatic_shift = True)
         if self._driver_control:
             self._driver_control("set_passthrough", False)
-
-        self._wire_vo_driver(self._vo)
 
 
     def configure_audio(self, driver):
@@ -310,7 +309,7 @@ class XinePlayerChild(Player):
         self._wire_ao_driver(self._ao)
 
 
-    def configure_stream(self):
+    def configure_stream(self, properties):
         """
         Basic stream setup.
         """
@@ -322,7 +321,17 @@ class XinePlayerChild(Player):
         # self._noise_post.set_parameters(luma_strength = 3, quality = "temporal")
         # self._stream.get_video_source().wire(self._noise_post.get_default_input())
 
-        self._stream.get_video_source().wire(self._deint_post.get_default_input())
+        if not self._vo:
+            return
+
+        # wire video stream with needed filter
+        chain = []
+        if properties.get('deinterlace'):
+            chain.append('tvtime')
+        if properties.get('postprocessing'):
+            chain.append('pp')
+        chain.append('expand')
+        self._vfilter.wire(self._xine, self._stream.get_video_source(), chain, self._vo)
 
 
 
@@ -420,12 +429,13 @@ class XinePlayerChild(Player):
         if vo != None:
             self._driver_control("set_passthrough", vo)
         if notify != None:
+            set_parameters = self._vfilter.get('tvtime').set_parameters
             if notify:
                 log.info('deinterlace cheap mode: True')
-                self._deint_post.set_parameters(cheap_mode = True, framerate_mode = 'half_top')
+                set_parameters(cheap_mode = True, framerate_mode = 'half_top')
             else:
                 log.info('deinterlace cheap mode: False')
-                self._deint_post.set_parameters(cheap_mode = False, framerate_mode = 'full')
+                set_parameters(cheap_mode = False, framerate_mode = 'full')
 
             self._driver_control("set_notify_frame", notify)
         if size != None:
@@ -434,3 +444,10 @@ class XinePlayerChild(Player):
 
     def input(self, input):
         self._stream.send_event(input)
+
+
+    def set_property(self, prop, value):
+        """
+        Set a property to a new value.
+        """
+        pass

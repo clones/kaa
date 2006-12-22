@@ -237,7 +237,7 @@ class Xine(MediaPlayer):
         else:
             self._xine.configure_video(None, None)
         self._xine.configure_audio(self._config.audio.driver)
-        self._xine.configure_stream()
+        self._xine.configure_stream(self._properties)
 
 
     #
@@ -360,6 +360,14 @@ class Xine(MediaPlayer):
         """
         return self._is_in_menu
 
+
+    def set_property(self, prop, value):
+        """
+        Set a property to a new value.
+        """
+        super(Xine, self).set_property(prop, value)
+        if self.xine:
+            self.xine.set_property(prop, value)
 
     #
     # Methods and helper for MediaPlayer subclasses for CAP_OSD
