@@ -88,18 +88,23 @@ class Player(object):
 
         self._config = config
 
-        # Some brainstorming here. What else do we need as a property
-        # of a stream? One would be the audio track, but the user may
-        # need an interface to get the list of possible tracks
-        # first. How do we want to start a dvd at a specific chapter?
-        # Is chapter a property or maybe an option to play? Is the
-        # pixel aspect of the putput window a property? Would be easy
-        # with 1:1 as default value.
-
         self._properties = {
+
+            # read/write properties
             'deinterlace': 'auto',
             'postprocessing': True,
-            'software_scaler': True,
+            'software-scaler': True,
+            'pixel-aspect-ratio': '1:1',
+            'audio-track': None,
+            'audio-filename': None,
+            'subtitle-track': None,
+            'subtitle-filename': None,
+
+            # read only properties
+            'audio-track-list': None,
+            'subtitle-track-list': None,
+            'elapsed': None,
+            'length': None
         }
         
         self.signals = {
