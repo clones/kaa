@@ -17,7 +17,7 @@
             </desc>
         </var>
     </group>
-    <var name="vsync" default="True">
+    <var name="vsync" default="False">
         <desc lang="en">Enable vsync via OpenGL (applies only to X11 visuals)</desc>
     </var>
 
