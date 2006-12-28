@@ -307,7 +307,7 @@ import kaa.beacon.server
 pid = os.fork()
 if not pid:
     # hwmon part (import this first because of hal/gtk)
-    hwmon = kaa.beacon.server.HardwareMonitorServer()
+    hwmon = kaa.beacon.server.HardwareMonitorServer(os.path.join(database, "config"))
 
     # thumbnailer part
     thumb = kaa.beacon.server.Thumbnailer()

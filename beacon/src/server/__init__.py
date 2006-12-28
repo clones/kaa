@@ -35,9 +35,9 @@ def BeaconServer(database):
     return server.Server(database)
 
 
-def HardwareMonitorServer():
+def HardwareMonitorServer(config):
     import hwmon.server
-    return hwmon.server.Server()
+    return hwmon.server.Server(config)
 
 
 def HardwareMonitorClient():

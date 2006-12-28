@@ -54,13 +54,22 @@ try:
 except ImportError:
     cdrom = None
 
+# load server config
+from kaa.beacon.server.config import config
+
 # get logging object
 log = logging.getLogger('beacon.hwmon')
 
+
 class Server(object):
 
-    def __init__(self):
+    def __init__(self, configfile):
         log.info('start hardware monitor')
+
+        # load config
+        config.set_filename(configfile)
+        config.load()
+
         self.master = None
         self.rpc = None
         self.devices = {}
@@ -110,7 +119,10 @@ class Server(object):
             # FIMXE: make this make unique if possible
             dev.prop['beacon.id'] = str(dev.prop.get('volume.uuid'))
         else:
-            log.error('impossible to find unique string for beacon.id')
+            error = 'impossible to find unique string for beacon.id'
+            if dev.prop.get('block.device'):
+                error = 'unable to mount %s' % dev.prop.get('block.device')
+            log.error(error)
             return True
 
         # FIXME: add a nice title

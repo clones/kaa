@@ -49,6 +49,8 @@ import dbus.glib
 # use gtk main loop
 kaa.notifier.init('gtk', x11=False)
 
+# kaa.beacon imports
+from kaa.beacon.server.config import config
 from kaa.beacon.utils import fstab
 from cdrom import eject
 
@@ -216,7 +218,7 @@ def _device_all(device_names):
 def _device_new(udi):
     obj = _bus.get_object("org.freedesktop.Hal", udi)
     obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
-                         reply_handler=kaa.notifier.Callback(_device_add, udi),
+                         reply_handler=kaa.notifier.Callback(_device_add, udi, True),
                          error_handler=log.error)
 
 
@@ -242,7 +244,7 @@ def _device_remove(udi):
 
 
 #add new device
-def _device_add(prop, udi):
+def _device_add(prop, udi, removable=False):
     # only handle mountable devices
     if not 'volume.mount_point' in prop:
         if 'linux.sysfs_path' in prop and 'block.device' in prop:
@@ -253,7 +255,16 @@ def _device_add(prop, udi):
                     signals['add'].emit(dev)
         return
 
-    if not prop.get('volume.is_disc'):
+    if prop.get('block.device') and config.discs and \
+           prop.get('block.device')[:-1] in config.discs.split(' '):
+        # fixed device set in config
+        return
+
+    if config.discs:
+        # fixed drives are set so this is a removable
+        removable = True
+        
+    if not prop.get('volume.is_disc') and not removable:
         # no disc, check if the device is removable
         try:
 
@@ -281,7 +292,7 @@ def _device_add(prop, udi):
             # Error reading info. Either file not found, linux.sysfs_path_device
             # not in prop or no read permissions. So not removable in that case.
             return
-    elif prop.get('block.device'):
+    elif prop.get('volume.is_disc') and prop.get('block.device'):
         # set nice beacon unique id
         try:
             prop['volume.uuid'] = kaa.metadata.cdrom.status(prop.get('block.device'))[1]

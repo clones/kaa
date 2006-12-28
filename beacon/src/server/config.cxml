@@ -30,6 +30,14 @@
         </var>
     </group>
 
+    <var name="discs" type="str" default="">
+        <desc>
+            List of devices that are not removable discs. This helps beacon to
+            detect removable discs already attached when starting beacon.
+            Example: discs = "/dev/hda /dev/hdb"
+        </desc>
+    </var>
+
     <dict name="plugins">
         <desc>Dict of plugins to enable (True/False)</desc>
         <var default="False">
