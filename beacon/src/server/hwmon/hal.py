@@ -128,7 +128,7 @@ class Device(object):
     # Callbacks
     # -------------------------------------------------------------------------
 
-    def _modified (self, num_changes, change_list):
+    def _modified(self, num_changes, change_list):
         """
         Device was modified (mount, umount..)
         """
@@ -161,6 +161,9 @@ _bus = None
 _connection_timeout = 5
 
 def _connect_to_hal():
+    """
+    Connect to DBUS and start to connect to HAL.
+    """
     global _bus
     global _connection_timeout
     _connection_timeout -= 1
@@ -182,6 +185,9 @@ def _connect_to_hal():
 
 
 def _connect_to_hal_because_dbus_sucks(obj):
+    """
+    The real connection to HAL.
+    """
     if obj._introspect_state == obj.INTROSPECT_STATE_INTROSPECT_IN_PROGRESS:
         return True
     if obj._introspect_state == obj.INTROSPECT_STATE_DONT_INTROSPECT:
@@ -205,9 +211,10 @@ def _connect_to_hal_because_dbus_sucks(obj):
 _devices = []
 _blockdevices = {}
 
-#list all devices
 def _device_all(device_names):
-    #first build list of all Device objects
+    """
+    HAL callback with the list of all known devices.
+    """
     for name in device_names:
         obj = _bus.get_object("org.freedesktop.Hal", str(name))
         obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
@@ -216,14 +223,19 @@ def _device_all(device_names):
 
 
 def _device_new(udi):
+    """
+    HAL callback for a new device.
+    """
     obj = _bus.get_object("org.freedesktop.Hal", udi)
     obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
                          reply_handler=kaa.notifier.Callback(_device_add, udi, True),
                          error_handler=log.error)
 
 
-#lost device
 def _device_remove(udi):
+    """
+    HAL callback when a device is removed.
+    """
     if udi in _blockdevices:
         del _blockdevices[udi]
         return True
@@ -243,9 +255,11 @@ def _device_remove(udi):
         signals['remove'].emit(dev)
 
 
-#add new device
 def _device_add(prop, udi, removable=False):
-    # only handle mountable devices
+    """
+    HAL callback for property list of a new device. If removable is set to
+    False this functions tries to detect if it is removable or not.
+    """
     if not 'volume.mount_point' in prop:
         if 'linux.sysfs_path' in prop and 'block.device' in prop:
             _blockdevices[udi] = prop
@@ -263,25 +277,11 @@ def _device_add(prop, udi, removable=False):
     if config.discs:
         # fixed drives are set so this is a removable
         removable = True
-        
+
     if not prop.get('volume.is_disc') and not removable:
-        # no disc, check if the device is removable
+        # No disc and not already marked as removable.
+        # Check if the device is removable
         try:
-
-            # FIXME: This is not working correctly. My USB HD is not
-            # marked as removable as it should be. Same for my MMC
-            # card reader. A normal USB stick works. So we need to
-            # change this somehow. One soultion would be that the user
-            # has to provide a list of fixed devices (e.g. sda, sdb
-            # for two hd), everything else is removable.  Or we could
-            # check if any partition is already mounted and mount
-            # everything on the device if not. E.g. you have sda1 and
-            # sda2 and sda1 is mounted, sda2 will not be mounted, it
-            # seems to be a fixed disc. If nothing is mounted on sdb,
-            # it is handled as removable device and we handle
-            # everything as beacon mountpoint. To avoid problems, the
-            # user could specify a black list.
-
             fd = open(os.path.dirname(prop["linux.sysfs_path_device"]) + '/removable')
             rm = fd.read(1)
             fd.close()
@@ -293,7 +293,7 @@ def _device_add(prop, udi, removable=False):
             # not in prop or no read permissions. So not removable in that case.
             return
     elif prop.get('volume.is_disc') and prop.get('block.device'):
-        # set nice beacon unique id
+        # Set nice beacon unique id for discs
         try:
             prop['volume.uuid'] = kaa.metadata.cdrom.status(prop.get('block.device'))[1]
         except Exception, e:
@@ -313,6 +313,8 @@ def _device_add(prop, udi, removable=False):
         signals['add'].emit(dev)
 
 
-# connect to hal
 def start():
+    """
+    Start HAL based device monitor.
+    """
     _connect_to_hal()
