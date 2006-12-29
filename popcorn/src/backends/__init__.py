@@ -45,8 +45,3 @@ if not __file__.startswith(sys.argv[0]):
                 config.append((backend, c))
             except ImportError:
                 continue
-            try:
-                # import the backend
-                exec('import %s' % backend)
-            except ImportError, e:
-                pass

@@ -26,7 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'register', 'get_player_class', 'get_all_players' ]
+__all__ = [ 'register_backend', 'get_player_class', 'get_all_players' ]
 
 # python imports
 import os
@@ -44,11 +44,30 @@ from base import MediaPlayer
 
 # internal list of players
 _players = {}
+_backends_imported = False
 
 # get logging object
 log = logging.getLogger('popcorn.manager')
 
-def register(player_id, cls, get_caps_callback):
+def import_backends():
+    global _backends_imported
+    if _backends_imported:
+        return
+
+    for backend in os.listdir(os.path.dirname(__file__)):
+        dirname = os.path.join(os.path.dirname(__file__), backend)
+        if os.path.isdir(dirname):
+            try:
+                # import the backend and register it.
+                exec('from %s import register; register()' % backend)
+            except ImportError, e:
+                pass
+
+    # This function only ever needs to be called once.
+    _backends_imported = True
+
+
+def register_backend(player_id, cls, get_caps_callback):
     """
     Register a new player.
     """
@@ -79,6 +98,8 @@ def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
     the given mrl).  The player's class object is returned if a suitable
     player is found, otherwise None.
     """
+
+    import_backends()
 
     # Ensure all players have their capabilities fetched.
     for player_id in _players:
@@ -184,4 +205,5 @@ def get_all_players():
     """
     Return all player id strings.
     """
+    import_backends()
     return _players.keys()

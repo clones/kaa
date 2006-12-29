@@ -27,11 +27,10 @@
 # -----------------------------------------------------------------------------
 
 # kaa.popcorn imports
-from kaa.popcorn.backends import register
+from kaa.popcorn.backends import register_backend
 from kaa.popcorn.ptypes import *
 
 # player imports
-from player import Xine
 from config import config
 
 def get_capabilities():
@@ -68,4 +67,6 @@ def get_capabilities():
     return capabilities, schemes, exts, codecs
 
 
-register("xine", Xine, get_capabilities)
+def register():
+    from player import Xine
+    register_backend("xine", Xine, get_capabilities)

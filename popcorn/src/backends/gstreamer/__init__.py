@@ -27,11 +27,10 @@
 # -----------------------------------------------------------------------------
 
 # kaa.popcorn imports
-from kaa.popcorn.backends import register
+from kaa.popcorn.backends import register_backend
 from kaa.popcorn.ptypes import *
 
 # player imports
-from player import GStreamer
 from config import config
 
 def get_capabilities():
@@ -62,4 +61,6 @@ def get_capabilities():
     return capabilities, schemes, exts, codecs
 
 
-register("gstreamer", GStreamer, get_capabilities)
+def register():
+    from player import GStreamer
+    register_backend("gstreamer", GStreamer, get_capabilities)
