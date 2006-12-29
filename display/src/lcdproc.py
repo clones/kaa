@@ -34,11 +34,16 @@ __all__ = [ 'LCD' ]
 # python imports
 import os
 import socket
+import logging
 
 # kaa imports
 import kaa.notifier
 import kaa
 from kaa.strutils import unicode_to_str
+
+# get logging object
+log = logging.getLogger('lcd')
+
 
 class Widget(object):
     """
@@ -219,9 +224,9 @@ class LCD(object):
         yield wait
 
         result = wait.get()
-        print result
         if isinstance(result, (Exception, socket.error)):
             # try again later
+            log.error('LCDproc: %s. Will try again later', result)
             kaa.notifier.OneShotTimer(self._connect, server, port).start(10)
             yield False
         wait = kaa.notifier.YieldCallback()
@@ -233,5 +238,6 @@ class LCD(object):
         self._send('client_set name kaa')
         self.size = int(line[7]), int(line[9])
         self.width, self.height = self.size
+        log.info('LCDproc connected')
         self.signals['connected'].emit(self.width, self.height)
         yield False
