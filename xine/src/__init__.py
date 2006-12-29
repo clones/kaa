@@ -2,10 +2,10 @@ import weakref
 import threading
 import math
 import logging
- 
+
 import _xine
 import kaa
-from kaa import display, notifier, metadata
+from kaa import display, notifier
 from kaa.version import Version
 from constants import *
  
@@ -455,13 +455,17 @@ class Stream(Wrapper):
             "event": notifier.Signal()
         }
         self.event_queue = self.new_event_queue()
-        kaa.signals["step"].connect_weak(self._poll_events)
-        #self.event_queue._queue.event_callback = notifier.WeakCallback(self._obj_callback)
+        kaa.signals["step"].connect_weak(self.flush_events)
+        #self.event_queue._obj.event_callback = notifier.WeakCallback(self._obj_callback)
 
-    def _poll_events(self):
+    def flush_events(self):
         event = self.event_queue.get_event()
-        if event:
-            self.signals["event"].emit(_wrap_xine_object(event))
+        while event:
+            self.signals["event"].emit(event)
+            event = self.event_queue.get_event()
+
+    def get_event(self):
+        return self.event_queue.get_event()
 
     def open(self, mrl):
         return self._obj.open(mrl)
@@ -755,7 +759,7 @@ class EventQueue(Wrapper):
         super(EventQueue, self).__init__(obj)
 
     def get_event(self):
-        return self._obj.get_event()
+        return _wrap_xine_object(self._obj.get_event())
 
 class Event(Wrapper):
     def __init__(self, obj):

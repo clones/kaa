@@ -9,6 +9,7 @@ typedef struct _xine_event_queue_listener_data {
     Xine_Event_Queue_PyObject *queue;
 } xine_event_queue_listener_data;
 
+#if 0 // unstable, figure out why.
 void _xine_event_queue_listener_callback(void *_data, const xine_event_t *event)
 {
     xine_event_queue_listener_data *data = (xine_event_queue_listener_data *)_data;
@@ -22,13 +23,16 @@ void _xine_event_queue_listener_callback(void *_data, const xine_event_t *event)
         pyevent = pyxine_new_event_pyobject(data->queue->xine, data->queue, (xine_event_t *)event, 1);
         args = Py_BuildValue("(O)", pyevent);
         result = PyEval_CallObject(*data->callback, args);
+        if (!result)
+            PyErr_Print();
+        else
+            Py_DECREF(result);   
         Py_DECREF(args);   
         Py_DECREF(pyevent);   
-        Py_DECREF(result);   
     }
     PyGILState_Release(gstate);
 }
-
+#endif
 
 // Owner must be a Stream object
 Xine_Event_Queue_PyObject *
