@@ -81,7 +81,7 @@ class Server(object):
             image_from_items = (bool, ATTR_SIMPLE),
             artist = (unicode, ATTR_SIMPLE),
             album = (unicode, ATTR_SIMPLE),
-            length = (int, ATTR_SIMPLE))
+            length = (float, ATTR_SIMPLE))
 
         # files
 
@@ -89,7 +89,7 @@ class Server(object):
             title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             width = (int, ATTR_SIMPLE),
             height = (int, ATTR_SIMPLE),
-            length = (int, ATTR_SIMPLE),
+            length = (float, ATTR_SIMPLE),
             scheme = (int, ATTR_SIMPLE))
 
         self.register_file_type_attrs("audio",
@@ -98,7 +98,7 @@ class Server(object):
             album = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             genre = (unicode, ATTR_INDEXED | ATTR_IGNORE_CASE),
             samplerate = (int, ATTR_SIMPLE),
-            length = (int, ATTR_SIMPLE),
+            length = (float, ATTR_SIMPLE),
             bitrate = (int, ATTR_SIMPLE),
             trackno = (int, ATTR_SIMPLE))
 
@@ -112,7 +112,7 @@ class Server(object):
         # tracks for rom discs or iso files
 
         self.register_track_type_attrs("dvd",
-            length = (int, ATTR_SIMPLE),
+            length = (float, ATTR_SIMPLE),
             audio = (list, ATTR_SIMPLE),
             chapters = (int, ATTR_SIMPLE),
             subtitles = (list, ATTR_SIMPLE))
