@@ -43,8 +43,8 @@ imlib2so = Extension('kaa.imlib2._Imlib2module', files,
                      config='src/config.h')
 
 
-if not imlib2so.check_library('imlib2', '1.1.1'):
-    print 'Imlib2 >= 1.1.1 not found'
+if not imlib2so.check_library('imlib2', '1.2.1'):
+    print 'Imlib2 >= 1.2.1 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
 
