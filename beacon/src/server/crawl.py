@@ -264,7 +264,8 @@ class Crawler(object):
             # care right now.
             if item._beacon_isdir:
                 # It is a directory. Just do a full directory rescan.
-                self._scan_add(item, recursive=False)
+                recursive = not (mask & INotify.MODIFY)
+                self._scan_add(item, recursive=recursive)
                 if name.lower().endswith('/video_ts'):
                     # it could be a dvd on hd
                     self._scan_add(item._beacon_parent, recursive=False)
