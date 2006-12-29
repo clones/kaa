@@ -158,6 +158,7 @@ class Monitor(object):
 
         # The query result length is different, this is a change
         if len(current) != len(self.items):
+            log.info('monitor %s has changed', self.id)
             self.items = current
             self.notify_client('changed', True)
             return True
@@ -175,6 +176,7 @@ class Monitor(object):
                 # if we have a full scanned db. So an empty id also triggers
                 # the update call.
                 if not i._beacon_id:
+                    log.info('monitor %s has changed', self.id)
                     self.items = current
                     self.notify_client('changed', True)
                     return True
@@ -182,6 +184,7 @@ class Monitor(object):
                     small_changes = True
             if small_changes:
                 # only small stuff
+                log.info('monitor %s has changed', self.id)
                 self.items = current
                 self.notify_client('changed', False)
                 return True
