@@ -62,6 +62,12 @@ else:
     ext_modules.append(vbi)
     
 setup(module      = 'record',
-      version     = '0.1',
+      version     = '0.1.0',
+      license     = 'GPL',
+      summary     = 'Python library for recording from different types of tv cards to different outputs.',
+      rpminfo     = {
+          'requires':       'kaa-base >= 0.1.2',
+          'build_requires': 'kaa-base >= 0.1.2'
+      },
       ext_modules = ext_modules
 )

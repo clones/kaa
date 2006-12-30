@@ -63,8 +63,13 @@ ext_modules = [ thumb_ext ]
 
 
 setup (module      = 'beacon',
-       version     = '0.1',
-       description = "Media-oriented virtual filesystem",
+       version     = '0.1.0',
+       license     = 'LGPL',
+       summary     = "Media-oriented virtual filesystem",
        scripts     = [ 'bin/kaa-thumb', 'bin/beacon' ],
+       rpminfo     = {
+           'requires':       'kaa-base >= 0.1.2, imlib2 >= 1.2.1',
+           'build_requires': 'kaa-base >= 0.1.2, imlib2-devel >= 1.2.1, python-devel >= 2.4.0'
+       },
        ext_modules = ext_modules
       )

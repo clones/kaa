@@ -38,6 +38,11 @@ except ImportError:
 
 
 setup(module       = 'epg',
-      version      = '0.1',
-      description  = "Python EPG module",
+      version      = '0.1.0',
+      license      = 'LGPL',
+      summary      = 'Electronic Program Guide',
+      rpminfo      = {
+          'requires':       'kaa-base >= 0.1.2',
+          'build_requires': 'kaa-base >= 0.1.2'
+      }
       )

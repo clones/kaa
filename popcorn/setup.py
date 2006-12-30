@@ -44,4 +44,12 @@ if libvisual.check_library("libvisual", "0.2.0"):
 else:
     print "- libvisual support disabled"
 
-setup(module = 'popcorn', version = '0.1', ext_modules = ext_modules)
+setup(module = 'popcorn', 
+      version = '0.1.0', 
+      license = 'GPL',
+      summary = 'Media player abstraction library supporting multiple backends',
+      rpminfo = {
+          'requires':       'kaa-base >= 0.1.2, kaa-xine >= 0.9.0',
+          'build_requires': 'kaa-base >= 0.1.2'
+      },
+      ext_modules = ext_modules)

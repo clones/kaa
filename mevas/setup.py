@@ -37,4 +37,12 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-setup(module = 'mevas', version = '0.1')
+setup(module = 'mevas', 
+     version = '0.1.0',
+     license = 'LGPL',
+     summary = 'MeBox Canvas library',
+     rpminfo = {
+         'requires':       'kaa-base >= 0.1.2, kaa-imlib2 >= 0.2.0',
+         'build_requires': 'kaa-base >= 0.1.2'
+    }
+)

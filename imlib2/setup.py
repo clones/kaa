@@ -57,6 +57,12 @@ else:
 
 
 setup(module      = 'imlib2',
-      version     = '0.1',
+      version     = '0.2.0',
+      license     = 'LGPL',
+      summary     = 'Python bindings for Imlib2',
+      rpminfo     = {
+          'requires':       'kaa-base >= 0.1.2, imlib2 >= 1.2.1',
+          'build_requires': 'kaa-base >= 0.1.2, imlib2-devel >= 1.2.1'
+      },
       ext_modules = [ imlib2so ]
 )

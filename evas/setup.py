@@ -57,6 +57,12 @@ else:
 evasso.config('#define BENCHMARK')
 evasso.config('#define EVAS_VERSION %d' % evasso.get_library('evas').get_numeric_version())
 setup(module      = 'evas',
-      version     = '0.1',
+      version     = '0.1.0',
+      license     = 'LGPL',
+      summary     = 'Python bindings for Evas',
+      rpminfo     = {
+          'requires':       'kaa-base >= 0.1.2, evas >= 0.9.9.032',
+          'build_requires': 'kaa-base >= 0.1.2, evas-devel >= 0.9.9.032'
+      },
       ext_modules = [ evasso ]
 )
