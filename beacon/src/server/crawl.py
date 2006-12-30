@@ -193,7 +193,11 @@ class Crawler(object):
         log.info('inotify: event %s for "%s"', mask, name)
         
         item = self.db.query(filename=name)
-
+        if not item._beacon_parent.filename in self.monitoring:
+            # that is a different monitor, ignore it
+            # FIXME: this is a bug (missing feature) in inotify
+            return True
+        
         if item._beacon_name.startswith('.'):
             # hidden file, ignore except in move operations
             if mask & INotify.MOVE and args:
@@ -303,7 +307,7 @@ class Crawler(object):
         # ---------------------------------------------------------------------
 
         # before we delete, maybe the filesystem was just umounted
-        if mask & INotify.UMOUNT:
+        if mask & INotify.UNMOUNT:
             # Oops, our filesystem was umounted. This should never happen
             # since all removable drives which could be umounted are on
             # a different media in beacon. It happens sometimes on system
