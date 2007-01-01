@@ -1,5 +1,12 @@
+import os
 import sys
 import gc
+
+# insert kaa path information
+__site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), '../../../..'))
+if not __site__ in sys.path:
+    sys.path.insert(0, __site__)
+
 import kaa
 import kaa.shm
 
