@@ -296,8 +296,15 @@ class MPlayer(MediaPlayer):
 
         elif line.startswith("EOF code"):
             if self._state in (STATE_PLAYING, STATE_PAUSED):
-                self._state = STATE_IDLE
-
+                # The player may be idle bow, but we can't set the
+                # state. If we do, generic will start a new file while
+                # the mplayer process is still running and that does
+                # not work. Unless we reuse mplayer proccesses we
+                # don't react on EOF and only handle the dead
+                # proccess.
+                # self._state = STATE_IDLE
+                pass
+            
         elif line.startswith("Parsing input") and self._window and \
                  self._state == STATE_OPEN:
             # Delete the temporary key input file.
@@ -341,8 +348,7 @@ class MPlayer(MediaPlayer):
         Open mrl.
         """
         if self.get_state() != STATE_NOT_RUNNING:
-            print 'Error: not idle'
-            return False
+            raise RuntimeError('mplayer not in STATE_NOT_RUNNING')
 
         scheme, path = parse_mrl(mrl)
 
