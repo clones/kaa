@@ -267,7 +267,9 @@ class XinePlayerChild(Player):
 
         f = self._vfilter.get("expand")
         if aspect:
-            f.set_parameters(aspect=aspect)
+            aspect, fullscreen = aspect
+            # FIXME: is this correct? What about the fullscreen size?
+            f.set_parameters(aspect=float(aspect[0])/aspect[1])
         f.set_parameters(enable_automatic_shift = True)
 
         if self._driver_control:

@@ -83,7 +83,6 @@ class Player(object):
         self._player = None
         self._media = ( None, None )
         self._size = (0,0)
-        self._aspect = None
         self.set_window(window)
 
         self._config = config
@@ -100,34 +99,6 @@ class Player(object):
             # settings that are set global is most cases
             'postprocessing': False,
             'software-scaler': True,
-
-            # The pixel-aspect-ratio is set for the output. If both
-            # the screen resolution and the physical resolution of the
-            # monitor / tv are the same, this has to be set to 1:1.
-            # For all other cases this needs to be calculated. Because
-            # kaa.popcorn may not know the real fullscreen resolution
-            # for same displays, simple settings for an aspect like
-            # 4:3 or 16:9 are not possible (and a window may have a
-            # different aspect ratio than the screen itself). And
-            # since a config should work with different X-Server
-            # resolutions this has to be a player property.
-            #
-            # An easy way to calculate this is to use
-            # a1 = display_aspect[0] * fullscreen[1]
-            # a2 = display_aspect[1] * fullscreen[0]
-            # set_property('%s:%s' % (a1, a2)
-            # with display_aspect as physical monitor aspect and
-            # fullscreen the maximum pixels.
-            # So for a 16:9 TV and a 800x600 screen the
-            # pixel-aspect-ratio is 16 * 600 : 9 * 800.
-            #
-            # An application like Freevo who knows the fullscreen size
-            # can offer a simpler way for the user to only provide the
-            # monitor aspect (4:3, 16:9, 15:9 and 15:10)
-            #
-            # Note: the value has to be a string with int values or
-            # gstreamer won't work.
-            'pixel-aspect-ratio': '1:1',
 
             # settings usefull for changing after a stream is
             # loaded.
@@ -176,7 +147,7 @@ class Player(object):
         self._window = window
         if self._player:
             self._player.set_window(self._window)
-            self._player.set_size(self._size, self._aspect)
+            self._player.set_size(self._size)
 
 
     def _get_player_class(self, player=None):
@@ -304,7 +275,7 @@ class Player(object):
         The real open function called from 'open'.
         """
         self._player.set_window(self._window)
-        self._player.set_size(self._size, self._aspect)
+        self._player.set_size(self._size)
         # FIXME: maybe give the whole media object to the child
         self._player.open(self._media[0])
         self.signals['open'].emit()
@@ -515,23 +486,13 @@ class Player(object):
         return self._size
 
 
-    def set_size(self, size, aspect=None):
+    def set_size(self, size):
         """
         Set output size.
         """
         self._size = size
-        self._aspect = aspect
         if self._player:
-            return self._player.set_size(size, aspect)
-
-
-    def set_aspect(self, aspect):
-        """
-        Set output aspect.
-        """
-        self._aspect = aspect
-        if self._player:
-            return self._player.set_aspect(aspect)
+            return self._player.set_size(size)
 
 
     def set_property(self, prop, value):

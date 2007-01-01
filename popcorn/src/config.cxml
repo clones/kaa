@@ -26,6 +26,10 @@
         </desc>
     </var>
 
+    <var name="monitoraspect" default="4:3">
+        <desc>Aspect ratio of the monitor or tv.</desc>
+    </var>
+
     <group name="audio">
         <desc lang="en">audio settings</desc>
         <var name="driver" default="alsa">

@@ -69,7 +69,9 @@ class GStreamer(MediaPlayer):
         self._state = STATE_OPENING
         self._gst.open(self._mrl)
         if self._window:
-            self._gst.configure_video('xv', window=self._window.get_id())
+            aspect, size = self._get_aspect()
+            self._gst.configure_video('xv', window=self._window.get_id(),
+                                      aspect=aspect, size=size)
         else:
             self._gst.configure_video('none')
         self._gst.configure_audio(self._config.audio.driver)

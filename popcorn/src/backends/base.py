@@ -61,7 +61,6 @@ class MediaPlayer(object):
         self._state_object = STATE_IDLE
         self._window = None
         self._size = None
-        self._aspect = None
         self._config = config
         self._properties = properties
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
@@ -156,14 +155,11 @@ class MediaPlayer(object):
         return self.state == STATE_PLAYING
 
 
-    def set_size(self, size, aspect=None):
+    def set_size(self, size):
         """
         Set a new output size.
         """
         self._size = size
-        self._aspect = aspect
-        if not aspect and size and size[0] and size[1]:
-            self._aspect = float(size[0]) / size[1]
 
 
     def get_size(self):
@@ -173,18 +169,18 @@ class MediaPlayer(object):
         return self._size
 
 
-    def set_aspect(self, aspect=None):
+    def _get_aspect(self):
         """
-        Set special output aspect ratio.
+        Get aspect ration values. Returns a tuple monitoraspect and a
+        tuple with the fullscreen pixel size.
         """
-        self._aspect = aspect
-
-
-    def get_aspect(self):
-        """
-        Get output aspect ratio.
-        """
-        return self._aspect
+        if not self._window:
+            raise AttributeError("No window set")
+        size = self._window.get_size()
+        if hasattr(self._window, 'get_display'):
+            size = self._window.get_display().get_size()
+        aspect = [ int(x) for x in self._config.monitoraspect.split(':') ]
+        return aspect, size
 
 
     def get_capabilities(self):

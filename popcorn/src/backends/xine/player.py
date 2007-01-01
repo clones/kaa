@@ -219,7 +219,7 @@ class Xine(MediaPlayer):
                     self._xine.window_changed(window.get_id(), None, None, None)
                 elif self._xine_configured:
                     # No previous window, must reconfigure vo.
-                    self._xine.configure_video(window.get_id(), self.get_aspect())
+                    self._xine.configure_video(window.get_id(), self._get_aspect())
 
         # Sends a window_changed command to slave.
         if window and self._xine:
@@ -233,7 +233,7 @@ class Xine(MediaPlayer):
         self._xine_configured = True
         self._xine.set_config(self._config)
         if self._window:
-            self._xine.configure_video(self._window.get_id(), self.get_aspect())
+            self._xine.configure_video(self._window.get_id(), self._get_aspect())
         else:
             self._xine.configure_video(None, None)
         self._xine.configure_audio(self._config.audio.driver)

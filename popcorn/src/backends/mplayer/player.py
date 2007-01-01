@@ -385,73 +385,6 @@ class MPlayer(MediaPlayer):
         self._state = STATE_OPEN
 
 
-    def _scale(self, video_width, video_height, video_aspect, mode):
-        """
-        Scale the video to fit the window and respect the given aspects.
-        """
-        if not video_width or not video_height:
-            # one or more of the values is 0
-            log.error('invalid movie size: %sx%s', video_width, video_height)
-            return self._size
-
-        if not self._size:
-            # no size set
-            log.error('no window size specified')
-            return 0,0
-
-        win_width, win_height = self._size
-        if not win_width or not win_height:
-            # one or more of the values is 0
-            log.error('invalid window size: %sx%s', win_width, win_height)
-            return self._size
-
-        # 'scale' mode, ignore aspect, always fill the window
-        if mode == 'scale':
-            return self._size
-
-        # get window aspect
-        win_aspect = self._aspect
-        if not win_aspect:
-            log.info('calculate window aspect')
-            win_aspect = float(win_width) / win_height
-
-        if video_aspect:
-            log.info('calculate width on video aspect')
-            video_width = float(video_aspect * video_height)
-
-        aspect = float(win_aspect * win_height) / float(win_width)
-
-        s1 = (float(win_width) / video_width)
-        s2 = (float(win_height) / video_height)
-
-        for scaling, aspect_w, aspect_h in (s1, aspect, 1), (s1, 1, aspect), \
-                (s2, aspect, 1), (s2, 1, aspect):
-            width = int((video_width * scaling) / aspect_w)
-            height = int(video_height * scaling * aspect_h)
-            # adjust width and height if off by one
-            if width + 1 == win_width or width - 1 == win_width:
-                width = win_width
-            if height + 1 == win_height or height -1 == win_height:
-                height = win_height
-
-            # 'bar' mode: both values need to fit and at least one should match
-            if mode == 'bars' and width <= win_width and \
-                   height <= win_height and \
-                   (width == win_width or height == win_height):
-                log.info('scale video to %sx%s for %sx%s window',
-                         width, height, *self._size)
-                return width, height
-
-            # 'zoom' mode: one values as to fit, the other one can be larger
-            if mode == 'zoom' and width >= win_width and \
-                   height >= win_height and \
-                   (width == win_width or height == win_height):
-                log.info('scale video to %sx%s for %sx%s window',
-                         width, height, *self._size)
-                return width, height
-        raise RuntimeError('unable to scale video')
-
-
     def play(self):
         """
         Start playback.
@@ -466,33 +399,16 @@ class MPlayer(MediaPlayer):
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
-        if 0:
-            # Some test code to keep aspect when not using a sws. Mplayer
-            # always uses the full window, so we need to expand the video
-            # to match the window size aspect
-            win_w, win_h = self._size
-            vid_w = self._streaminfo.get('width')
-            vid_h = self._streaminfo.get('height')
-
-            a = float(win_h * vid_w) / (vid_h * win_w)
-            filters += [ "expand=%d:%d" % (vid_w, int(win_h * a)) ]
-
 
         if self._window:
-            # FIXME: check these calculations. What happens when
-            # monitoraspect is added?
-            scale =  self._scale(self._streaminfo.get('width'),
-                                 self._streaminfo.get('height'),
-                                 self._streaminfo.get('aspect'),
-                                 self._config.widescreen)
-            filters += [ "scale=%d:%d" % scale ]
-            if self._config.widescreen == 'zoom':
-                filters += [ "crop=%d:%d:%d:%d" % \
-                             (self._size[0], self._size[1],
-                              (scale[0] - self._size[0]) / 2,
-                              (scale[1] - self._size[1]) / 2 )]
-            filters += [ "expand=%d:%d" % self._size,
-                         "dsize=%d:%d" % self._size ]
+            # FIXME: add software scaler
+            # FIXME: add support for self._config.widescreen
+            aspect, size = self._get_aspect()
+
+            # FIXME: this only works if the window has the the aspect
+            # as the full screen
+            filters.append('expand=:::::%s/%s' % tuple(aspect))
+            filters.append('dsize=%s/%s' % size)
 
         # FIXME: check freevo filter list and add stuff like pp
 

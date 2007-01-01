@@ -131,18 +131,10 @@ class GStreamer(Player):
             vo.set_xwindow_id(long(kwargs.get('window')))
             vo.set_property('force-aspect-ratio', True)
 
-            # Aspect test code. We can't deal with float here,
-            # it has to be integer values. As input we need the
-            # screen resolution (window doesn't count) and the
-            # aspect of the monitor/tv this fullscreen is visible.
-            # fullscreen = 800, 600
-            # display_aspect = 16, 9
-            # 
-            # # calculations
-            # xaspect = display_aspect[0] * fullscreen[1]
-            # yaspect = display_aspect[1] * fullscreen[0]
-            # vo.set_property('pixel-aspect-ratio', '%s/%s' % (xaspect, yaspect))
-
+            a1 = kwargs.get('aspect')[0] * kwargs.get('size')[1]
+            a2 = kwargs.get('aspect')[1] * kwargs.get('size')[0]
+            print a1, a2
+            vo.set_property('pixel-aspect-ratio', '%s/%s' % (a1, a2))
             goom = gst.element_factory_make("goom", "goom0")
             self._gst.set_property('vis-plugin', goom)
         elif driver == 'none':
