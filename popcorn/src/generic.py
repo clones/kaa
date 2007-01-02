@@ -42,7 +42,6 @@ import kaa.metadata
 # kaa.popcorn imports
 import backends.manager
 from config import config as default_config
-from kaa.popcorn.utils import parse_mrl
 from ptypes import *
 
 # get logging object
@@ -81,7 +80,7 @@ class Player(object):
     def __init__(self, window=None, config=default_config):
 
         self._player = None
-        self._media = ( None, None )
+        self._media = None
         self._size = (0,0)
         self.set_window(window)
 
@@ -277,7 +276,7 @@ class Player(object):
         self._player.set_window(self._window)
         self._player.set_size(self._size)
         # FIXME: maybe give the whole media object to the child
-        self._player.open(self._media[0])
+        self._player.open(self._media)
         self.signals['open'].emit()
 
 
@@ -292,11 +291,14 @@ class Player(object):
         if kaa.notifier.shutting_down:
             return False
 
-        if mrl.find('://') == -1:
-            scheme, path = parse_mrl(mrl)
-            mrl = "%s://%s" % (scheme, path)
-
-        self._media = mrl, kaa.metadata.parse(mrl)
+        self._media = kaa.metadata.parse(mrl)
+        if not self._media:
+            # unable to detect, create dummy
+            if mrl.find('://') == -1:
+                mrl = 'file://%s'
+            self._media = kaa.metadata.Media(hash=dict(url=mrl, media='MEDIA_UNKNOWN'))
+        self._media.scheme = self._media.url[:self._media.url.find(':/')]
+        
         self._open_caps = caps
         self._failed_player = []
         cls = self._get_player_class(player)

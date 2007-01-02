@@ -45,7 +45,6 @@ import kaa.display
 
 # kaa.popcorn base imports
 from kaa.popcorn.backends.base import MediaPlayer
-from kaa.popcorn.utils import parse_mrl
 from kaa.popcorn.ptypes import *
 
 # start mplayer in gdb for debugging
@@ -343,20 +342,16 @@ class MPlayer(MediaPlayer):
     # Methods for MediaPlayer subclasses
     #
 
-    def open(self, mrl):
+    def open(self, media):
         """
-        Open mrl.
+        Open media.
         """
         if self.get_state() != STATE_NOT_RUNNING:
             raise RuntimeError('mplayer not in STATE_NOT_RUNNING')
 
-        scheme, path = parse_mrl(mrl)
-
         self._file_args = []
-        if scheme in ("file", "fifo"):
-            self._file = path
-        elif scheme == "dvd":
-            file, title = re.search("(.*?)(\/\d+)?$", path).groups()
+        if media.scheme == "dvd":
+            file, title = re.search("(.*?)(\/\d+)?$", media.url[4:]).groups()
             if file.replace('/', ''):
                 if not os.path.isfile(file):
                     raise ValueError, "Invalid ISO file: %s" % file
@@ -366,7 +361,7 @@ class MPlayer(MediaPlayer):
             if title:
                 self._file += title[1:]
         else:
-            self._file = mrl
+            self._file = media.url
 
         self._state = STATE_OPENING
         self._audio_delay = 0.0

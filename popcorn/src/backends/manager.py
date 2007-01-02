@@ -37,7 +37,6 @@ import kaa.metadata
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
-from kaa.popcorn.utils import parse_mrl
 
 # backend imports
 from base import MediaPlayer
@@ -88,7 +87,7 @@ def register_backend(player_id, cls, get_caps_callback):
     }
 
 
-def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
+def get_player_class(media, caps = None, exclude = None, force = None,
                      preferred = None):
     """
     Searches the registered players for the most capable player given the mrl
@@ -122,17 +121,15 @@ def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
         # Note: cls._player_caps are without the rating!
         cls._player_caps = [ x for x in player_caps.keys() if x ]
 
-    scheme, path = parse_mrl(mrl)
-
     if force != None and force in _players:
         player = _players[force]
-        if scheme not in player["schemes"]:
+        if media.scheme not in player["schemes"]:
             return None
         # return forced player, no matter if the other
         # capabilities match or not
         return player["class"]
 
-    ext = os.path.splitext(path)[1]
+    ext = os.path.splitext(media.url)[1]
     if ext:
         ext = ext[1:]  # Eat leading '.'
 
@@ -142,19 +139,18 @@ def get_player_class((mrl, metadata), caps = None, exclude = None, force = None,
         exclude  = (exclude,)
 
     codecs = []
-    if metadata:
-        if metadata.media == kaa.metadata.MEDIA_AV:
-            codecs.extend( [ x.fourcc for x in metadata.video if x.fourcc ] )
-            codecs.extend( [ x.fourcc for x in metadata.audio if x.fourcc ] )
-        if 'fourcc' in metadata and metadata.fourcc:
-            codecs.append(metadata.fourcc)
+    if media.media == kaa.metadata.MEDIA_AV:
+        codecs.extend( [ x.fourcc for x in media.video if x.fourcc ] )
+        codecs.extend( [ x.fourcc for x in media.audio if x.fourcc ] )
+    if 'fourcc' in media and media.fourcc:
+        codecs.append(media.fourcc)
 
     choice = None
 
     for player_id, player in _players.items():
-        if scheme not in player["schemes"]:
-            # MRL scheme is not supported by this player.
-            log.debug('skip %s, does not support %s', player_id, scheme)
+        if media.scheme not in player["schemes"]:
+            # scheme is not supported by this player.
+            log.debug('skip %s, does not support %s', player_id, media.scheme)
             continue
         
         if exclude and player_id in exclude:

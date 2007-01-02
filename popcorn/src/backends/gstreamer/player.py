@@ -54,11 +54,11 @@ class GStreamer(MediaPlayer):
 
     # public API
 
-    def open(self, mrl):
+    def open(self, media):
         """
-        Open mrl.
+        Open media.
         """
-        self._mrl = mrl
+        self._mrl = media.url
         if not self._gst:
             script = os.path.join(os.path.dirname(__file__), 'main.py')
             self._gst = ChildProcess(self, script)

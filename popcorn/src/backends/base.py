@@ -37,7 +37,6 @@ import kaa.notifier
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
-from kaa.popcorn.utils import parse_mrl
 
 # get logging object
 log = logging.getLogger('popcorn')

@@ -41,8 +41,8 @@ import kaa.xine as xine
 
 # kaa.popcorn imports
 from kaa.popcorn.backends.base import MediaPlayer
-from kaa.popcorn.utils import ChildProcess, parse_mrl
 from kaa.popcorn.ptypes import *
+from kaa.popcorn.utils import ChildProcess
 
 # get logging object
 log = logging.getLogger('popcorn.xine')
@@ -244,14 +244,11 @@ class Xine(MediaPlayer):
     # Methods for MediaPlayer subclasses
     #
 
-    def open(self, mrl):
+    def open(self, media):
         """
-        Open mrl.
+        Open media.
         """
-        scheme, path = parse_mrl(mrl)
-        path = path or '/'
-
-        self._mrl = "%s:%s" % (scheme, path)
+        self._mrl = media.url
         if not self._xine:
             self._child_spawn()
 
