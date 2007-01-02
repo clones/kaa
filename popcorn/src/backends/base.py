@@ -94,7 +94,8 @@ class MediaPlayer(object):
         """
         if self._state_object == state:
             return
-
+        if state == STATE_IDLE and self._state_object == STATE_SHUTDOWN:
+            return
         old_state = self._state_object
         self._state_object = state
 
@@ -182,6 +183,13 @@ class MediaPlayer(object):
         return aspect, size
 
 
+    def __repr__(self):
+        """
+        For debugging only.
+        """
+        c = str(self.__class__)
+        return '<popcorn%s' % c[c.rfind('.'):]
+    
     def get_capabilities(self):
         """
         Return player capabilities.

@@ -168,7 +168,7 @@ class Player(object):
     def _state_change(self, old_state, state):
         """
         """
-        log.debug('player %s -> %s', old_state, state)
+        log.debug('%s %s -> %s', str(self._player)[1:-1], old_state, state)
 
         if old_state in (STATE_OPENING, STATE_OPEN) and \
                state in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
