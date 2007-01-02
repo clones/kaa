@@ -69,7 +69,7 @@ class MediaPlayer(object):
         self._audio_delay = 0.0
         self._position_value = 0.0
         self._streaminfo = {}
-        
+
         # shared memory keys
         key = md5.md5(self._instance_id + "osd").hexdigest()[:7]
         self._osd_shmkey = int(key, 16)
@@ -77,9 +77,11 @@ class MediaPlayer(object):
         key = md5.md5(self._instance_id + "frame").hexdigest()[:7]
         self._frame_shmkey = int(key, 16)
         self._frame_shmem = None
-        
 
+
+    #
     # state handling
+    #
 
     def get_state(self):
         """
@@ -92,20 +94,20 @@ class MediaPlayer(object):
         """
         Set state and emit 'failed', 'start' or 'end' signal if needed.
         """
-        if self._state_object == state:
+        if self._state_object == state or \:
             return
         if state == STATE_IDLE and self._state_object == STATE_SHUTDOWN:
             return
         old_state = self._state_object
         self._state_object = state
-
         self._state_changed.emit(old_state, state)
 
-    # state property based on get_state and _set_state
     _state = property(get_state, _set_state, None, 'state of the player')
 
 
+    #
     # position handling
+    #
 
     def get_position(self):
         """
@@ -126,7 +128,37 @@ class MediaPlayer(object):
     # position property based on get_state and _set_state
     _position = property(get_position, _set_position, None, 'player position')
 
- 
+
+    #
+    # internal use
+    #
+
+    def _get_aspect(self):
+        """
+        Get aspect ration values. Returns a tuple monitoraspect and a
+        tuple with the fullscreen pixel size.
+        """
+        if not self._window:
+            raise AttributeError("No window set")
+        size = self._window.get_size()
+        if hasattr(self._window, 'get_display'):
+            size = self._window.get_display().get_size()
+        aspect = [ int(x) for x in self._config.monitoraspect.split(':') ]
+        return aspect, size
+
+
+    def __repr__(self):
+        """
+        For debugging only.
+        """
+        c = str(self.__class__)
+        return '<popcorn%s' % c[c.rfind('.'):]
+
+
+    #
+    # interface for generic
+    #
+
     def get_audio_delay(self):
         """
         Returns the audio delay set by set_audio_delay()
@@ -169,27 +201,6 @@ class MediaPlayer(object):
         return self._size
 
 
-    def _get_aspect(self):
-        """
-        Get aspect ration values. Returns a tuple monitoraspect and a
-        tuple with the fullscreen pixel size.
-        """
-        if not self._window:
-            raise AttributeError("No window set")
-        size = self._window.get_size()
-        if hasattr(self._window, 'get_display'):
-            size = self._window.get_display().get_size()
-        aspect = [ int(x) for x in self._config.monitoraspect.split(':') ]
-        return aspect, size
-
-
-    def __repr__(self):
-        """
-        For debugging only.
-        """
-        c = str(self.__class__)
-        return '<popcorn%s' % c[c.rfind('.'):]
-    
     def get_capabilities(self):
         """
         Return player capabilities.
@@ -214,24 +225,31 @@ class MediaPlayer(object):
     # Please set self._state when something changes, signals will be send
     # by this base class when you change the state. The following states
     # are valid:
+    #
+    # STATE_NOT_RUNNING:
+    #   the player is not running and has released audio and video
+    #   device. It doesn't matter if a child process is still running
+    #   or not.
+    # STATE_IDLE:
+    #   the player is not running but may still have video and audio
+    #   devices locked for a next file.
+    # STATE_OPENING:
+    #   the player is about to open the file and will start playing in
+    #   a few seconds. If the player goes from STATE_OPENING to
+    #   STATE_IDLE or STATE_NOT_RUNNING again without being in
+    #   STATE_PLAYING, the 'failed' signal will be emited.
+    # STATE_PLAYING:
+    #   player is playing
+    # STATE_PAUSED:
+    #   player is in playback mode but pausing
+    # STATE_SHUTDOWN:
+    #   player is going releasing the video and audio devices, next
+    #   state has to be STATE_NOT_RUNNING
+    #
 
-    # STATE_NOT_RUNNING: the player is not running and has released audio
-    #     and video device. It doesn't matter if a child process is still
-    #     running or not.
-    # STATE_IDLE: the player is not running but may still have video and
-    #     audio devices locked for a next file.
-    # STATE_OPENING: the player is about to open the file and will start
-    #     playing in a few seconds. If the player goes from STATE_OPENING
-    #     to STATE_IDLE or STATE_NOT_RUNNING again without being in
-    #     STATE_PLAYING, the 'failed' signal will be emited.
-    # STATE_PLAYING: player is playing
-    # STATE_PAUSED: player is in playback mode but pausing
-    # STATE_SHUTDOWN: player is going releasing the video and audio devices,
-    #     next state has to be STATE_NOT_RUNNING
-
-    def open(self, mrl):
+    def open(self, media):
         """
-        Open mrl.
+        Open media (kaa.metadata object).
         """
         pass
 
@@ -312,7 +330,9 @@ class MediaPlayer(object):
         self._properties[prop] = value
 
 
+    #
     # For CAP_OSD
+    #
 
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
         """
@@ -330,7 +350,9 @@ class MediaPlayer(object):
         pass
 
 
+    #
     # For CAP_CANVAS
+    #
 
     def set_frame_output_mode(self, vo = None, notify = None, size = None):
         """
