@@ -106,6 +106,11 @@ class Player(object):
             'audio-filename': None,
             'subtitle-track': None,
             'subtitle-filename': None,
+
+            # Sets the audio delay relative to the video.  A positive
+            # value causes audio to come later, while a negative value
+            # plays the audio before.
+            'audio-delay': 0.0
         }
         
         self.signals = {
@@ -388,24 +393,6 @@ class Player(object):
         """
         if self._player:
             return self._player.get_position()
-        return 0.0
-
-
-    @required_states(STATE_PLAYING, STATE_PAUSED)
-    def set_audio_delay(self, delay):
-        """
-        Sets the audio delay relative to the video.  A positive value causes
-        audio to come later, while a negative value plays the audio before.
-        """
-        self._player.set_audio_delay(delay)
-
-
-    def get_audio_delay(self):
-        """
-        Returns the audio delay.
-        """
-        if self._player:
-            return self._player.get_audio_delay()
         return 0.0
 
 

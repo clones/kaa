@@ -66,7 +66,6 @@ class MediaPlayer(object):
         MediaPlayer._instance_count += 1
 
         # some variables for the inherting class
-        self._audio_delay = 0.0
         self._position_value = 0.0
         self._streaminfo = {}
 
@@ -94,7 +93,7 @@ class MediaPlayer(object):
         """
         Set state and emit 'failed', 'start' or 'end' signal if needed.
         """
-        if self._state_object == state or \:
+        if self._state_object == state:
             return
         if state == STATE_IDLE and self._state_object == STATE_SHUTDOWN:
             return
@@ -158,13 +157,6 @@ class MediaPlayer(object):
     #
     # interface for generic
     #
-
-    def get_audio_delay(self):
-        """
-        Returns the audio delay set by set_audio_delay()
-        """
-        return self._audio_delay
-
 
     def set_window(self, window):
         """
@@ -327,7 +319,9 @@ class MediaPlayer(object):
         """
         Set a property to a new value.
         """
-        self._properties[prop] = value
+        func = getattr(self, '_prop_%s' % prop.replace('-', '_'), None)
+        if not func or not func(value) == False:
+            self._properties[prop] = value
 
 
     #

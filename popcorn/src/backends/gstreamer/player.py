@@ -124,9 +124,8 @@ class GStreamer(MediaPlayer):
         self._gst.seek(value, type)
 
 
-    def set_audio_delay(self, delay):
+    def _prop_audio_delay(self, delay):
         """
-        Sets audio delay.  Positive value defers audio by delay.
+        Sets audio delay. Positive value defers audio by delay.
         """
-        self._audio_delay = delay
         self._gst.set_audio_delay(delay)

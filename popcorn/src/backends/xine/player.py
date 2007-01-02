@@ -254,7 +254,6 @@ class Xine(MediaPlayer):
 
         self.configure()
         self._position = 0.0
-        self._audio_delay = 0.0
         log.debug('xine open %s' % self._mrl)
         self._xine.open(self._mrl)
         self._state = STATE_OPENING
@@ -308,11 +307,10 @@ class Xine(MediaPlayer):
         self._xine.seek(value, type)
 
 
-    def set_audio_delay(self, delay):
+    def _prop_audio_delay(self, delay):
         """
-        Sets audio delay.  Positive value defers audio by delay.
+        Sets audio delay. Positive value defers audio by delay.
         """
-        self._audio_delay = delay
         self._xine.set_audio_delay(delay)
 
 
