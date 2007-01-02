@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <config>
-    <desc lang="en">mplayer configuration</desc>
+    <desc lang="en">xine configuration</desc>
     <var name="activate" default="True">
         <desc lang="en">activate backend</desc>
     </var>
