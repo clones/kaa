@@ -72,22 +72,9 @@ class XinePlayerChild(Player):
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
 
 
-    # #############################################################################
-    # stream information utils
-    # #############################################################################
-
-    def _check_stream_handles(self):
-        """
-        Check if stream is ok.
-        """
-        v_unhandled = self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO) and \
-            not self._stream.get_info(xine.STREAM_INFO_IGNORE_VIDEO) and \
-            not self._stream.get_info(xine.STREAM_INFO_VIDEO_HANDLED)
-        a_unhandled = self._stream.get_info(xine.STREAM_INFO_HAS_AUDIO) and \
-            not self._stream.get_info(xine.STREAM_INFO_IGNORE_AUDIO) and \
-            not self._stream.get_info(xine.STREAM_INFO_AUDIO_HANDLED)
-        return not (v_unhandled or a_unhandled)
-
+    # #########################################################################
+    # Stream information utils
+    # #########################################################################
 
     def _status_output(self):
         """
@@ -147,12 +134,15 @@ class XinePlayerChild(Player):
         return info
 
 
-    # #############################################################################
+    # #########################################################################
     # kaa.xine callbacks
-    # #############################################################################
+    # #########################################################################
 
     def _x11_frame_output_cb(self, width, height, aspect):
-        #print "Frame output", width, height, aspect
+        """
+        Return the frame output position and dimensions
+        """
+        print "Frame output", width, height, aspect
         w, h, a = self._xine._get_vo_display_size(width, height, aspect)
         if abs(self._x11_last_aspect - a) > 0.01:
             log.debug('VO: %dx%d -> %dx%d', width, height, w, h)
@@ -160,16 +150,16 @@ class XinePlayerChild(Player):
             self._x11_last_aspect = a
         if self._x11_window_size != (0, 0):
             w, h = self._x11_window_size
+        print (0, 0), (0, 0), (w, h), 1.0
         return (0, 0), (0, 0), (w, h), 1.0
 
 
     def _x11_dest_size_cb(self, width, height, aspect):
-        # TODO:
-        #if not self._x11_window_visibile:
-        #    w, h, a = self._get_vo_display_size(width, height, aspect)
-        #else:
-        #    w, h = self._x11_window_size
+        """
+        Return the output size and aspect.
+        """
         w, h = self._x11_window_size
+        print 'XX', (w, h), 1.0
         return (w, h), 1.0
 
 
@@ -356,7 +346,16 @@ class XinePlayerChild(Player):
             self.parent.set_streaminfo(False, self._stream.get_error())
             log.error('Open failed: %s', self._stream.get_error())
             return False
-        if not self._check_stream_handles():
+
+        # Check if stream is ok.
+        v_unhandled = self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO) and \
+            not self._stream.get_info(xine.STREAM_INFO_IGNORE_VIDEO) and \
+            not self._stream.get_info(xine.STREAM_INFO_VIDEO_HANDLED)
+        a_unhandled = self._stream.get_info(xine.STREAM_INFO_HAS_AUDIO) and \
+            not self._stream.get_info(xine.STREAM_INFO_IGNORE_AUDIO) and \
+            not self._stream.get_info(xine.STREAM_INFO_AUDIO_HANDLED)
+
+        if v_unhandled or a_unhandled:
             self.parent.set_streaminfo(False, None)
             log.error('unable to play stream')
             return False
