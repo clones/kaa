@@ -5,7 +5,7 @@ import kaa
 import kaa.display
 import kaa.popcorn
 
-logging.getLogger('player.child').setLevel(logging.INFO)
+logging.getLogger('popcorn').setLevel(logging.INFO)
 
 def print_msg(msg):
     print '>', msg
