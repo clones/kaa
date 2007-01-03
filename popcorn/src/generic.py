@@ -489,6 +489,9 @@ class Player(object):
         Set a property to a new value. If an url is open right now, this 
         will only affect the current url.
         """
+        # FIXME: use pending for some properties to respect the state.
+        # E.g. user calls open();play();set_property() the set_property
+        # should be handled in STATE_PLAYING.
         if self._player:
             return self._player.set_property(prop, value)
         self._properties[prop] = value
