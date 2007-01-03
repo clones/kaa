@@ -183,15 +183,15 @@ class Xine(MediaPlayer):
 
     def _window_visibility_event(self):
         self._xine.window_changed(self._window.get_id(), self._window.get_size(),
-                                   self._window.get_visible(), [])
+                                  self._window.get_visible(), [])
 
     def _window_expose_event(self, regions):
         self._xine.window_changed(self._window.get_id(), self._window.get_size(),
-                                   self._window.get_visible(), regions)
+                                  self._window.get_visible(), regions)
 
     def _window_configure_event(self, pos, size):
         self._xine.window_changed(self._window.get_id(), size,
-                                   self._window.get_visible(), [])
+                                  self._window.get_visible(), [])
 
     def set_window(self, window):
         """
@@ -216,10 +216,12 @@ class Xine(MediaPlayer):
                 if old_window and window.get_display() == old_window.get_display():
                     # New window on same display, no need to reconfigure the vo,
                     # we can just point at the new window.
-                    self._xine.window_changed(window.get_id(), None, None, None)
+                    self._xine.window_changed(window.get_id(), window.get_size(),
+                                              self._window.get_visible(), [])
                 elif self._xine_configured:
                     # No previous window, must reconfigure vo.
-                    self._xine.configure_video(window.get_id(), self._get_aspect())
+                    self._xine.configure_video(window.get_id(), window.get_size(),
+                                               self._get_aspect())
 
         # Sends a window_changed command to slave.
         if window and self._xine:
@@ -233,9 +235,10 @@ class Xine(MediaPlayer):
         self._xine_configured = True
         self._xine.set_config(self._config)
         if self._window:
-            self._xine.configure_video(self._window.get_id(), self._get_aspect())
+            self._xine.configure_video(self._window.get_id(), self._window.get_size(),
+                                       self._get_aspect())
         else:
-            self._xine.configure_video(None, None)
+            self._xine.configure_video(None, None, None)
         self._xine.configure_audio(self._config.audio.driver)
         self._xine.configure_stream(self._properties)
 

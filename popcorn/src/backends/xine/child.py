@@ -61,8 +61,8 @@ class XinePlayerChild(Player):
         self._frame_shmkey = int(frame_shmkey)
         self._osd_shmem = self._frame_shmem = None
 
-        self._x11_window_size = 0, 0
-        self._x11_last_aspect = -1
+        self._window_size = 0, 0
+        self._window_aspect = -1
         self._status = kaa.notifier.WeakTimer(self._status_output)
         self._status_last = None
 
@@ -123,10 +123,10 @@ class XinePlayerChild(Player):
             "length":  self._stream.get_length(),
         }
 
-        if self._x11_last_aspect != -1:
+        if self._window_aspect != -1:
             # Use the aspect ratio as given to the frame output callback
             # as it tends to be more reliable (particularly for DVDs).
-            info["aspect"] = self._x11_last_aspect
+            info["aspect"] = self._window_aspect
         if info["aspect"] == 0 and info["height"] > 0:
             info["aspect"] = info["width"] / float(info["height"])
         if info["fps"]:
@@ -138,28 +138,25 @@ class XinePlayerChild(Player):
     # kaa.xine callbacks
     # #########################################################################
 
-    def _x11_frame_output_cb(self, width, height, aspect):
+    def _xine_frame_output_cb(self, width, height, aspect):
         """
         Return the frame output position and dimensions
         """
-        print "Frame output", width, height, aspect
         w, h, a = self._xine._get_vo_display_size(width, height, aspect)
-        if abs(self._x11_last_aspect - a) > 0.01:
+        if abs(self._window_aspect - a) > 0.01:
             log.debug('VO: %dx%d -> %dx%d', width, height, w, h)
             self.parent.resize((w, h))
-            self._x11_last_aspect = a
-        if self._x11_window_size != (0, 0):
-            w, h = self._x11_window_size
-        print (0, 0), (0, 0), (w, h), 1.0
+            self._window_aspect = a
+        if self._window_size != (0, 0):
+            w, h = self._window_size
         return (0, 0), (0, 0), (w, h), 1.0
 
 
-    def _x11_dest_size_cb(self, width, height, aspect):
+    def _xine_dest_size_cb(self, width, height, aspect):
         """
         Return the output size and aspect.
         """
-        w, h = self._x11_window_size
-        print 'XX', (w, h), 1.0
+        w, h = self._window_size
         return (w, h), 1.0
 
 
@@ -188,49 +185,48 @@ class XinePlayerChild(Player):
             del event.data["data"]
         if event.type == xine.EVENT_UI_CHANNELS_CHANGED:
             self.parent.set_streaminfo(True, self._get_streaminfo())
-        elif event.type == xine.EVENT_UI_MESSAGE and event.data['type'] == xine.MSG_AUDIO_OUT_UNAVAILABLE:
+        elif event.type == xine.EVENT_UI_MESSAGE and \
+                 event.data['type'] == xine.MSG_AUDIO_OUT_UNAVAILABLE:
             # Failed to open audio driver (async), so create dummy driver and
             # wire stream to that.
             self._ao = self._xine.open_audio_driver("none")
             if self._stream:
                 self._stream.get_audio_source().wire(self._ao)
-
         self.parent.xine_event(event.type, event.data)
 
 
-    def _wire_ao_driver(self, ao):
-        if self._stream:
-            self._stream.get_audio_source().wire(self._ao)
-        
-    
     # #############################################################################
     # Commands from parent process
     # #############################################################################
 
     def window_changed(self, wid, size, visible, exposed_regions):
+        """
+        Window changed or exposed regions.
+        """
         if not self._vo:
             return
-        # FIXME: what happens if this is no X11 window?
         if size is not None:
-            self._x11_window_size = size
+            self._window_size = size
         if visible is not None:
             self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
         self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
-    def configure_video(self, wid, aspect):
+    def configure_video(self, wid, size, aspect):
         """
         Configure video output.
         """
         control_return = []
         self._vo_visible = True
+        if size is not None:
+            self._window_size = size
         if wid and isinstance(wid, int):
             self._vo = self._xine.open_video_driver(
                 "kaa", control_return = control_return,
                 passthrough = "xv", wid = wid,
                 osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-                frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
-                dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb),
+                frame_output_cb = kaa.notifier.WeakCallback(self._xine_frame_output_cb),
+                dest_size_cb = kaa.notifier.WeakCallback(self._xine_dest_size_cb),
                 vsync = self.config.xine.vsync)
             self._driver_control = control_return[0]
 
@@ -239,8 +235,8 @@ class XinePlayerChild(Player):
                 "kaa", control_return = control_return,
                 passthrough = "vidixfb",
                 osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-                frame_output_cb = kaa.notifier.WeakCallback(self._x11_frame_output_cb),
-                dest_size_cb = kaa.notifier.WeakCallback(self._x11_dest_size_cb))
+                frame_output_cb = kaa.notifier.WeakCallback(self._xine_frame_output_cb),
+                dest_size_cb = kaa.notifier.WeakCallback(self._xine_dest_size_cb))
             self._driver_control = control_return[0]
 
         else:
@@ -250,7 +246,7 @@ class XinePlayerChild(Player):
 
         # setup filter chain and configure filter
         self._vfilter = FilterChain(self._xine, video_targets=[ self._vo ])
-        
+
         f = self._vfilter.get("tvtime")
         f.set_parameters(method = self.config.xine.deinterlacer.method,
                          chroma_filter = self.config.xine.deinterlacer.chroma_filter)
@@ -298,7 +294,8 @@ class XinePlayerChild(Player):
                 num = self.config.audio.channels
                 set('audio.output.speaker_arrangement', channels[num])
 
-        self._wire_ao_driver(self._ao)
+        if self._stream:
+            self._stream.get_audio_source().wire(self._ao)
 
 
     def configure_stream(self, properties):
@@ -365,6 +362,9 @@ class XinePlayerChild(Player):
 
 
     def osd_update(self, alpha, visible, invalid_regions):
+        """
+        Update OSD.
+        """
         if not self._osd_shmem:
             return
 
@@ -378,20 +378,32 @@ class XinePlayerChild(Player):
 
 
     def play(self):
+        """
+        Start playback.
+        """
         status = self._stream.get_status()
         if status == xine.STATUS_STOP:
             self._stream.play()
 
 
     def pause(self):
+        """
+        Pause playback.
+        """
         self._stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_PAUSE)
 
 
     def resume(self):
+        """
+        Resume playback.
+        """
         self._stream.set_parameter(xine.PARAM_SPEED, xine.SPEED_NORMAL)
 
 
     def seek(self, value, type):
+        """
+        Seek in stream.
+        """
         if type == SEEK_RELATIVE:
             self._stream.seek_relative(value)
         if type == SEEK_ABSOLUTE:
@@ -400,13 +412,10 @@ class XinePlayerChild(Player):
             self._stream.play(pos = (value / 100.0) * 65535)
 
 
-    def set_audio_delay(self, delay):
-        # xine-lib wants units in 1/90000 sec, so convert.
-        delay = -int(delay * 90000.0)
-        self._stream.set_parameter(xine.PARAM_AV_OFFSET, delay)
-
-
     def stop(self):
+        """
+        Stop playback.
+        """
         self._status.stop()
         if self._stream:
             self._stream.stop()
@@ -415,11 +424,26 @@ class XinePlayerChild(Player):
 
 
     def die(self):
+        """
+        Stop process.
+        """
         self.stop()
         sys.exit(0)
 
 
+    def set_audio_delay(self, delay):
+        """
+        Set audio delay.
+        """
+        # xine-lib wants units in 1/90000 sec, so convert.
+        delay = -int(delay * 90000.0)
+        self._stream.set_parameter(xine.PARAM_AV_OFFSET, delay)
+
+
     def set_frame_output_mode(self, vo, notify, size):
+        """
+        Set frame output mode.
+        """
         if not self._driver_control:
             # If vo driver used isn't kaa (which may not be for testing/
             # debugging purposes) then _driver_control won't be set.
@@ -444,6 +468,9 @@ class XinePlayerChild(Player):
 
 
     def input(self, input):
+        """
+        Send input (e.g. DVD navigation)
+        """
         self._stream.send_event(input)
 
 
@@ -458,7 +485,7 @@ class XinePlayerChild(Player):
                 chain.append('tvtime')
         elif 'tvtime' in current:
             chain.append('tvtime')
-            
+
         if prop == 'postprocessing':
             if value:
                 chain.append('pp')
