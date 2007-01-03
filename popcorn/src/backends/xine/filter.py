@@ -1,55 +1,36 @@
-class Filter(object):
-
-    def __init__(self, name):
-        self.name = name
-        self.prop = {}
-        self._obj = None
-
-    def set_parameters(self, **kwargs):
-        self.prop.update(kwargs)
-        if self._obj:
-            self._obj.set_parameters(**kwargs)
-
-    def create(self, xine, video_targets=[], audio_targets=[]):
-        self._obj = xine.post_init(self.name, video_targets = video_targets,
-                                   audio_targets = audio_targets)
-        self._obj.set_parameters(**self.prop)
-        return self._obj
-
-
-    def get_default_input(self):
-        return self._obj.get_default_input()
-
-    
 class FilterChain(object):
 
-    def __init__(self):
+    def __init__(self, xine, video_targets=[], audio_targets=[]):
         self._filter = {}
-        self._chain = [ None, None, [], None ]
+        self._chain = []
+        self._xine = xine
+        self._video_targets = video_targets
+        self._audio_targets = audio_targets
+
 
     def get(self, name):
         f = self._filter.get(name)
         if not f:
-            f = Filter(name)
+            f = self._xine.post_init(name, video_targets = self._video_targets,
+                                     audio_targets = self._audio_targets)
             self._filter[name] = f
         return f
 
-    def get_chain(self):
-        return self._chain[2]
 
-    def rewire(self, chain):
-        self._chain[2] = chain
-        self.wire(*self._chain)
+    def get_chain(self):
+        return self._chain[1:]
+
+
+    def rewire(self, *chain):
+        self.wire(self._chain[0], *chain)
+
         
-    def wire(self, xine, src, chain, dst):
-        self._chain = [ xine, src, chain, dst ]
-        chain = chain[:]
-        chain.reverse()
+    def wire(self, src, *chain):
+        self._chain = [ src ] + list(chain)
         for f in chain:
             f = self.get(f)
-            f.create(xine, video_targets = [ dst ])
-            dst = f.get_default_input()
+            src.wire(f.get_default_input())
+            src = f.get_default_output()
 
-        # FIXME: rewrire support
-        src.wire(dst)
-        
+        # FIXME: what target?
+        src.wire(self._video_targets[0])

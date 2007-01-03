@@ -259,8 +259,8 @@ class XinePlayerChild(Player):
             self._vo_visible = False
 
         # setup filter chain and configure filter
-        self._vfilter = FilterChain()
-
+        self._vfilter = FilterChain(self._xine, video_targets=[ self._vo ])
+        
         f = self._vfilter.get("tvtime")
         f.set_parameters(method = self.config.xine.deinterlacer.method,
                          chroma_filter = self.config.xine.deinterlacer.chroma_filter)
@@ -333,7 +333,7 @@ class XinePlayerChild(Player):
         if properties.get('postprocessing'):
             chain.append('pp')
         chain.append('expand')
-        self._vfilter.wire(self._xine, self._stream.get_video_source(), chain, self._vo)
+        self._vfilter.wire(self._stream.get_video_source(), *chain)
 
 
 
@@ -454,9 +454,17 @@ class XinePlayerChild(Player):
         """
         current = self._vfilter.get_chain()
         chain = []
-        if (prop == 'deinterlace' and value) or 'tvtime' in current:
+        if prop == 'deinterlace':
+            if value:
+                chain.append('tvtime')
+        elif 'tvtime' in current:
             chain.append('tvtime')
-        if (prop == 'postprocessing' and value) or 'pp' in current:
+            
+        if prop == 'postprocessing':
+            if value:
+                chain.append('pp')
+        elif 'pp' in current:
             chain.append('pp')
+
         chain.append('expand')
-        self._vfilter.rewire(chain)
+        self._vfilter.rewire(*chain)
