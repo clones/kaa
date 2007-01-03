@@ -142,6 +142,11 @@ class XinePlayerChild(Player):
         """
         Return the frame output position and dimensions
         """
+        # FIXME: this is called for every frame. So for every frame we jump
+        # from C to Python, call _get_vo_display_size in C again and
+        # continue in Python. I guess it would be a major speed improvement
+        # if this function is directly in C and we only provide the
+        # basic information (size, maybe aspect) when it changes.
         w, h, a = self._xine._get_vo_display_size(width, height, aspect)
         if abs(self._window_aspect - a) > 0.01:
             log.debug('VO: %dx%d -> %dx%d', width, height, w, h)
