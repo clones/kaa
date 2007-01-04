@@ -358,77 +358,61 @@ class MPlayer(MediaPlayer):
         self._state = STATE_OPEN
 
 
-    def play(self):
+    def configure_video(self):
         """
-        Start playback.
+        Configure arguments and filter for video.
         """
-        log.debug('mplayer start playback')
-
-        # we know that self._mp_info has to be there or the object would
-        # not be selected by the generic one. FIXME: verify that!
-        assert(self._mp_info)
-
-        # create mplayer object
-        self._mplayer = MPlayerApp(self._mp_cmd)
-
         # get argument and filter list
         args, filters = self._mplayer.args, self._mplayer.filters
-
-        if 'x11' in self._mp_info['video_drivers']:
-            args.append('-nomouseinput')
 
         # create filter list
         filters.extend(self._filters_pre[:])
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
-
-        if self._window:
-            # special settings for video
-
-            if self._properties['deinterlace'] == True or \
+        if self._properties['deinterlace'] == True or \
                (self._properties['deinterlace'] == 'auto' and \
                 self._media.get('interlaced')):
-                # add deinterlacer
-                filter.append(self._config.mplayer.deinterlacer)
+            # add deinterlacer
+            filter.append(self._config.mplayer.deinterlacer)
 
-            # FIXME: all this code seems to work. But I guess it has
-            # some problems when we don't have an 1:1 pixel aspect
-            # ratio on the monitor and using software scaler.
+        # FIXME: all this code seems to work. But I guess it has
+        # some problems when we don't have an 1:1 pixel aspect
+        # ratio on the monitor and using software scaler.
 
-            aspect, dsize = self._get_aspect()
-            size = self._window.get_size()
-            # This may be needed for some non X based displays
-            args.add(screenw=size[0], screenh=size[1])
+        aspect, dsize = self._get_aspect()
+        size = self._window.get_size()
+        # This may be needed for some non X based displays
+        args.add(screenw=size[0], screenh=size[1])
 
-            if not self._config.widescreen == 'scaled':
-                # Expand to fit the given aspect. In scaled mode we don't
-                # do that which will result in a scaled image filling
-                # the whole screen
-                filters.append('expand=:::::%s/%s' % tuple(aspect))
+        if not self._config.widescreen == 'scaled':
+            # Expand to fit the given aspect. In scaled mode we don't
+            # do that which will result in a scaled image filling
+            # the whole screen
+            filters.append('expand=:::::%s/%s' % tuple(aspect))
 
-            # FIXME: this only works if the window has the the aspect
-            # as the full screen. In all other cases the window is not
-            # fully used but at least with black bars.
-            if self._config.widescreen == 'zoom':
-                # This DOES NOT WORK as it should. The hardware scaler
-                # will ignore the settings and keep aspect and does
-                # not crop as default.  When using vo x11 and software
-                # scaling, this lines do what they are supposed to do.
-                filters.append('dsize=%s:%s:1' % size)
-            else:
-                # scale to window size
-                filters.append('dsize=%s:%s:0' % size)
+        # FIXME: this only works if the window has the the aspect
+        # as the full screen. In all other cases the window is not
+        # fully used but at least with black bars.
+        if self._config.widescreen == 'zoom':
+            # This DOES NOT WORK as it should. The hardware scaler
+            # will ignore the settings and keep aspect and does
+            # not crop as default.  When using vo x11 and software
+            # scaling, this lines do what they are supposed to do.
+            filters.append('dsize=%s:%s:1' % size)
+        else:
+            # scale to window size
+            filters.append('dsize=%s:%s:0' % size)
 
-            # add software scaler based on dsize arguments
-            if self._properties.get('software-scaler'):
-                filters.append('scale=0:0')
-                args.add(sws=2)
+        # add software scaler based on dsize arguments
+        if self._properties.get('software-scaler'):
+            filters.append('scale=0:0')
+            args.add(sws=2)
 
-            # add postprocessing
-            if self._properties.get('postprocessing'):
-                filters.append('pp')
-                args.add(autoq=100)
+        # add postprocessing
+        if self._properties.get('postprocessing'):
+            filters.append('pp')
+            args.add(autoq=100)
 
         filters += self._filters_add
         if 'overlay' in self._mp_info['video_filters']:
@@ -438,9 +422,16 @@ class MPlayer(MediaPlayer):
             args.add(vo='xv', wid=hex(self._window.get_id()),
                      display=self._window.get_display().get_string())
         else:
-            # no window == no video out
             # FIXME: add support for DFB/FB/etc
             args.add(vo='null')
+
+
+    def configure_audio(self):
+        """
+        Configure arguments and filter for video.
+        """
+        # get argument and filter list
+        args, filters = self._mplayer.args, self._mplayer.filters
 
         if self._config.audio.passthrough:
             args.add(ac='hwac3,hwdts,')
@@ -465,6 +456,41 @@ class MPlayer(MediaPlayer):
             if device != '':
                 args[-1] += ':device=' + device.replace(':', '=')
 
+        # set property audio filename
+        if self._properties.get('audio-filename'):
+            args.add(audiofile=self._properties.get('audio-filename'))
+
+        # set property audio track
+        if self._properties.get('audio-track') is not None:
+            args.add(aid=self._properties.get('audio-track'))
+
+
+    def play(self):
+        """
+        Start playback.
+        """
+        log.debug('mplayer start playback')
+
+        # we know that self._mp_info has to be there or the object would
+        # not be selected by the generic one. FIXME: verify that!
+        assert(self._mp_info)
+
+        # create mplayer object
+        self._mplayer = MPlayerApp(self._mp_cmd)
+
+        # get argument and filter list
+        args, filters = self._mplayer.args, self._mplayer.filters
+
+        if 'x11' in self._mp_info['video_drivers']:
+            args.append('-nomouseinput')
+
+        if self._window:
+            self.configure_video()
+        else:
+            args.add(vo='null')
+
+        self.configure_audio()
+
         # There is no way to make MPlayer ignore keys from the X11 window.  So
         # this hack makes a temp input file that maps all keys to a dummy (and
         # non-existent) command which causes MPlayer not to react to any key
@@ -477,14 +503,6 @@ class MPlayer(MediaPlayer):
             os.write(fp, "%s noop\n" % key)
         os.close(fp)
         args.add(input='conf=%s' % keyfile)
-
-        # set property audio filename
-        if self._properties.get('audio-filename'):
-            args.add(audiofile=self._properties.get('audio-filename'))
-
-        # set property audio track
-        if self._properties.get('audio-track') is not None:
-            args.add(aid=self._properties.get('audio-track'))
 
         # set properties subtitle filename and subtitle track
         if self._properties.get('subtitle-filename'):
