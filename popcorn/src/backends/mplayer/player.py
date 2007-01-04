@@ -67,7 +67,7 @@ class Arguments(list):
         for key, value in kwargs.items():
             if value is None:
                 continue
-            self.extend(('-' + key, str(value)))
+            self.extend(('-' + key.replace('_', '-'), str(value)))
             
 def _get_mplayer_info(path, callback = None, mtime = None):
     """
@@ -172,9 +172,7 @@ class MPlayer(MediaPlayer):
         if not self._mp_cmd:
             raise PlayerError, "No MPlayer executable found in PATH"
 
-        self._child_app = None
-        self._file = None
-        self._file_args = []
+        self._mplayer = None
 
         self._filters_pre = []
         self._filters_add = []
@@ -206,9 +204,9 @@ class MPlayer(MediaPlayer):
     #
 
     def _child_stop(self):
-        self._child_write("quit")
+        self._command("quit")
         # Could be paused, try sending again.
-        self._child_write("quit")
+        self._command("quit")
 
 
     def _child_handle_line(self, line):
@@ -321,17 +319,17 @@ class MPlayer(MediaPlayer):
 
         elif USE_GDB and line.startswith("Program received signal SIGSEGV"):
             # Mplayer crashed, issue backtrace.
-            self._child_app.write("thread apply all bt\n")
+            self._mplayer.write("thread apply all bt\n")
 
         if line.strip():
             self._last_line = line
 
 
-    def _child_write(self, cmd):
-        if not self._child_is_alive():
+    def _command(self, cmd):
+        if not self._is_alive():
             return False
         log.info('mplayer send %s', cmd)
-        self._child_app.write(cmd + "\n")
+        self._mplayer.write(cmd + "\n")
 
 
     def _child_exited(self, exitcode):
@@ -339,8 +337,8 @@ class MPlayer(MediaPlayer):
         self._state = STATE_NOT_RUNNING
 
 
-    def _child_is_alive(self):
-        return self._child_app and self._child_app.is_alive()
+    def _is_alive(self):
+        return self._mplayer and self._mplayer.is_alive()
 
 
 
@@ -355,21 +353,21 @@ class MPlayer(MediaPlayer):
         if self.get_state() != STATE_NOT_RUNNING:
             raise RuntimeError('mplayer not in STATE_NOT_RUNNING')
 
-        self._file_args = []
+        args = Arguments()
         if media.scheme == "dvd":
             file, title = re.search("(.*?)(\/\d+)?$", media.url[4:]).groups()
             if file.replace('/', ''):
                 if not os.path.isfile(file):
                     raise ValueError, "Invalid ISO file: %s" % file
-                self._file_args.append("-dvd-device \"%s\"" % file)
-
-            self._file = "dvd://"
+                args.set(dvd_device=file)
+            args.append("dvd://")
             if title:
-                self._file += title[1:]
+                args[-1] += title[1:]
         else:
-            self._file = media.url
+            args.append(media.url)
 
         self._media = media
+        self._media.mplayer_args = args
         self._state = STATE_OPENING
 
         # We have a problem at this point. The 'open' function is used to
@@ -378,7 +376,7 @@ class MPlayer(MediaPlayer):
         # work that way so we have to run mplayer with -identify first.
         args = "-nolirc -nojoystick -identify -vo null -ao null -frames 0"
         ident = kaa.notifier.Process(self._mp_cmd)
-        ident.start(args.split(' ') + [ self._file ])
+        ident.start(args.split(' ') + self._media.mplayer_args)
         ident.signals["stdout"].connect_weak(self._child_handle_line)
         ident.signals["stderr"].connect_weak(self._child_handle_line)
         ident.signals["completed"].connect_weak(self._ident_exited)
@@ -530,30 +528,23 @@ class MPlayer(MediaPlayer):
             args.add(sid=self._properties.get('subtitle-track'))
 
         # add extra file arguments
-        if self._file_args:
-            if isinstance(self._file_args, str):
-                args.extend(self._file_args.split(' '))
-            else:
-                args.extend(self._file_args)
-
-        if self._file:
-            args.append(self._file)
+        args.extend(self._media.mplayer_args)
 
         log.info("spawn: %s %s", self._mp_cmd, ' '.join(args))
 
         if USE_GDB:
-            self._child_app = kaa.notifier.Process("gdb")
-            self._child_app.start(self._mp_cmd)
-            self._child_app.write("run %s\n" % ' '.join(args))
+            self._mplayer = kaa.notifier.Process("gdb")
+            self._mplayer.start(self._mp_cmd)
+            self._mplayer.write("run %s\n" % ' '.join(args))
         else:
-            self._child_app = kaa.notifier.Process(self._mp_cmd)
-            self._child_app.start(args)
+            self._mplayer = kaa.notifier.Process(self._mp_cmd)
+            self._mplayer.start(args)
 
-        self._child_app.signals["stdout"].connect_weak(self._child_handle_line)
-        self._child_app.signals["stderr"].connect_weak(self._child_handle_line)
-        self._child_app.signals["completed"].connect_weak(self._child_exited)
+        self._mplayer.signals["stdout"].connect_weak(self._child_handle_line)
+        self._mplayer.signals["stderr"].connect_weak(self._child_handle_line)
+        self._mplayer.signals["completed"].connect_weak(self._child_exited)
         stop = kaa.notifier.WeakCallback(self._child_stop)
-        self._child_app.set_stop_command(stop)
+        self._mplayer.set_stop_command(stop)
         return
 
 
@@ -561,8 +552,8 @@ class MPlayer(MediaPlayer):
         """
         Stop playback.
         """
-        if self._child_app:
-            self._child_app.stop()
+        if self._mplayer:
+            self._mplayer.stop()
             self._state = STATE_SHUTDOWN
 
 
@@ -570,14 +561,14 @@ class MPlayer(MediaPlayer):
         """
         Pause playback.
         """
-        self._child_write("pause")
+        self._command("pause")
 
 
     def resume(self):
         """
         Resume playback.
         """
-        self._child_write("pause")
+        self._command("pause")
 
 
     def seek(self, value, type):
@@ -585,7 +576,7 @@ class MPlayer(MediaPlayer):
         SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
         s = [SEEK_RELATIVE, SEEK_PERCENTAGE, SEEK_ABSOLUTE]
-        self._child_write("seek %f %s" % (value, s.index(type)))
+        self._command("seek %f %s" % (value, s.index(type)))
 
 
     #
@@ -596,36 +587,36 @@ class MPlayer(MediaPlayer):
         """
         Sets audio delay. Positive value defers audio by delay.
         """
-        if not self._child_is_alive():
+        if not self._is_alive():
             return
-        self._child_write("audio_delay %f 1" % -delay)
+        self._command("audio_delay %f 1" % -delay)
 
 
     def _prop_audio_track(self, id):
         """
         Change audio track (mpeg and mkv only)
         """
-        if not self._child_is_alive():
+        if not self._is_alive():
             return
-        self._child_write("switch_audio %s" % id)
+        self._command("switch_audio %s" % id)
 
         
     def _prop_subtitle_track(self, id):
         """
         Change subtitle track
         """
-        if not self._child_is_alive():
+        if not self._is_alive():
             return
-        self._child_write("sub_select %s" % id)
+        self._command("sub_select %s" % id)
 
         
     def _prop_subtitle_filename(self, filename):
         """
         Change subtitle filename
         """
-        if not self._child_is_alive():
+        if not self._is_alive():
             return
-        self._child_write("sub_load %s" % filename)
+        self._command("sub_load %s" % filename)
 
         
     #
@@ -701,7 +692,7 @@ class MPlayer(MediaPlayer):
         if invalid_regions:
             for (x, y, w, h) in invalid_regions:
                 cmd.append("invalidate=%d:%d:%d:%d" % (x, y, w, h))
-        self._child_write("overlay %s" % ",".join(cmd))
+        self._command("overlay %s" % ",".join(cmd))
         self._overlay_set_lock(BUFFER_LOCKED)
 
         try:
@@ -746,7 +737,7 @@ class MPlayer(MediaPlayer):
         if size != None:
             self._cur_outbuf_mode[2] = size
 
-        if not self._child_is_alive():
+        if not self._is_alive():
             return
 
         mode = { (False, False): 0, (True, False): 1,
@@ -755,9 +746,9 @@ class MPlayer(MediaPlayer):
 
         size = self._cur_outbuf_mode[2]
         if size == None:
-            self._child_write("outbuf %d" % mode)
+            self._command("outbuf %d" % mode)
         else:
-            self._child_write("outbuf %d %d %d" % (mode, size[0], size[1]))
+            self._command("outbuf %d %d %d" % (mode, size[0], size[1]))
 
 
     def unlock_frame_buffer(self):
