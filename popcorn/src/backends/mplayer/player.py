@@ -368,8 +368,7 @@ class MPlayer(MediaPlayer):
         # open the stream and provide information about it. After that, the
         # caller can still change stuff before calling play. Mplayer doesn't
         # work that way so we have to run mplayer with -identify first.
-        args = "-nolirc -nojoystick -nomouseinput -identify " +\
-               "-vo null -ao null -frames 0"
+        args = "-nolirc -nojoystick -identify -vo null -ao null -frames 0"
         ident = kaa.notifier.Process(self._mp_cmd)
         ident.start(args.split(' ') + [ self._file ])
         ident.signals["stdout"].connect_weak(self._child_handle_line)
@@ -399,8 +398,9 @@ class MPlayer(MediaPlayer):
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
         args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
-                 "-nomouseinput", "-nodouble", "-fixed-vo", "-identify", \
-                 "-framedrop" ]
+                 "-nodouble", "-fixed-vo", "-identify", "-framedrop" ]
+        if 'x11' in self._mp_info['video_drivers']:
+            args.append('-nomouseinput')
 
         if self._window:
 
