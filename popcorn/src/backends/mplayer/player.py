@@ -150,7 +150,6 @@ def _get_mplayer_info(path, callback = None, mtime = None):
     return info
 
 
-
 class MPlayer(MediaPlayer):
 
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
@@ -399,26 +398,56 @@ class MPlayer(MediaPlayer):
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
+        args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
+                 "-nomouseinput", "-nodouble", "-fixed-vo", "-identify", \
+                 "-framedrop" ]
 
         if self._window:
-            # FIXME: add software scaler
-            # FIXME: add support for self._config.widescreen
-            aspect, size = self._get_aspect()
+
+            # FIXME: all this code seems to work. But I guess it has
+            # some problems when we don't have an 1:1 pixel aspect
+            # ratio on the monitor and using software scaler.
+            
+            aspect, dsize = self._get_aspect()
+            size = self._window.get_size()
+            # This may be needed for some non X based displays
+            args.extend(('-screenw', str(size[0]), '-screenh', str(size[1])))
+
+            if not self._config.widescreen == 'scaled':
+                # Expand to fit the given aspect. In scaled mode we don't
+                # do that which will result in a scaled image filling
+                # the whole screen
+                filters.append('expand=:::::%s/%s' % tuple(aspect))
 
             # FIXME: this only works if the window has the the aspect
-            # as the full screen
-            filters.append('expand=:::::%s/%s' % tuple(aspect))
-            filters.append('dsize=%s/%s' % size)
+            # as the full screen. In all other cases the window is not
+            # fully used but at least with black bars.
+            if self._config.widescreen == 'zoom':
+                # This DOES NOT WORK as it should. The hardware scaler
+                # will ignore the settings and keep aspect and does
+                # not crop as default.  When using vo x11 and software
+                # scaling, this lines do what they are supposed to do.
+                filters.append('dsize=%s:%s:1' % size)
+            else:
+                # scale to window size
+                filters.append('dsize=%s:%s:0' % size)
 
-        # FIXME: check freevo filter list and add stuff like pp
+            # add software scaler based on dsize arguments
+            if self._properties.get('software-scaler'):
+                filters.append('scale=0:0')
+                args.extend(('-sws', '2'))
+            
+            # add postprocessing
+            if self._properties.get('postprocessing'):
+                filters.append('pp')
+                args.extend(('-autoq', '100'))
+
+            # for some testing non xv video out
+            # args.extend(("-vo", "x11"))
 
         filters += self._filters_add
         if 'overlay' in self._mp_info['video_filters']:
             filters += ["overlay=%s" % self._osd_shmkey]
-
-        args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
-                 "-nomouseinput", "-nodouble", "-fixed-vo", "-identify", \
-                 "-framedrop" ]
 
         if filters:
             args.extend(("-vf", ",".join(filters)))
