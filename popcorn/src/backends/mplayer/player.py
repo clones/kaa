@@ -47,8 +47,7 @@ import kaa.display
 from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
 
-# start mplayer in gdb for debugging
-USE_GDB = False
+from child import MplayerApp
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -177,11 +176,10 @@ class MPlayer(MediaPlayer):
         if not self._mp_cmd:
             raise PlayerError, "No MPlayer executable found in PATH"
 
-        self._mplayer = None
+        self._mplayer = MplayerApp()
 
         self._filters_pre = []
         self._filters_add = []
-        self._last_line = None
 
         self._mp_info = _get_mplayer_info(self._mp_cmd, self._handle_mp_info)
         self._check_new_frame_t = kaa.notifier.WeakTimer(self._check_new_frame)
@@ -208,18 +206,10 @@ class MPlayer(MediaPlayer):
     # child IO
     #
 
-    def _child_stop(self):
-        self._command("quit")
-        # Could be paused, try sending again.
-        self._command("quit")
-
-
     def _child_handle_line(self, line):
         if re.search("@@@|outbuf|overlay", line, re.I):
             childlog(line)
         elif line[:2] not in ("A:", "V:"):
-            childlog(line)
-        elif USE_GDB:
             childlog(line)
 
         if line.startswith("V:") or line.startswith("A:"):
@@ -322,20 +312,6 @@ class MPlayer(MediaPlayer):
         elif line.startswith("FATAL:"):
             log.error(line.strip())
 
-        elif USE_GDB and line.startswith("Program received signal SIGSEGV"):
-            # Mplayer crashed, issue backtrace.
-            self._mplayer.write("thread apply all bt\n")
-
-        if line.strip():
-            self._last_line = line
-
-
-    def _command(self, cmd):
-        if not self._is_alive():
-            return False
-        log.info('mplayer send %s', cmd)
-        self._mplayer.write(cmd + "\n")
-
 
     def _child_exited(self, exitcode):
         log.info('mplayer exited')
@@ -343,7 +319,7 @@ class MPlayer(MediaPlayer):
 
 
     def _is_alive(self):
-        return self._mplayer and self._mplayer.is_alive()
+        return self._mplayer.is_alive()
 
 
 
@@ -538,19 +514,11 @@ class MPlayer(MediaPlayer):
 
         log.info("spawn: %s %s", self._mp_cmd, ' '.join(args))
 
-        if USE_GDB:
-            self._mplayer = kaa.notifier.Process("gdb")
-            self._mplayer.start(self._mp_cmd)
-            self._mplayer.write("run %s\n" % ' '.join(args))
-        else:
-            self._mplayer = kaa.notifier.Process(self._mp_cmd)
-            self._mplayer.start(args)
-
+        self._mplayer = MplayerApp(self._mp_cmd)
         self._mplayer.signals["stdout"].connect_weak(self._child_handle_line)
         self._mplayer.signals["stderr"].connect_weak(self._child_handle_line)
         self._mplayer.signals["completed"].connect_weak(self._child_exited)
-        stop = kaa.notifier.WeakCallback(self._child_stop)
-        self._mplayer.set_stop_command(stop)
+        self._mplayer.start(args)
         return
 
 
@@ -558,23 +526,22 @@ class MPlayer(MediaPlayer):
         """
         Stop playback.
         """
-        if self._mplayer:
-            self._mplayer.stop()
-            self._state = STATE_SHUTDOWN
+        self._mplayer.stop()
+        self._state = STATE_SHUTDOWN
 
 
     def pause(self):
         """
         Pause playback.
         """
-        self._command("pause")
+        self._mplayer.pause()
 
 
     def resume(self):
         """
         Resume playback.
         """
-        self._command("pause")
+        self._mplayer.pause()
 
 
     def seek(self, value, type):
@@ -582,7 +549,7 @@ class MPlayer(MediaPlayer):
         SEEK_RELATIVE, SEEK_ABSOLUTE and SEEK_PERCENTAGE.
         """
         s = [SEEK_RELATIVE, SEEK_PERCENTAGE, SEEK_ABSOLUTE]
-        self._command("seek %f %s" % (value, s.index(type)))
+        self._mplayer.seek(value, s.index(type))
 
 
     #
@@ -593,40 +560,32 @@ class MPlayer(MediaPlayer):
         """
         Sets audio delay. Positive value defers audio by delay.
         """
-        if not self._is_alive():
-            return
-        self._command("audio_delay %f 1" % -delay)
+        self._mplayer.audio_delay(-delay, 1)
 
 
     def _prop_audio_track(self, id):
         """
         Change audio track (mpeg and mkv only)
         """
-        if not self._is_alive():
-            return
-        self._command("switch_audio %s" % id)
+        self._mplayer.switch_audio(id)
 
 
     def _prop_subtitle_track(self, id):
         """
         Change subtitle track
         """
-        if not self._is_alive():
-            return
-        self._command("sub_select %s" % id)
+        self._mplayer.sub_select(id)
 
 
     def _prop_subtitle_filename(self, filename):
         """
         Change subtitle filename
         """
-        if not self._is_alive():
-            return
-        self._command("sub_load %s" % filename)
+        self._mplayer.sub_load(filename)
 
 
     #
-    # Methods for filter handling (not yet in generic and base
+    # Methods for filter handling (not yet in generic and base)
     #
 
     def prepend_filter(self, filter):
@@ -698,7 +657,7 @@ class MPlayer(MediaPlayer):
         if invalid_regions:
             for (x, y, w, h) in invalid_regions:
                 cmd.append("invalidate=%d:%d:%d:%d" % (x, y, w, h))
-        self._command("overlay %s" % ",".join(cmd))
+        self._mplayer.overlay(*cmd)
         self._overlay_set_lock(BUFFER_LOCKED)
 
         try:
@@ -752,9 +711,9 @@ class MPlayer(MediaPlayer):
 
         size = self._cur_outbuf_mode[2]
         if size == None:
-            self._command("outbuf %d" % mode)
+            self._mplayer.outbuf(mode)
         else:
-            self._command("outbuf %d %d %d" % (mode, size[0], size[1]))
+            self._mplayer.outbuf(mode, size[0], size[1])
 
 
     def unlock_frame_buffer(self):
