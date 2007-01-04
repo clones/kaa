@@ -63,12 +63,17 @@ childlog = logging.getLogger('popcorn.child').debug
 _cache = {}
 
 class Arguments(list):
+    def __init__(self, args=()):
+        if args:
+            args = args.split(' ')
+        list.__init__(self, args)
+
     def add(self, **kwargs):
         for key, value in kwargs.items():
             if value is None:
                 continue
             self.extend(('-' + key.replace('_', '-'), str(value)))
-            
+
 def _get_mplayer_info(path, callback = None, mtime = None):
     """
     Fetches info about the given MPlayer executable.  If the values are
@@ -307,7 +312,7 @@ class MPlayer(MediaPlayer):
                 # proccess.
                 # self._state = STATE_IDLE
                 pass
-            
+
         elif line.startswith("Parsing input") and self._window and \
                  self._state == STATE_OPEN:
             # Delete the temporary key input file.
@@ -359,7 +364,7 @@ class MPlayer(MediaPlayer):
             if file.replace('/', ''):
                 if not os.path.isfile(file):
                     raise ValueError, "Invalid ISO file: %s" % file
-                args.set(dvd_device=file)
+                args.add(dvd_device=file)
             args.append("dvd://")
             if title:
                 args[-1] += title[1:]
@@ -399,32 +404,35 @@ class MPlayer(MediaPlayer):
         # not be selected by the generic one. FIXME: verify that!
         assert(self._mp_info)
 
+        # create argument list
+        args = Arguments("-v -slave -osdlevel 0 -nolirc -nojoystick " +
+                         "-nodouble -fixed-vo -identify -framedrop")
+        if 'x11' in self._mp_info['video_drivers']:
+            args.append('-nomouseinput')
+
+        # create filter list
         filters = self._filters_pre[:]
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
-        args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
-                 "-nodouble", "-fixed-vo", "-identify", "-framedrop" ]
-        args = Arguments(args)
-        if 'x11' in self._mp_info['video_drivers']:
-            args.append('-nomouseinput')
 
         if self._window:
+            # special settings for video
 
             if self._properties['deinterlace'] == True or \
                (self._properties['deinterlace'] == 'auto' and \
                 self._media.get('interlaced')):
                 # add deinterlacer
                 filter.append(self._config.mplayer.deinterlacer)
-                
+
             # FIXME: all this code seems to work. But I guess it has
             # some problems when we don't have an 1:1 pixel aspect
             # ratio on the monitor and using software scaler.
-            
+
             aspect, dsize = self._get_aspect()
             size = self._window.get_size()
             # This may be needed for some non X based displays
-            args.extend(('-screenw', str(size[0]), '-screenh', str(size[1])))
+            args.add(screenw=size[0], screenh=size[1])
 
             if not self._config.widescreen == 'scaled':
                 # Expand to fit the given aspect. In scaled mode we don't
@@ -448,37 +456,35 @@ class MPlayer(MediaPlayer):
             # add software scaler based on dsize arguments
             if self._properties.get('software-scaler'):
                 filters.append('scale=0:0')
-                args.extend(('-sws', '2'))
-            
+                args.add(sws=2)
+
             # add postprocessing
             if self._properties.get('postprocessing'):
                 filters.append('pp')
-                args.extend(('-autoq', '100'))
-
-            # for some testing non xv video out
-            # args.extend(("-vo", "x11"))
+                args.add(autoq=100)
 
         filters += self._filters_add
         if 'overlay' in self._mp_info['video_filters']:
-            filters += ["overlay=%s" % self._osd_shmkey]
+            filters.append("overlay=%s" % self._osd_shmkey)
 
         if filters:
-            args.extend(("-vf", ",".join(filters)))
+            args.add(vf=",".join(filters))
 
         if isinstance(self._window, kaa.display.X11Window):
-            args.extend((
-                "-wid", hex(self._window.get_id()),
-                "-display", self._window.get_display().get_string()))
+            args.add(vo='xv', wid=hex(self._window.get_id()),
+                     display=self._window.get_display().get_string())
         else:
             # no window == no video out
-            args.extend(('-vo', 'null'))
+            # FIXME: add support for DFB/FB/etc
+            args.add(vo='null')
 
         if self._config.audio.passthrough:
-            args += [ '-ac', 'hwac3,hwdts,' ]
+            args.add(ac='hwac3,hwdts,')
         else:
-            args += [ '-channels', str(self._config.audio.channels) ]
-            
-        args += [ '-ao', self._config.audio.driver ]
+            args.add(channels=self._config.audio.channels)
+
+        args.add(ao=self._config.audio.driver)
+
         if self._config.audio.driver == 'alsa':
             args[-1] += ":noblock"
             n_channels = self._streaminfo.get('channels')
@@ -494,7 +500,7 @@ class MPlayer(MediaPlayer):
                 device = self._config.audio.device.stereo
             if device != '':
                 args[-1] += ':device=' + device.replace(':', '=')
-            
+
         # There is no way to make MPlayer ignore keys from the X11 window.  So
         # this hack makes a temp input file that maps all keys to a dummy (and
         # non-existent) command which causes MPlayer not to react to any key
@@ -506,7 +512,7 @@ class MPlayer(MediaPlayer):
         for key in keys:
             os.write(fp, "%s noop\n" % key)
         os.close(fp)
-        args.extend(('-input', 'conf=%s' % keyfile))
+        args.add(input='conf=%s' % keyfile)
 
         # set property audio filename
         if self._properties.get('audio-filename'):
@@ -600,7 +606,7 @@ class MPlayer(MediaPlayer):
             return
         self._command("switch_audio %s" % id)
 
-        
+
     def _prop_subtitle_track(self, id):
         """
         Change subtitle track
@@ -609,7 +615,7 @@ class MPlayer(MediaPlayer):
             return
         self._command("sub_select %s" % id)
 
-        
+
     def _prop_subtitle_filename(self, filename):
         """
         Change subtitle filename
@@ -618,7 +624,7 @@ class MPlayer(MediaPlayer):
             return
         self._command("sub_load %s" % filename)
 
-        
+
     #
     # Methods for filter handling (not yet in generic and base
     #
