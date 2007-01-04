@@ -38,4 +38,9 @@
             </desc>
         </var>
     </group>
+
+    <var name="deinterlacer" default="yadif=0">
+        <desc lang="en">Deinterlacer video filter to use</desc>
+    </var>
+
 </config>

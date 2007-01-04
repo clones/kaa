@@ -62,6 +62,13 @@ childlog = logging.getLogger('popcorn.child').debug
 # keyed on the full path of the MPlayer binary.
 _cache = {}
 
+class Arguments(list):
+    def add(self, **kwargs):
+        for key, value in kwargs.items():
+            if value is None:
+                continue
+            self.extend(('-' + key, str(value)))
+            
 def _get_mplayer_info(path, callback = None, mtime = None):
     """
     Fetches info about the given MPlayer executable.  If the values are
@@ -362,6 +369,7 @@ class MPlayer(MediaPlayer):
         else:
             self._file = media.url
 
+        self._media = media
         self._state = STATE_OPENING
 
         # We have a problem at this point. The 'open' function is used to
@@ -399,11 +407,18 @@ class MPlayer(MediaPlayer):
 
         args = [ "-v", "-slave", "-osdlevel", "0", "-nolirc", "-nojoystick", \
                  "-nodouble", "-fixed-vo", "-identify", "-framedrop" ]
+        args = Arguments(args)
         if 'x11' in self._mp_info['video_drivers']:
             args.append('-nomouseinput')
 
         if self._window:
 
+            if self._properties['deinterlace'] == True or \
+               (self._properties['deinterlace'] == 'auto' and \
+                self._media.get('interlaced')):
+                # add deinterlacer
+                filter.append(self._config.mplayer.deinterlacer)
+                
             # FIXME: all this code seems to work. But I guess it has
             # some problems when we don't have an 1:1 pixel aspect
             # ratio on the monitor and using software scaler.
@@ -495,6 +510,26 @@ class MPlayer(MediaPlayer):
         os.close(fp)
         args.extend(('-input', 'conf=%s' % keyfile))
 
+        # set property audio filename
+        if self._properties.get('audio-filename'):
+            args.add(audiofile=self._properties.get('audio-filename'))
+
+        # set property audio track
+        if self._properties.get('audio-track') is not None:
+            args.add(aid=self._properties.get('audio-track'))
+
+        # set properties subtitle filename and subtitle track
+        if self._properties.get('subtitle-filename'):
+            sub = self._properties.get('subtitle-filename')
+            if os.path.splitext(sub)[1].lower() in ('.ifo', '.idx', '.sub'):
+                args.add(vobsub=os.path.splitext(sub)[0],
+                         vobsubid=self._properties.get('subtitle-track'))
+            else:
+                args.add(subfile=sub)
+        elif self._properties.get('subtitle-track') != None:
+            args.add(sid=self._properties.get('subtitle-track'))
+
+        # add extra file arguments
         if self._file_args:
             if isinstance(self._file_args, str):
                 args.extend(self._file_args.split(' '))
@@ -553,13 +588,46 @@ class MPlayer(MediaPlayer):
         self._child_write("seek %f %s" % (value, s.index(type)))
 
 
+    #
+    # Property settings
+    #
+
     def _prop_audio_delay(self, delay):
         """
         Sets audio delay. Positive value defers audio by delay.
         """
+        if not self._child_is_alive():
+            return
         self._child_write("audio_delay %f 1" % -delay)
 
 
+    def _prop_audio_track(self, id):
+        """
+        Change audio track (mpeg and mkv only)
+        """
+        if not self._child_is_alive():
+            return
+        self._child_write("switch_audio %s" % id)
+
+        
+    def _prop_subtitle_track(self, id):
+        """
+        Change subtitle track
+        """
+        if not self._child_is_alive():
+            return
+        self._child_write("sub_select %s" % id)
+
+        
+    def _prop_subtitle_filename(self, filename):
+        """
+        Change subtitle filename
+        """
+        if not self._child_is_alive():
+            return
+        self._child_write("sub_load %s" % filename)
+
+        
     #
     # Methods for filter handling (not yet in generic and base
     #
