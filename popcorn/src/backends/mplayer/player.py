@@ -47,7 +47,7 @@ import kaa.display
 from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
 
-from child import MplayerApp
+from child import MPlayerApp
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -60,18 +60,6 @@ childlog = logging.getLogger('popcorn.child').debug
 # filter list, video/audio driver list, input keylist).  This dict is
 # keyed on the full path of the MPlayer binary.
 _cache = {}
-
-class Arguments(list):
-    def __init__(self, args=()):
-        if args:
-            args = args.split(' ')
-        list.__init__(self, args)
-
-    def add(self, **kwargs):
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            self.extend(('-' + key.replace('_', '-'), str(value)))
 
 def _get_mplayer_info(path, callback = None, mtime = None):
     """
@@ -176,7 +164,7 @@ class MPlayer(MediaPlayer):
         if not self._mp_cmd:
             raise PlayerError, "No MPlayer executable found in PATH"
 
-        self._mplayer = MplayerApp()
+        self._mplayer = MPlayerApp()
 
         self._filters_pre = []
         self._filters_add = []
@@ -334,13 +322,13 @@ class MPlayer(MediaPlayer):
         if self.get_state() != STATE_NOT_RUNNING:
             raise RuntimeError('mplayer not in STATE_NOT_RUNNING')
 
-        args = Arguments()
+        args = []
         if media.scheme == "dvd":
             file, title = re.search("(.*?)(\/\d+)?$", media.url[4:]).groups()
             if file.replace('/', ''):
                 if not os.path.isfile(file):
                     raise ValueError, "Invalid ISO file: %s" % file
-                args.add(dvd_device=file)
+                args.extend(('-dvd-device', file))
             args.append("dvd://")
             if title:
                 args[-1] += title[1:]
@@ -380,14 +368,17 @@ class MPlayer(MediaPlayer):
         # not be selected by the generic one. FIXME: verify that!
         assert(self._mp_info)
 
-        # create argument list
-        args = Arguments("-v -slave -osdlevel 0 -nolirc -nojoystick " +
-                         "-nodouble -fixed-vo -identify -framedrop")
+        # create mplayer object
+        self._mplayer = MPlayerApp(self._mp_cmd)
+
+        # get argument and filter list
+        args, filters = self._mplayer.args, self._mplayer.filters
+
         if 'x11' in self._mp_info['video_drivers']:
             args.append('-nomouseinput')
 
         # create filter list
-        filters = self._filters_pre[:]
+        filters.extend(self._filters_pre[:])
         if 'outbuf' in self._mp_info['video_filters']:
             filters += ["outbuf=%s:yv12" % self._frame_shmkey]
 
@@ -442,9 +433,6 @@ class MPlayer(MediaPlayer):
         filters += self._filters_add
         if 'overlay' in self._mp_info['video_filters']:
             filters.append("overlay=%s" % self._osd_shmkey)
-
-        if filters:
-            args.add(vf=",".join(filters))
 
         if isinstance(self._window, kaa.display.X11Window):
             args.add(vo='xv', wid=hex(self._window.get_id()),
@@ -509,17 +497,13 @@ class MPlayer(MediaPlayer):
         elif self._properties.get('subtitle-track') != None:
             args.add(sid=self._properties.get('subtitle-track'))
 
-        # add extra file arguments
-        args.extend(self._media.mplayer_args)
-
-        log.info("spawn: %s %s", self._mp_cmd, ' '.join(args))
-
-        self._mplayer = MplayerApp(self._mp_cmd)
+        # connect to signals
         self._mplayer.signals["stdout"].connect_weak(self._child_handle_line)
         self._mplayer.signals["stderr"].connect_weak(self._child_handle_line)
         self._mplayer.signals["completed"].connect_weak(self._child_exited)
-        self._mplayer.start(args)
-        return
+
+        # start playback
+        self._mplayer.start(self._media)
 
 
     def stop(self):
