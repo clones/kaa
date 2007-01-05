@@ -48,7 +48,8 @@ from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
 from kaa.popcorn.config import config
 
-from child import MPlayerApp
+# special mplayer ipc handling
+from ipc import ChildProcess
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
@@ -165,7 +166,7 @@ class MPlayer(MediaPlayer):
         if not self._mp_cmd:
             raise PlayerError, "No MPlayer executable found in PATH"
 
-        self._mplayer = MPlayerApp()
+        self._mplayer = ChildProcess()
 
         self._filters_pre = []
         self._filters_add = []
@@ -477,7 +478,7 @@ class MPlayer(MediaPlayer):
         assert(self._mp_info)
 
         # create mplayer object
-        self._mplayer = MPlayerApp(self._mp_cmd)
+        self._mplayer = ChildProcess(self._mp_cmd)
 
         # get argument and filter list
         args, filters = self._mplayer.args, self._mplayer.filters

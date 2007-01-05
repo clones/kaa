@@ -26,6 +26,9 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'ChildProcess' ]
+
+
 # python imports
 import logging
 
@@ -78,7 +81,7 @@ class ChildCommand(object):
         self._app._child.write(cmd.strip() + '\n')
 
 
-class MPlayerApp(object):
+class ChildProcess(object):
     """
     Mplayer child wrapper,
     """
