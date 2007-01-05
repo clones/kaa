@@ -273,16 +273,10 @@ class Image(object):
         src_aspect = float(self.width) / self.height
         dst_aspect = float(w) / h
 
-        if src_aspect >= 1.0:
-            if dst_aspect > src_aspect:
-                w = h * src_aspect
-            else:
-                h = w / src_aspect
+        if dst_aspect > src_aspect:
+            w = h * src_aspect
         else:
-            if dst_aspect > src_aspect:
-                w = h * src_aspect
-            else:
-                h = w / src_aspect
+            h = w / src_aspect
 
         if (self.width, self.height) == (int(w), int(h)):
             # No scale, just copy.
