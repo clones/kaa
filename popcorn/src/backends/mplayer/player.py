@@ -31,7 +31,6 @@ import logging
 import os
 import re
 import string
-import tempfile
 import stat
 import threading
 import struct
@@ -293,12 +292,6 @@ class MPlayer(MediaPlayer):
                 # self._state = STATE_IDLE
                 pass
 
-        elif line.startswith("Parsing input") and self._window and \
-                 self._state == STATE_OPEN:
-            # Delete the temporary key input file.
-            file = line[line.find("file")+5:]
-            os.unlink(file)
-
         elif line.startswith("FATAL:"):
             log.error(line.strip())
 
@@ -498,13 +491,17 @@ class MPlayer(MediaPlayer):
         # non-existent) command which causes MPlayer not to react to any key
         # presses, allowing us to implement our own handlers.  The temp file is
         # deleted once MPlayer has read it.
-        keys = filter(lambda x: x not in string.whitespace, string.printable)
-        keys = list(keys) + self._mp_info["keylist"]
-        fp, keyfile = tempfile.mkstemp()
-        for key in keys:
-            os.write(fp, "%s noop\n" % key)
-        os.close(fp)
-        args.add(input='conf=%s' % keyfile)
+        if not os.path.isdir(os.path.join(kaa.TEMP, 'popcorn')):
+            os.mkdir(os.path.join(kaa.TEMP, 'popcorn'))
+        tempfile = os.path.join(kaa.TEMP, 'popcorn', 'mplayer-input.conf')
+        if not os.path.isfile(tempfile):
+            keys = filter(lambda x: x not in string.whitespace, string.printable)
+            keys = list(keys) + self._mp_info["keylist"]
+            fd = open(tempfile, 'w')
+            for key in keys:
+                fd.write("%s noop\n" % key)
+            fd.close()
+        args.add(input='conf=%s' % tempfile)
 
         # set properties subtitle filename and subtitle track
         if self._properties.get('subtitle-filename'):
