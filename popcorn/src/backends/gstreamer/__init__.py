@@ -26,17 +26,17 @@
 #
 # -----------------------------------------------------------------------------
 
-# kaa.popcorn imports
-from kaa.popcorn.backends import register_backend
-from kaa.popcorn.ptypes import *
-
-# player imports
-from config import config
-
 def get_capabilities():
     """
     Return capabilities of the gstreamer backend.
     """
+
+    # kaa.popcorn imports
+    from kaa.popcorn.ptypes import *
+
+    # player config
+    from config import config
+
     capabilities = {
         CAP_OSD : False,
         CAP_CANVAS : False,
@@ -61,6 +61,9 @@ def get_capabilities():
     return capabilities, schemes, exts, codecs
 
 
-def register():
+def import_backend():
+    """
+    Return player name, class and capability function.
+    """
     from player import GStreamer
-    register_backend("gstreamer", GStreamer, get_capabilities)
+    return ("gstreamer", GStreamer, get_capabilities)

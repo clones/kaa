@@ -26,20 +26,19 @@
 #
 # -----------------------------------------------------------------------------
 
-# kaa imports
-import kaa.utils
-
-# kaa.popcorn imports
-from kaa.popcorn.backends import register_backend
-from kaa.popcorn.ptypes import *
-
-# player imports
-from config import config
-
 def get_capabilities():
     """
     Return capabilities of the mplayer backend.
     """
+
+    # kaa imports
+    import kaa.utils
+
+    # kaa.popcorn imports
+    from kaa.popcorn.ptypes import *
+
+    # player imports
+    from config import config
     from player import _get_mplayer_info
 
     capabilities = {
@@ -80,6 +79,9 @@ def get_capabilities():
     return capabilities, schemes, exts, codecs
 
 
-def register():
+def import_backend():
+    """
+    Return player name, class and capability function.
+    """
     from player import MPlayer
-    register_backend("mplayer", MPlayer, get_capabilities)
+    return ("mplayer", MPlayer, get_capabilities)

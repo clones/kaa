@@ -42,6 +42,7 @@ import kaa.xine as xine
 # kaa.popcorn imports
 from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
+from kaa.popcorn.config import config
 from kaa.popcorn.utils import ChildProcess
 
 # get logging object
@@ -52,8 +53,8 @@ BUFFER_LOCKED = 0x20
 
 class Xine(MediaPlayer):
 
-    def __init__(self, config, properties):
-        super(Xine, self).__init__(config, properties)
+    def __init__(self, properties):
+        super(Xine, self).__init__(properties)
         self._check_new_frame_timer = kaa.notifier.WeakTimer(self._check_new_frame)
         self._is_in_menu = False
         self._cur_frame_output_mode = [True, False, None] # vo, shmem, size
@@ -233,13 +234,13 @@ class Xine(MediaPlayer):
             return
 
         self._xine_configured = True
-        self._xine.set_config(self._config)
+        self._xine.set_config(config)
         if self._window:
             self._xine.configure_video(self._window.get_id(), self._window.get_size(),
                                        self._get_aspect())
         else:
             self._xine.configure_video(None, None, None)
-        self._xine.configure_audio(self._config.audio.driver)
+        self._xine.configure_audio(config.audio.driver)
         self._xine.configure_stream(self._properties)
 
 

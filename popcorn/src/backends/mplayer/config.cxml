@@ -43,9 +43,9 @@
         <desc lang="en">Deinterlacer video filter to use</desc>
     </var>
 
-    <dict name="options">
+    <dict name="arguments">
         <desc lang="en">
-            Special mplayer options based on the file type (extention or
+            Special mplayer arguments based on the file type (extention or
             scheme). Note: this variable may be deleted in the future.
         </desc>
         <var type="str"/>

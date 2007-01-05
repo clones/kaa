@@ -37,6 +37,7 @@ import kaa.notifier
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
+from kaa.popcorn.config import config
 
 # get logging object
 log = logging.getLogger('popcorn')
@@ -49,7 +50,7 @@ class MediaPlayer(object):
 
     _instance_count = 0
 
-    def __init__(self, config, properties):
+    def __init__(self, properties):
         self.signals = {
             "elapsed": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
@@ -60,7 +61,6 @@ class MediaPlayer(object):
         self._state_object = STATE_IDLE
         self._window = None
         self._size = None
-        self._config = config
         self._properties = properties
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
         MediaPlayer._instance_count += 1
@@ -142,7 +142,7 @@ class MediaPlayer(object):
         size = self._window.get_size()
         if hasattr(self._window, 'get_display'):
             size = self._window.get_display().get_size()
-        aspect = [ int(x) for x in self._config.monitoraspect.split(':') ]
+        aspect = [ int(x) for x in config.video.monitoraspect.split(':') ]
         return aspect, size
 
 

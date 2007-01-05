@@ -26,9 +26,28 @@
         </desc>
     </var>
 
-    <var name="monitoraspect" default="4:3">
-        <desc>Aspect ratio of the monitor or tv.</desc>
-    </var>
+    <group name="video">
+        <desc lang="en">video settings</desc>
+        <var name="driver" default="xv">
+            <values>
+                <value>xv</value>
+            </values>
+            <desc>
+                Video driver; xv is the only supported video driver at this
+                moment. Please help us und extend kaa.popcorn to support other
+                video drivers as well.
+            </desc>
+        </var>
+        <var name="monitoraspect" default="4:3">
+            <desc>Aspect ratio of the monitor or tv.</desc>
+        </var>
+        <var name="postprocessing" default="False">
+            <desc>Activate postprocessing for playback as default.</desc>
+        </var>
+        <var name="software-scaler" default="False">
+            <desc>Use software scaler (slow)</desc>
+        </var>
+    </group>
 
     <group name="audio">
         <desc lang="en">audio settings</desc>
@@ -64,9 +83,17 @@
         </var>
     </group>
 
+    <group name="language">
+        <desc lang="en">
+            Language settings for prefered audio or subtitle language. Set the
+            variables to a comma seperated list of language codes.
+        </desc>
+        <var name="audio" default="en"/>
+        <var name="subtitle" default="en,de,fr"/>
+    </group>
+
     <code>
         import backends
-
         for n, c in backends.config:
             config.add_variable(n, c)
     </code>

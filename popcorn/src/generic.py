@@ -41,7 +41,7 @@ import kaa.metadata
 
 # kaa.popcorn imports
 import backends.manager
-from config import config as default_config
+from config import config
 from ptypes import *
 
 # get logging object
@@ -61,7 +61,7 @@ def required_states(*states):
             # print 'pending:', func, self.get_state(), states
             callback = kaa.notifier.Callback(func, self, *args, **kwargs)
             self._pending.append((states, callback))
-            
+
         try:
             newfunc.func_name = func.func_name
         except TypeError:
@@ -77,27 +77,25 @@ class Player(object):
     Generic player. On object of this class will use the players from the
     backend subdirectory for playback.
     """
-    def __init__(self, window=None, config=default_config):
+    def __init__(self, window=None):
 
         self._player = None
         self._media = None
         self._size = (0,0)
         self.set_window(window)
 
-        self._config = config
-
         self._properties = {
 
             # If a property is changed when no uri is loaded
             # it will affect all uris loaded after this point.
             # If changed when an uri is loaded it will only
-            # affect this one. Some properties can't be
+            # affect this one. Some properties can not be
             # changed after the stream is started because the
             # backend does not support it.
 
             # settings that are set global is most cases
-            'postprocessing': False,
-            'software-scaler': True,
+            'postprocessing': config.video.postprocessing,
+            'software-scaler': config.video.software_scaler,
 
             # settings usefull for changing after a stream is
             # loaded.
@@ -112,7 +110,7 @@ class Player(object):
             # plays the audio before.
             'audio-delay': 0.0
         }
-        
+
         self.signals = {
 
             # signals created by this class
@@ -131,7 +129,7 @@ class Player(object):
             # pass thru signals from player
             "elapsed": kaa.notifier.Signal(),
             "stream_changed": kaa.notifier.Signal(),
-            # Emitted when a new frame is availabnle.  See 
+            # Emitted when a new frame is availabnle.  See
             # set_frame_output_mode() doc for more info.
             "frame": kaa.notifier.Signal(), # CAP_CANVAS
             # Emitted when OSD buffer has changed.  See osd_update() doc
@@ -143,7 +141,7 @@ class Player(object):
         self._pending = []
         self._blocked = False
         self._failed_player = []
- 
+
 
     def set_window(self, window):
         if window:
@@ -163,11 +161,10 @@ class Player(object):
         """
         exclude = self._failed_player[:]
         for p in backends.manager.get_all_players():
-            if not getattr(self._config, p).activate and not p in exclude:
+            if not getattr(config, p).activate and not p in exclude:
                 exclude.append(p)
         return backends.manager.get_player_class(\
-            self._media, self._open_caps, exclude, player,
-            self._config.preferred)
+            self._media, self._open_caps, exclude, player, config.preferred)
 
 
     def _state_change(self, old_state, state):
@@ -210,7 +207,7 @@ class Player(object):
         if old_state == STATE_OPENING and state == STATE_OPEN:
             # stream open now for playing
             self.signals["open"].emit(self._player.get_info())
-            
+
         if old_state == STATE_OPEN and \
                state in (STATE_PLAYING, STATE_PAUSED):
             # From STATE_OPENING to playing. Signal playback start
@@ -225,18 +222,18 @@ class Player(object):
         if old_state == STATE_PLAYING and state == STATE_PAUSED:
             self.signals["pause"].emit()
             self.signals["pause_toggle"].emit()
-            
+
         if old_state == STATE_PAUSED and state == STATE_PLAYING:
             self.signals["play"].emit()
             self.signals["pause_toggle"].emit()
-            
+
         if state == STATE_NOT_RUNNING == self._player.get_state() and \
                not self._pending:
             # Player released the video and audio device. Right now we set
             # self._player to None to simulate STATE_NOT_RUNNING.
             # This needs to be fixed.
             self._player = None
-        
+
         if self._get_state() == STATE_IDLE and not self._pending and \
                not old_state == STATE_NOT_RUNNING:
             # no new mrl to play, release player
@@ -267,12 +264,12 @@ class Player(object):
             properties = self._player._properties
         properties = properties.copy()
 
-        self._player = cls(self._config, properties)
+        self._player = cls(properties)
         self._player._state_changed.connect_weak(self._state_change)
         for signal in self._player.signals:
             self._player.signals[signal].connect_weak(self.signals[signal].emit)
-                
-    
+
+
     @required_states(STATE_NOT_RUNNING, STATE_IDLE)
     def _open(self):
         """
@@ -303,11 +300,11 @@ class Player(object):
                 mrl = 'file://%s'
             self._media = kaa.metadata.Media(hash=dict(url=mrl, media='MEDIA_UNKNOWN'))
         self._media.scheme = self._media.url[:self._media.url.find(':/')]
-        
+
         self._open_caps = caps
         self._failed_player = []
         cls = self._get_player_class(player)
-        
+
         if not cls:
             raise PlayerError("No supported player found to play %s", mrl)
 
@@ -486,7 +483,7 @@ class Player(object):
 
     def set_property(self, prop, value):
         """
-        Set a property to a new value. If an url is open right now, this 
+        Set a property to a new value. If an url is open right now, this
         will only affect the current url.
         """
         # FIXME: use pending for some properties to respect the state.
@@ -513,15 +510,15 @@ class Player(object):
         if self._player:
             return self._player._properties.keys()
         return self._properties.keys()
-        
-        
+
+
     # For CAP_OSD
 
     def osd_can_update(self):
         """
         Returns True if it is safe to write to the player's shared memory
         buffer used for OSD, and False otherwise.  If this buffer is written
-        to even though this function returns False, the OSD may exhibit 
+        to even though this function returns False, the OSD may exhibit
         corrupt output or tearing during animations.
 
         The shared memory buffer is provided when the player starts via the
@@ -535,22 +532,22 @@ class Player(object):
     def osd_update(self, alpha = None, visible = None, invalid_regions = None):
         """
         Updates the OSD of the player based on the given argments:
-            alpha:  
+            alpha:
                 the global alpha level of the OSD, 0 <= x <= 256.  255 means
                 fully opaque, but per-pixel alpha is still considered.  If
                 alpha is 256, the alpha channel of the OSD buffer is ignored
                 and the OSD will fully obstruct the video.  0 is equivalent
                 to setting visible=False.
 
-            visible: 
+            visible:
                 True if the OSD should be visible, False otherwise.  The
                 default state is False.
 
-            invalid_regions: 
+            invalid_regions:
                 A list of 4-tuples (left, top, width, height) that indicate
                 regions of the OSD shmem buffer that have been written to and
                 require synchronization with the actual OSD of the player.
-                
+
         It is guaranteed that all OSD changes contained in single osd_update()
         call will be reflected between frames.  Multiple, sequential calls to
         osd_update() may occur within one or more frames, but it is
@@ -624,17 +621,17 @@ class Player(object):
                 output.
 
         If any of these parameters are None, their state will not be altered.
-     
+
         When notify is True, the 'frame' signal will be emitted for every new
         frame.  Callbacks connected to this signal will receive 5 argments:
-        width, height, aspect, buffer_addr, format.  
-        
+        width, height, aspect, buffer_addr, format.
+
             width, height:
                 Width and height specify the size of the frame.  Note that this
                 size may not be the size that was passed to the last call to
                 set_frame_output_mode() (perhaps the player's scaler couldn't
                 scale to the requested size, or the frame was deposited before
-                the resize request was received.)  
+                the resize request was received.)
 
             aspect:
                 A float specifying the aspect ratio of the given frame.
@@ -676,6 +673,7 @@ class Player(object):
         """
         if self._player:
             return self._player.unlock_frame_buffer()
+
 
     def get_capabilities(self):
         """

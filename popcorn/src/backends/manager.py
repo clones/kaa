@@ -26,7 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'register_backend', 'get_player_class', 'get_all_players' ]
+__all__ = [ 'get_player_class', 'get_all_players' ]
 
 # python imports
 import os
@@ -37,9 +37,6 @@ import kaa.metadata
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
-
-# backend imports
-from base import MediaPlayer
 
 # internal list of players
 _players = {}
@@ -58,33 +55,27 @@ def import_backends():
         if os.path.isdir(dirname):
             try:
                 # import the backend and register it.
-                exec('from %s import register; register()' % backend)
+                exec('from %s import import_backend' % backend)
             except ImportError, e:
-                pass
+                continue
+            player_id, cls, get_caps_callback = import_backend()
+            if player_id in _players:
+                raise ValueError, "Player '%s' already registered" % name
+            
+            # set player id
+            cls._player_id = player_id
 
+            # FIXME: we just defer calling get_caps_callback until the first time
+            # a player is needed, but we should do this in a thread when the system
+            # is idle.
+            _players[player_id] = {
+                "class": cls,
+                "callback": get_caps_callback,
+                "loaded": False
+            }
+            
     # This function only ever needs to be called once.
     _backends_imported = True
-
-
-def register_backend(player_id, cls, get_caps_callback):
-    """
-    Register a new player.
-    """
-    assert(issubclass(cls, MediaPlayer))
-    if player_id in _players:
-        raise ValueError, "Player '%s' already registered" % name
-
-    # set player id
-    cls._player_id = player_id
-
-    # FIXME: we just defer calling get_caps_callback until the first time
-    # a player is needed, but we should do this in a thread when the system
-    # is idle.
-    _players[player_id] = {
-        "class": cls,
-        "callback": get_caps_callback,
-        "loaded": False
-    }
 
 
 def get_player_class(media, caps = None, exclude = None, force = None,

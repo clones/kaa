@@ -26,17 +26,17 @@
 #
 # -----------------------------------------------------------------------------
 
-# kaa.popcorn imports
-from kaa.popcorn.backends import register_backend
-from kaa.popcorn.ptypes import *
-
-# player imports
-from config import config
-
 def get_capabilities():
     """
     Return capabilities of the xine backend.
     """
+
+    # kaa.popcorn imports
+    from kaa.popcorn.ptypes import *
+
+    # player imports
+    from config import config
+
     capabilities = {
         CAP_OSD : True,
         CAP_CANVAS : True,
@@ -67,6 +67,9 @@ def get_capabilities():
     return capabilities, schemes, exts, codecs
 
 
-def register():
+def import_backend():
+    """
+    Return player name, class and capability function.
+    """
     from player import Xine
-    register_backend("xine", Xine, get_capabilities)
+    return ("xine", Xine, get_capabilities)

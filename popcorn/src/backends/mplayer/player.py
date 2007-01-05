@@ -46,6 +46,7 @@ import kaa.display
 # kaa.popcorn base imports
 from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
+from kaa.popcorn.config import config
 
 from child import MPlayerApp
 
@@ -154,10 +155,10 @@ class MPlayer(MediaPlayer):
     RE_STATUS = re.compile("V:\s*([\d+\.]+)|A:\s*([\d+\.]+)\s\W")
     RE_SWS = re.compile("^SwScaler: [0-9]+x[0-9]+ -> ([0-9]+)x([0-9]+)")
 
-    def __init__(self, config, properties):
-        super(MPlayer, self).__init__(config, properties)
+    def __init__(self, properties):
+        super(MPlayer, self).__init__(properties)
         self._state = STATE_NOT_RUNNING
-        self._mp_cmd = self._config.mplayer.path
+        self._mp_cmd = config.mplayer.path
         if not self._mp_cmd:
             self._mp_cmd = kaa.utils.which("mplayer")
 
@@ -374,7 +375,7 @@ class MPlayer(MediaPlayer):
                (self._properties['deinterlace'] == 'auto' and \
                 self._media.get('interlaced')):
             # add deinterlacer
-            filter.append(self._config.mplayer.deinterlacer)
+            filter.append(config.mplayer.deinterlacer)
 
         # FIXME: all this code seems to work. But I guess it has
         # some problems when we don't have an 1:1 pixel aspect
@@ -385,7 +386,7 @@ class MPlayer(MediaPlayer):
         # This may be needed for some non X based displays
         args.add(screenw=size[0], screenh=size[1])
 
-        if not self._config.widescreen == 'scaled':
+        if not config.widescreen == 'scaled':
             # Expand to fit the given aspect. In scaled mode we don't
             # do that which will result in a scaled image filling
             # the whole screen
@@ -394,7 +395,7 @@ class MPlayer(MediaPlayer):
         # FIXME: this only works if the window has the the aspect
         # as the full screen. In all other cases the window is not
         # fully used but at least with black bars.
-        if self._config.widescreen == 'zoom':
+        if config.widescreen == 'zoom':
             # This DOES NOT WORK as it should. The hardware scaler
             # will ignore the settings and keep aspect and does
             # not crop as default.  When using vo x11 and software
@@ -433,26 +434,26 @@ class MPlayer(MediaPlayer):
         # get argument and filter list
         args, filters = self._mplayer.args, self._mplayer.filters
 
-        if self._config.audio.passthrough:
+        if config.audio.passthrough:
             args.add(ac='hwac3,hwdts,')
         else:
-            args.add(channels=self._config.audio.channels)
+            args.add(channels=config.audio.channels)
 
-        args.add(ao=self._config.audio.driver)
+        args.add(ao=config.audio.driver)
 
-        if self._config.audio.driver == 'alsa':
+        if config.audio.driver == 'alsa':
             args[-1] += ":noblock"
             n_channels = self._streaminfo.get('channels')
             if self._streaminfo.get('acodec') in ('a52', 'hwac3', 'ffdts', 'hwdts'):
-                device = self._config.audio.device.passthrough
+                device = config.audio.device.passthrough
             elif n_channels == 1:
-                device = self._config.audio.device.mono
+                device = config.audio.device.mono
             elif n_channels <= 4:
-                device = self._config.audio.device.surround40
+                device = config.audio.device.surround40
             elif n_channels <= 6:
-                device = self._config.audio.device.surround51
+                device = config.audio.device.surround51
             else:
-                device = self._config.audio.device.stereo
+                device = config.audio.device.stereo
             if device != '':
                 args[-1] += ':device=' + device.replace(':', '=')
 

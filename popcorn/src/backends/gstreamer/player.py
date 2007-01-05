@@ -36,13 +36,14 @@ from kaa.notifier import WeakCallback
 # kaa.popcorn imports
 from kaa.popcorn.backends.base import MediaPlayer
 from kaa.popcorn.ptypes import *
+from kaa.popcorn.config import config
 from kaa.popcorn.utils import ChildProcess
 
 
 class GStreamer(MediaPlayer):
 
-    def __init__(self, config, properties):
-        super(GStreamer, self).__init__(config, properties)
+    def __init__(self, properties):
+        super(GStreamer, self).__init__(properties)
         self._state = STATE_NOT_RUNNING
         self._gst = None
 
@@ -74,7 +75,7 @@ class GStreamer(MediaPlayer):
                                       aspect=aspect, size=size)
         else:
             self._gst.configure_video('none')
-        self._gst.configure_audio(self._config.audio.driver)
+        self._gst.configure_audio(config.audio.driver)
 
 
     def play(self):
