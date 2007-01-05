@@ -43,7 +43,8 @@ import kaa.notifier
 import kaa.display
 
 # kaa.popcorn base imports
-from kaa.popcorn.backends.base import MediaPlayer
+from kaa.popcorn.backends.base import MediaPlayer, runtime_policy, \
+     APPLY_ALWAYS, IGNORE_UNLESS_PLAYING, DEFER_UNTIL_PLAYING
 from kaa.popcorn.ptypes import *
 from kaa.popcorn.config import config
 
@@ -557,28 +558,32 @@ class MPlayer(MediaPlayer):
     # Property settings
     #
 
-    def _prop_audio_delay(self, delay):
+    @runtime_policy(DEFER_UNTIL_PLAYING)
+    def _set_prop_audio_delay(self, delay):
         """
         Sets audio delay. Positive value defers audio by delay.
         """
         self._mplayer.audio_delay(-delay, 1)
 
 
-    def _prop_audio_track(self, id):
+    @runtime_policy(IGNORE_UNLESS_PLAYING)
+    def _set_prop_audio_track(self, id):
         """
         Change audio track (mpeg and mkv only)
         """
         self._mplayer.switch_audio(id)
 
 
-    def _prop_subtitle_track(self, id):
+    @runtime_policy(IGNORE_UNLESS_PLAYING)
+    def _set_prop_subtitle_track(self, id):
         """
         Change subtitle track
         """
         self._mplayer.sub_select(id)
 
 
-    def _prop_subtitle_filename(self, filename):
+    @runtime_policy(IGNORE_UNLESS_PLAYING)
+    def _set_prop_subtitle_filename(self, filename):
         """
         Change subtitle filename
         """

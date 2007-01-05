@@ -26,6 +26,9 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'MediaPlayer', 'runtime_property', 'APPLY_ALWAYS',
+            'IGNORE_UNLESS_PLAYING', 'DEFER_UNTIL_PLAYING' ]
+
 # python imports
 import sets
 import os
@@ -41,6 +44,19 @@ from kaa.popcorn.config import config
 
 # get logging object
 log = logging.getLogger('popcorn')
+
+APPLY_ALWAYS          = 'APPLY_ALWAYS'
+IGNORE_UNLESS_PLAYING = 'IGNORE_UNLESS_PLAYING'
+DEFER_UNTIL_PLAYING   = 'DEFER_UNTIL_PLAYING'
+
+def runtime_policy(type):
+    """
+    Decorator to mark a property function
+    """
+    def decorator(func):
+        func._runtime_policy = type
+        return func
+    return decorator
 
 
 class MediaPlayer(object):
@@ -77,6 +93,12 @@ class MediaPlayer(object):
         self._frame_shmkey = int(key, 16)
         self._frame_shmem = None
 
+        self._property_callbacks = {}
+        self._property_playing = []
+        for name, func in [ (func, getattr(self, func)) for func in dir(self) ]:
+            if callable(func) and hasattr(func, '_runtime_policy'):
+                name = name[10:].replace('_', '-')
+                self._property_callbacks[name] = func
 
     #
     # state handling
@@ -99,6 +121,11 @@ class MediaPlayer(object):
             return
         old_state = self._state_object
         self._state_object = state
+        if state == STATE_PLAYING and self._property_playing:
+            # now set changed properties
+            for key, value in self._property_playing:
+                self.set_property(key, value)
+            self._property_playing = []
         self._state_changed.emit(old_state, state)
 
     _state = property(get_state, _set_state, None, 'state of the player')
@@ -169,14 +196,14 @@ class MediaPlayer(object):
         """
         Return if the player is paused.
         """
-        return self.state == STATE_PAUSED
+        return self._state == STATE_PAUSED
 
 
     def is_playing(self):
         """
         Return if the player is playing.
         """
-        return self.state == STATE_PLAYING
+        return self._state == STATE_PLAYING
 
 
     def set_size(self, size):
@@ -319,8 +346,23 @@ class MediaPlayer(object):
         """
         Set a property to a new value.
         """
-        func = getattr(self, '_prop_%s' % prop.replace('-', '_'), None)
-        if not func or not func(value) == False:
+        if not prop in self._property_callbacks:
+            # no special handler, set and return
+            self._properties[prop] = value
+            return
+        func = self._property_callbacks[prop]
+        if self._state not in (STATE_PAUSED, STATE_PLAYING):
+            # We are not in playback mode.
+            if func._runtime_policy == DEFER_UNTIL_PLAYING:
+                # delay property call until playing
+                self._property_playing.append((prop, value))
+                return
+            if func._runtime_policy == IGNORE_UNLESS_PLAYING:
+                # just set and return
+                self._properties[prop] = value
+                return
+        # call property function
+        if func(value) is not False:
             self._properties[prop] = value
 
 

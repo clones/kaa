@@ -34,7 +34,8 @@ import os
 from kaa.notifier import WeakCallback
 
 # kaa.popcorn imports
-from kaa.popcorn.backends.base import MediaPlayer
+from kaa.popcorn.backends.base import MediaPlayer, runtime_policy, \
+     APPLY_ALWAYS, IGNORE_UNLESS_PLAYING, DEFER_UNTIL_PLAYING
 from kaa.popcorn.ptypes import *
 from kaa.popcorn.config import config
 from kaa.popcorn.utils import ChildProcess
@@ -125,7 +126,8 @@ class GStreamer(MediaPlayer):
         self._gst.seek(value, type)
 
 
-    def _prop_audio_delay(self, delay):
+    @runtime_policy(DEFER_UNTIL_PLAYING)
+    def _set_prop_audio_delay(self, delay):
         """
         Sets audio delay. Positive value defers audio by delay.
         """
