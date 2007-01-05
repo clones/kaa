@@ -108,7 +108,10 @@ class Player(object):
             # Sets the audio delay relative to the video.  A positive
             # value causes audio to come later, while a negative value
             # plays the audio before.
-            'audio-delay': 0.0
+            'audio-delay': 0.0,
+
+            # fit method. One of 'bars', 'scale', 'zoom'
+            'fit-method': config.video.fit_method
         }
 
         self.signals = {
