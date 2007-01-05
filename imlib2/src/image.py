@@ -39,6 +39,19 @@ from kaa.strutils import utf8
 from kaa.notifier import Signal
 from font import *
 
+
+def get_max_rectangle_size((w, h), (max_w, max_h)):
+    """
+    Returns the aspect-preserved dimensions for the rectangle (w, h) that fit
+    within the maximum rectangle specified by (max_w, max_h).
+    """
+    src_aspect = float(w) / h
+    if float(max_w) / max_h > src_aspect:
+        return int(max_h * src_aspect), max_h
+    else:
+        return max_w, int(max_w / src_aspect)
+
+
 class Image(object):
     """
     Imlib2 Image class.  The constructor can be called directly, or a new
@@ -270,19 +283,13 @@ class Image(object):
         if 0 in (w, h):
             raise ValueError, "Invalid scale size specified %s" % repr((w,h))
 
-        src_aspect = float(self.width) / self.height
-        dst_aspect = float(w) / h
+        dst_w, dst_h = get_max_rectangle_size(self.size, (w, h))
 
-        if dst_aspect > src_aspect:
-            w = h * src_aspect
-        else:
-            h = w / src_aspect
-
-        if (self.width, self.height) == (int(w), int(h)):
+        if self.size == (dst_w, dst_h):
             # No scale, just copy.
             return self.copy()
 
-        return Image(self._image.scale(0, 0, self.width, self.height, int(w), int(h)))
+        return Image(self._image.scale(0, 0, self.width, self.height, dst_w, dst_h))
 
 
     def thumbnail(self, (w, h)):
