@@ -269,14 +269,26 @@ class Image(object):
         """
         if 0 in (w, h):
             raise ValueError, "Invalid scale size specified %s" % repr((w,h))
-        aspect = float(self.width) / float(self.height)
-        if aspect >= 1.0:
-            img = self._image.scale(0, 0, self.width, self.height, w,
-				    int(h / aspect))
+
+        src_aspect = float(self.width) / self.height
+        dst_aspect = float(w) / h
+
+        if src_aspect >= 1.0:
+            if dst_aspect > src_aspect:
+                w = h * src_aspect
+            else:
+                h = w / src_aspect
         else:
-            img = self._image.scale(0, 0, self.width, self.height,
-				    int(w * aspect), h)
-        return Image(img)
+            if dst_aspect > src_aspect:
+                w = h * src_aspect
+            else:
+                h = w / src_aspect
+
+        if (self.width, self.height) == (int(w), int(h)):
+            # No scale, just copy.
+            return self.copy()
+
+        return Image(self._image.scale(0, 0, self.width, self.height, int(w), int(h)))
 
 
     def thumbnail(self, (w, h)):
