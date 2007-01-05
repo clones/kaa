@@ -26,6 +26,11 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'import_backend' ]
+
+# kaa.popcorn imports
+from kaa.popcorn.ptypes import *
+
 def get_capabilities():
     """
     Return capabilities of the mplayer backend.
@@ -33,9 +38,6 @@ def get_capabilities():
 
     # kaa imports
     import kaa.utils
-
-    # kaa.popcorn imports
-    from kaa.popcorn.ptypes import *
 
     # player imports
     from config import config

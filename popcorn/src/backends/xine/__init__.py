@@ -26,13 +26,15 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'import_backend' ]
+
+# kaa.popcorn imports
+from kaa.popcorn.ptypes import *
+
 def get_capabilities():
     """
     Return capabilities of the xine backend.
     """
-
-    # kaa.popcorn imports
-    from kaa.popcorn.ptypes import *
 
     # player imports
     from config import config

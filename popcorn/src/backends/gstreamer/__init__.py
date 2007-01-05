@@ -26,13 +26,15 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'import_backend' ]
+
+# kaa.popcorn imports
+from kaa.popcorn.ptypes import *
+
 def get_capabilities():
     """
     Return capabilities of the gstreamer backend.
     """
-
-    # kaa.popcorn imports
-    from kaa.popcorn.ptypes import *
 
     # player config
     from config import config
