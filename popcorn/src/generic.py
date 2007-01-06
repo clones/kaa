@@ -265,6 +265,9 @@ class Player(object):
         properties = self._properties
         if copy_properties and self._player:
             properties = self._player._properties
+            for key, value in self._player._property_playing:
+                properties[key] = value
+            self._player._property_playing = []
         properties = properties.copy()
 
         self._player = cls(properties)
