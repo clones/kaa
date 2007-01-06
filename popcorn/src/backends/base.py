@@ -94,7 +94,7 @@ class MediaPlayer(object):
         self._frame_shmem = None
 
         self._property_callbacks = {}
-        self._property_playing = []
+        self._property_delayed = []
         for name, func in [ (func, getattr(self, func)) for func in dir(self) ]:
             if callable(func) and hasattr(func, '_runtime_policy'):
                 name = name[10:].replace('_', '-')
@@ -121,11 +121,11 @@ class MediaPlayer(object):
             return
         old_state = self._state_object
         self._state_object = state
-        if state == STATE_PLAYING and self._property_playing:
+        if state == STATE_PLAYING and self._property_delayed:
             # now set changed properties
-            for key, value in self._property_playing:
+            for key, value in self._property_delayed:
                 self.set_property(key, value)
-            self._property_playing = []
+            self._property_delayed = []
         self._state_changed.emit(old_state, state)
 
     _state = property(get_state, _set_state, None, 'state of the player')
@@ -355,7 +355,7 @@ class MediaPlayer(object):
             # We are not in playback mode.
             if func._runtime_policy == DEFER_UNTIL_PLAYING:
                 # delay property call until playing
-                self._property_playing.append((prop, value))
+                self._property_delayed.append((prop, value))
                 return
             if func._runtime_policy == IGNORE_UNLESS_PLAYING:
                 # just set and return

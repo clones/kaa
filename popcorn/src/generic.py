@@ -265,9 +265,9 @@ class Player(object):
         properties = self._properties
         if copy_properties and self._player:
             properties = self._player._properties
-            for key, value in self._player._property_playing:
+            for key, value in self._player._property_delayed:
                 properties[key] = value
-            self._player._property_playing = []
+            self._player._property_delayed = []
         properties = properties.copy()
 
         self._player = cls(properties)
