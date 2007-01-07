@@ -370,7 +370,7 @@ class MPlayer(MediaPlayer):
                (self._properties['deinterlace'] == 'auto' and \
                 self._media.get('interlaced')):
             # add deinterlacer
-            filter.append(config.mplayer.deinterlacer)
+            filters.append(config.mplayer.deinterlacer)
 
         # FIXME: all this code seems to work. But I guess it has
         # some problems when we don't have an 1:1 pixel aspect
