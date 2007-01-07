@@ -663,7 +663,7 @@ class MPlayer(MediaPlayer):
         if invalid_regions:
             for (x, y, w, h) in invalid_regions:
                 cmd.append("invalidate=%d:%d:%d:%d" % (x, y, w, h))
-        self._mplayer.overlay(*cmd)
+        self._mplayer.overlay(','.join(cmd))
         self._overlay_set_lock(BUFFER_LOCKED)
 
         try:
