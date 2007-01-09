@@ -46,6 +46,7 @@ import kaa.rpc
 from kaa.beacon._libthumb import epeg, png, failed
 from videothumb import VideoThumb
 import cpuinfo
+import utils
 
 # get logging object
 log = logging.getLogger('beacon.thumbnail')
@@ -62,6 +63,13 @@ class Job(object):
         self.imagefile = imagefile
         self.size = size
         self.priority = priority
+        self._cmdid = imagefile
+
+
+    def __cmp__(self, other):
+        if not isinstance(other, Job):
+            return 1
+        return self._cmdid != other._cmdid
 
 
 class Thumbnailer(object):
@@ -72,11 +80,13 @@ class Thumbnailer(object):
         self.next_client_id = 0
         self.clients = []
         self.jobs = []
+        self._delayed_jobs = {}
         self._timer = kaa.notifier.OneShotTimer(self.step)
         self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
         self._ipc.signals['client_connected'].connect(self.client_connect)
         self._ipc.connect(self)
-
+        # FIXME: hardcoded to making new thumbnails every 5 minutes
+        self._bursthandler = utils.BurstHandler(300, self.activate)
         # video module
         self.videothumb = VideoThumb(self)
 
@@ -119,11 +129,19 @@ class Thumbnailer(object):
     # Internal API
     # -------------------------------------------------------------------------
 
-    def notify_client(self, job):
+    def notify_client(self, job, search=True):
         for id, client in self.clients:
             if id == job.client:
                 client.rpc('finished', job.id, job.filename, job.imagefile)
-                return
+                break
+        if not search:
+            return
+        for j in [ j for j in self.jobs[:] if j == job ]:
+            self.notify_client(j, False)
+            self.jobs.remove(j)
+        for j in [ j for j in self.videothumb.jobs[:] if j == job ]:
+            self.notify_client(j, False)
+            self.videothumb.jobs.remove(j)
 
 
     def create_failed(self, job):
@@ -228,6 +246,21 @@ class Thumbnailer(object):
         self._timer.start(delay)
 
 
+    def activate(self, name):
+        """
+        Activate thumbnail job with given image name.
+        """
+        if not name in self._delayed_jobs:
+            return
+        log.info('schedule delayed thumbnailing for %s', name)
+        for j in self._delayed_jobs.pop(name):
+            # FIXME: it makes no sense to schedule all here just
+            # to remove them on block later on notify_client
+            self.jobs.append(j)
+        # schedule thumbnailer
+        self.schedule_next()
+
+
     # -------------------------------------------------------------------------
     # External RPC API
     # -------------------------------------------------------------------------
@@ -235,7 +268,14 @@ class Thumbnailer(object):
     @kaa.rpc.expose('schedule')
     def schedule(self, id, filename, imagefile, size, priority):
         # FIXME: check if job is already scheduled!!!!
-        self.jobs.append(Job(id, filename, imagefile, size, priority))
+        job = Job(id, filename, imagefile, size, priority)
+        if self._bursthandler.active(imagefile):
+            # schedule called way to often
+            if not imagefile in self._delayed_jobs:
+                self._delayed_jobs[imagefile] = []
+            self._delayed_jobs[imagefile].append(job)
+            return
+        self.jobs.append(job)
         self.schedule_next()
 
 
