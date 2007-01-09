@@ -43,6 +43,7 @@ from kaa.inotify import INotify
 from parser import parse
 from config import config
 import cpuinfo
+import utils
 
 # get logging object
 log = logging.getLogger('beacon.crawler')
@@ -83,37 +84,6 @@ class MonitorList(dict):
             self._inotify.ignore(dirname[:-1])
 
 
-class BurstHandler(dict):
-
-    def __init__(self, callback):
-        self._ts = {}
-        self._timer = kaa.notifier.WeakTimer(self._poll)
-        self._timer.start(config.crawler.growscan)
-        self._callback = callback
-        
-    def stop(self):
-        self._timer.stop()
-        self._ts = {}
-
-    def remove(self, name):
-        if not name in self._ts:
-            return
-        del self._ts[name]
-
-    def active(self, name):
-        if not name in self._ts:
-            self._ts[name] = False
-            return False
-        self._ts[name] = True
-        return True
-        
-    def _poll(self):
-        ts = self._ts
-        self._ts = {}
-        for name in [ name for name, needed in ts.items() if needed ]:
-            self._callback(INotify.MODIFY, name)
-
-                
 class Crawler(object):
     """
     Class to crawl through a filesystem and check for changes. If inotify
@@ -134,7 +104,9 @@ class Crawler(object):
 
         # set up inotify
         self._inotify = None
-        self._bursthandler = BurstHandler(self._inotify_event)
+        cb = kaa.notifier.WeakCallback(self._inotify_event, INotify.MODIFY)
+        cb.set_user_args_first(True)
+        self._bursthandler = utils.BurstHandler(config.crawler.growscan / 10, cb)
         if use_inotify:
             try:
                 self._inotify = INotify()
