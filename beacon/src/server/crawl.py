@@ -83,6 +83,37 @@ class MonitorList(dict):
             self._inotify.ignore(dirname[:-1])
 
 
+class BurstHandler(dict):
+
+    def __init__(self, callback):
+        self._ts = {}
+        self._timer = kaa.notifier.WeakTimer(self._poll)
+        self._timer.start(config.crawler.growscan)
+        self._callback = callback
+        
+    def stop(self):
+        self._timer.stop()
+        self._ts = {}
+
+    def remove(self, name):
+        if not name in self._ts:
+            return
+        del self._ts[name]
+
+    def active(self, name):
+        if not name in self._ts:
+            self._ts[name] = False
+            return False
+        self._ts[name] = True
+        return True
+        
+    def _poll(self):
+        ts = self._ts
+        self._ts = {}
+        for name in [ name for name, needed in ts.items() if needed ]:
+            self._callback(INotify.MODIFY, name)
+
+                
 class Crawler(object):
     """
     Class to crawl through a filesystem and check for changes. If inotify
@@ -103,7 +134,7 @@ class Crawler(object):
 
         # set up inotify
         self._inotify = None
-        self._inotify_timer = {}
+        self._bursthandler = BurstHandler(self._inotify_event)
         if use_inotify:
             try:
                 self._inotify = INotify()
@@ -158,10 +189,7 @@ class Crawler(object):
             self._scan_stop([], False)
         # stop inotify and inotify timer
         self._inotify = None
-        for wait, timer in self._inotify_timer.items():
-            if timer and timer[1].active():
-                timer.stop()
-        self._inotify_timer = {}
+        self._bursthandler.stop()
         # stop restart timer
         if self._scan_restart_timer:
             self._scan_restart_timer.stop()
@@ -180,8 +208,7 @@ class Crawler(object):
         """
         Callback for inotify.
         """
-        if mask & INotify.MODIFY and name in self._inotify_timer and \
-               self._inotify_timer[name][1]:
+        if mask & INotify.MODIFY and self._bursthandler.active(name):
             # A file was modified. Do this check as fast as we can because the
             # events may come in bursts when a file is just copied. In this case
             # a timer is already active and we can return. It still uses too
@@ -277,24 +304,8 @@ class Crawler(object):
 
             # handle bursts of inotify events when a file is growing very
             # fast (e.g. cp)
-            now = time.time()
-            if name in self._inotify_timer:
-                last_check, timer = self._inotify_timer[name]
-                if mask & INotify.CLOSE_WRITE:
-                    # The file is closed. So we can remove the current running
-                    # timer and check now
-                    if timer:
-                        timer.stop()
-                    del self._inotify_timer[name]
-                else:
-                    # Do not check again, but restart the timer, it is expired
-                    timer = OneShotTimer(self._inotify_timer_callback, name)
-                    timer.start(config.crawler.growscan)
-                    self._inotify_timer[name][1] = timer
-                    return True
-            elif INotify.MODIFY:
-                # store the current time
-                self._inotify_timer[name] = [ now, None ]
+            if mask & INotify.CLOSE_WRITE:
+                self._bursthandler.remove(name)
 
             # parent directory changed, too. Even for a simple modify of an
             # item another item may be affected (xml metadata, images)
@@ -333,19 +344,6 @@ class Crawler(object):
         # rescan parent directory
         self._scan_add(item._beacon_parent, recursive=False)
         return True
-
-
-    def _inotify_timer_callback(self, name):
-        """
-        Callback for delayed inotify MODIFY events.
-        """
-        if not name in self._inotify_timer:
-            return
-        del self._inotify_timer[name]
-        # FIXME: do not create video thumbnails every 'growscan' seconds.
-        # It takes too much CPU time. Maybe every 6th step (1 minute) is
-        # a good solution.
-        self._inotify_event(INotify.MODIFY, name)
 
 
     # -------------------------------------------------------------------------
