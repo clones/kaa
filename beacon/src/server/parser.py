@@ -239,7 +239,8 @@ def parse(db, item, store=False, check_image=False):
     if attributes.get('image'):
         t = thumbnail.Thumbnail(attributes.get('image'), item._beacon_media)
         if not t.get(thumbnail.LARGE, check_mtime=True) and \
-               not hasattr(item, 'filename') or utils.do_thumbnail(item.filename):
+               (not type == 'video' or not hasattr(item, 'filename') or \
+                utils.do_thumbnail(item.filename)):
             t.create(thumbnail.LARGE, thumbnail.PRIORITY_LOW)
 
     if not metadata.get('title'):
