@@ -159,9 +159,8 @@ class Crawler(object):
             self._scan_function.stop()
             self._scan_function = None
             self._scan_stop([], False)
-        # stop inotify and inotify timer
+        # stop inotify
         self._inotify = None
-        self._bursthandler.stop()
         # stop restart timer
         if self._scan_restart_timer:
             self._scan_restart_timer.stop()
@@ -180,7 +179,7 @@ class Crawler(object):
         """
         Callback for inotify.
         """
-        if mask & INotify.MODIFY and self._bursthandler.active(name):
+        if mask & INotify.MODIFY and self._bursthandler.is_growing(name):
             # A file was modified. Do this check as fast as we can because the
             # events may come in bursts when a file is just copied. In this case
             # a timer is already active and we can return. It still uses too

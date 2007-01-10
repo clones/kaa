@@ -29,32 +29,42 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'BurstHandler' ]
+__all__ = [ 'BurstHandler', 'do_thumbnail' ]
 
 # kaa imports
 import kaa.notifier
 
-class BurstHandler(dict):
+class BurstHandler(object):
+    """
+    Monitor growing files.
+    """
+
+    _all_instances = []
 
     def __init__(self, interval, callback):
         self._ts = {}
+        self._thumb = {}
         self._timer = kaa.notifier.WeakTimer(self._poll)
         self._timer.start(interval)
         self._callback = callback
-
-
-    def stop(self):
-        self._timer.stop()
-        self._ts = {}
+        self._all_instances.append(self)
 
 
     def remove(self, name):
-        if not name in self._ts:
-            return
-        del self._ts[name]
+        """
+        Remove a file from the list of growing files.
+        """
+        if name in self._ts:
+            del self._ts[name]
+        if name in self._thumb:
+            del self._thumb[name]
 
 
-    def active(self, name):
+    def is_growing(self, name):
+        """
+        Return True if the file is growing. Detection is based on the
+        frequency this function is called.
+        """
         if not name in self._ts:
             self._ts[name] = False
             return False
@@ -62,8 +72,36 @@ class BurstHandler(dict):
         return True
 
 
+    def _do_thumbnail(self, name):
+        """
+        Check if a thumbnail should be created.
+        """
+        if not name in self._ts:
+            # not in the list of growing files
+            return True
+        if not name in self._thumb:
+            self._thumb[name] = 0
+            # first time is always ok
+            return True
+        self._thumb[name] += 1
+        return (self._thumb[name] % 10) == 0
+
+
     def _poll(self):
+        """
+        Run callback on all growing files.
+        """
         ts = self._ts
         self._ts = {}
         for name in [ name for name, needed in ts.items() if needed ]:
             self._callback(name)
+
+
+def do_thumbnail(name):
+    """
+    Global function to check if a thumbnail should be created.
+    """
+    for i in BurstHandler._all_instances:
+        if i._do_thumbnail(name):
+            return True
+    return False
