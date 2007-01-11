@@ -363,15 +363,6 @@ class MPlayer(MediaPlayer):
 
         # create filter list
         filters.extend(self._filters_pre[:])
-        if 'outbuf' in self._mp_info['video_filters']:
-            filters += ["outbuf=%s:yv12" % self._frame_shmkey]
-
-        if self._properties['deinterlace'] == True or \
-               (self._properties['deinterlace'] == 'auto' and \
-                self._media.get('interlaced')):
-            # add deinterlacer
-            filters.append(config.mplayer.deinterlacer)
-
         # FIXME: all this code seems to work. But I guess it has
         # some problems when we don't have an 1:1 pixel aspect
         # ratio on the monitor and using software scaler.
@@ -480,6 +471,17 @@ class MPlayer(MediaPlayer):
         if 'x11' in self._mp_info['video_drivers']:
             args.append('-nomouseinput')
 
+        if 'outbuf' in self._mp_info['video_filters']:
+            filters.append("outbuf=%s:yv12" % self._frame_shmkey)
+
+        if self._properties['deinterlace'] == True or \
+               (self._properties['deinterlace'] == 'auto' and \
+                self._media.get('interlaced')):
+            # add deinterlacer
+            filters.append(config.mplayer.deinterlacer)
+
+
+        # FIXME: self._filters_pre / add doesn't get included if no window.
         if self._window:
             self.configure_video()
         else:
@@ -593,6 +595,7 @@ class MPlayer(MediaPlayer):
     #
     # Methods for filter handling (not yet in generic and base)
     #
+    # FIXME: no distinction between audio and video filters
 
     def prepend_filter(self, filter):
         """
