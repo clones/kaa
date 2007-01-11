@@ -56,9 +56,9 @@ def import_backends():
             try:
                 # import the backend and register it.
                 exec('from %s import import_backend' % backend)
+                player_id, cls, get_caps_callback = import_backend()
             except ImportError, e:
                 continue
-            player_id, cls, get_caps_callback = import_backend()
             if player_id in _players:
                 raise ValueError, "Player '%s' already registered" % name
             
