@@ -39,13 +39,10 @@ from kaa.popcorn import SEEK_RELATIVE, SEEK_ABSOLUTE, SEEK_PERCENTAGE
 class PlayerOSDCanvas(BufferCanvas):
 
     def __init__(self, player = None, size = (640, 480)):
-        self._alpha = self._osd_alpha = 255
-        self._osd_visible = 0
         self._player = None
 
         super(PlayerOSDCanvas, self).__init__(size)
         self.hide()
-        self["visible"] = False
 
         if player:
             self.set_player(player)
@@ -69,31 +66,18 @@ class PlayerOSDCanvas(BufferCanvas):
 
     def _render(self):
         regions = super(PlayerOSDCanvas, self)._render()
-        self._player.osd_update(self._osd_alpha, self["visible"], regions)
+        self._player.osd_update(self['color'][3], self['visible'], regions)
 
-
-    def _set_property_color(self, color):
-        color = self._parse_color(color)
-        r, g, b, a = color
-        # vf_overlay does not support color filters, only alpha.
-        assert(r == g == b == 255)
-        # 0 <= alpha < = 255
-        a = max(0, min(255, a))
-        if hasattr(self, "_osd_alpha") and self._osd_alpha != a:
-            self._osd_alpha = a
-
-        # Tell the lower canvas objects we're still fully opaque,
-        # otherwise our children will get blended to the new alpha by
-        # evas, which is unnecessary since vf_overlay supports global
-        # alpha.  We use _set_property_generic to force this property to
-        # become dirty, which guarantees _render() will be called next main
-        # loop iteration.  We are technically tricking the canvas, because
-        # our color property never changes from (255,255,255,255) but we 
-        # want _render() invoked anyway so we can call Player.osd_update().
-        self._set_property_generic("color", (255, 255, 255, 255))
-
-    def get_color(self):
-        return (255, 255, 255, self._osd_alpha)
+    def _get_relative_values(self, prop, child_asking = None):
+        # Override color and visibility for relative values of children;
+        # opacity and visiblity are handled by overlay, so canvas does not
+        # need to be rerendered for those properties.  (Color filters not
+        # supported though.)
+        if prop == 'color':
+            return 255, 255, 255, 255
+        elif prop == 'visible':
+            return True
+        return super(PlayerOSDCanvas, self)._get_relative_values(prop, child_asking)
 
 
     def _osd_configure(self, width, height, buffer, buffer_width, buffer_height):
@@ -190,6 +174,8 @@ class Movie(Image):
     def _video_start(self):
         if not self._window:
             self._window = self._player.get_window()
+            if not self._window:
+                return
         if not self["detached"]:
             self._window.lower_window()
         else:
