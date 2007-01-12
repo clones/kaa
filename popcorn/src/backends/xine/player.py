@@ -79,6 +79,13 @@ class Xine(MediaPlayer):
     def _child_exited(self, exitcode):
         log.debug('xine child dead')
         self._xine = None
+        if self._window:
+            # Disconnect signals from existing window.
+            disconnect = self._window.signals.disconnect
+            disconnect('configure_event', self._window_configure_event)
+            disconnect('map_event', self._window_visibility_event)
+            disconnect('unmap_event', self._window_visibility_event)
+            disconnect('expose_event', self._window_expose_event)
 
         # remove shared memory
         if self._osd_shmem:
