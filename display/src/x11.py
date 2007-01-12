@@ -34,7 +34,7 @@ import weakref
 
 # kaa notifier for the socket callback
 import kaa.notifier
-from kaa.notifier import Signal
+from kaa.notifier import Signals
 
 # the display module
 import _X11
@@ -203,16 +203,15 @@ class X11Window(object):
         self._fs_size_save = None
         self._last_configured_size = 0, 0
 
-        self.signals = {
-            "key_press_event": Signal(),
-            "focus_in_event": Signal(),
-            "focus_out_event": Signal(),
-            "expose_event": Signal(),
-            "map_event": Signal(),
-            "unmap_event": Signal(),
-            "resize_event": Signal(),
-            "configure_event": Signal(),
-        }
+        self.signals = Signals(
+            "key_press_event", # key pressed
+            "focus_in_event",  # window gets focus
+            "focus_out_event", # window looses focus
+            "expose_event",    # expose event
+            "map_event",       # ?
+            "unmap_event",     # ?
+            "resize_event",    # window resized
+            "configure_event") # ?
 
     def get_display(self):
         return self._display
