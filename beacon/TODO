@@ -32,3 +32,13 @@ B. When a file is growing (copy, download), the code checks in a
    small interval. This is good and what we want, but we don't want
    new thumbnails (screenshots) while the download / copy is not
    complete.
+
+C. Subject: Music: cover art per album
+   To: freevo-users@lists.sourceforge.net
+   Date: Mon Oct 30 19:32:32 2006 +0100
+
+   Freevo is currently looking for a cover.jpg or (filename).jpg file
+   to display as cover art. However, it would be great if it can also
+   look for files called (ID3AlbumName).jpg. This will allow users to
+   store music from several albums in a single directory.
+
