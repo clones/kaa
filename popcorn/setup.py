@@ -46,6 +46,7 @@ else:
 
 setup(module = 'popcorn', 
       version = '0.1.0', 
+      scripts = [ 'bin/popcorn' ],
       license = 'GPL',
       summary = 'Media player abstraction library supporting multiple backends',
       rpminfo = {

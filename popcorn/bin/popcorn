@@ -1,0 +1,95 @@
+#!/usr/bin/python
+
+# python imports
+import os
+import sys
+
+import logging
+
+# insert freevo path information
+__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
+__site__ = os.path.normpath(os.path.join(os.path.dirname(__file__), __site__))
+if not __site__ in sys.path:
+    sys.path.insert(0, __site__)
+
+# kaa imports
+import kaa
+import kaa.display
+import kaa.popcorn
+import kaa.input.stdin
+
+mrllist = sys.argv[1:]
+player = kaa.popcorn.Player()
+window = kaa.display.X11Window(size = (800,600), title = "kaa.popcorn")
+
+cfgfile = os.path.expanduser('~/.popcorn.conf')
+kaa.popcorn.config.load(cfgfile)
+kaa.popcorn.config.save(cfgfile)
+
+def play_next():
+    """
+    Play next mrl or exit.
+    """
+    print
+    if not mrllist:
+        sys.exit(0)
+    mrl = mrllist.pop(0)
+    print 'play', mrl
+    player.set_window(None)
+    window.hide()
+    player.open(mrl)
+
+def handle_open(info):
+    if info.get('width'):
+        # FIXME: respect aspect and max screen size
+        window.resize((info['width'], info['height']))
+        player.set_window(window)
+        window.show()
+    player.play()
+    
+def input(key):
+    if key in ("space", "enter"):
+        if player.get_state() == kaa.popcorn.STATE_PAUSED:
+            pos_timer.start(0.1)
+        else:
+            print '=== pause ===\r',
+            sys.stdout.flush()
+            pos_timer.stop()
+        player.pause_toggle()
+
+    elif key == "q":
+        global mrllist
+        mrllist = []
+        player.stop()
+
+    elif key in ("up", "down", "left", "right"):
+        player.seek({"up": 60, "down": -60, "left": -10, "right": 10}[key])
+
+    elif key == "f" and player.get_window():
+        window.set_fullscreen(not window.get_fullscreen())
+
+    elif key == "n":
+        if mrllist:
+            print '\nnext mrl'
+        player.stop()
+
+def print_pos():
+    length = player.get_info().get('length', 0)
+    pos = player.get_position()
+    n = 0
+    if length:
+        n = int((pos / length) * 50)
+    sys.stdout.write("|%51s| %6.1f / %6.1f\r" % (("="*n + ">").ljust(51), pos, length))
+    sys.stdout.flush()
+    return True
+
+pos_timer = kaa.notifier.Timer(print_pos)
+pos_timer.start(0.1)
+
+player.signals['end'].connect(play_next)
+player.signals['open'].connect(handle_open)
+player.signals['failed'].connect(play_next)
+kaa.signals["stdin_key_press_event"].connect(input)
+window.signals["key_press_event"].connect(input)
+play_next()
+kaa.main()
