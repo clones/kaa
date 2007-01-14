@@ -1,5 +1,18 @@
 #!/usr/bin/python
 
+# Add te following features:
+#
+# o kaa.canvas based OSD (optional)
+#
+# o GTK GUI (optional)
+#
+# o Command line options:
+#   - always use window / never open window
+#   - start fullscreen
+#   - select player
+#   - verbose
+#   - quiet
+
 # python imports
 import os
 import sys
