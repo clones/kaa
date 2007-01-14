@@ -1,3 +1,5 @@
+# FIXME: this whole approach nees an overhaul
+
 class FilterChain(object):
 
     def __init__(self, xine, video_targets=[], audio_targets=[]):
@@ -15,6 +17,11 @@ class FilterChain(object):
                                      audio_targets = self._audio_targets)
             self._filter[name] = f
         return f
+
+    def set_vo(self, vo):
+        self._video_targets = [ vo ]
+        if self._chain:
+            self.get(self._chain[-1]).get_default_output().wire(vo)
 
 
     def get_chain(self):

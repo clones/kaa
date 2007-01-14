@@ -56,6 +56,7 @@ class XinePlayerChild(Player):
         Player.__init__(self)
 
         self._xine = xine.Xine()
+        self._vfilter = FilterChain(self._xine)
         self._stream = self._vo = self._ao = None
         self._osd_shmkey = int(osd_shmkey)
         self._frame_shmkey = int(frame_shmkey)
@@ -249,9 +250,8 @@ class XinePlayerChild(Player):
             self._driver_control = None
             self._vo_visible = False
 
-        # setup filter chain and configure filter
-        self._vfilter = FilterChain(self._xine, video_targets=[ self._vo ])
-
+        # Set new vo on filter chain and configure filters.
+        self._vfilter.set_vo(self._vo)
         f = self._vfilter.get("tvtime")
         f.set_parameters(method = self.config.xine.deinterlacer.method,
                          chroma_filter = self.config.xine.deinterlacer.chroma_filter)
@@ -343,7 +343,6 @@ class XinePlayerChild(Player):
             else:
                 self._goom_post = None
                 self._stream.get_audio_source().wire(self._ao)
-            xine._debug_show_chain(self._stream._obj)
         except xine.XineError:
             self.parent.set_streaminfo(False, self._stream.get_error())
             log.error('Open failed: %s', self._stream.get_error())
@@ -389,6 +388,7 @@ class XinePlayerChild(Player):
         status = self._stream.get_status()
         if status == xine.STATUS_STOP:
             self._stream.play()
+            xine._debug_show_chain(self._stream._obj)
 
 
     def pause(self):
