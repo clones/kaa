@@ -285,7 +285,6 @@ class Player(object):
         self._player.set_size(self._size)
         # FIXME: maybe give the whole media object to the child
         self._player.open(self._media)
-        self.signals['open'].emit()
 
 
     # Player API
