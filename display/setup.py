@@ -135,7 +135,7 @@ if get_library('directfb'):
     # the dfb so module
     dfb = Extension('kaa.display._DFBmodule', [ 'src/dfb.c', 'src/common.c'] )
     dfb.add_library('directfb')
-    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_DirectFB.h>']):
+    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_DirectFB.h>'], extra_libraries = ['directfb']):
         print "+ DirectFB (evas)"
         dfb.add_library('evas')
         config.define('ENABLE_ENGINE_DIRECTFB')
