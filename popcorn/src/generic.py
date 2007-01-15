@@ -111,7 +111,10 @@ class Player(object):
             'audio-delay': 0.0,
 
             # fit method. One of 'bars', 'scale', 'zoom'
-            'fit-method': config.video.fit_method
+            'fit-method': config.video.fit_method,
+
+            # pre-caching, use 'auto' for defaults based on filetype / schema
+            'cache' : 'auto'
         }
 
         self.signals = {

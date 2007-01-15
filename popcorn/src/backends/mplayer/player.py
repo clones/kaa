@@ -339,7 +339,7 @@ class MPlayer(MediaPlayer):
         # open the stream and provide information about it. After that, the
         # caller can still change stuff before calling play. Mplayer doesn't
         # work that way so we have to run mplayer with -identify first.
-        args = "-nolirc -nojoystick -identify -vo null -ao null -frames 0"
+        args = "-nolirc -nojoystick -identify -vo null -ao null -frames 0 -nocache"
         ident = kaa.notifier.Process(self._mp_cmd)
         ident.start(args.split(' ') + self._media.mplayer_args)
         ident.signals["stdout"].connect_weak(self._child_handle_line)
@@ -516,6 +516,20 @@ class MPlayer(MediaPlayer):
                 args.add(subfile=sub)
         elif self._properties.get('subtitle-track') != None:
             args.add(sid=self._properties.get('subtitle-track'))
+
+        if self._properties.get('cache') == 'auto':
+            if self._media.scheme == "dvd":
+                args.add(cache=8192)
+            if self._media.scheme == "vcd":
+                args.add(cache=4096)
+            if self._media.scheme == "dvb":
+                args.add(cache=1024)
+            if self._media.scheme == "http":
+                args.add(cache=8192, cache_min=5)
+            else:
+                args.add(cache=5000)
+        else:
+            args.add(cache=self._properties.get('cache'))
 
         # connect to signals
         self._mplayer.signals["stdout"].connect_weak(self._child_handle_line)
