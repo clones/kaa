@@ -66,7 +66,7 @@ void Font_PyObject__dealloc(Font_PyObject *self)
 {
     imlib_context_set_font(self->font);
     imlib_free_font();
-    PyMem_DEL(self);
+    PyObject_DEL(self);
 }
 
 

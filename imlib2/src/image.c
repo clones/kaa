@@ -152,7 +152,7 @@ void Image_PyObject__dealloc(Image_PyObject *self)
     if (self->buffer) {
         Py_DECREF(self->buffer);
     }
-    PyMem_DEL(self);
+    PyObject_DEL(self);
 }
 
 
