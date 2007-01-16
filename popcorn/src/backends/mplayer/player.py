@@ -406,7 +406,7 @@ class MPlayer(MediaPlayer):
             filters.append("overlay=%s" % self._osd_shmkey)
 
         if isinstance(self._window, kaa.display.X11Window) or 1:
-            wid = hex(self._window.get_id())
+            wid = "0x%x" % self._window.get_id()
             if wid.endswith('L'):
                 wid = wid[:-1]
             display = self._window.get_display().get_string()

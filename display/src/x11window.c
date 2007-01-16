@@ -138,7 +138,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         if (window_title)
             XStoreName(self->display, self->window, window_title);
     }
-    self->wid = PyInt_FromLong(self->window);
+    self->wid = PyLong_FromUnsignedLong(self->window);
     _make_invisible_cursor(self);
     XUnlockDisplay(self->display);
     return (PyObject *)self;
@@ -327,7 +327,7 @@ X11Window_PyObject__wrap(PyObject *display, Window window)
     Py_INCREF(display);
     o->display = ((X11Display_PyObject *)display)->display;
     o->window = window;
-    o->wid = PyInt_FromLong(window);
+    o->wid = PyLong_FromUnsignedLong(window);
     XLockDisplay(o->display);
     _make_invisible_cursor(o);
     XUnlockDisplay(o->display);
