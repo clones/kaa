@@ -38,6 +38,13 @@ try:
 except ImportError, e:
     pass
 
+# import GTK support
+try:
+    from gtkwin import GTKWindow, GladeWindow
+    displays.append('gtk')
+except ImportError, e:
+    pass
+
 # import Framebuffer support
 try:
     from fb import Framebuffer, EvasFramebuffer, PAL_768x576, PAL_800x600, \
