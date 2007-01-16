@@ -175,6 +175,10 @@ def _get_display(display):
             _default_x11_display = X11Display()
         display = _default_x11_display
 
+    if isinstance(display, basestring):
+        # display provided is a name, so create X11Display based on that
+        display = X11Display(display)
+
     assert(type(display) == X11Display)
     return display
 
@@ -182,9 +186,29 @@ def _get_display(display):
 
 class X11Window(object):
     def __init__(self, display = None, window = None, **kwargs):
+        """
+        Create a new X11 window or wrap an existing X11 window.  If display
+        is None, it will use the default display (based on the DISPLAY
+        environment variable).  If window is an integer, it will wrap an
+        existing X11 window.  The window parameter may also be a lower
+        level _X11.X11Window object.
+
+        If window is none, then a new window will be created, and the
+        following kwargs apply:
+           size: 2-tuple of width and height for the window (required)
+           title: A string representing the window's title (optional)
+           parent: An existing X11Window object of which the new window will
+                   be a subwindow.
+        """
         display = _get_display(display)
         if window:
-            self._window = window
+            if isinstance(window, int):
+                # Create new X11Window object based on existing window id.
+                self._window = _X11.X11Window(display._display, (-1, -1), window = window)
+            elif isinstance(window, _X11.X11Window):
+                self._window = window
+            else:
+                raise ValueError, "window parameter must be an integer."
         else:
             assert("size" in kwargs)
             if "title" in kwargs:

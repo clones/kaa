@@ -83,7 +83,7 @@ X11Window_PyObject__traverse(X11Window_PyObject *self, visitproc visit,
 }
 
 PyObject *
-X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
+X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     X11Window_PyObject *self, *py_parent;
     X11Display_PyObject *display;
@@ -115,25 +115,29 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
 
     XLockDisplay(self->display);
 
-    screen = DefaultScreen(self->display);
-    attr.backing_store = NotUseful;
-    attr.border_pixel = 0;
-    attr.background_pixmap = None;
-    attr.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-        StructureNotifyMask | PointerMotionMask | KeyPressMask | FocusChangeMask;
-    attr.bit_gravity = StaticGravity;
-    attr.win_gravity = StaticGravity;
-    attr.override_redirect = False;
-    attr.colormap = DefaultColormap(self->display, screen);
+    if (PyMapping_HasKeyString(kwargs, "window")) {
+        self->window = (Window)PyInt_AsLong(PyDict_GetItemString(kwargs, "window"));
+    } else {
+        screen = DefaultScreen(self->display);
+        attr.backing_store = NotUseful;
+        attr.border_pixel = 0;
+        attr.background_pixmap = None;
+        attr.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
+            StructureNotifyMask | PointerMotionMask | KeyPressMask | FocusChangeMask;
+        attr.bit_gravity = StaticGravity;
+        attr.win_gravity = StaticGravity;
+        attr.override_redirect = False;
+        attr.colormap = DefaultColormap(self->display, screen);
 
-    self->window = XCreateWindow(self->display, parent, 0, 0,
-                        w, h, 0, DefaultDepth(self->display, screen), InputOutput,
-                        DefaultVisual(self->display, screen),
-                        CWBackingStore | CWColormap | CWBackPixmap | CWWinGravity |
-                        CWBitGravity | CWEventMask | CWOverrideRedirect, &attr);
+        self->window = XCreateWindow(self->display, parent, 0, 0,
+                            w, h, 0, DefaultDepth(self->display, screen), InputOutput,
+                            DefaultVisual(self->display, screen),
+                            CWBackingStore | CWColormap | CWBackPixmap | CWWinGravity |
+                            CWBitGravity | CWEventMask | CWOverrideRedirect, &attr);
 
-    if (window_title)
-        XStoreName(self->display, self->window, window_title);
+        if (window_title)
+            XStoreName(self->display, self->window, window_title);
+    }
     self->ptr = PyInt_FromLong(self->window);
     _make_invisible_cursor(self);
     XUnlockDisplay(self->display);
