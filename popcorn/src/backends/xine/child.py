@@ -226,7 +226,7 @@ class XinePlayerChild(Player):
         self._vo_visible = True
         if size is not None:
             self._window_size = size
-        if wid and isinstance(wid, int):
+        if wid and isinstance(wid, (int, long)):
             self._vo = self._xine.open_video_driver(
                 "kaa", control_return = control_return,
                 passthrough = "xv", wid = wid,
