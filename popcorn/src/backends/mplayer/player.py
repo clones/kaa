@@ -407,8 +407,6 @@ class MPlayer(MediaPlayer):
 
         if isinstance(self._window, kaa.display.X11Window) or 1:
             wid = "0x%x" % self._window.get_id()
-            if wid.endswith('L'):
-                wid = wid[:-1]
             display = self._window.get_display().get_string()
             args.add(vo='xv', wid=wid, display=display)
         else:
