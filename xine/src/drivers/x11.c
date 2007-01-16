@@ -153,7 +153,7 @@ x11_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
         }
     } else if (PyMapping_HasKeyString(kwargs, "wid")) {
         window = PyDict_GetItemString(kwargs, "wid");
-        vis.d = PyLong_AsLong(window);
+        vis.d = PyLong_AsUnsignedLong(window);
         display_str = PyDict_GetItemString(kwargs, "display");
         if (display_str)
             display = XOpenDisplay(PyString_AsString(display_str));
