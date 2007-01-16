@@ -138,7 +138,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         if (window_title)
             XStoreName(self->display, self->window, window_title);
     }
-    self->ptr = PyInt_FromLong(self->window);
+    self->wid = PyInt_FromLong(self->window);
     _make_invisible_cursor(self);
     XUnlockDisplay(self->display);
     return (PyObject *)self;
@@ -158,7 +158,7 @@ X11Window_PyObject__dealloc(X11Window_PyObject * self)
     if (self->window) {
         XLockDisplay(self->display);
         XDestroyWindow(self->display, self->window);
-        Py_XDECREF(self->ptr);
+        Py_XDECREF(self->wid);
         XFreeCursor(self->display, self->invisible_cursor);
         XUnlockDisplay(self->display);
     }
@@ -327,7 +327,7 @@ X11Window_PyObject__wrap(PyObject *display, Window window)
     Py_INCREF(display);
     o->display = ((X11Display_PyObject *)display)->display;
     o->window = window;
-    o->ptr = PyInt_FromLong(window);
+    o->wid = PyInt_FromLong(window);
     XLockDisplay(o->display);
     _make_invisible_cursor(o);
     XUnlockDisplay(o->display);
@@ -366,7 +366,7 @@ int x11window_object_decompose(X11Window_PyObject *win, Window *window, Display 
 
 
 static PyMemberDef X11Window_PyObject_members[] = {
-    {"ptr", T_OBJECT_EX, offsetof(X11Window_PyObject, ptr), 0, ""},
+    {"wid", T_OBJECT_EX, offsetof(X11Window_PyObject, wid), 0, ""},
     {NULL}  /* Sentinel */
 };
 

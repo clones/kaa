@@ -220,7 +220,7 @@ class X11Window(object):
             self._window = _X11.X11Window(display._display, kwargs["size"], **kwargs)
 
         self._display = display
-        display._windows[self._window.ptr] = weakref.ref(self)
+        display._windows[self._window.wid] = weakref.ref(self)
         self._cursor_hide_timeout = -1
         self._cursor_hide_timer = kaa.notifier.WeakOneShotTimer(self._cursor_hide_cb)
         self._cursor_visible = True
@@ -377,7 +377,7 @@ class X11Window(object):
         return self._fs_size_save != None
 
     def get_id(self):
-        return self._window.ptr
+        return self._window.wid
 
     def focus(self):
         return self._window.focus()
