@@ -116,7 +116,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     XLockDisplay(self->display);
 
     if (PyMapping_HasKeyString(kwargs, "window")) {
-        self->window = (Window)PyInt_AsLong(PyDict_GetItemString(kwargs, "window"));
+        self->window = (Window)PyLong_AsVoidPtr(PyDict_GetItemString(kwargs, "window"));
     } else {
         screen = DefaultScreen(self->display);
         attr.backing_store = NotUseful;

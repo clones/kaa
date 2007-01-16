@@ -187,11 +187,11 @@ def _get_display(display):
 class X11Window(object):
     def __init__(self, display = None, window = None, **kwargs):
         """
-        Create a new X11 window or wrap an existing X11 window.  If display
-        is None, it will use the default display (based on the DISPLAY
-        environment variable).  If window is an integer, it will wrap an
-        existing X11 window.  The window parameter may also be a lower
-        level _X11.X11Window object.
+        Create a new X11 window or wrap an existing X11 window.  If display is
+        None, it will use the default display (based on the DISPLAY environment
+        variable).  If window is a numeric, it will consider it a window id and
+        can be used to wrap an existing X11 window.  The window parameter may
+        also be a lower level _X11.X11Window object.
 
         If window is none, then a new window will be created, and the
         following kwargs apply:
@@ -202,9 +202,9 @@ class X11Window(object):
         """
         display = _get_display(display)
         if window:
-            if isinstance(window, int):
+            if isinstance(window, (long, int)):
                 # Create new X11Window object based on existing window id.
-                self._window = _X11.X11Window(display._display, (-1, -1), window = window)
+                self._window = _X11.X11Window(display._display, (-1, -1), window = long(window))
             elif isinstance(window, _X11.X11Window):
                 self._window = window
             else:
