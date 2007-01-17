@@ -1,7 +1,13 @@
 import kaa.canvas
-import kaa.display
+from test_common import *
 
-canvas = kaa.canvas.FBCanvas((800,600))
+if output == "DirectFB":
+    canvas = kaa.canvas.DirectFBCanvas(size)
+elif output == "FB":
+    canvas = kaa.canvas.FBCanvas(size)
+else: # X11
+    canvas = kaa.canvas.X11Canvas(size)
+
 
 background = kaa.canvas.Image("data/background.jpg")
 canvas.add_child(background)
@@ -11,5 +17,3 @@ hello.move(hcenter = "50%", vcenter = "50%")
 canvas.add_child(hello)
 
 kaa.main()
-
-# kaa.display.fb.EvasFramebuffer()

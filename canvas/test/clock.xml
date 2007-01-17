@@ -1,0 +1,4 @@
+<canvas class="clock">
+    <image file="data/background.jpg" />
+    <text hcenter="50%" vcenter="50%" name="time">Current time goes here</text>
+</canvas>
