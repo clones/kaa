@@ -262,7 +262,7 @@ class Text(Object):
             cur_font, cur_size = self["font"]
         else:
             # FIXME: hardcoded defaults
-            cur_font, cur_size = "arial", 24
+            cur_font, cur_size = "Vera", 24
 
         if not font:
             font = cur_font
