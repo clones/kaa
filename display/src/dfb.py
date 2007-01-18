@@ -13,6 +13,7 @@
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+# Maintainer:    Rob Shortt <rob@tvcentric.com>
 #
 # Please see the file AUTHORS for a complete list of authors.
 #
@@ -40,8 +41,10 @@ class _DirectFB(object):
     """
     Base class for DirectFB framebuffer.
     """
-    def __init__(self, size):
-        dfb.open(size)
+    def __init__(self, size, **kwargs):
+        # check size, it comes in as a tupple
+        # we can't parse tupples with kwargs in the C extention
+        dfb.open(size[0], size[1], **kwargs)
 
 
     def size(self):
@@ -78,8 +81,8 @@ class EvasDirectFB(_DirectFB):
     the specified framebuffer resolutions, a list for fbset or None. If set to
     None, the current framebuffer size will be used.
     """
-    def __init__(self, size):
-        _DirectFB.__init__(self, size)
+    def __init__(self, size, **kwargs):
+        _DirectFB.__init__(self, size, **kwargs)
         import kaa.evas
         self._evas = kaa.evas.Evas()
         dfb.new_evas_dfb(self._evas._evas)

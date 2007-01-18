@@ -10,6 +10,7 @@
  *
  * First Edition: Dirk Meyer <dmeyer@tzi.de>
  * Maintainer:    Dirk Meyer <dmeyer@tzi.de>
+ * Maintainer:    Rob Shortt <rob@tvcentric.com>
  *
  * Please see the file AUTHORS for a complete list of authors.
  *
@@ -59,11 +60,16 @@ DFBDisplayLayerConfig  layer_config;
 
 
 /* open dfb and create base surface */
-PyObject *dfb_open(PyObject *self, PyObject *args)
+PyObject *dfb_open(PyObject *self, PyObject *args, PyObject *keywds)
 {
     int width, height;
+    int layer_id = DLID_PRIMARY;
+    int window_id = -1;
 
-    if (!PyArg_ParseTuple(args, "(ii)", &width, &height))
+    static char *kwlist[] = { "width", "height", "layer_id", "window_id", NULL };
+
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "ii|ii", kwlist, 
+                                     &width, &height, &layer_id, &window_id))
         return NULL;
 
     /* create the super interface */
@@ -72,20 +78,25 @@ PyObject *dfb_open(PyObject *self, PyObject *args)
     DFBCHECK(DirectFBCreate(&dfb), "DirectFBCreate");
     dfb->SetCooperativeLevel(dfb, DFSCL_FULLSCREEN);
 
-    DFBCHECK(dfb->GetDisplayLayer(dfb, DLID_PRIMARY, &layer), 
+    DFBCHECK(dfb->GetDisplayLayer(dfb, layer_id, &layer), 
              "GetDisplayLayer");
     layer->GetConfiguration(layer, &layer_config);
 
     /* get the primary surface, i.e. the surface of the primary layer we have
      * exclusive access to */
     memset(&dsc, 0, sizeof(DFBSurfaceDescription));
-    dsc.flags = DSDESC_CAPS | DSDESC_WIDTH | DSDESC_HEIGHT;
+    dsc.flags = DSDESC_CAPS | DSDESC_WIDTH | DSDESC_HEIGHT | DSDESC_PIXELFORMAT;
     layer_config.width = width;
     layer_config.height = height;
 
     dsc.width = layer_config.width;
     dsc.height = layer_config.height;
-    dsc.caps = DSCAPS_PRIMARY;
+    dsc.pixelformat = DSPF_ARGB;
+
+    if(layer_id == DLID_PRIMARY)
+        dsc.caps = DSCAPS_PRIMARY;
+    else
+        dsc.caps = DSCAPS_NONE;
 
     DFBCHECK(dfb->CreateSurface(dfb, &dsc, &primary), "CreateSurface");
 
@@ -154,7 +165,7 @@ PyObject *new_evas_dfb(PyObject *self, PyObject *args, PyObject *kwargs)
 #endif  // ENABLE_ENGINE_DIRECTFB
 
 PyMethodDef dfb_methods[] = {
-    { "open", (PyCFunction) dfb_open, METH_VARARGS },
+    { "open", (PyCFunction) dfb_open, METH_VARARGS | METH_KEYWORDS },
     { "close", (PyCFunction) dfb_close, METH_VARARGS },
     { "size", (PyCFunction) dfb_size, METH_VARARGS },
 #ifdef ENABLE_ENGINE_DIRECTFB
