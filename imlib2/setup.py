@@ -57,7 +57,7 @@ else:
 
 
 setup(module      = 'imlib2',
-      version     = '0.2.0',
+      version     = '0.2.1',
       license     = 'LGPL',
       summary     = 'Python bindings for Imlib2',
       rpminfo     = {
