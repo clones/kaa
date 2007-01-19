@@ -37,6 +37,7 @@ import logging
 
 # kaa imports
 import kaa.notifier
+from kaa.weakref import weakref
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
@@ -98,7 +99,7 @@ class MediaPlayer(object):
         for name, func in [ (func, getattr(self, func)) for func in dir(self) ]:
             if callable(func) and hasattr(func, '_runtime_policy'):
                 name = name[10:].replace('_', '-')
-                self._property_callbacks[name] = func
+                self._property_callbacks[name] = weakref(func)
 
     #
     # state handling
