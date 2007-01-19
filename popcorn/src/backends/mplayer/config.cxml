@@ -42,21 +42,4 @@
     <var name="deinterlacer" default="yadif=0">
         <desc lang="en">Deinterlacer video filter to use</desc>
     </var>
-
-    <dict name="arguments">
-        <desc lang="en">
-            Special mplayer arguments based on the file type (extention or
-            scheme). Note: this variable may be deleted in the future.
-        </desc>
-        <var type="str"/>
-        <set key="default" value="-cache 5000"/>
-        <set key="dvd" value="-cache 8192"/>
-        <set key="vcd" value="-cache 4096"/>
-        <set key="cd" value="-cache 1024 -cdda speed=2"/>
-        <set key="dvb" value="-cache 1024"/>
-        <set key="avi" value="-cache 5000"/>
-        <set key="rm" value="-cache 5000 -forceidx"/>
-        <set key="rmvb" value="-cache 5000 -forceidx"/>
-    </dict>
-
 </config>
