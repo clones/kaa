@@ -412,6 +412,13 @@ class Player(object):
         return {}
 
 
+    def get_media(self):
+        """
+        Return kaa.metadata media object of the mrl loaded.
+        """
+        return self._media
+
+
     def nav_command(self, input):
         """
         Issue the navigation command to the player.  'input' is a string
