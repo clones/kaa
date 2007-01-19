@@ -405,7 +405,7 @@ class MPlayer(MediaPlayer):
         if 'overlay' in self._mp_info['video_filters']:
             filters.append("overlay=%s" % self._osd_shmkey)
 
-        if isinstance(self._window, kaa.display.X11Window) or 1:
+        if isinstance(self._window, kaa.display.X11Window):
             wid = "0x%x" % self._window.get_id()
             display = self._window.get_display().get_string()
             args.add(vo='xv', wid=wid, display=display)
