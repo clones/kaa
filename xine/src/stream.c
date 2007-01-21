@@ -136,7 +136,7 @@ Xine_Stream_PyObject_open(Xine_Stream_PyObject *self, PyObject *args, PyObject *
 
     result = xine_open(self->stream, mrl);
     if (!result) {
-        PyErr_Format(xine_error, "Failed to open stream (FIXME: add useful error).");
+        PyErr_Format(xine_error, "Failed to open stream '%s' (FIXME: add useful error).", mrl);
         return NULL;
     }
 

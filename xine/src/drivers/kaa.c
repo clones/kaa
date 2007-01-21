@@ -391,7 +391,8 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
 
     passthrough_driver = _x_load_video_output_plugin(xine->xine, PyString_AsString(passthrough), 
                                                      passthrough_visual_type, passthrough_visual);
-    passthrough_driver_info->driver = passthrough_driver;
+    if (passthrough_driver_info)
+        passthrough_driver_info->driver = passthrough_driver;
 
     if (!passthrough_driver) {
         PyErr_Format(xine_error, "Failed to initialize passthrough driver: %s", PyString_AsString(passthrough));
