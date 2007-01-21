@@ -222,33 +222,29 @@ class XinePlayerChild(Player):
         """
         Configure video output.
         """
-        control_return = []
-        self._vo_visible = True
         if size is not None:
             self._window_size = size
+
         if wid and isinstance(wid, (int, long)):
-            self._vo = self._xine.open_video_driver(
-                "kaa", control_return = control_return,
-                passthrough = "xv", wid = wid,
-                osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-                frame_output_cb = kaa.notifier.WeakCallback(self._xine_frame_output_cb),
-                dest_size_cb = kaa.notifier.WeakCallback(self._xine_dest_size_cb),
-                vsync = self.config.xine.vsync)
-            self._driver_control = control_return[0]
+            vo_kwargs = { 'passthrough': 'xv',
+                          'wid': wid,
+                          'vsync': self.config.xine.vsync }
 
         elif wid and isinstance(wid, str) and wid.startswith('fb'):
-            self._vo = self._xine.open_video_driver(
-                "kaa", control_return = control_return,
-                passthrough = "vidixfb",
-                osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-                frame_output_cb = kaa.notifier.WeakCallback(self._xine_frame_output_cb),
-                dest_size_cb = kaa.notifier.WeakCallback(self._xine_dest_size_cb))
-            self._driver_control = control_return[0]
+            vo_kwargs = { 'passthrough': 'vidixfb' }
 
         else:
-            self._vo = self._xine.open_video_driver("none")
-            self._driver_control = None
+            vo_kwargs = {'passthrough': 'none'}
             self._vo_visible = False
+
+        control_return = []
+        self._vo = self._xine.open_video_driver(
+            "kaa", control_return = control_return,
+            osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
+            frame_output_cb = kaa.notifier.WeakCallback(self._xine_frame_output_cb),
+            dest_size_cb = kaa.notifier.WeakCallback(self._xine_dest_size_cb),
+            **vo_kwargs)
+        self._driver_control = control_return[0]
 
         # Set new vo on filter chain and configure filters.
         self._vfilter.set_vo(self._vo)
