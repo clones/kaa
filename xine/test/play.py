@@ -110,6 +110,10 @@ elif DISPLAY_TYPE == 'fb':
     win = display.Framebuffer()
     vo = x.open_video_driver("vidixfb")
 
+elif DISPLAY_TYPE == 'dfb':
+    vo = x.open_video_driver("DFB")
+
+
 # create auido
 ao = x.open_audio_driver()
 
