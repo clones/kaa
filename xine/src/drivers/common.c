@@ -4,6 +4,9 @@
 #endif
 #include "kaa.h"
 #include "fb.h"
+#ifdef HAVE_DIRECTFB
+#include "dfb.h"
+#endif
 #include "dummy.h"
 
 int
@@ -36,6 +39,12 @@ driver_get_visual_info(Xine_PyObject *xine, char *driver, PyObject *kwargs, int 
         *visual_type_return = XINE_VISUAL_TYPE_FB;
         return fb_get_visual_info(xine, kwargs, visual_return, driver_info_return);
     }
+#ifdef HAVE_DIRECTFB
+    if (!strcmp(driver, "DFB")) {
+        *visual_type_return = XINE_VISUAL_TYPE_DFB;
+        return dfb_get_visual_info(xine, kwargs, visual_return, driver_info_return);
+    }
+#endif
     PyErr_Format(PyExc_ValueError, "Unknown driver: %s", driver);
     return 0;
 }
