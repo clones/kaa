@@ -201,7 +201,6 @@ class Query(object):
         """
         if self.monitoring:
             self.monitor(False)
-        log.debug('del %s' % repr(self))
 
 
     # -------------------------------------------------------------------------
