@@ -46,6 +46,9 @@
         <var name="software-scaler" default="False">
             <desc>Use software scaler (slow)</desc>
         </var>
+        <var name="colorkey" default="200">
+            <desc>Overlay colorkey when using xv video output</desc>
+        </var>
     </group>
 
     <group name="audio">

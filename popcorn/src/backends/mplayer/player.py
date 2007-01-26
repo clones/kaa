@@ -408,7 +408,7 @@ class MPlayer(MediaPlayer):
         if isinstance(self._window, kaa.display.X11Window):
             wid = "0x%x" % self._window.get_id()
             display = self._window.get_display().get_string()
-            args.add(vo='xv', wid=wid, display=display, colorkey='0x000000')
+            args.add(vo='xv', wid=wid, display=display, colorkey=config.video.colorkey)
         else:
             # FIXME: add support for DFB/FB/etc
             args.add(vo='null')
