@@ -42,3 +42,4 @@ C. Subject: Music: cover art per album
    look for files called (ID3AlbumName).jpg. This will allow users to
    store music from several albums in a single directory.
 
+D. Put new/changed files discovered by inotify at the top of the scan queue.
