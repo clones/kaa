@@ -401,6 +401,9 @@ class MPlayer(MediaPlayer):
             filters.append('pp')
             args.add(autoq=100)
 
+        # set monitor aspect (needed sometimes, not sure when and why)
+        args.add(monitoraspect='%s:%s' % tuple(aspect))
+
         filters += self._filters_add
         if 'overlay' in self._mp_info['video_filters']:
             filters.append("overlay=%s" % self._osd_shmkey)
