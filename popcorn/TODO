@@ -1,0 +1,10 @@
+MPLAYER_AUTOCROP = 0
+MPLAYER_SET_AUDIO_DELAY = 0
+
+
+Resample audio channel if the samplerate is lower than 40kHz to a values
+between 41100Hz and 48000Hz. This is needed for some external digital
+receiver. It will only work if mmpython can detect the samplerate
+
+Make it possible to seek on open. Not all backends support that, but
+it is great to have
