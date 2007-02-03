@@ -37,7 +37,6 @@ import logging
 
 # kaa imports
 import kaa.notifier
-from kaa.weakref import weakref
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
