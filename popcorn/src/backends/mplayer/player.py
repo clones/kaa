@@ -409,9 +409,12 @@ class MPlayer(MediaPlayer):
             filters.append("overlay=%s" % self._osd_shmkey)
 
         if isinstance(self._window, kaa.display.X11Window):
-            wid = "0x%x" % self._window.get_id()
+            if config.mplayer.embedded:
+                args.add(wid="0x%x" % self._window.get_id())
+            else:
+                args.append('-fs')
             display = self._window.get_display().get_string()
-            args.add(vo='xv', wid=wid, display=display, colorkey=config.video.colorkey)
+            args.add(vo='xv', display=display, colorkey=config.video.colorkey)
         else:
             # FIXME: add support for DFB/FB/etc
             args.add(vo='null')

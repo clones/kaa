@@ -42,4 +42,12 @@
     <var name="deinterlacer" default="yadif=0">
         <desc lang="en">Deinterlacer video filter to use</desc>
     </var>
+
+    <var name="embedded" default="True">
+        <desc lang="en">
+            When providing a window to the player to use, sometimes this does
+            not work as expected, set to False in that case. This will force
+            mplayer to go fullscreen.
+        </desc>
+    </var>
 </config>
