@@ -29,3 +29,4 @@
 from generic import Player
 from ptypes import *
 from config import config
+from backends.manager import get_all_players as player_names
