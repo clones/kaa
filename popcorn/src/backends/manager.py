@@ -37,6 +37,7 @@ import kaa.metadata
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
+from kaa.popcorn.config import config
 
 # internal list of players
 _players = {}
@@ -50,9 +51,8 @@ def import_backends():
     if _backends_imported:
         return
 
-    for backend in os.listdir(os.path.dirname(__file__)):
-        dirname = os.path.join(os.path.dirname(__file__), backend)
-        if os.path.isdir(dirname):
+    for backend in config:
+        if getattr(getattr(config, backend), 'activate', False):
             try:
                 # import the backend and register it.
                 exec('from %s import import_backend' % backend)
