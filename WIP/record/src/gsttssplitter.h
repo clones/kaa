@@ -42,31 +42,27 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef __GST_DVBTUNER_H__
-#define __GST_DVBTUNER_H__
+#ifndef __GST_TSSPLITTER_H__
+#define __GST_TSSPLITTER_H__
 
 #include <sys/time.h>
 #include <time.h>
-#include <stdint.h>
 
 #include <gst/gst.h>
-
-#include "dvb/dmx.h"
-#include "dvb/frontend.h"
 
 G_BEGIN_DECLS
 
 /* #defines don't like whitespacey bits */
-#define GST_TYPE_DVBTUNER \
-  (gst_dvbtuner_get_type())
-#define GST_DVBTUNER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_DVBTUNER,GstDvbTuner))
-#define GST_DVBTUNER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_DVBTUNER,GstDvbTunerClass))
-#define GST_IS_PLUGIN_TEMPLATE(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_DVBTUNER))
-#define GST_IS_PLUGIN_TEMPLATE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_DVBTUNER))
+#define GST_TYPE_TSSPLITTER \
+  (gst_tssplitter_get_type())
+#define GST_TSSPLITTER(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_TSSPLITTER,GstTSSplitter))
+#define GST_TSSPLITTER_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_TSSPLITTER,GstTSSplitterClass))
+/* #define GST_IS_PLUGIN_TEMPLATE(obj) \ */
+/*   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_TSSPLITTER)) */
+/* #define GST_IS_PLUGIN_TEMPLATE_CLASS(klass) \ */
+/*   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_TSSPLITTER)) */
 
 #define DEBUGf( fmt, args... ) \
    do { \
@@ -83,76 +79,45 @@ G_BEGIN_DECLS
    } while(0);
 
 
-#define GST_DVBTUNER_FN_MAX_LEN          255
-#define GST_DVBTUNER_INIT_PIDLIST_LEN    5
+#define GST_TSSPLITTER_INIT_FILTERLIST_LEN    5
 
-typedef struct _GstDvbTuner      GstDvbTuner;
-typedef struct _GstDvbTunerClass GstDvbTunerClass;
-typedef struct _PidList          GstDvbTunerPidList;
-typedef struct _GstDvbTunerClass GstDvbTunerPidListEntry;
+typedef struct _GstTSSplitter       GstTSSplitter;
+typedef struct _GstTSSplitterClass  GstTSSplitterClass;
+typedef struct _GstTSSplitterFilter GstTSSplitterFilter;
 
 
-struct _PidListEntry
+struct _GstTSSplitterFilter
 {
-  gint   pid;
-  gint   fd;
+  char *name;
+  char *pidlist;
+  GstPad *pad;
 };
 
-
-struct _PidList
+struct _GstTSSplitter
 {
-  gint           cnt;
-  gint           free;
-  struct _PidListEntry  *array;
-};
-
-
-struct _GstDvbTuner
-{
-  GstElement element;
+  GstElement element; 
 
   GstPad *sinkpad, *srcpad;
 
-  /**************/
-  /* properties */
-  /**************/
-  gboolean  debug_output;
-  guint32   adapter; 
-  gboolean  hwdecoder;
+  GstBuffer *inbuffer;
 
-  /****************/
-  /* internal data*/
-  /****************/
-  gchar*    fn_frontend_dev;
-  gchar*    fn_demux_dev;
-  gchar*    fn_dvr_dev;
-  gchar*    fn_video_dev;
-
-  gint      fd_frontend_dev;
-  gint      fd_video_dev;
-
-  GstDvbTunerPidList  pidlist;
-
-  gboolean  hor_polarisation;
-  guint32   sat_no;
-  gint      tone;
-
-  struct dvb_frontend_info       feinfo;
-  struct dvb_frontend_parameters feparam;
+  gboolean             debug_output;
+  gboolean             signal_new_pids;
+  gint                 filterlist_len;
+  gint                 filterlist_free;
+  GstTSSplitterFilter *filterlist;
 };
 
-struct _GstDvbTunerClass 
+struct _GstTSSplitterClass 
 {
   GstElementClass parent_class;
 
-  void          (*add_pid)          (GstDvbTuner *filter, uint pid);
-  void          (*remove_pid)       (GstDvbTuner *filter, uint pid);
-  void          (*clear_pids)       (GstDvbTuner *filter);
-  void          (*tune)             (GstDvbTuner *filter);
+  void          (*set_filter)          (GstTSSplitter *filter, char *name, char* pidlist);
+  void          (*remove_filter)       (GstTSSplitter *filter, char *name);
 };
 
-GType gst_dvbtuner_get_type (void);
+GType gst_tssplitter_get_type (void);
 
 G_END_DECLS
 
-#endif /* __GST_DVBTUNER_H__ */
+#endif /* __GST_TSSPLITTER_H__ */

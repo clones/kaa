@@ -66,17 +66,20 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "dvb/dmx.h"
-#include "dvb/frontend.h"
-
 #include "gstdvbtuner.h"
 #include "config.h"
 
+static void gst_dvbtuner_set_new_adapter_fn(GstDvbTuner *filter);
+static void gst_dvbtuner_tuner_init(GstDvbTuner *filter);
+static void gst_dvbtuner_tuner_release(GstDvbTuner *filter);
+static void gst_dvbtuner_add_pid (GstDvbTuner *filter, uint pid);
+static void gst_dvbtuner_remove_pid (GstDvbTuner *filter, uint pid);
+static void gst_dvbtuner_clear_pids (GstDvbTuner *filter);
+static void gst_dvbtuner_tune (GstDvbTuner *filter);
+static gchar* gst_dvbtuner_get_status(GstDvbTuner *filter);
+
 
 /* **********************************************************************************++ */
-
-GST_DEBUG_CATEGORY_STATIC (gst_dvbtuner_debug);
-#define GST_CAT_DEFAULT gst_dvbtuner_debug
 
 /* Filter signals and args */
 enum
@@ -267,10 +270,10 @@ gst_guard_pattern_get_type (void)
 
   if (!guard_pattern_type) {
     static GEnumValue pattern_types[] = {
-      { GUARD_INTERVAL_1_32,   "1_32",  "1_32" },
-      { GUARD_INTERVAL_1_16,   "1_16",  "1_16" },
-      { GUARD_INTERVAL_1_8,    "1_8",   "1_8" },
-      { GUARD_INTERVAL_1_4,    "1_4",   "1_4" },
+      { GUARD_INTERVAL_1_32,   "1/32",  "1/32" },
+      { GUARD_INTERVAL_1_16,   "1/16",  "1/16" },
+      { GUARD_INTERVAL_1_8,    "1/8",   "1/8" },
+      { GUARD_INTERVAL_1_4,    "1/4",   "1/4" },
       { GUARD_INTERVAL_AUTO,   "AUTO",  "AUTO" },
       { 0, NULL, NULL },
     };
@@ -295,8 +298,8 @@ gst_transmission_mode_pattern_get_type (void)
 
   if (!transmission_mode_pattern_type) {
     static GEnumValue pattern_types[] = {
-      { TRANSMISSION_MODE_2K,    "2k",    "2k" },
-      { TRANSMISSION_MODE_8K,    "8k",    "8k" },
+      { TRANSMISSION_MODE_2K,    "2K",    "2K" },
+      { TRANSMISSION_MODE_8K,    "8K",    "8K" },
       { TRANSMISSION_MODE_AUTO,  "AUTO",  "AUTO" },
       { 0, NULL, NULL },
     };
@@ -406,7 +409,7 @@ gst_dvbtuner_class_init (GstDvbTunerClass * klass)
   gobject_class->get_property = gst_dvbtuner_get_property;
 
   g_object_class_install_property (gobject_class, PROP_DEBUG_OUTPUT, 
-    g_param_spec_boolean ("debug-output", "DebugOutput", "Produce verbose debug output ?", 
+    g_param_spec_boolean ("debug-output", "DebugOutput", "Produce verbose debug output?", 
 			  FALSE, G_PARAM_READWRITE)); 
 
   g_object_class_install_property (gobject_class, PROP_ADAPTER, 
@@ -1044,71 +1047,6 @@ gst_dvbtuner_get_property (GObject * object, guint prop_id,
     }
   }
 }
-
-/* GstElement vmethod implementations */
-
-/* this function handles the link with other elements */
-/* static gboolean */
-/* gst_dvbtuner_set_caps (GstPad * pad, GstCaps * caps) */
-/* { */
-/*   GstDvbTuner *filter; */
-/*   GstPad *otherpad; */
-
-/*   filter = GST_DVBTUNER (gst_pad_get_parent (pad)); */
-/*   otherpad = (pad == filter->srcpad) ? filter->sinkpad : filter->srcpad; */
-
-/*   return gst_pad_set_caps (pad, caps); */
-/* } */
-
-/* chain function
- * this function does the actual processing
- */
-
-/* static GstFlowReturn */
-/* gst_dvbtuner_chain (GstPad * pad, GstBuffer * buf) */
-/* { */
-/*   GstDvbTuner *filter; */
-
-/*   filter = GST_DVBTUNER (GST_OBJECT_PARENT (pad)); */
-
-/*   if (filter->debug_output == FALSE) */
-/*     g_print ("I'm plugged, therefore I'm in."); */
-
-/*   /\* just push out the incoming buffer without touching it *\/ */
-/*   return gst_pad_push (filter->srcpad, buf); */
-/* } */
-
-
-/* entry point to initialize the plug-in
- * initialize the plug-in itself
- * register the element factories and pad templates
- * register the features
- *
- * exchange the string 'plugin' with your elemnt name
- */
-static gboolean
-plugin_init (GstPlugin * plugin)
-{
-  /* exchange the strings 'plugin' and 'Template plugin' with your
-   * plugin name and description */
-  GST_DEBUG_CATEGORY_INIT (gst_dvbtuner_debug, "dvbtuner",
-      0, "plugin for tuning dvb devices");
-
-  return gst_element_register (plugin, "dvbtuner",
-      GST_RANK_NONE, GST_TYPE_DVBTUNER);
-}
-
-/* this is the structure that gstreamer looks for to register plugins
- *
- * exchange the strings 'plugin' and 'Template plugin' with you plugin name and
- * description
- */
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    "freevo",
-    "freevo specific plugins",
-    plugin_init, VERSION, "GPL", "FreevoBinaryPackage", "http://www.freevo.org/")
-
 
 /******/
 
