@@ -11,6 +11,9 @@ import kaa.record2
 
 filtername2obj = {}
 
+def probe(*args):
+    print args
+
 def onNewPad(splitter, pad):
     global filtername2obj
     print "\n---"
@@ -25,64 +28,61 @@ def onNewPad(splitter, pad):
 #    print pad.get_caps()[0].get_name()
 #    format = pad.get_caps()[0].get_name()
     print "OBJNAME:", filtername2obj[pad.get_name()].get_name()
-    pad.link(filtername2obj[pad.get_name()].get_compatible_pad(pad))
-
+    sink = filtername2obj[pad.get_name()].get_pad('sink')
+    pad.link(sink)
+    # sink.add_data_probe(probe)
     print "---"
 
 
+def add_filesink(pipeline, tssplitter, filename, pids):
+#    pipeline.set_state(gst.STATE_PAUSED);
+    sink = gst.element_factory_make('filesink')
+    sink.set_property('location', filename)
+    name = sink.get_name()
+    filtername2obj[name] = sink
+    pipeline.add(sink)
+    tssplitter.emit("set-filter", name, pids)
+    sink.set_state(gst.STATE_PLAYING)
+#    pipeline.set_state(gst.STATE_PLAYING);
+
+    
 def main():
     global foo
-    
+
+    mainloop = gobject.MainLoop()
+    def bus_event(bus, message):
+        t = message.type
+        if t == gst.MESSAGE_EOS:
+	    print 'EOS'
+            mainloop.quit()
+        elif t == gst.MESSAGE_ERROR:
+            err, debug = message.parse_error()
+            print "Error: %s" % err, debug
+            mainloop.quit()           
+	print message
+        return True
+
+    pipeline = gst.Pipeline("splitterchain")
+    pipeline.get_bus().add_watch(bus_event)
+
     fdsrc = gst.element_factory_make("filesrc", "quelle")
-    fdsrc.set_property('location', '/home/dmeyer/stream.dump')
+    fdsrc.set_property('location', '/home/dmeyer/zdf.ts')
 
     tssplitter = gst.element_factory_make("tssplitter", "mysplitter")
     tssplitter.set_property('debug-output', True)
     tssplitter.connect("pad-added", onNewPad)
 
-    pipeline = gst.Pipeline("splitterchain")
     pipeline.add(fdsrc, tssplitter)
 
     fdsrc.link(tssplitter)
 
     pipeline.set_state(gst.STATE_PLAYING);
 
-    filesinkA = gst.element_factory_make('filesink', 'sinkA')
-    filesinkA.set_property('location', '/tmp/filesinkA.ts')
-    filesinkA.set_property('sync', '1')
-    pipeline.add(filesinkA)
-    filtername2obj["myfilter1"] = filesinkA
+    # add_filesink(pipeline, tssplitter, '/tmp/filesinkA.ts', '110,120')
+    # add_filesink(pipeline, tssplitter, '/tmp/filesinkB.ts', '10')
 
-    filesinkB = gst.element_factory_make('filesink', 'sinkB')
-    filesinkB.set_property('location', '/tmp/filesinkB.ts')
-    filesinkB.set_property('sync', '1')
-    pipeline.add(filesinkB)
-    filtername2obj["myfilter2"] = filesinkB
-
-
-    tssplitter.emit("set-filter", "myfilter2", "386")
-    tssplitter.emit("set-filter", "myfilter1", "110,120")
-
-    print "SLEEPING"
-    time.sleep(1)
-    print "DONE"
-
-#    fdsrc.set_state(gst.STATE_PLAYING);
-#    tssplitter.set_state(gst.STATE_PLAYING);
-#    filesinkA.set_state(gst.STATE_PLAYING);
-#    filesinkB.set_state(gst.STATE_PLAYING);
-    mainloop = gobject.MainLoop()
-
-    def bus_event(bus, message):
-        t = message.type
-        if t == gst.MESSAGE_EOS:
-            mainloop.quit()
-        elif t == gst.MESSAGE_ERROR:
-            err, debug = message.parse_error()
-            print "Error: %s" % err, debug
-            mainloop.quit()           
-        return True
-    pipeline.get_bus().add_watch(bus_event)
+    add_filesink(pipeline, tssplitter, '/tmp/filesinkA.ts', '110,120')
+    add_filesink(pipeline, tssplitter, '/tmp/filesinkB.ts', '110')
 
     mainloop.run()
     pipeline.set_state(gst.STATE_NULL)
