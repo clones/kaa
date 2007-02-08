@@ -448,7 +448,7 @@ static gint process_ts_frames(GstTSSplitter *filter, guint8* buffer, int buflen)
 	  // add ts frame to pad
 	  gst_pad_push (filterlist->pad, gstbuf);
 
-	  DEBUGf("Adding ts frame to pad '%s'\n", filterlist->name);
+	  // DEBUGf("Adding ts frame to pad '%s'\n", filterlist->name);
 	}
 	filterlist++;
       }
