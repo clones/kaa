@@ -77,7 +77,7 @@ for dir in libdirs:
 else:
     print "- X11 not found; disabling X11 support."
 
-libdfb = check_library('directfb', '0.9.20')
+libdfb = False #check_library('directfb', '0.9.20')
 if libdfb and libdfb.compile(['<directfb.h>']):
     config.define('HAVE_DIRECTFB')
     xineso.files.append('src/drivers/dfb.c')
