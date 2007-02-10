@@ -191,17 +191,19 @@ class DVBChannel:
             while self.config['frequency'] < 1000000:
                 self.config['frequency'] *= 1000
 
-        map_config( 'hierarchie', map_hierarchy )
-        map_config( 'bandwidth', map_bandwidth )
-        map_config( 'transmissionmode', map_bandwidth )
-        map_config( 'guardinterval', map_guardinterval )
-        map_config( 'modulation', map_modulation )
-        map_config( 'dataratelow', map_fec )
-        map_config( 'dataratehigh', map_fec )
-        map_config( 'inversion', map_inversion )
+        self.map_config( 'hierarchie', self.map_hierarchy )
+        self.map_config( 'bandwidth', self.map_bandwidth )
+        self.map_config( 'transmissionmode', self.map_bandwidth )
+        self.map_config( 'guardinterval', self.map_guardinterval )
+        self.map_config( 'modulation', self.map_modulation )
+        self.map_config( 'dataratelow', self.map_fec )
+        self.map_config( 'dataratehigh', self.map_fec )
+        self.map_config( 'inversion', self.map_inversion )
 
             
     def map_config(self, key, keydict):
+        if not self.config.has_key( key ):
+            return   
         if self.config[ key ] in keydict.keys():
             self.config[ key ] = keydict[ self.config[ key ] ]
         else:
