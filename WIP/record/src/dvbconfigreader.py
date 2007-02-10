@@ -35,6 +35,7 @@
 # python imports
 import re
 import sys
+import types
 import logging
 import traceback
 
@@ -57,8 +58,57 @@ log = logging.getLogger('record')
 #PREMIERE KRIMI:346000:M64:C:6900:2815:2816:32:1:23:133:2:0
 #
 
-class Channel:
+class DVBChannel:
     # TODO / FIXME add missing compare function
+    map_hierarchy = { 'default': 'AUTO',
+                      '999': 'AUTO',
+                      '0': '0',
+                      '1': '1',
+                      '2': '2',
+                      '4': '4' }
+    
+    map_bandwidth = { 'default': 'AUTO',
+                      '999': 'AUTO',
+                      '6': '6_MHZ',
+                      '7': '7_MHZ',
+                      '8': '8_MHZ' }
+    
+    map_transmissionmode = { 'default': 'AUTO',
+                             '999': 'AUTO',
+                             '2': '2K',
+                             '8': '8K' }
+    
+    map_guardinterval = { 'default': 'AUTO',
+                          '999': 'AUTO',
+                          '4':  '1/4',
+                          '8':  '1/8',
+                          '16': '1/16',
+                          '32': '1/32' }
+    
+    map_modulation = { 'default': 'AUTO',
+                       '999': 'AUTO',
+                       '16': 'QAM_16',
+                       '32': 'QAM_32',
+                       '64': 'QAM_64',
+                       '128': 'QAM_128',
+                       '256': 'QAM_256' }
+    
+    map_fec = { 'default': 'AUTO',
+                '999': 'AUTO',
+                '0': 'NONE',
+                '12': '1/2',
+                '23': '2/3',
+                '34': '3/4',
+                '45': '4/5',
+                '56': '5/6',
+                '67': '6/7',
+                '78': '7/8',
+                '89': '8/9' }
+    
+    map_inversion = { 'default': 'AUTO',
+                      '999': 'AUTO',
+                      '0': 'OFF',
+                      '1': 'ON' }
 
     def __init__(self, line):
         self.re_dvbt = re.compile('^.*?:\d+:([ICDMBTGY]\d+)+:T:\d+:\d+:\d+(,\d+)?(;\d+(,\d+)?)*:\d+:\d+:\d+:\d+:\d+:\d+')
@@ -108,13 +158,13 @@ class Channel:
             if param[0]=='Y':
                 self.config['hierarchie'] = param[1:]
             if param[0]=='H':
-                self.config['polarization'] = param[0]
+                self.config['horizontal_polarization'] = param[1:]
             if param[0]=='V':
-                self.config['polarization'] = param[0]
+                self.config['vertical_polarization'] = param[1:]
             if param[0]=='R':
-                self.config['polarization'] = param[0]
+                self.config['circular_polarization_right'] = param[1:]
             if param[0]=='L':
-                self.config['polarization'] = param[0]
+                self.config['circular_polarization_left'] = param[1:]
 
         self.config['type'] = cells[3][0]
         if len(cells[3]) > 1:
@@ -137,13 +187,37 @@ class Channel:
         self.config['tid'] = cells[11]
         self.config['rid'] = cells[12]
 
+        if self.config['frequency'] > 0:
+            while self.config['frequency'] < 1000000:
+                self.config['frequency'] *= 1000
+
+        map_config( 'hierarchie', map_hierarchy )
+        map_config( 'bandwidth', map_bandwidth )
+        map_config( 'transmissionmode', map_bandwidth )
+        map_config( 'guardinterval', map_guardinterval )
+        map_config( 'modulation', map_modulation )
+        map_config( 'dataratelow', map_fec )
+        map_config( 'dataratehigh', map_fec )
+        map_config( 'inversion', map_inversion )
+
+            
+    def map_config(self, key, keydict):
+        if self.config[ key ] in keydict.keys():
+            self.config[ key ] = keydict[ self.config[ key ] ]
+        else:
+            log.warn('failed to parse %s (%s) - using default %s' % (key, self.config[key], keydict['default']))
+            self.config[key] = keydict[ 'default' ]
+            
  
     def __str__(self):
-        return '%s channel: %s  (vpid=%s  apids=%s)\n' % (self.cfgtype, self.config['name'].ljust(15), self.config['vpid'], self.config['apids'])
+        return '%s channel: %s  (vpid=%s  apids=%s)\n' % (self.cfgtype,
+                                                          self.config['name'].ljust(15),
+                                                          self.config['vpid'],
+                                                          self.config['apids'])
 
 
 
-class Multiplex:
+class DVBMultiplex:
     def __init__(self, name, frequency):
         self.name = name
         self.frequency = frequency
@@ -167,6 +241,30 @@ class Multiplex:
         return True
 
 
+    def keys(self):
+        """ return names of known channels within this multiplex """
+        result = []
+        for chan in self.chanlist:
+            result.append(chan.config['name'])
+        return result
+
+
+    def __getitem__(self, key):
+        """
+        returns channel specified by integer (position) or by name.
+        if specified by name the first matching one is chosen.
+        """
+        if type(key) is types.IntType:
+            return self.chanlist[key]
+        
+        if type(key) is types.StringType:
+            for chan in self.chanlist:
+                if chan.config['name'] == key:
+                    return chan
+            raise KeyError()
+        raise TypeError()
+
+
     def __str__(self):
         s = '\nMULTIPLEX: name=%s  (f=%s)\n' % (self.name.ljust(14), self.frequency)
         for chan in self.chanlist:
@@ -175,7 +273,7 @@ class Multiplex:
 
 
 
-class ChannelConfReader:
+class DVBChannelConfReader:
     def __init__(self, cfgname):
         self.cfgtype = None
         self.multiplexlist = [ ]
@@ -183,39 +281,70 @@ class ChannelConfReader:
         # read config
         self.f = open(cfgname)
         for line in self.f:
-            channel = Channel(line)
+            channel = DVBChannel(line)
             
             if self.cfgtype == None:
                 self.cfgtype = channel.cfgtype
             else:
-#                print channel.cfgtype
-#                print channel.config
                 if self.cfgtype is not channel.cfgtype:
-                    print 'Oops: mixed mode config file! Dropping this line!'
+                    log.warn('Oops: mixed mode config file! Dropping this line!\nline: %s' % line)
                     channel = None
                     
             if channel:
                 for mplex in self.multiplexlist:
+                    log.info('added channel %s to mplex %s' % (channel.config['name'], mplex.name))
                     added = mplex.add( channel )
                     if added:
                         break
                 else:
-                    mplex = Multiplex( channel.config['frequency'], channel.config['frequency'], )
+                    mplex = DVBMultiplex( channel.config['frequency'], channel.config['frequency'], )
                     mplex.add( channel )
                     self.multiplexlist.append(mplex)
+                    log.info('added channel %s to new mplex %s' % (channel.config['name'], mplex.name))
 
 
     # TODO FIXME add missing __getitem__, __contains__
+    # get channel config by
+    # channelconfreader[MULTIPLEXNAME][CHANNELNAME] or
+    # channelconfreader[MULTIPLEXINDEX][CHANNELINDEX]
 
+    def keys(self):
+        """ return names of known multiplexes """
+        result = []
+        for mplex in self.multiplexlist:
+            result.append(mplex.name)
+        return result
+
+
+    def __getitem__(self, key):
+        """
+        returns multiplex specified by integer (position) or by name.
+        if specified by name the first matching one is chosen.
+        """
+        if type(key) is types.IntType:
+            return self.multiplexlist[key]
+        
+        if type(key) is types.StringType:
+            for mplex in self.multiplexlist:
+                if mplex.name == key:
+                    return mplex
+            raise KeyError()
+        raise TypeError()
+
+
+    def get_channel(self, key):
+        for mplex in self.multiplexlist:
+            if key in mplex:
+                return mplex[key]
 
     def __str__(self):
         s = 'MULTIPLEX LIST:\n'
         s += '===============\n'
-        for multiplex in self.multiplexlist:
-            s += str(multiplex)
+        for mplex in self.multiplexlist:
+            s += str(mplex)
         return s
     
 
 if __name__ == '__main__':
-    ccr = ChannelConfReader('./dvbt.conf')
+    ccr = DVBChannelConfReader('./dvb.conf')
     print ccr
