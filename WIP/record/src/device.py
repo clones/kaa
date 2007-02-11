@@ -36,7 +36,7 @@ class Device(object):
     Basic device class defining the needed functions all devices need to
     provide. Override all the functions without calling this class.
     """
-    def start_recording(self, channel, filter_chain):
+    def start_recording(self, channel):
         """
         Start recording the channel to the filter chain. This function needs
         to return a unique id for stopping the recording later.

@@ -1,11 +1,9 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# device.py - Devices for recordings
+# dvbconfigreader.py - Read channels.conf
 # -----------------------------------------------------------------------------
 # $Id$
-#
-# This file defines the possible devices for recording.
 #
 # -----------------------------------------------------------------------------
 # kaa-record - A recording module
@@ -42,22 +40,6 @@ import traceback
 # get logging object
 log = logging.getLogger('record')
 
-# TODO FIXME add more debug output to logger
-
-#
-# DVB-S
-#ARD - Das Erste:11836:h:S19.2E:27500:101:102:104:0:28106:0:0:0
-#RTL World - RTL2:12187:h:S19.2E:27500:167:136=ger:71:0:12060:1:1089:0
-#
-# DVB-T
-#Das Erste:706000:I999C23D23M16B8T8G4Y0:T:27500:257:258:260:0:224:0:0:0
-#ZDF:522000:I999C23D12M16B8T8G4Y0:T:27500:545:546,547;559:551:0:514:0:0:0
-#
-# DVB-C
-#PREMIERE SERIE:346000:M64:C:6900:2559:2560;2563:32:1:16:133:2:0
-#PREMIERE KRIMI:346000:M64:C:6900:2815:2816:32:1:23:133:2:0
-#
-
 class DVBChannel:
     # TODO / FIXME add missing compare function
     map_hierarchy = { 'default': 'AUTO',
@@ -66,25 +48,25 @@ class DVBChannel:
                       '1': '1',
                       '2': '2',
                       '4': '4' }
-    
+
     map_bandwidth = { 'default': 'AUTO',
                       '999': 'AUTO',
                       '6': '6_MHZ',
                       '7': '7_MHZ',
                       '8': '8_MHZ' }
-    
+
     map_transmissionmode = { 'default': 'AUTO',
                              '999': 'AUTO',
                              '2': '2K',
                              '8': '8K' }
-    
+
     map_guardinterval = { 'default': 'AUTO',
                           '999': 'AUTO',
                           '4':  '1/4',
                           '8':  '1/8',
                           '16': '1/16',
                           '32': '1/32' }
-    
+
     map_modulation = { 'default': 'AUTO',
                        '999': 'AUTO',
                        '16': 'QAM_16',
@@ -92,7 +74,7 @@ class DVBChannel:
                        '64': 'QAM_64',
                        '128': 'QAM_128',
                        '256': 'QAM_256' }
-    
+
     map_fec = { 'default': 'AUTO',
                 '999': 'AUTO',
                 '0': 'NONE',
@@ -104,7 +86,7 @@ class DVBChannel:
                 '67': '6/7',
                 '78': '7/8',
                 '89': '8/9' }
-    
+
     map_inversion = { 'default': 'AUTO',
                       '999': 'AUTO',
                       '0': 'OFF',
@@ -193,10 +175,10 @@ class DVBChannel:
             lst = []
             for t in i.split(','):
                 if '=' in t:
-                    lst.append( t.split('=') )
+                    lst.append( tuple(t.split('=')) )
                 else:
-                    lst.append( [ t, '' ] )
-            self.config['apids'].append(lst)
+                    lst.append( ( t, '' ) )
+            self.config['apids'].extend(lst)
 
         self.config['tpid'] = cells[7]
         self.config['caid'] = cells[8]
@@ -218,23 +200,26 @@ class DVBChannel:
         self.map_config( 'dataratehigh', self.map_fec )
         self.map_config( 'inversion', self.map_inversion )
 
-            
+
     def map_config(self, key, keydict):
         if not self.config.has_key( key ):
-            return   
+            return
         if self.config[ key ] in keydict.keys():
             self.config[ key ] = keydict[ self.config[ key ] ]
         else:
-            log.warn('failed to parse %s (%s) - using default %s' % (key, self.config[key], keydict['default']))
+            log.warn('failed to parse %s (%s) - using default %s',
+                     key, self.config[key], keydict['default'])
             self.config[key] = keydict[ 'default' ]
-            
- 
+
+
+    def __repr__(self):
+        return '<kaa.record.DVBChannel %s>' % self.config['name']
+
+
     def __str__(self):
-        return '%s channel: %s [%s] (vpid=%s  apids=%s)' % (self.cfgtype,
-                                                          self.config['name'].ljust(25),
-                                                          self.config['bouquet'].ljust(25),
-                                                          self.config['vpid'],
-                                                          self.config['apids'])
+        return '%s channel: %-25s [%-25s] (vpid=%s  apids=%s)' \
+               % (self.cfgtype, self.config['name'], self.config['bouquet'],
+                  self.config['vpid'], self.config['apids'])
 
 
 
@@ -257,8 +242,10 @@ class DVBMultiplex:
 
 
     def remove(self, channame):
-        # TODO FIXME return value returns True if channel with channame was found and deleted otherwise False
-        self.chanlist = filter(lambda chan: chan.config['name'] == channame, self.chanlist)
+        # TODO FIXME return value returns True if channel with channame
+        # was found and deleted otherwise False
+        self.chanlist = filter(lambda chan: chan.config['name'] == channame,
+                               self.chanlist)
         return True
 
 
@@ -277,7 +264,7 @@ class DVBMultiplex:
         """
         if type(key) is types.IntType:
             return self.chanlist[key]
-        
+
         if type(key) is types.StringType:
             for chan in self.chanlist:
                 if chan.config['name'] == key:
@@ -286,11 +273,14 @@ class DVBMultiplex:
         raise TypeError()
 
 
+    def __repr__(self):
+        return '<kaa.record.DVBMultiplex: %s' % self.name
+
     def __str__(self):
-        s = '\nMULTIPLEX: name=%s  (f=%s)' % (self.name.__str__().ljust(14), self.frequency)
+        s = 'Multiplex: %-25s (f=%s)\n' % (self.name, self.frequency)
         for chan in self.chanlist:
             s += str(chan) + '\n'
-        return s
+        return s + '\n'
 
 
 
@@ -303,26 +293,28 @@ class DVBChannelConfReader:
         self.f = open(cfgname)
         for line in self.f:
             channel = DVBChannel(line)
-            
+
             if self.cfgtype == None:
                 self.cfgtype = channel.cfgtype
+            elif self.cfgtype is not channel.cfgtype:
+                if channel.cfgtype != 'COMMENT':
+                    log.warn('Oops: mixed mode config file!')
+                    log.warn('Drop: %s' % line.strip())
+                continue
+
+            for mplex in self.multiplexlist:
+                added = mplex.add( channel )
+                if added:
+                    log.info('added channel %s to mplex %s',
+                             channel.config['name'], mplex.name)
+                    break
             else:
-                if self.cfgtype is not channel.cfgtype:
-                    if channel.cfgtype != 'COMMENT':
-                        log.warn('Oops: mixed mode config file! Dropping this line!\nline: %s' % line)
-                    channel = None
-                    
-            if channel:
-                for mplex in self.multiplexlist:
-                    added = mplex.add( channel )
-                    if added:
-                        log.info('added channel %s to mplex %s' % (channel.config['name'], mplex.name))
-                        break
-                else:
-                    mplex = DVBMultiplex( channel.config['frequency'], channel.config['frequency'], )
-                    mplex.add( channel )
-                    self.multiplexlist.append(mplex)
-                    log.info('added channel %s to new mplex %s' % (channel.config['name'], mplex.name))
+                mplex = DVBMultiplex( channel.config['frequency'],
+                                      channel.config['frequency'], )
+                mplex.add( channel )
+                self.multiplexlist.append(mplex)
+                log.info('added channel %s to new mplex %s',
+                         channel.config['name'], mplex.name)
 
 
     # TODO FIXME add missing __getitem__, __contains__
@@ -345,7 +337,7 @@ class DVBChannelConfReader:
         """
         if type(key) is types.IntType:
             return self.multiplexlist[key]
-        
+
         if type(key) is types.StringType:
             for mplex in self.multiplexlist:
                 if mplex.name == key:
@@ -366,7 +358,7 @@ class DVBChannelConfReader:
         for mplex in self.multiplexlist:
             s += str(mplex)
         return s
-    
+
 
 if __name__ == '__main__':
     log = logging.getLogger()
@@ -379,7 +371,7 @@ if __name__ == '__main__':
     log.addHandler(handler)
 
     logging.getLogger().setLevel(logging.DEBUG)
-    ccr = DVBChannelConfReader('./dvbs.conf')
+    ccr = DVBChannelConfReader('test/dvbs.conf')
     print ccr
     print '---------------'
     print 'find channel "n-tv":'

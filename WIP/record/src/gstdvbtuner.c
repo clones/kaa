@@ -1,58 +1,33 @@
 /*
- * GStreamer
- * Copyright 2005 Thomas Vander Stichele <thomas@apestaart.org>
- * Copyright 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
+ * ----------------------------------------------------------------------------
+ * GStreamer DVB Tuner
+ * ----------------------------------------------------------------------------
+ * $Id$
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * ----------------------------------------------------------------------------
+ * kaa.record - Recording Module based on GStreamer
+ * Copyright (C) 2007 Sönke Schwardt, Dirk Meyer
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * First Edition: Sönke Schwardt <bulk@schwardtnet.de>
+ * Maintainer:    Sönke Schwardt <bulk@schwardtnet.de>
  *
- * Alternatively, the contents of this file may be used under the
- * GNU Lesser General Public License Version 2.1 (the "LGPL"), in
- * which case the following provisions apply instead of the ones
- * mentioned above:
+ * Please see the file AUTHORS for a complete list of authors.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+ * CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+ * Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
- */
-
-/**
- * SECTION:element-plugin
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * <refsect2>
- * <title>Example launch line</title>
- * <para>
- * <programlisting>
- * gst-launch -v -m audiotestsrc ! plugin ! fakesink silent=TRUE
- * </programlisting>
- * </para>
- * </refsect2>
+ * ----------------------------------------------------------------------------
  */
 
 #include <stdint.h>
@@ -408,46 +383,46 @@ gst_dvbtuner_class_init (GstDvbTunerClass * klass)
   gobject_class->set_property = gst_dvbtuner_set_property;
   gobject_class->get_property = gst_dvbtuner_get_property;
 
-  g_object_class_install_property (gobject_class, PROP_DEBUG_OUTPUT, 
-    g_param_spec_boolean ("debug-output", "DebugOutput", "Produce verbose debug output?", 
-			  FALSE, G_PARAM_READWRITE)); 
+  g_object_class_install_property (gobject_class, PROP_DEBUG_OUTPUT,
+    g_param_spec_boolean ("debug-output", "DebugOutput", "Produce verbose debug output?",
+			  FALSE, G_PARAM_READWRITE));
 
-  g_object_class_install_property (gobject_class, PROP_ADAPTER, 
-    g_param_spec_uint ("adapter", "Adapter", "Number of adapter", 
-                       0, 1024, 0, G_PARAM_READWRITE)); 
+  g_object_class_install_property (gobject_class, PROP_ADAPTER,
+    g_param_spec_uint ("adapter", "Adapter", "Number of adapter",
+                       0, 1024, 0, G_PARAM_READWRITE));
 
   g_object_class_install_property (gobject_class, PROP_FRONTENDNAME,
-    g_param_spec_string ("frontendname", "FrontendName", "name of frontend", 
-			"", G_PARAM_READABLE)); 
+    g_param_spec_string ("frontendname", "FrontendName", "name of frontend",
+			"", G_PARAM_READABLE));
 
   g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_FRONTENDTYPE,
     g_param_spec_enum ("frontendtype", "Frontend Type",
 		       "Type of frontend",
 		       GST_TYPE_FRONTENDTYPE_PATTERN, 1, G_PARAM_READABLE));
 
-  g_object_class_install_property (gobject_class, PROP_HWDECODER, 
-    g_param_spec_boolean ("hwdecoder", "HardwareDecoder", "Is a hardware decoder present?", 
-			  FALSE, G_PARAM_READABLE)); 
+  g_object_class_install_property (gobject_class, PROP_HWDECODER,
+    g_param_spec_boolean ("hwdecoder", "HardwareDecoder", "Is a hardware decoder present?",
+			  FALSE, G_PARAM_READABLE));
 
-  g_object_class_install_property (gobject_class, PROP_STATUS, 
-    g_param_spec_string ("status", "FrontendStatus", "current frontend status", 
-			 "", G_PARAM_READABLE)); 
+  g_object_class_install_property (gobject_class, PROP_STATUS,
+    g_param_spec_string ("status", "FrontendStatus", "current frontend status",
+			 "", G_PARAM_READABLE));
 
-  g_object_class_install_property (gobject_class, PROP_FREQUENCY, 
-    g_param_spec_uint ("frequency", "Frequency", "frequency of channel", 
-                       0, G_MAXUINT, 0, G_PARAM_READWRITE)); 
+  g_object_class_install_property (gobject_class, PROP_FREQUENCY,
+    g_param_spec_uint ("frequency", "Frequency", "frequency of channel",
+                       0, G_MAXUINT, 0, G_PARAM_READWRITE));
 
-  g_object_class_install_property (gobject_class, PROP_POLARISATION, 
-    g_param_spec_boolean ("polarisation", "Polarisation", "polarisation (true=H ; false=V)", 
-                       FALSE, G_PARAM_READWRITE)); 
+  g_object_class_install_property (gobject_class, PROP_POLARISATION,
+    g_param_spec_boolean ("polarisation", "Polarisation", "polarisation (true=H ; false=V)",
+                       FALSE, G_PARAM_READWRITE));
 
-  g_object_class_install_property (gobject_class, PROP_SAT_NO, 
-    g_param_spec_uint ("sat-no", "SatNo", "FIXME SatNo", 
-                       0, G_MAXUINT, 0, G_PARAM_READWRITE)); 
+  g_object_class_install_property (gobject_class, PROP_SAT_NO,
+    g_param_spec_uint ("sat-no", "SatNo", "FIXME SatNo",
+                       0, G_MAXUINT, 0, G_PARAM_READWRITE));
 
-  g_object_class_install_property (gobject_class, PROP_SYM_RATE, 
-    g_param_spec_uint ("symbol-rate", "Symbol-rate", "FIXME symbol-rate", 
-                       0, G_MAXUINT, 0, G_PARAM_READWRITE)); 
+  g_object_class_install_property (gobject_class, PROP_SYM_RATE,
+    g_param_spec_uint ("symbol-rate", "Symbol-rate", "FIXME symbol-rate",
+                       0, G_MAXUINT, 0, G_PARAM_READWRITE));
 
   g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_INVERSION,
     g_param_spec_enum ("inversion", "Inversion",  "FIXME inversion",
@@ -500,7 +475,7 @@ gst_dvbtuner_class_init (GstDvbTunerClass * klass)
 		  G_TYPE_NONE,                                     /* return type */
 		  1,                                               /* n_params */
 		  G_TYPE_INT);                                     /* param types */
-  
+
   gst_dvbtuner_signals[SIGNAL_REMOVE_PID] =
     g_signal_new ("remove-pid",                                    /* signal name */
 		  G_TYPE_FROM_CLASS (klass),                       /* itype */
@@ -512,7 +487,7 @@ gst_dvbtuner_class_init (GstDvbTunerClass * klass)
 		  G_TYPE_NONE,                                     /* return type */
 		  1,                                               /* n_params */
 		  G_TYPE_INT);                                     /* param types */
-  
+
   gst_dvbtuner_signals[SIGNAL_CLEAR_PIDS] =
     g_signal_new ("clear-pids",                                    /* signal name */
 		  G_TYPE_FROM_CLASS (klass),                       /* itype */
@@ -551,7 +526,7 @@ gst_dvbtuner_init (GstDvbTuner * filter,
     GstDvbTunerClass * gclass)
 {
   int i;
-  
+
 /*   GstElementClass *klass = GST_ELEMENT_GET_CLASS (filter); */
 
 /*   filter->sinkpad = */
@@ -588,7 +563,7 @@ gst_dvbtuner_init (GstDvbTuner * filter,
   for(i = 0; i < GST_DVBTUNER_INIT_PIDLIST_LEN; ++i) {
     filter->pidlist.array[i].pid = -1;
     filter->pidlist.array[i].fd = -1;
-  }    
+  }
   filter->pidlist.cnt = 4;
   filter->pidlist.free = 4;
 
@@ -613,16 +588,16 @@ gst_dvbtuner_set_property (GObject * object, guint prop_id,
       filter->debug_output = g_value_get_boolean (value);
       break;
     }
-  case PROP_ADAPTER:  
+  case PROP_ADAPTER:
     {
       guint new_adapter = g_value_get_uint(value);
       DEBUGf("setting adapter from %d to %d", filter->adapter, new_adapter);
       filter->adapter = new_adapter;
-      
+
       gst_dvbtuner_set_new_adapter_fn(filter);
-      
+
       gst_dvbtuner_tuner_init(filter);
-      break;  
+      break;
     }
   default:
     {
@@ -656,7 +631,7 @@ gst_dvbtuner_set_property (GObject * object, guint prop_id,
 	      filter->sat_no = g_value_get_uint(value);
 	      break;
 	    }
-	    
+
 	  case PROP_SYM_RATE:
 	    {
 	      /* FIXME: adjust value (multiply with 1000) or not? */
@@ -694,13 +669,13 @@ gst_dvbtuner_set_property (GObject * object, guint prop_id,
 	      filter->feparam.u.qam.symbol_rate = g_value_get_uint(value);
 	      break;
 	    }
-	    
+
 	  case PROP_FEC:
 	    {
 	      filter->feparam.u.qam.fec_inner = g_value_get_enum (value);
 	      break;
 	    }
-	    
+
 	  case PROP_MODULATION:
 	    {
 	      filter->feparam.u.qam.modulation = g_value_get_enum (value);
@@ -715,7 +690,7 @@ gst_dvbtuner_set_property (GObject * object, guint prop_id,
 	  }
 	  break;
 	}
-	    
+
       case FE_OFDM:
 	{
 	  switch (prop_id) {
@@ -739,7 +714,7 @@ gst_dvbtuner_set_property (GObject * object, guint prop_id,
 	      filter->feparam.u.ofdm.bandwidth = g_value_get_enum(value);
 	      break;
 	    }
-	    
+
 	  case PROP_CODE_RATE_HIGH_PRIO:
 	    {
 	      filter->feparam.u.ofdm.code_rate_HP = g_value_get_enum(value);
@@ -784,7 +759,7 @@ gst_dvbtuner_set_property (GObject * object, guint prop_id,
 	  }
 	  break;
 	}
-	    
+
       case FE_ATSC:
 	{
 	  switch (prop_id) {
@@ -827,30 +802,30 @@ gst_dvbtuner_get_property (GObject * object, guint prop_id,
       break;
     }
 
-  case PROP_ADAPTER:  
+  case PROP_ADAPTER:
     {
       g_value_set_uint (value, filter->adapter);
-      break;  
+      break;
     }
 
-  case PROP_FRONTENDTYPE: 
+  case PROP_FRONTENDTYPE:
     {
       if (filter->fd_frontend_dev >= 0) {
-	g_value_set_enum (value, filter->feinfo.type); 
+	g_value_set_enum (value, filter->feinfo.type);
       } else {
 	g_value_set_enum (value, GST_FRONTENDTYPE_UNKNOWN);
       }
-      break; 
+      break;
     }
 
   case PROP_FRONTENDNAME:
     {
       if (filter->fn_frontend_dev && filter->feinfo.name) {
-	g_value_set_string (value, filter->feinfo.name); 
+	g_value_set_string (value, filter->feinfo.name);
       } else {
 	g_value_set_string (value, "");
       }
-      break; 
+      break;
     }
 
   case PROP_HWDECODER:
@@ -895,7 +870,7 @@ gst_dvbtuner_get_property (GObject * object, guint prop_id,
 	      g_value_set_uint (value, filter->sat_no);
 	      break;
 	    }
-	    
+
 	  case PROP_SYM_RATE:
 	    {
 	      /* FIXME: adjust value (multiply with 1000) or not? */
@@ -932,13 +907,13 @@ gst_dvbtuner_get_property (GObject * object, guint prop_id,
 	      g_value_set_uint (value, filter->feparam.u.qam.symbol_rate);
 	      break;
 	    }
-	    
+
 	  case PROP_FEC:
 	    {
 	      g_value_set_uint (value, filter->feparam.u.qam.fec_inner);
 	      break;
 	    }
-	    
+
 	  case PROP_MODULATION:
 	    {
 	      g_value_set_enum (value, filter->feparam.u.qam.modulation);
@@ -974,7 +949,7 @@ gst_dvbtuner_get_property (GObject * object, guint prop_id,
 	      g_value_set_enum (value, filter->feparam.u.ofdm.bandwidth);
 	      break;
 	    }
-	    
+
 	  case PROP_CODE_RATE_HIGH_PRIO:
 	    {
 	      g_value_set_enum (value, filter->feparam.u.ofdm.code_rate_HP);
@@ -1019,7 +994,7 @@ gst_dvbtuner_get_property (GObject * object, guint prop_id,
 	  }
 	  break;
 	}
-	    
+
       case FE_ATSC:
 	{
 	  switch (prop_id) {
@@ -1051,7 +1026,7 @@ gst_dvbtuner_get_property (GObject * object, guint prop_id,
 /******/
 
 static void
-gst_dvbtuner_set_new_adapter_fn(GstDvbTuner *filter) 
+gst_dvbtuner_set_new_adapter_fn(GstDvbTuner *filter)
 {
   if (filter->fn_frontend_dev) {
     g_free(filter->fn_frontend_dev);
@@ -1064,23 +1039,23 @@ gst_dvbtuner_set_new_adapter_fn(GstDvbTuner *filter)
   }
   filter->fn_demux_dev = g_malloc( GST_DVBTUNER_FN_MAX_LEN+1 );
   snprintf(filter->fn_demux_dev, GST_DVBTUNER_FN_MAX_LEN, "/dev/dvb/adapter%i/demux0", filter->adapter);
-  
+
   if (filter->fn_dvr_dev) {
     g_free(filter->fn_dvr_dev);
   }
   filter->fn_dvr_dev = g_malloc( GST_DVBTUNER_FN_MAX_LEN+1 );
   snprintf(filter->fn_dvr_dev, GST_DVBTUNER_FN_MAX_LEN, "/dev/dvb/adapter%i/dvr0", filter->adapter);
-  
+
   if (filter->fn_video_dev) {
     g_free(filter->fn_video_dev);
   }
   filter->fn_video_dev = g_malloc( GST_DVBTUNER_FN_MAX_LEN+1 );
-  snprintf(filter->fn_video_dev, GST_DVBTUNER_FN_MAX_LEN, "/dev/dvb/adapter%i/video0", filter->adapter);  
+  snprintf(filter->fn_video_dev, GST_DVBTUNER_FN_MAX_LEN, "/dev/dvb/adapter%i/video0", filter->adapter);
 }
 
 
 static void
-gst_dvbtuner_tuner_release(GstDvbTuner *filter) 
+gst_dvbtuner_tuner_release(GstDvbTuner *filter)
 {
   if (filter->fd_frontend_dev != -1) {
     close(filter->fd_frontend_dev);
@@ -1091,7 +1066,7 @@ gst_dvbtuner_tuner_release(GstDvbTuner *filter)
     close(filter->fd_video_dev);
     filter->fd_video_dev = -1;
   }
-    
+
   DEBUGf("FIXME! NOW!");
   // - alle file deskriptoren schließen
   // - set status to DOWN
@@ -1132,7 +1107,7 @@ gst_dvbtuner_tuner_init(GstDvbTuner *filter)
     if(filter->feinfo.type==FE_OFDM) DEBUGf("TER Card (DVB-T)");
     if(filter->feinfo.type==FE_ATSC) DEBUGf("US Card (?)");
   }
-  
+
   if ((filter->fd_video_dev=open(filter->fn_video_dev, O_RDWR)) < 0) {
     filter->hwdecoder = FALSE;
     DEBUGf("hardware decoder absent");
@@ -1162,7 +1137,7 @@ gst_dvbtuner_add_pid (GstDvbTuner *filter, uint pid)
 
   /* request more mempry if needed */
   if (filter->pidlist.free == 0) {
-    DEBUGf("no free space (cnt=%d/free=%d) - requesting more memory", 
+    DEBUGf("no free space (cnt=%d/free=%d) - requesting more memory",
 	   filter->pidlist.cnt, filter->pidlist.free);
 
     gint oldsize = filter->pidlist.cnt;
@@ -1175,7 +1150,7 @@ gst_dvbtuner_add_pid (GstDvbTuner *filter, uint pid)
       filter->pidlist.array[i].fd = -1;
     }
   }
-  
+
   /* add new pid and fd */
   i = 0;
   while((i < filter->pidlist.cnt) && (filter->pidlist.array[i].pid != -1)) {
@@ -1198,8 +1173,8 @@ gst_dvbtuner_add_pid (GstDvbTuner *filter, uint pid)
     M.output   = DMX_OUT_TS_TAP;
     M.pes_type = DMX_PES_OTHER;
     M.flags    = DMX_IMMEDIATE_START;
-    
-    DEBUGf( "ioctl(%d, DMX_SET_PES_FILTER)  pid=%d", 
+
+    DEBUGf( "ioctl(%d, DMX_SET_PES_FILTER)  pid=%d",
 	    filter->pidlist.array[i].fd, filter->pidlist.array[i].pid);
     if (ioctl(filter->pidlist.array[i].fd, DMX_SET_PES_FILTER, &M) < 0) {
       g_warning("ioctl failed: %s", strerror(errno));
@@ -1219,7 +1194,7 @@ gst_dvbtuner_remove_pid (GstDvbTuner *filter, uint pid)
 	      filter->pidlist.array[i].fd, filter->pidlist.array[i].pid);
       ioctl(filter->pidlist.array[i].fd, DMX_STOP);
       close(filter->pidlist.array[i].fd);
-      
+
       filter->pidlist.array[i].pid = -1;
       filter->pidlist.array[i].fd = -1;
 
@@ -1262,7 +1237,7 @@ gst_dvbtuner_set_diseqc(GstDvbTuner *filter)
     return -1;
   }
 
-  if (ioctl(filter->fd_frontend_dev, FE_SET_VOLTAGE, 
+  if (ioctl(filter->fd_frontend_dev, FE_SET_VOLTAGE,
 	    filter->hor_polarisation ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18) < 0) {
     g_warning( "FE_SET_VOLTAGE: failed");
     return -1;
@@ -1275,14 +1250,14 @@ gst_dvbtuner_set_diseqc(GstDvbTuner *filter)
   }
 
   usleep(15000);
-  if (ioctl(filter->fd_frontend_dev, FE_DISEQC_SEND_BURST, 
+  if (ioctl(filter->fd_frontend_dev, FE_DISEQC_SEND_BURST,
 	    (filter->sat_no / 4) % 2 ? SEC_MINI_B : SEC_MINI_A) < 0) {
     g_warning( "FE_DISEQC_SEND_BURST: failed");
     return -1;
   }
 
   usleep(15000);
-  if (ioctl(filter->fd_frontend_dev, FE_SET_TONE, 
+  if (ioctl(filter->fd_frontend_dev, FE_SET_TONE,
 	    filter->tone ? SEC_TONE_ON : SEC_TONE_OFF) < 0) {
     g_warning( "FE_SET_TONE: failed");
     return -1;
@@ -1323,13 +1298,13 @@ gst_dvbtuner_tune(GstDvbTuner *filter)
   } else {
     DEBUGf( "FIXME: print debug output" );
   }
-  
+
   /* discard stale events */
   while (ioctl(filter->fd_frontend_dev, FE_GET_EVENT, &event) != -1);
 
   DEBUGf("about to set frontend parameters\n");
   if (ioctl(filter->fd_frontend_dev, FE_SET_FRONTEND, &filter->feparam) < 0) {
-    g_warning("ioctl(%d, FE_SET_FRONTEND, feparam) failed: %s", 
+    g_warning("ioctl(%d, FE_SET_FRONTEND, feparam) failed: %s",
 	      filter->fd_frontend_dev, strerror(errno));
   }
 
@@ -1350,9 +1325,9 @@ gst_dvbtuner_get_status(GstDvbTuner *filter)
     snprintf(txt, 8191, "FRONTEND NOT READY");
 
   } else {
-    
+
     snprintf(txt, 8191, "ERROR");
-    
+
     if (ioctl(filter->fd_frontend_dev, FE_READ_STATUS, &status) < 0) {
       g_warning("FE_READ_STATUS failed: %s", strerror(errno));
       return txt;
@@ -1384,7 +1359,7 @@ gst_dvbtuner_get_status(GstDvbTuner *filter)
 	     (status & FE_HAS_SYNC   ? " FE_HAS_SYNC"   : ""),
 	     signal,snr, ber, uncorrected_blocks );
   }
-  
+
   // DEBUGf( "%s", txt );
 
   return txt;
