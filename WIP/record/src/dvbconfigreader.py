@@ -47,7 +47,7 @@ log = logging.getLogger('record')
 #
 # DVB-S
 #ARD - Das Erste:11836:h:S19.2E:27500:101:102:104:0:28106:0:0:0
-#ARD - Bayerisches FS:11836:h:S19.2E:27500:201:202:204:0:28107:0:0:0
+#RTL World - RTL2:12187:h:S19.2E:27500:167:136=ger:71:0:12060:1:1089:0
 #
 # DVB-T
 #Das Erste:706000:I999C23D23M16B8T8G4Y0:T:27500:257:258:260:0:224:0:0:0
@@ -110,32 +110,47 @@ class DVBChannel:
                       '0': 'OFF',
                       '1': 'ON' }
 
+
+
     def __init__(self, line):
-        self.re_dvbt = re.compile('^.*?:\d+:([ICDMBTGY]\d+)+:T:\d+:\d+:\d+(,\d+)?(;\d+(,\d+)?)*:\d+:\d+:\d+:\d+:\d+:\d+')
-        self.re_dvbc = re.compile('^.*?:\d+:([ICDMBTGY]\d+)+:C:\d+:\d+:\d+(,\d+)?(;\d+(,\d+)?)*:\d+:\d+:\d+:\d+:\d+:\d+')
-        self.re_dvbs = re.compile('^.*?:\d+:[HV]([ICDMBTGY]\d+)*:S\d+(\.\d+)?[EeWw]:\d+:\d+:\d+(,\d+)?(;\d+(,\d+)?)*:\d+:\d+:\d+:\d+:\d+:\d+', re.IGNORECASE)
+        self.re_dvbt = re.compile('^.*?:\d+:([ICDMBTGY]\d+)+:T:\d+:\d+:\d+(=\w+)?(,\d+(=\w+)?)?(;\d+(=\w+)?(,\d+(=\w+)?)?)*:\d+:\d+:\d+:\d+:\d+:\d+')
+        self.re_dvbc = re.compile('^.*?:\d+:([ICDMBTGY]\d+)+:C:\d+:\d+:\d+(=\w+)?(,\d+(=\w+)?)?(;\d+(=\w+)?(,\d+(=\w+)?)?)*:\d+:\d+:\d+:\d+:\d+:\d+')
+        self.re_dvbs = re.compile('^.*?:\d+:[HV]([ICDMBTGY]\d+)*:S\d+(\.\d+)?[EeWw]:\d+:\d+:\d+(=\w+)?(,\d+(=\w+)?)?(;\d+(=\w+)?(,\d+(=\w+)?)?)*:\d+:\d+:\d+:\d+:\d+:\d+', re.IGNORECASE)
 
 
         self.config = { }
         self.line = line.strip('\n')
         self.cfgtype = None
 
-        if self.line[0] == '#':
+        if len(self.line) == 0:
             self.cfgtype = 'COMMENT'
-        if self.re_dvbt.match(line):
+        elif self.line[0] == '#':
+            self.cfgtype = 'COMMENT'
+        elif self.re_dvbt.match(line):
             self.cfgtype = 'DVB-T'
-        if self.re_dvbc.match(line):
+        elif self.re_dvbc.match(line):
             self.cfgtype = 'DVB-C'
-        if self.re_dvbs.match(line):
+        elif self.re_dvbs.match(line):
             self.cfgtype = 'DVB-S'
 
         if self.cfgtype == None:
             log.error('failed to parse config line:\n%s' % self.line)
             return None
 
+        if self.cfgtype == 'COMMENT':
+            return None
+
         cells = self.line.split(':')
-        
-        self.config['name'] = cells[0]
+
+        if ';' in cells[0]:
+            self.config['name'] = cells[0].split(';')[0]
+            self.config['bouquet'] = cells[0].split(';')[1]
+        else:
+            self.config['name'] = cells[0]
+            self.config['bouquet'] = ''
+
+        self.config['name'] = self.config['name'].replace('|', ':')
+        self.config['bouquet'] = self.config['bouquet'].replace('|', ':')
         self.config['frequency'] = cells[1]
         
         # get params
@@ -177,7 +192,10 @@ class DVBChannel:
         for i in cells[6].split(';'):
             lst = []
             for t in i.split(','):
-                lst.append(t)
+                if '=' in t:
+                    lst.append( t.split('=') )
+                else:
+                    lst.append( [ t, '' ] )
             self.config['apids'].append(lst)
 
         self.config['tpid'] = cells[7]
@@ -212,8 +230,9 @@ class DVBChannel:
             
  
     def __str__(self):
-        return '%s channel: %s  (vpid=%s  apids=%s)\n' % (self.cfgtype,
-                                                          self.config['name'].ljust(15),
+        return '%s channel: %s [%s] (vpid=%s  apids=%s)\n' % (self.cfgtype,
+                                                          self.config['name'].ljust(25),
+                                                          self.config['bouquet'].ljust(25),
                                                           self.config['vpid'],
                                                           self.config['apids'])
 
@@ -289,14 +308,15 @@ class DVBChannelConfReader:
                 self.cfgtype = channel.cfgtype
             else:
                 if self.cfgtype is not channel.cfgtype:
-                    log.warn('Oops: mixed mode config file! Dropping this line!\nline: %s' % line)
+                    if channel.cfgtype != 'COMMENT':
+                        log.warn('Oops: mixed mode config file! Dropping this line!\nline: %s' % line)
                     channel = None
                     
             if channel:
                 for mplex in self.multiplexlist:
-                    log.info('added channel %s to mplex %s' % (channel.config['name'], mplex.name))
                     added = mplex.add( channel )
                     if added:
+                        log.info('added channel %s to mplex %s' % (channel.config['name'], mplex.name))
                         break
                 else:
                     mplex = DVBMultiplex( channel.config['frequency'], channel.config['frequency'], )
@@ -336,8 +356,9 @@ class DVBChannelConfReader:
 
     def get_channel(self, key):
         for mplex in self.multiplexlist:
-            if key in mplex:
+            if key in mplex.keys():
                 return mplex[key]
+        return None
 
     def __str__(self):
         s = 'MULTIPLEX LIST:\n'
@@ -348,5 +369,19 @@ class DVBChannelConfReader:
     
 
 if __name__ == '__main__':
-    ccr = DVBChannelConfReader('./dvb.conf')
+    log = logging.getLogger()
+    for l in log.handlers:
+        log.removeHandler(l)
+    formatter = logging.Formatter('%(levelname)s %(module)s'+ \
+                                  '(%(lineno)s): %(message)s')
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    log.addHandler(handler)
+
+    logging.getLogger().setLevel(logging.DEBUG)
+    ccr = DVBChannelConfReader('./dvbs.conf')
     print ccr
+    print '---'
+    print ccr.get_channel('n-tv')
+    print ccr.get_channel('n-tv').config
+
