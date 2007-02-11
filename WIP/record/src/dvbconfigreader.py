@@ -151,8 +151,8 @@ class DVBChannel:
 
         self.config['name'] = self.config['name'].replace('|', ':')
         self.config['bouquet'] = self.config['bouquet'].replace('|', ':')
-        self.config['frequency'] = cells[1]
-        
+        self.config['frequency'] = int(cells[1])
+
         # get params
         re_params = re.compile('([ICDMBTGYHV]\d*)',re.IGNORECASE)
         for param in re_params.findall(cells[2].upper()):
@@ -230,7 +230,7 @@ class DVBChannel:
             
  
     def __str__(self):
-        return '%s channel: %s [%s] (vpid=%s  apids=%s)\n' % (self.cfgtype,
+        return '%s channel: %s [%s] (vpid=%s  apids=%s)' % (self.cfgtype,
                                                           self.config['name'].ljust(25),
                                                           self.config['bouquet'].ljust(25),
                                                           self.config['vpid'],
@@ -287,9 +287,9 @@ class DVBMultiplex:
 
 
     def __str__(self):
-        s = '\nMULTIPLEX: name=%s  (f=%s)\n' % (self.name.ljust(14), self.frequency)
+        s = '\nMULTIPLEX: name=%s  (f=%s)' % (self.name.__str__().ljust(14), self.frequency)
         for chan in self.chanlist:
-            s += str(chan)
+            s += str(chan) + '\n'
         return s
 
 
@@ -381,7 +381,10 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     ccr = DVBChannelConfReader('./dvbs.conf')
     print ccr
-    print '---'
+    print '---------------'
+    print 'find channel "n-tv":'
     print ccr.get_channel('n-tv')
+    print '---------------'
+    print 'find channel "n-tv":'
     print ccr.get_channel('n-tv').config
 

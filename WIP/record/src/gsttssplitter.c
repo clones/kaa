@@ -1,15 +1,3 @@
-/**
- * SECTION:element-plugin
- *
- * <refsect2>
- * <title>Example launch line</title>
- * <para>
- * <programlisting>
- * gst-launch -v -m audiotestsrc ! plugin ! fakesink silent=TRUE
- * </programlisting>
- * </para>
- * </refsect2>
- */
 
 #include <assert.h>
 #include <string.h>
@@ -469,7 +457,6 @@ gst_tssplitter_chain (GstPad * pad, GstBuffer * buf)
   static int i = 0;
 
   filter = GST_TSSPLITTER (GST_OBJECT_PARENT (pad));
-  //  DEBUGf("chain\n");
 
 /*   DEBUGf("bytes from last iteration=%d\n", GST_BUFFER_SIZE(filter->inbuffer)); */
 /*   printHexDump( GST_BUFFER_SIZE(filter->inbuffer), filter->inbuffer->data ); */
@@ -620,17 +607,42 @@ gst_tssplitter_remove_filter(GstTSSplitter *filter, char *name)
   DEBUGf("remove_filter(%s)", name);
 
   GstTSSplitterFilter *pidfilter = NULL;
+  int i = 0;
 
+  // find pidfilter to be removed
   pidfilter = gst_tssplitter_find_filter(filter, name);
   DEBUGf("remove_filter(%s)=%p", name, pidfilter);
   if (!pidfilter)
     return;
 
-  // TODO/FIXME
-  // PAD ENTFERNEN
-  // PIDLIST FREIGEBEN
-  // FILTER FREIGEBEN
-  // FILTER GGF. UMSORTIEREN
+  // remove pad
+  gst_element_remove_pad(GST_ELEMENT (filter), pidfilter.pad);
+  gst_object_unref(pidfilter.pad);
+  pidfilter.pad = NULL;
+  
+  // free pidlist + name
+  free(pidfilter.pidlist);
+  pidfilter.pidlist = NULL;
+  free(pidfilter.name);
+  pidfilter.name = NULL;
+  
+  // cleanup pidfilterlist
+  if (filter->filterlist_len > 1) {
+    i = filter->filterlist_len - filter->filterlist_free - 1;
+    
+    if (filter->filterlist[i].name != NULL) {
+      pidfilter.name = filter->filterlist[i].name;
+      pidfilter.pidlist = filter->filterlist[i].pidlist;
+      pidfilter.pad = filter->filterlist[i].pad;
+      
+      filter->filterlist[i].name = NULL;
+      filter->filterlist[i].pidlist = NULL;
+      filter->filterlist[i].pad = NULL;
+    } else {
+      DEBUGf( "deleting last object in list or something weird is going on" );
+    }
+  }    
+  filter->filterlist_free += 1;
 
   return;
 }
