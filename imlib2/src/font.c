@@ -95,13 +95,13 @@ PyObject *Font_PyObject__getattr(Font_PyObject *self, char *name)
 {
     imlib_context_set_font(self->font);
     if (!strcmp(name, "descent"))
-        return Py_BuildValue("l", imlib_get_font_descent());
+        return Py_BuildValue("i", imlib_get_font_descent());
     else if (!strcmp(name, "ascent"))
-        return Py_BuildValue("l", imlib_get_font_ascent());
+        return Py_BuildValue("i", imlib_get_font_ascent());
     else if (!strcmp(name, "max_ascent"))
-        return Py_BuildValue("l", imlib_get_maximum_font_ascent());
+        return Py_BuildValue("i", imlib_get_maximum_font_ascent());
     else if (!strcmp(name, "max_descent"))
-        return Py_BuildValue("l", imlib_get_maximum_font_descent());
+        return Py_BuildValue("i", imlib_get_maximum_font_descent());
 
     return Py_FindMethod(Font_PyObject_methods, (PyObject *)self, name);
 }

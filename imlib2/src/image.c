@@ -741,11 +741,11 @@ PyObject *Image_PyObject__getattr(Image_PyObject *self, char *name)
 {
     imlib_context_set_image(self->image);
     if (!strcmp(name, "width"))
-        return Py_BuildValue("l", imlib_image_get_width());
+        return Py_BuildValue("i", imlib_image_get_width());
     else if (!strcmp(name, "height"))
-        return Py_BuildValue("l", imlib_image_get_height());
+        return Py_BuildValue("i", imlib_image_get_height());
     else if (!strcmp(name, "has_alpha"))
-        return Py_BuildValue("l", imlib_image_has_alpha());
+        return Py_BuildValue("i", imlib_image_has_alpha());
     else if (!strcmp(name, "rowstride"))
         return Py_BuildValue("l", imlib_image_get_width() * 4);
     else if (!strcmp(name, "format"))
