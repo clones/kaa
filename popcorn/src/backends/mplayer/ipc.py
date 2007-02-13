@@ -113,12 +113,12 @@ class ChildProcess(object):
         log.info("spawn: %s %s", self._mp_cmd, ' '.join(args))
 
         if USE_GDB:
-            self._child.start(self._command)
+            signal = self._child.start(self._command)
             self._child.write("run %s\n" % ' '.join(args))
             self._child.signals["stdout"].connect_weak(self._child_handle_line)
             self._child.signals["stderr"].connect_weak(self._child_handle_line)
-        else:
-            self._child.start(args)
+            return signal
+        return self._child.start(args)
 
 
     def _child_stop(self):

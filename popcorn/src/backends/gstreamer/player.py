@@ -64,9 +64,8 @@ class GStreamer(MediaPlayer):
         if not self._gst:
             script = os.path.join(os.path.dirname(__file__), 'main.py')
             self._gst = ChildProcess(self, script)
-            self._gst.signals["completed"].connect_weak(self._child_exited)
             self._gst.set_stop_command(WeakCallback(self._gst.die))
-            self._gst.start()
+            self._gst.start().connect_weak(self._child_exited)
         self._position = 0.0
         self._state = STATE_OPENING
         self._gst.open(self._mrl)

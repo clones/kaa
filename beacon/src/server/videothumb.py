@@ -68,7 +68,6 @@ class VideoThumb(object):
         self.child = kaa.notifier.Process(['mplayer', '-nosound', '-vo', 'png:z=2', 
                                            '-frames', '10', '-osdlevel', '0', '-nocache',
                                            '-zoom', '-ss' ])
-        self.child.signals['completed'].connect(self._completed)
         self.child.signals['stdout'].connect(self._handle_std)
         self.child.signals['stderr'].connect(self._handle_std)
 
@@ -119,7 +118,7 @@ class VideoThumb(object):
                 pos = str(int(pos))
 
         self._child_std = []
-        self.child.start([pos, self._current.filename])
+        self.child.start([pos, self._current.filename]).connect(self._completed)
 
 
     def _completed(self, code):

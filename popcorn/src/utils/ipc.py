@@ -87,8 +87,9 @@ class ChildProcess(object):
         """
         if not self._gdb:
             return self._child.start(args)
-        self._child.start(sys.executable)
+        signal = self._child.start(sys.executable)
         self._child.write("run -u %s %s\n" % (self._gdb, ' '.join(args)))
+        return signal
 
 
     def _handle_line(self, line):

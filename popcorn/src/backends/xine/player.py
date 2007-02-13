@@ -70,9 +70,9 @@ class Xine(MediaPlayer):
         # Launch self (-u is unbuffered stdout)
         script = os.path.join(os.path.dirname(__file__), 'main.py')
         self._xine = ChildProcess(self, script)
-        self._xine.signals["completed"].connect_weak(self._child_exited)
         self._xine.set_stop_command(kaa.notifier.WeakCallback(self._xine.die))
-        self._xine.start(str(self._osd_shmkey), str(self._frame_shmkey))
+        signal = self._xine.start(str(self._osd_shmkey), str(self._frame_shmkey))
+        signal.connect_weak(self._child_exited)
         self._xine_configured = False
 
 
