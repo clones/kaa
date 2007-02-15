@@ -55,14 +55,14 @@ def fstab():
     return result
 
 
-def get_title(name):
+def get_title(name, strip=True):
     """
     Convert name into a nice title
     """
     if len(name) < 2:
         return name
 
-    if name.find('.') > 0 and not name.endswith('.'):
+    if strip and name.find('.') > 0 and not name.endswith('.'):
         name = name[:name.rfind('.')]
 
     # TODO: take more hints

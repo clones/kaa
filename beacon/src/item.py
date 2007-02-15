@@ -130,7 +130,7 @@ class Item(object):
             t = self._beacon_data.get('title')
             if t:
                 return t
-            return str_to_unicode(get_title(self._beacon_data['name']))
+            return str_to_unicode(get_title(self._beacon_data['name'], self.isfile()))
 
         if request and not self._beacon_id:
             log.info('requesting data for %s', self)
