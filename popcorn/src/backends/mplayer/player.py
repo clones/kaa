@@ -392,7 +392,8 @@ class MPlayer(MediaPlayer):
             filters.append('dsize=%s:%s:0' % size)
 
         # add software scaler based on dsize arguments
-        if self._properties.get('software-scaler'):
+        if self._properties.get('software-scaler') or \
+               config.video.driver in ('x11',):
             filters.append('scale=0:0')
             args.add(sws=2)
 
@@ -414,7 +415,8 @@ class MPlayer(MediaPlayer):
             else:
                 args.append('-fs')
             display = self._window.get_display().get_string()
-            args.add(vo='xv', display=display, colorkey=config.video.colorkey)
+            args.add(vo=config.video.driver, display=display,
+                     colorkey=config.video.colorkey)
         else:
             # FIXME: add support for DFB/FB/etc
             args.add(vo='null')

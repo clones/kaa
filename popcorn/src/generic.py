@@ -170,7 +170,7 @@ class Player(object):
             if not getattr(config, p).activate and not p in exclude:
                 exclude.append(p)
         return backends.manager.get_player_class(\
-            self._media, self._open_caps, exclude, player, config.preferred)
+            self._media, self._open_caps, exclude, player, self._window)
 
 
     def _state_change(self, old_state, state):

@@ -78,7 +78,10 @@ def get_capabilities():
     # list of codecs when to prefer this player
     codecs = config.preferred.codecs.split(',')
 
-    return capabilities, schemes, exts, codecs
+    # list of video driver
+    vo = [ 'xv', 'x11' ]
+
+    return capabilities, schemes, exts, codecs, vo
 
 
 def import_backend():

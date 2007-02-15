@@ -17,6 +17,7 @@
         <var name="driver" default="xv">
             <values>
                 <value>xv</value>
+                <value>x11</value>
             </values>
             <desc>
                 Video driver; xv is the only supported video driver at this

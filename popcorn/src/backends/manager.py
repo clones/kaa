@@ -79,7 +79,7 @@ def import_backends():
 
 
 def get_player_class(media, caps = None, exclude = None, force = None,
-                     preferred = None):
+                     video_out = True):
     """
     Searches the registered players for the most capable player given the mrl
     or required capabilities.  A specific player can be returned by specifying
@@ -96,7 +96,7 @@ def get_player_class(media, caps = None, exclude = None, force = None,
         if _players[player_id]["loaded"]:
             continue
 
-        player_caps, schemes, exts, codecs = _players[player_id]["callback"]()
+        player_caps, schemes, exts, codecs, vo = _players[player_id]["callback"]()
 
         _players[player_id].update({
             "caps": player_caps,
@@ -105,6 +105,8 @@ def get_player_class(media, caps = None, exclude = None, force = None,
             "extensions": exts,
             # Prefer this player for these codecs.
             "codecs": codecs,
+            # Supported video driver
+            "vdriver": vo,
             "loaded": True,
         })
 
@@ -149,6 +151,10 @@ def get_player_class(media, caps = None, exclude = None, force = None,
             log.debug('skip %s, in exclude list', player_id)
             continue
 
+        if video_out and config.video.driver not in player['vdriver']:
+            # video driver not supported
+            continue
+
         rating = 0
         if caps:
             # Rate player on the given capabilities. If one or more needed
@@ -175,7 +181,7 @@ def get_player_class(media, caps = None, exclude = None, force = None,
                 # player is good at this extension
                 rating += 3
             
-        if preferred == player_id:
+        if config.preferred == player_id:
             rating += 2
 
         log.debug('%s rating: %s', player_id, rating)
