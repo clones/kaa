@@ -225,8 +225,10 @@ class MPlayer(MediaPlayer):
             self._state = STATE_PAUSED
 
         elif line.startswith("ID_") and line.find("=") != -1:
-            attr, value = line.split("=")
-            attr = attr[3:]
+            # attr, value = line.split("=") could crash if the filename
+            # contains a '=' (which could happen very easy in an http url)
+            attr = line[3:line.find('=')]
+            value = line[line.find('=')+1]
             info = { "VIDEO_FORMAT": ("vfourcc", str),
                      "VIDEO_BITRATE": ("vbitrate", int),
                      "VIDEO_WIDTH": ("width", int),
