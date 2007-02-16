@@ -31,19 +31,26 @@
 
 displays = []
 
+class ImportErrorWrapper(object):
+    def __init__(self, dep):
+        self.reason = 'kaa.display build without %s support.' % dep
+        
+    def __call__(self, *args, **kwargs):
+        raise RuntimeError(self.reason)
+    
 # import X11 support
 try:
     from x11 import X11Display, X11Window, EvasX11Window
     displays.append('x11')
 except ImportError, e:
-    pass
+    X11Display = X11Window = EvasX11Window = ImportErrorWrapper('X11')
 
 # import GTK support
 try:
     from gtkwin import GTKWindow, GladeWindow
     displays.append('gtk')
 except ImportError, e:
-    pass
+    GTKWindow = GladeWindow = ImportErrorWrapper('gtk')
 
 # import Framebuffer support
 try:
@@ -51,21 +58,21 @@ try:
          NTSC_640x480, NTSC_768x576, NTSC_800x600
     displays.append('framebuffer')
 except ImportError, e:
-    pass
+    Framebuffer = EvasFramebuffer = ImportErrorWrapper('framebuffer')
 
 # import DirectFB support
 try:
     from dfb import DirectFB, EvasDirectFB
     displays.append('directfb')
 except ImportError, e:
-    pass
+    DirectFB = EvasDirectFB = ImportErrorWrapper('directfb')
 
 # import SDL support
 try:
     from sdl import PygameDisplay
     displays.append('sdl')
 except ImportError, e:
-    pass
+    PygameDisplay = ImportErrorWrapper('SDL/pygame')
 
 # import LCDProc support
 from lcdproc import LCD
