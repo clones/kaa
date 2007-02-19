@@ -75,6 +75,11 @@ class DVBCard(gst.Bin):
         self._splitter.emit("set-filter", name, pidstr)
 
 
+    def remove_filter(self, name):
+        # TODO FIXME remove pids from tuner
+        self._splitter.emit("remove-filter", name)
+
+
 
 # test app logic
 
@@ -124,10 +129,16 @@ def create_recording(filename, *pids):
     c.add_filter(filename, *pids)
 
 
+def stop_recording(filename):
+    c.remove_filter(filename)
+
+
 create_recording('zdf.ts', 545, 546)
 
 # start 3sat in 3 seconds
 kaa.notifier.OneShotTimer(create_recording, '3sat.ts', 561, 562).start(3)
 # start second ZDF recording in 5 seconds
 kaa.notifier.OneShotTimer(create_recording, 'zdf2.ts', 545, 546).start(5)
+# stop second ZDF recording 5 seconds later
+kaa.notifier.OneShotTimer(stop_recording, 'zdf2.ts').start(10)
 kaa.notifier.loop()
