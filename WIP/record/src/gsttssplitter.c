@@ -638,6 +638,7 @@ gst_tssplitter_remove_filter(GstTSSplitter *filter, char *name)
   DEBUGf("remove_filter(%s)", name);
 
   GstTSSplitterFilter *pidfilter = NULL;
+  GstPad *sinkpad = NULL;
   int i = 0;
 
   // find pidfilter to be removed
@@ -646,26 +647,29 @@ gst_tssplitter_remove_filter(GstTSSplitter *filter, char *name)
   if (!pidfilter)
     return;
 
-#ifdef THIS_IS_BROKEN
+  // unlink pad
+  sinkpad = gst_pad_get_peer ( pidfilter->pad );
+  gst_pad_unlink (pidfilter->pad, sinkpad);
+
   // remove pad
-  gst_element_remove_pad(GST_ELEMENT (filter), pidfilter.pad);
-  gst_object_unref(pidfilter.pad);
-  pidfilter.pad = NULL;
+  gst_element_remove_pad(GST_ELEMENT (filter), pidfilter->pad);
+  gst_object_unref(pidfilter->pad);
+  pidfilter->pad = NULL;
   
   // free pidlist + name
-  free(pidfilter.pidlist);
-  pidfilter.pidlist = NULL;
-  free(pidfilter.name);
-  pidfilter.name = NULL;
+  free(pidfilter->pidlist);
+  pidfilter->pidlist = NULL;
+  free(pidfilter->name);
+  pidfilter->name = NULL;
   
   // cleanup pidfilterlist
   if (filter->filterlist_len > 1) {
     i = filter->filterlist_len - filter->filterlist_free - 1;
     
     if (filter->filterlist[i].name != NULL) {
-      pidfilter.name = filter->filterlist[i].name;
-      pidfilter.pidlist = filter->filterlist[i].pidlist;
-      pidfilter.pad = filter->filterlist[i].pad;
+      pidfilter->name = filter->filterlist[i].name;
+      pidfilter->pidlist = filter->filterlist[i].pidlist;
+      pidfilter->pad = filter->filterlist[i].pad;
       
       filter->filterlist[i].name = NULL;
       filter->filterlist[i].pidlist = NULL;
@@ -675,6 +679,4 @@ gst_tssplitter_remove_filter(GstTSSplitter *filter, char *name)
     }
   }    
   filter->filterlist_free += 1;
-#endif
-  return;
 }
