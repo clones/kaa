@@ -4,6 +4,7 @@ pygst.require('0.10')
 import gst
 import sys
 import time
+import dvbchannelconfreader
 
 # import kaa.notifier and set mainloop to glib
 import kaa.notifier
@@ -49,16 +50,31 @@ class DVBCard(gst.Bin):
 
 
     def tune(self, channel):
-        # tuning to ZDF (hardcoded values! change them!)
-        self._tuner.set_property("frequency", 562000000)
-        self._tuner.set_property("inversion", 2)
-        self._tuner.set_property("bandwidth", 0)
-        self._tuner.set_property("code-rate-high-prio", 2)
-        self._tuner.set_property("code-rate-low-prio", 0)
-        self._tuner.set_property("constellation", 1)
-        self._tuner.set_property("transmission-mode", 1)
-        self._tuner.set_property("guard-interval", 2)
-        self._tuner.set_property("hierarchy", 0)
+        if not channel:
+            print 'no channel given - FIXME'
+            sys.exit()
+        
+        frontendtype = self._tuner.get_property('frontendtype')
+        if frontendtype == 0:
+            # TODO FIXME broken --> fixme
+            DVBS
+        elif frontendtype == 1:
+            # TODO FIXME broken --> fixme
+            DVBC
+        elif frontendtype == 2:
+            # TODO FIXME I have to fix parser and tuner! - they should use the same keywords
+            channel.config['constellation'] = channel.config['modulation']
+            
+            for cfgitem in [ 'frequency', 'inversion', 'bandwidth', 'code-rate-high-prio', 'code-rate-low-prio', 'constellation', 'transmission-mode', 'guard-interval', 'hierarchy' ]:
+                print '%s ==> %s' % (cfgitem, channel.config[ cfgitem ])
+                self._tuner.set_property( cfgitem, channel.config[ cfgitem ] )
+                      
+        elif frontendtype == 3:
+            # TODO FIXME broken --> fixme
+            ATSC
+        else:
+            print 'OH NO! Please fix this code!'
+            
 
         # tune to channel
         self._tuner.emit("tune")
@@ -102,6 +118,17 @@ def on_new_pad(dvb, pad):
     sink = mapping[pad.get_name()]
     pad.link(sink.get_pad('sink'))
 
+if len(sys.argv) < 3:
+    print 'syntax: %s <channels.conf> <channelname>' % sys.argv[0]
+    sys.exit()
+
+ccr = dvbchannelconfreader.DVBChannelConfReader( sys.argv[1] )
+chan = ccr.get_channel( sys.argv[2] )
+if not chan:
+    print 'cannot find channel', sys.argv[2]
+    sys.exit()
+    
+print chan.config
 
 # create gstreamer pipline
 pipeline = gst.Pipeline()
@@ -114,10 +141,13 @@ c.connect("pad-added", on_new_pad)
 pipeline.add(c)
 pipeline.set_state(gst.STATE_PLAYING)
 
+print 'using channel config of %s' % sys.argv[1]
+print 'and searching channel %s' % sys.argv[2]
+
 
 
 # now the testing starts by tuning
-c.tune(None)
+c.tune(chan)
 
 
 def create_recording(filename, *pids):
