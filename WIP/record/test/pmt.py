@@ -16,76 +16,72 @@ import kaa.record2
 
 import _weakref
 
-class DVBCard(gst.Bin):
-
-    def __init__(self, *args):
-        gst.Bin.__init__(self, *args)
-        self._tuner = gst.element_factory_make("dvbtuner", "tuner")
-
-        self._tuner.set_property('debug-output', True)
-        self._tuner.set_property('adapter', 0)
-
-        frontendlist = [ "QPSK (DVB-S)", "QAM (DVB-C)", "OFDM (DVB-T)", "ATSC" ]
-        frontendtype = self._tuner.get_property('frontendtype')
-        print 'FRONTEND-TYPE: ', frontendlist[ frontendtype ]
-        print 'FRONTEND-NAME: ', self._tuner.get_property('frontendname')
-        print 'HWDECODER?   : ', self._tuner.get_property('hwdecoder')
-
-        if frontendtype != 2:
-            print 'the following code supports only DVB-T cards!'
-            sys.exit()
-
-        self._dvr = open('/dev/dvb/adapter0/dvr0')
+class DVBsrc(gst.Bin):
+    def __init__(self):
+        gst.Bin.__init__(self, 'dvbsrc_%d')
         self._src = gst.element_factory_make("fdsrc")
-        self._src.set_property('fd', self._dvr.fileno())
+        self._tuner = gst.element_factory_make("dvbtuner")
+        self._tuner.set_property('debug-output', True)
         self._queue = gst.element_factory_make("queue")
         self._splitter = gst.element_factory_make("tssplitter")
         self._splitter.connect("pad-added", self._on_new_pad)
         self.add(self._src, self._queue, self._splitter)
-        self._src.link(self._queue)
-        self._queue.link(self._splitter)
+        gst.element_link_many(self._src, self._queue, self._splitter)
         self._pids = []
-        self._pad_mapping = {}
-        kaa.notifier.Timer(self._debug).start(1)
+        self._newpad = None
+        self._nextid = 0
+        
 
+    def set_property(self, prop, value):
+        if prop == 'adapter':
+            self._tuner.set_property('adapter', value)
+            self._dvr = open('/dev/dvb/adapter%s/dvr0' % value)
+            return self._src.set_property('fd', self._dvr.fileno())
 
-    def _debug(self):
-        print self._tuner.get_property('status')
+        if prop == 'channel':
+            # tuning to ZDF (hardcoded values! change them!)
+            self._tuner.set_property("frequency", 562000000)
+            self._tuner.set_property("inversion", 2)
+            self._tuner.set_property("bandwidth", 0)
+            self._tuner.set_property("code-rate-high-prio", 2)
+            self._tuner.set_property("code-rate-low-prio", 0)
+            self._tuner.set_property("constellation", 1)
+            self._tuner.set_property("transmission-mode", 1)
+            self._tuner.set_property("guard-interval", 2)
+            self._tuner.set_property("hierarchy", 0)
+            
+            # tune to channel
+            self._tuner.emit("tune")
+            return True
 
+        raise AttributeError
 
-    def tune(self, channel):
-        # tuning to ZDF (hardcoded values! change them!)
-        self._tuner.set_property("frequency", 562000000)
-        self._tuner.set_property("inversion", 2)
-        self._tuner.set_property("bandwidth", 0)
-        self._tuner.set_property("code-rate-high-prio", 2)
-        self._tuner.set_property("code-rate-low-prio", 0)
-        self._tuner.set_property("constellation", 1)
-        self._tuner.set_property("transmission-mode", 1)
-        self._tuner.set_property("guard-interval", 2)
-        self._tuner.set_property("hierarchy", 0)
-
-        # tune to channel
-        self._tuner.emit("tune")
 
     def _on_new_pad(self, splitter, pad):
-        ghost = gst.GhostPad(pad.get_name(), pad)
-        self.add_pad(ghost)
-        ghost.link(self._pad_mapping.pop(pad.get_name()))
+        self._newpad = gst.GhostPad(pad.get_name(), pad)
+        self.add_pad(self._newpad)
 
 
-    def add_filter(self, name, pad, *pids):
+    def get_request_pad(self, *pids):
         for pid in pids:
             if not pid in self._pids:
                 self._tuner.emit("add-pid", pid)
                 self._pids.append(pid)
         pidstr = ','.join([str(p) for p in pids])
-        self._pad_mapping[name] = pad
-        self._splitter.emit("set-filter", name, pidstr)
+        # FIXME: self._splitter.get_request_pad would be the way to go
+        # To do that, tssplitter has to provide a release_pad function.
+        # For some reasons I could not get this working, so it is still
+        # this ugly hack. See gsttee.c how stuff like that should work.
+        self._splitter.emit("set-filter", 'dvbpid_%s' % self._nextid, pidstr)
+        self._nextid += 1
+        return self._newpad
 
-    def remove_filter(self, name):
-        # TODO FIXME remove pids from tuner
-        self._splitter.emit("remove-filter", name)
+
+    def remove_pad(self, pad):
+        # TODO: remove pids from tuner
+        # FIXME: that results in GStreamer-CRITICAL
+        self._splitter.emit("remove-filter", pad.get_target().get_name())
+        gst.Bin.remove_pad(self, pad)
 
 
 # test app logic
@@ -103,21 +99,20 @@ def bus_event(bus, message):
     return True
 
 
-
 # create gstreamer pipline
 pipeline = gst.Pipeline()
 pipeline.get_bus().add_watch(bus_event)
 
-# create DVBCard object and add it
-c = DVBCard()
+# create DVBsrc object and add it
+dvb = DVBsrc()
+# FIXME: it would be nice to do
+# gst.element_factory_make("dvbsrc")
 
-pipeline.add(c)
+dvb.set_property('adapter', 0)
+dvb.set_property('channel', None)
+
+pipeline.add(dvb)
 pipeline.set_state(gst.STATE_PLAYING)
-
-
-
-# now the testing starts by tuning
-c.tune(None)
 
 
 class TSFrame(object):
@@ -143,7 +138,7 @@ class TableSink(gst.Element):
                                         gst.PAD_ALWAYS,
                                         gst.caps_new_any())
 
-    def __init__(self, *args):
+    def __init__(self, dvbsrc, *args):
         gst.Element.__init__(self)
         gst.info('creating sinkpad')
         pad = gst.Pad(self._sinkpadtemplate, "sink")
@@ -151,6 +146,7 @@ class TableSink(gst.Element):
         self.add_pad(pad)
         self.buffer = {}
         self.parse_args = args
+        self.dvbsrc = dvbsrc
         
         
     def chainfunc(self, pad, buffer):
@@ -188,10 +184,9 @@ class TableSink(gst.Element):
         pad = self.get_pad('sink')
         peer = pad.get_peer()
         peer.unlink(pad)
-        c.remove_filter(peer.get_name())
+        self.dvbsrc.remove_pad(peer)
         self.unparent()
         self.remove_pad(pad)
-        # FIXME: ghost pad is still in the dvb object
         self.set_state(gst.STATE_NULL)
 
 
@@ -209,12 +204,12 @@ class PAT(TableSink):
             pid = ((data[2] & 0x1F) << 8) + data[3]
             print '', num, pid
             data = data[4:]
-            pmts.append((PMT(num, pid), pid))
+            pmts.append((PMT(self.dvbsrc, num, pid), pid))
         print
         for pmt, pid in pmts:
             pipeline.add(pmt)
             pmt.set_state(gst.STATE_PLAYING)
-            c.add_filter(str(pmt), pmt.get_pad('sink'), pid)
+            self.dvbsrc.get_request_pad(pid).link(pmt.get_pad('sink'))
             
 class PMT(TableSink):
 
@@ -266,10 +261,11 @@ def gc_check():
 gobject.type_register(PAT)
 gobject.type_register(PMT)
 
-info = PAT()
+info = PAT(dvb)
 pipeline.add(info)
 info.set_state(gst.STATE_PLAYING)
-c.add_filter('info', info.get_pad('sink'), 0)
+
+dvb.get_request_pad(0).link(info.get_pad('sink'))
 
 kaa.notifier.Timer(gc_check).start(1)
 kaa.notifier.loop()
