@@ -14,8 +14,6 @@ kaa.notifier.init('gtk', x11=False)
 # import kaa.record2 for the dvbtuner module
 import kaa.record2
 
-import _weakref
-
 class DVBsrc(gst.Bin):
     def __init__(self):
         gst.Bin.__init__(self, 'dvbsrc_%d')
@@ -39,16 +37,31 @@ class DVBsrc(gst.Bin):
             return self._src.set_property('fd', self._dvr.fileno())
 
         if prop == 'channel':
-            # tuning to ZDF (hardcoded values! change them!)
-            self._tuner.set_property("frequency", 562000000)
-            self._tuner.set_property("inversion", 2)
-            self._tuner.set_property("bandwidth", 0)
-            self._tuner.set_property("code-rate-high-prio", 2)
-            self._tuner.set_property("code-rate-low-prio", 0)
-            self._tuner.set_property("constellation", 1)
-            self._tuner.set_property("transmission-mode", 1)
-            self._tuner.set_property("guard-interval", 2)
-            self._tuner.set_property("hierarchy", 0)
+            channel = value
+            frontendtype = self._tuner.get_property('frontendtype')
+            if frontendtype == 0:
+                # TODO FIXME broken --> fixme
+                DVBS
+            elif frontendtype == 1:
+                # TODO FIXME broken --> fixme
+                DVBC
+            elif frontendtype == 2:
+                # TODO FIXME I have to fix parser and tuner! -
+                # they should use the same keywords
+                channel.config['constellation'] = channel.config['modulation']
+            
+                for cfgitem in [ 'frequency', 'inversion', 'bandwidth',
+                                 'code-rate-high-prio', 'code-rate-low-prio',
+                                 'constellation', 'transmission-mode',
+                                 'guard-interval', 'hierarchy' ]:
+                    print '%s ==> %s' % (cfgitem, channel.config[ cfgitem ])
+                    self._tuner.set_property( cfgitem, channel.config[ cfgitem ] )
+                      
+            elif frontendtype == 3:
+                # TODO FIXME broken --> fixme
+                ATSC
+            else:
+                print 'OH NO! Please fix this code!'
             
             # tune to channel
             self._tuner.emit("tune")
@@ -99,6 +112,16 @@ def bus_event(bus, message):
     return True
 
 
+if len(sys.argv) < 3:
+    print 'syntax: %s <channels.conf> <channelname>' % sys.argv[0]
+    sys.exit()
+
+channelsconf = kaa.record2.ConfigFile( sys.argv[1] )
+channel = channelsconf.get_channel( sys.argv[2] )
+if not channel:
+    print 'cannot find channel', sys.argv[2]
+    sys.exit()
+
 # create gstreamer pipline
 pipeline = gst.Pipeline()
 pipeline.get_bus().add_watch(bus_event)
@@ -109,7 +132,7 @@ dvb = DVBsrc()
 # gst.element_factory_make("dvbsrc")
 
 dvb.set_property('adapter', 0)
-dvb.set_property('channel', None)
+dvb.set_property('channel', channel)
 
 pipeline.add(dvb)
 pipeline.set_state(gst.STATE_PLAYING)
