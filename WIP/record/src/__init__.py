@@ -6,3 +6,4 @@ dirname = os.path.dirname(__file__)
 gst.plugin_load_file(dirname + '/_gstrecord.so')
 
 from channel import *
+from gstdvbsrc import DVBsrc
