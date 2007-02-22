@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# dvbconfigreader.py - Read channels.conf
+# channels.py - Read channels.conf to Channel objects
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -12,7 +12,7 @@
 # First Edition: Sönke Schwardt <bulk@schwardtnet.de>
 # Maintainer:    Sönke Schwardt <bulk@schwardtnet.de>
 #
-# Please see the file doc/CREDITS for a complete list of authors.
+# Please see the file AUTHOR for a complete list of authors.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,12 +35,11 @@ import re
 import sys
 import types
 import logging
-import traceback
 
 # get logging object
 log = logging.getLogger('record')
 
-class DVBChannel:
+class Channel(object):
     # TODO / FIXME add missing compare function
     map_hierarchy = { 'default': 'AUTO',
                       '999': 'AUTO',
@@ -104,24 +103,30 @@ class DVBChannel:
         self.line = line.strip('\n')
         self.cfgtype = None
 
-        if len(self.line) == 0:
+        if len(self.line) == 0 or self.line[0] == '#':
             self.cfgtype = 'COMMENT'
-        elif self.line[0] == '#':
-            self.cfgtype = 'COMMENT'
-        elif self.re_dvbt.match(line):
+            return
+        if self.re_dvbt.match(line):
             self.cfgtype = 'DVB-T'
-        elif self.re_dvbc.match(line):
+            return self.parse_vdr_style(line)
+        if self.re_dvbc.match(line):
             self.cfgtype = 'DVB-C'
-        elif self.re_dvbs.match(line):
+            return self.parse_vdr_style(line)
+        if self.re_dvbs.match(line):
             self.cfgtype = 'DVB-S'
+            return self.parse_vdr_style(line)
 
-        if self.cfgtype == None:
-            log.error('failed to parse config line:\n%s' % self.line)
-            return None
+        cells = line.split(':')
+        if len(cells) == 13 and cells[2].startswith('INVERSION_'):
+            self.cfgtype = 'DVB-T'
+            return self.parse_dvbt(cells)
+            
+        log.error('failed to parse config line:\n%s' % self.line)
+        return None
 
-        if self.cfgtype == 'COMMENT':
-            return None
 
+    def parse_vdr_style(self, line):
+        
         cells = self.line.split(':')
 
         if ';' in cells[0]:
@@ -201,6 +206,31 @@ class DVBChannel:
         self.map_config( 'inversion', self.map_inversion )
 
 
+    def parse_dvbt(self, cells):
+        if ';' in cells[0]:
+            self.config['name'] = cells[0].split(';')[0]
+            self.config['bouquet'] = cells[0].split(';')[1]
+        else:
+            self.config['name'] = cells[0]
+            self.config['bouquet'] = ''
+
+        self.config['name'] = self.config['name'].replace('|', ':')
+        self.config['bouquet'] = self.config['bouquet'].replace('|', ':')
+        self.config['frequency'] = int(cells[1])
+
+        self.config['inversion'] = cells[2][10:]
+        self.config['bandwidth'] = cells[3][10:]
+        self.config['code-rate-low-prio'] = cells[4][4:]
+        self.config['code-rate-high-prio'] = cells[5][4:]
+        self.config['modulation'] = cells[6]
+        self.config['transmission-mode'] = cells[7][18:]
+        self.config['guard-interval'] = cells[8][15:]
+        self.config['hierarchy'] = cells[9][10:]
+        self.config['vpid'] = cells[10]
+        self.config['apids'] = [ cells[11] ]
+        self.config['tpid'] = cells[12]
+
+        
     def map_config(self, key, keydict):
         if not self.config.has_key( key ):
             return
@@ -213,7 +243,7 @@ class DVBChannel:
 
 
     def __repr__(self):
-        return '<kaa.record.DVBChannel %s>' % self.config['name']
+        return '<kaa.record.Channel %s>' % self.config['name']
 
 
     def __str__(self):
@@ -223,7 +253,7 @@ class DVBChannel:
 
 
 
-class DVBMultiplex:
+class Multiplex(object):
     def __init__(self, name, frequency):
         self.name = name
         self.frequency = frequency
@@ -274,7 +304,8 @@ class DVBMultiplex:
 
 
     def __repr__(self):
-        return '<kaa.record.DVBMultiplex: %s' % self.name
+        return '<kaa.record.Multiplex: %s' % self.name
+
 
     def __str__(self):
         s = 'Multiplex: %-25s (f=%s)\n' % (self.name, self.frequency)
@@ -284,7 +315,7 @@ class DVBMultiplex:
 
 
 
-class DVBChannelConfReader:
+class ConfigFile(object):
     def __init__(self, cfgname):
         self.cfgtype = None
         self.multiplexlist = [ ]
@@ -292,8 +323,12 @@ class DVBChannelConfReader:
         # read config
         self.f = open(cfgname)
         for line in self.f:
-            channel = DVBChannel(line)
+            channel = Channel(line)
 
+            if channel.cfgtype == None:
+                # ignore bad line
+                continue
+            
             if self.cfgtype == None:
                 self.cfgtype = channel.cfgtype
             elif self.cfgtype is not channel.cfgtype:
@@ -309,8 +344,8 @@ class DVBChannelConfReader:
                              channel.config['name'], mplex.name)
                     break
             else:
-                mplex = DVBMultiplex( channel.config['frequency'],
-                                      channel.config['frequency'], )
+                mplex = Multiplex( channel.config['frequency'],
+                                   channel.config['frequency'], )
                 mplex.add( channel )
                 self.multiplexlist.append(mplex)
                 log.info('added channel %s to new mplex %s',
@@ -371,7 +406,7 @@ if __name__ == '__main__':
     log.addHandler(handler)
 
     logging.getLogger().setLevel(logging.DEBUG)
-    ccr = DVBChannelConfReader('test/dvbs.conf')
+    ccr = ConfigFile(sys.argv[1])
     print ccr
     print '---------------'
     print 'find channel "n-tv":'
