@@ -4,7 +4,6 @@ pygst.require('0.10')
 import gst
 import sys
 import time
-import dvbchannelconfreader
 
 # import kaa.notifier and set mainloop to glib
 import kaa.notifier
@@ -122,7 +121,7 @@ if len(sys.argv) < 3:
     print 'syntax: %s <channels.conf> <channelname>' % sys.argv[0]
     sys.exit()
 
-ccr = dvbchannelconfreader.DVBChannelConfReader( sys.argv[1] )
+ccr = kaa.record2.ConfigFile( sys.argv[1] )
 chan = ccr.get_channel( sys.argv[2] )
 if not chan:
     print 'cannot find channel', sys.argv[2]
