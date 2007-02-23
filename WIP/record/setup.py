@@ -13,9 +13,9 @@ except ImportError:
 # When kaa.record2 is init, this module will be added to
 # gstreaner on runtime.
 tuner = Extension('kaa.record2._gstrecord',
-                  [ 'src/gst/gstdvbtuner.c', 'src/gst/gsttssplitter.c',
-                    'src/gst/gstmain.c' ],
-                  config='src/gst/config.h')
+                  [ 'gst/gstdvbtuner.c', 'gst/gsttssplitter.c',
+                    'gst/gstmain.c' ],
+                  config='gst/config.h')
 tuner.config('#define VERSION "0.1"')
 tuner.config('#define PACKAGE "kaa.record"')
 
