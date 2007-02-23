@@ -46,7 +46,9 @@ import dvb
 log = logging.getLogger('record.gstreamer')
 
 class Device(object):
-
+    """
+    kaa.record device.
+    """
     def __init__(self, device):
 
         # create gstreamer pipline
@@ -63,6 +65,9 @@ class Device(object):
 
 
     def _gst_event(self, bus, message):
+        """
+        Internal gstreamer debug for this pipeline.
+        """
         t = message.type
         if t == gst.MESSAGE_EOS:
             log.info('EOS')
@@ -74,18 +79,41 @@ class Device(object):
         return True
 
 
+    def get_status(self):
+        """
+        Return status information of the device.
+        """
+        return self.device.get_property('status')
+
+
+    def has_signal(self):
+        """
+        Return True if the device has a lock on the signal and is
+        ready for recording.
+        """
+        return self.device.get_property('has_signal')
+
+
     def start_recording(self, channel, output):
+        """
+        Start a recording.
+        """
         element = output.element
         self.pipeline.add(element)
         element.set_state(gst.STATE_PLAYING)
         sink = element.get_pad('sink')
-        # FIXME: clean up needed
-        pids = int(channel.config['vpid']), int(channel.config['apids'][0][0])
+        # tune to the channel
         self.device.set_property('channel', channel)
+        # FIXME: Clean up needed. Which apid should be used? How to handle
+        # analog cards without pids.
+        pids = int(channel.config['vpid']), int(channel.config['apids'][0][0])
         self.device.get_request_pad(*pids).link(sink)
 
 
     def stop_recording(self, output):
+        """
+        Stop a recording.
+        """
         element = output.element
         pad = element.get_pad('sink')
         peer = pad.get_peer()

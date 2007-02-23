@@ -97,6 +97,23 @@ class DVBsrc(gst.Bin):
         raise AttributeError
 
 
+    def get_property(self, prop):
+        if prop == 'status':
+            cells = self._tuner.get_property('status').strip().split(' ')
+            status = { 'signalstrength': int(cells[-7]), 'snr:': int(cells[-5]),
+                       'ber': int(cells[-3]), 'unc': int(cells[-1]) }
+            for s in ('HAS_SIGNAL', 'TIMEDOUT', 'HAS_LOCK', 'HAS_CARRIER',
+                      'HAS_VITERBI', 'HAS_SYNC'):
+                status[s] = False
+                if 'FE_%s' % s in cells:
+                    status[s] = True
+            return status
+        if prop == 'has_signal':
+            cells = self._tuner.get_property('status').strip().split(' ')
+            return 'FE_HAS_SIGNAL' in cells and 'FE_HAS_LOCK' in cells
+        return Super(DVBsrc, self).get_property(prop)
+
+
     def _on_new_pad(self, splitter, pad):
         self._newpad = gst.GhostPad(pad.get_name(), pad)
         self.add_pad(self._newpad)

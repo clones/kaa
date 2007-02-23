@@ -30,8 +30,8 @@ def bus_event(bus, message):
     print message
     return True
 
-def tuner_debug(dvb):
-    print dvb._tuner.get_property('status')
+def tuner_debug(device):
+    print device.get_status()
 
 def gc_check():
     gc.collect()
@@ -56,7 +56,7 @@ device = kaa.record2.Device('dvb0')
 
 kaa.record2.Recording(time.time() + 3, time.time() + 8, device,
                       chan, kaa.record2.Filewriter('zdf.ts'))
-kaa.notifier.Timer(tuner_debug, device.device).start(1)
+kaa.notifier.Timer(tuner_debug, device).start(1)
 
 # # start 3sat in 3 seconds
 # kaa.notifier.OneShotTimer(create_recording, '3sat.ts', 561, 562).start(3)
