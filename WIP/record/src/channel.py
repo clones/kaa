@@ -160,9 +160,9 @@ class Channel(object):
             if param[0]=='Y':
                 self.config['hierarchy'] = param[1:]
             if param[0]=='H':
-                self.config['horizontal_polarization'] = param[1:]
+                self.config['horizontal_polarization'] = True
             if param[0]=='V':
-                self.config['vertical_polarization'] = param[1:]
+                self.config['horizontal_polarization'] = False
             if param[0]=='R':
                 self.config['circular_polarization_right'] = param[1:]
             if param[0]=='L':

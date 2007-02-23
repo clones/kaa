@@ -609,11 +609,11 @@ gst_dvbtuner_set_property (GObject * object, guint prop_id,
 	  case PROP_FREQUENCY:
 	    {
 	      filter->feparam.frequency = g_value_get_uint(value);
-	      if(filter->feparam.frequency > 11700) {
-		filter->feparam.frequency = (filter->feparam.frequency - 10600)*1000;
+	      if(filter->feparam.frequency > 11700000) {
+		filter->feparam.frequency = (filter->feparam.frequency - 10600000);
 		filter->tone = 1;
 	      } else {
-		filter->feparam.frequency = (filter->feparam.frequency - 9750)*1000;
+		filter->feparam.frequency = (filter->feparam.frequency - 9750000);
 		filter->tone = 0;
 	      }
 	      filter->feparam.inversion = INVERSION_AUTO;
@@ -1285,18 +1285,29 @@ gst_dvbtuner_tune(GstDvbTuner *filter)
     }
   }
 
-  if (filter->feinfo.type==FE_OFDM) {
-    DEBUGf( "front_param.frequency          = %d", filter->feparam.frequency);
-    DEBUGf( "front_param.inversion          = %d", filter->feparam.inversion);
-    DEBUGf( "front_param.ofdm.bandwidth     = %d", filter->feparam.u.ofdm.bandwidth );
-    DEBUGf( "front_param.ofdm.code_rate_HP  = %d", filter->feparam.u.ofdm.code_rate_HP );
-    DEBUGf( "front_param.ofdm.code_rate_LP  = %d", filter->feparam.u.ofdm.code_rate_LP );
-    DEBUGf( "front_param.ofdm.constellation = %d", filter->feparam.u.ofdm.constellation );
-    DEBUGf( "front_param.ofdm.transmission_m= %d", filter->feparam.u.ofdm.transmission_mode );
-    DEBUGf( "front_param.ofdm.guard_interval= %d", filter->feparam.u.ofdm.guard_interval );
-    DEBUGf( "front_param.ofdm.hierarchy_info= %d", filter->feparam.u.ofdm.hierarchy_information );
-  } else {
-    DEBUGf( "FIXME: print debug output" );
+  switch (filter->feinfo.type) {
+      
+  case FE_QPSK:
+      DEBUGf( "front_param.frequency          = %d", filter->feparam.frequency);
+      DEBUGf( "front_param.inversion          = %d", filter->feparam.inversion);
+      DEBUGf( "front_param.qpsk.symbol_rate   = %d", filter->feparam.u.qpsk.symbol_rate );
+      DEBUGf( "front_param.qpsk.fec_inner     = %d", filter->feparam.u.qpsk.fec_inner );
+      break;
+
+  case FE_OFDM:
+      DEBUGf( "front_param.frequency          = %d", filter->feparam.frequency);
+      DEBUGf( "front_param.inversion          = %d", filter->feparam.inversion);
+      DEBUGf( "front_param.ofdm.bandwidth     = %d", filter->feparam.u.ofdm.bandwidth );
+      DEBUGf( "front_param.ofdm.code_rate_HP  = %d", filter->feparam.u.ofdm.code_rate_HP );
+      DEBUGf( "front_param.ofdm.code_rate_LP  = %d", filter->feparam.u.ofdm.code_rate_LP );
+      DEBUGf( "front_param.ofdm.constellation = %d", filter->feparam.u.ofdm.constellation );
+      DEBUGf( "front_param.ofdm.transmission_m= %d", filter->feparam.u.ofdm.transmission_mode );
+      DEBUGf( "front_param.ofdm.guard_interval= %d", filter->feparam.u.ofdm.guard_interval );
+      DEBUGf( "front_param.ofdm.hierarchy_info= %d", filter->feparam.u.ofdm.hierarchy_information );
+      break;
+      
+  default:
+      DEBUGf( "FIXME: print debug output" );
   }
 
   /* discard stale events */

@@ -28,11 +28,20 @@ class DVBsrc(gst.Bin):
             channel = value
             frontendtype = self._tuner.get_property('frontendtype')
             if frontendtype == 0:
-                # TODO FIXME broken --> fixme
-                DVBS
+                # TODO FIXME I have to fix parser and tuner! -
+                # they should use the same keywords
+                channel.config['symbol-rate'] = int(channel.config['symbolrate'])
+                # Note from Dischi: for some reason we need the not, took me some time
+                # to find this. BTW, polarisation vs. polarization.
+                channel.config['polarisation'] = not channel.config['horizontal_polarization']
+                
+                for cfgitem in [ 'frequency', 'symbol-rate', 'polarisation' ]:
+                    print '%s ==> %s' % (cfgitem, channel.config[ cfgitem ])
+                    self._tuner.set_property( cfgitem, channel.config[ cfgitem ] )
+
             elif frontendtype == 1:
-                # TODO FIXME broken --> fixme
-                DVBC
+                raise AttributeError('FIXME: DVB-C tuning unsupported')
+
             elif frontendtype == 2:
                 # TODO FIXME I have to fix parser and tuner! -
                 # they should use the same keywords
@@ -46,8 +55,8 @@ class DVBsrc(gst.Bin):
                     self._tuner.set_property( cfgitem, channel.config[ cfgitem ] )
                       
             elif frontendtype == 3:
-                # TODO FIXME broken --> fixme
-                ATSC
+                raise AttributeError('FIXME: ATSC tuning unsupported')
+
             else:
                 print 'OH NO! Please fix this code!'
             
