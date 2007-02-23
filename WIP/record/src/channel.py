@@ -171,7 +171,7 @@ class Channel(object):
         if len(cells[3]) > 1:
             self.config['source'] = cells[3][1:]
 
-        self.config['symbol-rate'] = cells[4]
+        self.config['symbol-rate'] = int(cells[4])
         self.config['vpid'] = cells[5]
 
         self.config['apids'] = []

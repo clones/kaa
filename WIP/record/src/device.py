@@ -40,7 +40,7 @@ pygst.require('0.10')
 import gst
 
 # kaa.record imports
-import gstdvbsrc
+import dvb
 
 # get logging object
 log = logging.getLogger('record.gstreamer')
@@ -54,7 +54,7 @@ class Device(object):
         self.pipeline.get_bus().add_watch(self._gst_event)
 
         if device.startswith('dvb'):
-            self.device = gstdvbsrc.DVBsrc()
+            self.device = dvb.DVBsrc()
             self.device.set_property('adapter', int(device[3:]))
 
         self.pipeline.add(self.device)
