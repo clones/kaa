@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
 # channels.py - Read channels.conf to Channel objects
@@ -120,13 +119,13 @@ class Channel(object):
         if len(cells) == 13 and cells[2].startswith('INVERSION_'):
             self.cfgtype = 'DVB-T'
             return self.parse_dvbt(cells)
-            
+
         log.error('failed to parse config line:\n%s' % self.line)
         return None
 
 
     def parse_vdr_style(self, line):
-        
+
         cells = self.line.split(':')
 
         if ';' in cells[0]:
@@ -172,7 +171,7 @@ class Channel(object):
         if len(cells[3]) > 1:
             self.config['source'] = cells[3][1:]
 
-        self.config['symbolrate'] = cells[4]
+        self.config['symbol-rate'] = cells[4]
         self.config['vpid'] = cells[5]
 
         self.config['apids'] = []
@@ -230,7 +229,7 @@ class Channel(object):
         self.config['apids'] = [ cells[11] ]
         self.config['tpid'] = cells[12]
 
-        
+
     def map_config(self, key, keydict):
         if not self.config.has_key( key ):
             return
@@ -328,7 +327,7 @@ class ConfigFile(object):
             if channel.cfgtype == None:
                 # ignore bad line
                 continue
-            
+
             if self.cfgtype == None:
                 self.cfgtype = channel.cfgtype
             elif self.cfgtype is not channel.cfgtype:

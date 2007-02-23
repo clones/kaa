@@ -13,6 +13,7 @@ kaa.notifier.init('gtk', x11=False)
 
 # import kaa.record2 for the dvbtuner module
 import kaa.record2
+import kaa.record2.gstdvbsrc
 
 # test app logic
 
@@ -44,7 +45,7 @@ pipeline = gst.Pipeline()
 pipeline.get_bus().add_watch(bus_event)
 
 # create DVBsrc object and add it
-dvb = kaa.record2.DVBsrc()
+dvb = kaa.record2.gstdvbsrc.DVBsrc()
 # FIXME: it would be nice to do
 # gst.element_factory_make("dvbsrc")
 
