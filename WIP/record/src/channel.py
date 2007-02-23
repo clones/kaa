@@ -37,7 +37,7 @@ import types
 import logging
 
 # get logging object
-log = logging.getLogger('record')
+log = logging.getLogger('record.channel')
 
 class Channel(object):
     # TODO / FIXME add missing compare function
