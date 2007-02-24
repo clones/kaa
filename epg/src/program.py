@@ -44,3 +44,6 @@ class Program(object):
         self.subtitle = dbdata.get('subtitle',  u'')
         self.episode = dbdata.get('episode', u'')
         self.genre = dbdata.get('genre', u'')
+
+    def __repr__(self):
+        return '<kaa.epg.Program %s>' % self.title

@@ -61,3 +61,6 @@ class Channel(object):
             return self._epg.search(time = t, channel = self, callback = callback)
         else:
             return []
+
+    def __repr__(self):
+        return '<kaa.epg.Channel %s>' % self.name
