@@ -36,8 +36,8 @@ import logging
 
 # kaa imports
 from kaa import xml, TEMP
-from kaa.config import Var, Group
-from kaa.notifier import Timer, Thread
+import kaa.notifier
+import kaa.xml
 
 from config_epgdata import config
 
@@ -190,7 +190,8 @@ class UpdateInfo:
     pass
 
 
-def _update_parse_xml_thread(epg, pin, days):
+@kaa.notifier.execute_in_thread('epg')
+def _parse_xml(epg):
     """
     Thread to parse the xml file. It will also call the grabber if needed.
     """
@@ -217,7 +218,7 @@ def _update_parse_xml_thread(epg, pin, days):
     # create download adresse for meta data
     addresse = 'http://www.epgdata.com/index.php'
     addresse+= '?action=sendInclude&iLang=de&iOEM=xml&iCountry=de'
-    addresse+= '&pin=%s' %pin
+    addresse+= '&pin=%s' % config.pin
     addresse+= '&dataType=xml'    
 
     
@@ -232,7 +233,6 @@ def _update_parse_xml_thread(epg, pin, days):
                     %(tmpfile, addresse, logfile, logfile))
     if not os.path.exists(tmpfile) or exit:
         log.error('Cannot get file from epgdata.com, see %s' %logfile)
-        epg.guide_changed()
         return
     # and unzip the zip file    
     log.info('Unzipping data for meta data')
@@ -240,7 +240,6 @@ def _update_parse_xml_thread(epg, pin, days):
                     %(tempdir, tmpfile, logfile, logfile))
     if exit:
         log.error('Cannot unzip the downloaded file, see %s' %logfile)
-        epg.guide_changed()
         return
     
     # list of channel info xml files    
@@ -252,7 +251,7 @@ def _update_parse_xml_thread(epg, pin, days):
     # parse this files    
     for xmlfile in chfiles:
         try:
-            doc = xml.Document(xmlfile, 'channel')
+            doc = kaa.xml.Document(xmlfile, 'channel')
         except:
             log.warning('error while parsing %s' %xmlfile)
             continue
@@ -264,7 +263,7 @@ def _update_parse_xml_thread(epg, pin, days):
     try:
         # the genre file
         xmlfile = os.path.join(tempdir, 'genre.xml')
-        doc = xml.Document(xmlfile, 'genre')
+        doc = kaa.xml.Document(xmlfile, 'genre')
     except:
         log.warning('error while parsing %s' %xmlfile)
     else:
@@ -274,7 +273,7 @@ def _update_parse_xml_thread(epg, pin, days):
     try:
         # the category file
         xmlfile = os.path.join(tempdir, 'category.xml')
-        doc = xml.Document(xmlfile, 'category')
+        doc = kaa.xml.Document(xmlfile, 'category')
     except:
         log.warning('error while parsing %s' %xmlfile)
     else:
@@ -286,11 +285,11 @@ def _update_parse_xml_thread(epg, pin, days):
     # create download adresse for programm files  
     addresse = 'http://www.epgdata.com/index.php'
     addresse+= '?action=sendPackage&iLang=de&iOEM=xml&iCountry=de'
-    addresse+= '&pin=%s' %pin
+    addresse+= '&pin=%s' % config.pin
     addresse+= '&dayOffset=%s&dataType=xml' 
        
     # get the file for each day 
-    for i in range(0, days):
+    for i in range(0, int(config.days)):
             # remove old file if needed
             try:
                 os.remove(tmpfile)
@@ -302,7 +301,6 @@ def _update_parse_xml_thread(epg, pin, days):
                             %(tmpfile, addresse %i, logfile, logfile))
             if not os.path.exists(tmpfile) or exit:
                 log.error('Cannot get file from epgdata.com, see %s' %logfile)
-                epg.guide_changed()
                 return
             # and unzip the zip file    
             log.info('Unzipping data for day %s' %(i+1))
@@ -310,7 +308,6 @@ def _update_parse_xml_thread(epg, pin, days):
                             %(tempdir, tmpfile, logfile, logfile))
             if exit:
                 log.error('Cannot unzip the downloaded file, see %s' %logfile)
-                epg.guide_changed()
                 return
     
   
@@ -322,7 +319,7 @@ def _update_parse_xml_thread(epg, pin, days):
     # parse the progam xml files    
     for xmlfile in progfiles:
         try:
-            doc = xml.Document(xmlfile, 'pack')
+            doc = kaa.xml.Document(xmlfile, 'pack')
         except:
             log.warning('error while parsing %s' %xmlfile)
             continue
@@ -337,7 +334,7 @@ def _update_parse_xml_thread(epg, pin, days):
     # put the informations in the UpdateInfo object.
     info = UpdateInfo()
     info.epg = epg
-    info.pin = pin
+    info.pin = config.pin
     info.channel_id_to_db_id = {}
     info.meta_id_to_meta_name = {}
     info.docs =docs
@@ -346,54 +343,43 @@ def _update_parse_xml_thread(epg, pin, days):
     info.total = nodes
     info.progress_step = info.total / 100
            
-    
-    # start parser in main loop again, thread is done
-    timer = Timer(_update_process_step, info)
-    timer.start(0)
+    return info
 
 
-def _update_process_step(info):
+@kaa.notifier.yield_execution()
+def update(epg):
     """
-    Step in main loop for the parsing of the epgdata xml files. 
-    This function  will be called in a Timer until everything is parsed.
+    Interface to source_epgdata.
     """
+    if not config.pin:
+        log.error('PIN for epgdata.com is missing in tvserver.conf')
+        yield False
+
+    # _parse_xml is forced to be executed in a thread. This means that
+    # it always returns an InProgress object that needs to be yielded.
+    # When yield returns we need to call the InProgress object to get
+    # the result. If the result is None, the thread run into an error.
+    info = _parse_xml(epg)
+    yield info
+    info = info()
+    if not info:
+        yield False
+
     t0 = time.time()
-    while info.node:
-        if info.node.name == "data":
-            #  parse!
-            parse_data(info)
-        info.node = info.node.get_next()
-        if time.time() - t0 > 0.1:
-            # time to return to the main loop
-            break
-    if not info.node:
-        # check if there are more files to parse
-        if len(info.docs)>0:
+    while info.node or len(info.docs) > 0:
+        while info.node:
+            if info.node.name == "data":
+                #  parse!
+                parse_data(info)
+            info.node = info.node.get_next()
+            if time.time() - t0 > 0.1:
+                # time to return to the main loop
+                yield kaa.notifier.YieldContinue
+                t0 = time.time()
+        if len(info.docs) > 0:
             # take the next one
             info.doc = info.docs.pop(0)
             # and start with its first node
             info.node = info.doc.first
-        else:
-            # no more files to parse, mission completed!
-            info.epg.guide_changed()
-            log.info('epg grabbing finished!')
-            return False
-    
-    return True
-
-
-def update(epg):
-    """
-    Interface to source_epgdata. This function will start the update process.
-    """
-    try:
-        pin = config.pin
-    except KeyError:    
-        log.exception('PIN for epgdata.com is missing in tvserver.conf')
-        epg.guide_changed()
-        return False
-        
-    thread = Thread(_update_parse_xml_thread, epg, 
-                    str(config.pin), int(config.days))
-    thread.start()
-    return True
+    epg.guide_changed()
+    yield True

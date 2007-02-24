@@ -37,9 +37,9 @@ import shutil
 import logging
 
 # kaa imports
-from kaa import xml, TEMP
-from kaa.config import Var, Group
-from kaa.notifier import Timer, Thread
+from kaa import TEMP
+import kaa.notifier
+import kaa.xml
 
 from config_xmltv import config
 
@@ -191,7 +191,8 @@ class UpdateInfo:
     pass
 
 
-def _update_parse_xml_thread(epg):
+@kaa.notifier.execute_in_thread('epg')
+def _parse_xml(epg):
     """
     Thread to parse the xml file. It will also call the grabber if needed.
     """
@@ -208,7 +209,6 @@ def _update_parse_xml_thread(epg):
                        (config.grabber, xmltv_file, config.days, log_file, log_file))
         if not os.path.exists(xmltv_file) or ec:
             log.error('grabber failed, see %s', log_file)
-            epg.guide_changed()
             return
 
         if config.sort:
@@ -219,7 +219,6 @@ def _update_parse_xml_thread(epg):
             os.unlink(xmltv_file + '.tmp')
             if not os.path.exists(xmltv_file):
                 log.error('sorting failed, see %s', log_file)
-                epg.guide_changed()
                 return
         else:
             log.info('not configured to use tv_sort, skipping')
@@ -229,10 +228,9 @@ def _update_parse_xml_thread(epg):
     # Now we have a xmltv file and need to parse it
     log.info('parse xml file')
     try:
-        doc = xml.Document(xmltv_file, 'tv')
+        doc = kaa.xml.Document(xmltv_file, 'tv')
     except:
         log.exception('error parsing xmltv file')
-        epg.guide_changed()
         return
 
     channel_id_to_db_id = {}
@@ -250,16 +248,27 @@ def _update_parse_xml_thread(epg):
     info.epg = epg
     info.progress_step = info.total / 100
 
-    # start parser in main loop again, thread is done
-    timer = Timer(_update_process_step, info)
-    timer.start(0)
+    return info
 
 
-def _update_process_step(info):
+@kaa.notifier.yield_execution()
+def update(epg):
     """
-    Step in main loop for the parsing of the xmltv file. This function
-    will be called in a Timer until everything is parsed.
+    Interface to source_xmltv.
     """
+    if not config.data_file and not config.grabber:
+        log.error('XMLTV gabber not configured.')
+        yield False
+    # _parse_xml is forced to be executed in a thread. This means that
+    # it always returns an InProgress object that needs to be yielded.
+    # When yield returns we need to call the InProgress object to get
+    # the result. If the result is None, the thread run into an error.
+    info = _parse_xml(epg)
+    yield info
+    info = info()
+    if not info:
+        yield False
+
     t0 = time.time()
     while info.node:
         if info.node.name == "channel":
@@ -270,24 +279,8 @@ def _update_process_step(info):
         info.node = info.node.get_next()
         if time.time() - t0 > 0.1:
             # time to return to the main loop
-            break
+            yield kaa.notifier.YieldContinue
+            t0 = time.time()
 
-    if not info.node:
-        info.epg.guide_changed()
-        return False
-
-    return True
-
-
-def update(epg):
-    """
-    Interface to source_xmltv. This function will start the update
-    process.
-    """
-    if not config.data_file and not config.grabber:
-        log.error('XMLTV gabber not configured.')
-        epg.guide_changed()
-        return False
-    thread = Thread(_update_parse_xml_thread, epg)
-    thread.start()
-    return True
+    info.epg.guide_changed()
+    yield True

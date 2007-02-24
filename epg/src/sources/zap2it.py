@@ -41,6 +41,7 @@ import libxml2
 
 # kaa imports
 import kaa
+import kaa.notifier
 from kaa.strutils import str_to_unicode
 from config_zap2it import config
 
@@ -233,7 +234,8 @@ def find_roots(node, roots = {}):
 class UpdateInfo:
     pass
 
-def _update_parse_xml_thread(epg, username, passwd, start, stop):
+@kaa.notifier.execute_in_thread('epg')
+def _parse_xml(epg, username, passwd, start, stop):
     filename = request(username, passwd, ZAP2IT_HOST, ZAP2IT_URI, start, stop)
     if not filename:
         return
@@ -250,7 +252,8 @@ def _update_parse_xml_thread(epg, username, passwd, start, stop):
 
     info = UpdateInfo()
     info.doc = doc
-    info.roots = [roots["stations"], roots["lineup"], roots["programs"], roots["schedules"]]
+    info.roots = [roots["stations"], roots["lineup"], roots["programs"], \
+                  roots["schedules"]]
     info.node_names = ["station", "map", "program", "schedule"]
     info.node = None
     info.total = nprograms
@@ -260,34 +263,8 @@ def _update_parse_xml_thread(epg, username, passwd, start, stop):
     info.progress_step = info.total / 100
     info.t0 = time.time()
 
-    timer = kaa.notifier.Timer(_update_process_step, info)
-    timer.start(0)
 
-
-def _update_process_step(info):
-    t0=time.time()
-    if not info.node and info.roots:
-        info.node = info.roots.pop(0).children
-        info.cur_node_name = info.node_names.pop(0)
-
-    while info.node:
-        if info.node.name == info.cur_node_name:
-            globals()["parse_%s" % info.cur_node_name](info.node, info)
-
-        info.node = info.node.get_next()
-        if time.time() - t0 > 0.1:
-            break
-
-    if not info.node and not info.roots:
-        os.unlink(info.doc.name)
-        info.doc.freeDoc()
-        info.epg.guide_changed()
-        log.info('Processed %d programs in %.02f seconds' % (info.epg._num_programs, time.time() - info.t0))
-        return False
-
-    return True
-
-
+@kaa.notifier.yield_execution()
 def update(epg, start = None, stop = None):
     if not start:
         # If start isn't specified, choose current time (rounded down to the
@@ -297,8 +274,34 @@ def update(epg, start = None, stop = None):
         # If stop isn't specified, use 24 hours after start.
         stop = start + (24 * 60 * 60)
 
-    thread = kaa.notifier.Thread(_update_parse_xml_thread, epg,
-                                 str(config.username), str(config.password),
-                                 start, stop)
-    thread.start()
-    return True
+    # _parse_xml is forced to be executed in a thread. This means that
+    # it always returns an InProgress object that needs to be yielded.
+    # When yield returns we need to call the InProgress object to get
+    # the result. If the result is None, the thread run into an error.
+    info = _parse_xml(epg, str(config.username), str(config.password), start, stop)
+    yield info
+    info = info()
+    if not info:
+        yield False
+
+    t0 = time.time()
+    while info.node or info.roots:
+        if not info.node:
+            info.node = info.roots.pop(0).children
+            info.cur_node_name = info.node_names.pop(0)
+
+        if info.node.name == info.cur_node_name:
+            globals()["parse_%s" % info.cur_node_name](info.node, info)
+
+        info.node = info.node.get_next()
+        if time.time() - t0 > 0.1:
+            # time to return to the main loop
+            yield kaa.notifier.YieldContinue
+            t0 = time.time()
+
+    os.unlink(info.doc.name)
+    info.doc.freeDoc()
+    info.epg.guide_changed()
+    log.info('Processed %d programs in %.02f seconds', info.epg._num_programs,
+             time.time() - info.t0)
+    yield True

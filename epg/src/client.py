@@ -243,4 +243,4 @@ class Client(object):
         """
         if self.status == DISCONNECTED:
             return False
-        self.server.rpc('guide.update', *args, **kwargs)
+        return self.server.rpc('guide.update', *args, **kwargs)
