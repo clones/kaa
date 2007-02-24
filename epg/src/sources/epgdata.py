@@ -2,10 +2,10 @@
 # -----------------------------------------------------------------------------
 # source_epgdata.py -  get epg data from www.epgdata.com
 # -----------------------------------------------------------------------------
-# $Id: 
+# $Id:
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2007 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Tanja Kotthaus <owigera@web.de>
 #
@@ -27,15 +27,16 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'config', 'update' ]
+
 # python imports
-import sys
 import os
 import time
 import glob
 import logging
 
 # kaa imports
-from kaa import xml, TEMP
+from kaa import TEMP
 import kaa.notifier
 import kaa.xml
 
@@ -67,7 +68,7 @@ PROG_MAPPING = {
     'd36':'director',
     'd37':'actor',
     'd40':'icon'
-}        
+}
 
 # the meaning of the tags that are used in the channel*.xml files can be found
 # in the header of each channe*.xml file.
@@ -83,12 +84,12 @@ META_MAPPING = {
     'g1':'name',  # genre
     'ca0':'id',   # category_id
     'ca2':'name'  # category
-}    
+}
 
 def timestr2secs_utc(timestr):
     """
     Convert the timestring to UTC (=GMT) seconds.
-    
+
     The time format in the epddata is:
     '2002-09-08 00:00:00'
     The timezone is german localtime, which is CET or CEST.
@@ -96,20 +97,20 @@ def timestr2secs_utc(timestr):
     secs = time.mktime(time.strptime(timestr, '%Y-%m-%d %H:%M:%S'))
     return secs
 
- 
-        
-def parse_data(info): 
+
+
+def parse_data(info):
     """ parse the info from the xml
-    
+
     The current node can be either from a channel or a program.
     Subelements of the form <ch?> are for channels whereas <d?> are for programs.
-    See CH_MAPPING and PROG_MAPPING for a list of subelements that are 
-    processed and their meaning. 
+    See CH_MAPPING and PROG_MAPPING for a list of subelements that are
+    processed and their meaning.
     First all subelements of the node are read to a dictionary called attr
     and then the info in the dictionary is processed further depending on what
     kind of node we have.
     """
-    
+
     attr= {}
     flag = None
     # child is a <data> element and its children are containing the infos
@@ -119,13 +120,13 @@ def parse_data(info):
             flag = 'channel'
             # let's process it
             attr[CH_MAPPING[child.name]] = child.content
-        
+
         if child.name in META_MAPPING.keys():
             # this is meta info
             flag = 'meta'
             # let's process it
             attr[META_MAPPING[child.name]] = child.content
-                 
+
         if child.name in PROG_MAPPING.keys():
             # this is program info
             flag = 'programme'
@@ -139,9 +140,9 @@ def parse_data(info):
                     # if it is '1999-2004', take the first year
                     date = date.split('-')[0]
                 if not len(date)==4:
-                    # format unknown, ignore        
+                    # format unknown, ignore
                       continue
-                else:     
+                else:
                     fmt = '%Y'
                     attr['date'] = int(time.mktime(time.strptime(date, fmt)))
             elif child.name=='d10' or child.name=='d25': # genre and category
@@ -151,18 +152,18 @@ def parse_data(info):
                 except KeyError:
                     pass
                 else:
-                    attr[PROG_MAPPING[child.name]] = content        
-            else:        
+                    attr[PROG_MAPPING[child.name]] = content
+            else:
                 # process all other known elements
                 attr[PROG_MAPPING[child.name]] = child.content
-    
+
     if flag =='channel':
         # create db_id
-        db_id = info.epg.add_channel(tuner_id=attr['tvchannel_dvb'],
-                                     name=attr['tvchannel_short'], 
-                                     long_name=attr['tvchannel_name'])
+        db_id = info.add_channel(tuner_id=attr['tvchannel_dvb'],
+                                 name=attr['tvchannel_short'],
+                                 long_name=attr['tvchannel_name'])
         # and fill the channel_id_to_db_id dictionary
-        info.channel_id_to_db_id[attr['tvchannel_id']] = db_id                            
+        info.channel_id_to_db_id[attr['tvchannel_id']] = db_id
 
     if flag == 'meta':
         info.meta_id_to_meta_name[attr['id']]=attr['name']
@@ -176,12 +177,12 @@ def parse_data(info):
         # translate channel_id to db_id
         db_id = info.channel_id_to_db_id[attr.pop('channel_id')]
         # fill this program to the database
-        info.epg.add_program(db_id, start, stop, title, **attr)
+        info.add_program(db_id, start, stop, title, **attr)
 
 
 #####
 # this functions form the interface to freevo
-#####    
+#####
 
 class UpdateInfo:
     """
@@ -191,74 +192,74 @@ class UpdateInfo:
 
 
 @kaa.notifier.execute_in_thread('epg')
-def _parse_xml(epg):
+def _parse_xml():
     """
     Thread to parse the xml file. It will also call the grabber if needed.
     """
-        
+
     # create a tempdir as working area
     tempdir = os.path.join(TEMP, 'epgdata')
     if not os.path.isdir(tempdir):
         os.mkdir(tempdir)
     # and clear it if needed
-    for i in glob.glob(os.path.join(tempdir,'*')):       
-       os.remove(i) 
-        
+    for i in glob.glob(os.path.join(tempdir,'*')):
+       os.remove(i)
+
     # temp file
     tmpfile = os.path.join(tempdir,'temp.zip')
     # logfile
     logfile = os.path.join(TEMP,'epgdata.log')
-    
+
     # empty list for the xml docs
     docs = []
     # count of the nodes that have to be parsed
     nodes = 0
-       
-    
-    # create download adresse for meta data
-    addresse = 'http://www.epgdata.com/index.php'
-    addresse+= '?action=sendInclude&iLang=de&iOEM=xml&iCountry=de'
-    addresse+= '&pin=%s' % config.pin
-    addresse+= '&dataType=xml'    
 
-    
+
+    # create download adresse for meta data
+    address = 'http://www.epgdata.com/index.php'
+    address+= '?action=sendInclude&iLang=de&iOEM=xml&iCountry=de'
+    address+= '&pin=%s' % config.pin
+    address+= '&dataType=xml'
+
+
     # remove old file if needed
     try:
         os.remove(tmpfile)
     except OSError:
-         pass 
-    # download the meta data file     
+         pass
+    # download the meta data file
     log.info ('Downloading meta data')
-    exit = os.system('wget -N -O %s "%s" >>%s 2>>%s' 
-                    %(tmpfile, addresse, logfile, logfile))
+    exit = os.system('wget -N -O %s "%s" >>%s 2>>%s'
+                    %(tmpfile, address, logfile, logfile))
     if not os.path.exists(tmpfile) or exit:
         log.error('Cannot get file from epgdata.com, see %s' %logfile)
         return
-    # and unzip the zip file    
+    # and unzip the zip file
     log.info('Unzipping data for meta data')
-    exit = os.system('unzip -uo -d %s %s >>%s 2>>%s' 
+    exit = os.system('unzip -uo -d %s %s >>%s 2>>%s'
                     %(tempdir, tmpfile, logfile, logfile))
     if exit:
         log.error('Cannot unzip the downloaded file, see %s' %logfile)
         return
-    
-    # list of channel info xml files    
-    chfiles = glob.glob(os.path.join(tempdir,'channel*.xml'))   
+
+    # list of channel info xml files
+    chfiles = glob.glob(os.path.join(tempdir,'channel*.xml'))
     if len(chfiles)==0:
         log.error('no channel xml files for parsing')
-        return              
-   
-    # parse this files    
+        return
+
+    # parse this files
     for xmlfile in chfiles:
         try:
             doc = kaa.xml.Document(xmlfile, 'channel')
         except:
             log.warning('error while parsing %s' %xmlfile)
             continue
-        docs.append(doc) 
-        nodes = nodes + len(doc.children)      
-            
-    
+        docs.append(doc)
+        nodes = nodes + len(doc.children)
+
+
     #parse the meta files
     try:
         # the genre file
@@ -268,8 +269,8 @@ def _parse_xml(epg):
         log.warning('error while parsing %s' %xmlfile)
     else:
         # add the files to the list
-        docs.append(doc)  
-        nodes = nodes + len(doc.children) 
+        docs.append(doc)
+        nodes = nodes + len(doc.children)
     try:
         # the category file
         xmlfile = os.path.join(tempdir, 'category.xml')
@@ -278,71 +279,69 @@ def _parse_xml(epg):
         log.warning('error while parsing %s' %xmlfile)
     else:
         # add the files to the list
-        docs.append(doc) 
-        nodes = nodes + len(doc.children)    
-    
-               
-    # create download adresse for programm files  
-    addresse = 'http://www.epgdata.com/index.php'
-    addresse+= '?action=sendPackage&iLang=de&iOEM=xml&iCountry=de'
-    addresse+= '&pin=%s' % config.pin
-    addresse+= '&dayOffset=%s&dataType=xml' 
-       
-    # get the file for each day 
+        docs.append(doc)
+        nodes = nodes + len(doc.children)
+
+
+    # create download adresse for programm files
+    address = 'http://www.epgdata.com/index.php'
+    address+= '?action=sendPackage&iLang=de&iOEM=xml&iCountry=de'
+    address+= '&pin=%s' % config.pin
+    address+= '&dayOffset=%s&dataType=xml'
+
+    # get the file for each day
     for i in range(0, int(config.days)):
             # remove old file if needed
             try:
                 os.remove(tmpfile)
             except OSError:
-                pass    
-            # download the zip file    
+                pass
+            # download the zip file
             log.info('Getting data for day %s' %(i+1))
-            exit = os.system('wget -N -O %s "%s" >>%s 2>>%s' 
-                            %(tmpfile, addresse %i, logfile, logfile))
+            exit = os.system('wget -N -O %s "%s" >>%s 2>>%s'
+                            %(tmpfile, address %i, logfile, logfile))
             if not os.path.exists(tmpfile) or exit:
                 log.error('Cannot get file from epgdata.com, see %s' %logfile)
                 return
-            # and unzip the zip file    
+            # and unzip the zip file
             log.info('Unzipping data for day %s' %(i+1))
-            exit = os.system('unzip -uo -d %s %s >>%s 2>>%s' 
+            exit = os.system('unzip -uo -d %s %s >>%s 2>>%s'
                             %(tempdir, tmpfile, logfile, logfile))
             if exit:
                 log.error('Cannot unzip the downloaded file, see %s' %logfile)
                 return
-    
-  
-    # list of program xml files that must be parsed   
-    progfiles = glob.glob(os.path.join(tempdir,'*de_q[a-z].xml'))  
+
+
+    # list of program xml files that must be parsed
+    progfiles = glob.glob(os.path.join(tempdir,'*de_q[a-z].xml'))
     if len(progfiles)==0:
         log.warning('no progam xml files for parsing')
-    
-    # parse the progam xml files    
+
+    # parse the progam xml files
     for xmlfile in progfiles:
         try:
             doc = kaa.xml.Document(xmlfile, 'pack')
         except:
             log.warning('error while parsing %s' %xmlfile)
             continue
-        # add the files to the list    
-        docs.append(doc)  
-        nodes = nodes + len(doc.children)  
-          
-    log.info('There are %s files to parse with in total %s nodes' 
+        # add the files to the list
+        docs.append(doc)
+        nodes = nodes + len(doc.children)
+
+    log.info('There are %s files to parse with in total %s nodes'
              %(len(docs), nodes))
-    
-    
+
+
     # put the informations in the UpdateInfo object.
     info = UpdateInfo()
-    info.epg = epg
-    info.pin = config.pin
     info.channel_id_to_db_id = {}
     info.meta_id_to_meta_name = {}
-    info.docs =docs
+    info.docs = docs
     info.doc = info.docs.pop(0)
     info.node = info.doc.first
     info.total = nodes
     info.progress_step = info.total / 100
-           
+
     return info
 
 
@@ -359,12 +358,14 @@ def update(epg):
     # it always returns an InProgress object that needs to be yielded.
     # When yield returns we need to call the InProgress object to get
     # the result. If the result is None, the thread run into an error.
-    info = _parse_xml(epg)
+    info = _parse_xml()
     yield info
     info = info()
     if not info:
         yield False
 
+    info.add_program = epg.add_program
+    info.add_channel = epg.add_channel
     t0 = time.time()
     while info.node or len(info.docs) > 0:
         while info.node:
@@ -381,5 +382,4 @@ def update(epg):
             info.doc = info.docs.pop(0)
             # and start with its first node
             info.node = info.doc.first
-    epg.guide_changed()
     yield True

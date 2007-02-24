@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2007 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -176,9 +176,9 @@ def parse_map(node, info):
         return
 
     channel = int(node.prop("channel"))
-    db_id = info.epg.add_channel(tuner_id=channel,
-                                 name=info.stations_by_id[id]["station"],
-                                 long_name=info.stations_by_id[id]["name"])
+    db_id = info.add_channel(tuner_id=channel,
+                             name=info.stations_by_id[id]["station"],
+                             long_name=info.stations_by_id[id]["name"])
     info.stations_by_id[id]["db_id"] = db_id
 
 
@@ -198,8 +198,8 @@ def parse_schedule(node, info):
     d["stop"] = d["start"] + duration_secs
     d["rating"] = str_to_unicode(node.prop("tvRating"))
 
-    info.epg.add_program(info.stations_by_id[d["station_id"]]["db_id"], d["start"],
-                         d["stop"], d.get("title"), desc=d.get("desc"))
+    info.add_program(info.stations_by_id[d["station_id"]]["db_id"], d["start"],
+                     d["stop"], d.get("title"), desc=d.get("desc"))
 
 
 def parse_program(node, info):
@@ -235,8 +235,9 @@ class UpdateInfo:
     pass
 
 @kaa.notifier.execute_in_thread('epg')
-def _parse_xml(epg, username, passwd, start, stop):
-    filename = request(username, passwd, ZAP2IT_HOST, ZAP2IT_URI, start, stop)
+def _parse_xml(start, stop):
+    filename = request(str(config.username), str(config.password),
+                       ZAP2IT_HOST, ZAP2IT_URI, start, stop)
     if not filename:
         return
     doc = libxml2.parseFile(filename)
@@ -259,7 +260,6 @@ def _parse_xml(epg, username, passwd, start, stop):
     info.total = nprograms
     info.schedules_by_id = {}
     info.stations_by_id = stations_by_id
-    info.epg = epg
     info.progress_step = info.total / 100
     info.t0 = time.time()
 
@@ -278,12 +278,14 @@ def update(epg, start = None, stop = None):
     # it always returns an InProgress object that needs to be yielded.
     # When yield returns we need to call the InProgress object to get
     # the result. If the result is None, the thread run into an error.
-    info = _parse_xml(epg, str(config.username), str(config.password), start, stop)
+    info = _parse_xml(start, stop)
     yield info
     info = info()
     if not info:
         yield False
 
+    info.add_program = epg.add_program
+    info.add_channel = epg.add_channel
     t0 = time.time()
     while info.node or info.roots:
         if not info.node:
@@ -301,7 +303,6 @@ def update(epg, start = None, stop = None):
 
     os.unlink(info.doc.name)
     info.doc.freeDoc()
-    info.epg.guide_changed()
-    log.info('Processed %d programs in %.02f seconds', info.epg._num_programs,
+    log.info('Processed %d programs in %.02f seconds', epg._num_programs,
              time.time() - info.t0)
     yield True

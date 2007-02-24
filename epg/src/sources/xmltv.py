@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2007 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -130,7 +130,7 @@ def parse_channel(info):
         # for the used grabber somehow.
         name = display or station
 
-    db_id = info.epg.add_channel(tuner_id=channel, name=station, long_name=name)
+    db_id = info.add_channel(tuner_id=channel, name=station, long_name=name)
     info.channel_id_to_db_id[channel_id] = [db_id, None]
 
 
@@ -176,12 +176,12 @@ def parse_programme(info):
         # user to run tv_sort to fix this. And IIRC tv_sort also takes care of
         # this problem.
         last_start, last_title, last_attr = last_prog
-        info.epg.add_program(db_id, last_start, start, last_title, **last_attr)
+        info.add_program(db_id, last_start, start, last_title, **last_attr)
     if not info.node.getattr("stop"):
         info.channel_id_to_db_id[channel_id][1] = (start, title, attr)
     else:
         stop = timestr2secs_utc(info.node.getattr("stop"))
-        info.epg.add_program(db_id, start, stop, title, **attr)
+        info.add_program(db_id, start, stop, title, **attr)
 
 
 class UpdateInfo:
@@ -192,7 +192,7 @@ class UpdateInfo:
 
 
 @kaa.notifier.execute_in_thread('epg')
-def _parse_xml(epg):
+def _parse_xml():
     """
     Thread to parse the xml file. It will also call the grabber if needed.
     """
@@ -245,7 +245,6 @@ def _parse_xml(epg):
     info.node = doc.first
     info.channel_id_to_db_id = channel_id_to_db_id
     info.total = nprograms
-    info.epg = epg
     info.progress_step = info.total / 100
 
     return info
@@ -263,12 +262,14 @@ def update(epg):
     # it always returns an InProgress object that needs to be yielded.
     # When yield returns we need to call the InProgress object to get
     # the result. If the result is None, the thread run into an error.
-    info = _parse_xml(epg)
+    info = _parse_xml()
     yield info
     info = info()
     if not info:
         yield False
 
+    info.add_program = epg.add_program
+    info.add_channel = epg.add_channel
     t0 = time.time()
     while info.node:
         if info.node.name == "channel":
@@ -282,5 +283,4 @@ def update(epg):
             yield kaa.notifier.YieldContinue
             t0 = time.time()
 
-    info.epg.guide_changed()
     yield True

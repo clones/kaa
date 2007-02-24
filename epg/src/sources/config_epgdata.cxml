@@ -1,9 +1,11 @@
 <?xml version="1.0"?>
 <config>
     <desc lang="en">
-        epgdata settings
-
-        MORE DESCRIPTION!
+        epgdata.com settings
+        A epgdata.com subscriptions is needed. Right now the service is in test
+        mode and it is possible to request a test key. It is unknown how long
+        such a test key will work and if it will be possible after that to use
+        the service.
     </desc>
     <var name="activate" default="False">
         <desc lang="en">Get epg data from epgdata.com</desc>

@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2007 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -76,14 +76,59 @@ class Server(object):
 
         self._clients = []
         self._db = db
-        self._setup_internal_variables()
         self._rpc_server = []
+
+        # initial sync
+        self.sync()
 
         # start unix socket rpc connection
         s = kaa.rpc.Server('epg')
         s.signals['client_connected'].connect(self.client_connected)
         s.connect(self)
         self._rpc_server.append(s)
+
+
+    def sync(self, result=False):
+        """
+        Sync database. The guide may changed by source, commit changes to
+        database and notify clients. Load some basic settings from the db.
+        The result parameter is not used but given by the InProgress callback
+        when this function is called after an update.
+        """
+        log.info('commit database changes')
+        self._db.commit()
+
+        # Load some basic information from the db.
+        self._max_program_length = self._num_programs = 0
+        q = 'SELECT stop-start AS length FROM objects_program ' + \
+            'ORDER BY length DESC LIMIT 1'
+        res = self._db._db_query(q)
+        if len(res):
+            self._max_program_length = res[0][0]
+
+        res = self._db._db_query("SELECT count(*) FROM objects_program")
+        if len(res):
+            self._num_programs = res[0][0]
+
+        self._tuner_ids = []
+        channels = self._db.query(type = "channel")
+        for c in channels:
+            for t in c["tuner_id"]:
+                if t in self._tuner_ids:
+                    log.warning('loading channel %s with tuner_id %s '+\
+                                'allready claimed by another channel',
+                                c["name"], t)
+                else:
+                    self._tuner_ids.append(t)
+
+        # get channel list to be passed to a client on connect / update
+        self._channel_list = [ (r['id'], r['tuner_id'], r['name'], r['long_name']) \
+                               for r in self._db.query(type="channel") ]
+
+        info = self._channel_list, self._max_program_length, self._num_programs
+        for client in self._clients:
+            log.info('update client %s', client)
+            client.rpc('guide.update', info)
 
 
     # -------------------------------------------------------------------------
@@ -115,7 +160,11 @@ class Server(object):
         if not sources.has_key(backend):
             raise ValueError, "No such update backend '%s'" % backend
         log.info('update backend %s', backend)
-        return sources[backend].update(self, *args, **kwargs)
+        result = sources[backend].update(self, *args, **kwargs)
+        if isinstance(result, kaa.notifier.InProgress):
+            # sync when guide is updated
+            result.connect(self.sync)
+        return result
 
 
     @kaa.rpc.expose('guide.query')
@@ -153,20 +202,6 @@ class Server(object):
     # -------------------------------------------------------------------------
     # functions called by source_* modules
     # -------------------------------------------------------------------------
-
-    @kaa.notifier.execute_in_mainloop()
-    def guide_changed(self):
-        """
-        Guide changed by source, commit changes to database and notify clients.
-        """
-        log.info('commit database changes')
-        self._db.commit()
-        self._setup_internal_variables()
-        info = self._channel_list, self._max_program_length, self._num_programs
-        for client in self._clients:
-            log.info('update client %s', client)
-            client.rpc('guide.update', info)
-
 
     def add_channel(self, tuner_id, name, long_name):
         """
@@ -297,37 +332,3 @@ class Server(object):
         if stop - start > self._max_program_length:
             self._max_program_length = stop = start
         return o["id"]
-
-
-    # -------------------------------------------------------------------------
-    # internal functions
-    # -------------------------------------------------------------------------
-
-    def _setup_internal_variables(self):
-        """
-        Load some basic information from the db.
-        """
-        self._max_program_length = self._num_programs = 0
-        q = "SELECT stop-start AS length FROM objects_program ORDER BY length DESC LIMIT 1"
-        res = self._db._db_query(q)
-        if len(res):
-            self._max_program_length = res[0][0]
-
-        res = self._db._db_query("SELECT count(*) FROM objects_program")
-        if len(res):
-            self._num_programs = res[0][0]
-
-        self._tuner_ids = []
-        channels = self._db.query(type = "channel")
-        for c in channels:
-            for t in c["tuner_id"]:
-                if t in self._tuner_ids:
-                    log.warning('loading channel %s with tuner_id %s '+\
-                                'allready claimed by another channel',
-                                c["name"], t)
-                else:
-                    self._tuner_ids.append(t)
-
-        # get channel list to be passed to a client on connect / update
-        self._channel_list = [ (r['id'], r['tuner_id'], r['name'], r['long_name']) \
-                               for r in self._db.query(type="channel") ]
