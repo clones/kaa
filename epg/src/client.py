@@ -75,10 +75,9 @@ class Client(object):
         """
         Signal callback when server disconnects.
         """
-        log.error('kaa.epg client disconnected')
+        log.debug('kaa.epg client disconnected')
         self.status = DISCONNECTED
         self.signals["disconnected"].emit()
-        log.info('delete server link')
         del self.server
 
 
