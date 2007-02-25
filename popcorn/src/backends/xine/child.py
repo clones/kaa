@@ -71,6 +71,7 @@ class XinePlayerChild(Player):
         self._xine.set_config_value("effects.goom.width", 512)
         self._xine.set_config_value("effects.goom.height", 384)
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
+        self._xine.set_config_value("video.device.xv_autopaint_colorkey", True)
 
 
     # #########################################################################
@@ -218,7 +219,7 @@ class XinePlayerChild(Player):
         self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
 
 
-    def configure_video(self, wid, size, aspect):
+    def configure_video(self, wid, size, aspect, colorkey):
         """
         Configure video output.
         """
@@ -236,6 +237,9 @@ class XinePlayerChild(Player):
         else:
             vo_kwargs = {'passthrough': 'none'}
             self._vo_visible = False
+
+        if colorkey is not None:
+            self._xine.set_config_value("video.device.xv_colorkey", colorkey)
 
         control_return = []
         self._vo = self._xine.open_video_driver(
