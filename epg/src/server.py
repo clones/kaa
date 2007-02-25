@@ -69,7 +69,7 @@ class Server(object):
             stop = (int, ATTR_SEARCHABLE),
             episode = (unicode, ATTR_SIMPLE),
             subtitle = (unicode, ATTR_SIMPLE),
-            genre = (unicode, ATTR_SIMPLE),
+            genre = (unicode, ATTR_SEARCHABLE),
             date = (int, ATTR_SEARCHABLE),
             rating = (dict, ATTR_SIMPLE)
         )

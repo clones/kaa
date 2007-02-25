@@ -34,6 +34,7 @@ __all__ = [ 'connect', 'Channel', 'Program', 'Client', 'Server', 'QExpr',
 import logging
 
 # kaa imports
+import kaa.notifier
 from kaa.db import QExpr
 
 # kaa.epg imports
@@ -51,18 +52,16 @@ from util import cmp_channel
 log = logging.getLogger('epg')
 
 # connected client object
-guide = None
+guide = Client()
 
 def connect(address, auth_secret=''):
     """
     Connect to the epg server with the given address.
     """
-    global guide
-
-    if guide and not guide.status == DISCONNECTED:
+    if not guide.status == DISCONNECTED:
         log.warning('connecting to a new epg database')
-
-    guide = Client(address, auth_secret)
+        guide.connect(address, auth_secret)
+    guide.connect(address, auth_secret)
     return guide
 
 
@@ -70,7 +69,7 @@ def get_channels(sort=False):
     """
     Return a list of all channels.
     """
-    if guide and not guide.status == DISCONNECTED:
+    if not guide.status == DISCONNECTED:
         if sort:
             channels = guide.get_channels()[:]
             channels.sort(lambda a, b: cmp(a.name, b.name))
@@ -84,21 +83,25 @@ def get_channel(name):
     """
     Return the channel with the given name.
     """
-    if guide and not guide.status == DISCONNECTED:
+    if not guide.status == DISCONNECTED:
         return guide.get_channel(name)
     return []
 
 
-def search(*args, **kwargs):
+def search(channel=None, time=None, block=False, **kwargs):
     """
-    Search the epg.
+    Search the db. This will call the search function on server side using
+    kaa.ipc. This function will return an InProgress object. If block is
+    True the function to block using kaa.notifier.step() until the result
+    arrived from the server.
     """
-    if guide and not guide.status == DISCONNECTED:
-        try:
-            return guide.search(*args, **kwargs)
-        except Exception, e:
-            log.exception('kaa.epg.search failed')
-    return []
+    if block:
+        wait = guide.search(channel, time, **kwargs)
+        while not wait.is_finished:
+            kaa.notifier.step()
+        return wait()
+    return guide.search(channel, time, **kwargs)
+
 
 def is_connected():
     return guide and guide.status == CONNECTED

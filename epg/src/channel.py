@@ -50,17 +50,5 @@ class Channel(object):
         self.id = name
 
 
-    def get_programs(self, t = None, callback = None):
-        """
-        Get programs from a specific time.
-        """
-        if not t:
-            t = time.time()
-
-        if self._epg:
-            return self._epg.search(time = t, channel = self, callback = callback)
-        else:
-            return []
-
     def __repr__(self):
         return '<kaa.epg.Channel %s>' % self.name

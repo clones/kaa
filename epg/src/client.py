@@ -51,10 +51,9 @@ class Client(object):
     """
     EPG client class to access the epg on server side.
     """
-    def __init__(self, server_or_socket, auth_secret = ''):
-        self.status = CONNECTING
-        self.server = kaa.rpc.Client(server_or_socket, auth_secret = auth_secret)
-        self.server.connect(self)
+    def __init__(self):
+        self.status = DISCONNECTED
+        self.server = None
 
         self._channels_list = []
         self.signals = {
@@ -68,9 +67,18 @@ class Client(object):
         self._channels_by_tuner_id = {}
         self._channels_list = []
 
+
+
+    def connect(self, server_or_socket, auth_secret = ''):
+        """
+        Connect to EPG server.
+        """
+        self.status = CONNECTING
+        self.server = kaa.rpc.Client(server_or_socket, auth_secret = auth_secret)
+        self.server.connect(self)
         self.server.signals['closed'].connect_weak(self._handle_disconnected)
 
-
+        
     def _handle_disconnected(self):
         """
         Signal callback when server disconnects.
@@ -78,7 +86,7 @@ class Client(object):
         log.debug('kaa.epg client disconnected')
         self.status = DISCONNECTED
         self.signals["disconnected"].emit()
-        del self.server
+        self.server = None
 
 
     @kaa.rpc.expose('guide.update')
@@ -117,31 +125,16 @@ class Client(object):
         self.signals["updated"].emit()
 
 
-    def _program_rows_to_objects(self, query_data, callback=None):
-        """
-        Convert raw search result data from the server into python objects.
-        """
-        results = []
-        channel = None
-        for row in query_data:
-            if not channel or row['parent_id'] != channel.db_id:
-                if row['parent_id'] not in self._channels_by_db_id:
-                    continue
-                channel = self._channels_by_db_id[row['parent_id']]
-            results.append(Program(channel, row))
-        if callback:
-            callback(results)
-        return results
-
-
-    def search(self, callback=None, channel=None, time=None, **kwargs):
+    @kaa.notifier.yield_execution()
+    def search(self, channel=None, time=None, **kwargs):
         """
         Search the db. This will call the search function on server side using
-        kaa.ipc. Notice: this will call kaa.notifier.step() until the result
-        arrives.
+        kaa.ipc. This function will return an InProgress object.
         """
         if self.status == DISCONNECTED:
-            return []
+            # make sure we always return InProgress
+            yield kaa.notifier.YieldContinue
+            yield []
 
         if channel is not None:
             if isinstance(channel, Channel):
@@ -162,14 +155,29 @@ class Client(object):
             kwargs["start"] = kaa.db.QExpr("range", (int(start) - max, int(stop)))
             kwargs["stop"]  = kaa.db.QExpr(">=", int(start))
 
-        in_progress = self.server.rpc('guide.query', type='program', **kwargs)
-        if callback:
-            in_progress.connect(self._program_rows_to_objects, callback)
-            return None
-        # ugly!!!!!
-        while not in_progress.is_finished:
-            kaa.notifier.step()
-        return self._program_rows_to_objects(in_progress())
+        query_data = self.server.rpc('guide.query', type='program', **kwargs)
+        # wait for the rpc to finish
+        yield query_data
+        # get data
+        query_data = query_data()
+
+        # Convert raw search result data
+        if kwargs.get('attrs'):
+            attrs = kwargs.get('attrs')
+            def combine_attrs(row):
+                return [ row.get(a) for a in attrs ]
+            yield [ combine_attrs(row) for row in query_data ]
+        
+        # Convert raw search result data from the server into python objects.
+        results = []
+        channel = None
+        for row in query_data:
+            if not channel or row['parent_id'] != channel.db_id:
+                if row['parent_id'] not in self._channels_by_db_id:
+                    continue
+                channel = self._channels_by_db_id[row['parent_id']]
+            results.append(Program(channel, row))
+        yield results
 
 
     def new_channel(self, tuner_id=None, name=None, long_name=None):
