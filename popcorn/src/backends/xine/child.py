@@ -156,6 +156,15 @@ class XinePlayerChild(Player):
             self._window_aspect = a
         if self._window_size != (0, 0):
             w, h = self._window_size
+        # FIXME: this is wrong. The aspect may not be 1.0 depending on
+        # the pixel aspect of the output display. This needs to be
+        # adjusted. For some recordings with an overscan it would also
+        # be nice to have a zoom mode cutting off some pixel at the
+        # left and right and zoom it it to fill the screen. This
+        # return value also needs to respect widescreen settings from
+        # the config to scale a 4:3 image to 16:9 or cut off top and
+        # bottom so it fots the 16:9 screen (in case black bars are in
+        # the encoding).
         return (0, 0), (0, 0), (w, h), 1.0
 
 
