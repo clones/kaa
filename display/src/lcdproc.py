@@ -62,16 +62,19 @@ class Screen(object):
     """
     LCD Screen with widgets.
     """
-    def __init__(self, lcd, name, priority=100):
+    def __init__(self, lcd, name, priority='foreground', duration=0):
         self._send = lcd
         self.width, self.height, self.size = lcd.width, lcd.height, lcd.size
         self.name = name
         self._priority = priority
+        self._duration = duration
         self._send = lcd._send
         self._send('screen_add %s' % name)
         self._send('screen_set %s name %s' % (name, name))
         self._send('screen_set %s -priority %s -heartbeat off' % \
                    (name, priority))
+        if duration:
+            self._send('screen_set %s -timeout %s' % (name, duration*8))
         self.widgets = []
         self.nextid = 0
 
@@ -183,8 +186,9 @@ class Screen(object):
         Destructor. It will wipe the screen and remove it from
         the lcd.
         """
-        self.wipe()
-        self._send('screen_del %s' % self.name)
+        if not self._duration:
+            self.wipe()
+            self._send('screen_del %s' % self.name)
 
 
 class LCD(object):
@@ -196,13 +200,17 @@ class LCD(object):
             'connected': kaa.notifier.Signal()
         }
         self._connect(server, port)
+        self._screenno = 0
 
 
-    def create_screen(self, name):
+    def create_screen(self, name = None, priority='foreground', duration=0):
         """
         Create a new screen with the given name.
         """
-        return Screen(self, name)
+        if not name:
+            name = 'lcd%d' % self._screenno
+            self._screenno += 1
+        return Screen(self, name, priority, duration)
 
 
     def _send(self, line):
