@@ -50,7 +50,7 @@ setup(module = 'popcorn',
       license = 'GPL',
       summary = 'Media player abstraction library supporting multiple backends',
       rpminfo = {
-          'requires':       'kaa-base >= 0.1.2, kaa-xine >= 0.9.0',
-          'build_requires': 'kaa-base >= 0.1.2'
+          'requires':       'python-kaa-base >= 0.1.2, python-kaa-xine >= 0.9.0',
+          'build_requires': 'python-kaa-base >= 0.1.2'
       },
       ext_modules = ext_modules)

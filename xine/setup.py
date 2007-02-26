@@ -96,8 +96,8 @@ if arch == "x86_64":
 elif arch == "i386":
     config.define('ARCH_X86')
 
-requires_common =       'kaa-base >= 0.1.2, kaa-display >= 0.1.0, xine-lib >= 1.1.0'
-build_requires_common = 'kaa-base >= 0.1.2, xine-lib-devel >= 1.1.0, python-devel >= 2.4.0'
+requires_common =       'python-kaa-base >= 0.1.2, python-kaa-display >= 0.1.0, xine-lib >= 1.1.0'
+build_requires_common = 'python-kaa-base >= 0.1.2, xine-lib-devel >= 1.1.0, python-devel >= 2.4.0'
 
 setup(module      = 'xine',
       version     = '0.9.0',

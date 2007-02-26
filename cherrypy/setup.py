@@ -39,5 +39,11 @@ except ImportError:
 
 # call setup
 setup(module      = 'cherrypy',
-      version     = '0.1'
-      )
+      version     = '0.1.0',
+      license     = 'GPL',
+      summary     = 'Web framework based on cherrypy',
+      rpminfo     = {
+            'requires':       'python-kaa-base >= 0.1.2',
+            'build_requires': 'python-kaa-base >= 0.1.2'
+      }
+)

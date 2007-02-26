@@ -159,10 +159,10 @@ else:
     print "- SDL"
 
 
-requires_common       = 'kaa-base >= 0.1.2, pygame >= 1.6.0, kaa-imlib2 >= 0.2.0,' \
-                        'imlib2 >= 1.2.1, kaa-evas >= 0.1.0, evas >= 0.9.9.032'
-build_requires_common = 'kaa-base >= 0.1.2, pygame-devel >= 1.6.0, kaa-imlib2 >= 0.2.0,' \
-                        'imlib2-devel >= 1.2.1, kaa-evas >= 0.1.0, evas-devel >= 0.9.9.032'
+requires_common       = 'python-kaa-base >= 0.1.2, pygame >= 1.6.0, python-kaa-imlib2 >= 0.2.0,' \
+                        'imlib2 >= 1.2.1, python-kaa-evas >= 0.1.0, evas >= 0.9.9.032'
+build_requires_common = 'python-kaa-base >= 0.1.2, pygame-devel >= 1.6.0, python-kaa-imlib2 >= 0.2.0,' \
+                        'imlib2-devel >= 1.2.1, python-kaa-evas >= 0.1.0, evas-devel >= 0.9.9.032'
 
 setup(module  = 'display',
       version     = '0.1.0',

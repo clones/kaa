@@ -59,8 +59,8 @@ setup(module = 'canvas',
       license = 'LGPL',
       summary = 'High-level canvas API built on top of kaa.evas',
       rpminfo = {
-          'requires':       'kaa-base >= 0.1.2, kaa-evas >= 0.1.0, kaa-imlib2 >= 0.2.0,' \
+          'requires':       'python-kaa-base >= 0.1.2, python-kaa-evas >= 0.1.0, python-kaa-imlib2 >= 0.2.0,' \
                             'librsvg2 >= 2.9.0, libmng >= 1.0.9',
-          'build_requires': 'kaa-base >= 0.1.2, librsvg2-devel >= 2.9.0, libmng-devel >= 1.0.9'
+          'build_requires': 'python-kaa-base >= 0.1.2, librsvg2-devel >= 2.9.0, libmng-devel >= 1.0.9'
       },
       ext_modules = ext_modules)

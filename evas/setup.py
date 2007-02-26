@@ -61,8 +61,8 @@ setup(module      = 'evas',
       license     = 'LGPL',
       summary     = 'Python bindings for Evas',
       rpminfo     = {
-          'requires':       'kaa-base >= 0.1.2, evas >= 0.9.9.032',
-          'build_requires': 'kaa-base >= 0.1.2, evas-devel >= 0.9.9.032'
+          'requires':       'python-kaa-base >= 0.1.2, evas >= 0.9.9.032',
+          'build_requires': 'python-kaa-base >= 0.1.2, evas-devel >= 0.9.9.032'
       },
       ext_modules = [ evasso ]
 )
