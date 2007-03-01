@@ -83,6 +83,10 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
                 data = NULL;
             }
         }
+        if (!bytes) {
+            PyErr_Format(PyExc_ValueError, "Image data address is null");
+            return NULL;
+        }
 
         if (!strcmp(from_format, "BGRA")) {
             if (copy)
@@ -94,18 +98,25 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
             image = imlib_create_image_using_copied_data(w, h, bytes);
             free(bytes);
         }
+
+        if (!image) {
+            PyErr_Format(PyExc_RuntimeError, "Could not create %dx%d image (format=%s data=%p, copy=%d)",
+                        w, h, from_format, bytes, copy);
+            return NULL;
+        }
+
         imlib_context_set_image(image);
         if (strlen(from_format) == 4)
             imlib_image_set_has_alpha(1);
     } else {
         image = imlib_create_image(w, h);
+        if (!image) {
+            PyErr_Format(PyExc_RuntimeError, "Could not allocate new %dx%d image", w, h);
+            return NULL;
+        }
         imlib_context_set_image(image);
         imlib_image_set_has_alpha(1);
         imlib_image_clear_color(0, 0, 0, 0);
-    }
-    if (!image) {
-        PyErr_Format(PyExc_RuntimeError, "Failed to create image");
-        return NULL;
     }
 
     o = PyObject_NEW(Image_PyObject, &Image_PyObject_Type);
