@@ -294,6 +294,7 @@ class Server(object):
         return o["id"]
 
 
+    @kaa.notifier.execute_in_mainloop()
     def _handle_jobs(self):
         """
         Handle waiting add_program jobs.
