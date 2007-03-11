@@ -2,6 +2,10 @@
 
 # Note for additional plugins:
 # GST_PLUGIN_PATH=/usr/local/lib/gstreamer-0.10 python test/v4l.py
+# mplayer tv:// -tv driver=v4l:width=640:height=480
+
+import os
+os.environ['GST_PLUGIN_PATH'] = '/usr/local/lib/gstreamer-0.10'
 
 import pygst
 pygst.require('0.10')
@@ -31,9 +35,14 @@ pipeline.get_bus().add_watch(bus_event)
 src = gst.element_factory_make('v4lsrc')
 video = gst.element_factory_make('queue')
 mpeg4 = gst.element_factory_make('ffenc_mpeg4')
+mpeg4.set_property('bitrate', 800)
+mpeg4.set_property('pass', 'quant')
+mpeg4.set_property('quantizer', 10)
+mpeg4.set_property('flags', 0x00000004 | 0x00000040 | 0x00200000)
+
 mux = gst.element_factory_make('matroskamux')
 sink = gst.element_factory_make('filesink')
-sink.set_property('location', 'zdf.mkv')
+sink.set_property('location', '/local/testvideo.mkv')
 
 
 pipeline.add(src, video, mpeg4, mux, sink)
