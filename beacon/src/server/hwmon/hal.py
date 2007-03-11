@@ -270,7 +270,8 @@ def _device_add(prop, udi, removable=False):
         return
 
     if prop.get('block.device') and config.discs and \
-           prop.get('block.device')[:-1] in config.discs.split(' '):
+           (prop.get('block.device')[:-1] in config.discs.split(' ') or \
+            prop.get('block.device')[:-2] in config.discs.split(' ')):
         # fixed device set in config
         return
 
