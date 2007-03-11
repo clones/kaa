@@ -33,6 +33,7 @@ __all__ = [ 'Server']
 import logging
 import time
 from types import ListType
+import threading
 
 # kaa imports
 from kaa.db import *
@@ -78,7 +79,11 @@ class Server(object):
         self._clients = []
         self._db = db
         self._rpc_server = []
+        
+        # Members for job queue.
         self._jobs = []
+        self._jobs_lock = threading.Lock()
+        self._jobs_timer = kaa.notifier.WeakTimer(self._handle_jobs)
 
         # initial sync
         self.sync()
@@ -97,7 +102,6 @@ class Server(object):
         The result parameter is not used but given by the InProgress callback
         when this function is called after an update.
         """
-        log.info('commit database changes')
         self._db.commit()
 
         # Load some basic information from the db.
@@ -131,6 +135,8 @@ class Server(object):
         for client in self._clients:
             log.info('update client %s', client)
             client.rpc('guide.update', info)
+
+        log.info('Database commit; %d programs in db' % self._num_programs)
 
 
     # -------------------------------------------------------------------------
@@ -293,12 +299,16 @@ class Server(object):
         Handle waiting add_program jobs.
         """
         t0 = time.time()
+        self._jobs_lock.acquire(False)
         while self._jobs:
             if time.time() - t0 > 0.05:
                 # time to return to the main loop
-                return kaa.notifier.OneShotTimer(self._handle_jobs).start(0.001)
+                return True #kaa.notifier.OneShotTimer(self._handle_jobs).start(0.001)
             args = self._jobs.pop()
             self.add_program(*args[:-1], **args[-1])
+
+        self._jobs_lock.release()
+        return False
 
 
     def add_program(self, channel_db_id, start, stop, title, **attributes):
@@ -308,12 +318,14 @@ class Server(object):
         """
         if not kaa.notifier.is_mainthread():
             self._jobs.append((channel_db_id, start, stop, title, attributes))
-            if len(self._jobs) > 100:
+            if len(self._jobs) == 1:
+                # Job added to (probably) empty queue, begin timer to handle jobs
+                # If timer is already running, this does nothing.
+                self._jobs_timer.start(0.001)
+            elif len(self._jobs) > 100:
                 # too many jobs pending, wait before adding new
                 while len(self._jobs) > 30:
                     time.sleep(0.1)
-            if len(self._jobs) == 1:
-                kaa.notifier.OneShotTimer(self._handle_jobs).start(0.1)
             return
         
         start = int(start)
@@ -367,5 +379,7 @@ class Server(object):
         """
         if kaa.notifier.is_mainthread():
             raise RuntimeError('add_program_wait not called by thread')
-        while self._jobs:
-            time.sleep(0.1)
+
+        # Jobs lock is held as long as the jobs handler timer is running.
+        self._jobs_lock.acquire()
+        self._jobs_lock.release()
