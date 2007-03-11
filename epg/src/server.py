@@ -304,7 +304,7 @@ class Server(object):
             if time.time() - t0 > 0.05:
                 # time to return to the main loop
                 return True
-            args = self._jobs.pop()
+            args = self._jobs.pop(0)
             self.add_program(*args[:-1], **args[-1])
 
         self._jobs_lock.release()
