@@ -31,13 +31,14 @@ __all__ = [ 'Server']
 
 # python imports
 import logging
+import time
 from types import ListType
 
 # kaa imports
 from kaa.db import *
 import kaa.rpc
 
-from kaa.notifier import Signal
+import kaa.notifier
 
 # kaa.epg imports
 from sources import *
@@ -77,6 +78,7 @@ class Server(object):
         self._clients = []
         self._db = db
         self._rpc_server = []
+        self._jobs = []
 
         # initial sync
         self.sync()
@@ -203,6 +205,7 @@ class Server(object):
     # functions called by source_* modules
     # -------------------------------------------------------------------------
 
+    @kaa.notifier.execute_in_mainloop()
     def add_channel(self, tuner_id, name, long_name):
         """
         This method requires at least one of tuner_id, name,
@@ -285,11 +288,34 @@ class Server(object):
         return o["id"]
 
 
+    def _handle_jobs(self):
+        """
+        Handle waiting add_program jobs.
+        """
+        t0 = time.time()
+        while self._jobs:
+            if time.time() - t0 > 0.05:
+                # time to return to the main loop
+                return kaa.notifier.OneShotTimer(self._handle_jobs).start(0.001)
+            args = self._jobs.pop()
+            self.add_program(*args[:-1], **args[-1])
+
+
     def add_program(self, channel_db_id, start, stop, title, **attributes):
         """
         Add a program to the db. This could cause removing older programs
         overlapping.
         """
+        if not kaa.notifier.is_mainthread():
+            self._jobs.append((channel_db_id, start, stop, title, attributes))
+            if len(self._jobs) > 100:
+                # too many jobs pending, wait before adding new
+                while len(self._jobs) > 30:
+                    time.sleep(0.1)
+            if len(self._jobs) == 1:
+                kaa.notifier.OneShotTimer(self._handle_jobs).start(0.1)
+            return
+        
         start = int(start)
         stop = int(stop)
 
@@ -332,3 +358,14 @@ class Server(object):
         if stop - start > self._max_program_length:
             self._max_program_length = stop = start
         return o["id"]
+
+
+    def add_program_wait(self):
+        """
+        Wait until add_program is finished. This function can only be called
+        from a thread.
+        """
+        if kaa.notifier.is_mainthread():
+            raise RuntimeError('add_program_wait not called by thread')
+        while self._jobs:
+            time.sleep(0.1)
