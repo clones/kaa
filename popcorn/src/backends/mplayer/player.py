@@ -696,15 +696,6 @@ class MPlayer(MediaPlayer):
         self._mplayer.overlay(','.join(cmd))
         self._overlay_set_lock(BUFFER_LOCKED)
 
-        try:
-            if ord(self._osd_shmem.read(1)) == BUFFER_UNLOCKED:
-                return True
-        except shm.error:
-            self._osd_shmem.detach()
-            self._osd_shmem = None
-
-        return False
-
 
     def _overlay_set_lock(self, byte):
         try:
