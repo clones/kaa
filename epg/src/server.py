@@ -294,7 +294,6 @@ class Server(object):
         return o["id"]
 
 
-    @kaa.notifier.execute_in_mainloop()
     def _handle_jobs(self):
         """
         Handle waiting add_program jobs.
@@ -321,7 +320,8 @@ class Server(object):
             self._jobs.append((channel_db_id, start, stop, title, attributes))
             if len(self._jobs) == 1:
                 # Job added to (probably) empty queue, begin timer to handle jobs
-                # If timer is already running, this does nothing.
+                # If timer is already running, this does nothing.  Timers are
+                # implicitly called from the main loop.
                 self._jobs_timer.start(0.001)
             elif len(self._jobs) > 100:
                 # too many jobs pending, wait before adding new
