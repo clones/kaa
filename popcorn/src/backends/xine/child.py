@@ -71,7 +71,7 @@ class XinePlayerChild(Player):
         self._xine.set_config_value("effects.goom.width", 512)
         self._xine.set_config_value("effects.goom.height", 384)
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
-        self._xine.set_config_value("video.device.xv_autopaint_colorkey", True)
+        # self._xine.set_config_value("video.device.xv_autopaint_colorkey", True)
 
 
     # #########################################################################
@@ -247,8 +247,10 @@ class XinePlayerChild(Player):
             vo_kwargs = {'passthrough': 'none'}
             self._vo_visible = False
 
-        if colorkey is not None:
-            self._xine.set_config_value("video.device.xv_colorkey", colorkey)
+        # FIXME: this should work but it crashes with an exception that
+        # video.device.xv_colorkey is not defined.
+        # if colorkey is not None:
+        #     self._xine.set_config_value("video.device.xv_colorkey", colorkey)
 
         control_return = []
         self._vo = self._xine.open_video_driver(
