@@ -303,7 +303,7 @@ class Server(object):
         while self._jobs:
             if time.time() - t0 > 0.05:
                 # time to return to the main loop
-                return True #kaa.notifier.OneShotTimer(self._handle_jobs).start(0.001)
+                return True
             args = self._jobs.pop()
             self.add_program(*args[:-1], **args[-1])
 
