@@ -377,7 +377,12 @@ class MPlayer(MediaPlayer):
             # do that which will result in a scaled image filling
             # the whole screen
             filters.append('expand=:::::%s/%s' % tuple(aspect))
-
+            # The expand filter has some strange side-effect on 4:3 content
+            # on a 16:9 screen. With software scaling instead of black bars
+            # on both sides you see garbage, without sws and xv output mplayer
+            # uses gray bars. The following line removed that.
+            args.append('-noslices')
+            
         # FIXME: this only works if the window has the the aspect
         # as the full screen. In all other cases the window is not
         # fully used but at least with black bars.
