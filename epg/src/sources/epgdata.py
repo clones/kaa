@@ -221,45 +221,45 @@ def update(epg):
     if not os.path.isdir(tempdir):
         os.mkdir(tempdir)
     # and clear it if needed
-#     for i in glob.glob(os.path.join(tempdir,'*')):
-#        os.remove(i)
+    for i in glob.glob(os.path.join(tempdir,'*')):
+       os.remove(i)
 
-#     # temp file
-#     tmpfile = os.path.join(tempdir,'temp.zip')
-#     # logfile
-#     logfile = os.path.join(TEMP,'epgdata.log')
+    # temp file
+    tmpfile = os.path.join(tempdir,'temp.zip')
+    # logfile
+    logfile = os.path.join(TEMP,'epgdata.log')
 
-#     # empty list for the xml docs
-#     docs = []
-#     # count of the nodes that have to be parsed
-#     nodes = 0
+    # empty list for the xml docs
+    docs = []
+    # count of the nodes that have to be parsed
+    nodes = 0
 
 
-#     # create download adresse for meta data
-#     address = 'http://www.epgdata.com/index.php'
-#     address+= '?action=sendInclude&iLang=de&iOEM=xml&iCountry=de'
-#     address+= '&pin=%s' % config.pin
-#     address+= '&dataType=xml'
+    # create download adresse for meta data
+    address = 'http://www.epgdata.com/index.php'
+    address+= '?action=sendInclude&iLang=de&iOEM=xml&iCountry=de'
+    address+= '&pin=%s' % config.pin
+    address+= '&dataType=xml'
 
-#     # remove old file if needed
-#     try:
-#         os.remove(tmpfile)
-#     except OSError:
-#          pass
-#     # download the meta data file
-#     log.info ('Downloading meta data')
-#     exit = os.system('wget -N -O %s "%s" >>%s 2>>%s'
-#                     %(tmpfile, address, logfile, logfile))
-#     if not os.path.exists(tmpfile) or exit:
-#         log.error('Cannot get file from epgdata.com, see %s' %logfile)
-#         return False
-#     # and unzip the zip file
-#     log.info('Unzipping data for meta data')
-#     exit = os.system('unzip -uo -d %s %s >>%s 2>>%s'
-#                     %(tempdir, tmpfile, logfile, logfile))
-#     if exit:
-#         log.error('Cannot unzip the downloaded file, see %s' %logfile)
-#         return False
+    # remove old file if needed
+    try:
+        os.remove(tmpfile)
+    except OSError:
+         pass
+    # download the meta data file
+    log.info ('Downloading meta data')
+    exit = os.system('wget -N -O %s "%s" >>%s 2>>%s'
+                    %(tmpfile, address, logfile, logfile))
+    if not os.path.exists(tmpfile) or exit:
+        log.error('Cannot get file from epgdata.com, see %s' %logfile)
+        return False
+    # and unzip the zip file
+    log.info('Unzipping data for meta data')
+    exit = os.system('unzip -uo -d %s %s >>%s 2>>%s'
+                    %(tempdir, tmpfile, logfile, logfile))
+    if exit:
+        log.error('Cannot unzip the downloaded file, see %s' %logfile)
+        return False
 
     # list of channel info xml files
     chfiles = glob.glob(os.path.join(tempdir,'channel*.xml'))
@@ -284,27 +284,27 @@ def update(epg):
     address+= '&pin=%s' % config.pin
     address+= '&dayOffset=%s&dataType=xml'
 
-#     # get the file for each day
-#     for i in range(0, int(config.days)):
-#             # remove old file if needed
-#             try:
-#                 os.remove(tmpfile)
-#             except OSError:
-#                 pass
-#             # download the zip file
-#             log.info('Getting data for day %s' %(i+1))
-#             exit = os.system('wget -N -O %s "%s" >>%s 2>>%s'
-#                             %(tmpfile, address %i, logfile, logfile))
-#             if not os.path.exists(tmpfile) or exit:
-#                 log.error('Cannot get file from epgdata.com, see %s' %logfile)
-#                 return False
-#             # and unzip the zip file
-#             log.info('Unzipping data for day %s' %(i+1))
-#             exit = os.system('unzip -uo -d %s %s >>%s 2>>%s'
-#                             %(tempdir, tmpfile, logfile, logfile))
-#             if exit:
-#                 log.error('Cannot unzip the downloaded file, see %s' %logfile)
-#                 return False
+    # get the file for each day
+    for i in range(0, int(config.days)):
+            # remove old file if needed
+            try:
+                os.remove(tmpfile)
+            except OSError:
+                pass
+            # download the zip file
+            log.info('Getting data for day %s' %(i+1))
+            exit = os.system('wget -N -O %s "%s" >>%s 2>>%s'
+                            %(tmpfile, address %i, logfile, logfile))
+            if not os.path.exists(tmpfile) or exit:
+                log.error('Cannot get file from epgdata.com, see %s' %logfile)
+                return False
+            # and unzip the zip file
+            log.info('Unzipping data for day %s' %(i+1))
+            exit = os.system('unzip -uo -d %s %s >>%s 2>>%s'
+                            %(tempdir, tmpfile, logfile, logfile))
+            if exit:
+                log.error('Cannot unzip the downloaded file, see %s' %logfile)
+                return False
 
     # list of program xml files that must be parsed
     progfiles = glob.glob(os.path.join(tempdir,'*de_q[a-z].xml'))
