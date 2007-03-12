@@ -47,6 +47,27 @@ log = logging.getLogger('epg')
 
 DISCONNECTED, CONNECTING, CONNECTED = range(3)
 
+def yield_execution_while_connecting():
+    """
+    Decorator that wraps kaa.notifier.yield_execution, raising an exception if
+    the client is disconnected, YieldContinue if the client is in the process
+    of connecting, or the actual return value of the decorated function if the
+    client is connected.
+    """
+    def decorator(func):
+        def newfunc(client, *args, **kwargs):
+            if client.status == DISCONNECTED:
+                raise SystemError('Client is disconnected')
+            while client.status == CONNECTING:
+                yield kaa.notifier.YieldContinue
+            yield func(client, *args, **kwargs)
+
+        newfunc.func_name = func.func_name
+        return kaa.notifier.yield_execution()(newfunc)
+    return decorator
+
+       
+
 class Client(object):
     """
     EPG client class to access the epg on server side.
@@ -129,12 +150,16 @@ class Client(object):
     def search(self, channel=None, time=None, **kwargs):
         """
         Search the db. This will call the search function on server side using
-        kaa.ipc. This function will return an InProgress object.
+        kaa.ipc. This function will always return an InProgress object, even when
+        the client is disconnected.
         """
         if self.status == DISCONNECTED:
             # make sure we always return InProgress
             yield kaa.notifier.YieldContinue
             yield []
+
+        while self.status == CONNECTING:
+            yield kaa.notifier.YieldContinue
 
         if channel is not None:
             if isinstance(channel, Channel):
@@ -209,6 +234,7 @@ class Client(object):
         return Channel(tuner_id, name, long_name, epg=None)
 
 
+    @yield_execution_while_connecting()
     def get_channel(self, name):
         """
         Get channel by name.
@@ -218,6 +244,7 @@ class Client(object):
         return self._channels_by_name[name]
 
 
+    @yield_execution_while_connecting()
     def get_channel_by_db_id(self, db_id):
         """
         Get channel by database id.
@@ -227,6 +254,7 @@ class Client(object):
         return self._channels_by_db_id[db_id]
 
 
+    @yield_execution_while_connecting()
     def get_channel_by_tuner_id(self, tuner_id):
         """
         Get channel by tuner id.
@@ -236,6 +264,7 @@ class Client(object):
         return self._channels_by_tuner_id[tuner_id]
 
 
+    @yield_execution_while_connecting()
     def get_channels(self):
         """
         Get all channels
