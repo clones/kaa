@@ -175,10 +175,11 @@ class Handler(xml.sax.handler.ContentHandler):
                 station = attrs.getValue('station')
                 pgtime = attrs.getValue('time')
                 duration = attrs.getValue('duration')
-                rating = None
-                if 'rating' in attrs.getNames():
-                    # Optional attribute.
+                if 'tvRating' in attrs.getNames():
                     rating = attrs.getValue('tvRating')
+                else:
+                    rating = None
+
             except KeyError, e:
                 log.warning('Malformed schedule element; no %s attribute.' % e)
 
@@ -210,6 +211,16 @@ class Handler(xml.sax.handler.ContentHandler):
             except KeyError, e:
                 log.warning('Malformed program element; no %s attribute.' % e)
 
+        elif name == 'programGenre':
+            try:
+                self._obj = { 
+                    'program': attrs.getValue('program'),
+                    'class': []
+                }
+                self._obj_type = name
+            except KeyError, e:
+                log.warning('Malformed programGenre element; no %s attribute.' % e)
+            
         elif name == 'station':
             try:
                 self._obj = { 'id': attrs.getValue('id') }
@@ -241,9 +252,22 @@ class Handler(xml.sax.handler.ContentHandler):
         if self._obj_type == 'program':
             if self._node_name in ('title', 'description'):
                 self._obj[self._node_name] = self._obj.get(self._node_name, '') + content
+            elif self._node_name == 'year':
+                self._obj['date'] = time.strptime(content, '%Y')
+            elif self._node_name == 'originalAirDate':
+                self._obj['date'] = time.strptime(content, '%Y-%m-%d')
+            elif self._node_name == 'syndicatedEpisodeNumber':
+                self._obj['episode'] = content
+            elif self._node_name == 'mpaaRating':
+                self._obj['rating'] = content
+
         elif self._obj_type == 'station':
             if self._node_name in ('callSign', 'name'):
                 self._obj[self._node_name] = self._obj.get(self._node_name, '') + content
+
+        elif self._obj_type == 'programGenre':
+            if self._node_name == 'class':
+                self._obj[self._node_name].append(content)
 
 
     def endElement(self, name):
@@ -255,13 +279,25 @@ class Handler(xml.sax.handler.ContentHandler):
             self._obj_type = None
             program = self._obj
             if program['id'] not in self._schedule_by_program:
-                # Program defined for which there is no schedule.
+                # program defined for which there is no schedule.
                 return
+            if 'date' in program:
+                program['date'] = int(calendar.timegm(program['date']))
 
             for schedule in self._schedule_by_program[program['id']]:
                 channel_db_id = schedule['station']['db_id']
+                rating = schedule.get('rating') or program.get('rating')
                 self._epg.add_program(channel_db_id, schedule['start'], schedule['stop'],
-                                      program.get('title'), desc = program.get('description'))
+                                      program.get('title'), desc = program.get('description'),
+                                      date = program.get('date'), episode = program.get('episode'),
+                                      rating = rating)
+
+        elif name == 'programGenre':
+            self._obj_type = None
+            # TODO: genres specified after programs, so we need to either keep
+            # a map of programs to dbids and update the db here, or store all
+            # programs in memory until we read the genres (which would increase
+            # memory usage considerably).
 
 
 @kaa.notifier.execute_in_thread('epg')
