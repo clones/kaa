@@ -156,7 +156,7 @@ class Movie(Image):
         self._create_canvas_subwindow()
         self._force_sync_property("detached")
         self._force_sync_property("visible")
-        self._player.open(mrl)
+        self._player.open(mrl, caps = kaa.popcorn.CAP_CANVAS)
 
 
     def play(self):
