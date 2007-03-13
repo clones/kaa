@@ -34,6 +34,7 @@
 #define X_DISPLAY_MISSING
 #include <Imlib2.h>
 
+#include "imlib2.h"
 #include "font.h"
 
 PyTypeObject Font_PyObject_Type = {

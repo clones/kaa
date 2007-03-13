@@ -35,6 +35,7 @@
 #define X_DISPLAY_MISSING
 #include <Imlib2.h>
 
+#include "imlib2.h"
 #include "image.h"
 #include "rawformats.h"
 #include "font.h"
@@ -43,9 +44,9 @@
 #include <fcntl.h>
 #include "config.h"
 
-int Image_PyObject_Buffer__get_read_buffer(PyObject *, int, void **);
-int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *, int, void **);
-int Image_PyObject_Buffer__get_seg_count(PyObject *, int *);
+int Image_PyObject_Buffer__get_read_buffer(PyObject *, Py_ssize_t, void **);
+int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *, Py_ssize_t, void **);
+int Image_PyObject_Buffer__get_seg_count(PyObject *, Py_ssize_t *);
 
 PyBufferProcs buffer_procs = {
     Image_PyObject_Buffer__get_read_buffer,
@@ -102,7 +103,7 @@ Imlib_Image *imlib_image_from_pyobject(Image_PyObject *pyimg)
     return pyimg->image;
 }
 
-int Image_PyObject_Buffer__get_read_buffer(PyObject *self, int segment, void **ptr)
+int Image_PyObject_Buffer__get_read_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
 {
     imlib_context_set_image(((Image_PyObject *)self)->image);
     if (ptr)
@@ -110,7 +111,7 @@ int Image_PyObject_Buffer__get_read_buffer(PyObject *self, int segment, void **p
     return imlib_image_get_width() * imlib_image_get_height() * 4;
 }
 
-int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, int segment, void **ptr)
+int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
 {
     Image_PyObject *o = (Image_PyObject *)self;
     imlib_context_set_image(o->image);
@@ -127,11 +128,11 @@ int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, int segment, voi
     return imlib_image_get_width() * imlib_image_get_height() * 4;
 }
 
-int Image_PyObject_Buffer__get_seg_count(PyObject *self, int *lenp)
+int Image_PyObject_Buffer__get_seg_count(PyObject *self, Py_ssize_t *lenp)
 {
     if (lenp) {
         imlib_context_set_image(((Image_PyObject *)self)->image);
-        *lenp = imlib_image_get_width() * imlib_image_get_height() * 4;
+        *lenp = (Py_ssize_t)(imlib_image_get_width() * imlib_image_get_height() * 4);
     }
     return 1;
 }
@@ -643,7 +644,8 @@ PyObject *Image_PyObject__get_pixel(PyObject *self, PyObject *args)
 PyObject *Image_PyObject__get_raw_data(PyObject *self, PyObject *args)
 {
     char *format;
-    int len, write;
+    int write;
+    Py_ssize_t len;
     Image_PyObject *o = (Image_PyObject *)self;
 
 
@@ -676,7 +678,7 @@ PyObject *Image_PyObject__put_back_raw_data(PyObject *self, PyObject *args)
     Image_PyObject *o = (Image_PyObject *)self;
     PyObject *buffer_object;
     unsigned char *buffer;
-    int len;
+    Py_ssize_t len;
 
     if (!PyArg_ParseTuple(args, "O!", &PyBuffer_Type, &buffer_object))
         return NULL;

@@ -42,13 +42,15 @@
 #include <sys/mman.h>
 #endif
 
+#include "imlib2.h"
 #include "image.h"
 #include "rawformats.h"
 #include "font.h"
 
 PyObject *imlib2_create(PyObject *self, PyObject *args)
 {
-    int w, h, len, copy;
+    int w, h, copy;
+    Py_ssize_t len;
     void *bytes = NULL;
 	char *from_format = "BGRA";
     PyObject *data = NULL;
@@ -175,7 +177,8 @@ PyObject *imlib2_open_from_memory(PyObject *self, PyObject *args)
     Image_PyObject *image = NULL;
     PyObject *buffer;
     void *data;
-    int len, fd;
+    int fd;
+    Py_ssize_t len;
     static int prng_seeded = 0;
     char filename[30], path[PATH_MAX];
 
@@ -273,7 +276,7 @@ PyMethodDef Imlib2_methods[] = {
 };
 
 
-void init_Imlib2()
+void init_Imlib2(void)
 {
     PyObject *m, *c_api;
     static void *api_ptrs[2];
