@@ -44,14 +44,14 @@
 #include <fcntl.h>
 #include "config.h"
 
-int Image_PyObject_Buffer__get_read_buffer(PyObject *, Py_ssize_t, void **);
-int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *, Py_ssize_t, void **);
-int Image_PyObject_Buffer__get_seg_count(PyObject *, Py_ssize_t *);
+Py_ssize_t Image_PyObject_Buffer__get_read_buffer(PyObject *, Py_ssize_t, void **);
+Py_ssize_t Image_PyObject_Buffer__get_readwrite_buffer(PyObject *, Py_ssize_t, void **);
+Py_ssize_t Image_PyObject_Buffer__get_seg_count(PyObject *, Py_ssize_t *);
 
 PyBufferProcs buffer_procs = {
-    Image_PyObject_Buffer__get_read_buffer,
-    Image_PyObject_Buffer__get_readwrite_buffer,
-    Image_PyObject_Buffer__get_seg_count,
+    (readbufferproc)Image_PyObject_Buffer__get_read_buffer,
+    (writebufferproc)Image_PyObject_Buffer__get_readwrite_buffer,
+    (segcountproc)Image_PyObject_Buffer__get_seg_count,
     NULL
 };
 
@@ -103,7 +103,7 @@ Imlib_Image *imlib_image_from_pyobject(Image_PyObject *pyimg)
     return pyimg->image;
 }
 
-int Image_PyObject_Buffer__get_read_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
+Py_ssize_t Image_PyObject_Buffer__get_read_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
 {
     imlib_context_set_image(((Image_PyObject *)self)->image);
     if (ptr)
@@ -111,7 +111,7 @@ int Image_PyObject_Buffer__get_read_buffer(PyObject *self, Py_ssize_t segment, v
     return imlib_image_get_width() * imlib_image_get_height() * 4;
 }
 
-int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
+Py_ssize_t Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
 {
     Image_PyObject *o = (Image_PyObject *)self;
     imlib_context_set_image(o->image);
@@ -128,7 +128,7 @@ int Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, Py_ssize_t segme
     return imlib_image_get_width() * imlib_image_get_height() * 4;
 }
 
-int Image_PyObject_Buffer__get_seg_count(PyObject *self, Py_ssize_t *lenp)
+Py_ssize_t Image_PyObject_Buffer__get_seg_count(PyObject *self, Py_ssize_t *lenp)
 {
     if (lenp) {
         imlib_context_set_image(((Image_PyObject *)self)->image);
