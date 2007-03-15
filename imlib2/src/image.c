@@ -49,9 +49,9 @@ Py_ssize_t Image_PyObject_Buffer__get_readwrite_buffer(PyObject *, Py_ssize_t, v
 Py_ssize_t Image_PyObject_Buffer__get_seg_count(PyObject *, Py_ssize_t *);
 
 PyBufferProcs buffer_procs = {
-    (readbufferproc)Image_PyObject_Buffer__get_read_buffer,
-    (writebufferproc)Image_PyObject_Buffer__get_readwrite_buffer,
-    (segcountproc)Image_PyObject_Buffer__get_seg_count,
+    Image_PyObject_Buffer__get_read_buffer,
+    Image_PyObject_Buffer__get_readwrite_buffer,
+    Image_PyObject_Buffer__get_seg_count,
     NULL
 };
 
