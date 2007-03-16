@@ -432,7 +432,6 @@ class Object(object):
                 size[1] += parent_padding[0] + parent_padding[2]
             else:
                 size = self._get_intrinsic_size()
-            print "PARENT SIZE", size, self, self._parent
         else:
             size = 0, 0  # dummy values
     
@@ -500,12 +499,6 @@ class Object(object):
         if self._parent:
             p = self._parent._get_relative_values(prop, child_asking = self)
 
-            # We're not interested in most properties of the canvas itself,
-            # because it usually maps to a physical window.  For example,
-            # the window may be positioned at (50, 50) on the screen, so
-            # we obviously don't want all objects on the canvas relative to
-            # that ...
-            #if self._parent != self._canvas:
             if prop == "pos":
                 v = map(lambda x,y: x+y, v, p)
             elif prop == "visible":
@@ -513,7 +506,6 @@ class Object(object):
             elif prop == "layer":
                 v += p# + 1
             elif prop == "color":
-            # ... except for color, which is a special case.
                 v = map(_blend_pixel, v, p)
 
 
@@ -716,7 +708,7 @@ class Object(object):
         if self["clip"] == None:
             if self._clip_object:
                 # Object has been unclipped.
-                if isinstance(sef._o, evas.Object):
+                if isinstance(self._o, evas.Object):
                     self._o.clip_unset()
                 self._clip_object = None
                 self._apply_parent_clip()
