@@ -41,7 +41,6 @@ import xml.sax.saxutils
 # kaa imports
 from kaa import TEMP
 import kaa.notifier
-import kaa.xml
 
 from config_epgdata import config
 
