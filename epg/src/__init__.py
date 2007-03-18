@@ -45,9 +45,6 @@ from client import Client, DISCONNECTED, CONNECTING, CONNECTED
 from server import Server
 from sources import *
 
-# kaa.epg import for internal use
-from util import cmp_channel
-
 # get logging object
 log = logging.getLogger('epg')
 
@@ -70,12 +67,7 @@ def get_channels(sort=False):
     Return a list of all channels.
     """
     if not guide.status == DISCONNECTED:
-        if sort:
-            channels = guide.get_channels()[:]
-            channels.sort(lambda a, b: cmp(a.name, b.name))
-            channels.sort(lambda a, b: cmp_channel(a, b))
-            return channels
-        return guide.get_channels()
+        return guide.get_channels(sort)
     return []
 
 

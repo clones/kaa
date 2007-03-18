@@ -41,6 +41,7 @@ from kaa.notifier import Signal, OneShotTimer, execute_in_timer
 # kaa.epg imports
 from channel import Channel
 from program import Program
+from util import cmp_channel
 
 # get logging object
 log = logging.getLogger('epg')
@@ -265,10 +266,15 @@ class Client(object):
 
 
     @yield_execution_while_connecting()
-    def get_channels(self):
+    def get_channels(self, sort=False):
         """
         Get all channels
         """
+        if sort:
+            channels = self._channels_list[:]
+            channels.sort(lambda a, b: cmp(a.name, b.name))
+            channels.sort(lambda a, b: cmp_channel(a, b))
+            return channels
         return self._channels_list
 
 
