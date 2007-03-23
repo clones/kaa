@@ -29,17 +29,18 @@
 
 __all__ = [ 'config', 'update' ]
 
-# Python imports
-import time
+# python imports
 import os
+import time
 import calendar
-import shutil
 import logging
+
+import xml.sax
+import xml.sax.saxutils
 
 # kaa imports
 from kaa import TEMP
 import kaa.notifier
-import kaa.xml
 
 from config_xmltv import config
 
@@ -47,43 +48,151 @@ from config_xmltv import config
 log = logging.getLogger('xmltv')
 
 
-def timestr2secs_utc(timestr):
+class XmltvParser(object):
     """
-    Convert a timestring to UTC (=GMT) seconds.
-
-    The format is either one of these two:
-    '20020702100000 CDT'
-    '200209080000 +0100'
+    Parser class for xmltv files
     """
-    # This is either something like 'EDT', or '+1'
-    try:
-        tval, tz = timestr.split()
-    except ValueError:
-        tval = timestr
-        tz   = str(-time.timezone/3600)
 
-    if tz == 'CET':
-        tz='+1'
+    mapping = {
+            'title':'title',
+            'sub-title':'subtitle',
+            'episode-num':'episode',
+            'category':'genre',
+            'desc':'desc',
+            'date':'date'
+            }
 
-    # Is it the '+1' format?
-    if tz[0] == '+' or tz[0] == '-':
-        tmTuple = ( int(tval[0:4]), int(tval[4:6]), int(tval[6:8]),
-                    int(tval[8:10]), int(tval[10:12]), 0, -1, -1, -1 )
-        secs = calendar.timegm( tmTuple )
+    channels = {}
 
-        adj_neg = int(tz) >= 0
+
+    def parse(self, filename):
+        """
+        Create a sax parser and parse the file
+        """
+
+        # Create a parser
+        parser = xml.sax.make_parser()
+        # ignore external dtd file
+        parser.setFeature(xml.sax.handler.feature_external_ges, False)
+
+        # create a handler
+        dh = xml.sax.ContentHandler()
+        dh.startElement = self.startElement
+        dh.endElement = self.endElement
+        dh.characters = self.characters
+
+        # Tell the parser to use our handler
+        parser.setContentHandler(dh)
+
+        self._dict = None
+        self._current = None
+        self._characters = ''
+        # parse the input
+        parser.parse('file://' + filename)
+
+
+    def error(self, exception):
+        log.exception(exception)
+
+
+    def startElement(self, name, attrs):
+        """
+        startElement function for SAX.
+
+        This will be called whenever we enter an element during parsing.
+        Then the attributes will be extracted.
+        """
+        if name == 'channel':
+            # extract attribute "id"
+            self._dict = {}
+            self._dict['channel_id'] = attrs.get('id', None)
+            self._dict['display-name'] = []
+        elif name == 'display-name':
+            # unfortunately there might be more than one for each channel
+            self._dict[name].append(u'')
+            self._current = name
+        elif name == 'programme':
+            self._dict = {}
+            # extract "start", "stop" and "id" from attributes
+            start = attrs.get('start',None)
+            self._dict['start'] = start
+            stop = attrs.get('stop',None)
+            self._dict['stop'] = stop
+            self._dict['channel_id'] = attrs.get('channel',None)
+        elif name in self.mapping:
+            # translate element name using self.mapping
+            name = self.mapping[name]
+            # start an empty string for the content of this element
+            self._dict[name] = u''
+            # and store the name of the current element
+            self._current = name
+
+
+    def characters(self, ch):
+        """
+        characters function for SAX
+        """
+        if self._dict is not None and self._current:
+            if self._current == 'display-name':
+                # there might be more than one display-name
+                self._dict['display-name'][-1] +=ch
+            else:
+                self._dict[self._current] += ch
+
+
+    def endElement(self, name):
+        """
+        endElement function for SAX
+        """
+        if name == 'channel':
+            # fill channel info to database
+            self.handle_channel(self._dict)
+            self._dict = None
+        elif name == 'programme':
+            # fill programme info to database
+            self.handle_programme(self._dict)
+            self._dict = None
+        # in any case:
+        self._current = None
+
+
+    def timestr2secs_utc(self, timestr):
+        """
+        Convert a timestring to UTC (=GMT) seconds.
+
+        The format is either one of these two:
+        '20020702100000 CDT'
+        '200209080000 +0100'
+        """
+        # This is either something like 'EDT', or '+1'
         try:
-            min = int(tz[3:5])
+            tval, tz = timestr.split()
         except ValueError:
-            # sometimes the mins are missing :-(
-            min = 0
-        adj_secs = int(tz[1:3])*3600+ min*60
+            tval = timestr
+            tz   = str(-time.timezone/3600)
 
-        if adj_neg:
-            secs -= adj_secs
+        if tz == 'CET':
+            tz='+1'
+
+        # Is it the '+1' format?
+        if tz[0] == '+' or tz[0] == '-':
+            tmTuple = ( int(tval[0:4]), int(tval[4:6]), int(tval[6:8]),
+                        int(tval[8:10]), int(tval[10:12]), 0, -1, -1, -1 )
+            secs = calendar.timegm( tmTuple )
+
+            adj_neg = int(tz) >= 0
+            try:
+                min = int(tz[3:5])
+            except ValueError:
+                # sometimes the mins are missing :-(
+                min = 0
+            adj_secs = int(tz[1:3])*3600+ min*60
+
+            if adj_neg:
+                secs -= adj_secs
+            else:
+                secs += adj_secs
         else:
-            secs += adj_secs
-    else:
         # No, use the regular conversion
 
         ## WARNING! BUG HERE!
@@ -91,110 +200,101 @@ def timestr2secs_utc(timestr):
         # handle time zones. There is no obvious function that does. Therefore
         # this bug is left in for someone else to solve.
 
-        try:
-            secs = time.mktime(strptime.strptime(timestr, xmltv.date_format))
-        except ValueError:
-            timestr = timestr.replace('EST', '')
-            secs = time.mktime(strptime.strptime(timestr, xmltv.date_format))
-    return secs
+            try:
+                secs = time.mktime(time.strptime(timestr,'%Y-%m-%d %H:%M:%S'))
+            except ValueError:
+                timestr = timestr.replace('EST', '')
+                secs = time.mktime(time.strptime(timestr,'%Y-%m-%d %H:%M:%S'))
+        return float(secs)
 
 
+    def handle_channel(self, attr):
+        """
+        put the channel info to the database
+        """
+        channel = station = name = display = None
+        channel_id = attr['channel_id']
 
-def parse_channel(info):
-    """
-    Parse channel information
-    """
-    channel_id = info.node.getattr('id')
-    channel = station = name = display = None
-
-    for child in info.node:
-        # This logic expects that the first display-name that appears
-        # after an all-numeric and an all-alpha display-name is going
-        # to be the descriptive station name.  XXX: check if this holds
-        # for all xmltv source.
-        if child.name == "display-name":
-            if not channel and child.content.isdigit():
-                channel = child.content
-            elif not station and child.content.isalpha():
-                station = child.content
+        while len(attr['display-name'])>0:
+            # This logic expects that the first display-name that appears
+            # after an all-numeric and an all-alpha display-name is going
+            # to be the descriptive station name.  XXX: check if this holds
+            # for all xmltv source.
+            content = attr['display-name'].pop(0)
+            if not channel and content.isdigit():
+                channel = content
+            elif not station and content.isalpha():
+                station = content
             elif channel and station and not name:
-                name = child.content
+                name = content
             else:
-                # something else, just remeber it in case we
+                # something else, just remember it in case we
                 # don't have a name later
-                display = child.content
+                display = content
 
-    if not name:
-        # set name to something. XXX: this is needed for the german xmltv
-        # stuff, maybe others work different. Maybe check the <tv> tag
-        # for the used grabber somehow.
-        name = display or station
-
-    db_id = info.add_channel(tuner_id=channel, name=station, long_name=name)
-    info.channel_id_to_db_id[channel_id] = [db_id, None]
+        if not name:
+            # set name to something. XXX: this is needed for the german xmltv
+            # stuff, maybe others work different. Maybe check the <tv> tag
+            # for the used grabber somehow.
+            name = display or station
 
 
-# mapping for xmltv -> epgdb
-ATTR_MAPPING = {
-    'desc': 'desc',
-    'sub-title': 'subtitle',
-    'episode-num': 'episode',
-    'category': 'genre' }
+            db_id = self.add_channel(tuner_id=channel,
+                                     name=station,
+                                     long_name=name)
+            self.channels[attr['channel_id']] = [db_id, None]
 
-def parse_programme(info):
-    """
-    Parse a program node.
-    """
-    channel_id = info.node.getattr('channel')
-    if channel_id not in info.channel_id_to_db_id:
-        log.warning("Program exists for unknown channel '%s'" % channel_id)
-        return
 
-    title = None
-    attr = {}
+    def handle_programme(self, attr):
+        """
+        put the programme info to the database
+        """
+        # first check the channel_id
+        channel_id = attr.pop('channel_id')
+        if channel_id not in self.channels:
+            log.warning("Program exists for unknown channel '%s'" % channel_id)
+            return
 
-    for child in info.node.children:
-        if child.name == "title":
-            title = child.content
-        elif child.name == "date":
+        # then there should of course be a title
+        title = attr.pop('title')
+
+        # the date element should be a integer
+        try:
+            date = attr.pop('date')
             fmt = "%Y-%m-%d"
-            if len(child.content) == 4:
+            if len(date) == 4:
                 fmt = "%Y"
-            attr['date'] = int(time.mktime(time.strptime(child.content, fmt)))
-        elif child.name in ATTR_MAPPING.keys():
-            attr[ATTR_MAPPING[child.name]] = child.content
+            attr['date'] = int(time.mktime(time.strptime(date, fmt)))
+        except KeyError:
+            pass
 
-    if not title:
-        return
+        # then the start time
+        start = self.timestr2secs_utc(attr.pop('start'))
 
-    start = timestr2secs_utc(info.node.getattr("start"))
-    db_id, last_prog = info.channel_id_to_db_id[channel_id]
-    if last_prog:
-        # There is a previous program for this channel with no stop time,
-        # so set last program stop time to this program start time.
-        # XXX This only works in sorted files. I guess it is ok to force the
-        # user to run tv_sort to fix this. And IIRC tv_sort also takes care of
-        # this problem.
-        last_start, last_title, last_attr = last_prog
-        info.add_program(db_id, last_start, start, last_title, **last_attr)
-    if not info.node.getattr("stop"):
-        info.channel_id_to_db_id[channel_id][1] = (start, title, attr)
-    else:
-        stop = timestr2secs_utc(info.node.getattr("stop"))
-        info.add_program(db_id, start, stop, title, **attr)
-
-
-class UpdateInfo:
-    """
-    Simple class holding information we need for update information.
-    """
-    pass
+        # stop time is more complicated, as it is not always given
+        db_id, last_prog = self.channels[channel_id]
+        if last_prog:
+            # There is a previous program for this channel with no stop time,
+            # so set last program stop time to this program start time.
+            # XXX This only works in sorted files. I guess it is ok to force the
+            # user to run tv_sort to fix this. And IIRC tv_sort also takes care of
+            # this problem.
+            last_start, last_title, last_attr = last_prog
+            self.add_program(db_id, last_start, start, last_title, **last_attr)
+            self.channels[channel_id][1] = None
+        try:
+            stop = self.timestr2secs_utc(attr.pop('stop'))
+            # we have all info, let's fill it to the database
+            self.add_program(db_id, start, stop, title, **attr)
+        except:
+            # there is not stop time for this
+            self.channels[channel_id][1] = (start, title, attr)
 
 
 @kaa.notifier.execute_in_thread('epg')
-def _parse_xml():
+def update(epg):
     """
-    Thread to parse the xml file. It will also call the grabber if needed.
+    Interface to source_xmltv.
     """
     if config.grabber:
         log.info('grabbing listings using %s', config.grabber)
@@ -226,61 +326,11 @@ def _parse_xml():
         xmltv_file = config.data_file
 
     # Now we have a xmltv file and need to parse it
-    log.info('parse xml file')
-    try:
-        doc = kaa.xml.Document(xmltv_file, 'tv')
-    except:
-        log.exception('error parsing xmltv file')
-        return
+    log.info('parse xmltv file %s' % xmltv_file)
+    parser = XmltvParser()
+    parser.add_channel = epg.add_channel
+    parser.add_program = epg.add_program
+    parser.parse(xmltv_file)
 
-    channel_id_to_db_id = {}
-    nprograms = 0
-
-    for child in doc:
-        if child.name == "programme":
-            nprograms += 1
-
-    info = UpdateInfo()
-    info.doc = doc
-    info.node = doc.first
-    info.channel_id_to_db_id = channel_id_to_db_id
-    info.total = nprograms
-    info.progress_step = info.total / 100
-
-    return info
-
-
-@kaa.notifier.yield_execution()
-def update(epg):
-    """
-    Interface to source_xmltv.
-    """
-    if not config.data_file and not config.grabber:
-        log.error('XMLTV gabber not configured.')
-        yield False
-    # _parse_xml is forced to be executed in a thread. This means that
-    # it always returns an InProgress object that needs to be yielded.
-    # When yield returns we need to call the InProgress object to get
-    # the result. If the result is None, the thread run into an error.
-    info = _parse_xml()
-    yield info
-    info = info()
-    if not info:
-        yield False
-
-    info.add_program = epg.add_program
-    info.add_channel = epg.add_channel
-    t0 = time.time()
-    while info.node:
-        if info.node.name == "channel":
-            parse_channel(info)
-        if info.node.name == "programme":
-            parse_programme(info)
-
-        info.node = info.node.get_next()
-        if time.time() - t0 > 0.1:
-            # time to return to the main loop
-            yield kaa.notifier.YieldContinue
-            t0 = time.time()
-
-    yield True
+    epg.add_program_wait()
+    return True

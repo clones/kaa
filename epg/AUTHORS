@@ -10,4 +10,4 @@ Rob Shortt <rob@tvcentric.com>
 Contributions:
 
 Tanja Kotthaus <owigera@web.de>
-epgdata.com parser
+epgdata.com parser, SAX based XMLTV parser
