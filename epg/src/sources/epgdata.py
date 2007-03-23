@@ -112,7 +112,7 @@ class BaseParser(object):
 
 class ChannelParser(BaseParser, dict):
     # the meaning of the tags that are used in the channel*.xml files can
-    # be found in the header of each channe*.xml file.
+    # be found in the header of each channel*.xml file.
     mapping = {
         'ch0':'tvchannel_name',
         'ch1':'tvchannel_short',
@@ -122,6 +122,7 @@ class ChannelParser(BaseParser, dict):
 
     def handle(self, attr):
         if attr['tvchannel_id'] in self:
+            # we had this already
             return
         db_id = self.add_channel(
             tuner_id=attr['tvchannel_dvb'],
