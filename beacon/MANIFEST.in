@@ -2,4 +2,5 @@ recursive-include src *.py
 recursive-include src *.c
 recursive-include src *.h
 
-include MANIFEST README COPYING TODO AUTHORS
+include bin/beacon
+include ChangeLog MANIFEST README COPYING TODO AUTHORS
