@@ -38,9 +38,11 @@ except ImportError:
     sys.exit(1)
 
 files = [ 'src/imlib2.c', 'src/image.c', 'src/font.c', 'src/rawformats.c' ]
+libraries = [ 'png']
+if not os.uname()[0] in ('FreeBSD', 'Darwin'):
+    libraries.append('rt')
 imlib2so = Extension('kaa.imlib2._Imlib2module', files,
-                     libraries = ['png', 'rt'],
-                     config='src/config.h')
+                     libraries = libraries, config='src/config.h')
 
 
 if not imlib2so.check_library('imlib2', '1.2.1'):
