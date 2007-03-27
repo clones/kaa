@@ -31,6 +31,8 @@
 # python imports
 import array
 
+from version import VERSION
+
 # evas c lib imports
 import _evas
 from _evas import EvasError, color_argb_premul, color_argb_unpremul, \

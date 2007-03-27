@@ -26,6 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
+from version import VERSION
 from object import *
 from image import *
 from rectangle import *

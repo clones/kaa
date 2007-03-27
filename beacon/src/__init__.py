@@ -41,6 +41,7 @@ import time
 import kaa.notifier
 
 # kaa.beacon imports
+from version import VERSION
 from client import Client, CONNECTED, ConnectError
 import thumbnail
 from thumbnail import NORMAL as THUMBNAIL_NORMAL

@@ -29,6 +29,8 @@
 #
 # -----------------------------------------------------------------------------
 
+from version import VERSION
+
 displays = []
 
 class ImportErrorWrapper(object):

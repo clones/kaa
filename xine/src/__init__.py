@@ -3,6 +3,8 @@ import threading
 import math
 import logging
 
+from version import VERSION
+
 import _xine
 import kaa
 from kaa import display, notifier

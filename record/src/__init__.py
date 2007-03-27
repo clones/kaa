@@ -29,6 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
+from version import VERSION
 from filter import *
 from device import DvbDevice
 from device import IVTVDevice

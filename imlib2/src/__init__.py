@@ -34,6 +34,8 @@ import os
 import glob
 import md5
 
+from version import VERSION
+
 # imlib2 wrapper
 import _Imlib2
 

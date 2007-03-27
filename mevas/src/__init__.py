@@ -27,6 +27,8 @@
 #
 # -----------------------------------------------------------------------------
 
+from version import VERSION
+
 # import mevas modules
 from canvasobject import *
 from image import *

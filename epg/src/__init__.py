@@ -38,6 +38,7 @@ import kaa.notifier
 from kaa.db import QExpr
 
 # kaa.epg imports
+from version import VERSION
 from config import config
 from channel import Channel
 from program import Program

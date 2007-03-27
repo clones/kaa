@@ -34,6 +34,7 @@ dirname = os.path.dirname(__file__)
 gst.plugin_load_file(dirname + '/_gstrecord.so')
 
 # imports from submodules
+from version import VERSION
 from channel import *
 from device import Device
 from sink import *

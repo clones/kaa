@@ -26,6 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
+from version import VERSION
 from generic import Player
 from ptypes import *
 from config import config
