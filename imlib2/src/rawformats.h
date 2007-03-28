@@ -6,10 +6,10 @@
  *
  * ----------------------------------------------------------------------------
  * kaa.imlib2 - An imlib2 wrapper for Python
- * Copyright (C) 2004-2006 Jason Tackaberry <tack@sault.org>
+ * Copyright (C) 2004-2006 Jason Tackaberry <tack@urandom.ca>
  *
- * First Edition: Jason Tackaberry <tack@sault.org>
- * Maintainer:    Jason Tackaberry <tack@sault.org>
+ * First Edition: Jason Tackaberry <tack@urandom.ca>
+ * Maintainer:    Jason Tackaberry <tack@urandom.ca>
  *
  * Please see the file AUTHORS for a complete list of authors.
  *
