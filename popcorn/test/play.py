@@ -7,10 +7,10 @@ import kaa.popcorn
 import kaa.input.stdin
 
 logging.getLogger('popcorn').setLevel(logging.INFO)
-# logging.getLogger('popcorn.child').setLevel(logging.ERROR)
+logging.getLogger('popcorn.child').setLevel(logging.DEBUG)
 
-BACKEND = 'mplayer'                     # mplayer, xine, gstreamer
-WINDOW  = '4:3'                         # '4:3', '16:3', 'none'
+BACKEND = 'xine'                        # mplayer, xine, gstreamer
+WINDOW  = '16:9'                         # '4:3', '16:3', 'none'
 
 def print_msg(msg):
     print '>', msg
