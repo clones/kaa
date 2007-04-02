@@ -66,7 +66,8 @@ class Query(object):
         self.signals = {
             'changed'   : kaa.notifier.Signal(),
             'progress'  : kaa.notifier.Signal(),
-            'up-to-date': kaa.notifier.Signal()
+            'up-to-date': kaa.notifier.Signal(),
+            'yield'     : kaa.notifier.InProgress()
         }
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
@@ -75,12 +76,7 @@ class Query(object):
         self.monitoring = False
         self.valid = False
         self.result = []
-        if client.status == CONNECTED:
-            return self._beacon_start_query(query, False)
-        # The client is not connected, wait with the query until this is
-        # done. The object will stay invalid during that time.
-        schedule = client.signals['connect'].connect_once
-        schedule(self._beacon_start_query, query, True)
+        self._beacon_start_query(query, False)
 
 
     # -------------------------------------------------------------------------
@@ -159,10 +155,17 @@ class Query(object):
     # Internal API
     # -------------------------------------------------------------------------
 
+    @kaa.notifier.yield_execution()
     def _beacon_start_query(self, query, emit_signal):
         """
         Start the database query.
         """
+        if self._client.status != CONNECTED:
+            # wait until the client is connected
+            wait = kaa.notifier.YieldCallback()
+            self._client.signals['connect'].connect_once(wait)
+            yield wait
+            
         if 'parent' in query and isinstance(query['parent'], Item) and \
                not query['parent']._beacon_id:
             # The parent we want to use has no database id. This can happen for
@@ -170,22 +173,18 @@ class Query(object):
             # request the real database id and do the query when done.
             parent = query['parent']
             log.info('force data for %s', parent)
-            return parent._beacon_request(self._beacon_start_query, query, True)
+            parent._beacon_request(self._beacon_start_query, query, True)
+            return
         self.result = self._client.db.query(**query)
         if isinstance(self.result, kaa.notifier.InProgress):
-            self.result.connect(self._beacon_delayed_results)
-            return None
+            yield self.result
+            self.result = self.result()
         self.valid = True
         if emit_signal:
             self.signals['changed'].emit()
-        return None
-
-
-    def _beacon_delayed_results(self, result):
-        self.result = result
-        self.valid = True
-        self.signals['changed'].emit()
-        return None
+        if self.signals['yield']:
+            self.signals['yield'].emit(self)
+            self.signals['yield'] = None
 
 
     def __repr__(self):
