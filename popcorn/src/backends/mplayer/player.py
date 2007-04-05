@@ -495,6 +495,11 @@ class MPlayer(MediaPlayer):
             filters.append(config.mplayer.deinterlacer)
 
 
+        self._media.get('corrupt'):
+            # File marked as corrupt. This happens for avi and mkv files
+            # with no index. To make seeking work, add -idx
+            args.append('-idx')
+            
         # FIXME: self._filters_pre / add doesn't get included if no window.
         if self._window:
             self.configure_video()
