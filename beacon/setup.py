@@ -60,6 +60,16 @@ if thumb_ext.check_library('epeg', '0.9'):
 else:
     print 'epeg extention disabled'
 
+try:
+    from pysqlite2 import dbapi2 as sqlite
+    if sqlite.version_info < ( 2, 3 ):
+        version = '.'.join([ str(x) for x in sqlite.version_info ])
+        print 'pysqlite2 >= 2.3.0 required, found %s' % version
+        sys.exit(1)
+except ImportError:
+    print 'pysqlite2 is not installed'
+    sys.exit(1)
+    
 ext_modules = [ thumb_ext ]
 
 
