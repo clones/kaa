@@ -213,14 +213,6 @@ def parse(db, item, store=False, check_image=False):
 
     else:
         base = os.path.splitext(item.filename)[0]
-        for ext in ('.jpg', '.png'):
-            if os.path.isfile(base + ext):
-                attributes['image'] = base + ext
-                break
-            if os.path.isfile(item.filename + ext):
-                attributes['image'] = item.filename + ext
-                break
-
         if type == 'video' and not attributes.get('image') and \
                thumbnail.SUPPORT_VIDEO:
             attributes['image'] = item.filename
@@ -235,6 +227,14 @@ def parse(db, item, store=False, check_image=False):
                     t.image = kaa.imlib2.open_from_memory(metadata['thumbnail'])
                 except ValueError:
                     log.error('raw thumbnail')
+
+        for ext in ('.jpg', '.png'):
+            if os.path.isfile(base + ext):
+                attributes['image'] = base + ext
+                break
+            if os.path.isfile(item.filename + ext):
+                attributes['image'] = item.filename + ext
+                break
 
     if attributes.get('image'):
         t = thumbnail.Thumbnail(attributes.get('image'), item._beacon_media)
