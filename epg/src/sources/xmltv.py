@@ -171,11 +171,8 @@ class XmltvParser(object):
             tval = timestr
             tz   = str(-time.timezone/3600)
 
-        if tz == 'CET':
-            tz='+1'
-
         # Is it the '+1' format?
-        if tz[0] == '+' or tz[0] == '-':
+        if tz and (tz[0] == '+' or tz[0] == '-'):
             tmTuple = ( int(tval[0:4]), int(tval[4:6]), int(tval[6:8]),
                         int(tval[8:10]), int(tval[10:12]), 0, -1, -1, -1 )
             secs = calendar.timegm( tmTuple )
@@ -193,18 +190,11 @@ class XmltvParser(object):
             else:
                 secs += adj_secs
         else:
-        # No, use the regular conversion
-
-        ## WARNING! BUG HERE!
-        # The line below is incorrect; the strptime.strptime function doesn't
-        # handle time zones. There is no obvious function that does. Therefore
-        # this bug is left in for someone else to solve.
-
             try:
-                secs = time.mktime(time.strptime(timestr,'%Y-%m-%d %H:%M:%S'))
+                secs = time.mktime(time.strptime(timestr,'%Y%m%d%H%M%S %Z'))
             except ValueError:
-                timestr = timestr.replace('EST', '')
-                secs = time.mktime(time.strptime(timestr,'%Y-%m-%d %H:%M:%S'))
+                #try without the timezone
+                secs = time.mktime(time.strptime(tval,'%Y%m%d%H%M%S'))
         return float(secs)
 
 
