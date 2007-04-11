@@ -172,7 +172,7 @@ class XmltvParser(object):
             tz   = str(-time.timezone/3600)
 
         # Is it the '+1' format?
-        if tz and (tz[0] == '+' or tz[0] == '-'):
+        if tz and tz[0] in ('+', '-'):
             tmTuple = ( int(tval[0:4]), int(tval[4:6]), int(tval[6:8]),
                         int(tval[8:10]), int(tval[10:12]), 0, -1, -1, -1 )
             secs = calendar.timegm( tmTuple )
