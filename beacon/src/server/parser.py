@@ -245,6 +245,7 @@ def parse(db, item, store=False, check_image=False):
 
     if not metadata.get('title'):
         # try to set a good title
+        # FIXME: if a file is renamed later, this tite should also update
         title = get_title(item._beacon_data['name'])
         metadata['title'] = str_to_unicode(title)
 
@@ -264,7 +265,7 @@ def parse(db, item, store=False, check_image=False):
         db.delete_object(item._beacon_id)
         item._beacon_id = None
         db.commit()
-        
+
     # Note: the items are not updated yet, the changes are still in
     # the queue and will be added to the db on commit.
 
@@ -300,15 +301,13 @@ def parse(db, item, store=False, check_image=False):
         type = 'track_%s' % metadata.get('type').lower()
         for track in metadata.tracks:
             db.add_object(type, name=str(track.trackno),
-                               parent=item._beacon_id,
-                               media=item._beacon_media._beacon_id[1],
-                               mtime=0,
-                               metadata=track)
+                          parent=item._beacon_id,
+                          media=item._beacon_media._beacon_id[1],
+                          mtime=0, metadata=track)
         db.commit()
-        
+
     if store:
         db.commit()
 
     log.info('scan %s (%0.3f)' % (item, time.time() - t1))
-
     return produced_load

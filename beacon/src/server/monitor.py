@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -45,18 +45,6 @@ import parser
 
 # get logging object
 log = logging.getLogger('beacon.monitor')
-
-class Notification(object):
-    def __init__(self, client, id):
-        self.rpc = client.rpc
-        self.id = id
-
-    def __call__(self, *args, **kwargs):
-        try:
-            self.rpc('notify', self.id, *args, **kwargs)
-        except IOError:
-            pass
-
 
 class Master(object):
     """
@@ -104,17 +92,18 @@ class Master(object):
         self.monitors.append((monitor, [ False, [] ]))
         return len(changes) > 0 or force
 
-_master = None
 
 class Monitor(object):
     """
     Monitor query for changes and call the client.
     """
+
+    _master = None
+
     def __init__(self, client, db, server, id, query):
-        global _master
         log.info('create new monitor %s' % id)
         self.id = id
-        self.notify_client = Notification(client, self.id)
+        self._client = client
         self._server = server
         self._db = db
         self._query = query
@@ -122,15 +111,25 @@ class Monitor(object):
         self._running = True
         self._check_changes = []
         self.items = self._db.query(**self._query)
-        if not _master:
-            _master = Master(db)
-        _master.connect(self)
+        if not Monitor._master:
+            Monitor._master = Master(db)
+        Monitor._master.connect(self)
         if self.items and isinstance(self.items[0], Item):
-            self._initial_scan(True)
+            self._initial_scan()
 
         # FIXME: how to get updates on directories not monitored by
         # inotify? Maybe poll the dirs when we have a query with
         # dirname it it?
+
+
+    def notify_client(self, *args, **kwargs):
+        """
+        Send notify rpc to client.
+        """
+        try:
+            self._client.rpc('notify', self.id, *args, **kwargs)
+        except IOError:
+            pass
 
 
     def check(self, changes):
@@ -202,7 +201,7 @@ class Monitor(object):
 
 
     @yield_execution(0.01)
-    def _initial_scan(self, first_call):
+    def _initial_scan(self):
         """
         Start scanning the current list of items if they need to be updated.
         With a full structure covered by inotify, there should be not changes.
@@ -220,7 +219,7 @@ class Monitor(object):
             if i._beacon_changed():
                 changed.append(i)
 
-        if not changed and first_call:
+        if not changed:
             # no changes but it was our first call. Tell the client that
             # everything is checked
             self.notify_client('checked')
@@ -232,10 +231,6 @@ class Monitor(object):
             self.notify_client('changed', False)
             self._checking = False
             yield False
-
-        if not first_call and len(changed) > 10:
-            # do not wait to send the changed signal, it may take a while.
-            self.notify_client('changed', True)
 
         for pos, item in enumerate(changed):
             self.notify_client('progress', pos+1, len(changed), item.url)
@@ -257,8 +252,7 @@ class Monitor(object):
             # Set new check timer. This should not be needed, but just in
             # case :)
             OneShotTimer(self.check, []).start(0.5)
-        if first_call:
-            self.notify_client('checked')
+        self.notify_client('checked')
         self._checking = False
         yield False
 

@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -160,6 +160,10 @@ class Server(object):
             self.monitor_dir(dir.replace('$(HOME)', os.environ.get('HOME')))
 
 
+    # -------------------------------------------------------------
+    # client handling
+    # -------------------------------------------------------------
+
     def client_connect(self, client):
         """
         Connect a new client to the server.
@@ -184,30 +188,45 @@ class Server(object):
                     m.stop()
                 self._clients.remove(client_info)
 
-
-    def autoshutdown(self, timeout):
+    def has_clients(self):
         """
-        Start autoshutdown.
+        Return if clients are connected.
         """
-        if hasattr(self, '_autoshutdown_timer'):
-            return
-        self._autoshutdown_timer = timeout
-        Timer(self._autoshutdown, timeout).start(1)
+        return len(self._clients) > 0
+    
+
+    # -------------------------------------------------------------
+    # hardware monitor callbacks
+    # -------------------------------------------------------------
+
+    def media_changed(self, media):
+        """
+        Media mountpoint changed or added.
+        """
+        for id, client, monitors in self._clients:
+            client.rpc('device.changed', media.id, media.prop)
+        if not media.crawler:
+            if not media.get('block.device'):
+                log.info('start crawler for /')
+                media.crawler = Crawler(self._db, use_inotify=True)
+        self._db.signals['changed'].emit([media._beacon_id])
 
 
-    def _autoshutdown(self, timeout):
+    def media_removed(self, media):
         """
-        Timer callback for autoshutdown.
+        Media mountpoint removed.
         """
-        if len(self._clients) > 0:
-            self._autoshutdown_timer = timeout
-            return True
-        self._autoshutdown_timer -= 1
-        if self._autoshutdown_timer == 0:
-            log.info('beacon timeout')
-            sys.exit(0)
-        return True
+        for id, client, monitors in self._clients:
+            client.rpc('device.removed', media.id)
+        self._db.signals['changed'].emit([media._beacon_id])
+        if media.crawler:
+            media.crawler.stop()
+            media.crawler = None
 
+    
+    # -------------------------------------------------------------
+    # client RPC API
+    # -------------------------------------------------------------
 
     @kaa.rpc.expose('db.register_file_type_attrs')
     def register_file_type_attrs(self, name, **kwargs):
@@ -300,30 +319,6 @@ class Server(object):
         log.error('unable to find monitor %s:%s', client_id, request_id)
 
 
-    def media_changed(self, media):
-        """
-        Media mountpoint changed or added.
-        """
-        for id, client, monitors in self._clients:
-            client.rpc('device.changed', media.id, media.prop)
-        if not media.crawler:
-            if not media.get('block.device'):
-                log.info('start crawler for /')
-                media.crawler = Crawler(self._db, use_inotify=True)
-        self._db.signals['changed'].emit([media._beacon_id])
-
-
-    def media_removed(self, media):
-        """
-        Media mountpoint removed.
-        """
-        for id, client, monitors in self._clients:
-            client.rpc('device.removed', media.id)
-        self._db.signals['changed'].emit([media._beacon_id])
-        if media.crawler:
-            media.crawler.stop()
-            media.crawler = None
-
     @kaa.rpc.expose('item.update')
     def update(self, items):
         """
@@ -336,6 +331,9 @@ class Server(object):
 
     @kaa.rpc.expose('item.request')
     def request(self, filename):
+        """
+        Request item data.
+        """
         self._db.commit()
         data = self._db.query(filename=filename)
         items = []
@@ -351,11 +349,17 @@ class Server(object):
 
     @kaa.rpc.expose('beacon.shutdown')
     def shutdown(self):
+        """
+        Shutdown beacon.
+        """
         sys.exit(0)
 
 
     @kaa.rpc.expose('media.eject')
     def eject(self, id):
+        """
+        Eject media with the given id
+        """
         dev = medialist.get(id)
         if not dev:
             log.error('eject: no device %s' % id)
