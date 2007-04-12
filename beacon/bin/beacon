@@ -390,11 +390,11 @@ try:
     kaa.notifier.Timer(garbage_collect).start(10)
     if shutdown:
 
-        shutdown_timer = 3
+        shutdown_timer = 10
         def autoshutdown_poll():
             global shutdown_timer
             if server.has_clients():
-                shutdown_timer = 3
+                shutdown_timer = 5
                 return True
             shutdown_timer -= 1
             if not shutdown_timer:
@@ -402,7 +402,7 @@ try:
                 sys.exit(0)
             return True
             
-        log.info('set autoshutdown timer to 3 seconds')
+        log.info('set autoshutdown timer')
         kaa.notifier.Timer(autoshutdown_poll).start(1)
 
     if detach:
