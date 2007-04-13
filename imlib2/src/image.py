@@ -248,13 +248,13 @@ class Image(object):
         self._changed()
 
 
-    def blurr(self, radius):
+    def blur(self, radius):
         """
         Blur the image
 
         Returns: None.
         """
-        self._image.blurr(radius)
+        self._image.blur(radius)
         self._changed()
 
 
