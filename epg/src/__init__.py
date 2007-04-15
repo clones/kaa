@@ -52,13 +52,12 @@ log = logging.getLogger('epg')
 # connected client object
 guide = Client()
 
-def connect(address, auth_secret=''):
+def connect(address = 'epg', auth_secret = ''):
     """
-    Connect to the epg server with the given address.
+    Connect to the epg server with the given address and auth secret.
     """
-    if not guide.status == DISCONNECTED:
+    if guide.status != DISCONNECTED:
         log.warning('connecting to a new epg database')
-        guide.connect(address, auth_secret)
     guide.connect(address, auth_secret)
     return guide
 
@@ -67,18 +66,18 @@ def get_channels(sort=False):
     """
     Return a list of all channels.
     """
-    if not guide.status == DISCONNECTED:
-        return guide.get_channels(sort)
-    return []
+    if guide.status == DISCONNECTED:
+        connect()
+    return guide.get_channels(sort)
 
 
 def get_channel(name):
     """
     Return the channel with the given name.
     """
-    if not guide.status == DISCONNECTED:
-        return guide.get_channel(name)
-    return []
+    if guide.status == DISCONNECTED:
+        connect()
+    return guide.get_channel(name)
 
 
 def search(channel=None, time=None, block=False, **kwargs):
@@ -88,6 +87,12 @@ def search(channel=None, time=None, block=False, **kwargs):
     True the function to block using kaa.notifier.step() until the result
     arrived from the server.
     """
+    if guide.status == DISCONNECTED:
+        connect()
+        if block:
+            while guide.status == CONNECTING:
+                kaa.notifier.step()
+
     if block:
         wait = guide.search(channel, time, **kwargs)
         while not wait.is_finished:

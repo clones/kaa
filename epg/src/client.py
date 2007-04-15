@@ -91,7 +91,7 @@ class Client(object):
 
 
 
-    def connect(self, server_or_socket, auth_secret = ''):
+    def connect(self, server_or_socket = 'epg', auth_secret = ''):
         """
         Connect to EPG server.
         """
@@ -156,8 +156,7 @@ class Client(object):
         """
         if self.status == DISCONNECTED:
             # make sure we always return InProgress
-            yield kaa.notifier.YieldContinue
-            yield []
+            raise SystemError('Client is disconnected')
 
         while self.status == CONNECTING:
             yield kaa.notifier.YieldContinue

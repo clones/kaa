@@ -243,7 +243,7 @@ class Server(object):
         """
         Callback when a client disconnects.
         """
-        log.warning('disconnect client %s', client)
+        log.info('Client disconnected: %s', client)
         self._clients.remove(client)
 
 
