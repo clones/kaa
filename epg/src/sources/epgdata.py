@@ -212,6 +212,7 @@ def update(epg):
     """
     Interface to source_epgdata.
     """
+    from kaa.epg.config import config as epg_config
     if not config.pin:
         log.error('PIN for epgdata.com is missing in tvserver.conf')
         return False
@@ -285,7 +286,7 @@ def update(epg):
     address+= '&dayOffset=%s&dataType=xml'
 
     # get the file for each day
-    for i in range(0, int(config.days)):
+    for i in range(0, int(epg_config.days)):
             # remove old file if needed
             try:
                 os.remove(tmpfile)

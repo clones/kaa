@@ -42,6 +42,7 @@ import kaa.rpc
 import kaa.notifier
 
 # kaa.epg imports
+from config import config
 from sources import *
 
 # get logging object
@@ -96,13 +97,16 @@ class Server(object):
         self._rpc_server.append(s)
 
 
-    def sync(self, result=False):
+    def sync(self):
         """
         Sync database. The guide may changed by source, commit changes to
         database and notify clients. Load some basic settings from the db.
-        The result parameter is not used but given by the InProgress callback
-        when this function is called after an update.
         """
+        # Prune obsolete programs from database.
+        expired_time = time.time() - config.expired_days * 60 * 60 * 24
+        count = self._db.delete_by_query(type = "program", stop = QExpr('<', expired_time))
+        if count:
+            log.info('Deleted %d expired programs from database' % count)
         self._db.commit()
 
         # Load some basic information from the db.
@@ -162,18 +166,53 @@ class Server(object):
 
 
     @kaa.rpc.expose('guide.update')
-    def update(self, backend, *args, **kwargs):
+    def update(self, backend = None, *args, **kwargs):
         """
-        Start epg update calling the source_* files.
+        Start epg update calling the source_* files.  If backend is specified,
+        only call update() from that specific backend.  Otherwise call update
+        on all enabled backends in the 'sources' config value.
         """
-        if not sources.has_key(backend):
-            raise ValueError, "No such update backend '%s'" % backend
-        log.info('update backend %s', backend)
-        result = sources[backend].update(self, *args, **kwargs)
-        if isinstance(result, kaa.notifier.InProgress):
-            # sync when guide is updated
-            result.connect(self.sync)
-        return result
+        if backend:
+            backends = [backend]
+        elif config.sources:
+            backends = config.sources.replace(' ', '').split(',')
+        else:
+            backends = []
+
+        finished_signal = kaa.notifier.Signal()
+        finished_signal._backends = backends
+
+        for backend in backends[:]:
+            if backend not in sources:
+                log.error("No such update backend '%s'" % backend)
+                backends.remove(backend)
+                continue
+
+            log.info('update backend %s', backend)
+            result = sources[backend].update(self, *args, **kwargs)
+            if isinstance(result, kaa.notifier.InProgress):
+                # sync when guide is updated
+                result.connect(self._update_finished, finished_signal, backend)
+            else:
+                log.error("Backend '%s' does not implement threaded update()" % backend)
+
+        if not backends:
+            log.warning('No valid backends specified for update.')
+
+        return finished_signal
+
+
+    def _update_finished(self, result, signal, backend):
+        """
+        Callback for update().  This method is called when each backend is
+        finished.  When all invoked backends have called this callback,
+        sync() is called and we emit the finished signal to notify the user.
+        """
+        signal._backends.remove(backend)
+        if not signal._backends:
+            # All the backends are finished.
+            self.sync()
+            signal.emit()
 
 
     @kaa.rpc.expose('guide.query')

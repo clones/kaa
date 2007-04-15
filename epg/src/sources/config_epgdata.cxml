@@ -8,13 +8,7 @@
         such a test key will work and if it will be possible after that to use
         the service.
     </desc>
-    <var name="activate" default="False">
-        <desc lang="en">Get epg data from epgdata.com</desc>
-    </var>
     <var name="pin" type="str" >
         <desc lang="en">You will need a pin from epgdata.com to use this service</desc>
-    </var>
-    <var name="days" default="7">
-        <desc lang="en">How many days of epg data you want to fetch.</desc>
     </var>
 </config>

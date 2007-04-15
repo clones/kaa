@@ -1,5 +1,20 @@
 <?xml version="1.0"?>
 <config>
+    <var name="days" default="7">
+        <desc lang="en">How many days of EPG data you want to fetch.</desc>
+    </var>
+    <var name="expired_days" default="1">
+        <desc lang="en">How many days of expired EPG data you want to keep in the database.</desc>
+    </var>
+    <var name="sources" type="str">
+        <desc lang="en">
+            Comma separated list of EPG data sources to use.  If you specify a
+            source here, you will need to configure it below.
+            
+            Valid sources are: xmltv, zap2it, or epgdata.
+        </desc>
+    </var>
+
     <code>
         from sources import *
 

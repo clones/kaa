@@ -250,16 +250,9 @@ class Handler(xml.sax.handler.ContentHandler):
 
     def characters(self, content):
         if self._obj_type == 'program':
-            if self._node_name in ('title', 'description'):
+            if self._node_name in ('title', 'description', 'year', 'originalAirDate',
+                                   'syndicatedEpisodeNumber', 'mpaaRating'):
                 self._obj[self._node_name] = self._obj.get(self._node_name, '') + content
-            elif self._node_name == 'year':
-                self._obj['date'] = time.strptime(content, '%Y')
-            elif self._node_name == 'originalAirDate':
-                self._obj['date'] = time.strptime(content, '%Y-%m-%d')
-            elif self._node_name == 'syndicatedEpisodeNumber':
-                self._obj['episode'] = content
-            elif self._node_name == 'mpaaRating':
-                self._obj['rating'] = content
 
         elif self._obj_type == 'station':
             if self._node_name in ('callSign', 'name'):
@@ -281,6 +274,15 @@ class Handler(xml.sax.handler.ContentHandler):
             if program['id'] not in self._schedule_by_program:
                 # program defined for which there is no schedule.
                 return
+
+            if 'year' in program:
+                program['date'] = time.strptime(program['year'], '%Y')
+            if 'originalAirDate' in program:
+                program['date'] = time.strptime(program['originalAirDate'], '%Y-%m-%d')
+            if 'syndicatedEpisodeNumber' in program:
+                program['episode'] = program['syndicatedEpisodeNumber']
+            if 'mpaaRating' in program:
+                program['rating'] = program['mpaaRating']
             if 'date' in program:
                 program['date'] = int(calendar.timegm(program['date']))
 
@@ -303,14 +305,15 @@ class Handler(xml.sax.handler.ContentHandler):
 @kaa.notifier.execute_in_thread('epg')
 def update(epg, start = None, stop = None):
     from gzip import GzipFile
+    from kaa.epg.config import config as epg_config
 
     if not start:
         # If start isn't specified, choose current time (rounded down to the
         # nearest hour).
         start = int(time.time()) / 3600 * 3600
     if not stop:
-        # If stop isn't specified, use 24 hours after start.
-        stop = start + (24 * 60 * 60)
+        # If stop isn't specified, use config default.
+        stop = start + (24 * 60 * 60 * epg_config.days)
 
     filename = request(str(config.username), str(config.password), ZAP2IT_HOST, ZAP2IT_URI, start, stop)
     if not filename:

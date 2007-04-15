@@ -286,6 +286,7 @@ def update(epg):
     """
     Interface to source_xmltv.
     """
+    from kaa.epg.config import config as epg_config
     if config.grabber:
         log.info('grabbing listings using %s', config.grabber)
         xmltv_file = os.path.join(TEMP, 'TV.xml')
@@ -296,7 +297,7 @@ def update(epg):
         # nicer using kaa.notifier.Process later. We are inside a thread so it
         # seems to be ok.
         ec = os.system('%s --output %s --days %s >%s 2>%s' % \
-                       (config.grabber, xmltv_file, config.days, log_file, log_file))
+                       (config.grabber, xmltv_file, epg_config.days, log_file, log_file))
         if not os.path.exists(xmltv_file) or ec:
             log.error('grabber failed, see %s', log_file)
             return

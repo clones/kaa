@@ -1,13 +1,12 @@
 <?xml version="1.0"?>
 <config>
     <desc lang="en">
-        Zap2It settings
+        Zap2it Settings.
 
-        FIXME: more documentation here.
+        Zap2it provides EPG data for North American television providers.  A
+        Zap2it Labs subscription is needed, which can be obtained at no cost at
+        http://labs.zap2it.com.
     </desc>
-    <var name="activate" default="False">
-        <desc lang="en">Use Zap2It service to populate database.</desc>
-    </var>
     <var name="username" type="str" />
     <var name="password" type="str" />
 </config>
