@@ -89,9 +89,8 @@ def search(channel=None, time=None, block=False, **kwargs):
     """
     if guide.status == DISCONNECTED:
         connect()
-        if block:
-            while guide.status == CONNECTING:
-                kaa.notifier.step()
+        while block and guide.status == CONNECTING:
+            kaa.notifier.step()
 
     if block:
         wait = guide.search(channel, time, **kwargs)
