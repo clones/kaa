@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2007 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -29,26 +29,15 @@
 
 __all__ = [ 'Channel' ]
 
-# python imports
-import time
-
-# kaa imports
-from kaa.weakref import weakref
-
 class Channel(object):
     """
-    kaa.epg channel class.
+    kaa.epg.Channel class.
     """
-    def __init__(self, tuner_id, name, long_name, epg):
+    def __init__(self, tuner_id, name, long_name):
         self.db_id      = None
         self.tuner_id   = tuner_id
         self.name       = name
         self.long_name  = long_name
-        self._epg       = weakref(epg)
-
-        # kludge - remove
-        self.id = name
-
 
     def __repr__(self):
         return '<kaa.epg.Channel %s>' % self.name

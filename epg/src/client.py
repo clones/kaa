@@ -123,7 +123,7 @@ class Client(object):
 
         for row in epgdata:
             db_id, tuner_id, name, long_name = row
-            chan = Channel(tuner_id, name, long_name, self)
+            chan = Channel(tuner_id, name, long_name)
             chan.db_id = db_id
             self._channels_by_name[name] = chan
             self._channels_by_db_id[db_id] = chan
@@ -177,9 +177,12 @@ class Client(object):
                 start, stop = time
 
             max = self._max_program_length
-            kwargs["start"] = kaa.db.QExpr("range", (int(start) - max, int(stop)))
-            kwargs["stop"]  = kaa.db.QExpr(">=", int(start))
-
+            if stop > 0:
+                kwargs["start"] = kaa.db.QExpr("range", (int(start) - max, int(stop)))
+                kwargs["stop"]  = kaa.db.QExpr(">=", int(start))
+            else:
+                kwargs["start"] = kaa.db.QExpr(">=", (int(start) - max))
+                
         query_data = self.server.rpc('guide.query', type='program', **kwargs)
         # wait for the rpc to finish
         yield query_data
@@ -231,7 +234,7 @@ class Client(object):
             elif tuner_id:
                 long_name = tuner_id[0]
 
-        return Channel(tuner_id, name, long_name, epg=None)
+        return Channel(tuner_id, name, long_name)
 
 
     @yield_execution_while_connecting()

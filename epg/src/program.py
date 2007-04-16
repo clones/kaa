@@ -31,12 +31,11 @@ __all__ = [ 'Program' ]
 
 class Program(object):
     """
-    kaa.epg program class.
+    kaa.epg.Program class.
     """
     def __init__(self, channel, dbdata):
         self.channel = channel
         self._dbdata = dbdata
-
         self.start = dbdata.get('start', 0)
         self.stop = dbdata.get('stop', 0)
         self.title = dbdata.get('title', u'')
