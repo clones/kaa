@@ -52,8 +52,6 @@ log = logging.getLogger('epg')
 # connected client object
 guide = Client()
 
-autoconnect = True
-
 def connect(address = 'epg', auth_secret = ''):
     """
     Connect to the epg server with the given address and auth secret.
@@ -69,8 +67,6 @@ def get_channels(sort=False):
     Return a list of all channels.
     """
     if guide.status == DISCONNECTED:
-        if not autoconnect:
-            return []
         connect()
     return guide.get_channels(sort)
 
@@ -80,8 +76,6 @@ def get_channel(name):
     Return the channel with the given name.
     """
     if guide.status == DISCONNECTED:
-        if not autoconnect:
-            return None
         connect()
     return guide.get_channel(name)
 
@@ -94,8 +88,6 @@ def search(channel=None, time=None, block=False, **kwargs):
     arrived from the server.
     """
     if guide.status == DISCONNECTED:
-        if not autoconnect:
-            return []
         connect()
         while block and guide.status == CONNECTING:
             kaa.notifier.step()
