@@ -166,6 +166,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('guide.update')
+    @kaa.notifier.yield_execution()
     def update(self, backend = None, *args, **kwargs):
         """
         Start epg update calling the source_* files.  If backend is specified,
@@ -179,40 +180,22 @@ class Server(object):
         else:
             backends = []
 
-        finished_signal = kaa.notifier.Signal()
-        finished_signal._backends = backends
-
         for backend in backends[:]:
             if backend not in sources:
                 log.error("No such update backend '%s'" % backend)
                 backends.remove(backend)
                 continue
 
-            log.info('update backend %s', backend)
-            result = sources[backend].update(self, *args, **kwargs)
-            if isinstance(result, kaa.notifier.InProgress):
-                # sync when guide is updated
-                result.connect(self._update_finished, finished_signal, backend)
-            else:
-                log.error("Backend '%s' does not implement threaded update()" % backend)
+            log.info('Updating backend %s', backend)
+            # Backend's update() must be threaded, and so will return an
+            # InProgress object that we now yield.
+            yield sources[backend].update(self, *args, **kwargs)
 
         if not backends:
             log.warning('No valid backends specified for update.')
+            return
 
-        return finished_signal
-
-
-    def _update_finished(self, result, signal, backend):
-        """
-        Callback for update().  This method is called when each backend is
-        finished.  When all invoked backends have called this callback,
-        sync() is called and we emit the finished signal to notify the user.
-        """
-        signal._backends.remove(backend)
-        if not signal._backends:
-            # All the backends are finished.
-            self.sync()
-            signal.emit()
+        self.sync()
 
 
     @kaa.rpc.expose('guide.query')
@@ -314,7 +297,7 @@ class Server(object):
                         self._tuner_ids.append(t)
 
             # TODO: if everything is the same do not update
-            log.debug('update channel %s', name)
+            log.debug('Updating channel %s', name)
             self._db.update_object(("channel", c2["id"]),
                                    tuner_id = c2["tuner_id"],
                                    long_name = long_name)
@@ -328,7 +311,7 @@ class Server(object):
             else:
                 self._tuner_ids.append(t)
 
-        log.debug('add channel %s %s %s', tuner_id, name, long_name)
+        log.debug('Adding channel %s %s %s', tuner_id, name, long_name)
         o = self._db.add_object("channel", tuner_id = tuner_id, name = name,
                                 long_name = long_name)
         return o["id"]
@@ -385,7 +368,8 @@ class Server(object):
             # yes, update object if it is different
             prg = s1[0]
             if prg['title'] != title:
-                log.info('update %s', title)
+                log.debug('Updating existing program %s (channel db id=%d, start=%d, stop=%d)', 
+                          title, channel_db_id, start, stop)
                 self._db.update_object(("program", prg["id"]), start = start,
                                        stop = stop, title = title, **attributes)
             return prg["id"]
@@ -398,12 +382,14 @@ class Server(object):
             # conflict
             if r['id'] in removed:
                 continue
-            log.info('remove %s', r['title'])
+            log.debug('Removing conflicting program %s (channel db id=%d, start=%d, stop=%d)', 
+                      r['title'], channel_db_id, r['start'], r['stop'])
             self._db.delete_object(("program", r['id']))
             removed.append(r['id'])
 
         # Now add the new program
-        log.debug('adding program: %s', title)
+        log.debug('Adding program %s (channel db id=%d, start=%d, stop=%d)', 
+                  title, channel_db_id, start, stop)
         o = self._db.add_object("program", parent = ("channel", channel_db_id),
                                 start = start, stop = stop, title = title,
                                 **attributes)
