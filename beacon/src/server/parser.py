@@ -208,7 +208,7 @@ def parse(db, item, store=False, check_image=False):
                     produced_load = 2
                     img = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
                     t.set(img, thumbnail.NORMAL)
-                except Exception:
+                except (ValueError, IOError):
                     log.error('image thumbnail')
 
     else:
@@ -225,7 +225,7 @@ def parse(db, item, store=False, check_image=False):
                 try:
                     produced_load = 2
                     t.image = kaa.imlib2.open_from_memory(metadata['thumbnail'])
-                except ValueError:
+                except (ValueError, IOError):
                     log.error('raw thumbnail')
 
         for ext in ('.jpg', '.png'):
