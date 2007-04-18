@@ -236,11 +236,10 @@ class Monitor(object):
             self.notify_client('progress', pos+1, len(changed), item.url)
             parser.parse(self._db, item)
             yield YieldContinue
-            if not self._checking:
+            if not self._running:
                 break
 
         self._db.commit()
-        self.stop()
 
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
