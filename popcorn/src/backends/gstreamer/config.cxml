@@ -19,9 +19,9 @@
     <group name="preferred">
 
         <!-- TODO: find a good default value -->
-        <var name="extentions" type="str">
+        <var name="extensions" type="str">
             <desc>
-                Comma seperated list of extentions for which this player should
+                Comma seperated list of extensions for which this player should
                 be the preferred player.
             </desc>
         </var>
