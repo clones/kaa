@@ -212,14 +212,14 @@ class File(Item):
         """
         Convert object to string (usefull for debugging)
         """
-        str = '<beacon.File %s' % self.filename
+        s = '<beacon.File %s' % self.filename
         if not self.url.startswith('file://'):
-            str = '<beacon.File %s' % self.url
+            s = '<beacon.File %s' % self.url
         if self._beacon_data.get('mtime') == None:
-            str += ' (new)'
+            s += ' (new)'
         else:
-            str += ' (type=%s)' % self._beacon_data.get('type')
-        return str + '>'
+            s += ' (type=%s)' % str(self._beacon_data.get('type'))
+        return s + '>'
 
 
     # -------------------------------------------------------------------------
