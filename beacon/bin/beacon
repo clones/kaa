@@ -79,6 +79,7 @@ def usage(error_code):
     print '--verbose modules   comma separated list of modules which should be more'
     print '                    verbose. Possible modules are db, crawler, monitor,'
     print '                    parser, server. Use \'all\' to increase every module.'
+    print '--debug             Enables debugging mode for all loggers'
     print '--help | -h         this message'
     print
     print 'Client options:'
@@ -107,7 +108,7 @@ try:
 
     # read arguments
     opts = [ 'db=', 'fg', 'autoshutdown', 'logfile=', 'verbose=', 'help',
-             'monitor' ] + possible_modes
+             'monitor', 'debug' ] + possible_modes
     opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
 except getopt.GetoptError:
     usage(1)
@@ -140,6 +141,9 @@ for o, a in opts:
         else:
             for m in a.split(','):
                 logging.getLogger('beacon.' + m).setLevel(logging.INFO)
+    elif o == '--debug':
+        # Set DEBUG level on root logger
+        logging.getLogger().setLevel(logging.DEBUG)
     elif o == '--monitor':
         monitor = True
     elif o in ('--help', '-h'):
