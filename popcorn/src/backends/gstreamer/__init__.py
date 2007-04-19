@@ -54,8 +54,8 @@ def get_capabilities():
     schemes = [ "file", "fifo", "dvd", "vcd", "cdda", "http", "tcp", "udp",
                 "rtp", "smb", "mms", "pnm", "rtsp" ]
 
-    # list of extentions when to prefer this player
-    exts = config.preferred.extentions.split(',')
+    # list of extensions when to prefer this player
+    exts = config.preferred.extensions.split(',')
 
     # list of codecs when to prefer this player
     codecs = config.preferred.codecs.split(',')
