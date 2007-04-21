@@ -113,6 +113,9 @@ class Player(object):
             # fit method. One of 'bars', 'scale', 'zoom'
             'fit-method': config.video.fit_method,
 
+            # zoom into the movie
+            'zoom': 100,
+            
             # pre-caching, use 'auto' for defaults based on filetype / schema
             'cache' : 'auto'
         }
