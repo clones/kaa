@@ -66,7 +66,10 @@ class XinePlayerChild(Player):
         self._window_aspect = -1
         self._status = kaa.notifier.WeakTimer(self._status_output)
         self._status_last = None
-
+        self._vo_settings = None
+        self._fit_method = None
+        self._zoom = 100
+        
         self._xine.set_config_value("effects.goom.fps", 20)
         self._xine.set_config_value("effects.goom.width", 512)
         self._xine.set_config_value("effects.goom.height", 384)
@@ -144,28 +147,52 @@ class XinePlayerChild(Player):
         """
         Return the frame output position and dimensions
         """
-        # FIXME: this is called for every frame. So for every frame we jump
-        # from C to Python, call _get_vo_display_size in C again and
-        # continue in Python. I guess it would be a major speed improvement
-        # if this function is directly in C and we only provide the
-        # basic information (size, maybe aspect) when it changes.
+        if self._vo_settings == (width, height, aspect):
+            # use cache when nothing has changed
+            return self._vo_settings_calculated
+        # TODO: check if this is right when given aspect is not 1.0
+        video_aspect = float(width) / (aspect * height)
+
+        if self._zoom < 100 and 0:
+            # FIMXE: this crashes when using a timer to zoom from 100
+            # in 10% steps.
+            crop_x = width - int(width * self._zoom / 100)
+            crop_y = height - int(height * self._zoom / 100)
+            self._stream.set_parameter(xine.PARAM_VO_CROP_LEFT, crop_x)
+            self._stream.set_parameter(xine.PARAM_VO_CROP_RIGHT, crop_x)
+            self._stream.set_parameter(xine.PARAM_VO_CROP_TOP, crop_y)
+            self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, crop_y)
+
+        self._vo_settings = (width, height, aspect)
+        log.info('calculate frame output')
         w, h, a = self._xine._get_vo_display_size(width, height, aspect)
         if abs(self._window_aspect - a) > 0.01:
             log.debug('VO: %dx%d -> %dx%d', width, height, w, h)
+            # FIXME: maybe not resize the parent window, make this an option
             self.parent.resize((w, h))
             self._window_aspect = a
         if self._window_size != (0, 0):
             w, h = self._window_size
-        # FIXME: this is wrong. The aspect may not be 1.0 depending on
-        # the pixel aspect of the output display. This needs to be
-        # adjusted. For some recordings with an overscan it would also
-        # be nice to have a zoom mode cutting off some pixel at the
-        # left and right and zoom it it to fill the screen. This
-        # return value also needs to respect widescreen settings from
-        # the config to scale a 4:3 image to 16:9 or cut off top and
-        # bottom so it fots the 16:9 screen (in case black bars are in
-        # the encoding).
-        return (0, 0), (0, 0), (w, h), 1.0
+        # FIXME: this could be wrong
+        windows_aspect = float(w) / h
+
+        if self._fit_method == 'scale':
+            # ignore aspect. The whole window is used and the video
+            # is scaled to fill it. The aspect is ignore to do that.
+            aspect = 1.0 / video_aspect
+        else:
+            # FIXME: this is wrong. The aspect may not be 1.0 depending on
+            # the pixel aspect of the output display. This needs to be
+            # adjusted. For some recordings with an overscan it would also
+            # be nice to have a zoom mode cutting off some pixel at the
+            # left and right and zoom it it to fill the screen. This
+            # return value also needs to respect widescreen settings from
+            # the config to scale a 4:3 image to 16:9 or cut off top and
+            # bottom so it fots the 16:9 screen (in case black bars are in
+            # the encoding).
+            aspect = 1.0
+        self._vo_settings_calculated = (0, 0), (0, 0), (w, h), aspect
+        return self._vo_settings_calculated
 
 
     def _xine_dest_size_cb(self, width, height, aspect):
@@ -226,6 +253,7 @@ class XinePlayerChild(Player):
         if visible is not None:
             self._vo.send_gui_data(xine.GUI_SEND_VIDEOWIN_VISIBLE, visible)
         self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
+        self._vo_settings = None
 
 
     def configure_video(self, wid, size, aspect, colorkey):
@@ -336,6 +364,10 @@ class XinePlayerChild(Player):
         if properties.get('postprocessing'):
             chain.append('pp')
         chain.append('expand')
+        if properties.get('fit-method'):
+            self._fit_method = properties.get('fit-method')
+        if properties.get('zoom'):
+            self._zoom = properties.get('zoom')
         self._vfilter.wire(self._stream.get_video_source(), *chain)
 
 
@@ -373,6 +405,7 @@ class XinePlayerChild(Player):
             return False
         self.parent.set_streaminfo(True, self._get_streaminfo())
         self._status.start(0.03)
+        self._vo_settings = None
         return True
 
 
@@ -508,5 +541,13 @@ class XinePlayerChild(Player):
         elif 'pp' in current:
             chain.append('pp')
 
+        if prop == 'fit-method':
+            self._vo_settings = None
+            self._fit_method = value
+            
+        if prop == 'zoom':
+            self._vo_settings = None
+            self._zoom = value
+            
         chain.append('expand')
         self._vfilter.rewire(*chain)
