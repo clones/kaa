@@ -179,6 +179,9 @@ class XinePlayerChild(Player):
         if self._fit_method == 'scale':
             # ignore aspect. The whole window is used and the video
             # is scaled to fill it. The aspect is ignore to do that.
+            # FIXME: this is wrong. It works for scaling 4:3 content to a
+            # 16:9 output window. All other combinations including
+            # the movie is already fullscreen does not work.
             aspect = 1.0 / video_aspect
         else:
             # FIXME: this is wrong. The aspect may not be 1.0 depending on
