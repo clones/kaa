@@ -1,0 +1,52 @@
+This is a proposal for the interface of kaa.record2. This is not
+implemented yes, but if we agree to make it this way I will do
+it. Thsi doc does not cover how this is done in the internals of
+kaa.record2.
+
+We need to support several types of devices. DVB is different than
+analoge and for analog there are also ivtv based cards. Besides
+devices there are sources in the internet (live streams). The stream
+should be filtered (maybe I want only teletext) and we may want to
+transcode it. In the end, we either save the file, stream it using RTP
+or provide the stream using HTTP.
+
+First we need to get the device. No idea what kind of device you need?
+Just call get_device().
+
+| device = kaa.record.get_device('dvb0')
+
+Internal kaa.record will detect dvb0 as DVB device /dev/dvb/adapter0.
+Other devices may be video0 (raw or ivtv autodetected) or 'web'.
+
+Now we have a device. Based on a config we have a channel object. This
+objects holds information where to find the channel on a device. First
+we need to know if the device can play the channel:
+
+| bool = device.support_channel(channel)
+
+which should return true. If not, we can't use it. Next we want some
+parts from that channel. E.g. audio and video in one stream and
+teletext in another.
+
+| video = device.get_stream(channel, 'audio,video')
+| text  = device.get_stream(channel, 'teletext')
+
+We now have two 'Stream' objects. What should we do? Let's say we want
+to store the video to a file.
+
+| video.add_output('filewriter', filename='foo')
+
+This means for DVB the file will be written as foo.ts because without
+doing anything, we get a ts. For ivtv it could be .mpg. For ananlog
+card we need to define some sort of default.
+
+Or we add an encoder if we want:
+
+| enc = video.add_output('encoder', video='h.264', audio='ac3', container='mkv')
+| enc.set_property('vbitrate' 2000)
+
+enc is again a 'Stream' object and we can save it with
+
+| enc.add_output('filewriter', filename='foo')
+
+We can add as many outputs as we like.
