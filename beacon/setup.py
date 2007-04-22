@@ -35,7 +35,7 @@ import sys
 
 try:
     # kaa base imports
-    from kaa.distribution import Extension, setup
+    from kaa.distribution.core import Extension, setup
 except ImportError, e:
     print e
     print 'kaa.base not installed'

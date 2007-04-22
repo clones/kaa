@@ -35,6 +35,11 @@ submodules = [ 'base', 'imlib2', 'display', 'mevas', 'epg', 'record',
                'metadata', 'evas', 'canvas', 'xine', 'cherrypy',
                'beacon', 'popcorn' ]
 
+# We require python 2.4 or later, so complain if that isn't satisfied.
+if sys.version.split()[0] < '2.4':
+    print "Python 2.4 or later required."
+    sys.exit(1)
+
 for a in sys.argv:
     if a.startswith('--help'):
         distutils.core.setup(name="kaa", version="0.1")

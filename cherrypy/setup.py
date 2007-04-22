@@ -32,7 +32,7 @@ import sys
 
 try:
     # kaa base imports
-    from kaa.distribution import setup
+    from kaa.distribution.core import setup
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)

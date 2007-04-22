@@ -30,7 +30,7 @@ import sys, os
 
 try:
     # kaa base imports
-    from kaa.distribution import *
+    from kaa.distribution.core import *
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
