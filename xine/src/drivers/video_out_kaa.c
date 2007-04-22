@@ -1075,9 +1075,12 @@ _kaa_setup_glx(kaa_driver_t *this, x11_visual_t *vis)
         return;
 
     xt = glXQueryExtensionsString(vis->display, vis->screen);
-    if (!xt || !strstr(xt, "GLX_SGI_video_sync"))
+    if (!xt || !strstr(xt, "GLX_SGI_video_sync")) {
+        printf("OpenGL vsync not supported on this system (no GLX_SGI_video_sync)\n");
         return;
+    }
 
+    printf("OpenGL vsync supported on this system.\n");
     XVisualInfo *vi = glXChooseVisual(vis->display, 0, attribList);
     if (vi) {
         this->glx_context = glXCreateContext(vis->display, vi, None, GL_TRUE);

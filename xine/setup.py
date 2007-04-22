@@ -67,12 +67,12 @@ for dir in libdirs:
         xineso.library_dirs.append(dir)
         print "+ X11 found in %s; X11 support enabled" % dir
 
-        glxtest_code = 'unsigned int count; glXWaitVideoSyncSGI(2, count, &count);'
-        if xineso.check_cc(['<GL/glx.h>'], glxtest_code, '-lGL -DGLX_GLXEXT_PROTOTYPES -Werror -L%s' % dir):
+        glxtest_code = 'glXGetProcAddressARB((unsigned char *)"glXWaitVideoSyncSGI");'
+        if xineso.check_cc(['<GL/glx.h>'], glxtest_code, '-lGL -Werror -L%s' % dir):
             config.define("HAVE_OPENGL_VSYNC")
-            print "+ OpenGL vsync support enabled"
+            print "+ Runtime OpenGL vsync detection enabled"
         else:
-            print "- OpenGL vsync support disabled"
+            print "- Runtime OpenGL vsync detection disabled (no glXGetProcAddressARB in libGL)"
         break
 else:
     print "- X11 not found; disabling X11 support."

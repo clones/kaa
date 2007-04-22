@@ -308,7 +308,7 @@ Xine_PyObject_get_log_names(Xine_PyObject *self, PyObject *args, PyObject *kwarg
 PyObject *
 Xine_PyObject_get_log(Xine_PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    const char *const *list;
+    char *const *list;
     PyObject *pylist = NULL;
     int i, section;
 
@@ -759,13 +759,16 @@ init_xine()
 {
     void *handle = dlopen("libGL.so", RTLD_LAZY);
     if (handle) {
-        glXWaitVideoSyncSGI = dlsym(handle, "glXWaitVideoSyncSGI");
-        glXGetVideoSyncSGI = dlsym(handle, "glXGetVideoSyncSGI");
+        void *(*glXGetProcAddressARB)(unsigned char *) = NULL;
+        glXGetProcAddressARB = (void *(*)(unsigned char *))dlsym(handle, "glXGetProcAddressARB");
+        if (glXGetProcAddressARB) {
+            glXWaitVideoSyncSGI = (void *)glXGetProcAddressARB((unsigned char *)"glXWaitVideoSyncSGI");
+            glXGetVideoSyncSGI = (void *)glXGetProcAddressARB((unsigned char *)"glXGetVideoSyncSGI");
+        }
+
     }
-    if (glXWaitVideoSyncSGI && glXGetVideoSyncSGI)
-        printf("OpenGL vsync supported on this system.\n");
-    else
-        printf("OpenGL vsync not supported on this system.\n");
+    if (!glXWaitVideoSyncSGI || !glXGetVideoSyncSGI)
+        printf("Failed to find addresses for glXWaitVideoSyncSGI and glXGetVideoSyncSGI\n");
 
 }
 #endif
