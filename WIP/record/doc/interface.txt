@@ -1,6 +1,6 @@
 This is a proposal for the interface of kaa.record2. This is not
-implemented yes, but if we agree to make it this way I will do
-it. Thsi doc does not cover how this is done in the internals of
+implemented yet, but if we agree to make it this way I will do
+it. This doc does not cover how this is done in the internals of
 kaa.record2.
 
 We need to support several types of devices. DVB is different than
@@ -37,7 +37,7 @@ to store the video to a file.
 | video.add_output('filewriter', filename='foo')
 
 This means for DVB the file will be written as foo.ts because without
-doing anything, we get a ts. For ivtv it could be .mpg. For ananlog
+doing anything, we get a ts. For ivtv it could be .mpg. For analog
 card we need to define some sort of default.
 
 Or we add an encoder if we want:
@@ -49,4 +49,9 @@ enc is again a 'Stream' object and we can save it with
 
 | enc.add_output('filewriter', filename='foo')
 
-We can add as many outputs as we like.
+We can add as many outputs as we like. The add_output function returns
+either a 'Stream' or a 'Sink' object (names could be different). The
+'Sink' objects has an unlink() function to remove later. If a 'Stream'
+has no outputs and is not referenced by python anymore, it will unlink
+itself.
+
