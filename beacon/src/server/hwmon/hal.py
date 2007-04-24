@@ -178,7 +178,13 @@ def _connect_to_hal():
             return False
         kaa.notifier.OneShotTimer(_connect_to_hal).start(2)
         return False
-    obj = _bus.get_object('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
+    try:
+        obj = _bus.get_object('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
+    except Exception, e:
+        # unable to connect to hal
+        signals['failed'].emit('hal not found on dbus')
+        return False
+
     # DONT ASK! dbus sucks!
     kaa.notifier.Timer(_connect_to_hal_because_dbus_sucks, obj).start(0.01)
     return False
