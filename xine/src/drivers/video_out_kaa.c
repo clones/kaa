@@ -922,9 +922,9 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
             /* GLX vsync is enabled.  First we need to determine the display's
              * refresh rate, which is represented by vsync_duration in 1/90000
              * second units (same units as xine frame duration).  Once that is
-             * determine, we decide whether or not to wait for vertical refresh
-             * iff the frame duration is an integer multiple of of the refresh
-             * rate and the last frame was displayed at most 1 vsyncs ago.
+             * determined, we decide whether or not to wait for vertical refresh
+             * iff the frame duration is an integer multiple of the refresh
+             * rate and the last frame was displayed exactly 1 vsyncs ago.
              */
             XLockDisplay(this->glx_display);
             if (glXMakeCurrent(this->glx_display, this->glx_drawable, this->glx_context)) {
@@ -943,13 +943,14 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
                 } else if (glXGetVideoSyncSGI(&count) == 0) {
                     // We know display refresh rate and current retrace counter.
                     float multiple = frame_gen->duration / (float)this->vsync_duration;
-                    if (fabs(roundf(multiple) - multiple) < 0.02 && count - this->last_vsync_count <= 1) {
+                    unsigned int dummy;
+                    if (fabs(roundf(multiple) - multiple) < 0.02 && count - this->last_vsync_count == 1) {
                         /* Frame duration looks pretty damn close to a multiple
                          * of the display refresh rate, and our last frame was
-                         * at most 1 refresh ago, so let's wait for next 
+                         * exactly 1 refresh ago, so let's wait for next 
                          * refresh.
                          */
-                        ret = glXWaitVideoSyncSGI(2, (count+1)%2, &count);
+                        ret = glXWaitVideoSyncSGI(2, (count+1)%2, &dummy);
                     }
                     this->last_vsync_count = count;
                 }
