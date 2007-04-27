@@ -10,7 +10,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.cherrypy - Web Framework for Kaa based on CherryPy
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -31,8 +31,29 @@
 #
 # -----------------------------------------------------------------------------
 
+# system cherrypy installation
+import cherrypy
+if int(cherrypy.__version__.split('.')[0]) < 3:
+    msg = 'CherryPy >= 3.0.0 required, %s found' % cherrypy.__version__
+    raise ImportError(msg)
+
+# kaa imports
+import kaa
+
 # kaa.cherrypy imports
 from version import VERSION
-from config import config
-from server import start
 from controller import expose, Template, template, thread_template
+
+config = cherrypy.config
+
+def start():
+    """
+    Start cherrypy server.
+    """
+    def _stop():
+        cherrypy.engine.stop()
+        cherrypy.server.stop()
+    cherrypy.server.quickstart()
+    cherrypy.engine.SIGHUP = cherrypy.engine.SIGTERM = None
+    cherrypy.engine.start(blocking=False)
+    kaa.notifier.signals['shutdown'].connect(_stop)

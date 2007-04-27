@@ -88,11 +88,14 @@ def expose(template=None, engine=None, mainloop=True):
     def decorator(func):
 
         def newfunc(self, *args, **kwargs):
-            _function = _execute_func
+            _function = func
             if mainloop and not is_mainthread():
-                _function = MainThreadCallback(_execute_func)
+                _function = MainThreadCallback(func)
                 _function.set_async(False)
-            return _function(self, template, engine, func, args, kwargs)
+            result = _function(self, *args, **kwargs)
+            if not template:
+                return result
+            return engine.parse(template, result)
 
         try:
             newfunc.func_name = func.func_name
@@ -103,19 +106,6 @@ def expose(template=None, engine=None, mainloop=True):
         return newfunc
 
     return decorator
-
-
-
-def _execute_func(self, filename, engine, func, args, kwargs):
-    """
-    Helper function to call the function and handle kid. This whole function
-    will be called from the main thread (when mainloop==True)
-    """
-    if not filename:
-        return func(self, *args, **kwargs)
-    return engine.parse(filename, func(self, *args, **kwargs))
-
-
 
 
 class Template(object):
