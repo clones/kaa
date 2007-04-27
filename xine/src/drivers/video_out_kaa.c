@@ -51,27 +51,29 @@ extern int (*glXWaitVideoSyncSGI)(int, int, unsigned int *);
 extern int (*glXGetVideoSyncSGI)(unsigned int *);
 #endif
 
+static long long get_usecs()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)((tv.tv_sec * 1000000.0) + tv.tv_usec);
+}
+
 #ifdef STOPWATCH
 static void stopwatch(int n, char *text, ...)
 {
     va_list ap;
-    struct timezone tz;
     static struct {
-        struct timeval tv, last_tv;
+        long long t0, t1;
         char text[250];
     } t[10];
 
     if (n > STOPWATCH)
         return;
-    gettimeofday(&t[n].tv, &tz);
+    t[n].t1 = get_usecs();
     if (!text) {
-        fprintf(stderr, "@@@ Stopwatch (%d): %s: %ld usec\n", n, t[n].text,
-               (t[n].tv.tv_sec - t[n].last_tv.tv_sec) * 1000000 +
-               (t[n].tv.tv_usec - t[n].last_tv.tv_usec));
+        fprintf(stderr, "@@@ Stopwatch (%d): %s: %lld usec\n", n, t[n].text, t[n].t1 - t[n].t0);
     } else {
-        t[n].last_tv.tv_sec = t[n].tv.tv_sec;
-        t[n].last_tv.tv_usec = t[n].tv.tv_usec;
-
+        t[n].t0 = t[n].t1;
         va_start(ap, text);
         vsprintf(t[n].text, text, ap);
         va_end(ap);
@@ -917,11 +919,42 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
     if (this->passthrough && this->do_passthrough)  {
 #ifdef HAVE_OPENGL_VSYNC
         if (this->glx_display) {
-            unsigned int count;
-            int ret;
-            if (glXMakeCurrent(this->glx_display, this->glx_drawable, this->glx_context))
-                if (glXGetVideoSyncSGI(&count) == 0)
-                    ret = glXWaitVideoSyncSGI(2, (count+1)%2 ,&count);
+            /* GLX vsync is enabled.  First we need to determine the display's
+             * refresh rate, which is represented by vsync_duration in 1/90000
+             * second units (same units as xine frame duration).  Once that is
+             * determine, we decide whether or not to wait for vertical refresh
+             * iff the frame duration is an integer multiple of of the refresh
+             * rate and the last frame was displayed at most 1 vsyncs ago.
+             */
+            XLockDisplay(this->glx_display);
+            if (glXMakeCurrent(this->glx_display, this->glx_drawable, this->glx_context)) {
+                unsigned int count;
+                int ret;
+                if (this->vsync_duration == 0) {
+                    // We still need to figure out vsync of display.
+                    long long t1 = get_usecs();
+                    float delta = (t1 - this->vsync_measure_t0) / 1000000.0;
+                    if (delta >= 2.0) {
+                        // 2 seconds has passed since initial measure, should
+                        // be enough time to reliably determine refresh rate.
+                        glXGetVideoSyncSGI(&count);
+                        this->vsync_duration = (delta / (count - this->last_vsync_count) * 90000);
+                    }
+                } else if (glXGetVideoSyncSGI(&count) == 0) {
+                    // We know display refresh rate and current retrace counter.
+                    float multiple = frame_gen->duration / (float)this->vsync_duration;
+                    if (fabs(roundf(multiple) - multiple) < 0.02 && count - this->last_vsync_count <= 1) {
+                        /* Frame duration looks pretty damn close to a multiple
+                         * of the display refresh rate, and our last frame was
+                         * at most 1 refresh ago, so let's wait for next 
+                         * refresh.
+                         */
+                        ret = glXWaitVideoSyncSGI(2, (count+1)%2, &count);
+                    }
+                    this->last_vsync_count = count;
+                }
+            }
+            XUnlockDisplay(this->glx_display);
         }
 #endif
         this->passthrough->display_frame(this->passthrough, frame->passthrough_frame);
@@ -961,8 +994,16 @@ kaa_gui_data_exchange (vo_driver_t *this_gen,
 {
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
-    // FIXME: handle XINE_GUI_SEND_DRAWABLE_CHANGED for opengl vsync.
     switch(data_type) {
+#ifdef HAVE_OPENGL_VSYNC
+        case XINE_GUI_SEND_DRAWABLE_CHANGED:
+            if (this->glx_context && (GLXDrawable)data != this->glx_drawable) {
+                // FIXME: initialize new glx context
+
+            }
+            break;
+#endif
+
         case GUI_SEND_KAA_VO_SET_PASSTHROUGH:
             pthread_mutex_lock(&this->osd_buffer_lock);
             this->do_passthrough = (int)data;
@@ -1070,14 +1111,20 @@ _kaa_setup_glx(kaa_driver_t *this, x11_visual_t *vis)
                         GLX_BLUE_SIZE, 1,
                         None};
 
+    XLockDisplay(vis->display);
     ret = glXQueryExtension(vis->display, &ndummy, &ndummy);
     if (ret <= 0)
-        return;
+        return XUnlockDisplay(vis->display);
 
     xt = glXQueryExtensionsString(vis->display, vis->screen);
     if (!xt || !strstr(xt, "GLX_SGI_video_sync")) {
         printf("OpenGL vsync not supported on this system (no GLX_SGI_video_sync)\n");
-        return;
+        return XUnlockDisplay(vis->display);
+    }
+
+    if (this->glx_context) {
+        glXDestroyContext(this->glx_display, this->glx_context);
+        this->glx_context = NULL;
     }
 
     printf("OpenGL vsync supported on this system.\n");
@@ -1087,8 +1134,22 @@ _kaa_setup_glx(kaa_driver_t *this, x11_visual_t *vis)
         if (this->glx_context) {
             this->glx_drawable = vis->d;
             this->glx_display = vis->display;
+            if (glXMakeCurrent(this->glx_display, this->glx_drawable, this->glx_context)) {
+                /* Take initial measurement in order to determine display
+                 * refresh rate.
+                 */
+                this->vsync_measure_t0 = get_usecs();
+                glXGetVideoSyncSGI(&this->last_vsync_count);
+                /* Clear GLX context.  I'm not sure why this is necessary,
+                 * but without this, glXMakeCurrent in display_frame()
+                 * fails.
+                 */
+                glXMakeCurrent(this->glx_display, None, NULL);
+            }
         }
     }
+    XFree(vi);
+    XUnlockDisplay(vis->display);
 }
 #endif
 
@@ -1149,6 +1210,8 @@ kaa_open_plugin(video_driver_class_t *class_gen, const void *visual_gen)
     this->osd_alpha             = 255;
 #ifdef HAVE_OPENGL_VSYNC
     this->glx_display           = NULL;
+    this->glx_context           = NULL;
+    this->vsync_duration        = 0;
     if (visual->use_opengl_vsync && glXWaitVideoSyncSGI && glXGetVideoSyncSGI)
         _kaa_setup_glx(this, (x11_visual_t *)visual->passthrough_visual);
 #endif

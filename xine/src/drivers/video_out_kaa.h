@@ -123,6 +123,9 @@ typedef struct kaa_driver_s {
     GLXContext  glx_context;
     GLXDrawable glx_drawable;
     Display *glx_display;
+    long long vsync_measure_t0;
+    unsigned int last_vsync_count;
+    int vsync_duration; // duration of one vertical refresh (in 1/90000 sec)
 #endif
 } kaa_driver_t;
 
