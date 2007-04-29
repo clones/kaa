@@ -63,10 +63,10 @@ def print_pos():
     return True
 
 def do_something1():
-    player.set_property('fit-method', 'scale')
+    player.set_property('scale', kaa.popcorn.SCALE_IGNORE)
     
 def do_something2():
-    player.set_property('fit-method', 'bars')
+    player.set_property('scale', kaa.popcorn.SCALE_KEEP)
 
 def do_zoom():
     player.set_property('zoom', player.get_property('zoom') - 10)
