@@ -94,11 +94,9 @@ def connect():
     return _client
 
 
-def launch(autoshutdown=False, wait=False, verbose='none'):
+def launch(autoshutdown=False, verbose='none'):
     """
-    Lauch a beacon server. If wait is True, this function will block
-    until the server is started and connect to it or raise an exception
-    if this doesn't work for 5 seconds.
+    Lauch a beacon server.
     """
     beacon = os.path.dirname(__file__), '../../../../../bin/beacon'
     beacon = os.path.realpath(os.path.join(*beacon))
@@ -106,7 +104,7 @@ def launch(autoshutdown=False, wait=False, verbose='none'):
         # we hope it is in the PATH somewhere
         beacon = 'beacon'
 
-    cmd = 'beacon --start --verbose=%s' % verbose
+    cmd = '%s --start --verbose=%s' % (beacon, verbose)
     if autoshutdown:
         cmd += ' --autoshutdown'
     if os.system(cmd):
