@@ -173,6 +173,14 @@ class MediaPlayer(object):
         return aspect, size
 
 
+    def _get_pixel_aspect(self):
+        """
+        Get pixel aspect ratio based on monitoraspect and window size
+        """
+        a, fs = self._get_aspect()
+        return (float(a[0])/a[1]) / (float(fs[0])/fs[1])
+
+
     def __repr__(self):
         """
         For debugging only.

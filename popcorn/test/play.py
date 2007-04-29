@@ -72,7 +72,7 @@ def do_zoom():
     player.set_property('zoom', player.get_property('zoom') - 10)
 
 kaa.notifier.Timer(print_pos).start(0.1)
-# kaa.notifier.OneShotTimer(do_something1).start(2)
+kaa.notifier.OneShotTimer(do_something1).start(2)
 # kaa.notifier.OneShotTimer(do_something2).start(4)
 # kaa.notifier.Timer(do_zoom).start(2)
 kaa.main()

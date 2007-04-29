@@ -163,13 +163,13 @@ class XinePlayerChild(Player):
                 # it. This is a bug somehow and it happens. So we return the cached
                 # values and reset self._vo_settings[0] so we recalculate when
                 # the aspect changes the next time.
-                self._vo_settings[0] = False
+                self._vo_settings = False, (width, height, aspect)
                 return self._vo_settings_calculated
             if self._vo_settings[1] == (width, height, aspect):
                 # use cache when nothing has changed
                 return self._vo_settings_calculated
 
-        self._vo_settings = [ True, (width, height, aspect) ]
+        self._vo_settings = True, (width, height, aspect)
 
         vid_w, vid_h, vid_a = width, height, aspect
 
@@ -296,10 +296,7 @@ class XinePlayerChild(Player):
             self._vo_visible = False
 
         if aspect:
-            # aspect is (aspect_w, aspect_h), (screen_w, screen_h)
-            aspect, fs = aspect
-            a = (float(aspect[0])/aspect[1]) / (float(fs[0])/fs[1])
-            self._stream_settings['pixel-aspect'] = a
+            self._stream_settings['pixel-aspect'] = aspect
         
         # FIXME: this should work but it crashes with an exception that
         # video.device.xv_colorkey is not defined.
