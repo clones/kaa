@@ -60,6 +60,15 @@ _client = None
 # signals of the client, only valid after calling connect()
 signals = {}
 
+debugging = """
+------------------------------------------------------------------------
+The system was unable to connect to beacon. Please check if the beacon
+server is running properly. If beacon processes exist, please kill them.
+Start beacon in an extra shell for better debugging. Start beacon with
+beacon --start --verbose all --fg
+------------------------------------------------------------------------
+"""
+
 def connect():
     """
     Connect to the beacon. A beacon server must be running. This function will
@@ -73,7 +82,13 @@ def connect():
         return _client
 
     _client = Client()
-    thumbnail.connect()
+    try:
+        thumbnail.connect()
+    except RuntimeError:
+        # It was possible to connect to the beacon server but not
+        # to the thumbnailer. Something is very wrong.
+        log.error('unable to connect to beacon %s', debugging)
+        raise RuntimeError('Unable to connect to beacon')
     signals = _client.signals
     log.info('beacon connected')
     return _client
@@ -94,7 +109,9 @@ def launch(autoshutdown=False, wait=False, verbose='none'):
     cmd = 'beacon --start --verbose=%s' % verbose
     if autoshutdown:
         cmd += ' --autoshutdown'
-    os.system(cmd)
+    if os.system(cmd):
+        log.error('unable to connect to beacon %s', debugging)
+        raise RuntimeError('Unable to connect to beacon')
     return connect()
 
 
