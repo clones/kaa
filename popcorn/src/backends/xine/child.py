@@ -73,10 +73,10 @@ class XinePlayerChild(Player):
         self._status = kaa.notifier.WeakTimer(self._status_output)
         self._status_last = None
         self._vo_settings = None
-        self._zoom = 100
         self._stream_settings = {
             'pixel-aspect': 1.0,
-            'scale'       : 'keep',
+            'scale'       : SCALE_KEEP,
+            'zoom'        : 100
         }
         
         self._xine.set_config_value("effects.goom.fps", 20)
@@ -173,11 +173,11 @@ class XinePlayerChild(Player):
 
         vid_w, vid_h, vid_a = width, height, aspect
 
-        if self._zoom < 100 and 0:
+        if self._stream_settings['zoom'] < 100 and 0:
             # FIMXE: this crashes when using a timer to zoom from 100
             # in 10% steps.
-            crop_x = vid_w - int(vid_w * self._zoom / 100)
-            crop_y = vid_h - int(vid_h * self._zoom / 100)
+            crop_x = vid_w - int(vid_w * self._stream_settings['zoom'] / 100)
+            crop_y = vid_h - int(vid_h * self._stream_settings['zoom'] / 100)
             self._stream.set_parameter(xine.PARAM_VO_CROP_LEFT, crop_x)
             self._stream.set_parameter(xine.PARAM_VO_CROP_RIGHT, crop_x)
             self._stream.set_parameter(xine.PARAM_VO_CROP_TOP, crop_y)
@@ -393,7 +393,7 @@ class XinePlayerChild(Player):
         if properties.get('scale'):
             self._stream_settings['scale'] = properties.get('scale')
         if properties.get('zoom'):
-            self._zoom = properties.get('zoom')
+            self._stream_settings['zoom'] = properties.get('zoom')
         self._vfilter.wire(self._stream.get_video_source(), *chain)
 
 
@@ -560,7 +560,7 @@ class XinePlayerChild(Player):
         
         if prop == 'zoom':
             self._vo_settings = None
-            self._zoom = value
+            self._stream_settings['zoom'] = value
             return
 
         current = self._vfilter.get_chain()
