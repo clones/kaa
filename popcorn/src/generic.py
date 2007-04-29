@@ -110,8 +110,8 @@ class Player(object):
             # plays the audio before.
             'audio-delay': 0.0,
 
-            # fit method. One of 'bars', 'scale', 'zoom'
-            'fit-method': config.video.fit_method,
+            # scale method. One of SCALE_METHODS
+            'scale': SCALE_KEEP,
 
             # zoom into the movie
             'zoom': 100,

@@ -372,7 +372,7 @@ class MPlayer(MediaPlayer):
         # This may be needed for some non X based displays
         args.add(screenw=size[0], screenh=size[1])
 
-        if not self._properties['fit-method'] == 'scaled':
+        if not self._properties['scale'] == SCALE_IGNORE:
             # Expand to fit the given aspect. In scaled mode we don't
             # do that which will result in a scaled image filling
             # the whole screen
@@ -386,7 +386,7 @@ class MPlayer(MediaPlayer):
         # FIXME: this only works if the window has the the aspect
         # as the full screen. In all other cases the window is not
         # fully used but at least with black bars.
-        if self._properties['fit-method'] == 'zoom':
+        if self._properties['scale'] == SCALE_ZOOM:
             # This DOES NOT WORK as it should. The hardware scaler
             # will ignore the settings and keep aspect and does
             # not crop as default.  When using vo x11 and software
@@ -394,6 +394,7 @@ class MPlayer(MediaPlayer):
             filters.append('dsize=%s:%s:1' % size)
         else:
             # scale to window size
+            # FIXME: add SCALE_4_3 and SCALE_16_9
             filters.append('dsize=%s:%s:0' % size)
 
         # add software scaler based on dsize arguments

@@ -28,19 +28,6 @@
         <var name="monitoraspect" default="4:3">
             <desc>Aspect ratio of the monitor or tv.</desc>
         </var>
-        <var name="fit-method" default="bars">
-	    <values>
-		<value>bars</value>
-		<value>zoom</value>
-		<value>scale</value>
-	    </values>
-	    <desc lang="en">
-		How to handle 4:3 content on 16:9 screens. Possible values are
-		bars:  add black bars on the left and on the right
-		zoom:  zoom into the video, drop content on top and bottom
-		scale: ignore aspect ratio and fill the screen
-	    </desc>
-	</var>
         <var name="postprocessing" default="False">
             <desc>Activate postprocessing for playback as default.</desc>
         </var>
