@@ -50,6 +50,12 @@ log.setLevel(logging.DEBUG)
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
 
+# The expand post-processing filter messes up changing the aspect
+# during runtime. It results in a black border sometimes, sometimes
+# the aspect change does not even work at all. Removing it fixes this
+# problem. This needs to be fixed!
+USE_EXPAND = False
+
 class XinePlayerChild(Player):
 
     def __init__(self, osd_shmkey, frame_shmkey):
@@ -67,8 +73,11 @@ class XinePlayerChild(Player):
         self._status = kaa.notifier.WeakTimer(self._status_output)
         self._status_last = None
         self._vo_settings = None
-        self._fit_method = None
         self._zoom = 100
+        self._stream_settings = {
+            'pixel-aspect': 1.0,
+            'scale'       : 'keep',
+        }
         
         self._xine.set_config_value("effects.goom.fps", 20)
         self._xine.set_config_value("effects.goom.width", 512)
@@ -145,56 +154,64 @@ class XinePlayerChild(Player):
 
     def _xine_frame_output_cb(self, width, height, aspect):
         """
-        Return the frame output position and dimensions
+        Return the frame output position, dimensions and aspect
         """
-        if self._vo_settings == (width, height, aspect):
-            # use cache when nothing has changed
-            return self._vo_settings_calculated
-        # TODO: check if this is right when given aspect is not 1.0
-        video_aspect = float(width) / (aspect * height)
+        if self._vo_settings:
+            if self._vo_settings[0] and self._vo_settings[1][:2] == (width, height):
+                # Use cached values. Dimensions have not changed between the
+                # last frame. The aspect may be different now because we messed with
+                # it. This is a bug somehow and it happens. So we return the cached
+                # values and reset self._vo_settings[0] so we recalculate when
+                # the aspect changes the next time.
+                self._vo_settings[0] = False
+                return self._vo_settings_calculated
+            if self._vo_settings[1] == (width, height, aspect):
+                # use cache when nothing has changed
+                return self._vo_settings_calculated
+
+        self._vo_settings = [ True, (width, height, aspect) ]
+
+        vid_w, vid_h, vid_a = width, height, aspect
 
         if self._zoom < 100 and 0:
             # FIMXE: this crashes when using a timer to zoom from 100
             # in 10% steps.
-            crop_x = width - int(width * self._zoom / 100)
-            crop_y = height - int(height * self._zoom / 100)
+            crop_x = vid_w - int(vid_w * self._zoom / 100)
+            crop_y = vid_h - int(vid_h * self._zoom / 100)
             self._stream.set_parameter(xine.PARAM_VO_CROP_LEFT, crop_x)
             self._stream.set_parameter(xine.PARAM_VO_CROP_RIGHT, crop_x)
             self._stream.set_parameter(xine.PARAM_VO_CROP_TOP, crop_y)
             self._stream.set_parameter(xine.PARAM_VO_CROP_BOTTOM, crop_y)
 
-        self._vo_settings = (width, height, aspect)
         log.info('calculate frame output')
-        w, h, a = self._xine._get_vo_display_size(width, height, aspect)
-        if abs(self._window_aspect - a) > 0.01:
-            log.debug('VO: %dx%d -> %dx%d', width, height, w, h)
+        win_w, win_h, win_a = self._xine._get_vo_display_size(vid_w, vid_h, vid_a)
+        if abs(self._window_aspect - win_a) > 0.01:
+            log.debug('VO: %dx%d -> %dx%d', vid_w, vid_h, win_w, win_h)
             # FIXME: maybe not resize the parent window, make this an option
-            self.parent.resize((w, h))
-            self._window_aspect = a
+            self.parent.resize((win_w, win_h))
+            self._window_aspect = win_a
         if self._window_size != (0, 0):
-            w, h = self._window_size
-        # FIXME: this could be wrong
-        windows_aspect = float(w) / h
+            win_w, win_h = self._window_size
 
-        if self._fit_method == 'scale':
+        if self._stream_settings['scale'] == SCALE_IGNORE:
             # ignore aspect. The whole window is used and the video
             # is scaled to fill it. The aspect is ignore to do that.
-            # FIXME: this is wrong. It works for scaling 4:3 content to a
-            # 16:9 output window. All other combinations including
-            # the movie is already fullscreen does not work.
-            aspect = 1.0 / video_aspect
+            aspect = (float(vid_w) * win_h) / (float(win_w) * vid_h)
         else:
-            # FIXME: this is wrong. The aspect may not be 1.0 depending on
-            # the pixel aspect of the output display. This needs to be
-            # adjusted. For some recordings with an overscan it would also
-            # be nice to have a zoom mode cutting off some pixel at the
-            # left and right and zoom it it to fill the screen. This
-            # return value also needs to respect widescreen settings from
-            # the config to scale a 4:3 image to 16:9 or cut off top and
-            # bottom so it fots the 16:9 screen (in case black bars are in
-            # the encoding).
-            aspect = 1.0
-        self._vo_settings_calculated = (0, 0), (0, 0), (w, h), aspect
+            # get aspect from pre-calculated value
+            aspect = self._stream_settings['pixel-aspect']
+            if self._stream_settings['scale'] == SCALE_4_3:
+                # force 4:3
+                aspect *= (float(vid_w) * 3) / (float(4) * vid_h)
+            if self._stream_settings['scale'] == SCALE_16_9:
+                # force 16:9
+                aspect *= (float(vid_w) * 9) / (float(16) * vid_h)
+            # FIXME: add SCALE_ZOOM
+
+        # keep given video aspect in calculation (in most cases 1.0)
+        aspect *= vid_a
+
+        self._vo_settings_calculated = (0, 0), (0, 0), (win_w, win_h), aspect
         return self._vo_settings_calculated
 
 
@@ -278,6 +295,12 @@ class XinePlayerChild(Player):
             vo_kwargs = {'passthrough': 'none'}
             self._vo_visible = False
 
+        if aspect:
+            # aspect is (aspect_w, aspect_h), (screen_w, screen_h)
+            aspect, fs = aspect
+            a = (float(aspect[0])/aspect[1]) / (float(fs[0])/fs[1])
+            self._stream_settings['pixel-aspect'] = a
+        
         # FIXME: this should work but it crashes with an exception that
         # video.device.xv_colorkey is not defined.
         # if colorkey is not None:
@@ -298,12 +321,14 @@ class XinePlayerChild(Player):
         f.set_parameters(method = self.config.xine.deinterlacer.method,
                          chroma_filter = self.config.xine.deinterlacer.chroma_filter)
 
-        f = self._vfilter.get("expand")
-        if aspect:
-            aspect, fullscreen = aspect
-            # FIXME: is this correct? What about the fullscreen size?
-            f.set_parameters(aspect=float(aspect[0])/aspect[1])
-        f.set_parameters(enable_automatic_shift = True)
+        if USE_EXPAND:
+            f = self._vfilter.get("expand")
+            if size is not None:
+                # FIXME: see notice an USE_EXPAND definition
+                aspect = float(size[0]) / size[1]
+                aspect *= self._stream_settings['pixel-aspect']
+                f.set_parameters(aspect=aspect)
+            f.set_parameters(enable_automatic_shift = True)
 
         if self._driver_control:
             self._driver_control("set_passthrough", False)
@@ -366,9 +391,10 @@ class XinePlayerChild(Player):
             chain.append('tvtime')
         if properties.get('postprocessing'):
             chain.append('pp')
-        chain.append('expand')
-        if properties.get('fit-method'):
-            self._fit_method = properties.get('fit-method')
+        if USE_EXPAND:
+            chain.append('expand')
+        if properties.get('scale'):
+            self._stream_settings['scale'] = properties.get('scale')
         if properties.get('zoom'):
             self._zoom = properties.get('zoom')
         self._vfilter.wire(self._stream.get_video_source(), *chain)
@@ -530,6 +556,16 @@ class XinePlayerChild(Player):
         """
         Set a property to a new value.
         """
+        if prop == 'scale':
+            self._vo_settings = None
+            self._stream_settings['scale'] = value
+            return
+        
+        if prop == 'zoom':
+            self._vo_settings = None
+            self._zoom = value
+            return
+
         current = self._vfilter.get_chain()
         chain = []
         if prop == 'deinterlace':
@@ -544,13 +580,6 @@ class XinePlayerChild(Player):
         elif 'pp' in current:
             chain.append('pp')
 
-        if prop == 'fit-method':
-            self._vo_settings = None
-            self._fit_method = value
-            
-        if prop == 'zoom':
-            self._vo_settings = None
-            self._zoom = value
-            
-        chain.append('expand')
+        if USE_EXPAND:
+            chain.append('expand')
         self._vfilter.rewire(*chain)
