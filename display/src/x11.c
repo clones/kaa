@@ -50,7 +50,6 @@ PyTypeObject *Evas_PyObject_Type = NULL;
 #ifdef ENABLE_ENGINE_GL_X11
 #include <Evas_Engine_GL_X11.h>
 #include <GL/gl.h>
-#include <GL/glu.h>
 #include <GL/glx.h>
 #endif
 
