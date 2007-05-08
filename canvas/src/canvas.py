@@ -61,9 +61,8 @@ class Canvas(Container):
 
         font_path = []
         for path in ("/usr/share/fonts",):
-            for f in os.listdir(path):
-                if os.path.isdir(os.path.join(path, f)):
-                    font_path.append(os.path.join(path, f))
+            for root, dirs, files in os.walk(path):
+                font_path.append(root)
 
         self["fontpath"] = font_path
 
