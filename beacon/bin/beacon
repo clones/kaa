@@ -37,6 +37,9 @@ import gc
 import getopt
 import time
 import socket
+import fcntl
+import termios
+import struct
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -99,6 +102,34 @@ def usage(error_code):
     print '  beacon --search "keywords=Helden Blind"'
     print '  beacon --mount ~/buffy keywords=buffy'
     sys.exit(error_code)
+
+
+def print_results(results):
+    def fit(s, l):
+        """
+        Fits string s in length l by replacing middle characters with '...'
+        """
+        if len(s) > l:
+            over = len(s) - l + 3
+            return s[:(len(s)-over)/2] + '...' + s[(len(s)+over)/2:]
+        return s
+
+    if len(results) == 0:
+        print 'No results.'
+        return
+
+    # Get terminal dimensions
+    try:
+        h, w = struct.unpack('hh', fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, 'xxxx'))
+    except:
+        w = 75
+
+    type_col_len = max([len(x.get('type')) for x in result]) + 1
+    uri_col_len = min(w - 1 - type_col_len - 2, max([len(x.url) for x in result]))
+    print 'Type'.ljust(type_col_len), 'URI'.ljust(uri_col_len)
+    print '-' * type_col_len, '-' * uri_col_len
+    for r in result:
+        print r.get('type').ljust(type_col_len), fit(r.url, uri_col_len)
 
 
 try:
@@ -286,11 +317,8 @@ if mode in ('search', 'mount'):
 
 
     if not monitor or result.valid:
-        len(result)
         t2 = time.time()
-
-        for r in result:
-            print r
+        print_results(result)
         print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
         if not monitor:
             sys.exit(0)
