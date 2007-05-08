@@ -43,3 +43,5 @@ C. Subject: Music: cover art per album
    store music from several albums in a single directory.
 
 D. Put new/changed files discovered by inotify at the top of the scan queue.
+
+E. Item object should offer mimetype attribute.
