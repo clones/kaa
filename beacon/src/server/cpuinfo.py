@@ -34,13 +34,14 @@ __all__ = [ 'cpuinfo', 'USER', 'NICE', 'SYSTEM', 'IDLE', 'IOWAIT',
 
 # python imports
 import os
+import time
 
 # kaa imports
 import kaa.notifier
 
 _stat = None, None
 _proc = None, None
-_counter = 0
+_last_request_time = None
 _cache = None
 
 USER = 0
@@ -56,43 +57,45 @@ def _poll(pid):
     """
     poll /proc files and remeber lines we need later.
     """
-    global _stat
-    global _proc
-    global _counter
-    global _cache
-    fp = open('/proc/stat')
-    _stat = fp.readline(), _stat[0]
-    fp.close()
-    fp = open('/proc/%s/stat' % pid)
-    _proc = fp.readline(), _proc[0], _timer.get_interval()
-    fp.close()
+    global _stat, _proc, _cache
+    _stat = file('/proc/stat').readline(), _stat[0]
+    _proc = file('/proc/%s/stat' % pid).readline(), _proc[0], _timer.get_interval()
     _cache = None
-    if _counter == 0:
+    if not _last_request_time:
         return True
-    _counter -= 1
-    if _counter > 0:
-        return True
-    # no access for 5 seconds, slow down
-    _timer.stop()
-    _timer.start(1)
+
+    delta = time.time() - _last_request_time
+    if _timer.get_interval() < 1 and delta > 3:
+        # CPU time hasn't been requested in the past 3 seconds, so slow
+        # timer down.
+        _timer.stop()
+        _timer.start(1)
+    elif _timer.get_interval() == 1 and delta > 10:
+        # CPU time hasn't been requested in the past 10 seconds.  Disable
+        # polling.
+        return False
 
 
-# when this module is imported, use it. The first valid
-# information will be ready in 1 second
+# Timer that polls cpu stats.  Started on demand.
 _timer = kaa.notifier.Timer(_poll, os.getpid())
-_timer.start(1)
-_poll(os.getpid())
-_poll(os.getpid())
 
 def cpuinfo():
     """
     Returns /proc/stat values and the cpu time the current process
     is using the last second.
     """
-    global _cache
+    global _cache, _last_request_time
     if _cache:
         # nothing changed
         return _cache
+    elif not _timer.active():
+        # First call to cpuinfo() (either ever or since poll timer got
+        # stopped), so take initial measurements and start timer now.
+        _last_request_time = time.time()
+        _timer.start(1)
+        _poll(os.getpid())
+        _poll(os.getpid())
+
     # user: normal processes executing in user mode
     # nice: niced processes executing in user mode
     # system: processes executing in kernel mode
@@ -101,7 +104,7 @@ def cpuinfo():
     # irq: servicing interrupts
     # softirq: servicing softirqs
     if not _stat or _stat[0] == _stat[1]:
-        return 0, 0, 0, 100, 0, 0, 0, 0
+        return 0, 0, 0, 100, 0, 0, 0, 0, 0
     info = [ i for i in _stat[0].strip().split(' ') if i ]
     last = [ i for i in _stat[1].strip().split(' ') if i ]
     all = 0
@@ -119,15 +122,15 @@ def cpuinfo():
     # wrong. So a C wrapper is needed here I guess.
     res.append(int((info - last) / _proc[2]))
 
-    global _counter
-    if _counter == 0:
-        # speed up polling
+    if time.time() - _last_request_time < 2 and _timer.get_interval() != 0.2:
+        # CPU time is being requested a lot, so increase poll timer frequency
+        # to get a more accurate reading.
         _timer.stop()
-        _timer.start(0.1)
-        # poll now and in 0.1 seconds again. We set the _cache after
+        _timer.start(0.2)
+        # poll now and in 0.2 seconds again. We set the _cache after
         # calling _poll to not mess it up
         _poll(os.getpid())
-    _counter = 50
+    _last_request_time = time.time()
     _cache = res
     return res
 
@@ -135,16 +138,18 @@ def cpuinfo():
 if __name__ == '__main__':
 
     def debug():
-        print cpuinfo()
+        print "CPU:", cpuinfo()
 
+    @kaa.notifier.yield_execution()
     def add_load():
         x = 0
-        for i in range(10000):
-            x += i
+        for i in range(300000):
+            yield kaa.notifier.YieldContinue
+        print "Done load generation"
 
-    kaa.notifier.Timer(add_load).start(0.001)
+    add_load()
     t = kaa.notifier.Timer(debug)
     t.start(1)
-    kaa.notifier.OneShotTimer(t.stop).start(6)
-    kaa.notifier.OneShotTimer(t.start, 1).start(15)
+    kaa.notifier.OneShotTimer(t.stop).start(4)
+    kaa.notifier.OneShotTimer(t.start, 1).start(10)
     kaa.main()
