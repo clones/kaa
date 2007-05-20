@@ -44,7 +44,7 @@ import struct
 import logging
 from logging.handlers import RotatingFileHandler
 
-# insert freevo path information
+# insert kaa path information
 __site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
 __site__ = os.path.abspath(os.path.join(os.path.dirname(__file__), __site__))
 if not __site__ in sys.path:
