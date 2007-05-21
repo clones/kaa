@@ -157,16 +157,23 @@ class XinePlayerChild(Player):
         Return the frame output position, dimensions and aspect
         """
         if self._vo_settings:
-            if self._vo_settings[0] and self._vo_settings[1][:2] == (width, height):
+            #if self._vo_settings[0] and self._vo_settings[1][:2] == (width, height):
                 # Use cached values. Dimensions have not changed between the
                 # last frame. The aspect may be different now because we messed with
                 # it. This is a bug somehow and it happens. So we return the cached
                 # values and reset self._vo_settings[0] so we recalculate when
                 # the aspect changes the next time.
-                self._vo_settings = False, (width, height, aspect)
-                return self._vo_settings_calculated
+
+                # (from tack) why don't we want to recalculate here?   We need to,
+                # and it's not a bug that you'd get the same frame size but a
+                # different aspect.  Consider an NTSC DVD: the frame size is
+                # always 720x480, but the aspect is either 16/9 or 4/3.  By not
+                # calculating the dimensions here we are breaking aspect.
+                #self._vo_settings = False, (width, height, aspect)
+                #return self._vo_settings_calculated
             if self._vo_settings[1] == (width, height, aspect):
                 # use cache when nothing has changed
+                print " <-", self._vo_settings_calculated
                 return self._vo_settings_calculated
 
         self._vo_settings = True, (width, height, aspect)
@@ -176,6 +183,10 @@ class XinePlayerChild(Player):
         if self._stream_settings['zoom'] < 100 and 0:
             # FIMXE: this crashes when using a timer to zoom from 100
             # in 10% steps.
+            # XXX: the first two 2-tuples of the return value in this
+            # method are (x,y) and (w,h) of the video relative to the window.
+            # You may be able to reproduce this functionality by modifying
+            # those values rather than using VO_CROP.
             crop_x = vid_w - int(vid_w * self._stream_settings['zoom'] / 100)
             crop_y = vid_h - int(vid_h * self._stream_settings['zoom'] / 100)
             self._stream.set_parameter(xine.PARAM_VO_CROP_LEFT, crop_x)
@@ -209,7 +220,8 @@ class XinePlayerChild(Player):
             # FIXME: add SCALE_ZOOM
 
         # keep given video aspect in calculation (in most cases 1.0)
-        aspect *= vid_a
+        # Why multiply by vid_a?  This isn't right.
+        # aspect *= vid_a
 
         self._vo_settings_calculated = (0, 0), (0, 0), (win_w, win_h), aspect
         return self._vo_settings_calculated
