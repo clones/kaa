@@ -173,7 +173,6 @@ class XinePlayerChild(Player):
                 #return self._vo_settings_calculated
             if self._vo_settings[1] == (width, height, aspect):
                 # use cache when nothing has changed
-                print " <-", self._vo_settings_calculated
                 return self._vo_settings_calculated
 
         self._vo_settings = True, (width, height, aspect)
