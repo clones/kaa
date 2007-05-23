@@ -38,6 +38,10 @@
 #ifdef ENABLE_ENGINE_GL_X11
 #include <GL/glx.h>
 #endif
+#ifdef HAVE_X11_COMPOSITE
+#include <X11/extensions/Xcomposite.h>
+#endif
+
 #include "x11display.h"
 #include "structmember.h"
 
@@ -221,6 +225,32 @@ X11Display_PyObject__glx_supported(X11Display_PyObject * self, PyObject * args)
     return Py_False;
 }
 
+PyObject *
+X11Display_PyObject__composite_supported(X11Display_PyObject * self, PyObject * args)
+{
+#ifdef HAVE_X11_COMPOSITE
+    int event_base, error_base;
+    if ( XCompositeQueryExtension( self->display, &event_base, &error_base ) ) {
+    // If we get here the server supports the extension
+	int major = 0, minor = 2; // The highest version we support
+
+	XCompositeQueryVersion( self->display, &major, &minor );
+
+	// major and minor will now contain the highest version the server supports.
+	// The protocol specifies that the returned version will never be higher
+	// then the one requested. Version 0.2 is the first version to have the
+	// XCompositeNameWindowPixmap() request.
+	if ( major > 0 || minor >= 2 ) {
+	    Py_INCREF(Py_True);
+	    return Py_True;
+	}
+    }
+#endif    
+    Py_INCREF(Py_False);
+    return Py_False;
+}
+
+
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
     { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
@@ -229,6 +259,7 @@ PyMethodDef X11Display_PyObject_methods[] = {
     { "get_size", ( PyCFunction ) X11Display_PyObject__get_size, METH_VARARGS },
     { "get_string", ( PyCFunction ) X11Display_PyObject__get_string, METH_VARARGS },
     { "glx_supported", ( PyCFunction ) X11Display_PyObject__glx_supported, METH_VARARGS },
+    { "composite_supported", ( PyCFunction ) X11Display_PyObject__composite_supported, METH_VARARGS },
     { NULL, NULL }
 };
 

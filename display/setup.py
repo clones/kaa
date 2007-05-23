@@ -88,6 +88,11 @@ if get_library('X11'):
                     libraries = ['png', 'rt'])
 
     config.define('HAVE_X11')
+
+    if check_library('XComposite', ['<X11/extensions/Xcomposite.h>'], libraries = ['Xcomposite']):
+        config.define('HAVE_X11_COMPOSITE')
+        x11.add_library('XComposite')
+        
     features = []
     if get_library('imlib2') and 'X11' in get_library('imlib2').libraries:
         config.define('USE_IMLIB2_X11')

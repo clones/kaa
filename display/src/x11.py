@@ -163,6 +163,9 @@ class X11Display(object):
     def glx_supported(self):
         return self._display.glx_supported()
 
+    def composite_supported(self):
+        return self._display.composite_supported()
+
 
 
 X11Display.XEVENT_WINDOW_EVENTS_LIST = filter(lambda x: x.find("XEVENT_") != -1, dir(X11Display))
