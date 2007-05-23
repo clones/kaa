@@ -250,6 +250,20 @@ X11Display_PyObject__composite_supported(X11Display_PyObject * self, PyObject * 
     return Py_False;
 }
 
+PyObject *
+X11Display_PyObject__composite_redirect(X11Display_PyObject * self, PyObject * args)
+{
+#ifdef HAVE_X11_COMPOSITE
+    int wid = 0;
+    if (!PyArg_ParseTuple(args, "i", &wid))
+        return NULL;
+    XCompositeRedirectWindow( self->display, wid, CompositeRedirectManual);
+    return Py_INCREF(Py_None), Py_None;
+#else
+    PyErr_Format(PyExc_SystemError, "Composite extention not supported");
+    return NULL;
+#endif
+}
 
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
@@ -260,6 +274,7 @@ PyMethodDef X11Display_PyObject_methods[] = {
     { "get_string", ( PyCFunction ) X11Display_PyObject__get_string, METH_VARARGS },
     { "glx_supported", ( PyCFunction ) X11Display_PyObject__glx_supported, METH_VARARGS },
     { "composite_supported", ( PyCFunction ) X11Display_PyObject__composite_supported, METH_VARARGS },
+    { "composite_redirect", ( PyCFunction ) X11Display_PyObject__composite_redirect, METH_VARARGS },
     { NULL, NULL }
 };
 

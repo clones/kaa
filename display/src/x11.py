@@ -140,7 +140,7 @@ class X11Display(object):
 
 
     def __getattr__(self, attr):
-        if attr in ("socket,"):
+        if attr in ("socket", "composite_redirect"):
             return getattr(self._display, attr)
 
         return getattr(super(X11Display, self), attr)
