@@ -50,6 +50,10 @@ PIXEL_FORMAT_NONE = 0
 PIXEL_FORMAT_ARGB32 = 1
 PIXEL_FORMAT_YUV420P_601 = 2
 
+COLORSPACE_ARGB8888 = 0
+COLORSPACE_YCBCR422P601_PL = 1
+COLORSPACE_YCBCR422P709_PL = 2
+
 RENDER_BLEND     = 0
 RENDER_BLEND_REL = 1
 RENDER_COPY      = 2
@@ -337,6 +341,12 @@ class Image(Object):
 
     def pixels_import(self, data, w, h, format):
         return self._object.image_pixels_import(data, w, h, format)
+
+    def colorspace_set(self, colorspace):
+        return self._object.image_colorspace_set(colorspace)
+
+    def colorspace_get(self):
+        return self._object.image_colorspace_get()
 
     def border_set(self, l, r, t, b):
         return self._object.image_border_set(l, r, t, b)

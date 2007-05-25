@@ -62,3 +62,6 @@ PyObject *Evas_Object_PyObject_image_reload(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_pixels_dirty_set(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_pixels_dirty_get(Evas_Object_PyObject *, PyObject *);
 PyObject *Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject *, PyObject *);
+PyObject *Evas_Object_PyObject_image_colorspace_set(Evas_Object_PyObject *, PyObject *);
+PyObject *Evas_Object_PyObject_image_colorspace_get(Evas_Object_PyObject *, PyObject *);
+

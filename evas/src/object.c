@@ -539,6 +539,8 @@ PyMethodDef Evas_Object_PyObject_methods[] = {
     {"image_pixels_dirty_set", (PyCFunction) Evas_Object_PyObject_image_pixels_dirty_set, METH_VARARGS},
     {"image_pixels_dirty_get", (PyCFunction) Evas_Object_PyObject_image_pixels_dirty_get, METH_VARARGS},
     {"image_pixels_import", (PyCFunction) Evas_Object_PyObject_image_pixels_import, METH_VARARGS},
+    {"image_colorspace_set", (PyCFunction) Evas_Object_PyObject_image_colorspace_set, METH_VARARGS},
+    {"image_colorspace_get", (PyCFunction) Evas_Object_PyObject_image_colorspace_get, METH_VARARGS},
     {"image_border_set", (PyCFunction) Evas_Object_PyObject_image_border_set, METH_VARARGS},
     {"image_border_get", (PyCFunction) Evas_Object_PyObject_image_border_get, METH_VARARGS},
     {"image_border_center_fill_get", (PyCFunction) Evas_Object_PyObject_image_border_center_fill_get, METH_VARARGS},

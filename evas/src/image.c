@@ -36,6 +36,64 @@
 #include "object.h"
 #include "image.h"
 
+void *
+get_ptr_from_pyobject(PyObject *o, int *len)
+{
+    void *data;
+    int data_len;
+
+    if (PyNumber_Check(o)) {
+        data = (void *) PyLong_AsLong(o);
+    } else {
+        if (PyObject_AsReadBuffer(o, (const void **) &data, &data_len) == -1)
+            return NULL;
+        if (len)
+            *len = data_len;
+    }
+    return data;
+}
+
+static void **
+_yuv_planes_to_rows(PyObject *data, int w, int h)
+{
+    int i, stride, plane;
+    void **rows;
+    void *p, *planes[3] = {0, 0, 0};
+    /* Data can be a single buffer/int pointing to memory that holds each
+       plane contiguously, or a tuple of buffer/ints pointing to each
+       individual plane. */
+    if (!PyTuple_Check(data)) {
+        if ((planes[0] = get_ptr_from_pyobject(data, NULL)) == 0)
+            return NULL;
+        planes[1] = planes[0] + (w * h);
+        planes[2] = planes[1] + ((w * h) >> 2);
+        //printf("Planes (%d,%d) 0=%u 1=%u 2=%u\n", ps.w, ps.h, planes[0], planes[1], planes[2]);
+    } else {
+        if (PySequence_Length(data) != 3) {
+            PyErr_Format(PyExc_ValueError, "Invalid size for planes tuple");
+            return NULL;
+        }
+        for (i = 0; i < 3; i++) {
+            PyObject *o = PyTuple_GetItem(data, i);
+            planes[i] = get_ptr_from_pyobject(o, NULL);
+            if (planes[i] == 0 && i == 0)
+                return NULL;
+        }
+    }
+    rows = malloc(h * 2 * sizeof(void *));
+    stride = w;
+    for (i = 0, plane = 0, p = planes[0]; i < h * 2; i++) {
+        rows[i] = p;
+        if (i == h)
+            stride >>= 1;
+        if (i == h || i == h+(h/2)) 
+            p = planes[++plane];
+        else
+            p += stride;
+    }
+    return rows;
+}
+
 PyObject *
 Evas_Object_PyObject_image_file_set(Evas_Object_PyObject * self, PyObject * args)
 {
@@ -266,8 +324,16 @@ Evas_Object_PyObject_image_data_set(Evas_Object_PyObject * self, PyObject * args
         return NULL;
 
     if (PyNumber_Check(buffer)) {
-        is_write_buffer = 1;
-        data = (void *) PyLong_AsLong(buffer);
+        int cspace = evas_object_image_colorspace_get(self->object);
+        if (cspace == EVAS_COLORSPACE_YCBCR422P601_PL || cspace == EVAS_COLORSPACE_YCBCR422P709_PL) {
+            int w, h;
+            evas_object_image_size_get(self->object, &w, &h);
+            data = _yuv_planes_to_rows(buffer, w, h);
+            is_write_buffer = 1;
+        } else {
+            is_write_buffer = 1;
+            data = (void *) PyLong_AsLong(buffer);
+        }
     } else {
         result = PyObject_AsWriteBuffer(buffer, &data, &len);
         if (result != -1) {
@@ -296,10 +362,17 @@ PyObject *
 Evas_Object_PyObject_image_data_get(Evas_Object_PyObject * self, PyObject * args)
 {
     unsigned char *data;
-    int for_writing = 1, w, h;
+    int for_writing = 1, w, h, cspace;
 
     if (!PyArg_ParseTuple(args, "|i", &for_writing))
         return NULL;
+
+    cspace = evas_object_image_colorspace_get(self->object);
+    if (cspace == EVAS_COLORSPACE_YCBCR422P601_PL || cspace == EVAS_COLORSPACE_YCBCR422P709_PL) {
+        // TODO
+        printf("NYI\n");
+        return Py_INCREF(Py_None), Py_None;
+    }
 
     BENCH_START
     data = evas_object_image_data_get(self->object, 0);
@@ -357,72 +430,22 @@ Evas_Object_PyObject_image_pixels_dirty_get(Evas_Object_PyObject * self,
     return Py_INCREF(Py_False), Py_False;
 }
 
-void *
-get_ptr_from_pyobject(PyObject *o, int *len)
-{
-    void *data;
-    int data_len;
-
-    if (PyNumber_Check(o)) {
-        data = (void *) PyLong_AsLong(o);
-    } else {
-        if (PyObject_AsReadBuffer(o, (const void **) &data, &data_len) == -1)
-            return NULL;
-        if (len)
-            *len = data_len;
-    }
-    return data;
-}
-
-
 PyObject *
 Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
                                   PyObject * args)
 {
     Evas_Pixel_Import_Source ps;
     PyObject *data;
-    void *p, *planes[3] = {0,0,0};
-    int i, stride, plane;
+    int result;
 
     if (!PyArg_ParseTuple(args, "Oiii", &data, &ps.w, &ps.h, &ps.format))
         return NULL;
 
-    /* Data can be a single buffer/int pointing to memory that holds each
-       plane contiguously, or a tuple of buffer/ints pointing to each
-       individual plane. */
-    if (!PyTuple_Check(data)) {
-        if ((planes[0] = get_ptr_from_pyobject(data, NULL)) == 0)
-            return NULL;
-        planes[1] = planes[0] + (ps.w * ps.h);
-        planes[2] = planes[1] + ((ps.w * ps.h) >> 2);
-        //printf("Planes (%d,%d) 0=%u 1=%u 2=%u\n", ps.w, ps.h, planes[0], planes[1], planes[2]);
-    } else {
-        if (PySequence_Length(data) != 3) {
-            PyErr_Format(PyExc_ValueError, "Invalid size for planes tuple");
-            return NULL;
-        }
-        for (i = 0; i < 3; i++) {
-            PyObject *o = PyTuple_GetItem(data, i);
-            planes[i] = get_ptr_from_pyobject(o, NULL);
-            if (planes[i] == 0 && i == 0)
-                return NULL;
-        }
-    }
 
     if (ps.format == EVAS_PIXEL_FORMAT_YUV420P_601) {
-        ps.rows = malloc(ps.h * 2 * sizeof(void *));
-        stride = ps.w;
-        for (i = 0, plane = 0, p = planes[0]; i < ps.h * 2; i++) {
-            ps.rows[i] = p;
-            if (i == ps.h)
-                stride >>= 1;
-            if (i == ps.h || i == ps.h+(ps.h/2)) 
-                p = planes[++plane];
-            else
-                p += stride;
-        }
+        ps.rows = _yuv_planes_to_rows(data, ps.w, ps.h);
         BENCH_START
-        evas_object_image_pixels_import(self->object, &ps);
+        result = evas_object_image_pixels_import(self->object, &ps);
         BENCH_END
         free(ps.rows);
     } 
@@ -431,5 +454,30 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self,
         return NULL;
     }
 
+    return Py_BuildValue("i", result);
+}
+
+PyObject *
+Evas_Object_PyObject_image_colorspace_set(Evas_Object_PyObject * self, PyObject * args)
+{
+    int colorspace;
+
+    if (!PyArg_ParseTuple(args, "i", &colorspace))
+        return NULL;
+
+    BENCH_START
+    evas_object_image_colorspace_set(self->object, (Evas_Colorspace)colorspace);
+    BENCH_END
     return Py_INCREF(Py_None), Py_None;
+}
+
+PyObject *
+Evas_Object_PyObject_image_colorspace_get(Evas_Object_PyObject * self, PyObject * args)
+{
+    int colorspace;
+
+    BENCH_START
+    colorspace = evas_object_image_colorspace_get(self->object);
+    BENCH_END
+    return Py_BuildValue("i", colorspace);
 }
