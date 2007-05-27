@@ -324,7 +324,9 @@ Evas_Object_PyObject_image_data_set(Evas_Object_PyObject * self, PyObject * args
 
     if (PyNumber_Check(buffer)) {
         int cspace = evas_object_image_colorspace_get(self->object);
-        if (cspace == EVAS_COLORSPACE_YCBCR422P601_PL || cspace == EVAS_COLORSPACE_YCBCR422P709_PL) {
+        is_write_buffer = 1;
+        data = (void *) PyLong_AsLong(buffer);
+        if (data && (cspace == EVAS_COLORSPACE_YCBCR422P601_PL || cspace == EVAS_COLORSPACE_YCBCR422P709_PL)) {
             int w, h;
             if (!PyNumber_Check(stride)) {
                 PyErr_SetString(PyExc_ValueError, "stride parameter is not an integer");
@@ -332,10 +334,6 @@ Evas_Object_PyObject_image_data_set(Evas_Object_PyObject * self, PyObject * args
             }
             evas_object_image_size_get(self->object, &w, &h);
             data = _yuv_planes_to_rows(buffer, w, h, PyLong_AsLong(stride));
-            is_write_buffer = 1;
-        } else {
-            is_write_buffer = 1;
-            data = (void *) PyLong_AsLong(buffer);
         }
     } else {
         result = PyObject_AsWriteBuffer(buffer, &data, &len);
