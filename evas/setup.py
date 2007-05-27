@@ -37,7 +37,7 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
-if not check_library('evas', '0.9.9.032').valid:
+if not check_library('evas', '0.9.9.032'):
     print 'Evas >= 0.9.9.032 not found'
     print 'Download from http://enlightenment.freedesktop.org/'
     sys.exit(1)
