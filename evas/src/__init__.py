@@ -324,8 +324,9 @@ class Image(Object):
     def reload(self):
         return self._object.image_reload()
 
-    def data_set(self, data, copy = -1):
-        return self._object.image_data_set(data, copy)
+    def data_set(self, data, copy = -1, stride = None):
+        # Stride is only relevant for YUV colorspace
+        return self._object.image_data_set(data, copy, stride)
 
     def data_get(self, for_writing = True):
         return self._object.image_data_get(for_writing)
@@ -339,8 +340,10 @@ class Image(Object):
     def pixels_dirty_get(self):
         return self._object.image_pixels_dirty_get()
 
-    def pixels_import(self, data, w, h, format):
-        return self._object.image_pixels_import(data, w, h, format)
+    def pixels_import(self, data, w, h, format, stride = None):
+        if not stride:
+            stride = w
+        return self._object.image_pixels_import(data, w, h, format, stride)
 
     def colorspace_set(self, colorspace):
         return self._object.image_colorspace_set(colorspace)
