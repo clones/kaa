@@ -109,15 +109,15 @@ def _wrap_evas_object(obj):
 
     obj_type = obj.type_get()
     if obj_type == "image":
-        return Image(obj)
+        return Image(None, wrap = obj)
     elif obj_type == "rectangle":
-        return Rectangle(obj)
+        return Rectangle(None, wrap = obj)
     elif obj_type == "text":
-        return Text(obj)
+        return Text(None, wrap = obj)
     elif obj_type == "gradient":
-        return Gradient(obj)
+        return Gradient(None, wrap = obj)
     elif obj_type == "textblock":
-        return TextBlock(obj)
+        return TextBlock(None, wrap = obj)
     else:
         raise ValueError, "Unable to wrap unknown object type (%s)" % obj_type
 
@@ -125,6 +125,10 @@ def _wrap_evas_object(obj):
 class Object(object):
 
     def __init__(self, evas_object):
+        """
+        Wraps an underlying _evas.Object object.  This class would never be
+        instantiated directly.
+        """
         assert type(evas_object) == _evas.Object
         self.__dict__[ "_object" ] = evas_object
         #self._object = evas_object
@@ -242,14 +246,18 @@ class Object(object):
 
 
 class Rectangle(Object):
-    def __init__(self, evas_object):
-        super(Rectangle, self).__init__(evas_object)
+    def __init__(self, evas, wrap = None):
+        if evas:
+            wrap = evas._evas.object_rectangle_add()
+        super(Rectangle, self).__init__(wrap)
 
 
 
 class Polygon(Object):
-    def __init__(self, evas_object):
-        super(Polygon, self).__init__(evas_object)
+    def __init__(self, evas, wrap = None):
+        if evas:
+            wrap = evas._evas.object_polygon_add()
+        super(Polygon, self).__init__(wrap)
 
     def point_add(self, x, y):
         return self._object.polygon_point_add(x, y)
@@ -259,8 +267,10 @@ class Polygon(Object):
 
 
 class Gradient(Object):
-    def __init__(self, evas_object):
-        super(Gradient, self).__init__(evas_object)
+    def __init__(self, evas, wrap = None):
+        if evas:
+            wrap = evas._evas.object_gradient_add()
+        super(Gradient, self).__init__(wrap)
 
     def color_stop_add(self, r, g, b, a, delta):
         return self._object.gradient_color_stop_add(r, g, b, a, delta)
@@ -276,8 +286,12 @@ class Gradient(Object):
 
 
 class Image(Object):
-    def __init__(self, evas_object):
-        super(Image, self).__init__(evas_object)
+    def __init__(self, evas, filename = None, wrap = None):
+        if evas:
+            wrap = evas._evas.object_image_add()
+        super(Image, self).__init__(wrap)
+        if filename:
+            self.load(filename)
 
     def file_set(self, filename):
         return self._object.image_file_set(filename)
@@ -366,8 +380,10 @@ class Image(Object):
 
 
 class TextBlock(Object):
-    def __init__(self, evas_object):
-        super(TextBlock, self).__init__(evas_object)
+    def __init__(self, evas, wrap = None):
+        if evas:
+            wrap = evas._evas.object_textblock_add()
+        super(TextBlock, self).__init__(wrap)
 
     def markup_set(self, markup):
         return self._object.textblock_markup_set(markup)
@@ -397,8 +413,14 @@ class TextBlock(Object):
         return self._object.textblock_line_number_geometry_get(line)
 
 class Text(Object):
-    def __init__(self, evas_object):
-        super(Text, self).__init__(evas_object)
+    def __init__(self, evas, (font, size) = (None, None), text = None, wrap = None):
+        if evas:
+            wrap = evas._evas.object_text_add()
+        super(Text, self).__init__(wrap)
+        if font:
+            self.font_set(font, size)
+        if text:
+            self.text_set(text)
 
     def font_set(self, font, size):
         return self._object.text_font_set(font, size)
@@ -530,30 +552,22 @@ class Evas(object):
         return self._evas.image_cache_set(size)
 
     def object_rectangle_add(self):
-        return Rectangle(self._evas.object_rectangle_add())
+        return Rectangle(self)
 
     def object_gradient_add(self):
-        return Gradient(self._evas.object_gradient_add())
+        return Gradient(self)
 
     def object_image_add(self, filename = None):
-        img = Image(self._evas.object_image_add())
-        if filename:
-            img.load(filename)
-        return img
+        return Image(self, filename)
 
     def object_text_add(self, (font, size) = (None, None), text = None):
-        o = Text(self._evas.object_text_add())
-        if font:
-            o.font_set(font, size)
-        if text:
-            o.text_set(text)
-        return o
+        return Text(self, (font, size), text)
 
     def object_textblock_add(self):
-        return TextBlock(self._evas.object_textblock_add())
+        return TextBlock(self)
         
     def object_polygon_add(self):
-        return Polygon(self._evas.object_polygon_add())
+        return Polygon(self)
 
     def damage_rectangle_add(self, ((x, y), (w, h))):
         self._evas.damage_rectangle_add(x, y, w, h)
