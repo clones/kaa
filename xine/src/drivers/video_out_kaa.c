@@ -51,7 +51,7 @@ extern int (*glXWaitVideoSyncSGI)(int, int, unsigned int *);
 extern int (*glXGetVideoSyncSGI)(unsigned int *);
 #endif
 
-static long long get_usecs()
+static long long get_usecs(void)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -110,7 +110,7 @@ static int Y_R[256], Y_G[256], Y_B[256],
            V_R[256], V_G[256], V_B[256];
 
 static void
-init_rgb2yuv_tables()
+init_rgb2yuv_tables(void)
 {
     int i;
     #define myround(n) (n >= 0) ? (int)(n + 0.5) : (int)(n - 0.5);
@@ -943,14 +943,17 @@ kaa_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
                 } else if (glXGetVideoSyncSGI(&count) == 0) {
                     // We know display refresh rate and current retrace counter.
                     float multiple = frame_gen->duration / (float)this->vsync_duration;
+                    int n_multiple = (int)roundf(multiple);
                     unsigned int dummy;
-                    if (fabs(roundf(multiple) - multiple) < 0.02 && count - this->last_vsync_count == 1) {
+                    //fprintf(stderr, "vsync: %f (%d / %d) tolerance = %f %d\n", fabs(roundf(multiple) - multiple), frame_gen->duration, this->vsync_duration, 0.02 * n_multiple, this->last_vsync_count);
+                    if (fabs(roundf(multiple) - multiple) < 0.02 * n_multiple && count - this->last_vsync_count == n_multiple) {
                         /* Frame duration looks pretty damn close to a multiple
                          * of the display refresh rate, and our last frame was
                          * exactly 1 refresh ago, so let's wait for next 
                          * refresh.
                          */
                         ret = glXWaitVideoSyncSGI(2, (count+1)%2, &dummy);
+                        //fprintf(stderr, "Waiting\n");
                     }
                     this->last_vsync_count = count;
                 }
@@ -1092,7 +1095,6 @@ kaa_dispose(vo_driver_t *this_gen)
     kaa_driver_t *this = (kaa_driver_t *)this_gen;
 
     //printf("kaa_dispose\n");
-    //this->yuv2rgb_factory->dispose(this->yuv2rgb_factory);
     free_overlay_data(this);
     pthread_mutex_destroy(&this->lock);
     pthread_mutex_destroy(&this->osd_buffer_lock);

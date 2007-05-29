@@ -33,9 +33,6 @@
 #include <xine/video_out.h>
 #include <xine/xine_internal.h>
 #include <xine/alphablend.h>
-#include "yuv2rgb.h"
-
-
 
 #ifdef HAVE_OPENGL_VSYNC
 #include <X11/Xlib.h>

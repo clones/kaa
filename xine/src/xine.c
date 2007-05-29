@@ -715,7 +715,7 @@ void **get_module_api(char *module)
 
 
 void
-init_xine()
+init_xine(void)
 {
     PyObject *m;
 #ifdef HAVE_X11
