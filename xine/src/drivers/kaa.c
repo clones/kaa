@@ -248,7 +248,7 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
         fsync(user_data->notify_fd);
 
         // Wait for the buffer to be unlocked (i.e. has been rendered).
-        if (!wait_for_buffer(user_data->buffers[user_data->cur_buffer_idx], 0.1))
+        if (!wait_for_buffer(lock, 0.1))
             // Buffer locked too long.
             printf("[export] buffer %d locked too long\n", user_data->cur_buffer_idx);
 
