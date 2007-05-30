@@ -168,9 +168,9 @@ class Video(kaa.evas.Image):
 
         t1=time.time()
         if HARDWARE_CONV:
-            self.pixels_import(self._shmem.addr + offset + 32, width, height, kaa.evas.PIXEL_FORMAT_YUV420P_601, stride)
-        else:
             self.data_set(self._shmem.addr + offset + 32, False, stride = stride)
+        else:
+            self.pixels_import(self._shmem.addr + offset + 32, width, height, kaa.evas.PIXEL_FORMAT_YUV420P_601, stride)
         self.pixels_dirty_set()
         self._manager.queue_render()
         self._manager.signals['render'].connect_once(lambda: self._shmem.write('\x00', offset))
