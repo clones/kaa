@@ -16,6 +16,10 @@ import kaa.display, kaa.evas, kaa.shm, kaa, kaa.input.stdin, sys
 # Default window size.
 WIN_SIZE = 640, 480
 #WIN_SIZE = 1600, 1200
+#WIN_SIZE = 1920, 1080
+
+# Use hardware yuv2rgb conversion?
+HARDWARE_CONV = True
 
 class Manager:
     def __init__(self, evas_window):
@@ -25,6 +29,7 @@ class Manager:
         self._current = None
         self._render_needed = False
         self._selecting = False
+        self.signals = { 'render': kaa.notifier.Signal() }
 
     def add_video(self, video):
         self._videos.append(video)
@@ -73,7 +78,8 @@ class Manager:
             return
 
         t0=time.time()
-        e.render()
+        self._evas.render()
+        self.signals['render'].emit()
         #print "Render:", time.time()-t0
         self._render_needed = False
 
@@ -88,9 +94,10 @@ class Manager:
     
 
 class Video(kaa.evas.Image):
-    def __init__(self, evas, fifo_fname):
+    def __init__(self, evas, fifo_fname, manager):
         super(Video, self).__init__(evas)
 
+        self._manager = manager
         self._fifo_fname = fifo_fname
         self._aspect = 1.0
         self._shmem = None
@@ -100,14 +107,17 @@ class Video(kaa.evas.Image):
         self._setup_fifo()
 
     def _setup_fifo(self):
-        fifo = os.open(self._fifo_fname, os.O_RDONLY | os.O_NONBLOCK)
-        try:
-            while len(os.read(fifo, 4096)) != 0:
-                # Consume any pending frame notifications that might be
-                # buffered in the fifo
+        if isinstance(self._fifo_fname, int):
+            fifo = self._fifo_fname
+        else:
+            fifo = os.open(self._fifo_fname, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                while len(os.read(fifo, 4096)) != 0:
+                    # Consume any pending frame notifications that might be
+                    # buffered in the fifo
+                    pass
+            except OSError:
                 pass
-        except OSError:
-            pass
 
         print "Setup fifo", fifo
         kaa.notifier.WeakSocketDispatcher(self._new_frame, fifo).register(fifo)
@@ -157,11 +167,13 @@ class Video(kaa.evas.Image):
             # TODO: crop to width
 
         t1=time.time()
-        self.data_set(self._shmem.addr + offset + 32, False, stride = stride)
+        if HARDWARE_CONV:
+            self.pixels_import(self._shmem.addr + offset + 32, width, height, kaa.evas.PIXEL_FORMAT_YUV420P_601, stride)
+        else:
+            self.data_set(self._shmem.addr + offset + 32, False, stride = stride)
         self.pixels_dirty_set()
-        manager.queue_render()
-        # FIXME: should be done on render, not now.
-        self._shmem.write('\x00', offset)
+        self._manager.queue_render()
+        self._manager.signals['render'].connect_once(lambda: self._shmem.write('\x00', offset))
         t2 = time.time()
         #print "Timing: header=%0.5f evas=%0.5f total=%0.5f" % (t1-t0, t2-t1, t2-t0)
 
@@ -265,33 +277,35 @@ def key(code):
         video.set_fit(not video.get_fit())
 
 
-win = kaa.display.EvasX11Window(gl = True, size = WIN_SIZE)
-manager = Manager(win)
-e = win.get_evas()
+if __name__ == '__main__':
+    win = kaa.display.EvasX11Window(gl = True, size = WIN_SIZE)
+    manager = Manager(win)
+    e = win.get_evas()
 
-bg = e.object_rectangle_add()
-bg.color_set(0,0,0,255)
-bg.resize(WIN_SIZE)
-bg.show()
+    bg = e.object_rectangle_add()
+    bg.color_set(0,0,0,255)
+    bg.resize(WIN_SIZE)
+    bg.show()
 
-for fifo in sys.argv[1:]:
-    video = Video(e, fifo)
-    video.colorspace_set(kaa.evas.COLORSPACE_YCBCR422P601_PL)
-    video.show()
-    manager.add_video(video)
+    for fifo in sys.argv[1:]:
+        video = Video(e, fifo, manager)
+        if HARDWARE_CONV:
+            video.colorspace_set(kaa.evas.COLORSPACE_YCBCR422P601_PL)
+        video.show()
+        manager.add_video(video)
 
-img = e.object_image_add('data/music.png')
-img.color_set(255,255,255,120)
-img.layer_set(10)
-img.show()
+    img = e.object_image_add('data/music.png')
+    img.color_set(255,255,255,120)
+    img.layer_set(10)
+    img.show()
 
-e.render()
+    e.render()
 
-kaa.signals['step'].connect(manager.render)
-kaa.signals['stdin_key_press_event'].connect(key)
-win.signals['key_press_event'].connect(key)
-win.signals['resize_event'].connect(resize_window, e, bg)
-#win.set_fullscreen(True)
+    kaa.signals['step'].connect(manager.render)
+    kaa.signals['stdin_key_press_event'].connect(key)
+    win.signals['key_press_event'].connect(key)
+    win.signals['resize_event'].connect(resize_window, e, bg)
+    #win.set_fullscreen(True)
 
-print "Keys: q, arrows, tab, space, F, f, a, A, [, ], h, s"
-kaa.main()
+    print "Keys: q, arrows, tab, space, F, f, a, A, [, ], h, s"
+    kaa.main()
