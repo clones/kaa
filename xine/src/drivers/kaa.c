@@ -200,8 +200,7 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
 
     if (cmd == KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD && user_data->do_notify_frame) {
         uint8_t *lock, *y_dst, *u_dst, *v_dst;
-        int last_idx = user_data->cur_buffer_idx > 0 ? user_data->cur_buffer_idx - 1 : NUM_FRAME_BUFFERS - 1,
-            stride = (frame->format == XINE_IMGFMT_YUY2) ? frame->pitches[0] >> 1: frame->pitches[0];
+        int stride = (frame->format == XINE_IMGFMT_YUY2) ? frame->pitches[0] >> 1: frame->pitches[0];
 
         if (32 + stride*frame->height*2 > user_data->buffer_size)
             setup_shmem(user_data, stride, frame->height);
@@ -224,13 +223,6 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
         u_dst = y_dst + (stride * frame->height);
         v_dst = u_dst + (stride * frame->height >> 2);
 
-        // Wait for the last buffer to be unlocked (i.e. has been rendered) 
-        // before delivering the next one.
-        if (*user_data->buffers[last_idx] && !wait_for_buffer(user_data->buffers[last_idx], 0.1))
-            // Buffer locked too long.
-            return 0;
-
-
         if (frame->format == XINE_IMGFMT_YV12) {
             //long long t0=get_usecs();
             yv12_to_yv12(frame->base[0], frame->pitches[0], y_dst, frame->pitches[0],
@@ -251,8 +243,15 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
 
         memcpy(user_data->buffers[user_data->cur_buffer_idx], &header, sizeof(header));
         *lock = 1;
+        // TODO: check return value
         write(user_data->notify_fd, &notify, sizeof(notify));
         fsync(user_data->notify_fd);
+
+        // Wait for the buffer to be unlocked (i.e. has been rendered).
+        if (!wait_for_buffer(user_data->buffers[user_data->cur_buffer_idx], 0.1))
+            // Buffer locked too long.
+            printf("[export] buffer %d locked too long\n", user_data->cur_buffer_idx);
+
         user_data->cur_buffer_idx++;
         if (user_data->cur_buffer_idx == NUM_FRAME_BUFFERS)
             user_data->cur_buffer_idx = 0;
