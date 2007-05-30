@@ -316,25 +316,27 @@ PyObject *
 Evas_Object_PyObject_image_data_set(Evas_Object_PyObject * self, PyObject * args, PyObject *kwargs)
 {
     PyObject *buffer, *stride;
-    void *data;
-    int len, result, is_write_buffer = 0, copy;
+    void *data = 0;
+    int len, result, is_write_buffer = 0, copy, cspace;
 
     if (!PyArg_ParseTuple(args, "OiO", &buffer, &copy, &stride))
         return NULL;
 
-    if (PyNumber_Check(buffer)) {
-        int cspace = evas_object_image_colorspace_get(self->object);
+    cspace = evas_object_image_colorspace_get(self->object);
+    if ((!PyNumber_Check(buffer) || PyLong_AsLong(buffer) != 0) && 
+        (cspace == EVAS_COLORSPACE_YCBCR422P601_PL || cspace == EVAS_COLORSPACE_YCBCR422P709_PL)) {
+        int w, h;
         is_write_buffer = 1;
-        data = (void *) PyLong_AsLong(buffer);
-        if (data && (cspace == EVAS_COLORSPACE_YCBCR422P601_PL || cspace == EVAS_COLORSPACE_YCBCR422P709_PL)) {
-            int w, h;
-            if (!PyNumber_Check(stride)) {
-                PyErr_SetString(PyExc_ValueError, "stride parameter is not an integer");
-                return NULL;
-            }
-            evas_object_image_size_get(self->object, &w, &h);
-            data = _yuv_planes_to_rows(buffer, w, h, PyLong_AsLong(stride));
+        if (!PyNumber_Check(stride)) {
+            PyErr_SetString(PyExc_ValueError, "stride parameter is not an integer");
+            return NULL;
         }
+        evas_object_image_size_get(self->object, &w, &h);
+        data = _yuv_planes_to_rows(buffer, w, h, PyLong_AsLong(stride));
+    } 
+    else if (PyNumber_Check(buffer)) {
+        is_write_buffer = 1;
+        data = (void *)PyLong_AsLong(buffer);
     } else {
         result = PyObject_AsWriteBuffer(buffer, &data, &len);
         if (result != -1) {
@@ -436,18 +438,13 @@ Evas_Object_PyObject_image_pixels_import(Evas_Object_PyObject * self, PyObject *
 {
     Evas_Pixel_Import_Source ps;
     PyObject *data;
-    int result;
+    int result, stride;
 
-    if (!PyArg_ParseTuple(args, "Oiii", &data, &ps.w, &ps.h, &ps.format))
+    if (!PyArg_ParseTuple(args, "Oiiii", &data, &ps.w, &ps.h, &ps.format, &stride))
         return NULL;
 
     if (ps.format == EVAS_PIXEL_FORMAT_YUV420P_601) {
-        PyObject *stride = PyDict_GetItemString(kwargs, "stride");
-        if (!stride || !PyNumber_Check(stride)) {
-            PyErr_SetString(PyExc_ValueError, "stride parameter is missing or not an integer");
-            return NULL;
-        }
-        ps.rows = _yuv_planes_to_rows(data, ps.w, ps.h, PyLong_AsLong(stride));
+        ps.rows = _yuv_planes_to_rows(data, ps.w, ps.h, stride);
         BENCH_START
         result = evas_object_image_pixels_import(self->object, &ps);
         BENCH_END

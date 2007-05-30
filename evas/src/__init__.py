@@ -191,6 +191,7 @@ class Object(object):
 
     def color_get(self):
         r, g, b, a = self._object.color_get()
+        return r, g, b, a
         return color_argb_unpremul(a, r, g, b) + (a,)
 
     def color_set(self, r=None, g=None, b=None, a=None):
@@ -200,7 +201,7 @@ class Object(object):
                 return x
             (r, g, b, a) = map(f, (r, g, b, a), self.color_get())
         (r, g, b, a) =  map(lambda x: min(255, max(0, x)), (r, g, b, a))
-        r, g, b = color_argb_premul(a, r, g, b)
+        #r, g, b = color_argb_premul(a, r, g, b)
         return self._object.color_set(r, g, b, a)
      
      
