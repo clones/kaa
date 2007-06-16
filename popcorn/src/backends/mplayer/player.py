@@ -436,7 +436,7 @@ class MPlayer(MediaPlayer):
         args, filters = self._mplayer.args, self._mplayer.filters
 
         if config.audio.passthrough:
-            args.add(ac='hwac3,hwdts,')
+            args.add(ac='hwac3,hwdts,%s' % config.mplayer.audiocodecs)
         else:
             args.add(channels=config.audio.channels)
 

@@ -42,6 +42,16 @@
     <var name="deinterlacer" default="yadif=0">
         <desc lang="en">Deinterlacer video filter to use</desc>
     </var>
+ 
+    <var name="audiocodecs" type="str">
+        <desc lang="en">
+            audiocodes to use or omit for the mplayer. This will only be used 
+            in the passthrough mode. See -ac parameter of mplayer for possible
+            options. The first parameters will allways 'hwac3, hwdts,'. The
+            added parameters will get appended to this list.
+        </desc>
+    </var>
+                       
 
     <var name="embedded" default="True">
         <desc lang="en">
