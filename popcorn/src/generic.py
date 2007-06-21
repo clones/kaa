@@ -307,7 +307,7 @@ class Player(object):
         self._media = kaa.metadata.parse(mrl)
         if not self._media:
             # unable to detect, create dummy
-            if mrl.find('://') == -1:
+            if '://' not in mrl:
                 mrl = 'file://' + mrl
             self._media = kaa.metadata.Media(hash=dict(url=mrl, media='MEDIA_UNKNOWN'))
         self._media.scheme = self._media.url[:self._media.url.find(':/')]
