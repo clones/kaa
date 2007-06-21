@@ -438,6 +438,8 @@ class MPlayer(MediaPlayer):
         if config.audio.passthrough:
             args.add(ac='hwac3,hwdts,%s' % config.mplayer.audiocodecs)
         else:
+            if config.mplayer.audiocodecs:
+                args.add(ac='%s' % config.mplayer.audiocodecs)
             args.add(channels=config.audio.channels)
 
         args.add(ao=config.audio.driver)
