@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <config>
     <desc lang="en">xine configuration</desc>
-    <var name="activate" default="True">
-        <desc lang="en">activate backend</desc>
+    <var name="enabled" default="True">
+        <desc lang="en">Set True to enable the Xine backend</desc>
     </var>
     <group name="deinterlacer">
         <desc>Deinterlacer options</desc>

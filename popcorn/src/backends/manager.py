@@ -52,7 +52,7 @@ def import_backends():
         return
 
     for backend in config:
-        if getattr(getattr(config, backend), 'activate', False):
+        if getattr(getattr(config, backend), 'enabled', False):
             try:
                 # import the backend and register it.
                 exec('from %s import import_backend' % backend)

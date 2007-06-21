@@ -115,6 +115,11 @@ class ChildProcess(object):
                    setattr(self._parent, command[4:], args[0])
                    return True
             raise AttributeError('parent has no attribute %s', command)
+        elif '@@@' in line:
+            # More debugging stuff; use log.info here because debug loglevel
+            # is too verbose for most cases (and logger doesn't support
+            # debug levels)
+            log.info('[%d] %s' % (self._child.child.pid, line))
 
         if self.gdb and line.startswith("Program received signal SIGSEGV"):
             self._child.write("thread apply all bt\n")

@@ -165,12 +165,12 @@ class Player(object):
         """
         Return player class object to play the current mrl. This function
         uses self._media, self._open_caps as mrl and caps and respects
-        the failed player and the player deactived in the config. If player
+        the failed player and the player disabled in the config. If player
         is given as argument, this player will be used.
         """
         exclude = self._failed_player[:]
         for p in backends.manager.get_all_players():
-            if not getattr(config, p).activate and not p in exclude:
+            if not getattr(config, p).enabled and not p in exclude:
                 exclude.append(p)
         return backends.manager.get_player_class(\
             self._media, self._open_caps, exclude, player, self._window)
@@ -310,6 +310,7 @@ class Player(object):
             if mrl.find('://') == -1:
                 mrl = 'file://%s'
             self._media = kaa.metadata.Media(hash=dict(url=mrl, media='MEDIA_UNKNOWN'))
+        print "MEDIA", self._media.url
         self._media.scheme = self._media.url[:self._media.url.find(':/')]
 
         self._open_caps = caps
