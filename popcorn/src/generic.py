@@ -308,9 +308,8 @@ class Player(object):
         if not self._media:
             # unable to detect, create dummy
             if mrl.find('://') == -1:
-                mrl = 'file://%s'
+                mrl = 'file://' + mrl
             self._media = kaa.metadata.Media(hash=dict(url=mrl, media='MEDIA_UNKNOWN'))
-        print "MEDIA", self._media.url
         self._media.scheme = self._media.url[:self._media.url.find(':/')]
 
         self._open_caps = caps
