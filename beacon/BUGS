@@ -2,3 +2,5 @@ o Creating or removing a file in a directory causes scan_directory() to be
   called even when inotify is used.  It's not necessary with inotify.
 o Renaming a file involved in a monitored query doesn't get picked up.  (Query
   is not updated.)
+o The hwmon stopped working after I burned a DVD. I guess it has something to do 
+  with a blank media in the drive.
