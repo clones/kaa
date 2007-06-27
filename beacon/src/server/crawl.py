@@ -44,6 +44,7 @@ from parser import parse
 from config import config
 import cpuinfo
 import utils
+import time
 
 # get logging object
 log = logging.getLogger('beacon.crawler')
@@ -135,6 +136,7 @@ class Crawler(object):
         self._scan_dict = {}
         self._scan_function = None
         self._scan_restart_timer = None
+        self._crawl_start_time = None
         self._startup = True
 
 
@@ -360,6 +362,9 @@ class Crawler(object):
         """
         Start the scan function using YieldFunction.
         """
+        if self._crawl_start_time is None:
+            self._crawl_start_time = time.time()
+
         interval = self.parse_timer * Crawler.active
         if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
             cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20) and interval < 1:
@@ -391,7 +396,8 @@ class Crawler(object):
         # crawler finished
         self._scan_function = None
         self._startup = False
-        log.info('crawler %s finished', self.num)
+        log.info('crawler %s finished; took %0.1f seconds.', self.num, time.time() - self._crawl_start_time)
+        self._crawl_start_time = None
         Crawler.active -= 1
         self.db.commit()
         if not self._inotify:
