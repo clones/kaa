@@ -1,0 +1,47 @@
+1. Support DVD directories
+
+   Right now it works a little bit. But if a dir is a DVD dump, there
+   is no inotify support in the VIDEO_TS subdir.
+
+2. Update Monitor class
+
+   o Handle dirname searches on directories not monitored by inotify
+
+   o Check parents on file updates (cover?). Or is this not needed
+     beacuse of the crawler?
+
+3. Update doc
+
+4. Set rom drive speed
+
+5. Move special_exts in File._beacon_mtime to kaa.metadata
+
+6. Use inotify on overlay directories
+
+7. Try to reduce algorithm complexity in certain places.  e.g. maybe Query
+   objects keep a dict of items keyed on url rather than a sorted item list.
+
+8. Support yield_execution from kaa.db.query
+
+9. Ability to give changes back to the caller in stages; useful for doing
+   live queries while a user is typing in a word.
+
+A. When an image is deleted, beacon should delete any corresponding thumbnail.
+
+B. When a file is growing (copy, download), the code checks in a
+   small interval. This is good and what we want, but we don't want
+   new thumbnails (screenshots) while the download / copy is not
+   complete.
+
+C. Subject: Music: cover art per album
+   To: freevo-users@lists.sourceforge.net
+   Date: Mon Oct 30 19:32:32 2006 +0100
+
+   Freevo is currently looking for a cover.jpg or (filename).jpg file
+   to display as cover art. However, it would be great if it can also
+   look for files called (ID3AlbumName).jpg. This will allow users to
+   store music from several albums in a single directory.
+
+D. Put new/changed files discovered by inotify at the top of the scan queue.
+
+E. Item object should offer mimetype attribute.

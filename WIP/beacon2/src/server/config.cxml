@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<config>
+    <desc lang="en">Beacon configuration</desc>
+
+    <list name="monitors" default="True">
+        <desc lang="en">
+            List of directories to monitor, e.g.
+            monitors[0] = /media/mp3
+            monitors[1] = $(HOME)/mp3
+        </desc>
+        <var type="str">
+            <desc>Path of directory</desc>
+        </var>
+    </list>
+
+    <group name="crawler">
+        <desc>Settings for filesystem crawler</desc>
+        <var name="scantime" type="float" default="0.04">
+            <desc>
+                Internal timer for scanning. Decreasing it will speed up the scanner
+                but slow down the system. Increasing it will save CPU time and slow
+                machines.
+            </desc>
+        </var>
+        <var name="growscan" default="10">
+            <desc>
+                Internal in seconds how often still growing files should be
+                scanned
+            </desc>
+        </var>
+    </group>
+
+    <var name="discs" type="str" default="">
+        <desc>
+            List of devices that are not removable discs. This helps beacon to
+            detect removable discs already attached when starting beacon.
+            Example: discs = "/dev/hda /dev/hdb"
+        </desc>
+    </var>
+
+    <dict name="plugins">
+        <desc>Dict of plugins to enable (True/False)</desc>
+        <var default="False">
+            <desc>Enable plugin</desc>
+        </var>
+    </dict>
+
+</config>
