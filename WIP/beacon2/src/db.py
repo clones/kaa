@@ -209,7 +209,7 @@ class Database(object):
         else:
             dirname = parent.filename[:-1]
 
-        listing = parent._beacon_listdir(async=self.client)
+        listing = parent._beacon_listdir(async=True)
 
         if isinstance(listing, kaa.notifier.InProgress):
             # oops, something takes more time than we had in mind,
@@ -299,10 +299,7 @@ class Database(object):
         else:
             dirname = parent.filename[:-1]
 
-        async = False
-        if self.client:
-            async = True
-            timer = time.time()
+        timer = time.time()
 
         items = []
         # A list of all directories we will look at. If a link is in the
@@ -319,7 +316,7 @@ class Database(object):
                         directories.append(child)
                 else:
                     items.append(create_file(i, parent, isdir=False))
-            if async and time.time() > timer + 0.1:
+            if time.time() > timer + 0.1:
                 # we are in async mode and already use too much time.
                 # call yield YieldContinue at this point to continue
                 # later.
@@ -355,19 +352,6 @@ class Database(object):
                 # entry is in the db
                 return create_file(e[0], parent, isdir=e[0]['type'] == 'dir')
         return create_file(basename, parent, isdir=os.path.isdir(filename))
-
-
-    @kaa.notifier.yield_execution()
-    def _db_query_dirname(self, dirname, **query):
-        """
-        Return items in a directory
-        """
-        dobject = self._db_query_filename(dirname)
-        if isinstance(dobject, kaa.notifier.InProgress):
-            yield dobject
-            dobject = dobject()
-        query['parent'] = dobject
-        yield self.query(**query)
 
 
     def _db_query_id(self, (type, id), cache=None):

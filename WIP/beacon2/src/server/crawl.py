@@ -188,7 +188,7 @@ class Crawler(object):
             # a timer is already active and we can return. It still uses too
             # much CPU time in the burst, but there is nothing we can do about
             # it.
-            return True
+            yield True
 
         # some debugging to find a bug in beacon
         log.info('inotify: event %s for "%s"', mask, name)
@@ -200,7 +200,7 @@ class Crawler(object):
         if not item._beacon_parent.filename in self.monitoring:
             # that is a different monitor, ignore it
             # FIXME: this is a bug (missing feature) in inotify
-            return True
+            yield True
         
         if item._beacon_name.startswith('.'):
             # hidden file, ignore except in move operations
@@ -209,7 +209,7 @@ class Crawler(object):
                 # this as a create for the new one.
                 log.info('inotify: handle move as create for %s', args[0])
                 self._inotify_event(INotify.CREATE, args[0])
-            return True
+            yield True
 
         # ---------------------------------------------------------------------
         # MOVE_FROM -> MOVE_TO
@@ -225,7 +225,7 @@ class Crawler(object):
                 # move to hidden file, delete
                 log.info('inotify: move to hidden file, delete')
                 self._inotify_event(INotify.DELETE, name)
-                return True
+                yield True
             if move._beacon_id:
                 # New item already in the db, delete it first
                 log.info('inotify delete: %s', item)
@@ -251,7 +251,7 @@ class Crawler(object):
             self._scan_add(move._beacon_parent, recursive=False)
 
             if not mask & INotify.ISDIR:
-                return True
+                yield True
 
             # The directory is a dir. We now remove all the monitors to that
             # directory and crawl it again. This keeps track for softlinks that
@@ -259,7 +259,7 @@ class Crawler(object):
             self.monitoring.remove(name + '/', recursive=True)
             # now make sure the directory is parsed recursive again
             self._scan_add(move, recursive=True)
-            return True
+            yield True
 
         # ---------------------------------------------------------------------
         # MOVE_TO, CREATE, MODIFY or CLOSE_WRITE
@@ -280,7 +280,7 @@ class Crawler(object):
                 if name.lower().endswith('/video_ts'):
                     # it could be a dvd on hd
                     self._scan_add(item._beacon_parent, recursive=False)
-                return True
+                yield True
 
             # handle bursts of inotify events when a file is growing very
             # fast (e.g. cp)
@@ -291,7 +291,7 @@ class Crawler(object):
             # item another item may be affected (xml metadata, images)
             # so scan the file by rechecking the parent dir
             self._scan_add(item._beacon_parent, recursive=False)
-            return True
+            yield True
 
         # ---------------------------------------------------------------------
         # DELETE
@@ -305,7 +305,7 @@ class Crawler(object):
             # shutdown, so we just ignore this event for now.
             if name + '/' in self.monitoring:
                 self.monitoring.remove(name + '/', recursive=True)
-            return True
+            yield True
             
         # The file does not exist, we need to delete it in the database
         if self.db.get_object(item._beacon_data['name'],
@@ -323,7 +323,7 @@ class Crawler(object):
             self.monitoring.remove(name + '/', recursive=True)
         # rescan parent directory
         self._scan_add(item._beacon_parent, recursive=False)
-        return True
+        yield True
 
 
     # -------------------------------------------------------------------------
