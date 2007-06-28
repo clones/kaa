@@ -177,6 +177,7 @@ class Crawler(object):
     # Internal functions - INotify
     # -------------------------------------------------------------------------
 
+    @kaa.notifier.yield_execution(lock=True)
     def _inotify_event(self, mask, name, *args):
         """
         Callback for inotify.
@@ -193,6 +194,9 @@ class Crawler(object):
         log.info('inotify: event %s for "%s"', mask, name)
         
         item = self.db.query(filename=name)
+        if isinstance(item, kaa.notifier.InProgress):
+            yield item
+            item = item()
         if not item._beacon_parent.filename in self.monitoring:
             # that is a different monitor, ignore it
             # FIXME: this is a bug (missing feature) in inotify
@@ -214,6 +218,9 @@ class Crawler(object):
         if mask & INotify.MOVE and args and item._beacon_id:
             # Move information with source and destination
             move = self.db.query(filename=args[0])
+            if isinstance(move, kaa.notifier.InProgress):
+                yield move
+                move = move()
             if move._beacon_name.startswith('.'):
                 # move to hidden file, delete
                 log.info('inotify: move to hidden file, delete')
@@ -461,6 +468,9 @@ class Crawler(object):
             self.monitoring.add(directory.filename, use_inotify=False)
             dirname = os.path.realpath(directory.filename)
             directory = self.db.query(filename=dirname)
+            if isinstance(directory, kaa.notifier.InProgress):
+                yield directory
+                directory = directory()
             async = parse(self.db, directory, check_image=self._startup)
             if isinstance(async, kaa.notifier.InProgress):
                 yield async
@@ -471,8 +481,12 @@ class Crawler(object):
         # iterate through the files
         subdirs = []
         counter = 0
-            
-        for child in self.db.query(parent=directory):
+
+        result = self.db.query(parent=directory)
+        if isinstance(result, kaa.notifier.InProgress):
+            yield result
+            result = result()
+        for child in result:
             if child._beacon_isdir:
                 # add directory to list of files to return
                 subdirs.append(child)
@@ -494,10 +508,13 @@ class Crawler(object):
         if not subdirs:
             # No subdirectories that need to be checked. Add some extra
             # attributes based on the found items (recursive back to parents)
-            self._add_directory_attributes(directory)
+            result = self._add_directory_attributes(directory)
+            if isinstance(result, kaa.notifier.InProgress):
+                yield result
         yield subdirs
 
 
+    @kaa.notifier.yield_execution()
     def _add_directory_attributes(self, directory):
         """
         Add some extra attributes for a directory recursive. This function
@@ -508,7 +525,11 @@ class Crawler(object):
         check_attr = data.keys()[:]
         check_attr.remove('length')
 
-        for child in self.db.query(parent=directory):
+        result = self.db.query(parent=directory)
+        if isinstance(result, kaa.notifier.InProgress):
+            yield result
+            result = result()
+        for child in result:
             data['length'] += child._beacon_data.get('length', 0) or 0
             for attr in check_attr:
                 value = child._beacon_data.get(attr, data[attr])
@@ -552,4 +573,6 @@ class Crawler(object):
 
         # check parent
         if directory._beacon_parent.filename in self.monitoring:
-            self._add_directory_attributes(directory._beacon_parent)
+            result = self._add_directory_attributes(directory._beacon_parent)
+            if isinstance(result, kaa.notifier.InProgress):
+                yield result
