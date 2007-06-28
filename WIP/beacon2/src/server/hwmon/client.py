@@ -137,7 +137,12 @@ class Client(object):
         self._device_add(dev)
 
 
+    @kaa.notifier.yield_execution(lock=True)
     def _device_scanned(self, metadata, dev):
+
+        # FIXME: ACTIVE WAITING:
+        while self.db.read_lock:
+            yield kaa.notifier.YieldContinue
 
         # FIXME: check if the device is still valid
         # FIXME: handle failed dvd detection
@@ -147,15 +152,13 @@ class Client(object):
             # pass rom drive
             type = metadata['mime'][6:]
             log.info('detect %s as %s' % (id, type))
-            mid = self.db.add_object("media", name=id, content=type,
-                                     beacon_immediately=True)['id']
+            mid = self.db.add_object("media", name=id, content=type)['id']
             # FIXME: better label
             vid = self.db.add_object("video",
                                      name="",
                                      parent=('media', mid),
                                      title=unicode(get_title(metadata['label'])),
-                                     media = mid,
-                                     beacon_immediately=True)['id']
+                                     media = mid)['id']
             self.db.commit(force=True)
             for track in metadata.tracks:
                 self.db.add_object('track_%s' % type, name='%02d' % track.trackno,
@@ -167,16 +170,14 @@ class Client(object):
         elif dev.get('volume.disc.has_audio') and metadata:
             # Audio CD
             log.info('detect %s as audio cd' % id)
-            mid = self.db.add_object("media", name=id, content='cdda',
-                                     beacon_immediately=True)['id']
+            mid = self.db.add_object("media", name=id, content='cdda')['id']
             # FIXME: better label
             aid = self.db.add_object("audio",
                                      name='',
                                      title = metadata.get('title'),
                                      artist = metadata.get('artist'),
                                      parent=('media', mid),
-                                     media = mid,
-                                     beacon_immediately=True)['id']
+                                     media = mid)['id']
             self.db.commit(force=True)
             for track in metadata.tracks:
                 self.db.add_object('track_cdda', name=str(track.trackno),
@@ -190,15 +191,13 @@ class Client(object):
 
         else:
             log.info('detect %s as normal filesystem' % id)
-            mid = self.db.add_object("media", name=id, content='file',
-                                     beacon_immediately=True)['id']
+            mid = self.db.add_object("media", name=id, content='file')['id']
             mtime = 0                   # FIXME: wrong for /
             if dev.get('block.device'):
                 mtime = os.stat(dev.get('block.device'))[stat.ST_MTIME]
             dir = self.db.add_object("dir",
                                      name="",
                                      parent=('media', mid),
-                                     media=mid, mtime=mtime,
-                                     beacon_immediately=True)
+                                     media=mid, mtime=mtime)
             self.db.commit(force=True)
         self._device_add(dev)

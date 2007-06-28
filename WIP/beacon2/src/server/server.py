@@ -331,10 +331,14 @@ class Server(object):
 
 
     @kaa.rpc.expose('item.update')
+    @kaa.notifier.yield_execution()
     def update(self, items):
         """
         Update items from the client.
         """
+        # FIXME: ACTIVE WAITING:
+        while self._db.read_lock:
+            yield kaa.notifier.YieldContinue
         for dbid, attributes in items:
             self._db.update_object(dbid, **attributes)
         self._db.commit()

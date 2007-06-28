@@ -232,6 +232,10 @@ class Database(object):
 
         pos = -1
 
+        # FIXME: ACTIVE WAITING:
+        while self.read_lock:
+            yield kaa.notifier.YieldContinue
+
         for pos, (f, fullname, overlay, stat_res) in enumerate(listing[0]):
             isdir = stat.S_ISDIR(stat_res[stat.ST_MODE])
             if pos == len(items):
@@ -250,8 +254,7 @@ class Database(object):
                     # no client == server == write access
                     # delete from database by adding it to the internal changes
                     # list. It will be deleted right before the next commit.
-                    self.changes.append(('delete', i, {}, None))
-                # delete
+                    self.delete_object(i)
             if pos < len(items) and f == items[pos]._beacon_name:
                 # same file
                 continue
@@ -267,12 +270,8 @@ class Database(object):
             if not self.client:
                 # no client == server == write access
                 for i in items[pos+1-len(items):]:
-                    self.changes.append(('delete', i, {}, None))
+                    self.delete_object(i)
             items = items[:pos+1-len(items)]
-
-        if self.changes:
-            # need commit because some items were deleted from the db
-            self.commit()
 
         # no need to sort the items again, they are already sorted based
         # on name, let us keep it that way. And name is unique in a directory.
@@ -474,37 +473,7 @@ class Database(object):
         t1 = time.time()
         # set internal variables
         changes = self.changes
-        changed_id = []
         self.changes = []
-        callbacks = []
-
-        # NOTE: Database will be locked now
-
-        # walk through the list of changes
-        for function, arg1, kwargs, callback in changes:
-            if function == 'delete':
-                # delete items and all subitems from the db. The delete function
-                # will return all ids deleted, callbacks are not allowed, so
-                # we can just continue
-                changed_id.extend(self._delete(arg1))
-                continue
-            if function == 'update':
-                try:
-                    self._db.update_object(arg1, **kwargs)
-                    changed_id.append(arg1)
-                except Exception, e:
-                    log.error('%s not in the db: %s: %s' % (arg1, e, kwargs))
-                continue
-            if function == 'add':
-                # arg1 is the type, kwargs should contain parent and name, the
-                # result is the return of a query, so it has (type, id)
-                result = self._db.add_object(arg1, **kwargs)
-                changed_id.append((result['type'], result['id']))
-                if callback:
-                    callbacks.append((callback, result))
-                continue
-            # programming error, this should never happen
-            log.error('unknown change <%s>' % function)
 
         # db commit
         t2 = time.time()
@@ -516,59 +485,37 @@ class Database(object):
         # some time debugging
         log.info('db.commit %d items; %.5fs (kaa.db commit %.5f / %.2f%%)' % \
                  (len(changes), t3-t1, t3-t2, (t3-t2)/(t3-t1)*100.0))
-        # now call all callbacks
-        for callback, result in callbacks:
-            callback(result)
         # fire db changed signal
-        self.signals['changed'].emit(changed_id)
+        self.signals['changed'].emit(changes)
 
 
-    def get_object(self, name, parent):
+    def add_object(self, type, metadata=None, **kwargs):
         """
-        Get the object with the given type, name and parent. This function will
-        look at the pending commits and also in the database.
+        Add an object to the db.
         """
-        for func, type, kwargs, callback  in self.changes:
-            if func == 'add' and 'name' in kwargs and kwargs['name'] == name \
-                   and 'parent' in kwargs and kwargs['parent'] == parent:
-                self.commit()
-                break
-        result = self._db.query(name=name, parent=parent)
-        if result:
-            return result[0]
-        return None
+        if self.read_lock:
+            raise IOError('database is locked')
 
-
-    def add_object(self, type, metadata=None, beacon_immediately=False,
-                   callback=None, **kwargs):
-        """
-        Add an object to the db. If the keyword 'beacon_immediately' is set,
-        the object will be added now and the db will be locked until the next
-        commit. To avoid locking, do not se the keyword, but this means that a
-        requery on the object won't find it before the next commit.
-        """
         if metadata:
             for key in self._db._object_types[type][1].keys():
                 if metadata.has_key(key) and metadata[key] != None and \
                        not key in kwargs:
                     kwargs[key] = metadata[key]
 
-        if beacon_immediately:
-            self.commit()
-            return self._db.add_object(type, **kwargs)
-        self.changes.append(('add', type, kwargs, callback))
+        result = self._db.add_object(type, **kwargs)
+        self.changes.append((result['type'], result['id']))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
+        return result
 
 
-    def update_object(self, (type, id), metadata=None,
-                      beacon_immediately=False, **kwargs):
+    def update_object(self, (type, id), metadata=None, **kwargs):
         """
-        Update an object to the db. If the keyword 'beacon_immediately' is set,
-        the object will be updated now and the db will be locked until the next
-        commit. To avoid locking, do not se the keyword, but this means that a
-        requery on the object will return the old values.
+        Update an object to the db.
         """
+        if self.read_lock:
+            raise IOError('database is locked')
+        
         if metadata:
             for key in self._db._object_types[type][1].keys():
                 if metadata.has_key(key) and metadata[key] != None and \
@@ -579,12 +526,16 @@ class Database(object):
             del kwargs['media']
         if isinstance(kwargs.get('media'), str):
             raise SystemError
-        self.changes.append(('update', (type, id), kwargs, None))
-        if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
+        self._db.update_object((type, id), **kwargs)
+        self.changes.append((type, id))
+        if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
 
     def update_object_type(self, (type, id), new_type):
+        if self.read_lock:
+            raise IOError('database is locked')
+
         old_entry = self._db.query(type=type, id=id)
         if not old_entry:
             # already changed by something
@@ -616,9 +567,12 @@ class Database(object):
         return metadata
 
 
-    def delete_object(self, item_or_type_id_list, beacon_immediately=False):
-        self.changes.append(('delete', item_or_type_id_list, {}, None))
-        if len(self.changes) > MAX_BUFFER_CHANGES or beacon_immediately:
+    def delete_object(self, item_or_type_id_list):
+        if self.read_lock:
+            raise IOError('database is locked')
+        for id in self._delete(item_or_type_id_list):
+            self.changes.append(id)
+        if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
 

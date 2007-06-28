@@ -125,6 +125,10 @@ def parse(db, item, store=False, check_image=False):
 @kaa.notifier.yield_execution()
 def _parse(db, item, mtime, store):
 
+    # FIXME: ACTIVE WAITING:
+    while db.read_lock:
+        yield kaa.notifier.YieldContinue
+
     parent = item._beacon_parent
     if not parent._beacon_id:
         # There is a parent without id, update the parent now. We know that the
@@ -138,15 +142,6 @@ def _parse(db, item, mtime, store):
         if not parent._beacon_id:
             # This should never happen
             raise AttributeError('parent for %s has no dbid' % item)
-
-    if not item._beacon_id:
-        # New file, maybe already added? Do a small check to be sure we don't
-        # add the same item to the db again.
-        data = db.get_object(item._beacon_data['name'], parent._beacon_id)
-        if data:
-            item._beacon_database_update(data)
-            if item._beacon_data.get('mtime') == mtime:
-                yield 0
 
     t1 = time.time()
 
@@ -177,8 +172,7 @@ def _parse(db, item, mtime, store):
         # The item changed its type. Adjust the db
         data = db.update_object_type(item._beacon_id, type)
         if not data:
-            log.warning('item to change not in the db anymore, try to find it')
-            data = db.get_object(item._beacon_data['name'], parent._beacon_id)
+            log.error('item to change not in the db anymore')
         log.info('change item %s to %s' % (item._beacon_id, type))
         item._beacon_database_update(data)
 
@@ -284,12 +278,12 @@ def _parse(db, item, mtime, store):
         # Create. Maybe the object is already in the db. This could happen
         # because of bad timing but should not matter. Only one entry will be
         # there after the next update
-        db.add_object(type, name=item._beacon_data['name'],
-                      parent=parent._beacon_id,
-                      overlay=item._beacon_overlay,
-                      callback=item._beacon_database_update,
-                      media=item._beacon_media._beacon_id[1],
-                      **attributes)
+        r = db.add_object(type, name=item._beacon_data['name'],
+                          parent=parent._beacon_id,
+                          overlay=item._beacon_overlay,
+                          media=item._beacon_media._beacon_id[1],
+                          **attributes)
+        item._beacon_database_update(r)
 
     if hasattr(metadata, 'tracks'):
         # The item has tracks, e.g. a dvd image on hd. Sync with the database

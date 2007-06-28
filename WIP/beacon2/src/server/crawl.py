@@ -226,6 +226,11 @@ class Crawler(object):
                 log.info('inotify: move to hidden file, delete')
                 self._inotify_event(INotify.DELETE, name)
                 yield True
+
+            # FIXME: ACTIVE WAITING:
+            while self.db.read_lock:
+                yield kaa.notifier.YieldContinue
+
             if move._beacon_id:
                 # New item already in the db, delete it first
                 log.info('inotify delete: %s', item)
@@ -308,11 +313,12 @@ class Crawler(object):
             yield True
             
         # The file does not exist, we need to delete it in the database
-        if self.db.get_object(item._beacon_data['name'],
-                              item._beacon_parent._beacon_id):
-            # Still in the db, delete it
-            log.info('inotify: delete %s', item)
-            self.db.delete_object(item, beacon_immediately=True)
+
+        # FIXME: ACTIVE WAITING:
+        while self.db.read_lock:
+            yield kaa.notifier.YieldContinue
+        log.info('inotify: delete %s', item)
+        self.db.delete_object(item)
 
         # remove directory and all subdirs from the inotify. The directory
         # is gone, so all subdirs are invalid, too.
@@ -566,6 +572,10 @@ class Crawler(object):
             # Mark that this image was taken based on this function, later
             # scans can remove it if it differs.
             data['image_from_items'] = True
+
+        # FIXME: ACTIVE WAITING:
+        while self.db.read_lock:
+            yield kaa.notifier.YieldContinue
 
         # update directory in database
         self.db.update_object(directory._beacon_id, **data)
