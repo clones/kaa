@@ -41,12 +41,12 @@ from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Timer, Callback
 
 # kaa.beacon imports
-from kaa.beacon.db import *
 from kaa.beacon.media import medialist
 
 # kaa.beacon server imports
 import parser
 import hwmon
+from db import *
 from monitor import Monitor
 from crawl import Crawler
 from config import config
