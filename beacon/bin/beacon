@@ -164,7 +164,7 @@ for o, a in opts:
     elif o == '--autoshutdown':
         shutdown = True
     elif o == '--logfile':
-        logfile = a
+        logfile = os.path.realpath(a)
     elif o == '--verbose':
         a = a.lower()
         if a == 'all':
