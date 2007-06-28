@@ -299,7 +299,11 @@ def _parse(db, item, mtime, store):
             log.error('%s metadata has no type', item)
             yield produced_load
         # delete all known tracks before adding new
-        for track in db.query(parent=item):
+        result = db.query(parent=item)
+        if isinstance(result, kaa.notifier.InProgress):
+            yield result
+            result = result()
+        for track in result:
             db.delete_object(track)
         if not 'track_%s' % metadata.get('type').lower() in \
            db.object_types().keys():
