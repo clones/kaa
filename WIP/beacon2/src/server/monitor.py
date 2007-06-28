@@ -35,6 +35,7 @@ import logging
 
 # kaa imports
 from kaa.weakref import weakref
+import kaa.notifier
 from kaa.notifier import OneShotTimer, Timer, yield_execution, YieldContinue
 
 # kaa.beacon imports
@@ -110,16 +111,10 @@ class Monitor(object):
         self._checking = False
         self._running = True
         self._check_changes = []
-        self.items = self._db.query(**self._query)
         if not Monitor._master:
             Monitor._master = Master(db)
         Monitor._master.connect(self)
-        if self.items and isinstance(self.items[0], Item):
-            self._initial_scan()
-
-        # FIXME: how to get updates on directories not monitored by
-        # inotify? Maybe poll the dirs when we have a query with
-        # dirname it it?
+        self._initial_scan()
 
 
     def notify_client(self, *args, **kwargs):
@@ -138,7 +133,7 @@ class Monitor(object):
         and will inform the client when there is a change.
         """
         if not self._running:
-            return True
+            yield True
 
         if self._checking:
             # Still checking. Question: What happens if new files are added
@@ -147,24 +142,29 @@ class Monitor(object):
             # better to wait here. Note: with inotify support this should not
             # happen often.
             self._check_changes.extend(changes)
-            return True
+            yield True
 
         if self._check_changes:
             changes = self._check_changes + changes
             self._check_changes = []
 
         current = self._db.query(**self._query)
+        if isinstance(current, kaa.notifier.InProgress):
+            self._checking = True
+            yield current
+            current = current()
+            self._checking = False
 
         # The query result length is different, this is a change
         if len(current) != len(self.items):
             log.info('monitor %s has changed', self.id)
             self.items = current
             self.notify_client('changed', True)
-            return True
+            yield True
 
         # Same length and length is 0. No change here
         if len(current) == 0:
-            return True
+            yield True
 
         # Same length, check for changes inside the items
         if isinstance(current[0], Item):
@@ -178,7 +178,7 @@ class Monitor(object):
                     log.info('monitor %s has changed', self.id)
                     self.items = current
                     self.notify_client('changed', True)
-                    return True
+                    yield True
                 if not changes and i._beacon_id in changes:
                     small_changes = True
             if small_changes:
@@ -186,8 +186,8 @@ class Monitor(object):
                 log.info('monitor %s has changed', self.id)
                 self.items = current
                 self.notify_client('changed', False)
-                return True
-            return True
+                yield True
+            yield True
 
         # Same length and items are not type Item. This means they are strings
         # from 'attr' query.
@@ -196,8 +196,8 @@ class Monitor(object):
             if last.pop(0) != c:
                 self.items = current
                 self.notify_client('changed', True)
-                return True
-        return True
+                yield True
+        yield True
 
 
     @yield_execution(0.01)
@@ -207,6 +207,19 @@ class Monitor(object):
         With a full structure covered by inotify, there should be not changes.
         """
         self._checking = True
+
+        current = self._db.query(**self._query)
+        if isinstance(current, kaa.notifier.InProgress):
+            yield current
+            current = current()
+        self.items = current
+        
+        if not self.items or not isinstance(self.items[0], Item):
+            # FIXME: how to get updates on directories not monitored by
+            # inotify? Maybe poll the dirs when we have a query with
+            # dirname it it?
+            yield False
+            
         changed = []
 
         c = 0
@@ -244,7 +257,11 @@ class Monitor(object):
 
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
-        self.items = self._db.query(**self._query)
+        current = self._db.query(**self._query)
+        if isinstance(current, kaa.notifier.InProgress):
+            yield current
+            current = current()
+        self.items = current
         # Do not send 'changed' signal here. The db was changed and the
         # master notification will do the rest. Just to make sure it will
         # happen, start a Timer
