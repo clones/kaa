@@ -255,6 +255,8 @@ class Crawler(object):
             self._scan_add(move._beacon_parent, recursive=False)
 
             if not mask & INotify.ISDIR:
+                # commit changes so that the client may get notified
+                self._db.commit()
                 yield True
 
             # The directory is a dir. We now remove all the monitors to that
@@ -263,6 +265,8 @@ class Crawler(object):
             self.monitoring.remove(name + '/', recursive=True)
             # now make sure the directory is parsed recursive again
             self._scan_add(move, recursive=True)
+            # commit changes so that the client may get notified
+            self._db.commit()
             yield True
 
         # ---------------------------------------------------------------------
@@ -328,6 +332,8 @@ class Crawler(object):
             self.monitoring.remove(name + '/', recursive=True)
         # rescan parent directory
         self._scan_add(item._beacon_parent, recursive=False)
+        # commit changes so that the client may get notified
+        self._db.commit()
         yield True
 
 
