@@ -443,8 +443,9 @@ class Crawler(object):
             yield []
             
         # parse directory
-        if parse(self.db, directory, check_image=self._startup):
-            yield kaa.notifier.YieldContinue
+        async = parse(self.db, directory, check_image=self._startup)
+        if isinstance(async, kaa.notifier.InProgress):
+            yield async
 
         # check if it is still a directory
         if not directory._beacon_isdir:
@@ -460,8 +461,9 @@ class Crawler(object):
             self.monitoring.add(directory.filename, use_inotify=False)
             dirname = os.path.realpath(directory.filename)
             directory = self.db.query(filename=dirname)
-            if parse(self.db, directory, check_image=self._startup):
-                yield kaa.notifier.YieldContinue
+            async = parse(self.db, directory, check_image=self._startup)
+            if isinstance(async, kaa.notifier.InProgress):
+                yield async
 
         # add to monitor list using inotify
         self.monitoring.add(directory.filename)
@@ -476,7 +478,11 @@ class Crawler(object):
                 subdirs.append(child)
                 continue
             # check file
-            counter += parse(self.db, child, check_image=self._startup) * 20
+            async = parse(self.db, child, check_image=self._startup) * 20
+            if isinstance(async, kaa.notifier.InProgress):
+                yield async
+                async = async()
+            counter += async
             while counter >= 20:
                 counter -= 20
                 yield kaa.notifier.YieldContinue

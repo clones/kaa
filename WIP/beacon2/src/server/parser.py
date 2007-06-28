@@ -41,6 +41,7 @@ import time
 # kaa imports
 from kaa.strutils import str_to_unicode
 import kaa.metadata
+import kaa.notifier
 import kaa.imlib2
 
 # kaa.beacon imports
@@ -97,23 +98,9 @@ def parse(db, item, store=False, check_image=False):
         log.warning('no mtime, skip %s' % item)
         return 0
 
-    parent = item._beacon_parent
-    if not parent:
+    if not item._beacon_parent:
         log.warning('no parent, skip %s' % item)
         return 0
-
-    if not parent._beacon_id:
-        # There is a parent without id, update the parent now. We know that the
-        # parent should be in the db, so commit and it should work
-        db.commit()
-        if not parent._beacon_id:
-            # Still not in the database? Well, this should never happen but does
-            # when we use some strange softlinks around the filesystem. So in
-            # that case we need to scan the parent, too.
-            parse(db, parent, True)
-        if not parent._beacon_id:
-            # This should never happen
-            raise AttributeError('parent for %s has no dbid' % item)
 
     if item._beacon_data.get('mtime') == mtime:
         # The item already is in the database and the mtime is unchanged.
@@ -132,6 +119,26 @@ def parse(db, item, store=False, check_image=False):
         else:
             return 0
 
+    return _parse(db, item, mtime, store)
+
+
+@kaa.notifier.yield_execution()
+def _parse(db, item, mtime, store):
+
+    parent = item._beacon_parent
+    if not parent._beacon_id:
+        # There is a parent without id, update the parent now. We know that the
+        # parent should be in the db, so commit and it should work
+        db.commit()
+        if not parent._beacon_id:
+            # Still not in the database? Well, this should never happen but does
+            # when we use some strange softlinks around the filesystem. So in
+            # that case we need to scan the parent, too.
+            parse(db, parent, True)
+        if not parent._beacon_id:
+            # This should never happen
+            raise AttributeError('parent for %s has no dbid' % item)
+
     if not item._beacon_id:
         # New file, maybe already added? Do a small check to be sure we don't
         # add the same item to the db again.
@@ -139,7 +146,7 @@ def parse(db, item, store=False, check_image=False):
         if data:
             item._beacon_database_update(data)
             if item._beacon_data.get('mtime') == mtime:
-                return 0
+                yield 0
 
     t1 = time.time()
 
@@ -290,14 +297,14 @@ def parse(db, item, store=False, check_image=False):
         db.commit()
         if not metadata.get('type'):
             log.error('%s metadata has no type', item)
-            return produced_load
+            yield produced_load
         # delete all known tracks before adding new
         for track in db.query(parent=item):
             db.delete_object(track)
         if not 'track_%s' % metadata.get('type').lower() in \
            db.object_types().keys():
             log.error('track_%s not in database keys', metadata.get('type').lower())
-            return produced_load
+            yield produced_load
         type = 'track_%s' % metadata.get('type').lower()
         for track in metadata.tracks:
             db.add_object(type, name=str(track.trackno),
@@ -310,4 +317,4 @@ def parse(db, item, store=False, check_image=False):
         db.commit()
 
     log.info('scan %s (%0.3f)' % (item, time.time() - t1))
-    return produced_load
+    yield produced_load

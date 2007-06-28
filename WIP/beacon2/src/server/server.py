@@ -255,6 +255,7 @@ class Server(object):
 
         
     @kaa.rpc.expose('monitor.directory')
+    @kaa.notifier.yield_execution()
     def monitor_dir(self, directory):
         """
         Monitor a directory in the background. One directories with a monitor
@@ -263,7 +264,7 @@ class Server(object):
         self._db.commit()
         if not os.path.isdir(directory):
             log.warning("monitor_dir: %s is not a directory." % directory)
-            return False
+            yield False
         # TODO: check if directory is already being monitored.
 
         directory = os.path.realpath(directory)
@@ -274,7 +275,9 @@ class Server(object):
                 break
             items.append(i)
         while items:
-            parser.parse(self._db, items.pop(), store=True)
+            async = parser.parse(self._db, items.pop(), store=True)
+            if isinstance(async, kaa.notifier.InProgress):
+                yield async
         self._db.commit()
         log.info('monitor %s on %s', directory, data._beacon_media)
         data._beacon_media.crawler.append(data)
@@ -330,6 +333,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('item.request')
+    @kaa.notifier.yield_execution()
     def request(self, filename):
         """
         Request item data.
@@ -342,9 +346,11 @@ class Server(object):
                 break
             items.append(i)
         while items:
-            parser.parse(self._db, items.pop(), store=True)
+            async = parser.parse(self._db, items.pop(), store=True)
+            if isinstance(async, kaa.notifier.InProgress):
+                yield async
         self._db.commit()
-        return data._beacon_data
+        yield data._beacon_data
 
 
     @kaa.rpc.expose('beacon.shutdown')
