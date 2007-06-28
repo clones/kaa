@@ -261,7 +261,6 @@ class Server(object):
         Monitor a directory in the background. One directories with a monitor
         running will update running query monitors.
         """
-        self._db.commit()
         if not os.path.isdir(directory):
             log.warning("monitor_dir: %s is not a directory." % directory)
             yield False
@@ -278,10 +277,9 @@ class Server(object):
                 break
             items.append(i)
         while items:
-            async = parser.parse(self._db, items.pop(), store=True)
+            async = parser.parse(self._db, items.pop())
             if isinstance(async, kaa.notifier.InProgress):
                 yield async
-        self._db.commit()
         log.info('monitor %s on %s', directory, data._beacon_media)
         data._beacon_media.crawler.append(data)
 
@@ -341,6 +339,7 @@ class Server(object):
             yield kaa.notifier.YieldContinue
         for dbid, attributes in items:
             self._db.update_object(dbid, **attributes)
+        # commit to update monitors
         self._db.commit()
 
 
@@ -350,7 +349,6 @@ class Server(object):
         """
         Request item data.
         """
-        self._db.commit()
         data = self._db.query(filename=filename)
         if isinstance(data, kaa.notifier.InProgress):
             yield data
@@ -361,10 +359,9 @@ class Server(object):
                 break
             items.append(i)
         while items:
-            async = parser.parse(self._db, items.pop(), store=True)
+            async = parser.parse(self._db, items.pop())
             if isinstance(async, kaa.notifier.InProgress):
                 yield async
-        self._db.commit()
         yield data._beacon_data
 
 

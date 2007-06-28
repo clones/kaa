@@ -99,7 +99,7 @@ class Crawler(object):
         Init the Crawler.
         Parameter db is a beacon.db.Database object.
         """
-        self.db = db
+        self._db = db
         Crawler.nextid += 1
         self.num = Crawler.nextid
 
@@ -193,7 +193,7 @@ class Crawler(object):
         # some debugging to find a bug in beacon
         log.info('inotify: event %s for "%s"', mask, name)
         
-        item = self.db.query(filename=name)
+        item = self._db.query(filename=name)
         if isinstance(item, kaa.notifier.InProgress):
             yield item
             item = item()
@@ -217,7 +217,7 @@ class Crawler(object):
 
         if mask & INotify.MOVE and args and item._beacon_id:
             # Move information with source and destination
-            move = self.db.query(filename=args[0])
+            move = self._db.query(filename=args[0])
             if isinstance(move, kaa.notifier.InProgress):
                 yield move
                 move = move()
@@ -228,13 +228,13 @@ class Crawler(object):
                 yield True
 
             # FIXME: ACTIVE WAITING:
-            while self.db.read_lock:
+            while self._db.read_lock:
                 yield kaa.notifier.YieldContinue
 
             if move._beacon_id:
                 # New item already in the db, delete it first
                 log.info('inotify delete: %s', item)
-                self.db.delete_object(move)
+                self._db.delete_object(move)
             changes = {}
             if item._beacon_parent._beacon_id != move._beacon_parent._beacon_id:
                 # Different directory, set new parent
@@ -248,8 +248,7 @@ class Crawler(object):
                 changes['name'] = move._beacon_data['name']
             if changes:
                 log.info('inotify: move: %s', changes)
-                self.db.update_object(item._beacon_id, **changes)
-            self.db.commit()
+                self._db.update_object(item._beacon_id, **changes)
 
             # Now both directories need to be checked again
             self._scan_add(item._beacon_parent, recursive=False)
@@ -315,10 +314,10 @@ class Crawler(object):
         # The file does not exist, we need to delete it in the database
 
         # FIXME: ACTIVE WAITING:
-        while self.db.read_lock:
+        while self._db.read_lock:
             yield kaa.notifier.YieldContinue
         log.info('inotify: delete %s', item)
-        self.db.delete_object(item)
+        self._db.delete_object(item)
 
         # remove directory and all subdirs from the inotify. The directory
         # is gone, so all subdirs are invalid, too.
@@ -409,10 +408,14 @@ class Crawler(object):
         # crawler finished
         self._scan_function = None
         self._startup = False
-        log.info('crawler %s finished; took %0.1f seconds.', self.num, time.time() - self._crawl_start_time)
+        log.info('crawler %s finished; took %0.1f seconds.', \
+                 self.num, time.time() - self._crawl_start_time)
         self._crawl_start_time = None
         Crawler.active -= 1
-        self.db.commit()
+
+        # commit changes so that the client may get notified
+        self._db.commit()
+
         if not self._inotify:
             # Inotify is not in use. This means we have to start crawling
             # the filesystem again in 10 seconds using the restart function.
@@ -456,7 +459,7 @@ class Crawler(object):
             yield []
             
         # parse directory
-        async = parse(self.db, directory, check_image=self._startup)
+        async = parse(self._db, directory, check_image=self._startup)
         if isinstance(async, kaa.notifier.InProgress):
             yield async
 
@@ -473,11 +476,11 @@ class Crawler(object):
             # list and with inotify using the realpath (later)
             self.monitoring.add(directory.filename, use_inotify=False)
             dirname = os.path.realpath(directory.filename)
-            directory = self.db.query(filename=dirname)
+            directory = self._db.query(filename=dirname)
             if isinstance(directory, kaa.notifier.InProgress):
                 yield directory
                 directory = directory()
-            async = parse(self.db, directory, check_image=self._startup)
+            async = parse(self._db, directory, check_image=self._startup)
             if isinstance(async, kaa.notifier.InProgress):
                 yield async
 
@@ -488,7 +491,7 @@ class Crawler(object):
         subdirs = []
         counter = 0
 
-        result = self.db.query(parent=directory)
+        result = self._db.query(parent=directory)
         if isinstance(result, kaa.notifier.InProgress):
             yield result
             result = result()
@@ -498,7 +501,7 @@ class Crawler(object):
                 subdirs.append(child)
                 continue
             # check file
-            async = parse(self.db, child, check_image=self._startup) * 20
+            async = parse(self._db, child, check_image=self._startup) * 20
             if isinstance(async, kaa.notifier.InProgress):
                 yield async
                 async = async()
@@ -531,7 +534,7 @@ class Crawler(object):
         check_attr = data.keys()[:]
         check_attr.remove('length')
 
-        result = self.db.query(parent=directory)
+        result = self._db.query(parent=directory)
         if isinstance(result, kaa.notifier.InProgress):
             yield result
             result = result()
@@ -574,11 +577,11 @@ class Crawler(object):
             data['image_from_items'] = True
 
         # FIXME: ACTIVE WAITING:
-        while self.db.read_lock:
+        while self._db.read_lock:
             yield kaa.notifier.YieldContinue
 
         # update directory in database
-        self.db.update_object(directory._beacon_id, **data)
+        self._db.update_object(directory._beacon_id, **data)
         directory._beacon_data.update(data)
 
         # check parent

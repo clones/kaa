@@ -253,6 +253,7 @@ class Monitor(object):
             if not self._running:
                 break
 
+        # commit changes so that the client may get notified
         self._db.commit()
 
         # The client will update its query on this signal, so it should

@@ -136,10 +136,6 @@ class Database(object):
         query functions ins this class depending on the query. This function
         may raise an AsyncProcess exception.
         """
-        # make sure db is ok
-        if not self.client:
-            self.commit()
-
         qlen = len(query)
         if not 'media' in query:
             # query only media we have right now
@@ -461,30 +457,25 @@ class Database(object):
     # (Except get_db_info which is only for debugging)
     # -------------------------------------------------------------------------
 
-    def commit(self, force=False):
+    def commit(self):
         """
         Commit changes to the database. All changes in the internal list
         are done first.
         """
-        if self.client or (not self.changes and not force):
-            return
-
-        # get time for debugging
+        if self.client:
+            raise RuntimeError('unable to commit for a client')
+        
+        # db commit
         t1 = time.time()
-        # set internal variables
+        self._db.commit()
+        t2 = time.time()
+
+        # some time debugging
+        log.info('db.commit %d items; kaa.db commit %.5f' % \
+                 (len(changes), t2-t1)
         changes = self.changes
         self.changes = []
 
-        # db commit
-        t2 = time.time()
-        self._db.commit()
-        t3 = time.time()
-
-        # NOTE: Database is unlocked again
-
-        # some time debugging
-        log.info('db.commit %d items; %.5fs (kaa.db commit %.5f / %.2f%%)' % \
-                 (len(changes), t3-t1, t3-t2, (t3-t2)/(t3-t1)*100.0))
         # fire db changed signal
         self.signals['changed'].emit(changes)
 
@@ -524,8 +515,6 @@ class Database(object):
 
         if 'media' in kwargs:
             del kwargs['media']
-        if isinstance(kwargs.get('media'), str):
-            raise SystemError
         self._db.update_object((type, id), **kwargs)
         self.changes.append((type, id))
         if len(self.changes) > MAX_BUFFER_CHANGES:
@@ -548,12 +537,9 @@ class Database(object):
         for key in self._db._object_types[new_type][1].keys():
             if not key == 'id' and key in old_entry:
                 metadata[key] = old_entry[key]
-        # add object to db keep the db in sync
-        self.commit()
 
         metadata = self._db.add_object(new_type, **metadata)
         new_beacon_id = (type, metadata['id'])
-        self._db.commit()
 
         # move all children to new parent
         for child in self._db.query(parent=(type, id)):
@@ -563,7 +549,6 @@ class Database(object):
 
         # delete old and sync the db again
         self.delete_object((type, id))
-        self.commit()
         return metadata
 
 
@@ -613,7 +598,6 @@ class Database(object):
         Delete media with the given id.
         """
         log.info('delete media %s', id)
-        self.commit()
         for child in self._db.query(media = id):
             self._db.delete_object((str(child['type']), child['id']))
         self._db.delete_object(('media', id))

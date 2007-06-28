@@ -159,14 +159,12 @@ class Client(object):
                                      parent=('media', mid),
                                      title=unicode(get_title(metadata['label'])),
                                      media = mid)['id']
-            self.db.commit(force=True)
             for track in metadata.tracks:
                 self.db.add_object('track_%s' % type, name='%02d' % track.trackno,
                                    parent=('video', vid), media=mid,
                                    mtime=0, chapters=track.chapters, length=track.length,
                                    audio=[ x.convert() for x in track.audio ],
                                    subtitles=[ x.convert() for x in track.subtitles ])
-            self.db.commit()
         elif dev.get('volume.disc.has_audio') and metadata:
             # Audio CD
             log.info('detect %s as audio cd' % id)
@@ -178,7 +176,6 @@ class Client(object):
                                      artist = metadata.get('artist'),
                                      parent=('media', mid),
                                      media = mid)['id']
-            self.db.commit(force=True)
             for track in metadata.tracks:
                 self.db.add_object('track_cdda', name=str(track.trackno),
                                    title=track.get('title'),
@@ -187,8 +184,6 @@ class Client(object):
                                    parent=('audio', aid),
                                    media=mid,
                                    mtime=0)
-            self.db.commit()
-
         else:
             log.info('detect %s as normal filesystem' % id)
             mid = self.db.add_object("media", name=id, content='file')['id']
@@ -199,5 +194,4 @@ class Client(object):
                                      name="",
                                      parent=('media', mid),
                                      media=mid, mtime=mtime)
-            self.db.commit(force=True)
         self._device_add(dev)

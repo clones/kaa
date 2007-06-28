@@ -86,7 +86,7 @@ def register(ext, function):
     extention_plugins[ext].append(function)
 
 
-def parse(db, item, store=False, check_image=False):
+def parse(db, item, check_image=False):
     """
     Main beacon parse function. Return the load this function produced:
     0 == nothing done
@@ -119,11 +119,11 @@ def parse(db, item, store=False, check_image=False):
         else:
             return 0
 
-    return _parse(db, item, mtime, store)
+    return _parse(db, item, mtime)
 
 
 @kaa.notifier.yield_execution()
-def _parse(db, item, mtime, store):
+def _parse(db, item, mtime):
 
     # FIXME: ACTIVE WAITING:
     while db.read_lock:
@@ -131,14 +131,10 @@ def _parse(db, item, mtime, store):
 
     parent = item._beacon_parent
     if not parent._beacon_id:
-        # There is a parent without id, update the parent now. We know that the
-        # parent should be in the db, so commit and it should work
-        db.commit()
-        if not parent._beacon_id:
-            # Still not in the database? Well, this should never happen but does
-            # when we use some strange softlinks around the filesystem. So in
-            # that case we need to scan the parent, too.
-            parse(db, parent, True)
+        # There is a parent without id, update the parent now.
+        r = parse(db, parent)
+        if isinstance(r, kaa.notifier.InProgress):
+            yield r
         if not parent._beacon_id:
             # This should never happen
             raise AttributeError('parent for %s has no dbid' % item)
@@ -265,10 +261,6 @@ def _parse(db, item, mtime, store):
         log.warning('change %s to %s for %s', item._beacon_id, type, item)
         db.delete_object(item._beacon_id)
         item._beacon_id = None
-        db.commit()
-
-    # Note: the items are not updated yet, the changes are still in
-    # the queue and will be added to the db on commit.
 
     if item._beacon_id:
         # Update
@@ -288,7 +280,6 @@ def _parse(db, item, mtime, store):
     if hasattr(metadata, 'tracks'):
         # The item has tracks, e.g. a dvd image on hd. Sync with the database
         # now and add the tracks.
-        db.commit()
         if not metadata.get('type'):
             log.error('%s metadata has no type', item)
             yield produced_load
@@ -309,10 +300,6 @@ def _parse(db, item, mtime, store):
                           parent=item._beacon_id,
                           media=item._beacon_media._beacon_id[1],
                           mtime=0, metadata=track)
-        db.commit()
-
-    if store:
-        db.commit()
 
     log.info('scan %s (%0.3f)' % (item, time.time() - t1))
     yield produced_load
