@@ -91,6 +91,9 @@ class Database(object):
             # client mode, nothing more to do
             return
 
+        # server lock when a client is doing something
+        self.read_lock = False
+        
         # register basic types
         self._db.register_object_type_attrs("dir",
             # This multi-column index optimizes queries on (name,parent) which
