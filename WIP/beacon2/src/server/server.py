@@ -269,6 +269,9 @@ class Server(object):
 
         directory = os.path.realpath(directory)
         data = self._db.query(filename = directory)
+        if isinstance(data, kaa.notifier.InProgress):
+            yield data
+            data = data()
         items = []
         for i in data._beacon_tree():
             if i._beacon_id:
@@ -284,6 +287,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('monitor.add')
+    @kaa.notifier.yield_execution()
     def monitor_add(self, client_id, request_id, query):
         """
         Create a monitor object to monitor a query for a client.
@@ -291,7 +295,11 @@ class Server(object):
         log.info('add monitor %s', query)
         if query and 'parent' in query:
             type, id = query['parent']
-            query['parent'] = self._db.query(type=type, id=id)[0]
+            result = self._db.query(type=type, id=id)[0]
+            if isinstance(result, kaa.notifier.InProgress):
+                yield result
+                result = result()
+            query['parent'] = result
 
         for id, client, monitors in self._clients:
             if id == client_id:
@@ -340,6 +348,9 @@ class Server(object):
         """
         self._db.commit()
         data = self._db.query(filename=filename)
+        if isinstance(data, kaa.notifier.InProgress):
+            yield data
+            data = data()
         items = []
         for i in data._beacon_tree():
             if i._beacon_id:
