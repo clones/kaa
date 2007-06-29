@@ -324,16 +324,23 @@ if mode in ('search', 'mount'):
         sys.exit(0)
 
 
-    if not monitor or result.valid:
-        t2 = time.time()
-        print_results(result)
-        print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
-        if not monitor:
+    if not monitor:
+        def print_results_and_exit(result):
+            t2 = time.time()
+            print_results(result)
+            print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
             sys.exit(0)
-    result.signals['changed'].connect(changed, result)
-    result.signals['progress'].connect(progress)
-    result.signals['up-to-date'].connect(uptodate)
-    result.monitor()
+        if not result.valid:
+            # Query is pending, connect to changed signal to display results.
+            result.signals['changed'].connect_once(print_results_and_exit, result)
+        else:
+            print_results_and_exit(result)
+    else:
+        result.signals['changed'].connect(changed, result)
+        result.signals['progress'].connect(progress)
+        result.signals['up-to-date'].connect(uptodate)
+        result.monitor()
+
     kaa.notifier.loop()
     sys.exit(0)
 

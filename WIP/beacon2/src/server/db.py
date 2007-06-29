@@ -49,7 +49,7 @@ from kaa.beacon.db import Database as RO_Database
 # get logging object
 log = logging.getLogger('beacon.db')
 
-MAX_BUFFER_CHANGES = 30
+MAX_BUFFER_CHANGES = 200
 
 # Item generation mapping
 from kaa.beacon.file import File as create_file

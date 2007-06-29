@@ -74,6 +74,7 @@ class Query(object):
         self._query = query
         self._client = client
         self.monitoring = False
+        # XXX: maybe 'completed' is better than 'valid'?
         self.valid = False
         self.result = []
         self._beacon_start_query(query, False)
@@ -165,6 +166,9 @@ class Query(object):
             wait = kaa.notifier.YieldCallback()
             self._client.signals['connect'].connect_once(wait)
             yield wait
+            emit_signal = True
+            # Since query was async, we need to emit 'changed' signal, so
+            # override emit_signal argument.
 
         if 'parent' in query and isinstance(query['parent'], Item) and \
                not query['parent']._beacon_id:
@@ -175,10 +179,16 @@ class Query(object):
             log.info('force data for %s', parent)
             parent._beacon_request(self._beacon_start_query, query, True)
             return
+
         self.result = self._client._beacon_query(**query)
+
         if isinstance(self.result, kaa.notifier.InProgress):
             yield self.result
             self.result = self.result()
+            # Since query was async, we need to emit 'changed' signal, so
+            # override emit_signal argument.
+            emit_signal = True
+
         self.valid = True
         if emit_signal:
             self.signals['changed'].emit()

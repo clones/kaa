@@ -355,6 +355,8 @@ class Database(object):
         parent structure. For files / directories this function won't check
         if they are still there.
         """
+        # FIXME: this function needs optimizing; adds at least 6 times the
+        # overhead on top of kaa.db.query
         result = []
         cache = {}
         counter = 0

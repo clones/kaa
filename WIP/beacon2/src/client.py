@@ -277,7 +277,11 @@ class Client(object):
         self.rpc('db.lock')
         result = self._db.query(**kwargs)
         if isinstance(result, kaa.notifier.InProgress):
-            result.connect(self.rpc, 'db.unlock')
+            cb = kaa.notifier.Callback(self.rpc, 'db.unlock')
+            # Call args will be the result set of the query.  We don't want to
+            # send this over RPC.
+            cb.set_ignore_caller_args()
+            result.connect(cb)
         else:
             self.rpc('db.unlock')
         return result
