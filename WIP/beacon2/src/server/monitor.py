@@ -36,7 +36,7 @@ import logging
 # kaa imports
 from kaa.weakref import weakref
 import kaa.notifier
-from kaa.notifier import OneShotTimer, Timer, yield_execution, YieldContinue
+from kaa.notifier import OneShotTimer, Timer, YieldContinue
 
 # kaa.beacon imports
 from kaa.beacon.item import Item
@@ -127,6 +127,7 @@ class Monitor(object):
             pass
 
 
+    @kaa.notifier.yield_execution()
     def check(self, changes):
         """
         This function compares the last query result with the current db status
@@ -200,7 +201,7 @@ class Monitor(object):
         yield True
 
 
-    @yield_execution(0.01)
+    @kaa.notifier.yield_execution(0.01)
     def _initial_scan(self):
         """
         Start scanning the current list of items if they need to be updated.
@@ -213,13 +214,13 @@ class Monitor(object):
             yield current
             current = current()
         self.items = current
-        
+
         if not self.items or not isinstance(self.items[0], Item):
             # FIXME: how to get updates on directories not monitored by
             # inotify? Maybe poll the dirs when we have a query with
             # dirname it it?
             yield False
-            
+
         changed = []
 
         c = 0

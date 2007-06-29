@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -165,7 +165,7 @@ class Query(object):
             wait = kaa.notifier.YieldCallback()
             self._client.signals['connect'].connect_once(wait)
             yield wait
-            
+
         if 'parent' in query and isinstance(query['parent'], Item) and \
                not query['parent']._beacon_id:
             # The parent we want to use has no database id. This can happen for
@@ -175,7 +175,7 @@ class Query(object):
             log.info('force data for %s', parent)
             parent._beacon_request(self._beacon_start_query, query, True)
             return
-        self.result = self._client.db.query(**query)
+        self.result = self._client._beacon_query(**query)
         if isinstance(self.result, kaa.notifier.InProgress):
             yield self.result
             self.result = self.result()
@@ -206,15 +206,20 @@ class Query(object):
     # Server callbacks for changes (called by client.notify)
     # -------------------------------------------------------------------------
 
-    def _beacon_callback_changed_check(self, result, send_signal):
+    @kaa.notifier.yield_execution()
+    def _beacon_callback_changed(self, send_signal):
         """
-        Check changes if there are only small changes created by ourself.
+        Changed message from server.
         """
+        result = self._client._beacon_query(**self._query)
+        if isinstance(result, kaa.notifier.InProgress):
+            yield result
+            result = result.get_result()
         if send_signal or len(self.result) != len(result):
             # The query result length is different
             self.result = result
             self.signals['changed'].emit()
-            return True
+            yield True
         current = self.result[:]
         for item in result:
             c = current.pop(0)
@@ -225,19 +230,9 @@ class Query(object):
                        item._beacon_data.get('mtime'):
                     self.result = result
                     self.signals['changed'].emit()
-                    return
+                    yield True
                 # This item was only updated by a client
                 # FIXME: we don't fire the changed signal here. Maybe we need
                 # a second signal to get information about internal changes
                 c._beacon_database_update(item._beacon_data)
-
-
-    def _beacon_callback_changed(self, send_signal):
-        """
-        Changed message from server.
-        """
-        result = self._client.db.query(**self._query)
-        if isinstance(self.result, kaa.notifier.InProgress):
-            result.connect(self._beacon_callback_changed_check, send_signal)
-            return None
-        self._beacon_callback_changed_check(result, send_signal)
+        yield False

@@ -4,11 +4,9 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# TODO: o Make it possible to override create_file
-#
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -58,6 +56,57 @@ from kaa.beacon.file import File as create_file
 from kaa.beacon.item import create_item
 
 
+class ReadLock(object):
+    """
+    Read lock for the database.
+    """
+    def __init__(self):
+        self._clients = 0
+        self.signals = kaa.notifier.Signals('lock', 'unlock')
+
+    def lock(self):
+        """
+        Lock the database for reading.
+        """
+        log.debug('lock++')
+        self._clients += 1
+        if self._clients == 1:
+            self.signals['lock'].emit()
+            log.debug('locked')
+
+
+    def unlock(self):
+        """
+        Unlock the database. If more than one lock was made
+        this will only decrease the lock variable but not
+        unlock the database.
+        """
+        log.debug('lock--')
+        self._clients -= 1
+        if self._clients == 0:
+            self.signals['unlock'].emit()
+            log.debug('unlocked')
+
+
+    def is_locked(self):
+        """
+        Return True if locked.
+        """
+        return self._clients
+
+
+    def yield_unlock(self):
+        """
+        Return YieldCallback object to wait until the db is
+        not used by any reader.
+        """
+        cb = kaa.notifier.YieldCallback()
+        self.signals['unlock'].connect_once(cb)
+        return cb
+
+
+
+
 class Database(RO_Database):
     """
     A kaa.db based database.
@@ -67,15 +116,16 @@ class Database(RO_Database):
         """
         Init function
         """
-        super(Database,self).__init__(dbdir, None)
+        super(Database,self).__init__(dbdir)
 
         # server lock when a client is doing something
-        self.read_lock = False
-        
+        self.read_lock = ReadLock()
+        self.read_lock.signals['lock'].connect_weak(self.commit)
+
         # register basic types
         self._db.register_object_type_attrs("dir",
             # This multi-column index optimizes queries on (name,parent) which
-            # is done for every object add/update, so must be fast.  All
+            # is done for every object add/update, so must be fast. All
             # object types will have this combined index.
             [("name", "parent_type", "parent_id")],
             name = (str, ATTR_KEYWORDS),
@@ -101,9 +151,6 @@ class Database(RO_Database):
 
     # -------------------------------------------------------------------------
     # Database access
-    #
-    # The database functions are only called for the server.
-    # (Except get_db_info which is only for debugging)
     # -------------------------------------------------------------------------
 
     def commit(self):
@@ -111,18 +158,21 @@ class Database(RO_Database):
         Commit changes to the database. All changes in the internal list
         are done first.
         """
+        if not self.changes:
+            # nothing to do
+            return True
+
         # db commit
         t1 = time.time()
         self._db.commit()
         t2 = time.time()
 
         # some time debugging
-        log.info('db.commit %d items; kaa.db commit %.5f' % \
-                 (len(changes), t2-t1)
-        changes = self.changes
-        self.changes = []
+        log.info('*** db.commit %d items: %.5f' % (len(self.changes), t2-t1))
 
         # fire db changed signal
+        changes = self.changes
+        self.changes = []
         self.signals['changed'].emit(changes)
 
 
@@ -130,7 +180,7 @@ class Database(RO_Database):
         """
         Add an object to the db.
         """
-        if self.read_lock:
+        if self.read_lock.is_locked():
             raise IOError('database is locked')
 
         if metadata:
@@ -138,6 +188,11 @@ class Database(RO_Database):
                 if metadata.has_key(key) and metadata[key] != None and \
                        not key in kwargs:
                     kwargs[key] = metadata[key]
+
+        if hasattr(kwargs.get('parent'), '_beacon_id'):
+            # fill in parent and media if parent is an Item
+            kwargs['media'] = kwargs.get('parent')._beacon_media._beacon_id[1]
+            kwargs['parent'] = kwargs.get('parent')._beacon_id
 
         result = self._db.add_object(type, **kwargs)
         self.changes.append((result['type'], result['id']))
@@ -150,9 +205,9 @@ class Database(RO_Database):
         """
         Update an object to the db.
         """
-        if self.read_lock:
+        if self.read_lock.is_locked():
             raise IOError('database is locked')
-        
+
         if metadata:
             for key in self._db._object_types[type][1].keys():
                 if metadata.has_key(key) and metadata[key] != None and \
@@ -161,14 +216,22 @@ class Database(RO_Database):
 
         if 'media' in kwargs:
             del kwargs['media']
-        self._db.update_object((type, id), **kwargs)
+        try:
+            self._db.update_object((type, id), **kwargs)
+        except AssertionError, e:
+            log.exception('update (%s,%s)', type, id)
+            raise e
         self.changes.append((type, id))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
 
     def update_object_type(self, (type, id), new_type):
-        if self.read_lock:
+        """
+        Change the type of an object. Returns complete db data
+        from the object with the new type.
+        """
+        if self.read_lock.is_locked():
             raise IOError('database is locked')
 
         old_entry = self._db.query(type=type, id=id)
@@ -193,7 +256,7 @@ class Database(RO_Database):
             id = (child['type'], child['id'])
             self._db.update_object(id, parent=new_beacon_id)
 
-        # delete old and sync the db again
+        # delete old
         self.delete_object((type, id))
         return metadata
 
@@ -211,14 +274,30 @@ class Database(RO_Database):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
             kwargs['image'] = (str, ATTR_SIMPLE)
         indices = [("name", "parent_type", "parent_id")]
-        return self._db.register_object_type_attrs(type, indices, *args, **kwargs)
+        return self._db.register_object_type_attrs(
+            type, indices, *args, **kwargs)
 
 
-    def delete_object(self, item_or_type_id_list):
-        if self.read_lock:
+    def _delete_object_recursive(self, entry):
+        """
+        """
+        log.info('delete %s', entry)
+        for child in self._db.query(parent = entry):
+            self._delete_object_recursive((child['type'], child['id']))
+        # FIXME: if the item has a thumbnail, delete it!
+        self._db.delete_object(entry)
+        self.changes.append(entry)
+
+
+    def delete_object(self, entry):
+        if self.read_lock.is_locked():
             raise IOError('database is locked')
-        for id in self._delete(item_or_type_id_list):
-            self.changes.append(id)
+        if isinstance(entry, Item):
+            entry = entry._beacon_id
+        if not entry:
+            log.error('unable to delete db entry None')
+            return True
+        self._delete_object_recursive(entry)
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
 
@@ -229,29 +308,17 @@ class Database(RO_Database):
         """
         log.info('delete media %s', id)
         for child in self._db.query(media = id):
-            self._db.delete_object((str(child['type']), child['id']))
+            entry = (str(child['type']), child['id'])
+            # FIXME: if the item has a thumbnail, delete it!
+            self._db.delete_object(entry)
+            self.changes.append(entry)
         self._db.delete_object(('media', id))
-        self._db.commit()
+        self.changes.append(('media', id))
+        self.commit()
 
 
-    # -------------------------------------------------------------------------
-    # Internal functions
-    # -------------------------------------------------------------------------
-
-
-    def _delete(self, entry):
+    def list_object_types(self):
         """
-        Delete item with the given id from the db and all items with that
-        items as parent (and so on). To avoid internal problems, make sure
-        commit is called just after this function is called.
+        Return the list of object type keys
         """
-        log.info('delete %s', entry)
-        if isinstance(entry, Item):
-            entry = entry._beacon_id
-        deleted = [ entry ]
-        for child in self._db.query(parent = entry):
-            deleted.extend(self._delete((child['type'], child['id'])))
-
-        # FIXME: if the item has a thumbnail, delete it!
-        self._db.delete_object(entry)
-        return deleted
+        return self._db._object_types.keys()

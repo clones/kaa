@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -172,7 +172,7 @@ def get_db_info():
         connect()
     while not _client.status == CONNECTED:
         kaa.notifier.step()
-    return _client.db.get_db_info()
+    return _client._beacon_db_information()
 
 
 def delete_media(id):

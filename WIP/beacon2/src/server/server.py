@@ -74,7 +74,7 @@ class Server(object):
         self.ipc.connect(self)
 
         self._dbdir = dbdir
-        self._db = Database(dbdir, None)
+        self._db = Database(dbdir)
         self._next_client = 0
 
         self._db.register_object_type_attrs("dir",
@@ -193,7 +193,7 @@ class Server(object):
         Return if clients are connected.
         """
         return len(self._clients) > 0
-    
+
 
     # -------------------------------------------------------------
     # hardware monitor callbacks
@@ -223,7 +223,7 @@ class Server(object):
             media.crawler.stop()
             media.crawler = None
 
-    
+
     # -------------------------------------------------------------
     # client RPC API
     # -------------------------------------------------------------
@@ -253,7 +253,24 @@ class Server(object):
         """
         self._db.delete_media(id)
 
-        
+
+    @kaa.rpc.expose('db.lock')
+    def db_lock(self):
+        """
+        Lock the database so clients can read
+        FIXME: if a client locks and dies before unlock the server is dead
+        """
+        self._db.read_lock.lock()
+
+
+    @kaa.rpc.expose('db.unlock')
+    def db_unlock(self):
+        """
+        Unlock the database again
+        """
+        self._db.read_lock.unlock()
+
+
     @kaa.rpc.expose('monitor.directory')
     @kaa.notifier.yield_execution()
     def monitor_dir(self, directory):
@@ -334,9 +351,9 @@ class Server(object):
         """
         Update items from the client.
         """
-        # FIXME: ACTIVE WAITING:
-        while self._db.read_lock:
-            yield kaa.notifier.YieldContinue
+        while self._db.read_lock.is_locked():
+            log.info('wait3')
+            yield self._db.read_lock.yield_unlock()
         for dbid, attributes in items:
             self._db.update_object(dbid, **attributes)
         # commit to update monitors
@@ -378,7 +395,7 @@ class Server(object):
         """
         Eject media with the given id
         """
-        dev = medialist.get(id)
+        dev = medialist.get_by_media_id(id)
         if not dev:
             log.error('eject: no device %s' % id)
             return False

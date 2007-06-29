@@ -9,7 +9,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -57,10 +57,10 @@ class Client(object):
 
 
     def set_database(self, handler, db, rootfs):
-        self.db = db
+        self._db = db
         # handler == beacon.Server
         self.handler = handler
-        medialist.connect(self.db, self)
+        medialist.connect(self)
         self.rpc('connect')
         self._device_add(rootfs)
 
@@ -79,19 +79,23 @@ class Client(object):
         return self.rpc('device.eject', dev.prop.get('beacon.id'))
 
 
+    def _beacon_media_information(self, media):
+        return self._db.query_media(media)
+
+
     @kaa.rpc.expose('device.add')
     def _device_add(self, dev):
         # FIXME: check if the device is still valid
 
         id = dev.get('beacon.id')
-        if medialist.get(id):
+        if medialist.get_by_media_id(id):
             # already in db
-            media = medialist.get(id)
+            media = medialist.get_by_media_id(id)
             media.update(dev)
             self.handler.media_changed(media)
             return
 
-        media = self.db.query_media(id, None)[0]
+        media = self._db.query_media(id)
         if not media:
             if not dev.get('volume.is_disc') == True:
                 # fake scanning for other media than rom drives
@@ -127,7 +131,7 @@ class Client(object):
     @kaa.rpc.expose('device.remove')
     def _device_remove(self, id):
         log.info('remove device %s' % id)
-        self.handler.media_removed(medialist.get(id))
+        self.handler.media_removed(medialist.get_by_media_id(id))
         medialist.remove(id)
 
 
@@ -141,8 +145,8 @@ class Client(object):
     def _device_scanned(self, metadata, dev):
 
         # FIXME: ACTIVE WAITING:
-        while self.db.read_lock:
-            yield kaa.notifier.YieldContinue
+        while self._db.read_lock.is_locked():
+            yield self._db.read_lock.yield_unlock()
 
         # FIXME: check if the device is still valid
         # FIXME: handle failed dvd detection
@@ -152,46 +156,40 @@ class Client(object):
             # pass rom drive
             type = metadata['mime'][6:]
             log.info('detect %s as %s' % (id, type))
-            mid = self.db.add_object("media", name=id, content=type)['id']
+            mid = self._db.add_object("media", name=id, content=type)['id']
             # FIXME: better label
-            vid = self.db.add_object("video",
-                                     name="",
-                                     parent=('media', mid),
-                                     title=unicode(get_title(metadata['label'])),
+            vid = self._db.add_object(
+                "video", name="", parent=('media', mid),
+                title=unicode(get_title(metadata['label'])),
                                      media = mid)['id']
             for track in metadata.tracks:
-                self.db.add_object('track_%s' % type, name='%02d' % track.trackno,
-                                   parent=('video', vid), media=mid,
-                                   mtime=0, chapters=track.chapters, length=track.length,
-                                   audio=[ x.convert() for x in track.audio ],
-                                   subtitles=[ x.convert() for x in track.subtitles ])
+                self._db.add_object(
+                    'track_%s' % type, name='%02d' % track.trackno,
+                    parent=('video', vid), media=mid,
+                    mtime=0, chapters=track.chapters, length=track.length,
+                    audio=[ x.convert() for x in track.audio ],
+                    subtitles=[ x.convert() for x in track.subtitles ])
         elif dev.get('volume.disc.has_audio') and metadata:
             # Audio CD
             log.info('detect %s as audio cd' % id)
-            mid = self.db.add_object("media", name=id, content='cdda')['id']
+            mid = self._db.add_object("media", name=id, content='cdda')['id']
             # FIXME: better label
-            aid = self.db.add_object("audio",
-                                     name='',
-                                     title = metadata.get('title'),
-                                     artist = metadata.get('artist'),
-                                     parent=('media', mid),
-                                     media = mid)['id']
+            aid = self._db.add_object(
+                "audio", name='', title = metadata.get('title'),
+                artist = metadata.get('artist'), parent=('media', mid),
+                media = mid)['id']
             for track in metadata.tracks:
-                self.db.add_object('track_cdda', name=str(track.trackno),
-                                   title=track.get('title'),
-                                   artist=track.get('artist'),
-                                   album=metadata.get('title'),
-                                   parent=('audio', aid),
-                                   media=mid,
-                                   mtime=0)
+                self._db.add_object(
+                    'track_cdda', name=str(track.trackno),
+                    title=track.get('title'), artist=track.get('artist'),
+                    album=metadata.get('title'), parent=('audio', aid),
+                    media=mid, mtime=0)
         else:
             log.info('detect %s as normal filesystem' % id)
-            mid = self.db.add_object("media", name=id, content='file')['id']
+            mid = self._db.add_object("media", name=id, content='file')['id']
             mtime = 0                   # FIXME: wrong for /
             if dev.get('block.device'):
                 mtime = os.stat(dev.get('block.device'))[stat.ST_MTIME]
-            dir = self.db.add_object("dir",
-                                     name="",
-                                     parent=('media', mid),
-                                     media=mid, mtime=mtime)
+            dir = self._db.add_object(
+                "dir", name="", parent=('media', mid), media=mid, mtime=mtime)
         self._device_add(dev)

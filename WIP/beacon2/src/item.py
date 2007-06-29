@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -158,7 +158,7 @@ class Item(object):
             return
         self._beacon_data[key] = value
         if not self._beacon_changes:
-            self._beacon_controller()._beacon_update(self)
+            self.get_controller()._beacon_update(self)
         self._beacon_changes[key] = value
 
 
@@ -190,7 +190,7 @@ class Item(object):
         """
         if not self._beacon_id:
             return []
-        return self._beacon_controller().query(parent=self)
+        return self.get_controller().query(parent=self)
 
 
     def isdir(self):
@@ -235,11 +235,11 @@ class Item(object):
     # Internal API for client
     # -------------------------------------------------------------------------
 
-    def _beacon_controller(self):
+    def get_controller(self):
         """
         Get the controller (the client or the server)
         """
-        return self._beacon_media._beacon_controller()
+        return self._beacon_media.get_controller()
 
 
     def _beacon_request(self):

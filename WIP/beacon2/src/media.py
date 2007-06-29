@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -49,8 +49,7 @@ class Media(object):
 
     # check what mounpoint needs right now
 
-    def __init__(self, id, db, controller, prop):
-        self._db = db
+    def __init__(self, id, controller, prop):
         self._controller = controller
         self.id = id
         self.update(prop)
@@ -63,7 +62,8 @@ class Media(object):
         # when we are here the media is in the database and also
         # the item for it
 
-    def _beacon_controller(self):
+
+    def get_controller(self):
         """
         Get the controller (the client or the server)
         """
@@ -71,10 +71,16 @@ class Media(object):
 
 
     def eject(self):
+        """
+        Eject the media.
+        """
         self._controller.eject(self)
 
 
     def update(self, prop):
+        """
+        Update media properties.
+        """
         self.prop = prop
         self.device = str(prop.get('block.device'))
         self.mountpoint = str(prop.get('volume.mount_point'))
@@ -82,11 +88,9 @@ class Media(object):
             self.mountpoint = self.device
         if not self.mountpoint.endswith('/'):
             self.mountpoint += '/'
-        self.overlay = os.path.join(self._db.dbdir, self.id)
         self._beacon_media = weakref(self)
         # get basic information from database
-        media, self._beacon_id, self.root = \
-               self._db.query_media(self.id, self)
+        media = self._controller._beacon_media_information(self)
         prop['beacon.content'] = media['content']
         self._beacon_isdir = False
         if media['content'] == 'file':
@@ -111,9 +115,6 @@ class Media(object):
         else:
             self.label = self.id
 
-#     def __del__(self):
-#         print 'del', self
-
     def get(self, key):
         return self.prop.get(key)
 
@@ -131,43 +132,67 @@ class MediaList(object):
 
     def __init__(self):
         self._dict = dict()
-        self.idlist = []
-        self.db = None
-        self.controller = None
+        self._idlist = []
+        self._controller = None
 
 
-    def connect(self, db, controller):
+    def connect(self, controller):
+        """
+        Connect a controller to the medialist.
+        """
         for media in self._dict.keys()[:]:
             self.remove(media)
-        self.db = db
-        self.controller = controller
+        self._controller = controller
 
 
     def add(self, id, prop):
-        if not self.db:
+        """
+        Add a media.
+        """
+        if not self._controller:
             raise RuntimeError('not connected to database')
         if id in self._dict:
             return self._dict.get(id)
-        media = Media(id, self.db, self.controller, prop)
+        media = Media(id, self._controller, prop)
         self._dict[id] = media
-        self.idlist = [ m._beacon_id[1] for m in self._dict.values() ]
+        self._idlist = [ m._beacon_id[1] for m in self._dict.values() ]
         return media
 
 
     def remove(self, id):
+        """
+        Remove a media
+        """
         if not id in self._dict:
             log.error('%s not in list' % id)
             return None
         media = self._dict.pop(id)
-        self.idlist = [ m._beacon_id[1] for m in self._dict.values() ]
+        self._idlist = [ m._beacon_id[1] for m in self._dict.values() ]
         return media
 
 
-    def get(self, id):
+    def get_by_media_id(self, id):
+        """
+        Get media object by media id. If the id is not found return None.
+        """
         return self._dict.get(id)
 
 
-    def mountpoint(self, dirname):
+    def get_by_beacon_id(self, id):
+        """
+        Get media object by beacon id. If the id is not found return None.
+        """
+        for m in self._dict.values():
+            if m._beacon_id == id:
+                return m
+        return None
+
+
+    def get_by_directory(self, dirname):
+        """
+        Get media for the current directory. If the current directory
+        is on no media return None (this should never happen)
+        """
         if not dirname.endswith('/'):
             dirname += '/'
         all = self._dict.values()[:]
@@ -178,14 +203,17 @@ class MediaList(object):
         return None
 
 
-    def beacon_id(self, id):
-        for m in self._dict.values():
-            if m._beacon_id == id:
-                return m
-        return None
+    def get_all_beacon_ids(self):
+        """
+        Return a list of beacon ids for all mounted media.
+        """
+        return self._idlist
 
 
     def __iter__(self):
+        """
+        Iterate over all media objects.
+        """
         return self._dict.values().__iter__()
 
 

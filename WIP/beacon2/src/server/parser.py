@@ -8,7 +8,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -92,15 +92,26 @@ def parse(db, item, check_image=False):
     0 == nothing done
     1 == normal parsing
     2 == thumbnail storage
+    This function may return an InProgress object
     """
     mtime = item._beacon_mtime()
     if mtime == None:
         log.warning('no mtime, skip %s' % item)
         return 0
 
-    if not item._beacon_parent:
+    parent = item._beacon_parent
+    
+    if not parent:
         log.warning('no parent, skip %s' % item)
         return 0
+
+    if parent._beacon_id and not item._beacon_id:
+        # check if the item is in the db now from a different
+        # list of items. FIXME: this kind of query would never
+        # return an InProgress object! This has to be made clear.
+        r = db.query(name=item._beacon_data['name'], parent=parent)
+        if r:
+            item._beacon_database_update(r[0])
 
     if item._beacon_data.get('mtime') == mtime:
         # The item already is in the database and the mtime is unchanged.
@@ -119,16 +130,21 @@ def parse(db, item, check_image=False):
         else:
             return 0
 
+    # looks like we have more to do. Start the yield_execution
+    # part of the parser
     return _parse(db, item, mtime)
 
 
 @kaa.notifier.yield_execution()
 def _parse(db, item, mtime):
+    """
+    Parse the item, this can take a while.
+    """
 
-    # FIXME: ACTIVE WAITING:
-    while db.read_lock:
-        yield kaa.notifier.YieldContinue
-
+    #
+    # Parent checking
+    #
+    
     parent = item._beacon_parent
     if not parent._beacon_id:
         # There is a parent without id, update the parent now.
@@ -138,6 +154,18 @@ def _parse(db, item, mtime):
         if not parent._beacon_id:
             # This should never happen
             raise AttributeError('parent for %s has no dbid' % item)
+        # we had no parent id which we have now. Restart the whole
+        # parsing process. maye this item was in the db already
+        r = parse(db, parent)
+        if isinstance(r, kaa.notifier.InProgress):
+            yield r
+            yield r.get_result()
+        yield r
+
+
+    #
+    # Metadata parsing
+    #
 
     t1 = time.time()
 
@@ -145,6 +173,8 @@ def _parse(db, item, mtime):
     # - always force (slow but best result)
     # - never force (faster but maybe wrong)
     # - only force on media 1 (good default)
+
+    # FIXME: put scanning in a thread for item with media != root
     metadata = kaa.metadata.parse(item.filename)
     if not metadata:
         metadata = {}
@@ -152,12 +182,12 @@ def _parse(db, item, mtime):
     attributes = { 'mtime': mtime, 'image': metadata.get('image') }
 
     if metadata.get('media') == kaa.metadata.MEDIA_DISC and \
-           db.object_types().has_key(metadata.get('subtype')):
+           metadata.get('subtype') in db.list_object_types():
         type = metadata['subtype']
         if metadata.get('type'):
             attributes['scheme'] = '%s://' % metadata.get('type').lower()
         item._beacon_isdir = False
-    elif db.object_types().has_key(media_types.get(metadata.get('media'))):
+    elif media_types.get(metadata.get('media')) in db.list_object_types():
         type = media_types.get(metadata['media'])
     elif item._beacon_isdir:
         type = 'dir'
@@ -166,6 +196,9 @@ def _parse(db, item, mtime):
 
     if item._beacon_id and type != item._beacon_id[0]:
         # The item changed its type. Adjust the db
+        while db.read_lock.is_locked():
+            # wait for the db to be free for write access
+            yield db.read_lock.yield_unlock()
         data = db.update_object_type(item._beacon_id, type)
         if not data:
             log.error('item to change not in the db anymore')
@@ -173,6 +206,7 @@ def _parse(db, item, mtime):
         item._beacon_database_update(data)
 
 
+    #
     # Thumbnail / Cover / Image stuff.
     #
     # Note: when beacon is stopped after the parsing is saved and before the
@@ -246,8 +280,14 @@ def _parse(db, item, mtime):
         title = get_title(item._beacon_data['name'])
         metadata['title'] = str_to_unicode(title)
 
+
+    #
+    # Database code
+    #
     # add kaa.metadata results, the db module will add everything known
-    # to the db.
+    # to the db. After that add or update the database.
+    #
+
     attributes['metadata'] = metadata
 
     # now call extention plugins
@@ -256,50 +296,49 @@ def _parse(db, item, mtime):
         for function in extention_plugins[ext]:
             function(item, attributes)
 
-    if item._beacon_id and item._beacon_id[0] != type:
-        # the type changed, we need to delete the old entry
-        log.warning('change %s to %s for %s', item._beacon_id, type, item)
-        db.delete_object(item._beacon_id)
-        item._beacon_id = None
+    while db.read_lock.is_locked():
+        # wait for the db to be free for write access
+        yield db.read_lock.yield_unlock()
 
     if item._beacon_id:
-        # Update
+        # Update old db entry
         db.update_object(item._beacon_id, **attributes)
         item._beacon_data.update(attributes)
     else:
-        # Create. Maybe the object is already in the db. This could happen
-        # because of bad timing but should not matter. Only one entry will be
-        # there after the next update
-        r = db.add_object(type, name=item._beacon_data['name'],
-                          parent=parent._beacon_id,
-                          overlay=item._beacon_overlay,
-                          media=item._beacon_media._beacon_id[1],
-                          **attributes)
+        # Create new entry
+        r = db.add_object(type, name=item._beacon_data['name'], parent=parent,
+                          overlay=item._beacon_overlay, **attributes)
         item._beacon_database_update(r)
 
+    #
+    # Additional track handling
+    #
+
     if hasattr(metadata, 'tracks'):
-        # The item has tracks, e.g. a dvd image on hd. Sync with the database
-        # now and add the tracks.
+        # The item has tracks, e.g. a dvd image on hd.
         if not metadata.get('type'):
             log.error('%s metadata has no type', item)
             yield produced_load
+
         # delete all known tracks before adding new
         result = db.query(parent=item)
         if isinstance(result, kaa.notifier.InProgress):
             yield result
-            result = result()
+            result = result.get_result()
         for track in result:
             db.delete_object(track)
+
         if not 'track_%s' % metadata.get('type').lower() in \
-           db.object_types().keys():
-            log.error('track_%s not in database keys', metadata.get('type').lower())
+               db.list_object_types():
+            key = metadata.get('type').lower()
+            log.error('track_%s not in database keys', key)
             yield produced_load
         type = 'track_%s' % metadata.get('type').lower()
         for track in metadata.tracks:
-            db.add_object(type, name=str(track.trackno),
-                          parent=item._beacon_id,
-                          media=item._beacon_media._beacon_id[1],
+            db.add_object(type, name=str(track.trackno), parent=item,
                           mtime=0, metadata=track)
 
+
+    # parsing done
     log.info('scan %s (%0.3f)' % (item, time.time() - t1))
     yield produced_load

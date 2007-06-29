@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -96,7 +96,7 @@ class File(Item):
         if self._beacon_data.get('scheme'):
             self.url = self._beacon_data.get('scheme') + \
                        self.url[self.url.find('://')+3:]
-        
+
         self._beacon_overlay = overlay
         self._beacon_isdir = isdir
         self._beacon_islink = False
@@ -118,8 +118,8 @@ class File(Item):
         Interface to kaa.beacon: List all files in the directory.
         """
         if recursive:
-            return self._beacon_controller().query(parent=self, recursive=True)
-        return self._beacon_controller().query(parent=self)
+            return self.get_controller().query(parent=self, recursive=True)
+        return self.get_controller().query(parent=self)
 
 
     # -------------------------------------------------------------------------
@@ -230,7 +230,7 @@ class File(Item):
         """
         Request the item to be scanned.
         """
-        f = self._beacon_controller()._beacon_request
+        f = self.get_controller()._beacon_request
         f(self.filename, self._beacon_database_update, callback,
           *args, **kwargs)
         return None
