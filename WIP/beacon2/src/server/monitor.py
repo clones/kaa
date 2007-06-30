@@ -116,6 +116,9 @@ class Monitor(object):
         Monitor._master.connect(self)
         self._initial_scan()
 
+        # FIXME: how to get updates on directories not monitored by
+        # inotify? Maybe poll the dirs when we have a query with
+        # dirname it it?
 
     def notify_client(self, *args, **kwargs):
         """
@@ -216,9 +219,7 @@ class Monitor(object):
         self.items = current
 
         if not self.items or not isinstance(self.items[0], Item):
-            # FIXME: how to get updates on directories not monitored by
-            # inotify? Maybe poll the dirs when we have a query with
-            # dirname it it?
+            self._checking = False
             yield False
 
         changed = []
