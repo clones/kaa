@@ -379,6 +379,12 @@ class X11Window(object):
     def get_fullscreen(self):
         return self._fs_size_save != None
 
+    def set_transient_for(self, window=None, transient=True):
+        win_id = 0
+        if window:
+            win_id = window.get_id()
+        return self._window.set_transient_for(win_id, transient)
+
     def get_id(self):
         return self._window.wid
 

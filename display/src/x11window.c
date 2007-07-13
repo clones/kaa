@@ -280,6 +280,32 @@ X11Window_PyObject__set_fullscreen(X11Window_PyObject *self, PyObject *args)
 }
 
 PyObject *
+X11Window_PyObject__set_transient_for_hint(X11Window_PyObject *self, PyObject *args)
+{
+    int win_id, transient;
+
+    if (!PyArg_ParseTuple(args, "ii", &win_id, &transient))
+        return NULL;
+
+    XLockDisplay(self->display);
+    XUngrabPointer(self->display, CurrentTime);
+    if (!transient)
+    {
+        XDeleteProperty(self->display, self->window, XA_WM_TRANSIENT_FOR);
+    } else
+    {
+        if (!win_id)
+        {
+            win_id = DefaultRootWindow(self->display);
+        }
+        XSetTransientForHint(self->display, self->window, win_id);
+    }
+    XSync(self->display, False);
+    XUnlockDisplay(self->display);
+    return PyBool_FromLong((long) transient);
+}
+
+PyObject *
 X11Window_PyObject__get_visible(X11Window_PyObject * self, PyObject * args)
 {
     XWindowAttributes attrs;
@@ -309,6 +335,7 @@ PyMethodDef X11Window_PyObject_methods[] = {
     { "get_geometry", (PyCFunction)X11Window_PyObject__get_geometry, METH_VARARGS },
     { "set_cursor_visible", (PyCFunction)X11Window_PyObject__set_cursor_visible, METH_VARARGS },
     { "set_fullscreen", (PyCFunction)X11Window_PyObject__set_fullscreen, METH_VARARGS },
+    { "set_transient_for", (PyCFunction)X11Window_PyObject__set_transient_for_hint, METH_VARARGS },
     { "get_visible", (PyCFunction)X11Window_PyObject__get_visible, METH_VARARGS },
     { "focus", (PyCFunction)X11Window_PyObject__focus, METH_VARARGS },
     { NULL, NULL }
