@@ -9,6 +9,11 @@ from BeautifulSoup import BeautifulSoup
 import feedparser
 
 import kaa.notifier
+import kaa.beacon
+
+for t in ('video', 'audio', 'image'):
+    kaa.beacon.register_file_type_attrs(
+        t, mediafeed_channel = (int, kaa.beacon.ATTR_SIMPLE))
 
 # ##################################################################
 # Brain Dump
@@ -162,6 +167,32 @@ class Channel(object):
             if num == 0:
                 return
 
+    @kaa.notifier.yield_execution()
+    def store_in_beacon(self, num, destdir):
+        d = kaa.beacon.get(destdir)
+        items = {}
+        for i in d.list():
+            if i.get('mediafeed_channel') == self.url:
+                items[i.url] = i
+    
+        for entry in self:
+            if isinstance(entry, kaa.notifier.InProgress):
+                # dummy entry to signal waiting
+                yield entry
+                continue
+    
+            if entry.url in items:
+                del items[entry.url]
+            else:
+                i = kaa.beacon.add_item(type='video', parent=d,
+                                        mediafeed_channel=self.url, **entry) 
+            num -= 1
+            if num == 0:
+                break
+    
+        for i in items.values():
+            i.delete()
+    
 
 # ##################################################################
 # specific channels
@@ -268,17 +299,23 @@ class Filter(Channel):
             if self._filter(f):
                 yield f
 
-# c = Stage6('Diva-Channel')
-# f = Filter(c, lambda(e): 'Lisa Loeb' in e.title)
-# f.update('/local/video')
+if 0:
+    c = Stage6('Diva-Channel')
+    f = Filter(c, lambda(e): 'Garbage' in e.title)
+    f.update('/local/video')
+    
+    # f = Stage6('Diva-Channel')
+    # f.update('/local/video/MusicVideo', 2)
+    
+    # f = RSS('http://www.tagesschau.de/export/video-podcast')
+    # f.update('/local/video', 2).connect(sys.exit)
+    
+    # f = YouTube(tags='robot chicken')
+    # f.update('/local/video', 2)
 
-# f = Stage6('Diva-Channel')
-# f.update('/local/video/MusicVideo', 2)
-
-f = RSS('http://www.tagesschau.de/export/video-podcast')
-f.update('/local/video', 2).connect(sys.exit)
-
-# f = YouTube(tags='robot chicken')
-# f.update('/local/video', 2)
-
+if 1:
+    kaa.beacon.connect()
+    f = RSS('http://www.tagesschau.de/export/video-podcast')
+    f.store_in_beacon(2, '/local/video2').connect(sys.exit)
+    
 kaa.notifier.loop()
