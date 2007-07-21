@@ -207,6 +207,13 @@ class Item(object):
         return not self._beacon_isdir and self.filename != ''
 
 
+    def delete(self):
+        """
+        Delete item from the database (does not work on files)
+        """
+        return self.get_controller().delete_item(self)
+
+
     # -------------------------------------------------------------------------
     # Internal API for client and server
     # -------------------------------------------------------------------------
@@ -297,6 +304,8 @@ def create_item(data, parent):
     data = dict(data)
     if 'url' in data:
         url = data['url']
+    elif '://' in data['name']:
+        url = data['name']
     else:
         url = parent.url
         if data['name']:

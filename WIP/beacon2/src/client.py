@@ -42,6 +42,7 @@ import logging
 # kaa imports
 import kaa
 import kaa.rpc
+import kaa.strutils
 from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Signal
 
@@ -49,6 +50,7 @@ from kaa.notifier import OneShotTimer, Signal
 from db import Database
 from query import Query
 from media import medialist
+from item import Item
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -121,6 +123,29 @@ class Client(object):
         result = Query(self, **query)
         self._queries.append(weakref(result))
         return result
+
+
+    def add_item(self, url, type, parent, **kwargs):
+        """
+        Add non-file item item.
+        """
+        if self.status == DISCONNECTED:
+            return None
+        if isinstance(url, unicode):
+            url = kaa.strutils.unicode_to_str(url)
+        kwargs['scheme'] = url[:url.find('://')]
+        kwargs['name'] = url
+        i = Item(None, url, kwargs, parent, parent._beacon_media)
+        rpc = self.rpc('item.create', type=type, parent=parent._beacon_id, **kwargs)
+        rpc.connect(i._beacon_database_update)
+        return i
+
+
+    def delete_item(self, item):
+        """
+        Delete non-file item item.
+        """
+        self.rpc('item.delete', item._beacon_id)
 
 
     def monitor(self, directory):

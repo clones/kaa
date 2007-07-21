@@ -145,6 +145,15 @@ def monitor(directory):
     return _client.monitor(directory)
 
 
+def add_item(url, type, parent, **kwargs):
+    """
+    Add an item to the database (not to be used for files).
+    """
+    if not _client:
+        connect()
+    return _client.add_item(url, type, parent, **kwargs)
+
+    
 def register_file_type_attrs(name, **kwargs):
     """
     Register new attrs and types for files.

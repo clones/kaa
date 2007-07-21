@@ -56,6 +56,13 @@ MAX_BUFFER_CHANGES = 30
 from file import File as create_file
 from item import create_item
 
+def create_by_type(data, parent, overlay=False, isdir=False):
+    if data.get('scheme') not in (None, 'file'):
+        return create_item(data, parent)
+    return create_file(data, parent, overlay, isdir)
+
+def create_directory(data, parent):
+    return create_file(data, parent, isdir=True)
 
 class Database(object):
     """
@@ -157,7 +164,7 @@ class Database(object):
         media._beacon_id = dbid
         root = self._db.query(parent=dbid)[0]
         if root['type'] == 'dir':
-            media.root = create_file(root, media, isdir=True)
+            media.root = create_directory(root, media)
         else:
             media.root = create_item(root, media)
         return result
@@ -189,8 +196,9 @@ class Database(object):
 
         items = []
         if parent._beacon_id:
-            items = [ create_file(i, parent, isdir=i['type'] == 'dir') \
+            items = [ create_by_type(i, parent, isdir=i['type'] == 'dir') \
                       for i in self._db.query(parent = parent._beacon_id) ]
+
         # sort items based on name. The listdir is also sorted by name,
         # that makes checking much faster
         items.sort(lambda x,y: cmp(x._beacon_name, y._beacon_name))
@@ -208,19 +216,24 @@ class Database(object):
         while self.delete_object and self.read_lock.is_locked():
             yield self.read_lock.yield_unlock()
 
-        for pos, (f, fullname, overlay, stat_res) in enumerate(listing[0]):
+        pos = -1
+        for f, fullname, overlay, stat_res in listing[0]:
+            pos += 1
             isdir = stat.S_ISDIR(stat_res[stat.ST_MODE])
             if pos == len(items):
                 # new file at the end
                 if isdir:
                     if not overlay:
-                        items.append(create_file(f, parent, isdir=True))
+                        items.append(create_directory(f, parent))
                     continue
-                items.append(create_file(f, parent, overlay, isdir=False))
+                items.append(create_file(f, parent, overlay))
                 continue
             while pos < len(items) and f > items[pos]._beacon_name:
                 # file deleted
                 i = items[pos]
+                if i.get('scheme') not in (None, 'file'):
+                    pos += 1
+                    continue
                 items.remove(i)
                 if self.delete_object:
                     # delete from database by adding it to the internal changes
@@ -232,16 +245,20 @@ class Database(object):
             # new file
             if isdir:
                 if not overlay:
-                    items.insert(pos, create_file(f, parent, isdir=True))
+                    items.insert(pos, create_directory(f, parent))
                 continue
-            items.insert(pos, create_file(f, parent, overlay, isdir=False))
+            items.insert(pos, create_file(f, parent, overlay))
 
         if pos + 1 < len(items):
             # deleted files at the end
-            if self.delete_object:
-                for i in items[pos+1-len(items):]:
+            for i in items[pos+1-len(items):]:
+                if i.get('scheme') not in (None, 'file'):
+                    continue
+                items.remove(i)
+                if self.delete_object:
+                    # delete from database by adding it to the internal changes
+                    # list. It will be deleted right before the next commit.
                     self.delete_object(i)
-            items = items[:pos+1-len(items)]
 
         # no need to sort the items again, they are already sorted based
         # on name, let us keep it that way. And name is unique in a directory.
@@ -280,11 +297,11 @@ class Database(object):
                 continue
             for i in self._db.query(parent = parent._beacon_id):
                 if i['type'] == 'dir':
-                    child = create_file(i, parent, isdir=True)
+                    child = create_directory(i, parent)
                     if not child._beacon_islink:
                         directories.append(child)
                 else:
-                    items.append(create_file(i, parent, isdir=False))
+                    items.append(create_by_type(i, parent))
             if time.time() > timer + 0.1:
                 # we are in async mode and already use too much time.
                 # call yield YieldContinue at this point to continue
@@ -309,7 +326,7 @@ class Database(object):
             m = medialist.get_by_beacon_id(i['parent'])
             if not m:
                 raise AttributeError('bad media %s' % str(i['parent']))
-            return create_file(i, m, isdir=True)
+            return create_directory(i, m)
 
         # query for parent
         pid = i['parent']
@@ -322,12 +339,8 @@ class Database(object):
 
         if i['type'] == 'dir':
             # it is a directory, make a dir item
-            return create_file(i, parent, isdir=True)
-        if parent._beacon_isdir:
-            # parent is dir, this item is not
-            return create_file(i, parent)
-        # neither dir nor file, something else
-        return create_item(i, parent)
+            return create_directory(i, parent)
+        return create_by_type(i, parent)
 
 
     def _db_query_attr(self, query):
@@ -379,13 +392,10 @@ class Database(object):
             # create item
             if r['type'] == 'dir':
                 # it is a directory, make a dir item
-                result.append(create_file(r, parent, isdir=True))
-            elif parent._beacon_isdir:
-                # parent is dir, this item is not
-                result.append(create_file(r, parent))
+                result.append(create_directory(r, parent))
             else:
-                # neither dir nor file, something else
-                result.append(create_item(r, parent))
+                # file or something else
+                result.append(create_by_type(r, parent))
 
             counter += 1
             if not counter % 50 and time.time() > timer + 0.05:
@@ -416,7 +426,7 @@ class Database(object):
             m != medialist.get_by_directory(dirname)) or filename == '/':
             # the filename is the mountpoint itself
             e = self._db.query(parent=m._beacon_id, name='')
-            return create_file(e[0], m, isdir=True)
+            return create_directory(e[0], m)
         parent = self._query_filename_get_dir(dirname, m)
         if parent._beacon_id:
             # parent is a valid db item, query
@@ -435,7 +445,7 @@ class Database(object):
         if dirname == media.mountpoint or dirname +'/' == media.mountpoint:
             # we know that '/' is in the db
             c = self._db.query(type="dir", name='', parent=media._beacon_id)[0]
-            return create_file(c, media, isdir=True)
+            return create_directory(c, media)
 
         if dirname == '/':
             raise RuntimeError('media %s not found' % media)
@@ -444,18 +454,18 @@ class Database(object):
         name = os.path.basename(dirname)
 
         if not parent._beacon_id:
-            return create_file(name, parent, isdir=True)
+            return create_directory(name, parent)
 
         c = self._db.query(type="dir", name=name, parent=parent._beacon_id)
         if c:
-            return create_file(c[0], parent, isdir=True)
+            return create_directory(c[0], parent)
 
         if not self.add_object:
             # we have no add_object function. This means we have
             # to return a dummy object (client)
-            return create_file(name, parent, isdir=True)
+            return create_directory(name, parent)
         # add object to the database.
-        # NOTICE: this function will chnage the database even when
+        # NOTICE: this function will change the database even when
         # the db is locked. I do not see a good way around it and
         # it should not happen often. To make the write lock a very
         # short time we commit just after adding.
@@ -463,7 +473,7 @@ class Database(object):
         if self.read_lock.is_locked():
             # commit changes
             self.commit()
-        return create_file(c, parent, isdir=True)
+        return create_directory(c, parent)
 
 
     # -------------------------------------------------------------------------

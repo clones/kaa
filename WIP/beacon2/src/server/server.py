@@ -352,7 +352,6 @@ class Server(object):
         Update items from the client.
         """
         while self._db.read_lock.is_locked():
-            log.info('wait3')
             yield self._db.read_lock.yield_unlock()
         for dbid, attributes in items:
             self._db.update_object(dbid, **attributes)
@@ -382,6 +381,32 @@ class Server(object):
         yield data._beacon_data
 
 
+    @kaa.rpc.expose('item.create')
+    @kaa.notifier.yield_execution()
+    def item_create(self, type, parent, **kwargs):
+        """
+        Create a new item.
+        """
+        data = self._db.query(id=parent)
+        if isinstance(data, kaa.notifier.InProgress):
+            yield data
+            data = data()
+        while self._db.read_lock.is_locked():
+            yield self._db.read_lock.yield_unlock()
+        yield self._db.add_object(type, parent=parent, **kwargs)
+
+    
+    @kaa.rpc.expose('item.delete')
+    @kaa.notifier.yield_execution()
+    def item_delete(self, id):
+        """
+        Create a new item.
+        """
+        while self._db.read_lock.is_locked():
+            yield self._db.read_lock.yield_unlock()
+        self._db.delete_object(id)
+
+    
     @kaa.rpc.expose('beacon.shutdown')
     def shutdown(self):
         """
