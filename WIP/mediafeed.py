@@ -174,14 +174,17 @@ class Channel(object):
             if os.path.isfile(filename):
                 print 'skip', filename
             else:
+                # FIXME: download to tmp dir first
                 async = entry.fetch(filename)
                 async.get_status().connect(print_status, async.get_status())
                 yield async
+            # FIXME: add additional information to beacon
             if num == 0:
                 return
 
     @kaa.notifier.yield_execution()
-    def store_in_beacon(self, num, destdir):
+    def store_in_beacon(self, destdir, num):
+        print 'update', self.url
         d = kaa.beacon.get(destdir)
         items = {}
         for i in d.list():
@@ -197,8 +200,12 @@ class Channel(object):
             if entry.url in items:
                 del items[entry.url]
             else:
+                data = {}
+                for key in ('url', 'title', 'description', 'image'):
+                    if entry.get('key'):
+                        data[key] = entry[key]
                 i = kaa.beacon.add_item(type='video', parent=d,
-                                        mediafeed_channel=self.url, **entry)
+                                        mediafeed_channel=self.url, **data)
             num -= 1
             if num == 0:
                 break
@@ -234,7 +241,6 @@ class RSS(Channel):
 
         # real iterate
         for f in self._get_result().entries:
-            print
             if 'link' in f.keys():
                 link = f.link
             if 'enclosures' in f.keys():
@@ -247,9 +253,11 @@ class RSS(Channel):
             # based on type.
             if not link:
                 print 'WARNING', f
+
+            # FIXME: beacon does not thumbnail the image without
+            # a rescan of the directory!
             entry = Entry(basename=link[link.rfind('/')+1:], url=link,
                           description=f.get('summary', ''), image=feedimage)
-            # FIXME: description, etc missing
             if 'title' in f:
                 entry['title'] = f['title']
             yield entry
@@ -280,8 +288,8 @@ class Stage6(Channel):
                 title = url.get('title')
                 if not title:
                     continue
-                # We could grab the side of the video to get the tags of this
-                # clip but maybe it costs too much time.
+                # FIXME: grab the side of the video to get the tags of this
+                # clip and an image
                 vid = Stage6.match_video(url.get('href')).groups()[0]
                 vurl = url='http://video.stage6.com/%s/.divx' % vid
                 yield Entry(id=vid, title=title, ext='divx', url=vurl)
@@ -325,23 +333,22 @@ class Filter(Channel):
             if self._filter(f):
                 yield f
 
-if 0:
-    c = Stage6('Diva-Channel')
-    f = Filter(c, lambda(e): 'Garbage' in e.title)
-    f.update('/local/video')
-
-    # f = Stage6('Diva-Channel')
-    # f.update('/local/video/MusicVideo', 2)
-
-    # f = RSS('http://www.tagesschau.de/export/video-podcast')
-    # f.update('/local/video', 2).connect(sys.exit)
-
-    # f = YouTube(tags='robot chicken')
-    # f.update('/local/video', 2)
-
-if 1:
-    kaa.beacon.connect()
-    f = RSS('http://www.tagesschau.de/export/video-podcast')
-    f.store_in_beacon(2, '/local/video').connect(sys.exit)
+@kaa.notifier.yield_execution()
+def update_feeds(*feeds):
+    for feed, destdir, num, download in feeds:
+        if download:
+            yield feed.update(destdir, num)
+        else:
+            yield feed.store_in_beacon(destdir, num)
+            
+kaa.beacon.connect()
+d = '/local/video/feedtest'
+update_feeds((RSS('http://podcast.wdr.de/blaubaer.xml'), d, 5, False),
+             (RSS('http://podcast.nationalgeographic.com/wild-chronicles/'),
+              d, 5, False),
+             (RSS('http://www.tagesschau.de/export/video-podcast'), d, 1, False),
+             (YouTube(tags='robot chicken'), d, 2, True),
+             (Stage6('Diva-Channel'), d, 5, False)).\
+             connect(sys.exit)
 
 kaa.notifier.loop()
