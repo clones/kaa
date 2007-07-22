@@ -10,6 +10,7 @@ import feedparser
 
 import kaa.notifier
 import kaa.beacon
+import kaa.strutils
 
 for t in ('video', 'audio', 'image'):
     kaa.beacon.register_file_type_attrs(
@@ -101,6 +102,8 @@ def fetch_HTTP(url, filename):
 # some generic entry/channel stuff
 # ##################################################################
 
+IMAGEDIR = '/tmp'
+
 class Entry(dict):
 
     def __getattr__(self, attr):
@@ -142,6 +145,16 @@ class Channel(object):
     def _get_result(self):
         return self._async.get_result()
 
+    @kaa.notifier.yield_execution()
+    def _get_image(self, url):
+        url = kaa.strutils.unicode_to_str(url)
+        fname = os.path.join(IMAGEDIR, url.replace('/', '.'))
+        if os.path.isfile(fname):
+            yield fname
+        img = open(fname, 'w')
+        img.write(urllib2.urlopen(url).read())
+        img.close()
+        yield img
 
     # update (download) feed
 
@@ -174,25 +187,25 @@ class Channel(object):
         for i in d.list():
             if i.get('mediafeed_channel') == self.url:
                 items[i.url] = i
-    
+
         for entry in self:
             if isinstance(entry, kaa.notifier.InProgress):
                 # dummy entry to signal waiting
                 yield entry
                 continue
-    
+
             if entry.url in items:
                 del items[entry.url]
             else:
                 i = kaa.beacon.add_item(type='video', parent=d,
-                                        mediafeed_channel=self.url, **entry) 
+                                        mediafeed_channel=self.url, **entry)
             num -= 1
             if num == 0:
                 break
-    
+
         for i in items.values():
             i.delete()
-    
+
 
 # ##################################################################
 # specific channels
@@ -208,8 +221,20 @@ class RSS(Channel):
             print 'oops'
             raise StopIteration
 
+        # basic information
+        feedimage = None
+        if self._get_result().feed.get('image'):
+            feedimage = self._get_result().feed.get('image').get('href')
+
+        if feedimage:
+            feedimage = self._get_image(feedimage)
+            if isinstance(feedimage, kaa.notifier.InProgress):
+                yield feedimage
+                feedimage = feedimage.get_result()
+
         # real iterate
         for f in self._get_result().entries:
+            print
             if 'link' in f.keys():
                 link = f.link
             if 'enclosures' in f.keys():
@@ -222,7 +247,8 @@ class RSS(Channel):
             # based on type.
             if not link:
                 print 'WARNING', f
-            entry = Entry(basename=link[link.rfind('/')+1:], url=link)
+            entry = Entry(basename=link[link.rfind('/')+1:], url=link,
+                          description=f.get('summary', ''), image=feedimage)
             # FIXME: description, etc missing
             if 'title' in f:
                 entry['title'] = f['title']
@@ -303,19 +329,19 @@ if 0:
     c = Stage6('Diva-Channel')
     f = Filter(c, lambda(e): 'Garbage' in e.title)
     f.update('/local/video')
-    
+
     # f = Stage6('Diva-Channel')
     # f.update('/local/video/MusicVideo', 2)
-    
+
     # f = RSS('http://www.tagesschau.de/export/video-podcast')
     # f.update('/local/video', 2).connect(sys.exit)
-    
+
     # f = YouTube(tags='robot chicken')
     # f.update('/local/video', 2)
 
 if 1:
     kaa.beacon.connect()
     f = RSS('http://www.tagesschau.de/export/video-podcast')
-    f.store_in_beacon(2, '/local/video2').connect(sys.exit)
-    
+    f.store_in_beacon(2, '/local/video').connect(sys.exit)
+
 kaa.notifier.loop()
