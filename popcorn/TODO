@@ -8,3 +8,5 @@ receiver. It will only work if mmpython can detect the samplerate
 
 Make it possible to seek on open. Not all backends support that, but
 it is great to have
+
+Get playtime from stream if missing
