@@ -107,6 +107,7 @@ class Server(object):
             height = (int, ATTR_SEARCHABLE),
             comment = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             rotation = (int, ATTR_SIMPLE),
+            author = (unicode, ATTR_SIMPLE),
             date = (unicode, ATTR_SEARCHABLE))
 
         # tracks for rom discs or iso files
