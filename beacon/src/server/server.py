@@ -79,6 +79,7 @@ class Server(object):
 
         self._db.register_object_type_attrs("dir",
             image_from_items = (bool, ATTR_SIMPLE),
+            title = (unicode, ATTR_SIMPLE),
             artist = (unicode, ATTR_SIMPLE),
             album = (unicode, ATTR_SIMPLE),
             length = (float, ATTR_SIMPLE))
