@@ -25,3 +25,6 @@ import plugins
 
 add_password = channel.pm.add_password
 Channel = channel.get_channel
+init = channel.init
+update = channel.update
+

@@ -44,7 +44,6 @@ def fetch_HTTP(url, filename):
     def download(url, filename, status):
         src = urllib2.urlopen(url)
         length = int(src.info().get('Content-Length', 0))
-        print length
         if os.path.isfile(filename) and os.stat(filename)[stat.ST_SIZE] == length:
             return True
         tmpname = os.path.join(os.path.dirname(filename),
