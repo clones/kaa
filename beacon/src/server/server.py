@@ -158,8 +158,7 @@ class Server(object):
         self._db.commit()
 
         for dir in config.monitors:
-            # FIXME: make this make generic
-            self.monitor_dir(dir.replace('$(HOME)', os.environ.get('HOME')))
+            self.monitor_dir(os.path.expandvars(os.path.expanduser(dir)))
 
 
     # -------------------------------------------------------------
