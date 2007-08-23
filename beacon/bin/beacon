@@ -33,16 +33,18 @@
 # python imports
 import os
 import sys
-import gc
 import getopt
 import time
-import socket
 import fcntl
 import termios
 import struct
 
 import logging
 from logging.handlers import RotatingFileHandler
+
+# FIXME: most of this list should probably be kept in kaa.db
+IGNORE_KEYS = [ 'name', 'parent', 'parent_id', 'parent_type', 'media', 'mtime',
+                'computed_id', 'type', 'id' ] 
 
 # insert kaa path information
 __site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
@@ -59,52 +61,32 @@ import kaa.utils
 # get logging object
 log = logging.getLogger('beacon')
 
-# make sure HOME and USER are valid (when started as service)
-# FIXME: handle beacon to be started as daemon user. This requires
-# access to beacon outside /tmp/kaa-uid and thumbnails in a different
-# directory with umask not 700.
-if os.environ.get('HOME') in ('', '/', None):
-    os.environ['HOME'] = '/root'
-if not os.environ.get('USER'):
-    os.environ['USER'] = 'root'
-
-
 def usage(error_code):
-    print 'beacon [options]'
+    print 'beacon [options] [search terms]'
     print 'options:'
-    print '--start             start beacon'
-    print '--stop              stop running beacon'
-    print '--db directory      directory of the database (default ~/.beacon)'
-    print '--fg                Run in foreground'
-    print '--autoshutdown      stop server when no clients are connected'
-    print '--logfile file      use file for logging. The default logfile for the server'
-    print '                    is $(dbdir)/server.log and $(dbdir)/fuse.log for mount'
-    print '--verbose modules   comma separated list of modules which should be more'
-    print '                    verbose. Possible modules are db, crawler, monitor,'
-    print '                    parser, server. Use \'all\' to increase every module.'
-    print '--debug             Enables debugging mode for all loggers'
-    print '--help | -h         this message'
-    print
-    print 'Client options:'
     print '--info             displays info about the database'
-    print '--search args      search mode'
+    print '--type type        searches only the given file types (use --info to show types)'
     print '--monitor          do not exit after search and monitor for changes'
-    print '--mount args       mount the query at a given mountpoint (requires FUSE)'
-    print '--umount dirname   umounts a beacon fuse mountpoint'
+    print '--details          show detailed metadata in search results'
+    print '--mount dirname    mount the query at a given mountpoint (requires FUSE)'
+    print '--umount dirname   umounts a beacon FUSE mountpoint'
     print '--list-media       lists all known media'
     print '--del-media media  delete given media from the database'
+    print '--debug            Enables debugging mode for all loggers'
+    print '--help | -h        this message'
     print
-    print 'Examples for client mode when a server is running:'
-    print '  beacon --search dirname=/local/video'
-    print '  beacon --search --monitor dirname=/local/video'
-    print '  beacon --search artist=Silbermond'
-    print '  beacon --search attr=album type=audio'
-    print '  beacon --search "keywords=Helden Blind"'
-    print '  beacon --mount ~/buffy keywords=buffy'
+    print
+    print 'Search terms can be arbitrary keywords or key=value pairs.  e.g.'
+    print '  beacon Helden Blind'
+    print '  beacon dirname=/local/video'
+    print '  beacon --monitor dirname=/local/video'
+    print '  beacon artist=Silbermond'
+    print '  beacon --type image vacation'
+    print '  beacon --mount ~/buffy buffy'
     sys.exit(error_code)
 
 
-def print_results(results):
+def print_results(results, detailed = False):
     def fit(s, l):
         """
         Fits string s in length l by replacing middle characters with '...'
@@ -138,159 +120,160 @@ def print_results(results):
         if t is None:
             t = '???'
         print t.ljust(type_col_len), fit(r.url, uri_col_len)
+        if detailed:
+            for key in r.keys():
+                if r.get(key) and key not in IGNORE_KEYS:
+                    print ' ' * (type_col_len + 5) + '| %s: %s' % (key, r.get(key))
 
 
-try:
-    # list of modes this script can start in
-    possible_modes = [ 'start', 'stop', 'search', 'info', 'mount', 'umount',
-                       'list-media', 'del-media']
 
-    # read arguments
-    opts = [ 'db=', 'fg', 'autoshutdown', 'logfile=', 'verbose=', 'help',
-             'monitor', 'debug' ] + possible_modes
-    opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
-except getopt.GetoptError:
-    usage(1)
+def progress(cur, total, item):
+    n = 0
+    if total > 0:
+        n = int((cur / float(total)) * 50)
+    sys.stdout.write("|%51s| %d / %d\r" % (("="*n + ">").ljust(51), cur, total))
+    sys.stdout.flush()
+    if cur == total:
+        print
 
-logfile  = ''
-mountpt  = ''
-mode     = None
-detach   = True
-shutdown = False
-monitor  = False
-database = os.path.expanduser("~/.beacon")
+def changed(result):
+    print '\nBeacon query update:'
+    print_results(result, details)
 
-for o, a in opts:
-    if o.startswith('--') and o[2:] in possible_modes:
-        if mode:
-            usage(1)
-        mode = o[2:]
-    elif o == '--db':
-        database = a
-    elif o == '--fg':
-        detach = False
-    elif o == '--autoshutdown':
-        shutdown = True
-    elif o == '--logfile':
-        logfile = os.path.realpath(a)
-    elif o == '--verbose':
-        a = a.lower()
-        if a == 'all':
-            logging.getLogger('beacon').setLevel(logging.INFO)
-        else:
-            for m in a.split(','):
-                logging.getLogger('beacon.' + m).setLevel(logging.INFO)
-    elif o == '--debug':
-        # Set DEBUG level on root logger
-        logging.getLogger().setLevel(logging.DEBUG)
-    elif o == '--monitor':
-        monitor = True
-    elif o in ('--help', '-h'):
+def uptodate():
+    print 'Beacon has finished the query and parsing.'
+
+
+if __name__ == '__main__':
+    try:
+        # list of modes this script can start in
+        possible_modes = [ 'info', 'mount', 'umount', 'list-media', 'del-media']
+
+        # read arguments
+        opts = [ 'db=', 'fg', 'autoshutdown', 'logfile=', 'verbose=', 'help', 'type=',
+                 'monitor', 'debug', 'details' ] + possible_modes
+        opts, args = getopt.gnu_getopt(sys.argv[1:], 'h', opts)
+    except getopt.GetoptError:
+        usage(1)
+
+    logfile  = ''
+    mountpt  = ''
+    mode     = 'search'
+    detach   = True
+    shutdown = False
+    monitor  = False
+    qtype    = None
+    details  = False
+    database = os.path.expanduser("~/.beacon")
+
+    for o, a in opts:
+        if o.startswith('--') and o[2:] in possible_modes:
+            if mode != 'search':
+                usage(1)
+            mode = o[2:]
+        elif o == '--db':
+            database = a
+        elif o == '--fg':
+            detach = False
+        elif o == '--autoshutdown':
+            shutdown = True
+        elif o == '--logfile':
+            logfile = os.path.realpath(a)
+        elif o == '--verbose':
+            a = a.lower()
+            if a == 'all':
+                logging.getLogger('beacon').setLevel(logging.INFO)
+            else:
+                for m in a.split(','):
+                    logging.getLogger('beacon.' + m).setLevel(logging.INFO)
+        elif o == '--debug':
+            # Set DEBUG level on root logger
+            logging.getLogger().setLevel(logging.DEBUG)
+        elif o == '--monitor':
+            monitor = True
+        elif o == '--type':
+            qtype = a
+        elif o == '--details':
+            details = True
+        elif o in ('--help', '-h'):
+            usage(0)
+
+    if mode == 'search' and not args:
         usage(0)
 
-if not mode:
-    # no idea what to do
-    usage(0)
+    if mode == 'umount':
+        mountpt = args.pop(0)
+        os.system('fusermount -u %s' % mountpt)
+        sys.exit(0)
+        
+    if mode in ('search', 'info', 'mount', 'list-media', 'del-media'):
+        try:
+            kaa.beacon.connect()
+        except kaa.beacon.ConnectError:
+            print 'beacond not running.'
+            sys.exit(1)
+        
 
-if mode == 'stop':
-    # stop a running beacon
-    
-    def shutdown(client):
-        client.rpc('beacon.shutdown')
-        kaa.notifier.step()
+    if mode == 'info':
+        info = kaa.beacon.get_db_info()
+        print 'Beacon database information:'
+        print
+        print 'Total objects:'.rjust(20), info['total']
+        print 'Indexed keywords:'.rjust(20), info['wordcount']
+        print
+        print 'Object breakdown by type:'
+        for key in info['count']:
+            print (key + ':').rjust(15), info['count'][key]
         sys.exit(0)
 
-    try:
-        client = kaa.beacon.Client()
-        client.signals['connect'].connect(shutdown, client)
-    except kaa.beacon.ConnectError:
-        print 'server not running'
-        sys.exit(1)
-    kaa.notifier.loop()
-    sys.exit(0)
 
-if mode == 'umount':
-    mountpt = args.pop(0)
-    os.system('fusermount -u %s' % mountpt)
-    sys.exit(0)
-    
-if mode in ("search", "info", "mount", "list-media", "del-media"):
-    # client info/search mode
+    if mode == 'mount':
+        mountpt = args.pop(0)
+        if not os.path.isdir(mountpt):
+            print "Mount point %s is not a directory" % mountpt
+            sys.exit(1)
 
-    try:
-        kaa.beacon.connect()
-    except kaa.beacon.ConnectError:
-        print 'beacon server not running'
-        sys.exit(1)
-    
-if mode == "info":
 
-    info = kaa.beacon.get_db_info()
-    print 'Beacon database information:'
-    print
-    print 'Total objects:'.rjust(20), info['total']
-    print 'Indexed keywords:'.rjust(20), info['wordcount']
-    print
-    print 'Object breakdown by type:'
-    for key in info['count']:
-        print (key + ':').rjust(15), info['count'][key]
-    sys.exit(0)
+    if mode == 'list-media':
+        for m in kaa.beacon.query(type='media', media='ignore').get():
+            print '%4d %s' % (m['id'], m['name'])
+        sys.exit(0)
+     
 
-if mode == 'mount':
-    mountpt = args.pop(0)
-    if not os.path.isdir(mountpt):
-        print "Mount point %s is not a directory" % mountpt
-        sys.exit(1)
+    if mode == 'del-media':
+        try:
+            media = int(args.pop(0))
+        except:
+            print 'media must be an int'
+            sys.exit(1)
+        if media == 0:
+            print 'media 0 can\'t be deleted'
+            sys.exit(1)
+        kaa.beacon.delete_media(media)
+        sys.exit(0)
+      
 
-if mode == 'list-media':
-    for m in kaa.beacon.query(type='media', media='ignore').get():
-        print '%4d %s' % (m['id'], m['name'])
-    sys.exit(0)
-    
-if mode == 'del-media':
-    try:
-        media = int(args.pop(0))
-    except:
-        print 'media must be an int'
-        sys.exit(1)
-    if media == 0:
-        print 'media 0 can\'t be deleted'
-        sys.exit(1)
-    kaa.beacon.delete_media(media)
-    sys.exit(0)
-    
-if mode in ('search', 'mount'):
-
-    def progress(cur, total, item):
-        n = 0
-        if total > 0:
-            n = int((cur / float(total)) * 50)
-        sys.stdout.write("|%51s| %d / %d\r" % (("="*n + ">").ljust(51), cur, total))
-        sys.stdout.flush()
-        if cur == total:
-            print
-
-    def changed(result):
-        print 'Beacon query update'
-        for r in result:
-            print r
-
-    def uptodate():
-        print 'Beacon has finished the query and parsing'
-
- 
     query   = {}
+    if qtype:
+        query['type'] = qtype
+
     for a in args:
-        key, value = a.split('=', 1)
-        if key in ('title', 'album', 'artist'):
-            value = unicode(value)
-        elif key in ('limit',):
-            value = int(value)
-        if isinstance(value, basestring) and "%" in value:
-            # Treat as wildcard search, use LIKE operator.
-            query[key] = kaa.db.QExpr("like", "%%%s%%" % value)
+        if '=' not in a:
+            if 'keywords' not in query:
+                query['keywords'] = a
+            else:
+                query['keywords'] += ' ' + a
         else:
-            query[key] = value
+            key, value = a.split('=', 1)
+            if key in ('title', 'album', 'artist'):
+                value = unicode(value)
+            elif key in ('limit',):
+                value = int(value)
+            if isinstance(value, basestring) and "%" in value:
+                # Treat as wildcard search, use LIKE operator.
+                query[key] = kaa.db.QExpr("like", "%%%s%%" % value)
+            else:
+                query[key] = value
 
     t1 = time.time()
     if 'dirname' in query:
@@ -314,7 +297,7 @@ if mode in ('search', 'mount'):
             if not logfile:
                 logfile = os.path.join(database, 'fuse.log')
             # FIXME: should only daemonize when we know fs is mounted.
-            kaa.utils.daemonize(stdout=logfile)
+            kaa.utils.daemonize(stdout = logfile)
 
         thread = kaa.notifier.Thread(fs.main)
         thread.signals["exception"].connect(lambda dummy: kaa.notifier.shutdown())
@@ -327,7 +310,7 @@ if mode in ('search', 'mount'):
     if not monitor:
         def print_results_and_exit(result):
             t2 = time.time()
-            print_results(result)
+            print_results(result, details)
             print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
             sys.exit(0)
         if not result.valid:
@@ -343,133 +326,3 @@ if mode in ('search', 'mount'):
 
     kaa.notifier.loop()
     sys.exit(0)
-
-    
-# When we reach this point we need to start a new beacon server. If run
-# in daemon mode we fork and detach from the parent. After that a logger
-# is created and the thumbnail server will be forked out.
-
-try:
-    # this should not be possible
-    kaa.beacon.connect()
-    print 'beacon server already running'
-    sys.exit(1)
-except kaa.beacon.ConnectError:
-    pass
-
-if detach:
-    if not logfile:
-        logfile = os.path.join(database, 'server.log')
-    daemonize_lock = kaa.utils.daemonize(wait=True)
-    
-# create logger
-if logfile:
-    if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
-        os.makedirs(os.path.dirname(logfile))
-    # create rotating log file with 1MB for each file with a backup of 3
-    # FIXME: RotatingFileHandler doesn't work when two processes use
-    # the same file. That needs to be fixed by either adjusting the thumbnail
-    # filename or by using the main proc log through kaa.rpc. Both solutions
-    # sucks :(
-    handler = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=3)
-    f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
-                          '%(filename)s %(lineno)s: %(message)s')
-    handler.setFormatter(f)
-    log.addHandler(handler)
-
-
-import kaa.beacon.server
-
-# fork thumbnailer / hwmon
-pid = os.fork()
-if not pid:
-    # hwmon part (import this first because of hal/gtk)
-    hwmon = kaa.beacon.server.HardwareMonitorServer(os.path.join(database, "config"))
-
-    # thumbnailer part
-    thumb = kaa.beacon.server.Thumbnailer()
-
-    # set nice level
-    os.nice(19)
-
-    if detach:
-        # close fifo from daemonize
-        daemonize_lock.ignore()
-        
-    # loop
-    kaa.notifier.loop()
-    log.info('stop thumbnail/hwmon')
-    sys.exit(0)
-
-    
-# beacon server
-import kaa.beacon.thumbnail
-
-def garbage_collect():
-    g = gc.collect()
-    if g:
-        log.info('gc: deleted %s objects' % g)
-    if gc.garbage:
-        log.warning('gc: found %s garbage objects' % len(gc.garbage))
-        for g in gc.garbage:
-            log.warning(g)
-    return True
-
-
-try:
-    # connect thumbnailer
-    log.info('connect to thumbnailer ...')
-    kaa.beacon.thumbnail.connect()
-    log.info('connection to thumbnailer established')
-
-    # connect hwmon
-    log.info('connect to hwmon ...')
-    kaa.beacon.server.HardwareMonitorClient().connect()
-    log.info('connection to hwmon established')
-
-    server = kaa.beacon.server.BeaconServer(database)
-    if os.environ.get('BEACON_MONITOR'):
-        for dirname in os.environ.get('BEACON_MONITOR').split(':'):
-            log.info('monitor %s', dirname)
-            server.monitor_dir(dirname)
-            
-    # start garbage collector
-    kaa.notifier.Timer(garbage_collect).start(10)
-    if shutdown:
-
-        shutdown_timer = 10
-        def autoshutdown_poll():
-            global shutdown_timer
-            if server.has_clients():
-                shutdown_timer = 5
-                return True
-            shutdown_timer -= 1
-            if not shutdown_timer:
-                log.info('beacon timeout')
-                sys.exit(0)
-            return True
-            
-        log.info('set autoshutdown timer')
-        kaa.notifier.Timer(autoshutdown_poll).start(1)
-
-    if detach:
-        # release waiting main process
-        daemonize_lock.release(0)
-    kaa.notifier.loop()
-
-except Exception, e:
-    log.exception('beacon startup')
-    try:
-        os.kill(pid, 15)
-    except (OSError, IOError):
-        pass
-    if detach:
-        # release waiting main process with error
-        daemonize_lock.release(1)
-
-log.info('stop beacon')
-
-#wait for dead child
-os.waitpid(pid, 0)
-
-print 'Beacon done.'

@@ -77,7 +77,7 @@ setup (module      = 'beacon',
        version     = '0.1.0',
        license     = 'LGPL',
        summary     = "Media-oriented virtual filesystem",
-       scripts     = [ 'bin/kaa-thumb', 'bin/beacon' ],
+       scripts     = [ 'bin/kaa-thumb', 'bin/beacon', 'bin/beacond' ],
        rpminfo     = {
            'requires':       'python-kaa-base >= 0.1.2, imlib2 >= 1.2.1',
            'build_requires': 'python-kaa-base >= 0.1.2, imlib2-devel >= 1.2.1, python-devel >= 2.4.0'

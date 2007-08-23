@@ -46,6 +46,7 @@ import kaa.utils
 # get logging object
 log = logging.getLogger('beacon')
 
+fuse.fuse_python_api = (0, 2)
 FuseError = fuse.FuseError
 
 class MyStat(fuse.Stat):

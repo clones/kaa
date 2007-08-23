@@ -1,0 +1,279 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# Beacon daemon
+# -----------------------------------------------------------------------------
+# $Id: beacon 2752 2007-06-29 22:18:40Z tack $
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon - A virtual filesystem with metadata
+# Copyright (C) 2006-2007 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+# python imports
+import os
+import sys
+import gc
+import getopt
+
+import logging
+from logging.handlers import RotatingFileHandler
+
+# insert kaa path information
+__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
+__site__ = os.path.abspath(os.path.join(os.path.dirname(__file__), __site__))
+if not __site__ in sys.path:
+    sys.path.insert(0, __site__)
+
+# kaa imports
+import kaa.notifier
+import kaa.db
+import kaa.beacon
+import kaa.utils
+
+# get logging object
+log = logging.getLogger('beacon')
+
+# make sure HOME and USER are valid (when started as service)
+# FIXME: handle beacon to be started as daemon user. This requires
+# access to beacon outside /tmp/kaa-uid and thumbnails in a different
+# directory with umask not 700.
+if os.environ.get('HOME') in ('', '/', None):
+    os.environ['HOME'] = '/root'
+if not os.environ.get('USER'):
+    os.environ['USER'] = 'root'
+
+
+def usage(error_code):
+    print 'beacond [options]'
+    print 'options:'
+    print '--stop              stop an existing beacond process'
+    print '--greedy            makes beacon eat all available CPU for indexing'
+    print '--monitor           colon-delimited paths to index and monitor (augments'
+    print '                    config file)'
+    print '--db directory      directory of the database (default ~/.beacon)'
+    print '--fg                Run in foreground'
+    print '--autoshutdown      stop server when no clients are connected'
+    print '--logfile file      use file for logging. The default logfile for the server'
+    print '                    is $(dbdir)/server.log and $(dbdir)/fuse.log for mount'
+    print '--verbose modules   comma separated list of modules which should be more'
+    print '                    verbose. Possible modules are db, crawler, monitor,'
+    print '                    parser, server. Use \'all\' to increase every module.'
+    print '--debug             Enables debugging mode for all loggers'
+    print '--help | -h         this message'
+    print
+    sys.exit(error_code)
+
+
+try:
+    # read arguments
+    opts = [ 'stop', 'db=', 'fg', 'autoshutdown', 'logfile=', 'verbose=', 'help',
+             'monitor=', 'debug', 'greedy' ]
+    opts, args = getopt.getopt(sys.argv[1:], 'h', opts)
+except getopt.GetoptError:
+    usage(1)
+
+logfile  = ''
+mode     = 'start'
+detach   = True
+shutdown = False
+monitor  = False
+database = os.path.expanduser("~/.beacon")
+monitor  = []
+
+for o, a in opts:
+    if o == '--stop':
+        mode = 'stop'
+    elif o == '--monitor':
+        monitor = a.split(':')
+    elif o == '--greedy':
+        os.environ['BEACON_EAT_CYCLES'] = "1"
+    elif o == '--db':
+        database = a
+    elif o == '--fg':
+        detach = False
+    elif o == '--autoshutdown':
+        shutdown = True
+    elif o == '--logfile':
+        logfile = os.path.realpath(a)
+    elif o == '--verbose':
+        a = a.lower()
+        if a == 'all':
+            logging.getLogger('beacon').setLevel(logging.INFO)
+        else:
+            for m in a.split(','):
+                logging.getLogger('beacon.' + m).setLevel(logging.INFO)
+    elif o == '--debug':
+        # Set DEBUG level on root logger
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif o in ('--help', '-h'):
+        usage(0)
+
+if mode == 'stop':
+    # stop a running beacon
+    
+    def shutdown(client):
+        client.rpc('beacon.shutdown')
+        kaa.notifier.step()
+        print 'Shutdown command issued to beacond.'
+        sys.exit(0)
+
+    try:
+        client = kaa.beacon.Client()
+        client.signals['connect'].connect(shutdown, client)
+    except kaa.beacon.ConnectError:
+        print 'beacond does not appear to be runing.'
+        sys.exit(1)
+    kaa.notifier.loop()
+    sys.exit(0)
+
+    
+# Start a new beacon server. If run in daemon mode we fork and detach from the
+# parent. After that a logger is created and the thumbnail server will be
+# forked out.
+
+try:
+    # this should not be possible
+    kaa.beacon.connect()
+    print 'beacond is already running.'
+    sys.exit(1)
+except kaa.beacon.ConnectError:
+    pass
+
+if detach:
+    if not logfile:
+        logfile = os.path.join(database, 'server.log')
+    daemonize_lock = kaa.utils.daemonize(wait = True)
+    
+# create logger
+if logfile:
+    if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
+        os.makedirs(os.path.dirname(logfile))
+    # create rotating log file with 1MB for each file with a backup of 3
+    # FIXME: RotatingFileHandler doesn't work when two processes use
+    # the same file. That needs to be fixed by either adjusting the thumbnail
+    # filename or by using the main proc log through kaa.rpc. Both solutions
+    # sucks :(
+    handler = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=3)
+    f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
+                          '%(filename)s %(lineno)s: %(message)s')
+    handler.setFormatter(f)
+    log.addHandler(handler)
+
+
+import kaa.beacon.server
+
+# fork thumbnailer / hwmon
+pid = os.fork()
+if not pid:
+    # hwmon part (import this first because of hal/gtk)
+    hwmon = kaa.beacon.server.HardwareMonitorServer(os.path.join(database, "config"))
+
+    # thumbnailer part
+    thumb = kaa.beacon.server.Thumbnailer()
+
+    # set nice level
+    os.nice(19)
+
+    if detach:
+        # close fifo from daemonize
+        daemonize_lock.ignore()
+        
+    # loop
+    kaa.notifier.loop()
+    log.info('stop thumbnail/hwmon')
+    sys.exit(0)
+
+    
+# beacon server
+import kaa.beacon.thumbnail
+
+def garbage_collect():
+    g = gc.collect()
+    if g:
+        log.info('gc: deleted %s objects' % g)
+    if gc.garbage:
+        log.warning('gc: found %s garbage objects' % len(gc.garbage))
+        for g in gc.garbage:
+            log.warning(g)
+    return True
+
+
+try:
+    # connect thumbnailer
+    log.info('connect to thumbnailer ...')
+    kaa.beacon.thumbnail.connect()
+    log.info('connection to thumbnailer established')
+
+    # connect hwmon
+    log.info('connect to hwmon ...')
+    kaa.beacon.server.HardwareMonitorClient().connect()
+    log.info('connection to hwmon established')
+
+    server = kaa.beacon.server.BeaconServer(database)
+    if os.environ.get('BEACON_MONITOR'):
+        monitor += os.environ.get('BEACON_MONITOR').split(':')
+    for dirname in monitor:
+        log.info('monitor %s', dirname)
+        server.monitor_dir(dirname)
+            
+    # start garbage collector
+    kaa.notifier.Timer(garbage_collect).start(10)
+    if shutdown:
+
+        shutdown_timer = 10
+        def autoshutdown_poll():
+            global shutdown_timer
+            if server.has_clients():
+                shutdown_timer = 5
+                return True
+            shutdown_timer -= 1
+            if not shutdown_timer:
+                log.info('beacon timeout')
+                sys.exit(0)
+            return True
+            
+        log.info('set autoshutdown timer')
+        kaa.notifier.Timer(autoshutdown_poll).start(1)
+
+    if detach:
+        # release waiting main process
+        daemonize_lock.release(0)
+    kaa.notifier.loop()
+
+except Exception, e:
+    log.exception('beacon startup')
+    try:
+        os.kill(pid, 15)
+    except (OSError, IOError):
+        pass
+    if detach:
+        # release waiting main process with error
+        daemonize_lock.release(1)
+
+log.info('stop beacon')
+
+#wait for dead child
+os.waitpid(pid, 0)
+
+print 'Beacon done.'
