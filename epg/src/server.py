@@ -289,7 +289,7 @@ class Server(object):
                 if t not in c2["tuner_id"]:
                     if t in self._tuner_ids:
                         log.warning('not adding tuner_id %s for channel %s - '+\
-                            'it is claimed by another channel', t, name)
+                            'it is claimed by another channel (%s)', t, name, self._tuner_ids[t])
                     else:
                         # only add this id if it's not already there and not
                         # claimed by another channel

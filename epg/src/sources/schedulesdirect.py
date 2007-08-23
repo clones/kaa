@@ -1,13 +1,13 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# source_zap2it.py - Zap2It source for the epg
+# source_schedulesdirect.py - Schedules Direct source for the epg
 # -----------------------------------------------------------------------------
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
 # Copyright (C) 2004-2007 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
-# First Edition: Jason Tackaberry <tack@urandom.ca>
+# Maintainer: Jason Tackaberry <tack@urandom.ca>
 #
 # Please see the file AUTHORS for a complete list of authors.
 #
@@ -36,19 +36,16 @@ import gzip
 import calendar
 import logging
 import xml.sax
+import urlparse
 
 # kaa imports
 import kaa
 import kaa.notifier
 from kaa.strutils import str_to_unicode
-from config_zap2it import config
+from config_schedulesdirect import config
 
 # get logging object
 log = logging.getLogger('epg')
-
-# FIXME: should be configurable.
-ZAP2IT_HOST = "datadirect.webservices.zap2it.com:80"
-ZAP2IT_URI = "/tvlistings/xtvdService"
 
 def H(m):
     return md5.md5(m).hexdigest()
@@ -100,6 +97,9 @@ def get_auth_digest_response_header(username, passwd, uri, auth):
 
 def request(username, passwd, host, uri, start, stop, auth = None):
     t0 = time.time()
+    if ':' not in host:
+        # Append default port of 80
+        host = host + ':80'
     conn = httplib.HTTPConnection(host)
     start_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start))
     stop_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(stop))
@@ -116,14 +116,14 @@ def request(username, passwd, host, uri, start, stop, auth = None):
     if auth:
         headers["Authorization"] = auth
     else:
-        log.info('Connecting to zap2it server')
+        log.info('Connecting to schedulesdirect server')
 
     conn.request("POST", uri, None, headers)
     conn.send(soap_request)
     response = conn.getresponse()
     if response.status == 401 and auth:
         # Failed authentication.
-        log.error('zap2it authentication failed; bad username or password?')
+        log.error('schedulesdirect authentication failed; bad username or password?')
         return
 
     if not auth and response.getheader("www-authenticate"):
@@ -135,7 +135,7 @@ def request(username, passwd, host, uri, start, stop, auth = None):
 
     t0 = time.time()
     # FIXME: check response header to see if data is compressed.
-    fname = '/tmp/zap2it.xml.gz'
+    fname = '/tmp/schedulesdirect.xml.gz'
     dfile = open(fname, 'w+')
     # Read data in 50KB chunks.
     while True:
@@ -315,7 +315,8 @@ def update(epg, start = None, stop = None):
         # If stop isn't specified, use config default.
         stop = start + (24 * 60 * 60 * epg_config.days)
 
-    filename = request(str(config.username), str(config.password), ZAP2IT_HOST, ZAP2IT_URI, start, stop)
+    urlparts = urlparse.urlparse(config.url)
+    filename = request(str(config.username), str(config.password), urlparts[1], urlparts[2], start, stop)
     if not filename:
         return
 
@@ -325,5 +326,5 @@ def update(epg, start = None, stop = None):
     parser.parse(GzipFile(filename))
     os.unlink(filename)
     epg.add_program_wait()
-    log.info('zap2it XML parsing took %.03f seconds' % (time.time() - t0))
+    log.info('schedulesdirect XML parsing took %.03f seconds' % (time.time() - t0))
     return True

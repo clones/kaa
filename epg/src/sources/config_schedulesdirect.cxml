@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<config>
+    <desc lang="en">
+        Schedules Direct Settings.
+
+        Schedules Direct provides EPG data for North American television
+        providers.  A paid Schedules Direct subscription is needed, which can be obtained
+        at reasonable cost at https://www.schedulesdirect.org/
+
+        (Note: Schedules Direct is currently in beta and may not be accepting
+        new accounts at this time.)
+    </desc>
+    <var name="username" type="str" />
+    <var name="password" type="str" />
+    <var name="url" type="str" 
+         default="http://webservices.schedulesdirect.tmsdatadirect.com/schedulesdirect/tvlistings/xtvdService">
+         <desc lang="en">
+            URL for the Schedules Direct SOAP service.  The default setting is
+            almost certainly correct.
+         </desc>
+    </var>
+</config>

@@ -11,7 +11,7 @@
             Comma separated list of EPG data sources to use.  If you specify a
             source here, you will need to configure it below.
             
-            Valid sources are: xmltv, zap2it, or epgdata.
+            Valid sources are: xmltv, schedulesdirect, or epgdata.
         </desc>
     </var>
 
