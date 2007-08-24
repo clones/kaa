@@ -75,11 +75,11 @@ def usage(error_code):
     print
     print
     print 'Search terms can be arbitrary keywords or key=value pairs.  e.g.'
-    print '  beacon Helden Blind'
-    print '  beacon dirname=/local/video'
-    print '  beacon --monitor dirname=/local/video'
-    print '  beacon artist=Silbermond'
-    print '  beacon --type image vacation'
+    print '  beacon-search Helden Blind'
+    print '  beacon-search dirname=/local/video'
+    print '  beacon-search --monitor dirname=/local/video'
+    print '  beacon-search artist=Silbermond'
+    print '  beacon-search --type image vacation'
     sys.exit(error_code)
 
 

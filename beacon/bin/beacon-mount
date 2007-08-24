@@ -69,8 +69,8 @@ def usage(error_code):
     print '--type type     searches only the given file types'
     print
     print 'Search terms can be arbitrary keywords or key=value pairs.  e.g.'
-    print '  beacon ~/results artist=Someone'
-    print '  beacon -u ~/results'
+    print '  beacon-mount ~/results artist=Someone'
+    print '  beacon-mount -u ~/results'
     sys.exit(error_code)
 
 
