@@ -62,10 +62,10 @@ signals = {}
 
 debugging = """
 ------------------------------------------------------------------------
-The system was unable to connect to beacon. Please check if the beacon
-server is running properly. If beacon processes exist, please kill them.
-Start beacon in an extra shell for better debugging. Start beacon with
-beacon --start --verbose all --fg
+The system was unable to connect to beacon-daemon. Please check if the
+beacon daemon is running properly. If beacon-daemon processes exist,
+please kill them. Start beacon in an extra shell for better debugging.
+beacon-daemon --start --verbose all --fg
 ------------------------------------------------------------------------
 """
 
@@ -87,8 +87,8 @@ def connect():
     except RuntimeError:
         # It was possible to connect to the beacon server but not
         # to the thumbnailer. Something is very wrong.
-        log.error('unable to connect to beacon %s', debugging)
-        raise RuntimeError('Unable to connect to beacon')
+        log.error('unable to connect to beacon-daemon %s', debugging)
+        raise RuntimeError('Unable to connect to beacon-daemon')
     signals = _client.signals
     log.info('beacon connected')
     return _client
@@ -98,18 +98,18 @@ def launch(autoshutdown=False, verbose='none'):
     """
     Lauch a beacon server.
     """
-    beacon = os.path.dirname(__file__), '../../../../../bin/beacon'
+    beacon = os.path.dirname(__file__), '../../../../../bin/beacon-daemon'
     beacon = os.path.realpath(os.path.join(*beacon))
     if not os.path.isfile(beacon):
         # we hope it is in the PATH somewhere
-        beacon = 'beacon'
+        beacon = 'beacon-daemon'
 
     cmd = '%s --start --verbose=%s' % (beacon, verbose)
     if autoshutdown:
         cmd += ' --autoshutdown'
     if os.system(cmd):
-        log.error('unable to connect to beacon %s', debugging)
-        raise RuntimeError('Unable to connect to beacon')
+        log.error('unable to connect to beacon-daemon %s', debugging)
+        raise RuntimeError('Unable to connect to beacon-daemon')
     return connect()
 
 

@@ -62,14 +62,12 @@ import kaa.utils
 log = logging.getLogger('beacon')
 
 def usage(error_code):
-    print 'beacon [options] [search terms]'
+    print 'beacon-search [options] [search terms]'
     print 'options:'
     print '--info             displays info about the database'
     print '--type type        searches only the given file types (use --info to show types)'
     print '--monitor          do not exit after search and monitor for changes'
     print '--details          show detailed metadata in search results'
-    print '--mount dirname    mount the query at a given mountpoint (requires FUSE)'
-    print '--umount dirname   umounts a beacon FUSE mountpoint'
     print '--list-media       lists all known media'
     print '--del-media media  delete given media from the database'
     print '--debug            Enables debugging mode for all loggers'
@@ -82,7 +80,6 @@ def usage(error_code):
     print '  beacon --monitor dirname=/local/video'
     print '  beacon artist=Silbermond'
     print '  beacon --type image vacation'
-    print '  beacon --mount ~/buffy buffy'
     sys.exit(error_code)
 
 
@@ -147,38 +144,25 @@ def uptodate():
 if __name__ == '__main__':
     try:
         # list of modes this script can start in
-        possible_modes = [ 'info', 'mount', 'umount', 'list-media', 'del-media']
+        possible_modes = [ 'info', 'list-media', 'del-media']
 
         # read arguments
-        opts = [ 'db=', 'fg', 'autoshutdown', 'logfile=', 'verbose=', 'help', 'type=',
+        opts = [ 'verbose=', 'help', 'type=',
                  'monitor', 'debug', 'details' ] + possible_modes
         opts, args = getopt.gnu_getopt(sys.argv[1:], 'h', opts)
     except getopt.GetoptError:
         usage(1)
 
-    logfile  = ''
-    mountpt  = ''
     mode     = 'search'
-    detach   = True
-    shutdown = False
     monitor  = False
     qtype    = None
     details  = False
-    database = os.path.expanduser("~/.beacon")
 
     for o, a in opts:
         if o.startswith('--') and o[2:] in possible_modes:
             if mode != 'search':
                 usage(1)
             mode = o[2:]
-        elif o == '--db':
-            database = a
-        elif o == '--fg':
-            detach = False
-        elif o == '--autoshutdown':
-            shutdown = True
-        elif o == '--logfile':
-            logfile = os.path.realpath(a)
         elif o == '--verbose':
             a = a.lower()
             if a == 'all':
@@ -201,16 +185,11 @@ if __name__ == '__main__':
     if mode == 'search' and not args:
         usage(0)
 
-    if mode == 'umount':
-        mountpt = args.pop(0)
-        os.system('fusermount -u %s' % mountpt)
-        sys.exit(0)
-        
-    if mode in ('search', 'info', 'mount', 'list-media', 'del-media'):
+    if mode in ('search', 'info', 'list-media', 'del-media'):
         try:
             kaa.beacon.connect()
         except kaa.beacon.ConnectError:
-            print 'beacond not running.'
+            print 'beacon-daemon not running.'
             sys.exit(1)
         
 
@@ -225,13 +204,6 @@ if __name__ == '__main__':
         for key in info['count']:
             print (key + ':').rjust(15), info['count'][key]
         sys.exit(0)
-
-
-    if mode == 'mount':
-        mountpt = args.pop(0)
-        if not os.path.isdir(mountpt):
-            print "Mount point %s is not a directory" % mountpt
-            sys.exit(1)
 
 
     if mode == 'list-media':
@@ -283,29 +255,6 @@ if __name__ == '__main__':
             result = kaa.beacon.get(query['dirname']).list()
     else:
         result = kaa.beacon.query(**query)
-
-    if mode == 'mount':
-        from kaa.beacon.fusefs import BeaconFS, FuseError
-        fs = BeaconFS(mountpt, result)
-        try:
-            fs.check()
-        except FuseError, e:
-            print e
-            sys.exit(1)
-            
-        if detach:
-            if not logfile:
-                logfile = os.path.join(database, 'fuse.log')
-            # FIXME: should only daemonize when we know fs is mounted.
-            kaa.utils.daemonize(stdout = logfile)
-
-        thread = kaa.notifier.Thread(fs.main)
-        thread.signals["exception"].connect(lambda dummy: kaa.notifier.shutdown())
-        thread.start()
-
-        kaa.notifier.loop()
-        sys.exit(0)
-
 
     if not monitor:
         def print_results_and_exit(result):

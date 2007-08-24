@@ -1,0 +1,155 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# beacon
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon - A virtual filesystem with metadata
+# Copyright (C) 2006-2007 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+# python imports
+import os
+import sys
+import getopt
+import time
+import fcntl
+import termios
+import struct
+
+import logging
+from logging.handlers import RotatingFileHandler
+
+# FIXME: most of this list should probably be kept in kaa.db
+IGNORE_KEYS = [ 'name', 'parent', 'parent_id', 'parent_type', 'media', 'mtime',
+                'computed_id', 'type', 'id' ]
+
+# insert kaa path information
+__site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
+__site__ = os.path.abspath(os.path.join(os.path.dirname(__file__), __site__))
+if not __site__ in sys.path:
+    sys.path.insert(0, __site__)
+
+# kaa imports
+import kaa.notifier
+import kaa.db
+import kaa.utils
+import kaa.beacon
+from kaa.beacon.fusefs import BeaconFS, FuseError
+
+# get logging object
+log = logging.getLogger('beacon')
+
+def usage(error_code):
+    print 'beacon-mount [options] path [search terms]'
+    print 'options:'
+    print '-u --umount     umounts a beacon FUSE mountpoint'
+    print '--type type     searches only the given file types'
+    print
+    print 'Search terms can be arbitrary keywords or key=value pairs.  e.g.'
+    print '  beacon ~/results artist=Someone'
+    print '  beacon -u ~/results'
+    sys.exit(error_code)
+
+
+if __name__ == '__main__':
+    try:
+        # read arguments
+        opts = [ 'umount', 'help', 'type=' ]
+        opts, args = getopt.gnu_getopt(sys.argv[1:], 'hu', opts)
+    except getopt.GetoptError:
+        usage(1)
+
+    qtype    = None
+    for o, a in opts:
+        if o == '-u':
+            # umount
+            mountpt = args.pop(0)
+            os.system('fusermount -u %s' % mountpt)
+            sys.exit(0)
+        elif o == '--type':
+            qtype = a
+        elif o in ('--help', '-h'):
+            usage(0)
+
+    mountpt = args.pop(0)
+    if not os.path.isdir(mountpt):
+        print "Mount point %s is not a directory" % mountpt
+        sys.exit(1)
+
+    try:
+        kaa.beacon.connect()
+    except kaa.beacon.ConnectError:
+        print 'beacon-daemon not running.'
+        sys.exit(1)
+
+    query   = {}
+    if qtype:
+        query['type'] = qtype
+
+    for a in args:
+        if '=' not in a:
+            if 'keywords' not in query:
+                query['keywords'] = a
+            else:
+                query['keywords'] += ' ' + a
+        else:
+            key, value = a.split('=', 1)
+            if key in ('title', 'album', 'artist'):
+                value = unicode(value)
+            elif key in ('limit',):
+                value = int(value)
+            if isinstance(value, basestring) and "%" in value:
+                # Treat as wildcard search, use LIKE operator.
+                query[key] = kaa.db.QExpr("like", "%%%s%%" % value)
+            else:
+                query[key] = value
+
+    t1 = time.time()
+    if 'dirname' in query:
+        if 'recursive' in query:
+            result = kaa.beacon.get(query['dirname']).list(recursive=True)
+        else:
+            result = kaa.beacon.get(query['dirname']).list()
+    else:
+        result = kaa.beacon.query(**query)
+
+    fs = BeaconFS(mountpt, result)
+    try:
+        fs.check()
+    except FuseError, e:
+        print e
+        sys.exit(1)
+
+    database = os.path.dirname(kaa.beacon.get_db_info()['file'])
+    logfile = os.path.join(database, 'fuse.log')
+    # FIXME: should only daemonize when we know fs is mounted.
+    kaa.utils.daemonize(stdout = logfile)
+
+    thread = kaa.notifier.Thread(fs.main)
+    thread.signals["exception"].connect(lambda dummy: kaa.notifier.shutdown())
+    thread.start()
+
+    kaa.notifier.loop()

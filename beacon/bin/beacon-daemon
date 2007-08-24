@@ -65,9 +65,9 @@ if not os.environ.get('USER'):
 
 
 def usage(error_code):
-    print 'beacond [options]'
+    print 'beacon-daemon [options]'
     print 'options:'
-    print '--stop              stop an existing beacond process'
+    print '--stop              stop an existing beacon-daemon process'
     print '--greedy            makes beacon eat all available CPU for indexing'
     print '--monitor           colon-delimited paths to index and monitor (augments'
     print '                    config file)'
@@ -135,14 +135,14 @@ if mode == 'stop':
     def shutdown(client):
         client.rpc('beacon.shutdown')
         kaa.notifier.step()
-        print 'Shutdown command issued to beacond.'
+        print 'Shutdown command issued to beacon-daemon.'
         sys.exit(0)
 
     try:
         client = kaa.beacon.Client()
         client.signals['connect'].connect(shutdown, client)
     except kaa.beacon.ConnectError:
-        print 'beacond does not appear to be runing.'
+        print 'beacon-daemon does not appear to be runing.'
         sys.exit(1)
     kaa.notifier.loop()
     sys.exit(0)
@@ -155,7 +155,7 @@ if mode == 'stop':
 try:
     # this should not be possible
     kaa.beacon.connect()
-    print 'beacond is already running.'
+    print 'beacon-daemon is already running.'
     sys.exit(1)
 except kaa.beacon.ConnectError:
     pass
