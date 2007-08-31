@@ -13,10 +13,9 @@ import feedparser
 
 # kaa imports
 import kaa.notifier
+import kaa.notifier.url
 import kaa.beacon
 from kaa.strutils import str_to_unicode, unicode_to_str
-
-from download import fetch
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -46,7 +45,9 @@ class Entry(dict):
 
     def fetch(self, filename):
         log.info('%s -> %s' % (self.url, filename))
-        return fetch(self.url, filename)
+        tmpname = os.path.join(os.path.dirname(filename),
+                               '.' + os.path.basename(filename))
+        return kaa.notifier.url.fetch(self.url, filename, tmpname)
 
 
 class Channel(object):
