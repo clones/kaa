@@ -4,21 +4,22 @@ import re
 import md5
 import urllib
 import urllib2
+import logging
 from xml.dom import minidom
 
 # external deps
 from BeautifulSoup import BeautifulSoup
 import feedparser
 
+# kaa imports
 import kaa.notifier
 import kaa.beacon
 from kaa.strutils import str_to_unicode, unicode_to_str
 
 from download import fetch
 
-for t in ('video', 'audio', 'image'):
-    kaa.beacon.register_file_type_attrs(
-        t, mediafeed_channel = (int, kaa.beacon.ATTR_SIMPLE))
+# get logging object
+log = logging.getLogger('beacon')
 
 pm = urllib2.HTTPPasswordMgrWithDefaultRealm()
 auth_handler = urllib2.HTTPBasicAuthHandler(pm)
@@ -44,7 +45,7 @@ class Entry(dict):
         return self.get(attr)
 
     def fetch(self, filename):
-        print '%s -> %s' % (self.url, filename)
+        log.info('%s -> %s' % (self.url, filename))
         return fetch(self.url, filename)
 
 
@@ -59,7 +60,7 @@ class Channel(object):
 
         if not os.path.isdir(destdir):
             os.makedirs(destdir)
-        
+
     def configure(self, download=True, num=0, keep=0):
         """
         Configure feed
@@ -77,14 +78,14 @@ class Channel(object):
             raise RuntimeError()
         _channels.append(self)
         self._writexml()
-            
+
     # state information
     def _readxml(self, nodes):
         for node in nodes:
             if node.nodeName == 'entry':
                 fname = unicode_to_str(node.getAttribute('filename')) or None
                 self._entries.append((node.getAttribute('url'), fname))
-        
+
     def _writexml(self):
         doc = minidom.getDOMImplementation().createDocument(None, "feed", None)
         top = doc.documentElement
@@ -107,7 +108,7 @@ class Channel(object):
         f = open(self._cache, 'w')
         f.write(doc.toprettyxml())
         f.close()
-        
+
     # Some internal helper functions
 
     def _thread(self, *args, **kwargs):
@@ -144,8 +145,6 @@ class Channel(object):
         img.close()
         yield img
 
-    # update (download) feed
-
     @kaa.notifier.yield_execution()
     def update(self, verbose=False):
         """
@@ -155,18 +154,15 @@ class Channel(object):
             sys.stdout.write("%s\r" % str(s))
             sys.stdout.flush()
 
-        if not self._download:
-            print 'adding to beacon does not work'
-            return
-        
         # get directory information
         beacondir = kaa.beacon.get(self._destdir)
+        allurls = [ f.url for f in beacondir.list() ]
 
         num = self._num
         allfiles = [ e[1] for e in self._entries ]
         entries = self._entries
         self._entries = []
-        
+
         for entry in self:
             if isinstance(entry, kaa.notifier.InProgress):
                 # dummy entry to signal waiting
@@ -179,22 +175,26 @@ class Channel(object):
                 if entry.get(key):
                     info[key] = entry[key]
             filename = None
-            
-            if not self._download and entry.url in items:
+
+            if not self._download and entry.url in allurls:
                 # already in beacon list
-                del items[entry.url]
+                pass
             elif not self._download:
                 # add to beacon
                 info['url'] = entry['url']
-                i = kaa.beacon.add_item(type='video', parent=d,
-                                        mediafeed_channel=self.url, **info)
+                i = kaa.beacon.add_item(
+                    type='video', parent=beacondir,
+                    mediafeed_channel=self.url, **info)
             else:
                 # download
                 filename = os.path.join(self._destdir, entry.basename)
                 if not os.path.isfile(filename) and filename in allfiles:
                     # file not found, check if it was downloaded before. If
                     # so, the user deleted it and we do not fetch it again
-                    print 'k'
+                    continue
+                if os.path.isfile(filename):
+                    # File already downloaded.
+                    # FIXME: make sure the file is up-to-date
                     continue
                 async = entry.fetch(filename)
                 if verbose:
@@ -209,13 +209,18 @@ class Channel(object):
 
         self._writexml()
 
-        # delete old
-        for e in entries:
-            if (self._keep and self._download) or e in self._entries:
+        # delete old files or remove old entries from beacon
+        for url, filename in entries:
+            if (self._keep and self._download) or (url, filename) in self._entries:
                 continue
-            if os.path.isfile(e[1]):
-                os.unlink(e[1])
-
+            if not filename:
+                # delete old entries from beacon
+                for f in beacondir.list():
+                    if f.url == url:
+                        f.delete()
+            elif os.path.isfile(filename):
+                # delete file on disc
+                os.unlink(filename)
 
 _generators = []
 
@@ -237,10 +242,10 @@ def init():
         try:
             c = minidom.parse(os.path.join(CACHEDIR, f))
         except:
-            print 'bad file'
+            log.error('bad cache file: %s' % f)
             continue
         if not len(c.childNodes) == 1 or not c.childNodes[0].nodeName == 'feed':
-            print 'bad cache file'
+            log.error('bad cache file: %s' % f)
             continue
         url = c.childNodes[0].getAttribute('url')
         channel = None
@@ -256,7 +261,7 @@ def init():
                 _channels.append(channel)
                 break
         if not channel:
-            print 'bad cache file'
+            log.error('bad cache file: %s' % f)
             continue
 
 @kaa.notifier.yield_execution()
