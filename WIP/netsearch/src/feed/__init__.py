@@ -20,11 +20,9 @@
 # ##################################################################
 
 
-import channel
+import manager
 import plugins
 
-add_password = channel.pm.add_password
-Channel = channel.get_channel
-init = channel.init
-update = channel.update
-
+add_channel = manager.add_channel
+list_channels = manager.list_channels
+update = manager.update

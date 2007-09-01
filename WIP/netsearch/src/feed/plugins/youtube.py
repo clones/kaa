@@ -1,5 +1,5 @@
 import re
-from kaa.netsearch.feed.channel import Channel, Entry, register
+from kaa.netsearch.feed.channel import Channel
 
 class YouTube(Channel):
 

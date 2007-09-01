@@ -7,10 +7,6 @@ import urllib2
 import logging
 from xml.dom import minidom
 
-# external deps
-from BeautifulSoup import BeautifulSoup
-import feedparser
-
 # kaa imports
 import kaa.notifier
 import kaa.notifier.url
@@ -18,51 +14,46 @@ import kaa.beacon
 from kaa.strutils import str_to_unicode, unicode_to_str
 
 # get logging object
-log = logging.getLogger('beacon')
-
-pm = urllib2.HTTPPasswordMgrWithDefaultRealm()
-auth_handler = urllib2.HTTPBasicAuthHandler(pm)
-opener = urllib2.build_opener(auth_handler)
-urllib2.install_opener(opener)
+log = logging.getLogger('beacon.feed')
 
 # ##################################################################
 # some generic entry/channel stuff
 # ##################################################################
 
 IMAGEDIR = os.path.expanduser("~/.beacon/feedinfo/images")
-CACHEDIR = os.path.expanduser("~/.beacon/feedinfo")
 
 if not os.path.isdir(IMAGEDIR):
     os.makedirs(IMAGEDIR)
 
-
-class Entry(dict):
-
-    def __getattr__(self, attr):
-        if attr == 'basename' and not 'basename' in self.keys():
-            self['basename'] = self['title'].replace('/', '') + '.' + self['ext']
-        return self.get(attr)
-
-    def fetch(self, filename):
-        log.info('%s -> %s' % (self.url, filename))
-        tmpname = os.path.join(os.path.dirname(filename),
-                               '.' + os.path.basename(filename))
-        return kaa.notifier.url.fetch(self.url, filename, tmpname)
-
-
 class Channel(object):
 
-    def __init__(self, url, destdir):
-        self.url = url
-        self._destdir = destdir
-        self._cache = os.path.join(CACHEDIR, md5.md5(url).hexdigest() + '.xml')
-        self.configure()
-        self._entries = []
+    class Entry(dict):
 
+        def __getattr__(self, attr):
+            if attr == 'basename' and not 'basename' in self.keys():
+                self['basename'] = self['title'].replace('/', '') + '.' + self['ext']
+            return self.get(attr)
+
+        def fetch(self, filename):
+            log.info('%s -> %s' % (self.url, filename))
+            tmpname = os.path.join(os.path.dirname(filename),
+                                   '.' + os.path.basename(filename))
+            return kaa.notifier.url.fetch(self.url, filename, tmpname)
+
+
+    def __init__(self, url, destdir, cachefile):
+        self.url = url
+        self.dirname = destdir
+        self._cache = cachefile
+        self._entries = []
+        self._download = True
+        self._num = 0
+        self._keep = True
         if not os.path.isdir(destdir):
             os.makedirs(destdir)
 
-    def configure(self, download=True, num=0, keep=0):
+
+    def configure(self, download=True, num=0, keep=True):
         """
         Configure feed
         num:      number of items from the feed (0 == all, default)
@@ -72,20 +63,15 @@ class Channel(object):
         self._download = download
         self._num = num
         self._keep = keep
-
-
-    def append(self):
-        if os.path.isfile(self._cache):
-            raise RuntimeError()
-        _channels.append(self)
         self._writexml()
 
-    # state information
+
     def _readxml(self, nodes):
         for node in nodes:
             if node.nodeName == 'entry':
                 fname = unicode_to_str(node.getAttribute('filename')) or None
                 self._entries.append((node.getAttribute('url'), fname))
+
 
     def _writexml(self):
         doc = minidom.getDOMImplementation().createDocument(None, "feed", None)
@@ -98,7 +84,7 @@ class Channel(object):
             else:
                 d.setAttribute(attr, 'false')
             d.setAttribute('num', str(self._num))
-        d.appendChild(doc.createTextNode(self._destdir))
+        d.appendChild(doc.createTextNode(self.dirname))
         top.appendChild(d)
         for url, fname in self._entries:
             e = doc.createElement('entry')
@@ -110,29 +96,6 @@ class Channel(object):
         f.write(doc.toprettyxml())
         f.close()
 
-    # Some internal helper functions
-
-    def _thread(self, *args, **kwargs):
-        t = kaa.notifier.Thread(*args, **kwargs)
-        t.wait_on_exit(False)
-        self._async = t.start()
-        return self._async
-
-    def _feedparser(self, url):
-        return self._thread(feedparser.parse, urllib2.urlopen(url))
-
-    def _beautifulsoup(self, url):
-        def __beautifulsoup(url):
-            return BeautifulSoup(urllib2.urlopen(url))
-        return self._thread(__beautifulsoup, url)
-
-    def _readurl(self, url):
-        def __readurl(url):
-            return urllib2.urlopen(url).read()
-        return self._thread(__readurl, url)
-
-    def _get_result(self):
-        return self._async.get_result()
 
     @kaa.notifier.yield_execution()
     def _get_image(self, url):
@@ -141,10 +104,9 @@ class Channel(object):
         fname = os.path.join(IMAGEDIR, fname)
         if os.path.isfile(fname):
             yield fname
-        img = open(fname, 'w')
-        img.write(urllib2.urlopen(url).read())
-        img.close()
-        yield img
+        yield kaa.notifier.url.fetch(url, fname)
+        yield fname
+
 
     @kaa.notifier.yield_execution()
     def update(self, verbose=False):
@@ -156,7 +118,7 @@ class Channel(object):
             sys.stdout.flush()
 
         # get directory information
-        beacondir = kaa.beacon.get(self._destdir)
+        beacondir = kaa.beacon.get(self.dirname)
         allurls = [ f.url for f in beacondir.list() ]
 
         num = self._num
@@ -188,20 +150,21 @@ class Channel(object):
                     mediafeed_channel=self.url, **info)
             else:
                 # download
-                filename = os.path.join(self._destdir, entry.basename)
+                filename = os.path.join(self.dirname, entry.basename)
                 if not os.path.isfile(filename) and filename in allfiles:
                     # file not found, check if it was downloaded before. If
                     # so, the user deleted it and we do not fetch it again
-                    continue
-                if os.path.isfile(filename):
+                    pass
+                elif os.path.isfile(filename):
                     # File already downloaded.
                     # FIXME: make sure the file is up-to-date
-                    continue
-                async = entry.fetch(filename)
-                if verbose:
-                    async.get_status().connect(print_status, async.get_status())
-                # FIXME: add additional information to beacon
-                yield async
+                    pass
+                else:
+                    async = entry.fetch(filename)
+                    if verbose:
+                        async.get_status().connect(print_status, async.get_status())
+                    # FIXME: add additional information to beacon
+                    yield async
 
             self._entries.append((entry['url'], filename))
             num -= 1
@@ -222,50 +185,3 @@ class Channel(object):
             elif os.path.isfile(filename):
                 # delete file on disc
                 os.unlink(filename)
-
-_generators = []
-
-def register(regexp, generator):
-    _generators.append((regexp, generator))
-
-def get_channel(url, destdir):
-    for regexp, generator in _generators:
-        if regexp.match(url):
-            return generator(url, destdir)
-    raise RuntimeError
-
-_channels = []
-
-def init():
-    for f in os.listdir(CACHEDIR):
-        if not f.endswith('.xml'):
-            continue
-        try:
-            c = minidom.parse(os.path.join(CACHEDIR, f))
-        except:
-            log.error('bad cache file: %s' % f)
-            continue
-        if not len(c.childNodes) == 1 or not c.childNodes[0].nodeName == 'feed':
-            log.error('bad cache file: %s' % f)
-            continue
-        url = c.childNodes[0].getAttribute('url')
-        channel = None
-        for d in c.childNodes[0].childNodes:
-            if d.nodeName == 'directory':
-                dirname = unicode_to_str(d.childNodes[0].data.strip())
-                channel = get_channel(url, dirname)
-                channel.configure(
-                    d.getAttribute('download').lower() == 'true',
-                    int(d.getAttribute('num')),
-                    d.getAttribute('keep').lower() == 'true')
-                channel._readxml(c.childNodes[0].childNodes)
-                _channels.append(channel)
-                break
-        if not channel:
-            log.error('bad cache file: %s' % f)
-            continue
-
-@kaa.notifier.yield_execution()
-def update(verbose=False):
-    for channel in _channels:
-        yield channel.update(verbose=verbose)
