@@ -25,4 +25,5 @@ import plugins
 
 add_channel = manager.add_channel
 list_channels = manager.list_channels
+remove_channel = manager.remove_channel
 update = manager.update

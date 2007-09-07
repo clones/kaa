@@ -9,7 +9,7 @@ if len(sys.argv) > 1:
             print 'no channels defined'
             sys.exit(0)
         kaa.beacon.connect()
-        kaa.netsearch.feed.update().connect(sys.exit)
+        kaa.netsearch.feed.update(verbose=all).connect(sys.exit)
         kaa.notifier.loop()
         sys.exit(0)
 
@@ -34,30 +34,39 @@ class Manager(object):
         self.tree.set_model(self.treestore)
         column = gtk.TreeViewColumn("URL", gtk.CellRendererText(), text=0)
         self.tree.append_column(column)
+        self._rebuild()
 
+    def _rebuild(self):
         self.channels = []
+        self.treestore.clear()
         for channel in kaa.netsearch.feed.list_channels():
             self.treestore.append(None, [ channel.url ])
             self.channels.append(channel)
-            
-    def on_add_clicked(self, args):
-        Edit()
-        
-    def on_configure_clicked(self, args):
+
+    def _get_selection(self):
         sel = self.tree.get_selection().get_selected_rows()[1]
         if not sel:
-            return
-        Edit(self.channels[sel[0][0]])
+            return None
+        return self.channels[sel[0][0]]
+
+    def on_add_clicked(self, args):
+        Edit(callback=self._rebuild)
+        
+    def on_configure_clicked(self, args):
+        if self._get_selection():
+            Edit(self._get_selection(), self._rebuild)
     
     def on_remove_clicked(self, args):
-        pass
-    
-    def on_quit_clicked(self, args):
+        if self._get_selection():
+            kaa.netsearch.feed.remove_channel(self._get_selection())
+            self._rebuild
+            
+    def quit(self, *args):
         sys.exit(0)
 
 
 class Edit(object):
-    def __init__(self, channel=None):
+    def __init__(self, channel=None, callback=None):
         self.xml = gtk.glade.XML(GLADEFILE, 'edit')
         self.xml.signal_autoconnect (self)
         self.win = self.xml.get_widget("edit")
@@ -67,7 +76,8 @@ class Edit(object):
                 self.get_widget(widget).set_text(getattr(channel, widget))
                 self.xml.get_widget(widget).set_sensitive(False)
         self.win.show()
-
+        self.callback = callback
+        
 
     def get_widget(self, name):
         return self.xml.get_widget(name)
@@ -84,7 +94,8 @@ class Edit(object):
 
     def on_cancel_clicked(self, args):
         self.win.destroy()
-
+        if self.callback:
+            self.callback()
 
     def on_ok_clicked(self, args):
         # get data
@@ -98,10 +109,16 @@ class Edit(object):
 
         if self.channel:
             self.channel.configure(download, num, keep)
+            self.win.destroy()
+            if self.callback:
+                self.callback()
             return
 
         if url and destdir:
             kaa.netsearch.feed.add_channel(url, destdir, download, num, keep)
+            self.win.destroy()
+            if self.callback:
+                self.callback()
             return
         
         # no idea how this works with glade.
