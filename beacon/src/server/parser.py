@@ -96,9 +96,10 @@ def parse(db, item, check_image=False):
     """
     mtime = item._beacon_mtime()
     if mtime == None:
-        if item._beacon_data.get('scheme') in (None, 'file'):
+        if item.isdir() or item.isfile():
             log.warning('no mtime, skip %s' % item)
             return 0
+        # neither dir nor file, it can not have a mtime
         image = item._beacon_data.get('image')
         if image and os.path.exists(image):
             t = thumbnail.Thumbnail(image, item._beacon_media)

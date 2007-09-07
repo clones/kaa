@@ -133,7 +133,8 @@ class Client(object):
             return None
         if isinstance(url, unicode):
             url = kaa.strutils.unicode_to_str(url)
-        kwargs['scheme'] = url[:url.find('://')]
+        if url.find('://') > 0:
+            kwargs['scheme'] = url[:url.find('://')]
         kwargs['name'] = url
         i = Item(None, url, kwargs, parent, parent._beacon_media)
         rpc = self.rpc('item.create', type=type, parent=parent._beacon_id, **kwargs)

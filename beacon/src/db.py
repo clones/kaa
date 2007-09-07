@@ -56,12 +56,21 @@ MAX_BUFFER_CHANGES = 30
 from file import File as create_file
 from item import create_item
 
+# The db uses the following helper functions to create the correct item
+# create_item (not a file or directory)
+# create_file (file or directory, based on parameter)
+# create_directory (directory)
+# create_by_type (item, file or directory based on data)
+
 def create_by_type(data, parent, overlay=False, isdir=False):
-    if data.get('scheme') not in (None, 'file'):
+    # if the data indicates it is not a file or the parent is not
+    # a directory, make it an Item, not a File.
+    if (data.get('name').find('://') > 0) or (parent and not parent.isdir()):
         return create_item(data, parent)
     return create_file(data, parent, overlay, isdir)
 
 def create_directory(data, parent):
+    # create directory item
     return create_file(data, parent, isdir=True)
 
 class Database(object):
@@ -231,7 +240,8 @@ class Database(object):
             while pos < len(items) and f > items[pos]._beacon_name:
                 # file deleted
                 i = items[pos]
-                if i.get('scheme') not in (None, 'file'):
+                if not i.isdir() and not i.isfile():
+                    # A remote URL in the directory
                     pos += 1
                     continue
                 items.remove(i)
@@ -252,7 +262,8 @@ class Database(object):
         if pos + 1 < len(items):
             # deleted files at the end
             for i in items[pos+1-len(items):]:
-                if i.get('scheme') not in (None, 'file'):
+                if not i.isdir() and not i.isfile():
+                    # A remote URL in the directory
                     continue
                 items.remove(i)
                 if self.delete_object:

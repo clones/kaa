@@ -94,8 +94,8 @@ class File(Item):
 
         Item.__init__(self, id, 'file://' + filename, data, parent, media)
         if self._beacon_data.get('scheme'):
-            self.url = self._beacon_data.get('scheme') + \
-                       self.url[self.url.find('://')+3:]
+            # file uses a special scheme like dvd
+            self.url = self._beacon_data.get('scheme') + '://' + filename
 
         self._beacon_overlay = overlay
         self._beacon_isdir = isdir
