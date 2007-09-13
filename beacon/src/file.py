@@ -43,6 +43,7 @@ from item import Item
 # get logging object
 log = logging.getLogger('beacon')
 
+CONNECTED = 'connected'
 
 class File(Item):
     """
@@ -228,12 +229,14 @@ class File(Item):
 
     def _beacon_request(self, callback=None, *args, **kwargs):
         """
-        Request the item to be scanned.
+        Request the item to be scanned. (Client API only)
         """
-        f = self.get_controller()._beacon_request
-        f(self.filename, self._beacon_database_update, callback,
-          *args, **kwargs)
-        return None
+
+        if not self.get_controller().status == CONNECTED:
+            return False
+        rpc = self.get_controller().rpc('item.request', self.filename)
+        rpc.connect_once(self._beacon_database_update, callback, *args, **kwargs)
+        return True
 
 
     # -------------------------------------------------------------------------

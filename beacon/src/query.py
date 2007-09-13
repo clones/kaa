@@ -31,6 +31,7 @@
 
 
 # Python imports
+import copy
 import logging
 
 # kaa imports
@@ -71,13 +72,19 @@ class Query(object):
         }
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
-        self._query = query
-        self._client = client
+
+        # public variables
         self.monitoring = False
-        # XXX: maybe 'completed' is better than 'valid'?
         self.valid = False
         self.result = []
-        self._beacon_start_query(query, False)
+        # internal variables
+        self._query = query
+        self._client = client
+        # some shortcuts from the client
+        self._rpc = self._client.rpc
+        self._db = self._client._db
+        # start inititial query
+        self._beacon_start_query(query)
 
 
     # -------------------------------------------------------------------------
@@ -89,12 +96,28 @@ class Query(object):
         Turn on/off query monitoring
         """
         if self.monitoring == status:
+            # Nothing to do
             return
-        self.monitoring = status
-        # if the client is not connected yet, it will do this later.
+        if not self._client.status == CONNECTED:
+            # If the client is not connected yet, it will do this later.
+            # Rememeber that we wanted to connect
+            self.monitoring = status
+            return
         if status:
-            return self._client._beacon_monitor_add(self)
-        self._client._beacon_monitor_remove(self)
+            query = copy.copy(self._query)
+            if 'parent' in query:
+                parent = query['parent']
+                if not parent._beacon_id:
+                    # We need the get the id first. Call the function again
+                    # when there is an id.
+                    parent._beacon_request(self.monitor, status)
+                    return
+                query['parent'] = parent._beacon_id
+            self._rpc('monitor.add', self._client.id, self.id, query)
+        else:
+            self._rpc('monitor.remove', self._client.id, self.id)
+        # Store current status
+        self.monitoring = status
 
 
     def __iter__(self):
@@ -157,7 +180,7 @@ class Query(object):
     # -------------------------------------------------------------------------
 
     @kaa.notifier.yield_execution()
-    def _beacon_start_query(self, query, emit_signal):
+    def _beacon_start_query(self, query):
         """
         Start the database query.
         """
@@ -166,9 +189,6 @@ class Query(object):
             wait = kaa.notifier.YieldCallback()
             self._client.signals['connect'].connect_once(wait)
             yield wait
-            emit_signal = True
-            # Since query was async, we need to emit 'changed' signal, so
-            # override emit_signal argument.
 
         if 'parent' in query and isinstance(query['parent'], Item) and \
                not query['parent']._beacon_id:
@@ -177,20 +197,22 @@ class Query(object):
             # request the real database id and do the query when done.
             parent = query['parent']
             log.info('force data for %s', parent)
-            parent._beacon_request(self._beacon_start_query, query, True)
+            parent._beacon_request(self._beacon_start_query, query)
             return
 
-        self.result = self._client._beacon_query(**query)
-        # _beacon_query always is async because it call a rpc
-        yield self.result
-        self.result = self.result()
-        # Since query was async, we need to emit 'changed' signal, so
-        # override emit_signal argument.
-        emit_signal = True
+        # we have to wait until we are sure that the db is free for
+        # read access or the sqlite client will find a lock and waits
+        # some time until it tries again. That time is too long, it
+        # can take up to two seconds.
+        yield self._rpc('db.lock')
+        self.result = self._db.query(**query)
+        if isinstance(self.result, kaa.notifier.InProgress):
+            yield self.result
+            self.result = self.result.get_result()
+        self._rpc('db.unlock')
 
         self.valid = True
-        if emit_signal:
-            self.signals['changed'].emit()
+        self.signals['changed'].emit()
         if self.signals['yield']:
             self.signals['yield'].emit(self)
             self.signals['yield'] = None
@@ -220,10 +242,16 @@ class Query(object):
         """
         Changed message from server.
         """
-        result = self._client._beacon_query(**self._query)
-        # _beacon_query always is async because it call a rpc
-        yield result
-        result = result.get_result()
+        # we have to wait until we are sure that the db is free for
+        # read access or the sqlite client will find a lock and waits
+        # some time until it tries again. That time is too long, it
+        # can take up to two seconds.
+        yield self._rpc('db.lock')
+        result = self._db.query(**self._query)
+        if isinstance(result, kaa.notifier.InProgress):
+            yield result
+            result = result.get_result()
+        self._rpc('db.unlock')
         if send_signal or len(self.result) != len(result):
             # The query result length is different
             self.result = result

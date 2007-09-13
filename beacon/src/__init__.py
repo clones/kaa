@@ -176,12 +176,13 @@ def get_db_info():
     """
     Gets statistics about the database. This function will block using
     kaa.notifier.step() until the client is connected.
+    (Only usefull for debugging)
     """
     if not _client:
         connect()
     while not _client.status == CONNECTED:
         kaa.notifier.step()
-    return _client._beacon_db_information()
+    return _client._db.get_db_info()
 
 
 def delete_media(id):

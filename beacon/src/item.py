@@ -134,7 +134,11 @@ class Item(object):
 
         if request and not self._beacon_id:
             log.info('requesting data for %s', self)
-            self._beacon_request()
+            if not self._beacon_request():
+                # unable to do this right now
+                return None
+
+            # FIXME: remove notifier.step() here!
             while not self._beacon_id:
                 kaa.notifier.step()
 
@@ -253,7 +257,7 @@ class Item(object):
         """
         Request the item to be scanned.
         """
-        return None
+        return False
 
 
     # -------------------------------------------------------------------------

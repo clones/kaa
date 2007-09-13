@@ -36,7 +36,6 @@
 
 # Python imports
 import os
-import copy
 import logging
 
 # kaa imports
@@ -229,7 +228,8 @@ class Client(object):
         # Reset monitors to queries
         for query in self._queries:
             if query != None and query.monitoring:
-                self._beacon_monitor_add(query)
+                query.monitoring = False
+                query.monitor(True)
 
         return False
 
@@ -261,66 +261,14 @@ class Client(object):
     # Internal API
     # -------------------------------------------------------------------------
 
-    def _beacon_monitor_add(self, query):
-        """
-        Monitor a query
-        """
-        if not self.status == CONNECTED:
-            return
-        q = copy.copy(query._query)
-        if 'parent' in q:
-            if not q['parent']._beacon_id:
-                # we need the get the id first
-                q['parent']._beacon_request(self._beacon_monitor_add, query)
-                return
-            q['parent'] = q['parent']._beacon_id
-        self.rpc('monitor.add', self.id, query.id, q)
-
-
-    def _beacon_monitor_remove(self, query):
-        """
-        Monitor a query
-        """
-        if not self.status == CONNECTED:
-            return
-        self.rpc('monitor.remove', self.id, query.id)
-
-
-    def _beacon_request(self, filename, callback, *args, **kwargs):
-        """
-        Request information about a filename.
-        """
-        if not self.status == CONNECTED:
-            return False
-        self.rpc('item.request', filename).connect(callback, *args, **kwargs)
-        return True
-
-
-    @kaa.notifier.yield_execution()
-    def _beacon_query(self, **kwargs):
-        """
-        Do a query from the db.
-        """
-        # we have to wait until we are sure that the db is free for
-        # read access or the sqlite client will find a lock and waits
-        # some time until it tries again. That time is too long, it
-        # can take up to two seconds.
-        yield self.rpc('db.lock')
-        result = self._db.query(**kwargs)
-        if isinstance(result, kaa.notifier.InProgress):
-            yield result
-            result = result.get_result()
-        self.rpc('db.unlock')
-        yield result
-
-
     def _beacon_update(self, item):
         """
         Update item in next main loop interation.
         """
         if not item._beacon_id:
-            # item has no beacon id, request the data before
-            # schedule the update
+            # Item has no beacon id, request the data before
+            # schedule the update. If we are not connected the
+            # update will be lost.
             item._beacon_request(self._beacon_update, item)
             return
         if not self._changed:
@@ -359,13 +307,6 @@ class Client(object):
         result = self._db.query_media(media)
         self.rpc('db.unlock')
         yield result
-
-
-    def _beacon_db_information(self):
-        """
-        Get some basic db information for debugging.
-        """
-        return self._db.get_db_info()
 
 
     # -------------------------------------------------------------------------
@@ -428,7 +369,8 @@ class Client(object):
                 return query.signals['up-to-date'].emit()
             log.error('Error: unknown message from server: %s' % msg)
             return
-
+        log.error('query %s not found', id)
+        
 
     @kaa.rpc.expose('device.changed')
     def media_changed(self, id, prop):
