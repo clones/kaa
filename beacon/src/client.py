@@ -296,21 +296,22 @@ class Client(object):
         return True
 
 
+    @kaa.notifier.yield_execution()
     def _beacon_query(self, **kwargs):
         """
         Do a query from the db.
         """
-        self.rpc('db.lock')
+        # we have to wait until we are sure that the db is free for
+        # read access or the sqlite client will find a lock and waits
+        # some time until it tries again. That time is too long, it
+        # can take up to two seconds.
+        yield self.rpc('db.lock')
         result = self._db.query(**kwargs)
         if isinstance(result, kaa.notifier.InProgress):
-            cb = kaa.notifier.Callback(self.rpc, 'db.unlock')
-            # Call args will be the result set of the query.  We don't want to
-            # send this over RPC.
-            cb.set_ignore_caller_args()
-            result.connect(cb)
-        else:
-            self.rpc('db.unlock')
-        return result
+            yield result
+            result = result.get_result()
+        self.rpc('db.unlock')
+        yield result
 
 
     def _beacon_update(self, item):
@@ -344,15 +345,20 @@ class Client(object):
         self.rpc('item.update', items)
 
 
+    @kaa.notifier.yield_execution()
     def _beacon_media_information(self, media):
         """
         Get some basic media information.
         (similar function in server)
         """
-        self.rpc('db.lock')
+        # we have to wait until we are sure that the db is free for
+        # read access or the sqlite client will find a lock and waits
+        # some time until it tries again. That time is too long, it
+        # can take up to two seconds.
+        yield self.rpc('db.lock')
         result = self._db.query_media(media)
         self.rpc('db.unlock')
-        return result
+        yield result
 
 
     def _beacon_db_information(self):
@@ -367,6 +373,7 @@ class Client(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose('connect')
+    @kaa.notifier.yield_execution()
     def _connected(self, id, database, media):
         """
         Callback to pass the database information to the client.
@@ -379,7 +386,12 @@ class Client(object):
         new_media = []
         medialist.connect(self)
         for id, prop in media:
-            new_media.append(medialist.add(id, prop))
+            # in the client medialist.add has to lock the db
+            # and needs the db.lock rpc which will always result
+            # in returning an InProgress object.
+            async = medialist.add(id, prop)
+            yield async
+            new_media.append(async.get_result())
         self.signals['connect'].emit()
         # reconnect query monitors
         for query in self._queries[:]:
@@ -424,10 +436,14 @@ class Client(object):
         Notification that the media with the given id changed.
         """
         if medialist.get_by_media_id(id):
+            # Update can take a while but it should not matter here.
+            # The InProgress object can be ignored
             medialist.get_by_media_id(id).update(prop)
             return
-        media = medialist.add(id, prop)
-        self.signals['media.add'].emit(media)
+        # Adding a media always returns an InProgress object. Attach
+        # sending the signal to the InProgress return.
+        async = medialist.add(id, prop)
+        async.connect_once(self.signals['media.add'].emit, media)
 
 
     @kaa.rpc.expose('device.removed')

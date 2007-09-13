@@ -36,6 +36,7 @@ import os
 import logging
 
 # kaa imports
+import kaa.notifier
 from kaa.weakref import weakref
 
 # kaa.beacon imports
@@ -49,18 +50,12 @@ class Media(object):
 
     # check what mounpoint needs right now
 
-    def __init__(self, id, controller, prop):
+    def __init__(self, id, controller):
+        log.info('new media %s', id)
         self._controller = controller
         self.id = id
-        self.update(prop)
-
         # needed by server.
         self.crawler = None
-
-        log.info('new media %s', self.id)
-
-        # when we are here the media is in the database and also
-        # the item for it
 
 
     def get_controller(self):
@@ -77,6 +72,7 @@ class Media(object):
         self._controller.eject(self)
 
 
+    @kaa.notifier.yield_execution()
     def update(self, prop):
         """
         Update media properties.
@@ -91,6 +87,11 @@ class Media(object):
         self._beacon_media = weakref(self)
         # get basic information from database
         media = self._controller._beacon_media_information(self)
+        if isinstance(media, kaa.notifier.InProgress):
+            # This will happen for the client because in the client
+            # _beacon_media_information needs to lock the db.
+            yield media
+            media = media.get_result()
         prop['beacon.content'] = media['content']
         self._beacon_isdir = False
         if media['content'] == 'file':
@@ -145,6 +146,7 @@ class MediaList(object):
         self._controller = controller
 
 
+    @kaa.notifier.yield_execution()
     def add(self, id, prop):
         """
         Add a media.
@@ -152,11 +154,16 @@ class MediaList(object):
         if not self._controller:
             raise RuntimeError('not connected to database')
         if id in self._dict:
-            return self._dict.get(id)
-        media = Media(id, self._controller, prop)
+            yield self._dict.get(id)
+        media = Media(id, self._controller)
+        async = media.update(prop)
+        if isinstance(async, kaa.notifier.InProgress):
+            # This will happen for the client because update
+            # needs to lock the db.
+            yield async
         self._dict[id] = media
         self._idlist = [ m._beacon_id[1] for m in self._dict.values() ]
-        return media
+        yield media
 
 
     def remove(self, id):

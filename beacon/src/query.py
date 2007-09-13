@@ -181,13 +181,12 @@ class Query(object):
             return
 
         self.result = self._client._beacon_query(**query)
-
-        if isinstance(self.result, kaa.notifier.InProgress):
-            yield self.result
-            self.result = self.result()
-            # Since query was async, we need to emit 'changed' signal, so
-            # override emit_signal argument.
-            emit_signal = True
+        # _beacon_query always is async because it call a rpc
+        yield self.result
+        self.result = self.result()
+        # Since query was async, we need to emit 'changed' signal, so
+        # override emit_signal argument.
+        emit_signal = True
 
         self.valid = True
         if emit_signal:
@@ -222,9 +221,9 @@ class Query(object):
         Changed message from server.
         """
         result = self._client._beacon_query(**self._query)
-        if isinstance(result, kaa.notifier.InProgress):
-            yield result
-            result = result.get_result()
+        # _beacon_query always is async because it call a rpc
+        yield result
+        result = result.get_result()
         if send_signal or len(self.result) != len(result):
             # The query result length is different
             self.result = result
