@@ -104,7 +104,7 @@ def launch(autoshutdown=False, verbose='none'):
         # we hope it is in the PATH somewhere
         beacon = 'beacon-daemon'
 
-    cmd = '%s --start --verbose=%s' % (beacon, verbose)
+    cmd = '%s --verbose=%s' % (beacon, verbose)
     if autoshutdown:
         cmd += ' --autoshutdown'
     if os.system(cmd):
