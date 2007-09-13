@@ -305,6 +305,11 @@ def _parse(db, item, mtime):
         for function in extention_plugins[ext]:
             function(item, attributes)
 
+    # FIXME: this should not be needed if kaa.metadata works correctly
+    attributes['date'] = 0
+    if metadata.get('date') and isinstance(metadata.get('date'), int):
+        attributes['date'] = metadata.get('date')
+
     while db.read_lock.is_locked():
         # wait for the db to be free for write access
         yield db.read_lock.yield_unlock()
