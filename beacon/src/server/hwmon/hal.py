@@ -275,9 +275,10 @@ def _device_add(prop, udi, removable=False):
                     signals['add'].emit(dev)
         return
 
-    if prop.get('block.device') and config.discs and \
-           (prop.get('block.device')[:-1] in config.discs.split(' ') or \
-            prop.get('block.device')[:-2] in config.discs.split(' ')):
+    if prop.get('block.device').startswith('/dev/mapper') or \
+           (prop.get('block.device') and config.discs and \
+            (prop.get('block.device')[:-1] in config.discs.split(' ') or \
+             prop.get('block.device')[:-2] in config.discs.split(' '))):
         # fixed device set in config
         return
 
