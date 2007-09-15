@@ -22,7 +22,7 @@
 import kaa.rpc
 
 import manager
-import feed
+import core
 import rss
 
 @kaa.rpc.expose('feeds.update')
@@ -54,5 +54,5 @@ def remove_feed(id):
     return False
 
 def set_database(database):
-    feed.Feed._db = database
+    core.Feed._db = database
     manager.init()

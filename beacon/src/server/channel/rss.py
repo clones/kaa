@@ -6,7 +6,7 @@ import urllib2
 import kaa.notifier
 
 import feedparser as _feedparser
-import feed
+import core
 
 # get logging object
 log = logging.getLogger('beacon.feed')
@@ -16,7 +16,7 @@ isotime = '%a, %d %b %Y %H:%M:%S'
 def feedparser(url):
     return _feedparser.parse(urllib2.urlopen(url))
 
-class Feed(feed.Feed):
+class Feed(core.Feed):
 
     def __iter__(self):
         # get feed in a thread
@@ -89,5 +89,5 @@ class Feed(feed.Feed):
             # getting a good basename for urls ending with /
             # based on type.
             # create entry
-            entry = feed.Entry(**metadata)
+            entry = core.Entry(**metadata)
             yield entry
