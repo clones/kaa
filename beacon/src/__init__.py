@@ -198,10 +198,10 @@ def delete_media(id):
 
 class Feed(dict):
     def update(self):
-        return _client.feed_func('channels.update', self.get('id'))
+        return _client.feed_func('feeds.update', self.get('id'))
 
     def remove(self):
-        return _client.feed_func('channels.remove', self.get('id'))
+        return _client.feed_func('feeds.remove', self.get('id'))
 
 @kaa.notifier.yield_execution()
 def list_feeds():
@@ -211,7 +211,7 @@ def list_feeds():
     if not _client:
         connect()
     
-    async = _client.feed_func('channels.list')
+    async = _client.feed_func('feeds.list')
     yield async
     feeds = []
     for f in async.get_result():
@@ -226,7 +226,12 @@ def add_feed(url, destdir, download=True, num=0, keep=True):
     """
     if not _client:
         connect()
-    async = _client.feed_func('channels.add', url, destdir, download, num, keep)
+    async = _client.feed_func('feeds.add', url, destdir, download, num, keep)
     yield async
     yield Feed(async.get_result())
     
+def update_feeds():
+    """
+    Update all feeds.
+    """
+    return _client.feed_func('feeds.update')

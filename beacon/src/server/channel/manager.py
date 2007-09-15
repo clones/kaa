@@ -9,70 +9,70 @@ from kaa.strutils import unicode_to_str
 import rss
 
 # get logging object
-log = logging.getLogger('beacon.channel')
+log = logging.getLogger('beacon.feed')
 
-CACHE = os.path.expanduser("~/.beacon/channels.xml")
+CACHE = os.path.expanduser("~/.beacon/feeds.xml")
 
-# list of all channel objects
-_channels = []
+# list of all feed objects
+_feeds = []
 
-# list of all Channel classes
+# list of all Feed classes
 _generators = []
 
 def register(regexp, generator):
     """
-    Register a Channel class.
+    Register a Feed class.
     """
     _generators.append((regexp, generator))
 
 
-def _get_channel(url, destdir):
+def _get_feed(url, destdir):
     """
-    Get channel class from generators and create the channel object.
+    Get feed class from generators and create the feed object.
     """
     for regexp, generator in _generators:
         if regexp.match(url):
             return generator(url, destdir)
-    return rss.Channel(url, destdir)
+    return rss.Feed(url, destdir)
 
 
-def add_channel(url, destdir, download=True, num=0, keep=True):
+def add_feed(url, destdir, download=True, num=0, keep=True):
     """
-    Add a new channel.
+    Add a new feed.
     """
-    for c in _channels:
+    for c in _feeds:
         if c.dirname == destdir and c.url == url:
-            raise RuntimeError('channel already exists')
-    channel = _get_channel(url, destdir)
-    _channels.append(channel)
-    channel.configure(download, num, keep)
-    return channel
+            raise RuntimeError('feed already exists')
+    feed = _get_feed(url, destdir)
+    _feeds.append(feed)
+    feed.configure(download, num, keep)
+    return feed
 
 
-def list_channels():
+def list_feeds():
     """
-    Return a list of all channels.
+    Return a list of all feeds.
     """
-    return _channels
+    return _feeds
 
 
-def remove_channel(channel):
+def remove_feed(feed):
     """
-    Remove a channel.
+    Remove a feed.
     """
-    _channels.remove(channel)
-    channel.remove()
+    _feeds.remove(feed)
+    feed.remove()
     save()
     
 
 def save():
     """
-    Save all channel information
+    Save all feed information
     """
-    doc = minidom.getDOMImplementation().createDocument(None, "channels", None)
+    doc = minidom.getDOMImplementation().createDocument(None, "feeds", None)
     top = doc.documentElement
-    for c in _channels:
-        node = doc.createElement('channel')
+    for c in _feeds:
+        node = doc.createElement('feed')
         c._writexml(node)
         top.appendChild(node)
     f = open(CACHE, 'w')
@@ -82,18 +82,18 @@ def save():
     
 def init():
     """
-    Load cached channels from disc.
+    Load cached feeds from disc.
     """
 
-    def parse_channel(c):
+    def parse_feed(c):
         for d in c.childNodes:
             if not d.nodeName == 'directory':
                 continue
             dirname = unicode_to_str(d.childNodes[0].data.strip())
             url = unicode_to_str(c.getAttribute('url'))
-            channel = _get_channel(url, dirname)
-            channel._readxml(c)
-            _channels.append(channel)
+            feed = _get_feed(url, dirname)
+            feed._readxml(c)
+            _feeds.append(feed)
             return
         
     if not os.path.isfile(CACHE):
@@ -105,13 +105,13 @@ def init():
         log.exception('bad cache file: %s' % CACHE)
         return
     if not len(cache.childNodes) == 1 or \
-           not cache.childNodes[0].nodeName == 'channels':
+           not cache.childNodes[0].nodeName == 'feeds':
         log.error('bad cache file: %s' % CACHE)
         return
 
     for c in cache.childNodes[0].childNodes:
         try:
-            parse_channel(c)
+            parse_feed(c)
         except:
             log.exception('bad cache file: %s' % CACHE)
 
@@ -121,18 +121,15 @@ _updating = False
 @kaa.notifier.yield_execution()
 def update(verbose=False):
     """
-    Update all channels
+    Update all feeds
     """
     global _updating
     if _updating:
         log.error('update already in progress')
         yield False
-    log.info('start channel update')
+    log.info('start feed update')
     _updating = True
-    for channel in _channels:
-        x = channel.update(verbose=verbose)
-        yield x
-        log.info('XXXXXXXXX')
-        x()
+    for feed in _feeds:
+        yield feed.update(verbose=verbose)
     _updating = False
     yield True

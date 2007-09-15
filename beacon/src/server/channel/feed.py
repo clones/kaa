@@ -16,10 +16,10 @@ from kaa.strutils import str_to_unicode, unicode_to_str
 import manager
 
 # get logging object
-log = logging.getLogger('beacon.channel')
+log = logging.getLogger('beacon.feed')
 
 # ##################################################################
-# some generic entry/channel stuff
+# some generic entry/feed stuff
 # ##################################################################
 
 IMAGEDIR = os.path.expanduser("~/.beacon/images")
@@ -45,7 +45,7 @@ class Entry(dict):
         return kaa.notifier.url.fetch(self.url, filename, tmpname)
 
 
-class Channel(object):
+class Feed(object):
 
     _db = None
     NEXT_ID = 0
@@ -60,15 +60,15 @@ class Channel(object):
         self._keep = True
         if not os.path.isdir(destdir):
             os.makedirs(destdir)
-        self.id = Channel.NEXT_ID
-        Channel.NEXT_ID += 1
+        self.id = Feed.NEXT_ID
+        Feed.NEXT_ID += 1
         
 
     def configure(self, download=True, num=0, keep=True):
         """
-        Configure channel
-        num:      number of items from the channel (0 == all, default)
-        keep:     keep old entries not in channel anymore (download only)
+        Configure feed
+        num:      number of items from the feed (0 == all, default)
+        keep:     keep old entries not in feed anymore (download only)
         verbose:  print status on stdout
         """
         self._download = download
@@ -79,7 +79,7 @@ class Channel(object):
 
     def get_config(self):
         """
-        Get channel configuration.
+        Get feed configuration.
         """
         return dict(id = self.id,
                     url = self.url,
@@ -90,7 +90,7 @@ class Channel(object):
     
     def _readxml(self, node):
         """
-        Read XML node with channel configuration and cache.
+        Read XML node with feed configuration and cache.
         """
         for d in node.childNodes:
             if not d.nodeName == 'directory':
@@ -107,7 +107,7 @@ class Channel(object):
 
     def _writexml(self, node):
         """
-        Write XML node with channel configuration and cache.
+        Write XML node with feed configuration and cache.
         """
         node.setAttribute('url', self.url)
         doc = node.ownerDocument
@@ -146,13 +146,13 @@ class Channel(object):
     @kaa.notifier.yield_execution()
     def update(self, verbose=False):
         """
-        Update channel.
+        Update feed.
         """
         def print_status(s):
             sys.stdout.write("%s\r" % s.get_progressbar())
             sys.stdout.flush()
 
-        log.info('update channel %s', self.url)
+        log.info('update feed %s', self.url)
 
         # get directory information
         beacondir = self._db.query(filename=self.dirname)
@@ -241,7 +241,7 @@ class Channel(object):
     @kaa.notifier.yield_execution()
     def remove(self):
         """
-        Remove entries from this channel.
+        Remove entries from this feed.
         """
         log.info('remove %s', self.url)
         if self._keep or self._download:
