@@ -9,9 +9,15 @@ if len(sys.argv) > 1:
             print 'no channels defined'
             sys.exit(0)
         kaa.beacon.connect()
-        kaa.netsearch.feed.update(verbose=all).connect(sys.exit)
+        kaa.netsearch.feed.update(verbose=True).connect(sys.exit)
         kaa.notifier.loop()
         sys.exit(0)
+
+
+kaa.beacon.connect()
+kaa.netsearch.feed.add_channel('http://foo', 'bar')
+
+sys.exit(0)
 
 # import gtk for gui
 import pygtk

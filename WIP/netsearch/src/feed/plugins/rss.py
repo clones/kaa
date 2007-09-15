@@ -1,4 +1,5 @@
 import re
+import time
 import logging
 
 import kaa.notifier
@@ -9,6 +10,7 @@ from kaa.netsearch.feed.manager import register
 
 # get logging object
 log = logging.getLogger('beacon.feed')
+isotime = '%a, %d %b %Y %H:%M:%S'
 
 class RSS(Channel):
 
@@ -37,24 +39,53 @@ class RSS(Channel):
 
         # real iterate
         for f in feed.entries:
-            if 'link' in f.keys():
-                link = f.link
+
+            metadata = {}
+
+            if feedimage:
+                metadata['image'] = feedimage
+            if 'updated' in f.keys():
+                date = f.updated
+                if date.find('+') > 0:
+                    date = date[:date.find('+')].strip()
+                if date.rfind(' ') > date.rfind(':'):
+                    date = date[:date.rfind(' ')]
+                try:
+                    metadata['date'] = int(time.mktime(time.strptime(date, isotime)))
+                except ValueError:
+                    log.error('bad date format: %s', date)
+                    
+            if 'itunes_duration' in f.keys():
+                duration = 0
+                for p in f.itunes_duration.split(':'):
+                    duration = duration * 60 + int(p)
+                metadata['length'] = duration
+            if 'summary' in f.keys():
+                metadata['description']=f.summary
+            if 'title' in f.keys():
+                metadata['title'] = f.title
+                
             if 'enclosures' in f.keys():
                 # FIXME: more details than expected
                 if len(f.enclosures) > 1:
                     log.warning('more than one enclosure in %s' % self.url)
-                link = f.enclosures[0].href
+                metadata['url'] = f.enclosures[0].href
+                for ptype in ('video', 'audio', 'image'):
+                    if f.enclosures[0].type.startswith(ptype):
+                        metadata['type'] = ptype
+                        break
+            elif 'link' in f.keys():
+                # bad RSS style
+                metadata['url'] = f.link
+            else:
+                log.error('no link in entry for %s' % self.url)
+                continue
+
             # FIXME: add much better logic here, including
             # getting a good basename for urls ending with /
             # based on type.
-            if not link:
-                log.error('no link in entry for %s' % self.url)
-                continue
             # create entry
-            entry = Channel.Entry(basename=link[link.rfind('/')+1:], url=link,
-                                  description=f.get('summary', ''), image=feedimage)
-            if 'title' in f:
-                entry['title'] = f['title']
+            entry = Channel.Entry(**metadata)
             yield entry
 
-register(re.compile('^https?://.*'), RSS)
+register(re.compile('^(http|https|file)://.*'), RSS)
