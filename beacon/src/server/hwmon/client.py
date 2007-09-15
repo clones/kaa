@@ -60,7 +60,6 @@ class Client(object):
         self._db = db
         # handler == beacon.Server
         self.handler = handler
-        medialist.connect(self)
         self.rpc('connect')
         self._device_add(rootfs)
 
@@ -79,9 +78,7 @@ class Client(object):
         return self.rpc('device.eject', dev.prop.get('beacon.id'))
 
 
-    def _beacon_media_information(self, media):
-        return self._db.query_media(media)
-
+    # rpc callbacks
 
     @kaa.rpc.expose('device.add')
     def _device_add(self, dev):

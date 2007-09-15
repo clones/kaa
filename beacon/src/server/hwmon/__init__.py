@@ -65,6 +65,8 @@ def connect():
 
 
 def set_database(handler, db, rootfs=None):
-    if not _client:
-        connect()
     _client.set_database(handler, db, rootfs)
+
+
+def get_client():
+    return _client

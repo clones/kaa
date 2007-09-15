@@ -317,6 +317,15 @@ class Client(object):
         yield result
 
 
+    def _beacon_parse(self, item):
+        """
+        Parse the item, returns InProgress.
+        """
+        if not self.is_connected():
+            return False
+        return self.rpc('item.request', item.filename)
+
+
     # -------------------------------------------------------------------------
     # Server callbacks
     # -------------------------------------------------------------------------

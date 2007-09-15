@@ -45,7 +45,7 @@ from kaa.beacon.media import medialist
 
 # kaa.beacon server imports
 import parser
-import hwmon
+from controller import Controller
 from db import *
 from monitor import Monitor
 from crawl import Crawler
@@ -149,18 +149,19 @@ class Server(object):
         # set up.
         self._db.commit()
 
-        # give database to hwmon
+        # give database to controller / hardware monitor
         rootfs = {
             'beacon.id': 'kaa.beacon.root',
             'block.device': '',
             'volume.mount_point': '/'
         }
 
-        hwmon.set_database(self, self._db, rootfs)
+        self.item_controller = Controller(self, self._db, rootfs)
         self._db.commit()
 
         for dir in config.monitors:
             self.monitor_dir(os.path.expandvars(os.path.expanduser(dir)))
+
 
 
     # -------------------------------------------------------------

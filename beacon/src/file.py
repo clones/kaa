@@ -127,11 +127,10 @@ class File(Item):
         Request the item to be scanned. (Client API only)
         Returns either False if not connected or an InProgress object.
         """
-        if not self._beacon_controller().is_connected():
-            return False
-        rpc = self._beacon_controller().rpc('item.request', self.filename)
-        rpc.connect_once(self._beacon_database_update)
-        return rpc
+        result = self._beacon_controller()._beacon_parse(self)
+        if isinstance(result, kaa.notifier.InProgress):
+            result.connect_once(self._beacon_database_update)
+        return result
 
 
     # -------------------------------------------------------------------------
