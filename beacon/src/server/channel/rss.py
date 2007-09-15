@@ -1,18 +1,22 @@
 import re
 import time
 import logging
+import urllib2
 
 import kaa.notifier
 
-from kaa.netsearch.feed.lib import feedparser
-from kaa.netsearch.feed.channel import Channel
-from kaa.netsearch.feed.manager import register
+import feedparser as _feedparser
+import channel
 
 # get logging object
 log = logging.getLogger('beacon.feed')
 isotime = '%a, %d %b %Y %H:%M:%S'
 
-class RSS(Channel):
+@kaa.notifier.execute_in_thread()
+def feedparser(url):
+    return _feedparser.parse(urllib2.urlopen(url))
+
+class Channel(channel.Channel):
 
     def __iter__(self):
         # get feed in a thread
@@ -85,7 +89,5 @@ class RSS(Channel):
             # getting a good basename for urls ending with /
             # based on type.
             # create entry
-            entry = Channel.Entry(**metadata)
+            entry = channel.Entry(**metadata)
             yield entry
-
-register(re.compile('^(http|https|file)://.*'), RSS)

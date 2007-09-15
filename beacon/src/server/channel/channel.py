@@ -10,7 +10,6 @@ from xml.dom import minidom
 # kaa imports
 import kaa.notifier
 import kaa.notifier.url
-import kaa.beacon
 from kaa.strutils import str_to_unicode, unicode_to_str
 
 # get manager module
@@ -28,26 +27,29 @@ IMAGEDIR = os.path.expanduser("~/.beacon/images")
 if not os.path.isdir(IMAGEDIR):
     os.makedirs(IMAGEDIR)
 
+class Entry(dict):
+
+    def __getattr__(self, attr):
+        if attr == 'basename' and not 'basename' in self.keys():
+            basename = os.path.basename(self['url'])
+            if self.url.endswith('/'):
+                ext = os.path.splitext(self['url'])[1]
+                basename = self['title'].replace('/', '') + ext
+            self['basename'] = unicode_to_str(basename)
+        return self.get(attr)
+
+    def fetch(self, filename):
+        log.info('%s -> %s' % (self.url, filename))
+        tmpname = os.path.join(os.path.dirname(filename),
+                               '.' + os.path.basename(filename))
+        return kaa.notifier.url.fetch(self.url, filename, tmpname)
+
+
 class Channel(object):
 
-    class Entry(dict):
-
-        def __getattr__(self, attr):
-            if attr == 'basename' and not 'basename' in self.keys():
-                basename = os.path.basename(self['url'])
-                if self.url.endswith('/'):
-                    ext = os.path.splitext(self['url'])[1]
-                    basename = self['title'].replace('/', '') + ext
-                self['basename'] = unicode_to_str(basename)
-            return self.get(attr)
-
-        def fetch(self, filename):
-            log.info('%s -> %s' % (self.url, filename))
-            tmpname = os.path.join(os.path.dirname(filename),
-                                   '.' + os.path.basename(filename))
-            return kaa.notifier.url.fetch(self.url, filename, tmpname)
-
-
+    _db = None
+    NEXT_ID = 0
+    
     def __init__(self, url, destdir):
         self.url = url
         self.dirname = destdir
@@ -58,7 +60,9 @@ class Channel(object):
         self._keep = True
         if not os.path.isdir(destdir):
             os.makedirs(destdir)
-
+        self.id = Channel.NEXT_ID
+        Channel.NEXT_ID += 1
+        
 
     def configure(self, download=True, num=0, keep=True):
         """
@@ -73,6 +77,17 @@ class Channel(object):
         manager.save()
 
 
+    def get_config(self):
+        """
+        Get channel configuration.
+        """
+        return dict(id = self.id,
+                    url = self.url,
+                    directory = self.dirname,
+                    download = self._download,
+                    num = self._num,
+                    keep = self._keep)
+    
     def _readxml(self, node):
         """
         Read XML node with channel configuration and cache.
@@ -106,7 +121,7 @@ class Channel(object):
         d.appendChild(doc.createTextNode(self.dirname))
         node.appendChild(d)
         for url, fname in self._entries:
-            e = node.createElement('entry')
+            e = doc.createElement('entry')
             e.setAttribute('url', url)
             if fname:
                 e.setAttribute('filename', str_to_unicode(fname))
@@ -137,9 +152,15 @@ class Channel(object):
             sys.stdout.write("%s\r" % s.get_progressbar())
             sys.stdout.flush()
 
+        log.info('update channel %s', self.url)
+
         # get directory information
-        beacondir = kaa.beacon.get(self.dirname)
-        allurls = [ f.url for f in beacondir.list() ]
+        beacondir = self._db.query(filename=self.dirname)
+        listing = beacondir.list()
+        if isinstance(listing, kaa.notifier.InProgress):
+            yield listing
+            listing = listing.get_result()
+        allurls = [ f.url for f in listing ]
 
         num = self._num
         allfiles = [ e[1] for e in self._entries ]
@@ -152,6 +173,7 @@ class Channel(object):
                 yield entry
                 continue
 
+            log.info('process %s', entry.url)
             filename = None
 
             if not self._download and entry.url in allurls:
@@ -159,7 +181,11 @@ class Channel(object):
                 pass
             elif not self._download:
                 # add to beacon
-                i = kaa.beacon.add_item(parent=beacondir, **entry)
+                while self._db.read_lock.is_locked():
+                    yield self._db.read_lock.yield_unlock()
+                # use url as name
+                entry['name'] = unicode_to_str(entry.url)
+                i = self._db.add_object(parent=beacondir, **entry)
             else:
                 # download
                 filename = os.path.join(self.dirname, entry.basename)
@@ -181,21 +207,21 @@ class Channel(object):
                         continue
                     
                 if os.path.isfile(filename):
-                    item = kaa.beacon.get(filename)
+                    item = self._db.query(filename=filename)
                     if not item.scanned():
-                        # BEACON_FIXME
-                        item._beacon_request()
-                        while not item.scanned():
-                            yield kaa.notifier.YieldContinue
+                        async = item.scan()
+                        if isinstance(async, kaa.notifier.InProgress):
+                            yield async
                     for key, value in entry.items():
                         if not key in ('type', 'url', 'basename'):
                             item[key] = value
-                        
+
             self._entries.append((entry['url'], filename))
             num -= 1
             if num == 0:
                 break
 
+        log.info('*** finished with %s ***', self.url)
         manager.save()
 
         # delete old files or remove old entries from beacon
@@ -210,3 +236,26 @@ class Channel(object):
             elif os.path.isfile(filename):
                 # delete file on disc
                 os.unlink(filename)
+
+
+    @kaa.notifier.yield_execution()
+    def remove(self):
+        """
+        Remove entries from this channel.
+        """
+        log.info('remove %s', self.url)
+        if self._keep or self._download:
+            # only delete links in the filesystem
+            return
+            
+        # get directory information
+        beacondir = self._db.query(filename=self.dirname)
+        allurls = [ e[0] for e in self._entries ]
+        listing = beacondir.list()
+        if isinstance(listing, kaa.notifier.InProgress):
+            yield listing
+            listing = listing.get_result()
+        for entry in listing:
+            if entry.url in allurls:
+                log.info('delete %s', entry.url)
+                entry.delete()

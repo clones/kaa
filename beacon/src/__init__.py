@@ -194,3 +194,39 @@ def delete_media(id):
     while not _client.is_connected():
         kaa.notifier.step()
     return _client.delete_media(id)
+
+
+class Feed(dict):
+    def update(self):
+        return _client.feed_func('channels.update', self.get('id'))
+
+    def remove(self):
+        return _client.feed_func('channels.remove', self.get('id'))
+
+@kaa.notifier.yield_execution()
+def list_feeds():
+    """
+    List all feeds
+    """
+    if not _client:
+        connect()
+    
+    async = _client.feed_func('channels.list')
+    yield async
+    feeds = []
+    for f in async.get_result():
+        feeds.append(Feed(f))
+    yield feeds
+    
+
+@kaa.notifier.yield_execution()
+def add_feed(url, destdir, download=True, num=0, keep=True):
+    """
+    Add a feed
+    """
+    if not _client:
+        connect()
+    async = _client.feed_func('channels.add', url, destdir, download, num, keep)
+    yield async
+    yield Feed(async.get_result())
+    

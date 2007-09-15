@@ -56,29 +56,34 @@ class ReadLock(object):
     Read lock for the database.
     """
     def __init__(self):
-        self._clients = 0
+        self._clients = []
         self.signals = kaa.notifier.Signals('lock', 'unlock')
 
-    def lock(self):
+
+    def lock(self, client):
         """
         Lock the database for reading.
         """
         log.debug('lock++')
-        self._clients += 1
-        if self._clients == 1:
+        self._clients.append(client)
+        if len(self._clients) == 1:
             self.signals['lock'].emit()
             log.debug('locked')
 
 
-    def unlock(self):
+    def unlock(self, client, all=True):
         """
         Unlock the database. If more than one lock was made
         this will only decrease the lock variable but not
         unlock the database.
         """
         log.debug('lock--')
-        self._clients -= 1
-        if self._clients == 0:
+        if client in self._clients:
+            self._clients.remove(client)
+            if all:
+                # remove all locks from client
+                return self.unlock(client, all)
+        if len(self._clients) == 0:
             self.signals['unlock'].emit()
             log.debug('unlocked')
 

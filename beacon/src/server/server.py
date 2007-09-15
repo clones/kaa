@@ -50,6 +50,7 @@ from db import *
 from monitor import Monitor
 from crawl import Crawler
 from config import config
+import channel
 
 # get logging object
 log = logging.getLogger('beacon.server')
@@ -162,7 +163,9 @@ class Server(object):
         for dir in config.monitors:
             self.monitor_dir(os.path.expandvars(os.path.expanduser(dir)))
 
-
+        channel.set_database(self._db)
+        self.ipc.connect(channel)
+        
 
     # -------------------------------------------------------------
     # client handling
@@ -191,6 +194,8 @@ class Server(object):
                 for m in client_info[2]:
                     m.stop()
                 self._clients.remove(client_info)
+        self._db.read_lock.unlock(client_info[1], True)
+
 
     def has_clients(self):
         """
@@ -258,21 +263,20 @@ class Server(object):
         self._db.delete_media(id)
 
 
-    @kaa.rpc.expose('db.lock')
-    def db_lock(self):
+    @kaa.rpc.expose('db.lock', add_client=True)
+    def db_lock(self, client_id):
         """
         Lock the database so clients can read
-        FIXME: if a client locks and dies before unlock the server is dead
         """
-        self._db.read_lock.lock()
+        self._db.read_lock.lock(client_id)
 
 
-    @kaa.rpc.expose('db.unlock')
-    def db_unlock(self):
+    @kaa.rpc.expose('db.unlock', add_client=True)
+    def db_unlock(self, client_id):
         """
         Unlock the database again
         """
-        self._db.read_lock.unlock()
+        self._db.read_lock.unlock(client_id)
 
 
     @kaa.rpc.expose('monitor.directory')

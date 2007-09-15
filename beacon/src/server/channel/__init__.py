@@ -19,11 +19,40 @@
 #
 # ##################################################################
 
+import kaa.rpc
 
 import manager
-import plugins
+import channel
+import rss
 
-add_channel = manager.add_channel
-list_channels = manager.list_channels
-remove_channel = manager.remove_channel
-update = manager.update
+@kaa.rpc.expose('channels.update')
+def update(id=None):
+    if id == None:
+        return manager.update()
+    for c in manager.list_channels():
+        if id == c.id:
+            return c.update()
+    return False
+    
+@kaa.rpc.expose('channels.list')
+def list_channels():
+    channels = []
+    for c in manager.list_channels():
+        channels.append(c.get_config())
+    return channels
+
+@kaa.rpc.expose('channels.add')
+def add_channel(url, destdir, download=True, num=0, keep=True):
+    return manager.add_channel(url, destdir, download, num, keep).get_config()
+
+@kaa.rpc.expose('channels.remove')
+def remove_channel(id):
+    for c in manager.list_channels():
+        if id == c.id:
+            manager.remove_channel(c)
+            return True
+    return False
+
+def set_database(database):
+    channel.Channel._db = database
+    manager.init()
