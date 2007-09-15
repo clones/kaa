@@ -43,8 +43,6 @@ from item import Item
 # get logging object
 log = logging.getLogger('beacon')
 
-CONNECTED = 'connected'
-
 _query_filter = {}
 
 def register_filter(name, function):
@@ -98,7 +96,7 @@ class Query(object):
         if self.monitoring == status:
             # Nothing to do
             return
-        if not self._client.status == CONNECTED:
+        if not self._client.is_connected():
             # If the client is not connected yet, it will do this later.
             # Rememeber that we wanted to connect
             self.monitoring = status
@@ -110,7 +108,7 @@ class Query(object):
                 if not parent._beacon_id:
                     # We need the get the id first. Call the function again
                     # when there is an id.
-                    parent._beacon_request(self.monitor, status)
+                    parent.scan().connect(self.monitor, status)
                     return
                 query['parent'] = parent._beacon_id
             self._rpc('monitor.add', self._client.id, self.id, query)
@@ -184,7 +182,7 @@ class Query(object):
         """
         Start the database query.
         """
-        if self._client.status != CONNECTED:
+        if not self._client.is_connected():
             # wait until the client is connected
             wait = kaa.notifier.YieldCallback()
             self._client.signals['connect'].connect_once(wait)
@@ -197,7 +195,7 @@ class Query(object):
             # request the real database id and do the query when done.
             parent = query['parent']
             log.info('force data for %s', parent)
-            parent._beacon_request(self._beacon_start_query, query)
+            parent.scan().connect(self._beacon_start_query, query)
             return
 
         # we have to wait until we are sure that the db is free for

@@ -83,18 +83,15 @@ class Item(object):
 
 
     # -------------------------------------------------------------------------
-    # Public API for the client
+    # Public API
     # -------------------------------------------------------------------------
 
-    def get(self, key, request=False):
+    def get(self, key):
         """
         Interface to kaa.beacon. Return the value of a given attribute. If
         the attribute is not in the db, return None. If the key starts with
         'tmp:', the data will be fetched from a dict that is not stored in
-        the db. Loosing the item object will remove that attribute. If
-        request is True, scan the item if it is not in the db. If request is
-        False and the item is not in the db, results will be very limited.
-        When request is True this function may call kaa.notifier.step()
+        the db. Loosing the item object will remove that attribute.
         """
         if key.startswith('tmp:'):
             return self._beacon_tmpdata.get(key[4:])
@@ -130,21 +127,12 @@ class Item(object):
             t = self._beacon_data.get('title')
             if t:
                 return t
-            return str_to_unicode(get_title(self._beacon_data['name'], self.isfile()))
+            # generate some title and save local it for future use
+            t = str_to_unicode(get_title(self._beacon_data['name'], self.isfile()))
+            self._beacon_data['title'] = t
+            return t
 
-        if request and not self._beacon_id:
-            log.info('requesting data for %s', self)
-            if not self._beacon_request():
-                # unable to do this right now
-                return None
-
-            # FIXME: remove notifier.step() here!
-            while not self._beacon_id:
-                kaa.notifier.step()
-
-        if self._beacon_data.has_key(key):
-            return self._beacon_data[key]
-        return None
+        return self._beacon_data.get(key)
 
 
     def __getitem__(self, key):
@@ -162,7 +150,7 @@ class Item(object):
             return
         self._beacon_data[key] = value
         if not self._beacon_changes:
-            self.get_controller()._beacon_update(self)
+            self._beacon_controller()._beacon_update(self)
         self._beacon_changes[key] = value
 
 
@@ -194,7 +182,7 @@ class Item(object):
         """
         if not self._beacon_id:
             return []
-        return self.get_controller().query(parent=self)
+        return self._beacon_controller().query(parent=self)
 
 
     def isdir(self):
@@ -215,14 +203,28 @@ class Item(object):
         """
         Delete item from the database (does not work on files)
         """
-        return self.get_controller().delete_item(self)
+        return self._beacon_controller().delete_item(self)
+
+
+    def scan(self):
+        """
+        Request the item to be scanned.
+        """
+        return False
+
+
+    def get_ancestors(self):
+        """
+        Return an iterator to walk through the parents.
+        """
+        return ParentIterator(self)
 
 
     # -------------------------------------------------------------------------
-    # Internal API for client and server
+    # Internal API
     # -------------------------------------------------------------------------
 
-    def _beacon_database_update(self, data, callback=None, *args, **kwargs):
+    def _beacon_database_update(self, data):
         """
         Callback from db with new data
         """
@@ -231,38 +233,14 @@ class Item(object):
         self._beacon_id = (data['type'], data['id'])
         for key, value in self._beacon_changes.items():
             self._beacon_data[key] = value
-        if callback:
-            callback(*args, **kwargs)
 
 
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        return '<beacon.Item %s>' % self.url
-
-
-    # -------------------------------------------------------------------------
-    # Internal API for client
-    # -------------------------------------------------------------------------
-
-    def get_controller(self):
+    def _beacon_controller(self):
         """
         Get the controller (the client or the server)
         """
         return self._beacon_media.get_controller()
 
-
-    def _beacon_request(self):
-        """
-        Request the item to be scanned.
-        """
-        return False
-
-
-    # -------------------------------------------------------------------------
-    # Internal API for server
-    # -------------------------------------------------------------------------
 
     def _beacon_mtime(self):
         """
@@ -271,19 +249,12 @@ class Item(object):
         return None
 
 
-    def _beacon_changed(self):
+    def __repr__(self):
         """
-        Return if the item is changed (based on modification time of
-        the data and in the database).
+        Convert object to string (usefull for debugging)
         """
-        return self._beacon_mtime() != self._beacon_data.get('mtime')
+        return '<beacon.Item %s>' % self.url
 
-
-    def _beacon_tree(self):
-        """
-        Return an iterator to walk through the parents.
-        """
-        return ParentIterator(self)
 
 
 class ParentIterator(object):
@@ -302,22 +273,3 @@ class ParentIterator(object):
         ret = self.item
         self.item = self.item._beacon_parent
         return ret
-
-
-def create_item(data, parent):
-    data = dict(data)
-    if 'url' in data:
-        url = data['url']
-    elif '://' in data['name']:
-        url = data['name']
-    else:
-        url = parent.url
-        if data['name']:
-            if parent.url.endswith('/'):
-                url = parent.url + data['name']
-            else:
-                url = parent.url + '/' + data['name']
-        if data.get('scheme'):
-            url = data.get('scheme') + url[url.find('://')+3:]
-    return Item((data['type'], data['id']), url, data, parent,
-                parent._beacon_media)

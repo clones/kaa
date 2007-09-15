@@ -120,7 +120,7 @@ def parse(db, item, check_image=False):
         # return an InProgress object! This has to be made clear.
         r = db.query(name=item._beacon_data['name'], parent=parent)
         if r:
-            item._beacon_database_update(r[0])
+            item._beacon_database_update(r[0]._beacon_data)
 
     if item._beacon_data.get('mtime') == mtime:
         # The item already is in the database and the mtime is unchanged.

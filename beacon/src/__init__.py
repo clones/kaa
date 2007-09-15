@@ -42,7 +42,7 @@ import kaa.notifier
 
 # kaa.beacon imports
 from version import VERSION
-from client import Client, CONNECTED, ConnectError
+from client import Client, ConnectError
 import thumbnail
 from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
@@ -153,7 +153,7 @@ def add_item(url, type, parent, **kwargs):
         connect()
     return _client.add_item(url, type, parent, **kwargs)
 
-    
+
 def register_file_type_attrs(name, **kwargs):
     """
     Register new attrs and types for files.
@@ -180,7 +180,7 @@ def get_db_info():
     """
     if not _client:
         connect()
-    while not _client.status == CONNECTED:
+    while not _client.is_connected():
         kaa.notifier.step()
     return _client._db.get_db_info()
 
@@ -191,6 +191,6 @@ def delete_media(id):
     """
     if not _client:
         connect()
-    while not _client.status == CONNECTED:
+    while not _client.is_connected():
         kaa.notifier.step()
     return _client.delete_media(id)

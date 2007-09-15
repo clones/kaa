@@ -51,11 +51,6 @@ log = logging.getLogger('beacon.db')
 
 MAX_BUFFER_CHANGES = 200
 
-# Item generation mapping
-from kaa.beacon.file import File as create_file
-from kaa.beacon.item import create_item
-
-
 class ReadLock(object):
     """
     Read lock for the database.

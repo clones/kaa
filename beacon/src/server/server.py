@@ -292,7 +292,7 @@ class Server(object):
             yield data
             data = data()
         items = []
-        for i in data._beacon_tree():
+        for i in data.get_ancestors():
             if i._beacon_id:
                 break
             items.append(i)
@@ -373,7 +373,7 @@ class Server(object):
             yield data
             data = data()
         items = []
-        for i in data._beacon_tree():
+        for i in data.get_ancestors():
             if i._beacon_id:
                 break
             items.append(i)

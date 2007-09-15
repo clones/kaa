@@ -43,7 +43,6 @@ from item import Item
 # get logging object
 log = logging.getLogger('beacon')
 
-CONNECTED = 'connected'
 
 class File(Item):
     """
@@ -119,8 +118,20 @@ class File(Item):
         Interface to kaa.beacon: List all files in the directory.
         """
         if recursive:
-            return self.get_controller().query(parent=self, recursive=True)
-        return self.get_controller().query(parent=self)
+            return self._beacon_controller().query(parent=self, recursive=True)
+        return self._beacon_controller().query(parent=self)
+
+
+    def scan(self):
+        """
+        Request the item to be scanned. (Client API only)
+        Returns either False if not connected or an InProgress object.
+        """
+        if not self._beacon_controller().is_connected():
+            return False
+        rpc = self._beacon_controller().rpc('item.request', self.filename)
+        rpc.connect_once(self._beacon_database_update)
+        return rpc
 
 
     # -------------------------------------------------------------------------
@@ -222,26 +233,6 @@ class File(Item):
             s += ' (type=%s)' % str(self._beacon_data.get('type'))
         return s + '>'
 
-
-    # -------------------------------------------------------------------------
-    # Internal API for client
-    # -------------------------------------------------------------------------
-
-    def _beacon_request(self, callback=None, *args, **kwargs):
-        """
-        Request the item to be scanned. (Client API only)
-        """
-
-        if not self.get_controller().status == CONNECTED:
-            return False
-        rpc = self.get_controller().rpc('item.request', self.filename)
-        rpc.connect_once(self._beacon_database_update, callback, *args, **kwargs)
-        return True
-
-
-    # -------------------------------------------------------------------------
-    # Internal API for server
-    # -------------------------------------------------------------------------
 
     def _beacon_mtime(self):
         """

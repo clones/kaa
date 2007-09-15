@@ -53,25 +53,60 @@ log = logging.getLogger('beacon.db')
 MAX_BUFFER_CHANGES = 30
 
 # Item generation mapping
-from file import File as create_file
-from item import create_item
+from file import File
+from item import Item
 
 # The db uses the following helper functions to create the correct item
-# create_item (not a file or directory)
-# create_file (file or directory, based on parameter)
-# create_directory (directory)
-# create_by_type (item, file or directory based on data)
+
+def create_item(data, parent):
+    """
+    Create an Item that is neither dir nor file.
+    """
+    data = dict(data)
+    dbid = (data['type'], data['id'])
+    if 'url' in data:
+        # url is stored in the data
+        return Item(dbid, data['url'], data, parent, parent._beacon_media)
+    if '://' in data['name']:
+        # url is stored in the name (remote items in directory)
+        return Item(dbid, data['name'], data, parent, parent._beacon_media)
+
+    # generate url based on name and parent url
+    url = parent.url
+    if data['name']:
+        if parent.url.endswith('/'):
+            url = parent.url + data['name']
+        else:
+            url = parent.url + '/' + data['name']
+    if data.get('scheme'):
+        url = data.get('scheme') + url[url.find('://')+3:]
+    return Item(dbid, url, data, parent, parent._beacon_media)
+
+
+def create_file(data, parent, overlay=False, isdir=False):
+    """
+    Create a file or directory
+    """
+    return File(data, parent, overlay, isdir)
+
+
+def create_directory(data, parent):
+    """
+    Create a directory
+    """
+    return create_file(data, parent, isdir=True)
+
 
 def create_by_type(data, parent, overlay=False, isdir=False):
-    # if the data indicates it is not a file or the parent is not
-    # a directory, make it an Item, not a File.
+    """
+    Create file, directory or any other kind of item.
+    If the data indicates it is not a file or the parent is not
+    a directory, make it an Item, not a File.
+    """
     if (data.get('name').find('://') > 0) or (parent and not parent.isdir()):
         return create_item(data, parent)
     return create_file(data, parent, overlay, isdir)
 
-def create_directory(data, parent):
-    # create directory item
-    return create_file(data, parent, isdir=True)
 
 class Database(object):
     """

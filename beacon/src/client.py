@@ -148,6 +148,13 @@ class Client(object):
         self.rpc('item.delete', item._beacon_id)
 
 
+    def is_connected(self):
+        """
+        Return if the client is connected to a server
+        """
+        return self.status == CONNECTED
+
+
     def monitor(self, directory):
         """
         Monitor a directory with subdirectories for changes. This is done in
@@ -265,11 +272,12 @@ class Client(object):
         """
         Update item in next main loop interation.
         """
+        if not self.status == CONNECTED:
+            return
         if not item._beacon_id:
             # Item has no beacon id, request the data before
-            # schedule the update. If we are not connected the
-            # update will be lost.
-            item._beacon_request(self._beacon_update, item)
+            # schedule the update.
+            item.scan().connect(self._beacon_update, item)
             return
         if not self._changed:
             # register timer to do the changes
@@ -370,7 +378,7 @@ class Client(object):
             log.error('Error: unknown message from server: %s' % msg)
             return
         log.error('query %s not found', id)
-        
+
 
     @kaa.rpc.expose('device.changed')
     def media_changed(self, id, prop):

@@ -231,7 +231,7 @@ class Monitor(object):
                 # stop it and continue in the next step
                 yield YieldContinue
             # TODO: maybe also check parents?
-            if i._beacon_changed():
+            if i._beacon_mtime() != i._beacon_data.get('mtime'):
                 changed.append(i)
 
         if not changed:
