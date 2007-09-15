@@ -80,7 +80,6 @@ class Query(object):
         self._client = client
         # some shortcuts from the client
         self._rpc = self._client.rpc
-        self._db = self._client._db
         # start inititial query
         self._beacon_start_query(query)
 
@@ -203,7 +202,7 @@ class Query(object):
         # some time until it tries again. That time is too long, it
         # can take up to two seconds.
         yield self._rpc('db.lock')
-        self.result = self._db.query(**query)
+        self.result = self._client._db.query(**query)
         if isinstance(self.result, kaa.notifier.InProgress):
             yield self.result
             self.result = self.result.get_result()
@@ -245,7 +244,7 @@ class Query(object):
         # some time until it tries again. That time is too long, it
         # can take up to two seconds.
         yield self._rpc('db.lock')
-        result = self._db.query(**self._query)
+        result = self._client._db.query(**self._query)
         if isinstance(result, kaa.notifier.InProgress):
             yield result
             result = result.get_result()
