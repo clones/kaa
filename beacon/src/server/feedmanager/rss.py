@@ -49,15 +49,16 @@ class Feed(core.Feed):
             if feedimage:
                 metadata['image'] = feedimage
             if 'updated' in f.keys():
-                date = f.updated
-                if date.find('+') > 0:
-                    date = date[:date.find('+')].strip()
-                if date.rfind(' ') > date.rfind(':'):
-                    date = date[:date.rfind(' ')]
+                timestamp = f.updated
+                if timestamp.find('+') > 0:
+                    timestamp = timestamp[:timestamp.find('+')].strip()
+                if timestamp.rfind(' ') > timestamp.rfind(':'):
+                    timestamp = timestamp[:timestamp.rfind(' ')]
                 try:
-                    metadata['date'] = int(time.mktime(time.strptime(date, isotime)))
+                    t = time.strptime(timestamp, isotime)
+                    metadata['timestamp'] = int(time.mktime(t))
                 except ValueError:
-                    log.error('bad date format: %s', date)
+                    log.error('bad "updated" string: %s', timestamp)
                     
             if 'itunes_duration' in f.keys():
                 duration = 0

@@ -93,7 +93,7 @@ class Server(object):
             height = (int, ATTR_SIMPLE),
             length = (float, ATTR_SIMPLE),
             scheme = (int, ATTR_SIMPLE),
-            date = (int, ATTR_SEARCHABLE))
+            timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("audio",
             title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
@@ -104,7 +104,8 @@ class Server(object):
             length = (float, ATTR_SIMPLE),
             bitrate = (int, ATTR_SIMPLE),
             trackno = (int, ATTR_SIMPLE),
-            date = (int, ATTR_SEARCHABLE))
+            userdate = (unicode, ATTR_SIMPLE),
+            timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("image",
             width = (int, ATTR_SEARCHABLE),
@@ -112,7 +113,7 @@ class Server(object):
             comment = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
             rotation = (int, ATTR_SIMPLE),
             author = (unicode, ATTR_SIMPLE),
-            date = (int, ATTR_SEARCHABLE))
+            timestamp = (int, ATTR_SEARCHABLE))
 
         # tracks for rom discs or iso files
 
