@@ -1,6 +1,37 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# core.py - Feedmanager Core providing Feed and Entry
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.beacon.server - A virtual filesystem with metadata
+# Copyright (C) 2007 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+# python imports
 import sys
 import os
-import re
 import md5
 import urllib
 import urllib2
@@ -49,7 +80,7 @@ class Feed(object):
 
     _db = None
     NEXT_ID = 0
-    
+
     def __init__(self, url, destdir):
         self.url = url
         self.dirname = destdir
@@ -62,7 +93,7 @@ class Feed(object):
             os.makedirs(destdir)
         self.id = Feed.NEXT_ID
         Feed.NEXT_ID += 1
-        
+
 
     def configure(self, download=True, num=0, keep=True):
         """
@@ -87,7 +118,7 @@ class Feed(object):
                     download = self._download,
                     num = self._num,
                     keep = self._keep)
-    
+
     def _readxml(self, node):
         """
         Read XML node with feed configuration and cache.
@@ -205,7 +236,7 @@ class Feed(object):
                     if not os.path.isfile(filename):
                         log.error('error fetching', entry.url)
                         continue
-                    
+
                 if os.path.isfile(filename):
                     item = self._db.query(filename=filename)
                     if not item.scanned():
@@ -247,7 +278,7 @@ class Feed(object):
         if self._keep or self._download:
             # only delete links in the filesystem
             return
-            
+
         # get directory information
         beacondir = self._db.query(filename=self.dirname)
         allurls = [ e[0] for e in self._entries ]
