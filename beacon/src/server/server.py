@@ -38,6 +38,7 @@ import logging
 # kaa imports
 import kaa.rpc
 from kaa.notifier import OneShotTimer, Timer, Callback
+from kaa.notifier.url import add_password
 
 # kaa.beacon imports
 from kaa.beacon.media import medialist
@@ -163,6 +164,8 @@ class Server(object):
         for dir in config.monitors:
             self.monitor_dir(os.path.expandvars(os.path.expanduser(dir)))
 
+        for auth in config.authentication:
+            add_password(None, auth.server, auth.username, auth.password)
         feedmanager.set_database(self._db)
         self.ipc.connect(feedmanager)
         
