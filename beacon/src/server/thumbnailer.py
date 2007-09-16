@@ -151,6 +151,9 @@ class Thumbnailer(object):
 
 
     def step(self):
+        """
+        Process one job
+        """
         if not self.jobs or kaa.notifier.shutting_down:
             return False
 

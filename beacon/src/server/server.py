@@ -37,7 +37,6 @@ import logging
 
 # kaa imports
 import kaa.rpc
-from kaa.weakref import weakref
 from kaa.notifier import OneShotTimer, Timer, Callback
 
 # kaa.beacon imports

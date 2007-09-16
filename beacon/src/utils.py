@@ -29,12 +29,16 @@
 #
 # -----------------------------------------------------------------------------
 
+# python imports
 import os
 import re
 
 FILENAME_REGEXP = re.compile("^(.*?)_(.)(.*)$")
 
 def fstab():
+    """
+    Read /etc/fstab into a list of (device, mountpoint, type, options)
+    """
     if not os.path.isfile('/etc/fstab'):
         return []
     result = []

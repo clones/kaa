@@ -45,6 +45,9 @@
 #
 # ##################################################################
 
+# python imports
+import os
+
 # kaa imports
 import kaa.rpc
 
@@ -102,4 +105,7 @@ def set_database(database):
     Set the database. Called by server at startup.
     """
     core.Feed._db = database
-    manager.init()
+    core.Feed.IMAGEDIR = os.path.join(database.get_directory(), 'images')
+    if not os.path.isdir(core.Feed.IMAGEDIR):
+        os.makedirs(core.Feed.IMAGEDIR)
+    manager.init(os.path.join(database.get_directory(), 'feeds.xml'))

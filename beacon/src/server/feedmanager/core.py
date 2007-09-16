@@ -53,11 +53,6 @@ log = logging.getLogger('beacon.feed')
 # some generic entry/feed stuff
 # ##################################################################
 
-IMAGEDIR = os.path.expanduser("~/.beacon/images")
-
-if not os.path.isdir(IMAGEDIR):
-    os.makedirs(IMAGEDIR)
-
 class Entry(dict):
 
     def __getattr__(self, attr):
@@ -80,6 +75,7 @@ class Feed(object):
 
     _db = None
     NEXT_ID = 0
+    IMAGEDIR = None
 
     def __init__(self, url, destdir):
         self.url = url
@@ -167,7 +163,7 @@ class Feed(object):
         """
         url = unicode_to_str(url)
         fname = md5.md5(url).hexdigest() + os.path.splitext(url)[1]
-        fname = os.path.join(IMAGEDIR, fname)
+        fname = os.path.join(self.IMAGEDIR, fname)
         if os.path.isfile(fname):
             yield fname
         yield kaa.notifier.url.fetch(url, fname)

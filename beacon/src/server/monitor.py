@@ -41,9 +41,6 @@ from kaa.notifier import OneShotTimer, Timer, YieldContinue
 # kaa.beacon imports
 from kaa.beacon.item import Item
 
-# kaa.beacon server imports
-import parser
-
 # get logging object
 log = logging.getLogger('beacon.monitor')
 
@@ -249,7 +246,7 @@ class Monitor(object):
 
         for pos, item in enumerate(changed):
             self.notify_client('progress', pos+1, len(changed), item.url)
-            async = parser.parse(self._db, item)
+            async = item.parse()
             if isinstance(async, kaa.notifier.InProgress):
                 yield async
             if not self._running:
@@ -286,8 +283,7 @@ class Monitor(object):
 
 
     def __repr__(self):
+        """
+        For debugging only
+        """
         return '<beacon.Monitor for %s>' % self._query
-
-
-    def __del__(self):
-        log.info('delete %s', self)

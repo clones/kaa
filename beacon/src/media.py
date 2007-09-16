@@ -37,7 +37,6 @@ import logging
 
 # kaa imports
 import kaa.notifier
-from kaa.weakref import weakref
 
 # kaa.beacon imports
 import utils
@@ -47,9 +46,9 @@ log = logging.getLogger('beacon')
 
 
 class Media(object):
-
-    # check what mounpoint needs right now
-
+    """
+    Media object for a specific mount point.
+    """
     def __init__(self, id, controller):
         log.info('new media %s', id)
         self._controller = controller
@@ -84,7 +83,6 @@ class Media(object):
             self.mountpoint = self.device
         if not self.mountpoint.endswith('/'):
             self.mountpoint += '/'
-        self._beacon_media = weakref(self)
         # get basic information from database
         media = self._controller._beacon_media_information(self)
         if isinstance(media, kaa.notifier.InProgress):
@@ -116,21 +114,50 @@ class Media(object):
         else:
             self.label = self.id
 
+
     def get(self, key):
+        """
+        Get value.
+        """
         return self.prop.get(key)
 
+
     def __getitem__(self, key):
+        """
+        Get value
+        """
         return self.prop[key]
 
+
     def __setitem__(self, key, value):
+        """
+        Set value
+        """
         self.prop[key] = value
 
+
     def __repr__(self):
+        """
+        For debugging only.
+        """
         return '<kaa.beacon.Media %s>' % self.id
 
 
-class MediaList(object):
+    def _get_beacon_media(self):
+        """
+        Get _beacon_media which is this object itself. To avoid circular
+        references, use a property here.
+        """
+        return self
 
+    _beacon_media  = property(_get_beacon_media, None, None, "media reference")
+
+
+
+class MediaList(object):
+    """
+    List of current known Media objects.
+    """
     def __init__(self):
         self._dict = dict()
         self._idlist = []
@@ -224,4 +251,5 @@ class MediaList(object):
         return self._dict.values().__iter__()
 
 
+# global media list object
 medialist = MediaList()

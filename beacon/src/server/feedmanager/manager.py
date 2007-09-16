@@ -44,7 +44,8 @@ import rss
 # get logging object
 log = logging.getLogger('beacon.feed')
 
-CACHE = os.path.expanduser("~/.beacon/feeds.xml")
+# cache file
+CACHE = None
 
 # list of all feed objects
 _feeds = []
@@ -113,7 +114,7 @@ def save():
     f.close()
 
 
-def init():
+def init(cachefile):
     """
     Load cached feeds from disc.
     """
@@ -128,6 +129,9 @@ def init():
             feed._readxml(c)
             _feeds.append(feed)
             return
+
+    global CACHE
+    CACHE = cachefile
 
     if not os.path.isfile(CACHE):
         return

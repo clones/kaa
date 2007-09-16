@@ -280,6 +280,7 @@ class Database(RO_Database):
 
     def _delete_object_recursive(self, entry):
         """
+        Helper function for delete_object.
         """
         log.info('delete %s', entry)
         for child in self._db.query(parent = entry):
@@ -290,6 +291,10 @@ class Database(RO_Database):
 
 
     def delete_object(self, entry):
+        """
+        Delete an object from the database. entry is either an Item or
+        a (type, id) tuple.
+        """
         if self.read_lock.is_locked():
             raise IOError('database is locked')
         if isinstance(entry, Item):

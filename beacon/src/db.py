@@ -138,6 +138,13 @@ class Database(object):
             }
 
 
+    def get_directory(self):
+        """
+        Get main beacon directory.
+        """
+        return self._db_directory
+
+
     # -------------------------------------------------------------------------
     # Query functions
     #
