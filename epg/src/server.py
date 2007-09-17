@@ -59,6 +59,7 @@ class Server(object):
         # create the db and register objects
 
         db = Database(dbfile)
+        db.register_inverted_index('keywords', min = 2, max = 30)
         db.register_object_type_attrs("channel",
             tuner_id   = (list, ATTR_SIMPLE),
             name = (unicode, ATTR_SEARCHABLE),
@@ -66,8 +67,8 @@ class Server(object):
         )
         db.register_object_type_attrs("program",
             [ ("start", "stop") ],
-            title = (unicode, ATTR_KEYWORDS),
-            desc = (unicode, ATTR_KEYWORDS),
+            title = (unicode, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords'),
+            desc = (unicode, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords'),
             start = (int, ATTR_SEARCHABLE),
             stop = (int, ATTR_SEARCHABLE),
             episode = (unicode, ATTR_SIMPLE),
