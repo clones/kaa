@@ -78,6 +78,8 @@ class Server(object):
         self._db = Database(dbdir)
         self._next_client = 0
 
+        self._db.register_inverted_index('keywords', min = 2, max = 30)
+
         self._db.register_object_type_attrs("dir",
             image_from_items = (bool, ATTR_SIMPLE),
             title = (unicode, ATTR_SIMPLE),
@@ -88,7 +90,7 @@ class Server(object):
         # files
 
         self.register_file_type_attrs("video",
-            title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
+            title = (unicode, ATTR_SEARCHABLE | ATTR_IGNORE_CASE | ATTR_INVERTED_INDEX, 'keywords'),
             width = (int, ATTR_SIMPLE),
             height = (int, ATTR_SIMPLE),
             length = (float, ATTR_SIMPLE),
@@ -96,10 +98,10 @@ class Server(object):
             timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("audio",
-            title = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
-            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED | ATTR_IGNORE_CASE),
-            album = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
-            genre = (unicode, ATTR_INDEXED | ATTR_IGNORE_CASE),
+            title = (unicode, ATTR_SEARCHABLE | ATTR_IGNORE_CASE | ATTR_INVERTED_INDEX, 'keywords'),
+            artist = (unicode, ATTR_SEARCHABLE | ATTR_INDEXED | ATTR_IGNORE_CASE | ATTR_INVERTED_INDEX, 'keywords'),
+            album = (unicode, ATTR_SEARCHABLE | ATTR_IGNORE_CASE | ATTR_INVERTED_INDEX, 'keywords'),
+            genre = (unicode, ATTR_SEARCHABLE | ATTR_INDEXED | ATTR_IGNORE_CASE),
             samplerate = (int, ATTR_SIMPLE),
             length = (float, ATTR_SIMPLE),
             bitrate = (int, ATTR_SIMPLE),
@@ -110,7 +112,7 @@ class Server(object):
         self.register_file_type_attrs("image",
             width = (int, ATTR_SEARCHABLE),
             height = (int, ATTR_SEARCHABLE),
-            comment = (unicode, ATTR_KEYWORDS | ATTR_IGNORE_CASE),
+            comment = (unicode, ATTR_SEARCHABLE | ATTR_IGNORE_CASE | ATTR_INVERTED_INDEX, 'keywords'),
             rotation = (int, ATTR_SIMPLE),
             author = (unicode, ATTR_SIMPLE),
             timestamp = (int, ATTR_SEARCHABLE))
@@ -127,8 +129,8 @@ class Server(object):
             audio = (list, ATTR_SIMPLE))
 
         self.register_track_type_attrs("cdda",
-            title = (unicode, ATTR_KEYWORDS),
-            artist = (unicode, ATTR_KEYWORDS | ATTR_INDEXED))
+            title = (unicode, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords'),
+            artist = (unicode, ATTR_SEARCHABLE | ATTR_INDEXED | ATTR_INVERTED_INDEX, 'keywords'))
 
         # list of current clients
         self._clients = []
@@ -239,6 +241,15 @@ class Server(object):
     # -------------------------------------------------------------
     # client RPC API
     # -------------------------------------------------------------
+
+    @kaa.rpc.expose('db.register_inverted_index')
+    def register_inverted_index(self, name, *args, **kwargs):
+        """
+        Register new inverted index. The basics are already in the db by the
+        __init__ function of this class.
+        """
+        return self._db.register_inverted_index(name, *args, **kwargs)
+
 
     @kaa.rpc.expose('db.register_file_type_attrs')
     def register_file_type_attrs(self, name, **kwargs):

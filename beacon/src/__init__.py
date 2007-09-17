@@ -49,8 +49,7 @@ from thumbnail import LARGE as THUMBNAIL_LARGE
 from query import register_filter, wrap, Query
 from item import Item
 from media import medialist as media
-from kaa.db import QExpr, ATTR_SIMPLE, ATTR_SEARCHABLE, ATTR_IGNORE_CASE, \
-     ATTR_INDEXED, ATTR_INDEXED_IGNORE_CASE, ATTR_KEYWORDS
+from kaa.db import *
 
 # get logging object
 log = logging.getLogger('beacon')

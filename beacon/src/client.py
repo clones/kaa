@@ -164,6 +164,14 @@ class Client(object):
             self.rpc('monitor.directory', directory)
 
 
+    def register_inverted_index(self, name, *args, **kwargs):
+        """
+        Register new inverted index.
+        """
+        if self.status != DISCONNECTED:
+            self.rpc('db.register_inverted_index', name, *args, **kwargs)
+
+
     def register_file_type_attrs(self, name, **kwargs):
         """
         Register new attrs and types for files.

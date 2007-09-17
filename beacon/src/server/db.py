@@ -123,26 +123,27 @@ class Database(RO_Database):
         self.read_lock.signals['lock'].connect_weak(self.commit)
 
         # register basic types
-        self._db.register_object_type_attrs("dir",
+        self._db.register_inverted_index('keywords', min = 2, max = 30)
+        self._db.register_object_type_attrs('dir',
             # This multi-column index optimizes queries on (name,parent) which
             # is done for every object add/update, so must be fast. All
             # object types will have this combined index.
-            [("name", "parent_type", "parent_id")],
-            name = (str, ATTR_KEYWORDS),
+            [('name', 'parent_type', 'parent_id')],
+            name = (str, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords', db.split_path),
             overlay = (bool, ATTR_SIMPLE),
-            media = (int, ATTR_INDEXED),
+            media = (int, ATTR_SEARCHABLE | ATTR_INDEXED),
             mtime = (int, ATTR_SIMPLE))
 
-        self._db.register_object_type_attrs("file",
-            [("name", "parent_type", "parent_id")],
-            name = (str, ATTR_KEYWORDS),
+        self._db.register_object_type_attrs('file',
+            [('name', 'parent_type', 'parent_id')],
+            name = (str, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords', db.split_path),
             overlay = (bool, ATTR_SIMPLE),
-            media = (int, ATTR_INDEXED),
+            media = (int, ATTR_SEARCHABLE | ATTR_INDEXED),
             mtime = (int, ATTR_SIMPLE))
 
-        self._db.register_object_type_attrs("media",
-            [("name", "parent_type", "parent_id")],
-            name = (str, ATTR_KEYWORDS),
+        self._db.register_object_type_attrs('media',
+            [('name', 'parent_type', 'parent_id')],
+            name = (str, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords', db.split_path),
             content = (str, ATTR_SIMPLE))
 
         # commit
@@ -261,15 +262,22 @@ class Database(RO_Database):
         return metadata
 
 
+    def register_inverted_index(self, name, *args, **kwargs):
+        """
+        Register a new inverted index with the database.
+        """
+        return self._db.register_inverted_index(name, *args, **kwargs)
+
+
     def register_object_type_attrs(self, type, *args, **kwargs):
         """
         Register a new object with attributes. Special keywords like name and
         mtime are added by default.
         """
-        kwargs['name'] = (str, ATTR_KEYWORDS)
+        kwargs['name'] = (str, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords', db.split_path)
         # TODO: mtime may not e needed for subitems like tracks
         kwargs['overlay'] = (bool, ATTR_SIMPLE)
-        kwargs['media'] = (int, ATTR_INDEXED)
+        kwargs['media'] = (int, ATTR_SEARCHABLE | ATTR_INDEXED)
         if not type.startswith('track_'):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
             kwargs['image'] = (str, ATTR_SIMPLE)
