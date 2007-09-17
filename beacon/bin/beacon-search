@@ -198,7 +198,7 @@ if __name__ == '__main__':
         print 'Beacon database information:'
         print
         print 'Total objects:'.rjust(20), info['total']
-        print 'Indexed keywords:'.rjust(20), info['wordcount']
+        print 'Indexed keywords:'.rjust(20), info['termcounts']['keywords']
         print
         print 'Object breakdown by type:'
         for key in info['count']:
