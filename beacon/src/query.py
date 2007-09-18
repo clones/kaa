@@ -194,8 +194,9 @@ class Query(object):
             # request the real database id and do the query when done.
             parent = query['parent']
             log.info('force data for %s', parent)
-            parent.scan().connect(self._beacon_start_query, query)
-            return
+            async = parent.scan()
+            if isinstance(async, kaa.notifier.InProgress):
+                yield async
 
         # we have to wait until we are sure that the db is free for
         # read access or the sqlite client will find a lock and waits

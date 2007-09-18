@@ -246,7 +246,7 @@ class Monitor(object):
 
         for pos, item in enumerate(changed):
             self.notify_client('progress', pos+1, len(changed), item.url)
-            async = item.parse()
+            async = item.scan()
             if isinstance(async, kaa.notifier.InProgress):
                 yield async
             if not self._running:
