@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa.beacon.server - A virtual filesystem with metadata
+# kaa.feedmanager - Manage RSS/Atom Feeds
 # Copyright (C) 2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -42,7 +42,7 @@ import feedparser as _feedparser
 import core
 
 # get logging object
-log = logging.getLogger('beacon.feed')
+log = logging.getLogger('feedmanager')
 isotime = '%a, %d %b %Y %H:%M:%S'
 
 @kaa.notifier.execute_in_thread()

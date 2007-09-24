@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa.beacon.server - A virtual filesystem with metadata
+# kaa.feedmanager - Manage RSS/Atom Feeds
 # Copyright (C) 2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -41,13 +41,14 @@ from xml.dom import minidom
 # kaa imports
 import kaa.notifier
 import kaa.notifier.url
+import kaa.beacon
 from kaa.strutils import str_to_unicode, unicode_to_str
 
 # get manager module
 import manager
 
 # get logging object
-log = logging.getLogger('beacon.feed')
+log = logging.getLogger('feedmanager')
 
 # ##################################################################
 # some generic entry/feed stuff
@@ -73,7 +74,6 @@ class Entry(dict):
 
 class Feed(object):
 
-    _db = None
     NEXT_ID = 0
     IMAGEDIR = None
 
@@ -130,7 +130,7 @@ class Feed(object):
                     continue
                 fname = unicode_to_str(node.getAttribute('filename')) or None
                 self._entries.append((node.getAttribute('url'), fname))
-
+        
 
     def _writexml(self, node):
         """
@@ -152,7 +152,7 @@ class Feed(object):
             e.setAttribute('url', url)
             if fname:
                 e.setAttribute('filename', str_to_unicode(fname))
-            node.appendChild(e)
+            d.appendChild(e)
 
 
     @kaa.notifier.yield_execution()
@@ -182,7 +182,7 @@ class Feed(object):
         log.info('update feed %s', self.url)
 
         # get directory information
-        beacondir = self._db.query(filename=self.dirname)
+        beacondir = kaa.beacon.get(self.dirname)
         listing = beacondir.list()
         if isinstance(listing, kaa.notifier.InProgress):
             yield listing
@@ -207,12 +207,9 @@ class Feed(object):
                 # already in beacon list
                 pass
             elif not self._download:
-                # add to beacon
-                while self._db.read_lock.is_locked():
-                    yield self._db.read_lock.yield_unlock()
                 # use url as name
                 entry['name'] = unicode_to_str(entry.url)
-                i = self._db.add_object(parent=beacondir, **entry)
+                i = kaa.beacon.add_item(parent=beacondir, **entry)
             else:
                 # download
                 filename = os.path.join(self.dirname, entry.basename)
@@ -234,7 +231,7 @@ class Feed(object):
                         continue
 
                 if os.path.isfile(filename):
-                    item = self._db.query(filename=filename)
+                    item = kaa.beacon.get(filename)
                     if not item.scanned():
                         async = item.scan()
                         if isinstance(async, kaa.notifier.InProgress):
@@ -276,7 +273,7 @@ class Feed(object):
             return
 
         # get directory information
-        beacondir = self._db.query(filename=self.dirname)
+        beacondir = kaa.beacon.get(self.dirname)
         allurls = [ e[0] for e in self._entries ]
         listing = beacondir.list()
         if isinstance(listing, kaa.notifier.InProgress):

@@ -41,6 +41,7 @@ setup(module       = 'feedmanager',
       version      = '0.1.0',
       license      = 'LGPL',
       summary      = 'RSS/Atom Feedmanager',
+      scripts     = [ 'bin/kaa-feedmanager' ],
       rpminfo      = {
           'requires':       'python-kaa-beacon >= 0.1.0',
           'build_requires': 'python-kaa-beacon >= 0.1.0'

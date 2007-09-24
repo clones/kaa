@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa.beacon.server - A virtual filesystem with metadata
+# kaa.feedmanager - Manage RSS/Atom Feeds
 # Copyright (C) 2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -28,22 +28,6 @@
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # -----------------------------------------------------------------------------
-#
-# TODO
-#
-# - Improve RSS feed for better video and audio feed support
-#   https://feedguide.participatoryculture.org/front
-# - Torrent downloader (needed for some democracy feeds)
-# - Add parallel download function
-# - make sure update() is called only once at a time
-# - add username / password stuff to rpc or config
-#
-# External plugins
-# - Flickr image feed
-# - Gallery support
-# - Youtube / Stage6 plugin
-#
-# ##################################################################
 
 # python imports
 import os
@@ -56,56 +40,48 @@ import manager
 import core
 import rss
 
-@kaa.rpc.expose('feeds.update')
-def update(id=None):
-    """
-    Update feed with given id or all if id is None
-    """
-    if id == None:
-        return manager.update()
-    for c in manager.list_feeds():
-        if id == c.id:
-            return c.update()
-    return False
+class Feed(dict):
+    def remove(self):
+        """
+        Remove feed
+        """
+        for c in manager.list_feeds():
+            if self.get('id') == c.id:
+                manager.remove_feed(c)
+                return True
+        return False
 
+    def update(self):
+        """
+        Update feed
+        """
+        for c in manager.list_feeds():
+            if self.get('id') == c.id:
+                return c.update()
+        return False
 
-@kaa.rpc.expose('feeds.list')
 def list_feeds():
     """
     List all feeds. Returns a list of dicts.
     """
     feeds = []
     for c in manager.list_feeds():
-        feeds.append(c.get_config())
+        feeds.append(Feed(c.get_config()))
     return feeds
 
 
-@kaa.rpc.expose('feeds.add')
 def add_feed(url, destdir, download=True, num=0, keep=True):
     """
     Add a new feed.
     """
-    return manager.add_feed(url, destdir, download, num, keep).get_config()
-
-
-@kaa.rpc.expose('feeds.remove')
-def remove_feed(id):
-    """
-    Remove feed with given id.
-    """
-    for c in manager.list_feeds():
-        if id == c.id:
-            manager.remove_feed(c)
-            return True
-    return False
+    return Feed(manager.add_feed(url, destdir, download, num, keep).get_config())
 
 
 def set_database(database):
     """
     Set the database. Called by server at startup.
     """
-    core.Feed._db = database
-    core.Feed.IMAGEDIR = os.path.join(database.get_directory(), 'images')
+    core.Feed.IMAGEDIR = os.path.join(database, 'images')
     if not os.path.isdir(core.Feed.IMAGEDIR):
         os.makedirs(core.Feed.IMAGEDIR)
-    manager.init(os.path.join(database.get_directory(), 'feeds.xml'))
+    manager.init(os.path.join(database, 'feeds.xml'))

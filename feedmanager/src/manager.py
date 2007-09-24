@@ -5,7 +5,7 @@
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa.beacon.server - A virtual filesystem with metadata
+# kaa.feedmanager - Manage RSS/Atom Feeds
 # Copyright (C) 2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -42,7 +42,7 @@ from kaa.strutils import unicode_to_str
 import rss
 
 # get logging object
-log = logging.getLogger('beacon.feed')
+log = logging.getLogger('feedmanager')
 
 # cache file
 CACHE = None
@@ -151,22 +151,3 @@ def init(cachefile):
             parse_feed(c)
         except:
             log.exception('bad cache file: %s' % CACHE)
-
-
-_updating = False
-
-@kaa.notifier.yield_execution()
-def update(verbose=False):
-    """
-    Update all feeds
-    """
-    global _updating
-    if _updating:
-        log.error('update already in progress')
-        yield False
-    log.info('start feed update')
-    _updating = True
-    for feed in _feeds:
-        yield feed.update(verbose=verbose)
-    _updating = False
-    yield True

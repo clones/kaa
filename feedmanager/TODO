@@ -1,0 +1,15 @@
+- Add password code
+- Improve RSS feed for better video and audio feed support
+  https://feedguide.participatoryculture.org/front
+- Torrent downloader (needed for some democracy feeds)
+- Add parallel download function
+- make sure update() is called only once at a time
+- add username / password stuff to rpc or config
+
+External plugins
+- Flickr image feed
+- Gallery support
+- Youtube / Stage6 plugin
+
+Known Bugs
+- Unhanlded InProgress exception after download

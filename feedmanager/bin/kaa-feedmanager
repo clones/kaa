@@ -1,12 +1,12 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# beacon-feedmanager
+# kaa-feedmanager
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
-# kaa.beacon - A virtual filesystem with metadata
+# kaa.feedmanager - Manage RSS/Atom Feeds
 # Copyright (C) 2007 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
@@ -31,23 +31,27 @@
 # -----------------------------------------------------------------------------
 
 # python imports
+import os
 import sys
+import logging
 
 # kaa imports
 import kaa.notifier
 import kaa.beacon
+import kaa.feedmanager
 
-kaa.beacon.connect()
+kaa.feedmanager.set_database(os.path.expanduser('~/.beacon'))
+logging.getLogger('feedmanager').setLevel(logging.DEBUG)
 
 def help():
-    print 'beacon-feedmanager'
+    print 'kaa-feedmanager'
     print 'options:'
     print '-l          list all feeds'
     print '-a options  add a feed, see examples below'
     print '-r id       remove feed with the given id'
     print '-u [ id ]   update all feeds or only the feed with the given id'
     print
-    print 'The beacon-feedmanager adds feeds like audio and video podcasts'
+    print 'The kaa-feedmanager adds feeds like audio and video podcasts'
     print 'to the filesystem. It either downloads the files or just adds'
     print 'the url into the directory. The later is hidden from the normal'
     print 'filessytem, only beacon clients such as Freevo can see it.'
@@ -64,11 +68,11 @@ def help():
     print
     print 'Example:'
     print 'download all entries and keep old one'
-    print 'beacon-feedmanager -a http://url /media/mypodcasts'
+    print 'kaa-feedmanager -a http://url /media/mypodcasts'
     print 'link to all entries and not keep old one'
-    print 'beacon-feedmanager -a http://url /media/mypodcasts False 0 False'
+    print 'kaa-feedmanager -a http://url /media/mypodcasts False 0 False'
     print 'download up to 4 entries and delete old one'
-    print 'beacon-feedmanager -a http://url /media/mypodcasts True 4 False'
+    print 'kaa-feedmanager -a http://url /media/mypodcasts True 4 False'
     print
     sys.exit(0)
     
@@ -76,31 +80,31 @@ if len(sys.argv) < 2:
     help()
     
 if sys.argv[1] in ('--update', '-u'):
-    if len(sys.argv) > 2:
-        def update(feeds, id):
-            for f in feeds:
-                if f.get('id') == id:
-                    f.update().connect(sys.exit)
-                    break
-            else:
-                print 'feed not found'
-                sys.exit(0)
 
-        kaa.beacon.list_feeds().connect(update, int(sys.argv[2]))
-    else:
-        kaa.beacon.update_feeds().connect(sys.exit)
+    @kaa.notifier.yield_execution()
+    def update():
+        n = None
+        if len(sys.argv) > 2:
+            n = int(sys.argv[2])
 
-elif sys.argv[1] in ('--list', '-l'):
-    def show(feeds):
-        for f in feeds:
-            print 'Feed %d' % f['id']
-            for key in ('id', 'url', 'directory', 'download', 'num', 'keep'):
-                print '  %10s = %s' % (key, f[key])
-            print
-        sys.exit(0)
-    kaa.beacon.list_feeds().connect(show)
+        for f in kaa.feedmanager.list_feeds():
+            if n is None or n == f.get('id'):
+                yield f.update()
 
-elif sys.argv[1] in ('--add', '-a') and len(sys.argv) > 3:
+    kaa.beacon.connect()
+    update().connect(sys.exit)
+    kaa.notifier.loop()
+    sys.exit(0)
+    
+if sys.argv[1] in ('--list', '-l'):
+    for f in kaa.feedmanager.list_feeds():
+        print 'Feed %d' % f['id']
+        for key in ('id', 'url', 'directory', 'download', 'num', 'keep'):
+            print '  %10s = %s' % (key, f[key])
+        print
+    sys.exit(0)
+
+if sys.argv[1] in ('--add', '-a') and len(sys.argv) > 3:
     url = sys.argv[2]
     destdir = sys.argv[3]
     if len(sys.argv) > 4:
@@ -115,23 +119,19 @@ elif sys.argv[1] in ('--add', '-a') and len(sys.argv) > 3:
             keep = True
         elif sys.argv[6].lower() in ('false', 'no'):
             keep = False
-        kaa.beacon.add_feed(url, destdir, download, num, keep).connect(sys.exit)
+        kaa.feedmanager.add_feed(url, destdir, download, num, keep)
     else:
-        kaa.beacon.add_feed(url, destdir).connect(sys.exit)
+        kaa.feedmanager.add_feed(url, destdir)
+    sys.exit(0)
 
-elif sys.argv[1] in ('--remove', '-r') and len(sys.argv) > 2:
-    def remove(feeds, id):
-        for f in feeds:
-            if f.get('id') == id:
-                f.remove().connect(sys.exit)
-                break
-        else:
-            print 'feed not found'
-            sys.exit(0)
-            
-    kaa.beacon.list_feeds().connect(remove, int(sys.argv[2]))
+if sys.argv[1] in ('--remove', '-r') and len(sys.argv) > 2:
+    for f in kaa.feedmanager.list_feeds():
+        if f.get('id') == int(sys.argv[2]):
+            f.remove()
+            break
+    else:
+        print 'feed not found'
+    sys.exit(0)
     
-else:
-    help()
+help()
     
-kaa.notifier.loop()
