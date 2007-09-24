@@ -97,6 +97,12 @@ def print_results(results, detailed = False):
         print 'No results.'
         return
 
+    # special handling for attr search
+    if isinstance(results[0], (str, unicode)):
+        for r in results:
+            print r
+        return
+    
     # Get terminal dimensions
     try:
         h, w = struct.unpack('hh', fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, 'xxxx'))
