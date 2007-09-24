@@ -50,7 +50,6 @@ from db import *
 from monitor import Monitor
 from crawl import Crawler
 from config import config
-import feedmanager
 
 # get logging object
 log = logging.getLogger('beacon.server')
@@ -165,12 +164,6 @@ class Server(object):
 
         for dir in config.monitors:
             self.monitor_dir(os.path.expandvars(os.path.expanduser(dir)))
-
-        for auth in config.authentication:
-            add_password(None, auth.server, auth.username, auth.password)
-        feedmanager.set_database(self._db)
-        self.ipc.connect(feedmanager)
-        
 
     # -------------------------------------------------------------
     # client handling

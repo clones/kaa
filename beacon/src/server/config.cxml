@@ -47,20 +47,4 @@
         </var>
     </dict>
 
-    <list name="authentication">
-        <desc>
-            List for remote authentication.
-            (right now only needed for the feedmanager)
-            Example:
-            authentication[0].server = http://www.example.com
-            authentication[0].username = myname
-            authentication[0].password = secret
-        </desc>
-        <var name="server" type="str">
-            <desc>Server this username / password combination is used for</desc>
-        </var>
-        <var name="username" type="unicode"/>
-        <var name="password" type="unicode"/>
-    </list>
-
 </config>

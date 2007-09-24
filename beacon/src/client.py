@@ -196,14 +196,6 @@ class Client(object):
             self.rpc('db.media.delete', id)
 
 
-    def feed_func(self, func, *args, **kwargs):
-        """
-        Call feed manager function in the server
-        """
-        if self.status != DISCONNECTED:
-            return self.rpc(func, *args, **kwargs)
-
-
     # -------------------------------------------------------------------------
     # Server connect / disconnect / reconnect handling
     # -------------------------------------------------------------------------
