@@ -94,9 +94,11 @@ if sys.argv[1] in ('--update', '-u'):
                 yield f.update(verbose=True)
 
     def parallel_update():
+        global active
         active = 0
 
         def finished(arg):
+            global active
             active -= 1
             if active == 0:
                 sys.exit(0)
