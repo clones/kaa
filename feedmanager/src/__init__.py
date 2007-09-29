@@ -39,6 +39,7 @@ import kaa.rpc
 import manager
 import core
 import rss
+from config import config
 
 class Feed(dict):
     def remove(self):
@@ -51,13 +52,13 @@ class Feed(dict):
                 return True
         return False
 
-    def update(self):
+    def update(self, verbose=False):
         """
         Update feed
         """
         for c in manager.list_feeds():
             if self.get('id') == c.id:
-                return c.update()
+                return c.update(verbose)
         return False
 
 def list_feeds():

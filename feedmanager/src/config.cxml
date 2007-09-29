@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<config>
+    <desc lang="en">Feedmanager configuration</desc>
+
+    <list name="authentication" default="True">
+        <desc lang="en">
+	    Username and password information to receive feeds and
+            data from specfic sides, e.g.
+            authentication[0].site = http://www.example.com
+            authentication[0].username = myname
+            authentication[0].password = secret
+        </desc>
+        <var name="site" type="str"/>
+        <var name="username" type="str"/>
+        <var name="password" type="str"/>
+    </list>
+</config>

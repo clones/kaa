@@ -37,10 +37,12 @@ import logging
 
 # kaa imports
 import kaa.notifier
+import kaa.notifier.url
 import kaa.beacon
 import kaa.feedmanager
 
-kaa.feedmanager.set_database(os.path.expanduser('~/.beacon'))
+configdir = os.path.expanduser('~/.feedmanager')
+kaa.feedmanager.set_database(configdir)
 logging.getLogger('feedmanager').setLevel(logging.DEBUG)
 
 def help():
@@ -89,8 +91,12 @@ if sys.argv[1] in ('--update', '-u'):
 
         for f in kaa.feedmanager.list_feeds():
             if n is None or n == f.get('id'):
-                yield f.update()
+                yield f.update(verbose=True)
 
+    # add password information
+    kaa.feedmanager.config.load(os.path.join(configdir, 'feedmanager.conf'), create=True)
+    for auth in kaa.feedmanager.config.authentication:
+        kaa.notifier.url.add_password(None, auth.site, auth.username, auth.password)
     kaa.beacon.connect()
     update().connect(sys.exit)
     kaa.notifier.loop()
