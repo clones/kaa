@@ -93,12 +93,27 @@ if sys.argv[1] in ('--update', '-u'):
             if n is None or n == f.get('id'):
                 yield f.update(verbose=True)
 
+    def parallel_update():
+        active = 0
+
+        def finished(arg):
+            active -= 1
+            if active == 0:
+                sys.exit(0)
+                
+        for f in kaa.feedmanager.list_feeds():
+            active += 1
+            f.update().connect(finished)
+            
     # add password information
     kaa.feedmanager.config.load(os.path.join(configdir, 'feedmanager.conf'), create=True)
     for auth in kaa.feedmanager.config.authentication:
         kaa.notifier.url.add_password(None, auth.site, auth.username, auth.password)
     kaa.beacon.connect()
-    update().connect(sys.exit)
+    if len(sys.argv) > 2 and sys.argv[2] == "-p":
+        parallel_update()
+    else:
+        update().connect(sys.exit)
     kaa.notifier.loop()
     sys.exit(0)
     
