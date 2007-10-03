@@ -70,6 +70,7 @@ def usage(error_code):
     print '--details          show detailed metadata in search results'
     print '--list-media       lists all known media'
     print '--del-media media  delete given media from the database'
+    print '--list-attributes  list all attributes for the given url'
     print '--debug            Enables debugging mode for all loggers'
     print '--help | -h        this message'
     print
@@ -80,6 +81,7 @@ def usage(error_code):
     print '  beacon-search --monitor dirname=/local/video'
     print '  beacon-search artist=Silbermond'
     print '  beacon-search --type image vacation'
+    print '  beacon-search --list-attributes /local/video/movie.avi'
     sys.exit(error_code)
 
 
@@ -150,7 +152,7 @@ def uptodate():
 if __name__ == '__main__':
     try:
         # list of modes this script can start in
-        possible_modes = [ 'info', 'list-media', 'del-media']
+        possible_modes = [ 'info', 'list-media', 'del-media', 'list-attributes']
 
         # read arguments
         opts = [ 'verbose=', 'help', 'type=',
@@ -191,7 +193,7 @@ if __name__ == '__main__':
     if mode == 'search' and not args:
         usage(0)
 
-    if mode in ('search', 'info', 'list-media', 'del-media'):
+    if mode in ('search', 'info', 'list-media', 'del-media', 'list-attributes'):
         try:
             kaa.beacon.connect()
         except kaa.beacon.ConnectError:
@@ -218,6 +220,17 @@ if __name__ == '__main__':
         sys.exit(0)
      
 
+    if mode == 'list-attributes':
+        for filename in args:
+            info = kaa.beacon.query(filename=filename).get()
+            keys = info.keys()
+            keys.sort()
+            print filename, ':'
+            for key in keys:
+                print '  %-30s : %s' % (key, info[key])
+            print
+        sys.exit(0)
+        
     if mode == 'del-media':
         try:
             media = int(args.pop(0))
