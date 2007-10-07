@@ -294,6 +294,8 @@ class XinePlayerChild(Player):
         if size is not None:
             self._window_size = size
 
+        self._vo_visible = True
+
         if wid and isinstance(wid, (int, long)):
             vo_kwargs = { 'passthrough': 'xv',
                           'wid': wid,
