@@ -860,20 +860,20 @@ static int
 _kaa_blend_osd(kaa_driver_t *this, kaa_frame_t *frame)
 {
     pthread_mutex_lock(&this->osd_buffer_lock);
-    int resized = frame->width != this->osd_w || frame->height != this->osd_h;
+    int resized = frame->width != this->osd_w || (frame->height & ~1) != this->osd_h;
     if (resized || frame->format != this->osd_format) {
         if (this->osd_configure_cb && resized) {
             // XXX: could configure cb cause reentry here?  If so, will deadlock.
-            this->osd_configure_cb(frame->width, frame->height, frame->ratio, this->osd_configure_cb_data,
+            this->osd_configure_cb(frame->width, frame->height & ~1, frame->ratio, this->osd_configure_cb_data,
                                    &this->osd_buffer, &this->osd_stride);
         }
         if (this->osd_buffer && this->osd_stride > 0) {
             this->osd_w = frame->width;
-            this->osd_h = frame->height;
-            this->osd_slice_h = frame->height;
+            this->osd_h = frame->height & ~1;
+            this->osd_slice_h = frame->height & ~1;
             alloc_overlay_data(this, frame->format);
-            convert_bgra_to_frame_format(this, 0, 0, frame->width, frame->height);
-            image_premultiply_alpha(this, 0, 0, frame->width, frame->height);
+            convert_bgra_to_frame_format(this, 0, 0, this->osd_w, this->osd_h);
+            image_premultiply_alpha(this, 0, 0, this->osd_w, this->osd_h);
             calculate_slice(this);
         } else {
             printf("OSD CONFIGURE FAILED\n");
