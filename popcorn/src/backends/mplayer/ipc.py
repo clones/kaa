@@ -35,9 +35,6 @@ import logging
 # kaa imports
 import kaa.notifier
 
-# start mplayer in gdb for debugging
-USE_GDB = False
-
 # get logging object
 log = logging.getLogger('popcorn.mplayer')
 
@@ -85,14 +82,15 @@ class ChildProcess(object):
     """
     Mplayer child wrapper,
     """
-    def __init__(self, command=None):
+    def __init__(self, command=None, gdb = False):
         # create argument list
+        self._gdb = gdb
         self.args = Arguments("-v -slave -osdlevel 0 -nolirc -nojoystick " +
                               "-nodouble -fixed-vo -identify -framedrop")
         self.filters = []
         if not command:
             return
-        if USE_GDB:
+        if self._gdb:
             self._child = kaa.notifier.Process("gdb")
             self._command = command
         else:
@@ -112,7 +110,7 @@ class ChildProcess(object):
 
         log.info("spawn: %s %s", self._mp_cmd, ' '.join(args))
 
-        if USE_GDB:
+        if self._gdb:
             signal = self._child.start(self._command)
             self._child.write("run %s\n" % ' '.join(args))
             self._child.signals["stdout"].connect_weak(self._child_handle_line)
@@ -127,10 +125,12 @@ class ChildProcess(object):
         self.quit()
 
 
-    def _child_handle_line(line):
-        if line.startswith("Program received signal SIGSEGV"):
+    def _child_handle_line(self, line):
+        if line.startswith("Program received signal"):
             # Mplayer crashed, issue backtrace.
-            self._child.write("thread apply all bt\n")
+            self._child.write("thread apply all bt\nquit\n")
+        elif line.startswith("Program exited"):
+            self._child.write("quit\n")
 
 
     def stop(self):

@@ -480,7 +480,7 @@ class MPlayer(MediaPlayer):
         assert(self._mp_info)
 
         # create mplayer object
-        self._mplayer = ChildProcess(self._mp_cmd)
+        self._mplayer = ChildProcess(self._mp_cmd, gdb = log.getEffectiveLevel() == logging.DEBUG)
 
         # get argument and filter list
         args, filters = self._mplayer.args, self._mplayer.filters

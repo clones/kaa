@@ -69,7 +69,7 @@ class Xine(MediaPlayer):
     def _child_spawn(self):
         # Launch self (-u is unbuffered stdout)
         script = os.path.join(os.path.dirname(__file__), 'main.py')
-        self._xine = ChildProcess(self, script)
+        self._xine = ChildProcess(self, script, gdb = log.getEffectiveLevel() == logging.DEBUG)
         self._xine.set_stop_command(kaa.notifier.WeakCallback(self._xine.die))
         signal = self._xine.start(str(self._osd_shmkey), str(self._frame_shmkey))
         signal.connect_weak(self._child_exited)
