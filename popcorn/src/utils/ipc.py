@@ -121,10 +121,11 @@ class ChildProcess(object):
             # debug levels)
             log.info('[%d] %s' % (self._child.child.pid, line))
 
-        if self.gdb and line.startswith("Program received signal SIGSEGV"):
-            self._child.write("thread apply all bt\n")
-            self._child.write("quit\n")
-            return
+        if self.gdb:
+            if line.startswith("Program received signal"):
+                return self._child.write("thread apply all bt\nquit\n")
+            elif line.startswith('Program exited'):
+                return self._child.write("quit\n")
 
         # do some nice debug. use the log level from child if we can detect it
         delim = line.find(' ')
