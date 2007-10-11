@@ -87,7 +87,7 @@ def connect():
         # It was possible to connect to the beacon server but not
         # to the thumbnailer. Something is very wrong.
         log.error('unable to connect to beacon-daemon %s', debugging)
-        raise RuntimeError('Unable to connect to beacon-daemon')
+        raise ConnectError('Unable to connect to beacon-daemon')
     signals = _client.signals
     log.info('beacon connected')
     return _client
@@ -108,7 +108,7 @@ def launch(autoshutdown=False, verbose='none'):
         cmd += ' --autoshutdown'
     if os.system(cmd):
         log.error('unable to connect to beacon-daemon %s', debugging)
-        raise RuntimeError('Unable to connect to beacon-daemon')
+        raise ConnectError('Unable to connect to beacon-daemon')
     return connect()
 
 
