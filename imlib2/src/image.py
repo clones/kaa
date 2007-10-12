@@ -425,10 +425,10 @@ class Image(object):
                  'font_or_fontname' is already a Font instance, it is simply
                  returned back to the caller.
         """
-        if type(font) in types.StringTypes:
-            self.font = Font(font)
+        if type(font_or_fontname) in types.StringTypes:
+            self.font = Font(font_or_fontname)
         else:
-            self.font = font
+            self.font = font_or_fontname
         return self.font
 
 
