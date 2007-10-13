@@ -187,11 +187,15 @@ class Feed(object):
         log.info('update feed %s', self.url)
 
         # get directory information
-        beacondir = kaa.beacon.get(self.dirname)
+        query = kaa.beacon.query(filename=self.dirname)
+        if not query.valid:
+            yield query.wait()
+        beacondir = query.get()
+        
         listing = beacondir.list()
-        if isinstance(listing, kaa.notifier.InProgress):
-            yield listing
-            listing = listing.get_result()
+        if not listing.valid:
+            yield listing.wait()
+            
         allurls = [ f.url for f in listing ]
 
         num = self._num
@@ -280,7 +284,10 @@ class Feed(object):
             return
 
         # get directory information
-        beacondir = kaa.beacon.get(self.dirname)
+        query = kaa.beacon.query(filename=self.dirname)
+        if not query.valid:
+            yield query.wait()
+        beacondir = query.get()
         allurls = [ e[0] for e in self._entries ]
         listing = beacondir.list()
         if isinstance(listing, kaa.notifier.InProgress):
