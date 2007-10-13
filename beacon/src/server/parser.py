@@ -63,7 +63,7 @@ media_types = {
     kaa.metadata.MEDIA_DIRECTORY: 'dir'
 }
 
-def load_plugins(db):
+def load_plugins(server, db):
     """
     Load external plugins. Called by server on creating. The db object
     is from kaa.beacon, not kaa.db.
@@ -72,8 +72,8 @@ def load_plugins(db):
     for plugin in os.listdir(plugindir):
         if not plugin.endswith('.py') or plugin == '__init__.py':
             continue
-        exec('import plugin.%s' % plugin)
-        plugin.create(db, register)
+        exec('import plugins.%s as plugin' % plugin[:-3])
+        plugin.plugin_init(server, db, register)
 
 
 def register(ext, function):

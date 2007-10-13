@@ -135,7 +135,7 @@ class Server(object):
         self._clients = []
 
         # load parser plugins
-        parser.load_plugins(self._db)
+        parser.load_plugins(self, self._db)
 
         config.set_filename(os.path.join(dbdir, "config"))
         config.load()
