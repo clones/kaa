@@ -85,6 +85,7 @@ class Feed(object):
         self._download = True
         self._num = 0
         self._keep = True
+        self._updating = False
         if not os.path.isdir(destdir):
             os.makedirs(destdir)
         self.id = Feed.NEXT_ID
@@ -179,6 +180,10 @@ class Feed(object):
             sys.stdout.write("%s\r" % s.get_progressbar())
             sys.stdout.flush()
 
+        if self._updating:
+            log.error('feed %s is already updating', self.url)
+            yield False
+        self._updating = True
         log.info('update feed %s', self.url)
 
         # get directory information
@@ -260,7 +265,9 @@ class Feed(object):
             elif os.path.isfile(filename):
                 # delete file on disc
                 os.unlink(filename)
-
+        self._updating = False
+        yield True
+    
 
     @kaa.notifier.yield_execution()
     def remove(self):

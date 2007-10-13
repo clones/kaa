@@ -34,6 +34,7 @@ import os
 
 # kaa imports
 import kaa.rpc
+import kaa.notifier.url
 
 # feedmanager imports
 import manager
@@ -46,20 +47,14 @@ class Feed(dict):
         """
         Remove feed
         """
-        for c in manager.list_feeds():
-            if self.get('id') == c.id:
-                manager.remove_feed(c)
-                return True
-        return False
+        return remove_feed(self)
 
     def update(self, verbose=False):
         """
         Update feed
         """
-        for c in manager.list_feeds():
-            if self.get('id') == c.id:
-                return c.update(verbose)
-        return False
+        return update_feed(self, verbose)
+
 
 def list_feeds():
     """
@@ -76,6 +71,30 @@ def add_feed(url, destdir, download=True, num=0, keep=True):
     Add a new feed.
     """
     return Feed(manager.add_feed(url, destdir, download, num, keep).get_config())
+
+
+def remove_feed(feed):
+    """
+    Remove a feed.
+    """
+    if isinstance(feed, dict):
+        feed = feed.get('id')
+    for c in manager.list_feeds():
+        if feed == c.id:
+            manager.remove_feed(c)
+            return True
+    return False
+
+
+def update_feed(feed, verbose=False):
+    """
+    Update a feed.
+    """
+    if isinstance(feed, dict):
+        feed = feed.get('id')
+    for c in manager.list_feeds():
+        if feed == c.id:
+            return c.update(verbose)
 
 
 def set_database(database):
