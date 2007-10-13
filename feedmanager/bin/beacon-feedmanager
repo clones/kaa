@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# kaa-feedmanager
+# beacon-feedmanager
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -30,30 +30,24 @@
 #
 # -----------------------------------------------------------------------------
 
-# python imports
-import os
 import sys
-import logging
 
-# kaa imports
+import kaa
 import kaa.notifier
-import kaa.notifier.url
 import kaa.beacon
-import kaa.feedmanager
 
-configdir = os.path.expanduser('~/.feedmanager')
-kaa.feedmanager.set_database(configdir)
-logging.getLogger('feedmanager').setLevel(logging.DEBUG)
+kaa.beacon.connect()
+rpc = kaa.beacon._client.rpc
 
 def help():
-    print 'kaa-feedmanager'
+    print 'beacon_feedmanager'
     print 'options:'
     print '-l          list all feeds'
     print '-a options  add a feed, see examples below'
     print '-r id       remove feed with the given id'
     print '-u [ id ]   update all feeds or only the feed with the given id'
     print
-    print 'The kaa-feedmanager adds feeds like audio and video podcasts'
+    print 'The beacon_feedmanager adds feeds like audio and video podcasts'
     print 'to the filesystem. It either downloads the files or just adds'
     print 'the url into the directory. The later is hidden from the normal'
     print 'filessytem, only beacon clients such as Freevo can see it.'
@@ -70,64 +64,31 @@ def help():
     print
     print 'Example:'
     print 'download all entries and keep old one'
-    print 'kaa-feedmanager -a http://url /media/mypodcasts'
+    print 'beacon_feedmanager -a http://url /media/mypodcasts'
     print 'link to all entries and not keep old one'
-    print 'kaa-feedmanager -a http://url /media/mypodcasts False 0 False'
+    print 'beacon_feedmanager -a http://url /media/mypodcasts False 0 False'
     print 'download up to 4 entries and delete old one'
-    print 'kaa-feedmanager -a http://url /media/mypodcasts True 4 False'
+    print 'beacon_feedmanager -a http://url /media/mypodcasts True 4 False'
     print
     sys.exit(0)
     
 if len(sys.argv) < 2:
     help()
     
-if sys.argv[1] in ('--update', '-u'):
-
-    @kaa.notifier.yield_execution()
-    def update():
-        n = None
-        if len(sys.argv) > 2:
-            n = int(sys.argv[2])
-
-        for f in kaa.feedmanager.list_feeds():
-            if n is None or n == f.get('id'):
-                yield f.update(verbose=True)
-
-    def parallel_update():
-        global active
-        active = 0
-
-        def finished(arg):
-            global active
-            active -= 1
-            if active == 0:
-                sys.exit(0)
-                
-        for f in kaa.feedmanager.list_feeds():
-            active += 1
-            f.update().connect(finished)
-            
-    # add password information
-    kaa.feedmanager.config.load(os.path.join(configdir, 'feedmanager.conf'), create=True)
-    for auth in kaa.feedmanager.config.authentication:
-        kaa.notifier.url.add_password(None, auth.site, auth.username, auth.password)
-    kaa.beacon.connect()
-    if len(sys.argv) > 2 and sys.argv[2] == "-p":
-        parallel_update()
-    else:
-        update().connect(sys.exit)
-    kaa.notifier.loop()
-    sys.exit(0)
-    
 if sys.argv[1] in ('--list', '-l'):
-    for f in kaa.feedmanager.list_feeds():
-        print 'Feed %d' % f['id']
-        for key in ('id', 'url', 'directory', 'download', 'num', 'keep'):
-            print '  %10s = %s' % (key, f[key])
-        print
-    sys.exit(0)
+    def rpc_return(result):
+        for f in result:
+            print 'Feed %d' % f['id']
+            for key in ('id', 'url', 'directory', 'download', 'num', 'keep'):
+                print '  %10s = %s' % (key, f[key])
+            print
+        sys.exit(0)
+    rpc('feeds.list').connect(rpc_return)
 
-if sys.argv[1] in ('--add', '-a') and len(sys.argv) > 3:
+elif sys.argv[1] in ('--add', '-a') and len(sys.argv) > 3:
+    def rpc_return(result):
+        sys.exit(0)
+        
     url = sys.argv[2]
     destdir = sys.argv[3]
     if len(sys.argv) > 4:
@@ -142,19 +103,68 @@ if sys.argv[1] in ('--add', '-a') and len(sys.argv) > 3:
             keep = True
         elif sys.argv[6].lower() in ('false', 'no'):
             keep = False
-        kaa.feedmanager.add_feed(url, destdir, download, num, keep)
+        rpc('feeds.add', url, destdir, download, num, keep).connect(rpc_return)
     else:
-        kaa.feedmanager.add_feed(url, destdir)
-    sys.exit(0)
+        rpc('feeds.add', url, destdir).connect(rpc_return)
 
-if sys.argv[1] in ('--remove', '-r') and len(sys.argv) > 2:
-    for f in kaa.feedmanager.list_feeds():
-        if f.get('id') == int(sys.argv[2]):
-            f.remove()
-            break
+elif sys.argv[1] in ('--remove', '-r') and len(sys.argv) > 2:
+    def rpc_return(result):
+        if not result:
+            print 'feed not found'
+        sys.exit(0)
+    rpc('feeds.remove', int(sys.argv[2])).connect(rpc_return)
+
+elif sys.argv[1] in ('--update', '-u'):
+
+    @kaa.notifier.yield_execution()
+    def update():
+        n = None
+        if len(sys.argv) > 2:
+            n = int(sys.argv[2])
+        feeds = rpc('feeds.list')
+        yield feeds
+        for f in feeds.get_result():
+            if n is None or n == f.get('id'):
+                print 'update', f.get('url'), '...',
+                sys.stdout.flush()
+                result = rpc('feeds.update', f.get('id'))
+                yield result
+                if result.get_result():
+                    print 'ok'
+                else:
+                    print 'failed'
+        sys.exit(0)
+        
+    @kaa.notifier.yield_execution()
+    def parallel_update():
+        global active
+        active = 0
+
+        def finished(result, feed):
+            print 'finished', feed.get('url'),
+            if result:
+                print 'ok'
+            else:
+                print 'failed'
+            global active
+            active -= 1
+            if active == 0:
+                sys.exit(0)
+                
+        feeds = rpc('feeds.list')
+        yield feeds
+        for f in feeds.get_result():
+            active += 1
+            print 'update', f.get('url')
+            rpc('feeds.update', f.get('id')).connect(finished, f)
+            
+#     kaa.beacon.connect()
+    if len(sys.argv) > 2 and sys.argv[2] == "-p":
+        parallel_update()
     else:
-        print 'feed not found'
-    sys.exit(0)
+        update()
+
+else:
+    help()
     
-help()
-    
+kaa.main()
