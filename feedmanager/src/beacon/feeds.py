@@ -32,6 +32,7 @@
 # python imports
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 
 # kaa imports
 import kaa.notifier
@@ -42,7 +43,6 @@ import kaa.rpc
 # plugin config object
 config = kaa.feedmanager.config
 
-logging.getLogger('feedmanager').setLevel(logging.DEBUG)
 
 class IPC(object):
     """
@@ -86,6 +86,20 @@ def plugin_init(server, db):
     """
     Init the plugin.
     """
+    # configure logger
+    log = logging.getLogger('feedmanager')
+    log.setLevel(logging.DEBUG)
+
+    logfile = os.path.join(db.get_directory(), 'feedmanager/log')
+    if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
+        os.makedirs(os.path.dirname(logfile))
+    # create rotating log file with 1MB for each file with a backup of 3
+    handler = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=3)
+    f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
+                          '%(filename)s %(lineno)s: %(message)s')
+    handler.setFormatter(f)
+    log.addHandler(handler)
+
     # use ~/.beacon/feedmanager as base dir
     database = os.path.join(db.get_directory(), 'feedmanager')
     kaa.feedmanager.set_database(database)
