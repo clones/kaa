@@ -48,7 +48,6 @@ from kaa.notifier import OneShotTimer, Signal
 # kaa.beacon imports
 from db import Database
 from query import Query
-from media import medialist
 from item import Item
 
 # get logging object
@@ -350,12 +349,12 @@ class Client(object):
         self.id = id
         self.status = CONNECTED
         new_media = []
-        medialist.connect(self)
+        self._db.medialist.connect(self)
         for id, prop in media:
             # in the client medialist.add has to lock the db
             # and needs the db.lock rpc which will always result
             # in returning an InProgress object.
-            async = medialist.add(id, prop)
+            async = self._db.medialist.add(id, prop)
             yield async
             new_media.append(async.get_result())
         self.signals['connect'].emit()
@@ -402,14 +401,14 @@ class Client(object):
         """
         Notification that the media with the given id changed.
         """
-        if medialist.get_by_media_id(id):
+        if self._db.medialist.get_by_media_id(id):
             # Update can take a while but it should not matter here.
             # The InProgress object can be ignored
-            medialist.get_by_media_id(id).update(prop)
+            self._db.medialist.get_by_media_id(id).update(prop)
             return
         # Adding a media always returns an InProgress object. Attach
         # sending the signal to the InProgress return.
-        async = medialist.add(id, prop)
+        async = self._db.medialist.add(id, prop)
         async.connect_once(self.signals['media.add'].emit, media)
 
 
@@ -418,6 +417,6 @@ class Client(object):
         """
         Notification that the media with the given id was removed.
         """
-        media = medialist.remove(id)
+        media = self._db.medialist.remove(id)
         if media:
             self.signals['media.remove'].emit(media)

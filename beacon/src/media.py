@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'medialist' ]
+__all__ = [ 'MediaList' ]
 
 # python imports
 import os
@@ -249,7 +249,3 @@ class MediaList(object):
         Iterate over all media objects.
         """
         return self._dict.values().__iter__()
-
-
-# global media list object
-medialist = MediaList()

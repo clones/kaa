@@ -41,7 +41,6 @@ import stat
 import kaa.rpc
 
 # kaa.beacon imports
-from kaa.beacon.media import medialist
 from kaa.beacon.utils import get_title
 
 # get logging object
@@ -85,9 +84,9 @@ class Client(object):
         # FIXME: check if the device is still valid
 
         id = dev.get('beacon.id')
-        if medialist.get_by_media_id(id):
+        if self._db.medialist.get_by_media_id(id):
             # already in db
-            media = medialist.get_by_media_id(id)
+            media = self._db.medialist.get_by_media_id(id)
             media.update(dev)
             self.handler.media_changed(media)
             return
@@ -107,7 +106,7 @@ class Client(object):
             self.mount(dev)
             return
 
-        m = medialist.add(id, dev)
+        m = self._db.medialist.add(id, dev)
 
         # create overlay directory structure
         if not os.path.isdir(m.overlay):
@@ -128,8 +127,8 @@ class Client(object):
     @kaa.rpc.expose('device.remove')
     def _device_remove(self, id):
         log.info('remove device %s' % id)
-        self.handler.media_removed(medialist.get_by_media_id(id))
-        medialist.remove(id)
+        self.handler.media_removed(self._db.medialist.get_by_media_id(id))
+        self._db.medialist.remove(id)
 
 
     @kaa.rpc.expose('device.changed')

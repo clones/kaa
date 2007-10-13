@@ -43,7 +43,6 @@ from kaa.db import *
 
 # beacon imports
 from kaa.beacon.item import Item
-from kaa.beacon.media import medialist
 from kaa.beacon.db import Database as RO_Database
 
 # get logging object

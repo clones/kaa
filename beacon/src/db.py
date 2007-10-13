@@ -45,7 +45,7 @@ from kaa.db import *
 
 # beacon imports
 from item import Item
-from media import medialist
+from media import MediaList
 
 # get logging object
 log = logging.getLogger('beacon.db')
@@ -123,6 +123,7 @@ class Database(object):
         # internal db dir, it contains the real db and the
         # overlay dir for the beacon
         self._db_directory = dbdir
+        self.medialist = MediaList()
 
         # handle changes in a list and add them to the database
         # on commit.
@@ -163,7 +164,7 @@ class Database(object):
         qlen = len(query)
         if not 'media' in query:
             # query only media we have right now
-            query['media'] = db.QExpr('in', medialist.get_all_beacon_ids())
+            query['media'] = db.QExpr('in', self.medialist.get_all_beacon_ids())
         else:
             if query['media'] == 'ignore':
                 del query['media']
@@ -376,7 +377,7 @@ class Database(object):
         # now we need a parent
         if i['name'] == '':
             # root node found, find correct mountpoint
-            m = medialist.get_by_beacon_id(i['parent'])
+            m = self.medialist.get_by_beacon_id(i['parent'])
             if not m:
                 raise AttributeError('bad media %s' % str(i['parent']))
             return create_directory(i, m)
@@ -428,7 +429,7 @@ class Database(object):
         counter = 0
         timer = time.time()
 
-        for media in medialist:
+        for media in self.medialist:
             cache[media._beacon_id] = media
             cache[media.root._beacon_id] = media.root
 
@@ -471,12 +472,12 @@ class Database(object):
         """
         dirname = os.path.dirname(filename)
         basename = os.path.basename(filename)
-        m = medialist.get_by_directory(filename)
+        m = self.medialist.get_by_directory(filename)
         if not m:
             raise AttributeError('mountpoint not found')
 
         if (os.path.isdir(filename) and \
-            m != medialist.get_by_directory(dirname)) or filename == '/':
+            m != self.medialist.get_by_directory(dirname)) or filename == '/':
             # the filename is the mountpoint itself
             e = self._db.query(parent=m._beacon_id, name='')
             return create_directory(e[0], m)

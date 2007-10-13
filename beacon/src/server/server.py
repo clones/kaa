@@ -40,9 +40,6 @@ import kaa.rpc
 from kaa.notifier import OneShotTimer, Timer, Callback
 from kaa.notifier.url import add_password
 
-# kaa.beacon imports
-from kaa.beacon.media import medialist
-
 # kaa.beacon server imports
 import parser
 from controller import Controller
@@ -178,7 +175,7 @@ class Server(object):
         self._next_client += 1
         self._clients.append((self._next_client, client, []))
         media = []
-        for m in medialist:
+        for m in self._db.medialist:
             media.append((m.id, m.prop))
         client.rpc('connect', self._next_client, self._dbdir, media)
 
@@ -436,7 +433,7 @@ class Server(object):
         """
         Eject media with the given id
         """
-        dev = medialist.get_by_media_id(id)
+        dev = self._db.medialist.get_by_media_id(id)
         if not dev:
             log.error('eject: no device %s' % id)
             return False

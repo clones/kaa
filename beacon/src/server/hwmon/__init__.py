@@ -36,9 +36,6 @@ import socket
 # kaa imports
 import kaa.notifier
 
-# kaa.beacon imports
-from kaa.beacon.media import medialist
-
 # kaa.beacon.server.hwmon imports
 from client import Client as _Client
 

@@ -48,7 +48,6 @@ from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
 from query import register_filter, wrap, Query
 from item import Item
-from media import medialist as media
 from kaa.db import *
 
 # get logging object
@@ -182,6 +181,17 @@ def get_db_info():
     while not _client.is_connected():
         kaa.notifier.step()
     return _client._db.get_db_info()
+
+
+def list_media():
+    """
+    List all media objects.
+    """
+    if not _client:
+        connect()
+    while not _client.is_connected():
+        kaa.notifier.step()
+    return _client._db.medialist
 
 
 def delete_media(id):

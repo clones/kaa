@@ -36,7 +36,6 @@ import kaa.notifier
 
 # kaa.beacon imports
 import hwmon
-from kaa.beacon.media import medialist
 from parser import parse
 
 
@@ -49,7 +48,7 @@ class Controller(object):
         self._db = db
         self._changed = []
         hwmon.connect()
-        medialist.connect(self)
+        db.medialist.connect(self)
         hwmon.set_database(handler, db, rootfs)
 
     # Item callbacks
