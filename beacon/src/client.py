@@ -347,7 +347,6 @@ class Client(object):
         self._db = Database(database)
         # connect to server notifications
         self.id = id
-        self.status = CONNECTED
         new_media = []
         self._db.medialist.connect(self)
         for id, prop in media:
@@ -357,6 +356,7 @@ class Client(object):
             async = self._db.medialist.add(id, prop)
             yield async
             new_media.append(async.get_result())
+        self.status = CONNECTED
         self.signals['connect'].emit()
         # reconnect query monitors
         for query in self._queries[:]:
