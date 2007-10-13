@@ -66,7 +66,6 @@ class Query(object):
             'changed'   : kaa.notifier.Signal(),
             'progress'  : kaa.notifier.Signal(),
             'up-to-date': kaa.notifier.Signal(),
-            'yield'     : kaa.notifier.InProgress()
         }
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
@@ -80,6 +79,8 @@ class Query(object):
         self._client = client
         # some shortcuts from the client
         self._rpc = self._client.rpc
+        # InProgress object or YieldContinue
+        self._async = kaa.notifier.InProgress()
         # start inititial query
         self._beacon_start_query(query)
 
@@ -87,6 +88,14 @@ class Query(object):
     # -------------------------------------------------------------------------
     # Public API
     # -------------------------------------------------------------------------
+
+
+    def wait(self):
+        """
+        Return InProgress object or YieldContinue when the object is valid.
+        """
+        return self._async
+
 
     def monitor(self, status=True):
         """
@@ -211,9 +220,9 @@ class Query(object):
 
         self.valid = True
         self.signals['changed'].emit()
-        if self.signals['yield']:
-            self.signals['yield'].emit(self)
-            self.signals['yield'] = None
+        if isinstance(self._async, kaa.notifier.InProgress):
+            self._async.emit(self)
+            self._async = kaa.notifier.YieldContinue
 
 
     def __repr__(self):
