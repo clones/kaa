@@ -29,6 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
+from config import config
 
 def BeaconServer(database):
     import server

@@ -40,11 +40,4 @@
         </desc>
     </var>
 
-    <dict name="plugins">
-        <desc>Dict of plugins to enable (True/False)</desc>
-        <var default="False">
-            <desc>Enable plugin</desc>
-        </var>
-    </dict>
-
 </config>

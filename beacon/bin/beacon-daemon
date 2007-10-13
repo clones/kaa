@@ -182,6 +182,12 @@ if logfile:
 
 
 import kaa.beacon.server
+import kaa.beacon.server.plugins
+
+# get plugins config
+plugin_config = kaa.beacon.server.plugins.get_config()
+if plugin_config is not None:
+    kaa.beacon.server.config.add_variable('plugins', plugin_config)
 
 # fork thumbnailer / hwmon
 pid = os.fork()

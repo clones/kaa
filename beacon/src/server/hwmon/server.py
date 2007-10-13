@@ -55,7 +55,7 @@ except ImportError:
     cdrom = None
 
 # load server config
-from kaa.beacon.server.config import config
+from kaa.beacon.server import config
 
 # get logging object
 log = logging.getLogger('beacon.hwmon')

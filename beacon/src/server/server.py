@@ -50,6 +50,7 @@ from db import *
 from monitor import Monitor
 from crawl import Crawler
 from config import config
+import plugins
 
 # get logging object
 log = logging.getLogger('beacon.server')
@@ -134,9 +135,6 @@ class Server(object):
         # list of current clients
         self._clients = []
 
-        # load parser plugins
-        parser.load_plugins(self, self._db)
-
         config.set_filename(os.path.join(dbdir, "config"))
         config.load()
         # We need to save at this point because we may have new
@@ -161,6 +159,9 @@ class Server(object):
 
         self.item_controller = Controller(self, self._db, rootfs)
         self._db.commit()
+
+        # load plugins
+        plugins.load(self, self._db)
 
         for dir in config.monitors:
             self.monitor_dir(os.path.expandvars(os.path.expanduser(dir)))
