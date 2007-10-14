@@ -150,7 +150,8 @@ def uptodate():
     print 'Beacon has finished the query and parsing.'
 
 
-if __name__ == '__main__':
+@kaa.notifier.yield_execution()
+def main():
     try:
         # list of modes this script can start in
         possible_modes = [ 'info', 'list-media', 'del-media']
@@ -259,9 +260,9 @@ if __name__ == '__main__':
     t1 = time.time()
     if 'dirname' in query:
         async = kaa.beacon.get(query['dirname'])
-        while not async.is_finished:
-            kaa.notifier.step()
-        directory = async.get_result()
+        if isinstance(async, kaa.notifier.InProgress):
+            yield async
+            directory = async.get_result()
         if 'recursive' in query:
             result = directory.list(recursive=True)
         else:
@@ -269,6 +270,9 @@ if __name__ == '__main__':
     else:
         result = kaa.beacon.query(**query)
 
+    if not result.valid:
+        yield result.wait()
+        
     if not monitor:
         def print_results_and_exit(result):
             t2 = time.time()
@@ -290,3 +294,8 @@ if __name__ == '__main__':
 
     kaa.notifier.loop()
     sys.exit(0)
+
+if __name__ == '__main__':
+    main()
+    kaa.notifier.loop()
+    
