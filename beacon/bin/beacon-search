@@ -70,7 +70,6 @@ def usage(error_code):
     print '--details          show detailed metadata in search results'
     print '--list-media       lists all known media'
     print '--del-media media  delete given media from the database'
-    print '--list-attributes  list all attributes for the given url'
     print '--debug            Enables debugging mode for all loggers'
     print '--help | -h        this message'
     print
@@ -81,7 +80,6 @@ def usage(error_code):
     print '  beacon-search --monitor dirname=/local/video'
     print '  beacon-search artist=Silbermond'
     print '  beacon-search --type image vacation'
-    print '  beacon-search --list-attributes /local/video/movie.avi'
     sys.exit(error_code)
 
 
@@ -95,6 +93,9 @@ def print_results(results, detailed = False):
             return s[:(len(s)-over)/2] + '...' + s[(len(s)+over)/2:]
         return s
 
+    if not isinstance(results.get(), (list, tuple)):
+        results = [ results.get() ]
+        
     if len(results) == 0:
         print 'No results.'
         return
@@ -104,7 +105,7 @@ def print_results(results, detailed = False):
         for r in results:
             print r
         return
-    
+
     # Get terminal dimensions
     try:
         h, w = struct.unpack('hh', fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, 'xxxx'))
@@ -152,7 +153,7 @@ def uptodate():
 if __name__ == '__main__':
     try:
         # list of modes this script can start in
-        possible_modes = [ 'info', 'list-media', 'del-media', 'list-attributes']
+        possible_modes = [ 'info', 'list-media', 'del-media']
 
         # read arguments
         opts = [ 'verbose=', 'help', 'type=',
@@ -193,7 +194,7 @@ if __name__ == '__main__':
     if mode == 'search' and not args:
         usage(0)
 
-    if mode in ('search', 'info', 'list-media', 'del-media', 'list-attributes'):
+    if mode in ('search', 'info', 'list-media', 'del-media'):
         try:
             kaa.beacon.connect()
         except kaa.beacon.ConnectError:
@@ -220,17 +221,6 @@ if __name__ == '__main__':
         sys.exit(0)
      
 
-    if mode == 'list-attributes':
-        for filename in args:
-            info = kaa.beacon.query(filename=filename).get()
-            keys = info.keys()
-            keys.sort()
-            print filename, ':'
-            for key in keys:
-                print '  %-30s : %s' % (key, info[key])
-            print
-        sys.exit(0)
-        
     if mode == 'del-media':
         try:
             media = int(args.pop(0))
@@ -268,10 +258,14 @@ if __name__ == '__main__':
 
     t1 = time.time()
     if 'dirname' in query:
+        async = kaa.beacon.get(query['dirname'])
+        while not async.is_finished:
+            kaa.notifier.step()
+        directory = async.get_result()
         if 'recursive' in query:
-            result = kaa.beacon.get(query['dirname']).list(recursive=True)
+            result = directory.list(recursive=True)
         else:
-            result = kaa.beacon.get(query['dirname']).list()
+            result = directory.list()
     else:
         result = kaa.beacon.query(**query)
 
@@ -279,6 +273,8 @@ if __name__ == '__main__':
         def print_results_and_exit(result):
             t2 = time.time()
             print_results(result, details)
+            if not isinstance(result.get(), (list, tuple)):
+                result = [ result.get() ]
             print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
             sys.exit(0)
         if not result.valid:
