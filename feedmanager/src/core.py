@@ -241,6 +241,9 @@ class Feed(object):
 
                 if os.path.isfile(filename):
                     item = kaa.beacon.get(filename)
+                    if isinstance(item, kaa.notifier.InProgress):
+                        yield item
+                        item = item.get_result()
                     if not item.scanned():
                         async = item.scan()
                         if isinstance(async, kaa.notifier.InProgress):
