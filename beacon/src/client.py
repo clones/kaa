@@ -97,6 +97,7 @@ class Client(object):
     # Public API
     # -------------------------------------------------------------------------
 
+    @kaa.notifier.yield_execution()
     def get(self, filename):
         """
         Return an object for the given filename.
@@ -104,7 +105,10 @@ class Client(object):
         filename = os.path.realpath(filename)
         if not os.path.exists(filename):
             raise OSError('no such file or directory %s' % filename)
-        return Query(self, filename=filename).get()
+        q = Query(self, filename=filename)
+        if not q.valid:
+            yield q.wait()
+        yield q.get()
 
 
     def query(self, **query):

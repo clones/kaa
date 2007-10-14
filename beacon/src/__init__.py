@@ -115,8 +115,7 @@ def get(filename):
     """
     Get object for the given filename. This function will raise an exception if
     the client is not connected and the server is not running for a connect.
-    If the client is still connecting or reconnecting, this function will block
-    using kaa.notifier.step.
+    This function may return an InProgress object.
     """
     if not _client:
         connect()
