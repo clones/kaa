@@ -91,7 +91,8 @@ class Server(object):
             width = (int, ATTR_SIMPLE),
             height = (int, ATTR_SIMPLE),
             length = (float, ATTR_SIMPLE),
-            scheme = (int, ATTR_SIMPLE),
+            scheme = (str, ATTR_SIMPLE),
+            description = (unicode, ATTR_SIMPLE),
             timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("audio",
@@ -104,6 +105,7 @@ class Server(object):
             bitrate = (int, ATTR_SIMPLE),
             trackno = (int, ATTR_SIMPLE),
             userdate = (unicode, ATTR_SIMPLE),
+            description = (unicode, ATTR_SIMPLE),
             timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("image",
