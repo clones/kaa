@@ -32,6 +32,7 @@
 # python imports
 import time
 import logging
+import urllib
 import urllib2
 
 # kaa imports
@@ -128,6 +129,7 @@ class Feed(core.Feed):
                 log.error('no link in entry for %s' % self.url)
                 continue
 
+            metadata['url'] = urllib.unquote(metadata['url'])
             # FIXME: add much better logic here, including
             # getting a good basename for urls ending with /
             # based on type.
