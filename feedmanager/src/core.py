@@ -201,7 +201,7 @@ class Feed(object):
         num = self._num
         allfiles = [ e[1] for e in self._entries ]
         entries = self._entries
-        self._entries = []
+        new_entries = []
 
         for entry in self:
             if isinstance(entry, kaa.notifier.InProgress):
@@ -254,7 +254,7 @@ class Feed(object):
                         if key in entry:
                             item[key] = entry[key]
 
-            self._entries.append((entry['url'], filename))
+            new_entries.append((entry['url'], filename))
             num -= 1
             if num == 0:
                 break
@@ -264,7 +264,7 @@ class Feed(object):
 
         # delete old files or remove old entries from beacon
         for url, filename in entries:
-            if (self._keep and self._download) or (url, filename) in self._entries:
+            if (self._keep and self._download) or (url, filename) in new_entries:
                 continue
             if not filename:
                 # delete old entries from beacon
@@ -275,6 +275,7 @@ class Feed(object):
                 # delete file on disc
                 os.unlink(filename)
         self._updating = False
+        self._entries = new_entries
         yield True
     
 
