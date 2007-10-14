@@ -248,9 +248,11 @@ class Feed(object):
                         async = item.scan()
                         if isinstance(async, kaa.notifier.InProgress):
                             yield async
-                    for key, value in entry.items():
-                        if not key in ('type', 'url', 'basename'):
-                            item[key] = value
+                    if 'date' in entry:
+                        item['timestamp'] = entry['date']
+                    for key in ('title', 'description'):
+                        if key in entry:
+                            item[key] = entry[key]
 
             self._entries.append((entry['url'], filename))
             num -= 1
