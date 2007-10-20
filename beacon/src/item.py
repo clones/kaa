@@ -86,7 +86,7 @@ class Item(object):
     # Public API
     # -------------------------------------------------------------------------
 
-    def get(self, key):
+    def get(self, key, default=None):
         """
         Interface to kaa.beacon. Return the value of a given attribute. If
         the attribute is not in the db, return None. If the key starts with
@@ -94,7 +94,7 @@ class Item(object):
         the db. Loosing the item object will remove that attribute.
         """
         if key.startswith('tmp:'):
-            return self._beacon_tmpdata.get(key[4:])
+            return self._beacon_tmpdata.get(key[4:], default)
 
         if key == 'parent':
             return self._beacon_parent
@@ -105,7 +105,7 @@ class Item(object):
         if key == 'read_only':
             # FIXME: this is not correct, a directory can also be
             # read only on a rw filesystem.
-            return self._beacon_media.get('volume.read_only')
+            return self._beacon_media.get('volume.read_only', default)
 
         if key in ('image', 'thumbnail'):
             image = self._beacon_data.get('image')
@@ -115,7 +115,7 @@ class Item(object):
                     # up to date. Well, we have to live with that for now.
                     image = self._beacon_parent.get('image')
                 if not image:
-                    return None
+                    return default
             if key == 'image':
                 return image
 
@@ -132,7 +132,10 @@ class Item(object):
             self._beacon_data['title'] = t
             return t
 
-        return self._beacon_data.get(key)
+        result = self._beacon_data.get(key, default)
+        if result is None:
+            return default
+        return result
 
 
     def __getitem__(self, key):

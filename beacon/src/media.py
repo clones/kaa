@@ -115,11 +115,11 @@ class Media(object):
             self.label = self.id
 
 
-    def get(self, key):
+    def get(self, key, default=None):
         """
         Get value.
         """
-        return self.prop.get(key)
+        return self.prop.get(key, default)
 
 
     def __getitem__(self, key):
