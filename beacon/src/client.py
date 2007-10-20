@@ -167,6 +167,17 @@ class Client(object):
             self.rpc('monitor.directory', directory)
 
 
+    @kaa.notifier.yield_execution()
+    def get_db_info(self):
+        """
+        Returns information about the database.  Look at
+        kaa.db.Database.get_db_info() for more details.
+        """
+        if self.status != CONNECTED:
+            yield kaa.notifier.YieldCallback(self.signals['connect'])
+        yield self._db.get_db_info()
+
+
     def register_inverted_index(self, name, *args, **kwargs):
         """
         Register new inverted index.
