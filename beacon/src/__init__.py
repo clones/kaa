@@ -177,9 +177,7 @@ def get_db_info():
     """
     if not _client:
         connect()
-    while not _client.is_connected():
-        kaa.notifier.step()
-    return _client._db.get_db_info()
+    return _client.get_db_info()
 
 
 def list_media():
