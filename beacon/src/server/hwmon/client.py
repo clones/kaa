@@ -162,7 +162,7 @@ class Client(object):
                 self._db.add_object(
                     'track_%s' % type, name='%02d' % track.trackno,
                     parent=('video', vid), media=mid,
-                    mtime=0, chapters=track.chapters, length=track.length,
+                    chapters=track.chapters, length=track.length,
                     audio=[ x.convert() for x in track.audio ],
                     subtitles=[ x.convert() for x in track.subtitles ])
         elif dev.get('volume.disc.has_audio') and metadata:
@@ -179,7 +179,7 @@ class Client(object):
                     'track_cdda', name=str(track.trackno),
                     title=track.get('title'), artist=track.get('artist'),
                     album=metadata.get('title'), parent=('audio', aid),
-                    media=mid, mtime=0)
+                    media=mid)
         else:
             log.info('detect %s as normal filesystem' % id)
             mid = self._db.add_object("media", name=id, content='file')['id']
