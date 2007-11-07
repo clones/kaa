@@ -424,7 +424,7 @@ class Client(object):
         # Adding a media always returns an InProgress object. Attach
         # sending the signal to the InProgress return.
         async = self._db.medialist.add(id, prop)
-        async.connect_once(self.signals['media.add'].emit, media)
+        async.connect_once(self.signals['media.add'].emit)
 
 
     @kaa.rpc.expose('device.removed')

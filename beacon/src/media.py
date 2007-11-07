@@ -115,6 +115,14 @@ class Media(object):
             self.label = self.id
 
 
+    def isdir(self):
+        """
+        Return False for items directly on the media without dir,
+        e.g. a dvd video.
+        """
+        return False
+
+
     def get(self, key, default=None):
         """
         Get value.
