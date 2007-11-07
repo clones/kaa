@@ -246,7 +246,11 @@ class RomDrive(object):
 
 
 def start():
+    added = False
     for device, mountpoint, type, options in fstab():
         # fixme, add other stuff like supermount if people still use this
         if type == 'iso9660':
             _rom_drives.append(RomDrive(device, mountpoint, type, options))
+	    added = True
+    if not added:
+	log.info('CDROM monitor: no iso9660 filesystem in fstab found')
