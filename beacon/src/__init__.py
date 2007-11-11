@@ -63,7 +63,7 @@ debugging = """
 The system was unable to connect to beacon-daemon. Please check if the
 beacon daemon is running properly. If beacon-daemon processes exist,
 please kill them. Start beacon in an extra shell for better debugging.
-beacon-daemon --start --verbose all --fg
+beacon-daemon --verbose all --fg
 ------------------------------------------------------------------------
 """
 
