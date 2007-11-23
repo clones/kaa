@@ -1,0 +1,3 @@
+TYPE_DVB_S = 'DVB-S'
+TYPE_DVB_C = 'DVB-C'
+TYPE_DVB_T = 'DVB-T'
