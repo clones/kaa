@@ -131,10 +131,8 @@ class Query(object):
         Iterate through theresults. This function will block using
         kaa.notifier.step() if self.valid is False.
         """
-        if not self.valid:
-            log.warning('calling notifier.step for %s', str(self))
-            while not self.valid:
-                kaa.notifier.step()
+        while not self.valid:
+            kaa.notifier.step()
         return self.result.__iter__()
 
 
@@ -144,10 +142,8 @@ class Query(object):
         exception if the object is still invalid or if the result is not a
         list.
         """
-        if not self.valid:
-            log.warning('calling notifier.step for %s', str(self))
-            while not self.valid:
-                kaa.notifier.step()
+        while not self.valid:
+            kaa.notifier.step()
         return self.result[key]
 
 
@@ -165,10 +161,8 @@ class Query(object):
         Get length of results. This function will block using
         kaa.notifier.step() if self.valid is False.
         """
-        if not self.valid:
-            log.warning('calling notifier.step for %s', str(self))
-            while not self.valid:
-                kaa.notifier.step()
+        while not self.valid:
+            kaa.notifier.step()
         return len(self.result)
 
 
@@ -177,10 +171,8 @@ class Query(object):
         Get the result. This function will block using kaa.notifier.step() if
         self.valid is False.
         """
-        if not self.valid:
-            log.warning('calling notifier.step for %s', str(self))
-            while not self.valid:
-                kaa.notifier.step()
+        while not self.valid:
+            kaa.notifier.step()
         if filter == None:
             # no spcial filter
             return self.result
