@@ -77,8 +77,8 @@ class Media(object):
         Update media properties.
         """
         self.prop = prop
-        self.device = str(prop.get('block.device'))
-        self.mountpoint = str(prop.get('volume.mount_point'))
+        self.device = str(prop.get('block.device',''))
+        self.mountpoint = str(prop.get('volume.mount_point',''))
         if not self.mountpoint:
             self.mountpoint = self.device
         if not self.mountpoint.endswith('/'):
