@@ -181,7 +181,7 @@ def _parse(db, item, mtime):
            metadata.get('subtype') in db.list_object_types():
         type = metadata['subtype']
         if metadata.get('type'):
-            attributes['scheme'] = '%s://' % metadata.get('type').lower()
+            attributes['scheme'] = metadata.get('type').lower()
         item._beacon_isdir = False
     elif media_types.get(metadata.get('media')) in db.list_object_types():
         type = media_types.get(metadata['media'])
