@@ -91,10 +91,12 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
         }
 
         if (!strcmp(from_format, "BGRA")) {
+            Py_BEGIN_ALLOW_THREADS
             if (copy)
                 image = imlib_create_image_using_copied_data(w, h, bytes);
             else
                 image = imlib_create_image_using_data(w, h, bytes);
+            Py_END_ALLOW_THREADS
         } else {
             bytes = (void *)convert_raw_rgba_bytes(from_format, "BGRA", bytes, NULL, w, h);
             image = imlib_create_image_using_copied_data(w, h, bytes);
@@ -138,10 +140,12 @@ Image_PyObject *_imlib2_open(char *filename, int use_cache)
     Image_PyObject *o;
     Imlib_Load_Error error_return = IMLIB_LOAD_ERROR_NONE;
 
+    Py_BEGIN_ALLOW_THREADS
     if (use_cache)
       image = imlib_load_image_with_error_return(filename, &error_return);
     else
       image = imlib_load_image_immediately_without_cache(filename);
+    Py_END_ALLOW_THREADS
 
     if (!image) {
         if (error_return == IMLIB_LOAD_ERROR_NO_LOADER_FOR_FILE_FORMAT)
@@ -295,4 +299,5 @@ void init_Imlib2(void)
     api_ptrs[1] = (void *)&Image_PyObject_Type;
     c_api = PyCObject_FromVoidPtr((void *)api_ptrs, NULL);
     PyModule_AddObject(m, "_C_API", c_api);
+    PyEval_InitThreads();
 }

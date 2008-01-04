@@ -166,6 +166,7 @@ PyObject *Image_PyObject__clear(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "iiii", &x, &y, &w, &h))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     data = (unsigned char *)imlib_image_get_data();
     max_w = imlib_image_get_width();
@@ -179,6 +180,7 @@ PyObject *Image_PyObject__clear(PyObject *self, PyObject *args)
     for (cur_y = y; cur_y < y + h; cur_y++)
         memset(&data[cur_y*max_w*4+(x*4)], 0, 4*w);
     imlib_image_put_back_data((DATA32 *)data);
+    Py_END_ALLOW_THREADS
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -195,9 +197,12 @@ PyObject *Image_PyObject__scale(PyObject *self, PyObject *args)
               &dst_h))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     image = imlib_create_cropped_scaled_image(x, y, src_w, src_h,
                           dst_w, dst_h);
+    Py_END_ALLOW_THREADS
+
     if (!image) {
         PyErr_Format(PyExc_RuntimeError, "Failed scaling image (%d, %d)",
              dst_w, dst_h);
@@ -218,9 +223,11 @@ PyObject *Image_PyObject__rotate(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "d", &angle))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
-
     image = imlib_create_rotated_image(angle);
+    Py_END_ALLOW_THREADS
+
     if (!image) {
         PyErr_Format(PyExc_RuntimeError, "Failed rotating image (%f) degrees",
              angle);
@@ -239,8 +246,11 @@ PyObject *Image_PyObject__orientate(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &orientation))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_orientate(orientation);
+    Py_END_ALLOW_THREADS
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -252,10 +262,12 @@ PyObject *Image_PyObject__flip(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "iii", &horiz, &vert, &diag))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     if (horiz) imlib_image_flip_horizontal();
     if (vert)  imlib_image_flip_vertical();
     if (diag)  imlib_image_flip_diagonal();
+    Py_END_ALLOW_THREADS
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -269,8 +281,11 @@ PyObject *Image_PyObject__blur(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &radius))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_blur(radius);
+    Py_END_ALLOW_THREADS
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -283,8 +298,11 @@ PyObject *Image_PyObject__sharpen(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &radius))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_sharpen(radius);
+    Py_END_ALLOW_THREADS
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -295,8 +313,11 @@ PyObject *Image_PyObject__clone(PyObject *self, PyObject *args)
     Imlib_Image *image;
     Image_PyObject *o;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     image = imlib_clone_image();
+    Py_END_ALLOW_THREADS
+
     if (!image) {
         PyErr_Format(PyExc_RuntimeError, "Failed to clone image");
     return NULL;
@@ -326,6 +347,7 @@ PyObject *Image_PyObject__blend(PyObject *self, PyObject *args)
         return Py_None;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     src_img = ((Image_PyObject *)src)->image;
 
     if (src_alpha < 255) {
@@ -349,6 +371,7 @@ PyObject *Image_PyObject__blend(PyObject *self, PyObject *args)
                      dst_x, dst_y, dst_w, dst_h);
     imlib_context_set_blend(1);
     imlib_context_set_color_modifier(NULL);
+    Py_END_ALLOW_THREADS
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -368,6 +391,7 @@ PyObject *Image_PyObject__draw_mask(PyObject *self, PyObject *args)
               &dst_y))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)mask)->image);
     mask_w = imlib_image_get_width();
     mask_h = imlib_image_get_height();
@@ -395,19 +419,12 @@ PyObject *Image_PyObject__draw_mask(PyObject *self, PyObject *args)
 
             // Blend average (grayscale) pixel from the mask with the
             // alpha channel of the image
-#if 1
-            // This is the code from Tack, but it doesn't work
-            // like it should ... -- Dischi
-            // (tack) Well, should work like this:
             int temp = (dst_chunk[3] * avg) + 0x80;
             dst_chunk[3] = ((temp + (temp >> 8)) >> 8);
-#else
-            // ... so this is my guess -- Dischi
-            dst_chunk[3] = (dst_chunk[3] * avg) / 255;
-#endif
         }
     }
     imlib_image_put_back_data((DATA32 *)dst_data);
+    Py_END_ALLOW_THREADS
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -424,12 +441,14 @@ PyObject *Image_PyObject__draw_text(PyObject *self, PyObject *args)
 			  &y, &text, &r, &g, &b, &a))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_context_set_font(((Font_PyObject *)font)->font);
 
     imlib_context_set_color(r, g, b, a);
     imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w,
 					&advance_h);
+    Py_END_ALLOW_THREADS
     return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
 }
 
@@ -464,6 +483,7 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 			  &glow2.r, &glow2.g, &glow2.b, &glow2.a))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_context_set_font(((Font_PyObject *)font)->font);
 
@@ -546,6 +566,7 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 
     COLOR_SET(color);
     imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w, &advance_h);
+    Py_END_ALLOW_THREADS
 
     /* FIXME: add effect to advance_w and advance_h */
     return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
@@ -561,6 +582,7 @@ PyObject *Image_PyObject__draw_rectangle(PyObject *self, PyObject *args)
               &fill))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_set_has_alpha(1);
     imlib_context_set_color(r, g, b, a);
@@ -568,6 +590,7 @@ PyObject *Image_PyObject__draw_rectangle(PyObject *self, PyObject *args)
         imlib_image_draw_rectangle(x, y, w, h);
     else
         imlib_image_fill_rectangle(x, y, w, h);
+    Py_END_ALLOW_THREADS
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -582,6 +605,7 @@ PyObject *Image_PyObject__draw_ellipse(PyObject *self, PyObject *args)
               &a, &fill))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_context_set_color(r, g, b, a);
     imlib_context_set_anti_alias(1);
@@ -589,6 +613,7 @@ PyObject *Image_PyObject__draw_ellipse(PyObject *self, PyObject *args)
         imlib_image_draw_ellipse(xc, yc, ea, eb);
     else
         imlib_image_fill_ellipse(xc, yc, ea, eb);
+    Py_END_ALLOW_THREADS
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -601,8 +626,12 @@ PyObject *Image_PyObject__set_alpha(PyObject *self, PyObject *args)
 
     if (!PyArg_ParseTuple(args, "i", &alpha))
         return NULL;
+
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_set_has_alpha(alpha);
+    Py_END_ALLOW_THREADS
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -615,8 +644,11 @@ PyObject *Image_PyObject__copy_rect(PyObject *self, PyObject *args)
               &dst_y))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_copy_rect(src_x, src_y, w, h, dst_x, dst_y);
+    Py_END_ALLOW_THREADS
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -629,8 +661,10 @@ PyObject *Image_PyObject__get_pixel(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "(ii)", &x, &y))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_query_pixel(x, y, &col);
+    Py_END_ALLOW_THREADS
 
     return Py_BuildValue("(iiii)", col.blue, col.green, col.red, col.alpha);
 }
@@ -667,7 +701,9 @@ PyObject *Image_PyObject__get_raw_data(PyObject *self, PyObject *args)
 
         buffer = PyBuffer_New(get_raw_bytes_size(format));
         PyObject_AsWriteBuffer(buffer, (void **)&data, &len);
+        Py_BEGIN_ALLOW_THREADS
         get_raw_bytes(format, data);
+        Py_END_ALLOW_THREADS
         return buffer;
     }
 }
@@ -708,8 +744,11 @@ PyObject *Image_PyObject__save(PyObject *self, PyObject *args)
 
     /* set the image format to be the format of the extension of our last */
     /* argument - i.e. .png = png, .tif = tiff etc. */
+    Py_BEGIN_ALLOW_THREADS
     imlib_image_set_format(ext);
     imlib_save_image(filename);
+    Py_END_ALLOW_THREADS
+
     Py_INCREF(Py_None);
     return Py_None;
 }
