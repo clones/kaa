@@ -597,3 +597,15 @@ class Image(object):
         if not format:
             format = os.path.splitext(filename)[1][1:]
         return self._image.save(filename, format)
+
+
+    def as_gdk_pixbuf(self):
+        """
+        Returns the current image as a gdk.Pixbuf if pygtk is available.
+        Otherwise raises ImportError.
+        """
+        import gtk
+        data = self.get_raw_data('RGBA')
+        return gtk.gdk.pixbuf_new_from_data(data, gtk.gdk.COLORSPACE_RGB, True, 8, 
+                                            self.width, self.height, self.width * 4)
+
