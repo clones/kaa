@@ -30,8 +30,21 @@
  * ----------------------------------------------------------------------------
  */
 
+#include <pthread.h>
+
 #if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
 typedef int Py_ssize_t;
 #define PY_SSIZE_T_MAX INT_MAX
 #define PY_SSIZE_T_MIN INT_MIN
 #endif
+
+extern pthread_mutex_t imlib2_mutex;
+
+#define PyImlib2_BEGIN_CRITICAL_SECTION \
+    pthread_mutex_lock(&imlib2_mutex); \
+    Py_BEGIN_ALLOW_THREADS
+
+#define PyImlib2_END_CRITICAL_SECTION \
+    Py_END_ALLOW_THREADS \
+    pthread_mutex_unlock(&imlib2_mutex);
+

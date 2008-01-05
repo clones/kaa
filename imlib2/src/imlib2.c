@@ -47,6 +47,10 @@
 #include "rawformats.h"
 #include "font.h"
 
+// Global mutex for Imlib2 functions.  Use with PyImlib2_BEGIN_CRITICAL_SECTION
+// and PyImlib2_END_CRITICAL_SECTION macros.
+pthread_mutex_t imlib2_mutex;
+
 PyObject *imlib2_create(PyObject *self, PyObject *args)
 {
     int w, h, copy;
@@ -90,18 +94,18 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
             return NULL;
         }
 
+        PyImlib2_BEGIN_CRITICAL_SECTION
         if (!strcmp(from_format, "BGRA")) {
-            Py_BEGIN_ALLOW_THREADS
             if (copy)
                 image = imlib_create_image_using_copied_data(w, h, bytes);
             else
                 image = imlib_create_image_using_data(w, h, bytes);
-            Py_END_ALLOW_THREADS
         } else {
             bytes = (void *)convert_raw_rgba_bytes(from_format, "BGRA", bytes, NULL, w, h);
             image = imlib_create_image_using_copied_data(w, h, bytes);
             free(bytes);
         }
+        PyImlib2_END_CRITICAL_SECTION
 
         if (!image) {
             PyErr_Format(PyExc_RuntimeError, "Could not create %dx%d image (format=%s data=%p, copy=%d)",
@@ -109,18 +113,25 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
             return NULL;
         }
 
+        PyImlib2_BEGIN_CRITICAL_SECTION
         imlib_context_set_image(image);
         if (strlen(from_format) == 4)
             imlib_image_set_has_alpha(1);
+        PyImlib2_END_CRITICAL_SECTION
+
     } else {
+        PyImlib2_BEGIN_CRITICAL_SECTION
         image = imlib_create_image(w, h);
+        PyImlib2_END_CRITICAL_SECTION
         if (!image) {
             PyErr_Format(PyExc_RuntimeError, "Could not allocate new %dx%d image", w, h);
             return NULL;
         }
+        PyImlib2_BEGIN_CRITICAL_SECTION
         imlib_context_set_image(image);
         imlib_image_set_has_alpha(1);
         imlib_image_clear_color(0, 0, 0, 0);
+        PyImlib2_END_CRITICAL_SECTION
     }
 
     o = PyObject_NEW(Image_PyObject, &Image_PyObject_Type);
@@ -140,12 +151,12 @@ Image_PyObject *_imlib2_open(char *filename, int use_cache)
     Image_PyObject *o;
     Imlib_Load_Error error_return = IMLIB_LOAD_ERROR_NONE;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     if (use_cache)
       image = imlib_load_image_with_error_return(filename, &error_return);
     else
       image = imlib_load_image_immediately_without_cache(filename);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     if (!image) {
         if (error_return == IMLIB_LOAD_ERROR_NO_LOADER_FOR_FILE_FORMAT)
@@ -244,7 +255,9 @@ PyObject *imlib2_add_font_path(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &font_path))
         return NULL;
 
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_add_path_to_font_path(font_path);
+    PyImlib2_END_CRITICAL_SECTION
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -259,7 +272,9 @@ PyObject *imlib2_load_font(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &font_spec))
         return NULL;
 
+    PyImlib2_BEGIN_CRITICAL_SECTION
     font = imlib_load_font(font_spec);
+    PyImlib2_END_CRITICAL_SECTION
     if (!font) {
         PyErr_Format(PyExc_IOError, "Couldn't open font: %s", font_spec);
         return NULL;
@@ -290,8 +305,12 @@ void init_Imlib2(void)
     if (PyType_Ready(&Image_PyObject_Type) < 0)
         return;
     PyModule_AddObject(m, "Image", (PyObject *)&Image_PyObject_Type);
+    pthread_mutex_init(&imlib2_mutex, NULL);
+
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_set_cache_size(1024*1024*4);
     imlib_set_font_cache_size(1024*1024*2);
+    PyImlib2_END_CRITICAL_SECTION
 
     // Export a simple API for other extension modules to be able to access
     // and manipulate Image objects.

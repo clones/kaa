@@ -65,8 +65,10 @@ PyTypeObject Font_PyObject_Type = {
 
 void Font_PyObject__dealloc(Font_PyObject *self)
 {
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_font(self->font);
     imlib_free_font();
+    PyImlib2_END_CRITICAL_SECTION
     PyObject_DEL(self);
 }
 
@@ -79,9 +81,12 @@ PyObject *Font_PyObject__get_text_size(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &text))
         return (PyObject*)NULL;
 
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_font( ((Font_PyObject *)self)->font );
     imlib_get_text_size(text, &w, &h);
     imlib_get_text_advance(text, &advance_w, &advance_h);
+    PyImlib2_END_CRITICAL_SECTION
+
     return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
 }
 
@@ -94,15 +99,24 @@ PyMethodDef Font_PyObject_methods[] = {
 
 PyObject *Font_PyObject__getattr(Font_PyObject *self, char *name)
 {
+    int value, found = 1;
+
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_font(self->font);
     if (!strcmp(name, "descent"))
-        return Py_BuildValue("i", imlib_get_font_descent());
+        value = imlib_get_font_descent();
     else if (!strcmp(name, "ascent"))
-        return Py_BuildValue("i", imlib_get_font_ascent());
+        value = imlib_get_font_ascent();
     else if (!strcmp(name, "max_ascent"))
-        return Py_BuildValue("i", imlib_get_maximum_font_ascent());
+        value = imlib_get_maximum_font_ascent();
     else if (!strcmp(name, "max_descent"))
-        return Py_BuildValue("i", imlib_get_maximum_font_descent());
+        value = imlib_get_maximum_font_descent();
+    else
+        found = 0;
+    PyImlib2_END_CRITICAL_SECTION
+
+    if (found)
+        return Py_BuildValue("i", value);
 
     return Py_FindMethod(Font_PyObject_methods, (PyObject *)self, name);
 }

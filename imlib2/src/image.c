@@ -105,35 +105,50 @@ Imlib_Image *imlib_image_from_pyobject(Image_PyObject *pyimg)
 
 Py_ssize_t Image_PyObject_Buffer__get_read_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
 {
+    Py_ssize_t size;
+
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     if (ptr)
         *ptr = (void *)imlib_image_get_data_for_reading_only();
-    return imlib_image_get_width() * imlib_image_get_height() * 4;
+    size = imlib_image_get_width() * imlib_image_get_height() * 4;
+    PyImlib2_END_CRITICAL_SECTION
+
+    return size;
 }
 
 Py_ssize_t Image_PyObject_Buffer__get_readwrite_buffer(PyObject *self, Py_ssize_t segment, void **ptr)
 {
     Image_PyObject *o = (Image_PyObject *)self;
-    imlib_context_set_image(o->image);
+    Py_ssize_t size;
+
     if (segment > 0) {
         PyErr_Format(PyExc_SystemError, "Invalid segment for read/write buffer.");
         return -1;
     }
+
+    PyImlib2_BEGIN_CRITICAL_SECTION
+    imlib_context_set_image(o->image);
     if (ptr) {
         if (o->raw_data)
             *ptr = o->raw_data;
         else
             *ptr = o->raw_data = (void *)imlib_image_get_data();
     }
-    return imlib_image_get_width() * imlib_image_get_height() * 4;
+    size = imlib_image_get_width() * imlib_image_get_height() * 4;
+    PyImlib2_END_CRITICAL_SECTION
+
+    return size;
 }
 
 Py_ssize_t Image_PyObject_Buffer__get_seg_count(PyObject *self, Py_ssize_t *lenp)
 {
+    PyImlib2_BEGIN_CRITICAL_SECTION
     if (lenp) {
         imlib_context_set_image(((Image_PyObject *)self)->image);
         *lenp = (Py_ssize_t)(imlib_image_get_width() * imlib_image_get_height() * 4);
     }
+    PyImlib2_END_CRITICAL_SECTION
     return 1;
 }
 
@@ -148,8 +163,11 @@ Image_PyObject *_new_image_pyobject(Imlib_Image *image)
 
 void Image_PyObject__dealloc(Image_PyObject *self)
 {
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(self->image);
     imlib_free_image();
+    PyImlib2_END_CRITICAL_SECTION
+
     if (self->buffer) {
         Py_DECREF(self->buffer);
     }
@@ -166,7 +184,7 @@ PyObject *Image_PyObject__clear(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "iiii", &x, &y, &w, &h))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     data = (unsigned char *)imlib_image_get_data();
     max_w = imlib_image_get_width();
@@ -180,7 +198,7 @@ PyObject *Image_PyObject__clear(PyObject *self, PyObject *args)
     for (cur_y = y; cur_y < y + h; cur_y++)
         memset(&data[cur_y*max_w*4+(x*4)], 0, 4*w);
     imlib_image_put_back_data((DATA32 *)data);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -197,11 +215,11 @@ PyObject *Image_PyObject__scale(PyObject *self, PyObject *args)
               &dst_h))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     image = imlib_create_cropped_scaled_image(x, y, src_w, src_h,
                           dst_w, dst_h);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     if (!image) {
         PyErr_Format(PyExc_RuntimeError, "Failed scaling image (%d, %d)",
@@ -223,10 +241,10 @@ PyObject *Image_PyObject__rotate(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "d", &angle))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     image = imlib_create_rotated_image(angle);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     if (!image) {
         PyErr_Format(PyExc_RuntimeError, "Failed rotating image (%f) degrees",
@@ -246,10 +264,10 @@ PyObject *Image_PyObject__orientate(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &orientation))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_orientate(orientation);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -262,12 +280,12 @@ PyObject *Image_PyObject__flip(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "iii", &horiz, &vert, &diag))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     if (horiz) imlib_image_flip_horizontal();
     if (vert)  imlib_image_flip_vertical();
     if (diag)  imlib_image_flip_diagonal();
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -281,10 +299,10 @@ PyObject *Image_PyObject__blur(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &radius))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_blur(radius);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -298,10 +316,10 @@ PyObject *Image_PyObject__sharpen(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &radius))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_sharpen(radius);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -313,10 +331,10 @@ PyObject *Image_PyObject__clone(PyObject *self, PyObject *args)
     Imlib_Image *image;
     Image_PyObject *o;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     image = imlib_clone_image();
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     if (!image) {
         PyErr_Format(PyExc_RuntimeError, "Failed to clone image");
@@ -347,7 +365,7 @@ PyObject *Image_PyObject__blend(PyObject *self, PyObject *args)
         return Py_None;
     }
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     src_img = ((Image_PyObject *)src)->image;
 
     if (src_alpha < 255) {
@@ -371,7 +389,7 @@ PyObject *Image_PyObject__blend(PyObject *self, PyObject *args)
                      dst_x, dst_y, dst_w, dst_h);
     imlib_context_set_blend(1);
     imlib_context_set_color_modifier(NULL);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -391,7 +409,7 @@ PyObject *Image_PyObject__draw_mask(PyObject *self, PyObject *args)
               &dst_y))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)mask)->image);
     mask_w = imlib_image_get_width();
     mask_h = imlib_image_get_height();
@@ -424,7 +442,7 @@ PyObject *Image_PyObject__draw_mask(PyObject *self, PyObject *args)
         }
     }
     imlib_image_put_back_data((DATA32 *)dst_data);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -441,14 +459,14 @@ PyObject *Image_PyObject__draw_text(PyObject *self, PyObject *args)
 			  &y, &text, &r, &g, &b, &a))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_context_set_font(((Font_PyObject *)font)->font);
 
     imlib_context_set_color(r, g, b, a);
     imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w,
 					&advance_h);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
     return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
 }
 
@@ -483,7 +501,7 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 			  &glow2.r, &glow2.g, &glow2.b, &glow2.a))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_context_set_font(((Font_PyObject *)font)->font);
 
@@ -566,7 +584,7 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 
     COLOR_SET(color);
     imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w, &advance_h);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     /* FIXME: add effect to advance_w and advance_h */
     return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
@@ -582,7 +600,7 @@ PyObject *Image_PyObject__draw_rectangle(PyObject *self, PyObject *args)
               &fill))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_set_has_alpha(1);
     imlib_context_set_color(r, g, b, a);
@@ -590,7 +608,7 @@ PyObject *Image_PyObject__draw_rectangle(PyObject *self, PyObject *args)
         imlib_image_draw_rectangle(x, y, w, h);
     else
         imlib_image_fill_rectangle(x, y, w, h);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -605,7 +623,7 @@ PyObject *Image_PyObject__draw_ellipse(PyObject *self, PyObject *args)
               &a, &fill))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_context_set_color(r, g, b, a);
     imlib_context_set_anti_alias(1);
@@ -613,7 +631,7 @@ PyObject *Image_PyObject__draw_ellipse(PyObject *self, PyObject *args)
         imlib_image_draw_ellipse(xc, yc, ea, eb);
     else
         imlib_image_fill_ellipse(xc, yc, ea, eb);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -627,10 +645,10 @@ PyObject *Image_PyObject__set_alpha(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &alpha))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_set_has_alpha(alpha);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -644,10 +662,10 @@ PyObject *Image_PyObject__copy_rect(PyObject *self, PyObject *args)
               &dst_y))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_copy_rect(src_x, src_y, w, h, dst_x, dst_y);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -661,10 +679,10 @@ PyObject *Image_PyObject__get_pixel(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "(ii)", &x, &y))
         return NULL;
 
-    Py_BEGIN_ALLOW_THREADS
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     imlib_image_query_pixel(x, y, &col);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     return Py_BuildValue("(iiii)", col.blue, col.green, col.red, col.alpha);
 }
@@ -686,7 +704,6 @@ PyObject *Image_PyObject__get_raw_data(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "si", &format, &write))
         return NULL;
 
-    imlib_context_set_image(o->image);
     if (!strcmp(format, "BGRA")) {
         // Requested native format, so create a buffer directly from the
         // Image pyobject.
@@ -698,12 +715,20 @@ PyObject *Image_PyObject__get_raw_data(PyObject *self, PyObject *args)
         // Requested different format, create a new buffer.
         PyObject *buffer;
         unsigned char *data;
+        unsigned int size;
 
-        buffer = PyBuffer_New(get_raw_bytes_size(format));
+        PyImlib2_BEGIN_CRITICAL_SECTION
+        imlib_context_set_image(o->image);
+        size = get_raw_bytes_size(format);
+        PyImlib2_END_CRITICAL_SECTION
+
+        buffer = PyBuffer_New(size);
         PyObject_AsWriteBuffer(buffer, (void **)&data, &len);
-        Py_BEGIN_ALLOW_THREADS
+
+        PyImlib2_BEGIN_CRITICAL_SECTION
         get_raw_bytes(format, data);
-        Py_END_ALLOW_THREADS
+        PyImlib2_END_CRITICAL_SECTION
+
         return buffer;
     }
 }
@@ -719,13 +744,17 @@ PyObject *Image_PyObject__put_back_raw_data(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O!", &PyBuffer_Type, &buffer_object))
         return NULL;
 
-    imlib_context_set_image(o->image);
     PyObject_AsWriteBuffer(buffer_object, (void **)&buffer, &len);
     if (buffer != o->raw_data) {
         PyErr_Format(PyExc_ValueError, "Putting back a buffer that wasn't gotten with get_raw_data()!");
         return NULL;
     }
+
+    PyImlib2_BEGIN_CRITICAL_SECTION
+    imlib_context_set_image(o->image);
     imlib_image_put_back_data((DATA32 *)buffer);
+    PyImlib2_END_CRITICAL_SECTION
+
     o->raw_data = NULL;
     Py_INCREF(Py_None);
     return Py_None;
@@ -739,15 +768,15 @@ PyObject *Image_PyObject__save(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "ss", &filename, &ext))
         return NULL;
 
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(((Image_PyObject *)self)->image);
     // TODO: call imlib_save_image_with_error_return
 
     /* set the image format to be the format of the extension of our last */
     /* argument - i.e. .png = png, .tif = tiff etc. */
-    Py_BEGIN_ALLOW_THREADS
     imlib_image_set_format(ext);
     imlib_save_image(filename);
-    Py_END_ALLOW_THREADS
+    PyImlib2_END_CRITICAL_SECTION
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -780,21 +809,34 @@ PyMethodDef Image_PyObject_methods[] = {
 
 PyObject *Image_PyObject__getattr(Image_PyObject *self, char *name)
 {
+    int i_value = 0, found = 1;
+    char *s_value = NULL;
+
+    PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(self->image);
     if (!strcmp(name, "width"))
-        return Py_BuildValue("i", imlib_image_get_width());
+        i_value = imlib_image_get_width();
     else if (!strcmp(name, "height"))
-        return Py_BuildValue("i", imlib_image_get_height());
+        i_value = imlib_image_get_height();
     else if (!strcmp(name, "has_alpha"))
-        return Py_BuildValue("i", imlib_image_has_alpha());
+        i_value = imlib_image_has_alpha();
     else if (!strcmp(name, "rowstride"))
-        return Py_BuildValue("l", imlib_image_get_width() * 4);
+        i_value = imlib_image_get_width() * 4;
     else if (!strcmp(name, "format"))
-        return Py_BuildValue("s", imlib_image_format());
+        s_value = imlib_image_format();
     else if (!strcmp(name, "mode"))
-        return Py_BuildValue("s", "BGRA");
+        s_value = "BGRA";
     else if (!strcmp(name, "filename"))
-        return Py_BuildValue("s", imlib_image_get_filename());
+        s_value = (char *)imlib_image_get_filename();
+    else
+        found = 0;
+    PyImlib2_END_CRITICAL_SECTION
+
+    if (found) {
+        if (s_value) 
+            return Py_BuildValue("s", s_value);
+        return Py_BuildValue("i", i_value);
+    }
 
     return Py_FindMethod(Image_PyObject_methods, (PyObject *)self, name);
 }

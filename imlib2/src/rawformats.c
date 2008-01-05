@@ -35,6 +35,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+// XXX: Caller of these functions is responsible for holding global mutex.
+
 unsigned int get_format_bpp(char *format)
 {
     if (strstr(format, "24"))
