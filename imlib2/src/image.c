@@ -809,34 +809,36 @@ PyMethodDef Image_PyObject_methods[] = {
 
 PyObject *Image_PyObject__getattr(Image_PyObject *self, char *name)
 {
-    int i_value = 0, found = 1;
-    char *s_value = NULL;
+    void *value = NULL;
+    int found = 1;
+    char *value_type = "i";
 
     PyImlib2_BEGIN_CRITICAL_SECTION
     imlib_context_set_image(self->image);
     if (!strcmp(name, "width"))
-        i_value = imlib_image_get_width();
+        value = (void *)imlib_image_get_width();
     else if (!strcmp(name, "height"))
-        i_value = imlib_image_get_height();
+        value = (void *)imlib_image_get_height();
     else if (!strcmp(name, "has_alpha"))
-        i_value = imlib_image_has_alpha();
-    else if (!strcmp(name, "rowstride"))
-        i_value = imlib_image_get_width() * 4;
-    else if (!strcmp(name, "format"))
-        s_value = imlib_image_format();
-    else if (!strcmp(name, "mode"))
-        s_value = "BGRA";
-    else if (!strcmp(name, "filename"))
-        s_value = (char *)imlib_image_get_filename();
-    else
+        value = (void *)((int)imlib_image_has_alpha());
+    else if (!strcmp(name, "rowstride")) {
+        value = (void *)(imlib_image_get_width() * 4);
+        value_type = "l";
+    } else if (!strcmp(name, "format")) {
+        value = (void *)imlib_image_format();
+        value_type = "s";
+    } else if (!strcmp(name, "mode")) {
+        value = (void *)"BGRA";
+        value_type = "s";
+    } else if (!strcmp(name, "filename")) {
+        value = (void *)imlib_image_get_filename();
+        value_type = "s";
+    } else
         found = 0;
     PyImlib2_END_CRITICAL_SECTION
 
-    if (found) {
-        if (s_value) 
-            return Py_BuildValue("s", s_value);
-        return Py_BuildValue("i", i_value);
-    }
+    if (found)
+        return Py_BuildValue(value_type, value);
 
     return Py_FindMethod(Image_PyObject_methods, (PyObject *)self, name);
 }
