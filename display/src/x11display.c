@@ -265,6 +265,12 @@ X11Display_PyObject__composite_redirect(X11Display_PyObject * self, PyObject * a
 #endif
 }
 
+PyObject *
+X11Display_PyObject__get_root_id(X11Display_PyObject * self, PyObject * args)
+{
+    return Py_BuildValue("k", DefaultRootWindow(self->display));
+}
+
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
     { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
@@ -275,6 +281,7 @@ PyMethodDef X11Display_PyObject_methods[] = {
     { "glx_supported", ( PyCFunction ) X11Display_PyObject__glx_supported, METH_VARARGS },
     { "composite_supported", ( PyCFunction ) X11Display_PyObject__composite_supported, METH_VARARGS },
     { "composite_redirect", ( PyCFunction ) X11Display_PyObject__composite_redirect, METH_VARARGS },
+    { "get_root_id", ( PyCFunction ) X11Display_PyObject__get_root_id, METH_VARARGS },
     { NULL, NULL }
 };
 

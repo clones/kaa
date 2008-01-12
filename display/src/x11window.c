@@ -137,9 +137,9 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 
         if (window_title)
             XStoreName(self->display, self->window, window_title);
+        self->owner = True;
     }
     self->wid = PyLong_FromUnsignedLong(self->window);
-    _make_invisible_cursor(self);
     XUnlockDisplay(self->display);
     return (PyObject *)self;
 }
@@ -154,12 +154,13 @@ X11Window_PyObject__init(X11Window_PyObject *self, PyObject *args,
 void
 X11Window_PyObject__dealloc(X11Window_PyObject * self)
 {
-    printf("X11Window dealloc\n");
-    if (self->window) {
+    if (self->window ) {
         XLockDisplay(self->display);
-        XDestroyWindow(self->display, self->window);
+        if (self->owner)
+            XDestroyWindow(self->display, self->window);
         Py_XDECREF(self->wid);
-        XFreeCursor(self->display, self->invisible_cursor);
+        if (self->invisible_cursor)
+            XFreeCursor(self->display, self->invisible_cursor);
         XUnlockDisplay(self->display);
     }
     Py_XDECREF(self->display_pyobject);
@@ -245,9 +246,11 @@ X11Window_PyObject__set_cursor_visible(X11Window_PyObject *self, PyObject *args)
         return NULL;
 
     XLockDisplay(self->display);
-    if (!visible)
+    if (!visible) {
+        if (!self->invisible_cursor)
+            _make_invisible_cursor(self);
         XDefineCursor(self->display, self->window, self->invisible_cursor);
-    else
+    } else
         XUndefineCursor(self->display, self->window);
     XUnlockDisplay(self->display);
 
@@ -257,9 +260,24 @@ X11Window_PyObject__set_cursor_visible(X11Window_PyObject *self, PyObject *args)
 PyObject *
 X11Window_PyObject__get_geometry(X11Window_PyObject * self, PyObject * args)
 {
-    XWindowAttributes attrs;
+    int absolute;
+    if (!PyArg_ParseTuple(args, "i", &absolute))
+        return NULL;
+
+    XWindowAttributes attrs, parent_attrs;
     XLockDisplay(self->display);
     XGetWindowAttributes(self->display, self->window, &attrs);
+    if (absolute) {
+        Window w = self->window, root, parent = 0, *children;
+        unsigned int n_children;
+        while (parent != root) {
+            XQueryTree(self->display, w, &root, &parent, &children, &n_children);
+            XGetWindowAttributes(self->display, parent, &parent_attrs);
+            attrs.x += parent_attrs.x;
+            attrs.y += parent_attrs.y;
+            w = parent;
+        }
+    }
     XUnlockDisplay(self->display);
     return Py_BuildValue("((ii)(ii))", attrs.x, attrs.y, attrs.width,
                          attrs.height);
@@ -312,7 +330,7 @@ X11Window_PyObject__get_visible(X11Window_PyObject * self, PyObject * args)
     XLockDisplay(self->display);
     XGetWindowAttributes(self->display, self->window, &attrs);
     XUnlockDisplay(self->display);
-    return Py_BuildValue("i", attrs.map_state);
+    return Py_BuildValue("i", attrs.map_state == IsViewable);
 }
 
 PyObject *
@@ -324,6 +342,184 @@ X11Window_PyObject__focus(X11Window_PyObject * self, PyObject * args)
     Py_INCREF(Py_None);
     return Py_None;
 }
+
+PyObject *
+X11Window_PyObject__set_title(X11Window_PyObject * self, PyObject * args)
+{
+    char *title;
+    if (!PyArg_ParseTuple(args, "s", &title))
+        return NULL;
+    XLockDisplay(self->display);
+    XStoreName(self->display, self->window, title);
+    XUnlockDisplay(self->display);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *
+X11Window_PyObject__get_title(X11Window_PyObject * self, PyObject * args)
+{
+    char *title;
+    PyObject *pytitle;
+
+    XLockDisplay(self->display);
+    XFetchName(self->display, self->window, &title);
+    XUnlockDisplay(self->display);
+    Py_INCREF(Py_None);
+
+    pytitle = Py_BuildValue("s", title);
+    XFree(title);
+    return pytitle;
+}
+
+static void
+_walk_children(Display *display, Window window, PyObject *pychildren, 
+               int scr_w, int scr_h, int x, int y,
+               int recursive, int visible_only, int titled_only)
+{
+    Window root, parent, *children;
+    unsigned int n_children, i;
+    XWindowAttributes attrs;
+    char *title;
+
+    XQueryTree(display, window, &root, &parent, &children, &n_children);
+
+    for (i = 0; i < n_children; i++) {
+        int child_x = x, child_y = y;
+        if (visible_only) {
+            XGetWindowAttributes(display, children[i], &attrs);
+            // Make x, y absolute for this child.
+            child_x = x + attrs.x;
+            child_y = y + attrs.y;
+
+            if (attrs.map_state != IsViewable || (child_y + attrs.height < 0 || child_y > scr_h) ||
+                (child_x + attrs.width < 0 || child_x > scr_w))
+                continue;
+        }
+        if (titled_only) {
+            XFetchName(display, children[i], &title);
+            if (title)
+                XFree(title);
+        }
+
+        if (!titled_only || title) {
+            PyObject *wid = Py_BuildValue("k", children[i]);
+            PyList_Append(pychildren, wid);
+            Py_DECREF(wid);
+        }
+
+        if (recursive)
+            _walk_children(display, children[i], pychildren, scr_w, scr_h, 
+                           child_x, child_y, recursive, visible_only, titled_only);
+    }
+}
+
+
+PyObject *
+X11Window_PyObject__get_children(X11Window_PyObject * self, PyObject * args)
+{
+    int recursive, visible_only, titled_only;
+    PyObject *pychildren;
+    XWindowAttributes attrs;
+
+    if (!PyArg_ParseTuple(args, "iii", &recursive, &visible_only, &titled_only))
+        return NULL;
+
+    // Fetch screen size
+    XGetWindowAttributes(self->display, self->window, &attrs);
+    pychildren = PyList_New(0);
+    XLockDisplay(self->display);
+    _walk_children(self->display, self->window, pychildren, attrs.screen->width, attrs.screen->height, 
+                   attrs.x, attrs.y, recursive, visible_only, titled_only);
+    XUnlockDisplay(self->display);
+
+    return pychildren;
+}
+
+PyObject *
+X11Window_PyObject__get_parent(X11Window_PyObject * self, PyObject * args)
+{
+    Window root, parent, *children;
+    unsigned int n_children;
+
+    XLockDisplay(self->display);
+    XQueryTree(self->display, self->window, &root, &parent, &children, &n_children);
+    XUnlockDisplay(self->display);
+
+    return Py_BuildValue("k", parent);
+}
+
+PyObject *
+X11Window_PyObject__get_properties(X11Window_PyObject * self, PyObject * args)
+{
+    Atom *properties, type;
+    int n_props, i, format;
+    unsigned long n_items, bytes_left;
+    char **property_names, *type_name;
+    unsigned char *data;
+    PyObject *list = PyList_New(0);
+
+    XLockDisplay(self->display);
+    properties = XListProperties(self->display, self->window, &n_props);
+    if (!properties) {
+        XUnlockDisplay(self->display);
+        return list;
+    }
+
+    // allocate a chunk of memory for atom values
+    data = malloc(8192); 
+    property_names = (char **)malloc(sizeof(char *) * n_props);
+    XGetAtomNames(self->display, properties, n_props, property_names);
+
+    // Iterate over all properties and make a list containing 5-tuples of:
+    // (atom name, atom type, format, number of items, data)
+    for (i = 0; i < n_props; i++) {
+        PyObject *tuple = PyTuple_New(5), *pydata;
+        int field_len = 1, n;
+        XGetWindowProperty(self->display, self->window, properties[i], 0, 256, False, AnyPropertyType, 
+                           &type, &format, &n_items, &bytes_left, &data);
+
+        field_len = format == 16 ? sizeof(short) : sizeof(long);
+        type_name = XGetAtomName(self->display, type);
+
+        if (!strcmp(type_name, "ATOM")) {
+            // For ATOM types, resolve atoms to their names.
+            pydata = PyList_New(0);
+            for (n = 0; n < n_items; n++, data += field_len) {
+                char *atom_name = XGetAtomName(self->display, *((Atom *)data));
+                PyObject *pyatom_name = PyString_FromString(atom_name);
+                PyList_Append(pydata, pyatom_name);
+                XFree(atom_name);
+                Py_DECREF(pyatom_name);
+            }
+        } else {
+            // For other types, just return the raw buffer and we will parse
+            // it in python space.
+            void *buffer_ptr;
+            int buffer_len;
+            pydata = PyBuffer_New(n_items * field_len + bytes_left);
+            PyObject_AsWriteBuffer(pydata, &buffer_ptr, &buffer_len);
+            memmove(buffer_ptr, data, n_items * field_len);
+            // TODO: if bytes_left > 0, need to fetch the rest.
+        }
+
+        PyTuple_SET_ITEM(tuple, 0, PyString_FromString(property_names[i]));
+        PyTuple_SET_ITEM(tuple, 1, PyString_FromString(type_name));
+        PyTuple_SET_ITEM(tuple, 2, PyLong_FromLong(format));
+        PyTuple_SET_ITEM(tuple, 3, PyLong_FromLong(n_items));
+        PyTuple_SET_ITEM(tuple, 4, pydata);
+
+        PyList_Append(list, tuple);
+        XFree(type_name);
+        XFree(property_names[i]);
+    }
+    free(property_names);
+    free(data);
+    XFree(properties);
+    XUnlockDisplay(self->display);
+    return list;
+}
+
 
 
 PyMethodDef X11Window_PyObject_methods[] = {
@@ -338,6 +534,11 @@ PyMethodDef X11Window_PyObject_methods[] = {
     { "set_transient_for", (PyCFunction)X11Window_PyObject__set_transient_for_hint, METH_VARARGS },
     { "get_visible", (PyCFunction)X11Window_PyObject__get_visible, METH_VARARGS },
     { "focus", (PyCFunction)X11Window_PyObject__focus, METH_VARARGS },
+    { "set_title", (PyCFunction)X11Window_PyObject__set_title, METH_VARARGS },
+    { "get_title", (PyCFunction)X11Window_PyObject__get_title, METH_VARARGS },
+    { "get_children", (PyCFunction)X11Window_PyObject__get_children, METH_VARARGS },
+    { "get_parent", (PyCFunction)X11Window_PyObject__get_parent, METH_VARARGS },
+    { "get_properties", (PyCFunction)X11Window_PyObject__get_properties, METH_VARARGS },
     { NULL, NULL }
 };
 

@@ -31,6 +31,7 @@
 
 # python imports
 import weakref
+import struct
 
 # kaa notifier for the socket callback
 import kaa.notifier
@@ -166,6 +167,8 @@ class X11Display(object):
     def composite_supported(self):
         return self._display.composite_supported()
 
+    def get_root_window(self):
+        return X11Window(window = self._display.get_root_id())
 
 
 X11Display.XEVENT_WINDOW_EVENTS_LIST = filter(lambda x: x.find("XEVENT_") != -1, dir(X11Display))
@@ -240,6 +243,9 @@ class X11Window(object):
             "resize_event",    # window resized
             "configure_event") # ?
 
+    def __str__(self):
+        return '<X11Window object id=0x%x>' % self._window.wid
+
     def get_display(self):
         return self._display
 
@@ -266,7 +272,7 @@ class X11Window(object):
             self.hide()
 
     def get_visible(self):
-        return self._window.get_visible()
+        return self._window.get_visible() != 0
 
     def render_imlib2_image(self, i, dst_pos = (0, 0), src_pos = (0, 0),
                             size = (-1, -1), dither = True, blend = False):
@@ -337,14 +343,29 @@ class X11Window(object):
         self._display.handle_events()
         return True
 
-    def get_geometry(self):
-        return self._window.get_geometry()
+    def get_geometry(self, absolute = False):
+        """
+        Returns 2-tuple of position and size (x, y), (width, height)
+        of the window.  If absolute is False (default), (x, y) are relative
+        to the window's parent.  If absolute is True, coordinates are
+        relative to the root window.
+        """
+        return self._window.get_geometry(absolute)
+
+    def get_parent(self):
+        """
+        Returns the parent of the window.  If no parent exists (i.e. root window)
+        None is returned.
+        """
+        wid = self._window.get_parent()
+        if wid:
+            return X11Window(window = self._window.get_parent())
 
     def get_size(self):
         return self.get_geometry()[1]
 
-    def get_pos(self):
-        return self.get_geometry()[0]
+    def get_pos(self, absolute = False):
+        return self.get_geometry(absolute)[0]
 
     def set_cursor_visible(self, visible):
         self._window.set_cursor_visible(visible)
@@ -390,6 +411,62 @@ class X11Window(object):
 
     def focus(self):
         return self._window.focus()
+
+    def set_title(self, title):
+        return self._window.set_title(title)
+
+    def get_title(self):
+        return self._window.get_title()
+
+    def get_children(self, recursive = False, visible_only = False, titled_only = False):
+        """
+        Returns all child windows as X11Window objects.  If recursive is True,
+        all descendants will be returned.  If visible_only is True, only those
+        children which are visible are included (unmapped children or mapped 
+        children that are offscreen are not included).  If titled_only is True,
+        only those windows with titles set will be included.
+        """
+        return [ X11Window(window = wid) for wid in self._window.get_children(recursive, visible_only, titled_only) ]
+
+    def get_properties(self):
+        """
+        Returns a dictionary of X properties associated with this window.
+        Properties are converted to the appropriate python type, although if
+        the given property type is not supported, the value for that property
+        will be a 4-tuple of (type, format, n_items, data) where type is a
+        string representing the type of the atom, format is 8 for character,
+        16 for short, and 32 for int, n_items is the number of items of the
+        given format in the data buffer.
+        """
+        props = {}
+        for (name, type, format, n_items, data) in self._window.get_properties():
+            struct_format = {
+                'INTEGER': 'i',
+                'CARDINAL': 'L',
+                'WINDOW': 'L',
+                'STRING': 's',
+                'UTF8_STRING': 's'
+            }.get(type, None)
+
+            if struct_format:
+                struct_format = '%d%s' % (n_items, struct_format)
+                buflen = struct.calcsize(struct_format)
+                data = struct.unpack(struct_format, data[:buflen])
+                if len(data) == 1:
+                    data = data[0]
+                if type in ('STRING', 'UTF8_STRING'):
+                    data = data.strip('\x00').split('\x00')
+                    if type == 'UTF8_STRING':
+                        data = [ x.decode('utf-8') for x in data]
+                    if len(data) == 1:
+                        data = data[0]
+            else:
+                # Unsupported type, we just pass the raw buffer back to the user.
+                pass
+
+            props[name] = data
+
+        return props
 
 
 class EvasX11Window(X11Window):
