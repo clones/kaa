@@ -92,8 +92,7 @@ def _get_mplayer_info(path, callback = None, mtime = None):
             async = kaa.ThreadCallback(_get_mplayer_info, path, None, mtime)()
             # ThreadCallback class ensures the callbacks get invoked in the main
             # thread.
-            async.connect(callback)
-            async.exception_handler.connect(callback)
+            async.connect_both(callback, callback)
             return None
 
     # At this point we're running in a thread.

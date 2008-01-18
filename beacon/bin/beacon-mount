@@ -149,6 +149,6 @@ if __name__ == '__main__':
     kaa.utils.daemonize(stdout = logfile)
 
     thread = kaa.ThreadCallback(fs.main)
-    thread().exception_handler.connect(lambda dummy: kaa.main.stop())
+    thread().exception.connect(lambda dummy: kaa.main.stop())
 
     kaa.main.run()
