@@ -8,7 +8,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-record - A recording module
-# Copyright (C) 2005 Sönke Schwardt, Dirk Meyer
+# Copyright (C) 2005,2008 Sönke Schwardt, Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -40,7 +40,7 @@ from types import *
 import urllib
 
 # kaa imports
-from kaa.notifier import OneShotTimer, SocketDispatcher, Timer
+import kaa
 
 # kaa.record imports
 from _dvb import DvbDevice as _DvbDevice
@@ -220,7 +220,7 @@ class IVTVDevice(Device, IVTV):
             except:
                 log.error('STREAMOFF failed')
  
-        OneShotTimer(self.remove_splitter, id).start(self.stop_start_delay)
+        kaa.OneShotTimer(self.remove_splitter, id).start(self.stop_start_delay)
 
 
     def remove_splitter(self, id):

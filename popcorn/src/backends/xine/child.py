@@ -32,7 +32,6 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.notifier
 import kaa.shm
 import kaa.xine as xine
 
@@ -70,7 +69,7 @@ class XinePlayerChild(Player):
 
         self._window_size = 0, 0
         self._window_aspect = -1
-        self._status = kaa.notifier.WeakTimer(self._status_output)
+        self._status = kaa.WeakTimer(self._status_output)
         self._status_last = None
         self._vo_settings = None
         self._stream_settings = {
@@ -319,9 +318,9 @@ class XinePlayerChild(Player):
         control_return = []
         self._vo = self._xine.open_video_driver(
             "kaa", control_return = control_return,
-            osd_configure_cb = kaa.notifier.WeakCallback(self._osd_configure),
-            frame_output_cb = kaa.notifier.WeakCallback(self._xine_frame_output_cb),
-            dest_size_cb = kaa.notifier.WeakCallback(self._xine_dest_size_cb),
+            osd_configure_cb = kaa.WeakCallback(self._osd_configure),
+            frame_output_cb = kaa.WeakCallback(self._xine_frame_output_cb),
+            dest_size_cb = kaa.WeakCallback(self._xine_dest_size_cb),
             **vo_kwargs)
         self._driver_control = control_return[0]
 

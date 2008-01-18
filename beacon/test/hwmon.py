@@ -1,4 +1,4 @@
-import kaa.notifier
+import kaa
 
 try:
     from kaa.beacon.hwmon import hal
@@ -39,8 +39,8 @@ def changed(dev, prop):
         return
     if prop.get('volume.mount_point'):
         print "    Volume mounted to: %s" %  prop.get('volume.mount_point')
-        kaa.notifier.OneShotTimer(dev.mount, True).start(1)
-#             kaa.notifier.OneShotTimer(dev.eject).start(1)
+        kaa.OneShotTimer(dev.mount, True).start(1)
+#             kaa.OneShotTimer(dev.eject).start(1)
     else:
         print "    Volume unmounted"
     print
@@ -122,4 +122,4 @@ def add(dev):
 signals['add'].connect(add)
 signals['changed'].connect(changed)
 signals['remove'].connect(remove)
-kaa.notifier.loop()
+kaa.main.run()

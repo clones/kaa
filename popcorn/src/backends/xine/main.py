@@ -13,7 +13,7 @@ import kaa.shm
 from child import XinePlayerChild as Xine
 
 player = Xine(sys.argv[1], sys.argv[2])
-kaa.main()
+kaa.main.run()
 
 # Remove shared memory.  We don't detach right away, because the vo
 # thread might still be running, and it will crash if it tries to write

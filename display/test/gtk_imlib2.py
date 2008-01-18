@@ -25,5 +25,5 @@ sock.add_id(da.window.xid)
 x11win = kaa.display.X11Window(window = sock.get_id())
 # x11win.render_imlib2_image(da.image)
 
-kaa.main()
+kaa.main.run()
 

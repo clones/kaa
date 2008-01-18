@@ -36,10 +36,9 @@ from types import ListType
 import threading
 
 # kaa imports
+import kaa
 from kaa.db import *
 import kaa.rpc
-
-import kaa.notifier
 
 # kaa.epg imports
 from config import config
@@ -86,7 +85,7 @@ class Server(object):
         # Members for job queue.
         self._jobs = []
         self._jobs_lock = threading.Lock()
-        self._jobs_timer = kaa.notifier.WeakTimer(self._handle_jobs)
+        self._jobs_timer = kaa.WeakTimer(self._handle_jobs)
 
         # initial sync
         self.sync()
@@ -167,7 +166,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('guide.update')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def update(self, backend = None, *args, **kwargs):
         """
         Start epg update calling the source_* files.  If backend is specified,
@@ -235,7 +234,7 @@ class Server(object):
     # functions called by source_* modules
     # -------------------------------------------------------------------------
 
-    @kaa.notifier.execute_in_mainloop()
+    @kaa.execute_in_mainloop()
     def add_channel(self, tuner_id, name, long_name):
         """
         This method requires at least one of tuner_id, name,
@@ -340,7 +339,7 @@ class Server(object):
         Add a program to the db. This could cause removing older programs
         overlapping.
         """
-        if not kaa.notifier.is_mainthread():
+        if not kaa.is_mainthread():
             self._jobs.append((channel_db_id, start, stop, title, attributes))
             if len(self._jobs) == 1:
                 # Job added to (probably) empty queue, begin timer to handle jobs
@@ -405,7 +404,7 @@ class Server(object):
         Wait until add_program is finished. This function can only be called
         from a thread.
         """
-        if kaa.notifier.is_mainthread():
+        if kaa.is_mainthread():
             raise RuntimeError('add_program_wait not called by thread')
 
         # Jobs lock is held as long as the jobs handler timer is running.

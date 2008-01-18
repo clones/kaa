@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2008 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -34,7 +34,7 @@ __all__ = [ 'connect', 'Channel', 'Program', 'Client', 'Server', 'QExpr',
 import logging
 
 # kaa imports
-import kaa.notifier
+import kaa
 from kaa.db import QExpr
 
 # kaa.epg imports
@@ -84,18 +84,18 @@ def search(channel=None, time=None, block=False, **kwargs):
     """
     Search the db. This will call the search function on server side using
     kaa.ipc. This function will return an InProgress object. If block is
-    True the function to block using kaa.notifier.step() until the result
+    True the function to block using kaa.main.step() until the result
     arrived from the server.
     """
     if guide.status == DISCONNECTED:
         connect()
         while block and guide.status == CONNECTING:
-            kaa.notifier.step()
+            kaa.main.step()
 
     if block:
         wait = guide.search(channel, time, **kwargs)
         while not wait.is_finished:
-            kaa.notifier.step()
+            kaa.main.step()
         return wait()
     return guide.search(channel, time, **kwargs)
 

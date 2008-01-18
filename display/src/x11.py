@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.display - Generic Display Module
-# Copyright (C) 2005-2006 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2005-2008 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 # Maintainer:    Jason Tackaberry <tack@sault.org>
@@ -33,9 +33,8 @@
 import weakref
 import struct
 
-# kaa notifier for the socket callback
-import kaa.notifier
-from kaa.notifier import Signals
+# kaa for the socket callback
+import kaa
 
 # the display module
 import _X11
@@ -104,12 +103,12 @@ class X11Display(object):
         self._display = _X11.X11Display(dispname)
         self._windows = {}
 
-        dispatcher = kaa.notifier.WeakSocketDispatcher(self.handle_events)
+        dispatcher = kaa.WeakSocketDispatcher(self.handle_events)
         dispatcher.register(self.socket)
         # Also connect to the step signal. It is a bad hack, but when
         # drawing is done, the socket is read and we will miss keypress
         # events when doing drawings.
-        kaa.notifier.signals['step'].connect_weak(self.handle_events)
+        kaa.main.signals['step'].connect_weak(self.handle_events)
 
     def handle_events(self):
         window_events = {}
@@ -228,12 +227,12 @@ class X11Window(object):
         self._display = display
         display._windows[self._window.wid] = weakref.ref(self)
         self._cursor_hide_timeout = -1
-        self._cursor_hide_timer = kaa.notifier.WeakOneShotTimer(self._cursor_hide_cb)
+        self._cursor_hide_timer = kaa.WeakOneShotTimer(self._cursor_hide_cb)
         self._cursor_visible = True
         self._fs_size_save = None
         self._last_configured_size = 0, 0
 
-        self.signals = Signals(
+        self.signals = kaa.Signals(
             "key_press_event", # key pressed
             "focus_in_event",  # window gets focus
             "focus_out_event", # window looses focus

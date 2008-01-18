@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -35,8 +35,7 @@ import time
 import logging
 
 # kaa imports
-import kaa.notifier
-from kaa.notifier import Timer, OneShotTimer, WeakOneShotTimer, YieldFunction
+import kaa
 from kaa.inotify import INotify
 
 # kaa.beacon imports
@@ -105,7 +104,7 @@ class Crawler(object):
 
         # set up inotify
         self._inotify = None
-        cb = kaa.notifier.WeakCallback(self._inotify_event, INotify.MODIFY)
+        cb = kaa.WeakCallback(self._inotify_event, INotify.MODIFY)
         cb.set_user_args_first(True)
         self._bursthandler = utils.BurstHandler(config.crawler.growscan, cb)
         if use_inotify:
@@ -129,7 +128,7 @@ class Crawler(object):
             log.info('all your cpu are belong to me')
             self.parse_timer = 0
 
-        kaa.signals["shutdown"].connect_weak(self.stop)
+        kaa.main.signals["shutdown"].connect_weak(self.stop)
 
         # create internal scan variables
         self._scan_list = []
@@ -153,7 +152,7 @@ class Crawler(object):
         """
         Stop the crawler and remove the inotify watching.
         """
-        kaa.signals["shutdown"].disconnect(self.stop)
+        kaa.main.signals["shutdown"].disconnect(self.stop)
         # stop running scan process
         self._scan_list = []
         self._scan_dict = []
@@ -364,7 +363,7 @@ class Crawler(object):
         # start ._scan_function
         if self._scan_function == None:
             Crawler.active += 1
-            self._scan_function = OneShotTimer(self._scan_start)
+            self._scan_function = kaa.OneShotTimer(self._scan_start)
             self._scan_function.start(0)
 
 
@@ -384,7 +383,7 @@ class Crawler(object):
             cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 40) and interval < 1:
             # way too much CPU load, slow down even more
             interval *= 2
-        self._scan_function = YieldFunction(self._scan, interval)
+        self._scan_function = kaa.YieldFunction(self._scan, interval)
         directory, recursive = self._scan_list.pop(0)
         del self._scan_dict[directory.filename]
         self._scan_function(directory)
@@ -420,7 +419,7 @@ class Crawler(object):
             # The restart function will crawl with a much higher intervall to
             # keep the load on the system down.
             log.info('schedule rescan')
-            self._scan_restart_timer = WeakOneShotTimer(self._scan_restart)
+            self._scan_restart_timer = kaa.WeakOneShotTimer(self._scan_restart)
             self._scan_restart_timer.start(10)
 
 
@@ -458,7 +457,7 @@ class Crawler(object):
 
         # parse directory
         async = parse(self._db, directory, check_image=self._startup)
-        if isinstance(async, kaa.notifier.InProgress):
+        if isinstance(async, kaa.InProgress):
             yield async
 
         # check if it is still a directory
@@ -476,7 +475,7 @@ class Crawler(object):
             dirname = os.path.realpath(directory.filename)
             directory = self._db.query_filename(dirname)
             async = parse(self._db, directory, check_image=self._startup)
-            if isinstance(async, kaa.notifier.InProgress):
+            if isinstance(async, kaa.InProgress):
                 yield async
 
         # add to monitor list using inotify
@@ -487,7 +486,7 @@ class Crawler(object):
         counter = 0
 
         result = self._db.query(parent=directory)
-        if isinstance(result, kaa.notifier.InProgress):
+        if isinstance(result, kaa.InProgress):
             yield result
             result = result()
         for child in result:
@@ -497,28 +496,28 @@ class Crawler(object):
                 continue
             # check file
             async = parse(self._db, child, check_image=self._startup)
-            if isinstance(async, kaa.notifier.InProgress):
+            if isinstance(async, kaa.InProgress):
                 yield async
                 async = async()
             counter += async * 20
             while counter >= 20:
                 counter -= 20
-                yield kaa.notifier.YieldContinue
+                yield kaa.YieldContinue
                 if cpuinfo.cpuinfo()[cpuinfo.IDLE] < 50 or \
                        cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 30:
-                    yield kaa.notifier.YieldContinue
+                    yield kaa.YieldContinue
             counter += 1
 
         if not subdirs:
             # No subdirectories that need to be checked. Add some extra
             # attributes based on the found items (recursive back to parents)
             result = self._add_directory_attributes(directory)
-            if isinstance(result, kaa.notifier.InProgress):
+            if isinstance(result, kaa.InProgress):
                 yield result
         yield subdirs
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _add_directory_attributes(self, directory):
         """
         Add some extra attributes for a directory recursive. This function
@@ -530,7 +529,7 @@ class Crawler(object):
         check_attr.remove('length')
 
         result = self._db.query(parent=directory)
-        if isinstance(result, kaa.notifier.InProgress):
+        if isinstance(result, kaa.InProgress):
             yield result
             result = result()
         for child in result:
@@ -581,5 +580,5 @@ class Crawler(object):
         # check parent
         if directory._beacon_parent.filename in self.monitoring:
             result = self._add_directory_attributes(directory._beacon_parent)
-            if isinstance(result, kaa.notifier.InProgress):
+            if isinstance(result, kaa.InProgress):
                 yield result

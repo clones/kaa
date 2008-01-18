@@ -33,10 +33,9 @@ __all__ = ['Client']
 import logging
 
 # kaa imports
+import kaa
 import kaa.db
 import kaa.rpc
-import kaa.notifier
-from kaa.notifier import Signal, OneShotTimer, execute_in_timer
 
 # kaa.epg imports
 from channel import Channel
@@ -50,7 +49,7 @@ DISCONNECTED, CONNECTING, CONNECTED = range(3)
 
 def yield_execution_while_connecting():
     """
-    Decorator that wraps kaa.notifier.yield_execution, raising an exception if
+    Decorator that wraps kaa.yield_execution, raising an exception if
     the client is disconnected, YieldContinue if the client is in the process
     of connecting, or the actual return value of the decorated function if the
     client is connected.
@@ -60,11 +59,11 @@ def yield_execution_while_connecting():
             if client.status == DISCONNECTED:
                 raise SystemError('Client is disconnected')
             while client.status == CONNECTING:
-                yield kaa.notifier.YieldContinue
+                yield kaa.YieldContinue
             yield func(client, *args, **kwargs)
 
         newfunc.func_name = func.func_name
-        return kaa.notifier.yield_execution()(newfunc)
+        return kaa.yield_execution()(newfunc)
     return decorator
 
        
@@ -79,9 +78,9 @@ class Client(object):
 
         self._channels_list = []
         self.signals = {
-            "updated": Signal(),
-            "connected": Signal(),
-            "disconnected": Signal()
+            "updated": kaa.Signal(),
+            "connected": kaa.Signal(),
+            "disconnected": kaa.Signal()
         }
 
         self._channels_by_name = {}
@@ -147,7 +146,7 @@ class Client(object):
         self.signals["updated"].emit()
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def search(self, channel=None, time=None, **kwargs):
         """
         Search the db. This will call the search function on server side using
@@ -159,7 +158,7 @@ class Client(object):
             raise SystemError('Client is disconnected')
 
         while self.status == CONNECTING:
-            yield kaa.notifier.YieldContinue
+            yield kaa.YieldContinue
 
         if channel is not None:
             if isinstance(channel, Channel):

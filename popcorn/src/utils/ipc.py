@@ -38,7 +38,7 @@ import fcntl
 import logging
 
 # kaa imports
-import kaa.notifier
+import kaa
 from kaa.weakref import weakref
 
 # get logging objects
@@ -71,10 +71,10 @@ class ChildProcess(object):
         self._parent = weakref(parent)
 
         if gdb:
-            self._child = kaa.notifier.Process("gdb")
+            self._child = kaa.Process("gdb")
             self._gdb = script
         else:
-            self._child = kaa.notifier.Process([sys.executable, '-u', script])
+            self._child = kaa.Process([sys.executable, '-u', script])
             self._gdb = None
         self._child.signals["stdout"].connect_weak(self._handle_line)
         self._child.signals["stderr"].connect_weak(self._handle_line)
@@ -181,7 +181,7 @@ class Player(object):
     to the parent and need to implement the function the parent is calling.
     """
     def __init__(self):
-        monitor = kaa.notifier.WeakSocketDispatcher(self._handle_line)
+        monitor = kaa.WeakSocketDispatcher(self._handle_line)
         monitor.register(sys.stdin.fileno())
         flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, flags | os.O_NONBLOCK)

@@ -96,7 +96,7 @@ def print_pos():
     sys.stdout.flush()
     return True
 
-pos_timer = kaa.notifier.Timer(print_pos)
+pos_timer = kaa.Timer(print_pos)
 pos_timer.start(0.1)
 
 player.signals['end'].connect(play_next)
@@ -105,4 +105,4 @@ player.signals['failed'].connect(play_next)
 kaa.signals["stdin_key_press_event"].connect(input)
 window.signals["key_press_event"].connect(input)
 play_next()
-kaa.main()
+kaa.main.run()

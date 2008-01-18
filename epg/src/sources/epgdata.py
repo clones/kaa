@@ -39,8 +39,8 @@ import xml.sax
 import xml.sax.saxutils
 
 # kaa imports
+import kaa
 from kaa import TEMP
-import kaa.notifier
 
 from config_epgdata import config
 
@@ -207,7 +207,7 @@ class ProgramParser(BaseParser):
         self.add_program(db_id, start, stop, title, **attr)
 
 
-@kaa.notifier.execute_in_thread('epg')
+@kaa.execute_in_thread('epg')
 def update(epg):
     """
     Interface to source_epgdata.

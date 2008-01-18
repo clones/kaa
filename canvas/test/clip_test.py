@@ -18,4 +18,4 @@ c = canvas.add_container(width=100, height=100,  clip="auto", hcenter="50%", top
 c.add_child(kaa.canvas.Rectangle(), width=200, height=200, color="#ff44ff55")
 c.add_child(kaa.canvas.Text("Text is clipped"))
 
-kaa.main()
+kaa.main.run()

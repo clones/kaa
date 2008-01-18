@@ -159,5 +159,5 @@ if input.lirc.init():
 
 
 print "Use up/down arrows; enter selects; q to quit."
-kaa.main()
+kaa.main.run()
 #del c, menu, menu_box, selector, selector_box, streak, menu_items, watermark_items, img

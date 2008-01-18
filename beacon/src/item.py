@@ -34,7 +34,6 @@ import logging
 
 # kaa imports
 from kaa.strutils import str_to_unicode
-import kaa.notifier
 
 # kaa.beacon imports
 from thumbnail import Thumbnail

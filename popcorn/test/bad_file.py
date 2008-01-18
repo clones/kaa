@@ -18,4 +18,4 @@ player.signals["failed"].connect(print_msg, 'playback failed')
 player.open('/')
 player.play()
 
-kaa.main()
+kaa.main.run()

@@ -42,8 +42,8 @@ import stat
 import logging
 
 # kaa imports
+import kaa
 import kaa.metadata
-import kaa.notifier
 import kaa.imlib2
 
 # kaa.beacon imports
@@ -65,7 +65,7 @@ class VideoThumb(object):
         self.notify_client = thumbnailer.notify_client
         self.create_failed = thumbnailer.create_failed
 
-        self.child = kaa.notifier.Process(['mplayer', '-nosound', '-vo', 'png:z=2', 
+        self.child = kaa.Process(['mplayer', '-nosound', '-vo', 'png:z=2', 
                                            '-frames', '10', '-osdlevel', '0', '-nocache',
                                            '-zoom', '-ss' ])
         self.child.signals['stdout'].connect(self._handle_std)
@@ -83,7 +83,7 @@ class VideoThumb(object):
 
     def _run(self):
         if self.child.is_alive() or not self.jobs or self._current or \
-               kaa.notifier.shutting_down:
+               kaa.shutting_down:
             return True
         self._current = self.jobs.pop(0)
 
@@ -135,7 +135,7 @@ class VideoThumb(object):
             if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
                 cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20):
                 # too much CPU load, slow down
-                return kaa.notifier.OneShotTimer(self._run).start(1)
+                return kaa.OneShotTimer(self._run).start(1)
             self._run()
             return
 
@@ -179,4 +179,4 @@ class VideoThumb(object):
             log.exception('video')
         # notify client and start next video
         self.notify_client(job)
-        kaa.notifier.OneShotTimer(self._run).start(1)
+        kaa.OneShotTimer(self._run).start(1)

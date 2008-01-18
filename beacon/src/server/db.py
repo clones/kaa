@@ -37,7 +37,7 @@ import logging
 import time
 
 # kaa imports
-import kaa.notifier
+import kaa
 from kaa import db
 from kaa.db import *
 
@@ -56,7 +56,7 @@ class ReadLock(object):
     """
     def __init__(self):
         self._clients = []
-        self.signals = kaa.notifier.Signals('lock', 'unlock')
+        self.signals = kaa.Signals('lock', 'unlock')
 
 
     def lock(self, client):
@@ -99,7 +99,7 @@ class ReadLock(object):
         Return YieldCallback object to wait until the db is
         not used by any reader.
         """
-        cb = kaa.notifier.YieldCallback()
+        cb = kaa.YieldCallback()
         self.signals['unlock'].connect_once(cb)
         return cb
 

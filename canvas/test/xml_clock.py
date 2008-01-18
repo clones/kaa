@@ -13,6 +13,6 @@ canvas.from_xml("clock.xml")
 def update_clock(text):
     text.set_text(time.strftime("%I:%M:%S %p"))
 
-kaa.notifier.Timer(update_clock, canvas.find_object("time")).start(1)
+kaa.Timer(update_clock, canvas.find_object("time")).start(1)
 
-kaa.main()
+kaa.main.run()

@@ -1,7 +1,7 @@
 import os
 
+import kaa
 import kaa.cherrypy
-import kaa.notifier
 import kaa.notifier.thread
 import threading
 
@@ -78,4 +78,4 @@ kaa.cherrypy.config.static['/images'] = 'test'
 kaa.cherrypy.config.static['/css'] = '/tmp'
 
 kaa.cherrypy.start(Root)
-kaa.notifier.loop()
+kaa.main.run()

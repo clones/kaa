@@ -29,7 +29,7 @@ class Manager:
         self._current = None
         self._render_needed = False
         self._selecting = False
-        self.signals = { 'render': kaa.notifier.Signal() }
+        self.signals = { 'render': kaa.Signal() }
 
     def add_video(self, video):
         self._videos.append(video)
@@ -120,7 +120,7 @@ class Video(kaa.evas.Image):
                 pass
 
         print "Setup fifo", fifo
-        kaa.notifier.WeakSocketDispatcher(self._new_frame, fifo).register(fifo)
+        kaa.WeakSocketDispatcher(self._new_frame, fifo).register(fifo)
 
 
     def _new_frame(self, fifo):
@@ -301,11 +301,11 @@ if __name__ == '__main__':
 
     e.render()
 
-    kaa.signals['step'].connect(manager.render)
+    kaa.main.signals['step'].connect(manager.render)
     kaa.signals['stdin_key_press_event'].connect(key)
     win.signals['key_press_event'].connect(key)
     win.signals['resize_event'].connect(resize_window, e, bg)
     #win.set_fullscreen(True)
 
     print "Keys: q, arrows, tab, space, F, f, a, A, [, ], h, s"
-    kaa.main()
+    kaa.main.run()

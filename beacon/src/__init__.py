@@ -38,7 +38,7 @@ import logging
 import time
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # kaa.beacon imports
 from version import VERSION
@@ -171,8 +171,7 @@ def register_track_type_attrs(name, **kwargs):
 
 def get_db_info():
     """
-    Gets statistics about the database. This function will block using
-    kaa.notifier.step() until the client is connected.
+    Gets statistics about the database.
     (Only usefull for debugging)
     """
     if not _client:
@@ -187,7 +186,7 @@ def list_media():
     if not _client:
         connect()
     while not _client.is_connected():
-        kaa.notifier.step()
+        kaa.main.step()
     return _client._db.medialist
 
 
@@ -198,5 +197,5 @@ def delete_media(id):
     if not _client:
         connect()
     while not _client.is_connected():
-        kaa.notifier.step()
+        kaa.main.step()
     return _client.delete_media(id)

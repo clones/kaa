@@ -61,6 +61,6 @@ stream.open(sys.argv[2])
 stream.play()
 
 kaa.signals['stdin_key_press_event'].connect(key)
-kaa.main()
+kaa.main.run()
 # We need to break cycles so dealloc handlers get called on shutdown.
 del deint, vo, ao, stream, xine

@@ -35,7 +35,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 # kaa imports
-import kaa.notifier
+import kaa
 import kaa.notifier.url
 import kaa.feedmanager
 import kaa.rpc

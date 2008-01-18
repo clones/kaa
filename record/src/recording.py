@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-record - A recording module
-# Copyright (C) 2005 Sönke Schwardt, Dirk Meyer
+# Copyright (C) 2005,2008 Sönke Schwardt, Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -34,7 +34,7 @@ import time
 import logging
 
 # kaa imports
-from kaa.notifier import OneShotTimer, Signal
+import kaa
 
 # get logging object
 log = logging.getLogger('record')
@@ -57,11 +57,11 @@ class Recording(object):
         Recording.NEXT_ID += 1
 
         # signals to ge notified on changes
-        self.signals = { 'start': Signal(), 'stop': Signal() }
+        self.signals = { 'start': kaa.Signal(), 'stop': kaa.Signal() }
 
         # internal timer
-        self.timer = { 'start': OneShotTimer(self.__start),
-                       'stop': OneShotTimer(self.__stop) }
+        self.timer = { 'start': kaa.OneShotTimer(self.__start),
+                       'stop': kaa.OneShotTimer(self.__stop) }
         # id from device.start_recording
         self.__rec_id = None
         # start timer

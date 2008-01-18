@@ -5,7 +5,7 @@
 import sys, math, threading, os, time, gc
 
 import kaa, kaa.input, kaa.input.stdin
-from kaa import xine, display, metadata, notifier, evas
+from kaa import xine, display, metadata, evas
 
 if len(sys.argv) <= 1:
     print "Usage: %s [mrl]" % sys.argv[0]
@@ -199,7 +199,7 @@ def buffer_vo_callback(command, data, window):
             print "fps %d\n" % c
             c=0
             lf=time.time()
-        notifier.MainThreadCallback(update_evas, data, window)()
+        kaa.MainThreadCallback(update_evas, data, window)()
 """
 def update_evas((width, height, aspect, buffer, unlock_cb), window):
     if window.movie.size_get() != (width, height) or aspect != window.movie.aspect:
@@ -256,7 +256,7 @@ if 0:
     win2.movie.layer_set(10)
     win2.movie.show()
 
-    #cb = notifier.Callback(buffer_vo_callback, win2)
+    #cb = kaa.Callback(buffer_vo_callback, win2)
     vo = x.open_video_driver("buffer", passthrough = x.load_video_output_plugin("xv", window=win))
     #vo = x.open_video_driver("xv", window = win)
 else:
@@ -300,7 +300,7 @@ stream = x.new_stream(ao, vo)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 if "aspect_changed" in win.signals:
     win.signals["aspect_changed"].connect_weak(handle_aspect_changed, stream, win)
-kaa.signals["step"].connect_weak(output_status_line, stream, win)
+kaa.main.signals["step"].connect_weak(output_status_line, stream, win)
 
 stream.deint_post = x.post_init("tvtime", video_targets = [vo])
 stream.deint_post.set_parameters(method = "GreedyH", enabled = True)
@@ -343,7 +343,7 @@ stream.play()
 #win.show()
 #win.set_fullscreen(True)
 
-kaa.main()
+kaa.main.run()
 win.hide()
 del stream, ao, vo, x, win, expand#, eq2
 #del win2, r

@@ -19,4 +19,4 @@ container.add_child(frame, width = "75%", height = "50%")
 text = kaa.canvas.Text("Text inside a container.")
 container.add_child(text, hcenter = "50%", vcenter = "50%")
 
-kaa.main()
+kaa.main.run()

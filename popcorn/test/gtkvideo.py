@@ -14,4 +14,4 @@ kaa.popcorn.config.preferred = 'mplayer'
 player.set_window(vidwin)
 player.open(sys.argv[1])
 player.play()
-kaa.main()
+kaa.main.run()

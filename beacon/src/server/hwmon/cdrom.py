@@ -64,8 +64,8 @@ except:
         CDS_NO_DISC = 1
         CDS_DISC_OK = 4
 
-import kaa.notifier
-from kaa.notifier import Timer, MainThreadCallback, Signal
+import kaa
+from kaa import Timer, MainThreadCallback, Signal
 from kaa.ioctl import ioctl
 import kaa.metadata
 
@@ -82,7 +82,7 @@ signals = { 'add': Signal(),
 
 _rom_drives = []
 
-@kaa.notifier.execute_in_thread('beacon.cdrom')
+@kaa.execute_in_thread('beacon.cdrom')
 def eject(device):
     # open fd to the drive
     try:
@@ -117,7 +117,7 @@ class Device(object):
         cmd = ('mount', self.prop['block.device'])
         if umount:
             cmd = ('umount', self.prop['block.device'])
-        proc = kaa.notifier.Process(cmd)
+        proc = kaa.Process(cmd)
         proc.signals['stdout'].connect(log.warning)
         proc.signals['stderr'].connect(log.error)
         proc.start()
@@ -174,7 +174,7 @@ class RomDrive(object):
         self.disc = None
 
 
-    @kaa.notifier.execute_in_thread('beacon.cdrom')
+    @kaa.execute_in_thread('beacon.cdrom')
     def check(self):
         log.debug('check drive status %s', self.device)
 

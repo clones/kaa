@@ -15,4 +15,4 @@ else: # X11
     canvas = kaa.canvas.X11Canvas(size)
 
 canvas.from_xml(sys.argv[1])
-kaa.main()
+kaa.main.run()

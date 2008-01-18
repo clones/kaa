@@ -39,7 +39,6 @@ import struct
 import kaa
 from kaa import shm
 import kaa.utils
-import kaa.notifier
 import kaa.display
 
 # kaa.popcorn base imports
@@ -90,7 +89,7 @@ def _get_mplayer_info(path, callback = None, mtime = None):
             # We need to run MPlayer to get these values.  Create a signal,
             # call ourself as a thread, and return the signal back to the
             # caller.
-            thread = kaa.notifier.Thread(_get_mplayer_info, path, None, mtime)
+            thread = kaa.Thread(_get_mplayer_info, path, None, mtime)
             # Thread class ensures the callbacks get invoked in the main
             # thread.
             thread.signals["completed"].connect(callback)
@@ -172,7 +171,7 @@ class MPlayer(MediaPlayer):
         self._filters_add = []
 
         self._mp_info = _get_mplayer_info(self._mp_cmd, self._handle_mp_info)
-        self._check_new_frame_t = kaa.notifier.WeakTimer(self._check_new_frame)
+        self._check_new_frame_t = kaa.WeakTimer(self._check_new_frame)
         self._cur_outbuf_mode = [True, False, None] # vo, shmem, size
 
 
@@ -340,7 +339,7 @@ class MPlayer(MediaPlayer):
         # caller can still change stuff before calling play. Mplayer doesn't
         # work that way so we have to run mplayer with -identify first.
         args = "-nolirc -nojoystick -identify -vo null -ao null -frames 0 -nocache"
-        ident = kaa.notifier.Process(self._mp_cmd)
+        ident = kaa.Process(self._mp_cmd)
         signal = ident.start(args.split(' ') + self._media.mplayer_args)
         signal.connect_weak(self._ident_exited)
         ident.signals["stdout"].connect_weak(self._child_handle_line)

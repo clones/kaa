@@ -31,8 +31,9 @@ __all__ = ['PlayerOSDCanvas', 'Movie', 'SEEK_RELATIVE', 'SEEK_ABSOLUTE', 'SEEK_P
 from displays.buffer import BufferCanvas
 from displays.x11 import X11Canvas
 from image import *
+import kaa
 import kaa.popcorn
-from kaa import notifier, display, evas, weakref
+from kaa import display, evas, weakref
 from kaa.popcorn import SEEK_RELATIVE, SEEK_ABSOLUTE, SEEK_PERCENTAGE
 
 
@@ -111,15 +112,15 @@ class Movie(Image):
         self.osd = None
 
         self.signals.update({
-            "pause": notifier.Signal(),
-            "play": notifier.Signal(),
-            "pause_toggle": notifier.Signal(),
-            "seek": notifier.Signal(),
-            "open": notifier.Signal(),
-            "start": notifier.Signal(),
+            "pause": kaa.Signal(),
+            "play": kaa.Signal(),
+            "pause_toggle": kaa.Signal(),
+            "seek": kaa.Signal(),
+            "open": kaa.Signal(),
+            "start": kaa.Signal(),
             # Stream ended (either stopped by user or finished)
-            "end": notifier.Signal(),
-            "stream_changed": notifier.Signal()
+            "end": kaa.Signal(),
+            "stream_changed": kaa.Signal()
         })
 
         for signal in self.signals:

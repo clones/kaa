@@ -7,7 +7,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -53,7 +53,7 @@ if not __site__ in sys.path:
     sys.path.insert(0, __site__)
 
 # kaa imports
-import kaa.notifier
+import kaa
 import kaa.db
 import kaa.beacon
 import kaa.utils
@@ -150,7 +150,7 @@ def uptodate():
     print 'Beacon has finished the query and parsing.'
 
 
-@kaa.notifier.yield_execution()
+@kaa.yield_execution()
 def main():
     try:
         # list of modes this script can start in
@@ -205,7 +205,7 @@ def main():
 
     if mode == 'info':
         info = kaa.beacon.get_db_info()
-        if isinstance(info, kaa.notifier.InProgress):
+        if isinstance(info, kaa.InProgress):
             yield info
             info = info.get_result()
         print 'Beacon database information:'
@@ -263,7 +263,7 @@ def main():
     t1 = time.time()
     if 'dirname' in query:
         async = kaa.beacon.get(query['dirname'])
-        if isinstance(async, kaa.notifier.InProgress):
+        if isinstance(async, kaa.InProgress):
             yield async
             directory = async.get_result()
         if 'recursive' in query:
@@ -295,10 +295,10 @@ def main():
         result.signals['up-to-date'].connect(uptodate)
         result.monitor()
 
-    kaa.notifier.loop()
+    kaa.main.run()
     sys.exit(0)
 
 if __name__ == '__main__':
     main()
-    kaa.notifier.loop()
+    kaa.main.run()
     

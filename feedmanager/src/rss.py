@@ -36,7 +36,7 @@ import urllib
 import urllib2
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # feedmanager imports
 import feedparser as _feedparser
@@ -46,7 +46,7 @@ import core
 log = logging.getLogger('feedmanager')
 isotime = '%a, %d %b %Y %H:%M:%S'
 
-@kaa.notifier.execute_in_thread()
+@kaa.execute_in_thread()
 def feedparser(url):
     """
     feedparser.parse wrapper in a thread.
@@ -80,7 +80,7 @@ class Feed(core.Feed):
             # FIXME: beacon does not thumbnail the image without
             # a rescan of the directory!
             feedimage = self._get_image(feedimage)
-            if isinstance(feedimage, kaa.notifier.InProgress):
+            if isinstance(feedimage, kaa.InProgress):
                 yield feedimage
                 feedimage = feedimage.get_result()
 

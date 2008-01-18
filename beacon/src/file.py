@@ -35,7 +35,7 @@ import stat
 import time
 import logging
 
-import kaa.notifier
+import kaa
 
 # kaa.beacon imports
 from item import Item
@@ -128,7 +128,7 @@ class File(Item):
         Returns either False if not connected or an InProgress object.
         """
         result = self._beacon_controller()._beacon_parse(self)
-        if isinstance(result, kaa.notifier.InProgress):
+        if isinstance(result, kaa.InProgress):
             result.connect_once(self._beacon_database_update)
         return result
 
@@ -137,7 +137,7 @@ class File(Item):
     # Internal API for client and server
     # -------------------------------------------------------------------------
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _beacon_listdir(self, cache=False, async=False):
         """
         Internal function to list all files in the directory and the overlay
@@ -206,7 +206,7 @@ class File(Item):
                     # call yield YieldContinue at this point to continue
                     # later.
                     timer = time.time()
-                    yield kaa.notifier.YieldContinue
+                    yield kaa.YieldContinue
 
         # We want to avoid lambda on large data sets, so we sort the keys,
         # which is just a list of files.  This is the common case that sort()

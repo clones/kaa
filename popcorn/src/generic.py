@@ -36,7 +36,7 @@ import os
 import logging
 
 # kaa imports
-import kaa.notifier
+import kaa
 import kaa.metadata
 
 # kaa.popcorn imports
@@ -59,7 +59,7 @@ def required_states(*states):
             if self._get_state() in states and not self._pending:
                 return func(self, *args, **kwargs)
             # print 'pending:', func, self.get_state(), states
-            callback = kaa.notifier.Callback(func, self, *args, **kwargs)
+            callback = kaa.Callback(func, self, *args, **kwargs)
             self._pending.append((states, callback))
 
         try:
@@ -123,27 +123,27 @@ class Player(object):
         self.signals = {
 
             # signals created by this class
-            "open": kaa.notifier.Signal(),
-            "start": kaa.notifier.Signal(),
-            "play": kaa.notifier.Signal(),
-            "end": kaa.notifier.Signal(),
-            "failed": kaa.notifier.Signal(),
-            "pause": kaa.notifier.Signal(),
-            "pause_toggle": kaa.notifier.Signal(),
+            "open": kaa.Signal(),
+            "start": kaa.Signal(),
+            "play": kaa.Signal(),
+            "end": kaa.Signal(),
+            "failed": kaa.Signal(),
+            "pause": kaa.Signal(),
+            "pause_toggle": kaa.Signal(),
 
-            # "seek": kaa.notifier.Signal(),
+            # "seek": kaa.Signal(),
             # Process died (shared memory will go away)
-            # "shm_quit": kaa.notifier.Signal()
+            # "shm_quit": kaa.Signal()
 
             # pass thru signals from player
-            "elapsed": kaa.notifier.Signal(),
-            "stream_changed": kaa.notifier.Signal(),
+            "elapsed": kaa.Signal(),
+            "stream_changed": kaa.Signal(),
             # Emitted when a new frame is availabnle.  See
             # set_frame_output_mode() doc for more info.
-            "frame": kaa.notifier.Signal(), # CAP_CANVAS
+            "frame": kaa.Signal(), # CAP_CANVAS
             # Emitted when OSD buffer has changed.  See osd_update() doc
             # for more info.
-            "osd_configure": kaa.notifier.Signal(),  # CAP_OSD
+            "osd_configure": kaa.Signal(),  # CAP_OSD
         }
 
         # pending commands

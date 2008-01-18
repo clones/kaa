@@ -7,7 +7,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.feedmanager - Manage RSS/Atom Feeds
-# Copyright (C) 2007 Dirk Meyer
+# Copyright (C) 2007-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -33,7 +33,6 @@
 import sys
 
 import kaa
-import kaa.notifier
 import kaa.beacon
 
 kaa.beacon.connect()
@@ -116,7 +115,7 @@ elif sys.argv[1] in ('--remove', '-r') and len(sys.argv) > 2:
 
 elif sys.argv[1] in ('--update', '-u'):
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def update():
         n = None
         if len(sys.argv) > 2:
@@ -135,7 +134,7 @@ elif sys.argv[1] in ('--update', '-u'):
                     print 'failed'
         sys.exit(0)
         
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def parallel_update():
         global active
         active = 0
@@ -167,4 +166,4 @@ elif sys.argv[1] in ('--update', '-u'):
 else:
     help()
     
-kaa.main()
+kaa.main.run()

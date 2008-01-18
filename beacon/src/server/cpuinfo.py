@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -37,7 +37,7 @@ import os
 import time
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 _stat = None, None
 _proc = None, None
@@ -77,7 +77,7 @@ def _poll(pid):
 
 
 # Timer that polls cpu stats.  Started on demand.
-_timer = kaa.notifier.Timer(_poll, os.getpid())
+_timer = kaa.Timer(_poll, os.getpid())
 
 def cpuinfo():
     """
@@ -140,16 +140,16 @@ if __name__ == '__main__':
     def debug():
         print "CPU:", cpuinfo()
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def add_load():
         x = 0
         for i in range(300000):
-            yield kaa.notifier.YieldContinue
+            yield kaa.YieldContinue
         print "Done load generation"
 
     add_load()
-    t = kaa.notifier.Timer(debug)
+    t = kaa.Timer(debug)
     t.start(1)
-    kaa.notifier.OneShotTimer(t.stop).start(4)
-    kaa.notifier.OneShotTimer(t.start, 1).start(10)
-    kaa.main()
+    kaa.OneShotTimer(t.stop).start(4)
+    kaa.OneShotTimer(t.start, 1).start(10)
+    kaa.main.run()

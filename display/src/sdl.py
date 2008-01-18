@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.display - Generic Display Module
-# Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2005, 2006, 2008 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -33,7 +33,7 @@
 import pygame
 import pygame.locals
 import time
-import kaa.notifier
+import kaa
 
 # the display module
 import _SDL
@@ -57,11 +57,11 @@ class PygameDisplay(object):
         else:
             self._surface = None
         # define signals
-        self.signals = { 'key_press_event' : kaa.notifier.Signal(),
-                         'mouse_up_event'  : kaa.notifier.Signal(),
-                         'mouse_down_event': kaa.notifier.Signal() }
+        self.signals = { 'key_press_event' : kaa.Signal(),
+                         'mouse_up_event'  : kaa.Signal(),
+                         'mouse_down_event': kaa.Signal() }
         # connect to idle loop
-        kaa.notifier.signals['step'].connect(self.poll)
+        kaa.main.signals['step'].connect(self.poll)
         # keyboard settings
         pygame.key.set_repeat(500, 30)
         # mouse settings

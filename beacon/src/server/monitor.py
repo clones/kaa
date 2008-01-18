@@ -34,9 +34,9 @@
 import logging
 
 # kaa imports
+import kaa
 from kaa.weakref import weakref
-import kaa.notifier
-from kaa.notifier import OneShotTimer, Timer, YieldContinue
+from kaa import OneShotTimer, Timer, YieldContinue
 
 # kaa.beacon imports
 from kaa.beacon.item import Item
@@ -127,7 +127,7 @@ class Monitor(object):
             pass
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def check(self, changes):
         """
         This function compares the last query result with the current db status
@@ -150,7 +150,7 @@ class Monitor(object):
             self._check_changes = []
 
         current = self._db.query(**self._query)
-        if isinstance(current, kaa.notifier.InProgress):
+        if isinstance(current, kaa.InProgress):
             self._checking = True
             yield current
             current = current()
@@ -201,7 +201,7 @@ class Monitor(object):
         yield True
 
 
-    @kaa.notifier.yield_execution(0.01)
+    @kaa.yield_execution(0.01)
     def _initial_scan(self):
         """
         Start scanning the current list of items if they need to be updated.
@@ -210,7 +210,7 @@ class Monitor(object):
         self._checking = True
 
         current = self._db.query(**self._query)
-        if isinstance(current, kaa.notifier.InProgress):
+        if isinstance(current, kaa.InProgress):
             yield current
             current = current()
         self.items = current
@@ -247,7 +247,7 @@ class Monitor(object):
         for pos, item in enumerate(changed):
             self.notify_client('progress', pos+1, len(changed), item.url)
             async = item.scan()
-            if isinstance(async, kaa.notifier.InProgress):
+            if isinstance(async, kaa.InProgress):
                 yield async
             if not self._running:
                 break
@@ -258,7 +258,7 @@ class Monitor(object):
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
         current = self._db.query(**self._query)
-        if isinstance(current, kaa.notifier.InProgress):
+        if isinstance(current, kaa.InProgress):
             yield current
             current = current()
         self.items = current

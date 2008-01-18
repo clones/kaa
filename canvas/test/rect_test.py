@@ -12,4 +12,4 @@ box = canvas.add_child(kaa.canvas.HBox())
 box.add_child(kaa.canvas.Rectangle(), width="30%", height="100%", color = "#ff0000")
 box.add_child(kaa.canvas.Rectangle(), width="70%", height="100%", color = "#0000ff")
 
-kaa.main()
+kaa.main.run()

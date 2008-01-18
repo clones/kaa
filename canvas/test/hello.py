@@ -16,4 +16,4 @@ hello = kaa.canvas.Text("Hello world!")
 hello.move(hcenter = "50%", vcenter = "50%")
 canvas.add_child(hello)
 
-kaa.main()
+kaa.main.run()

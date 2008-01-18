@@ -10,7 +10,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.display - Generic Display Module
-# Copyright (C) 2007 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2007-2008 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -34,7 +34,7 @@
 # -----------------------------------------------------------------------------
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # kaa.display imports
 from x11 import X11Display
@@ -47,7 +47,7 @@ class GTKWindow(object):
         self._window = window
 
         # FIXME: connect to GTK signals
-        self.signals = kaa.notifier.Signals(
+        self.signals = kaa.Signals(
             "key_press_event", # key pressed
             "focus_in_event",  # window gets focus
             "focus_out_event", # window looses focus

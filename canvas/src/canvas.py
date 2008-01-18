@@ -33,7 +33,7 @@ import _weakref
 import kaa
 import logging
 from kaa.weakref import weakref
-from kaa.notifier import Signal, WeakCallback
+from kaa import Signal, WeakCallback
 from container import *
 try:
     from kaa import imlib2
@@ -56,7 +56,7 @@ class Canvas(Container):
             "updated": Signal()
         })
 
-        kaa.signals["step"].connect_weak(self._render_queued)
+        kaa.main.signals["step"].connect_weak(self._render_queued)
         self._supported_sync_properties += ["fontpath"]
 
         font_path = []

@@ -29,7 +29,7 @@
 __all__ = [ 'Container' ]
 
 import _weakref
-from kaa.notifier import Signal
+from kaa import Signal
 from object import *
 from image import *
 from rectangle import *

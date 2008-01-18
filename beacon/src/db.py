@@ -39,7 +39,7 @@ import logging
 import time
 
 # kaa imports
-import kaa.notifier
+import kaa
 from kaa import db
 from kaa.db import *
 
@@ -135,7 +135,7 @@ class Database(object):
         self._db = db.Database(self._db_directory + '/db')
 
         self.signals = {
-            'changed': kaa.notifier.Signal()
+            'changed': kaa.Signal()
             }
 
 
@@ -222,7 +222,7 @@ class Database(object):
         return result
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _db_query_dir(self, parent):
         """
         A query to get all files in a directory. The parameter parent is a
@@ -240,7 +240,7 @@ class Database(object):
 
         listing = parent._beacon_listdir(async=True)
 
-        if isinstance(listing, kaa.notifier.InProgress):
+        if isinstance(listing, kaa.InProgress):
             # oops, something takes more time than we had in mind,
             yield listing
             # when we reach this point, we can continue
@@ -320,7 +320,7 @@ class Database(object):
         yield items
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _db_query_dir_recursive(self, parent):
         """
         Return all files in the directory 'parent' including files in
@@ -361,7 +361,7 @@ class Database(object):
                 # call yield YieldContinue at this point to continue
                 # later.
                 timer = time.time()
-                yield kaa.notifier.YieldContinue
+                yield kaa.YieldContinue
 
         # sort items based on name. The listdir is also sorted by name,
         # that makes checking much faster
@@ -414,7 +414,7 @@ class Database(object):
         return result
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _db_query_raw(self, query):
         """
         Do a 'raw' query. This means to query the database and create
@@ -457,7 +457,7 @@ class Database(object):
                 # call yield YieldContinue at this point to continue
                 # later.
                 timer = time.time()
-                yield kaa.notifier.YieldContinue
+                yield kaa.YieldContinue
 
         if not 'keywords' in query:
             # sort results by url (name is not unique) and return

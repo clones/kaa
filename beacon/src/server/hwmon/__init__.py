@@ -33,9 +33,6 @@
 import time
 import socket
 
-# kaa imports
-import kaa.notifier
-
 # kaa.beacon.server.hwmon imports
 from client import Client as _Client
 

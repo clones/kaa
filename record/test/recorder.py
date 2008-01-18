@@ -3,7 +3,6 @@ import time
 import logging
 
 import kaa
-from kaa.notifier import OneShotTimer
 from kaa.record import DvbDevice, Filewriter, Recording
 
 dvb = DvbDevice('/dev/dvb/adapter0', '/home/dmeyer/.freevo/channels.conf')
@@ -26,10 +25,10 @@ if 1:
     id = dvb.start_recording('arte', chain)
 
     # stop record after 10 seconds
-    t = OneShotTimer(dvb.stop_recording, id).start(10)
+    t = kaa.OneShotTimer(dvb.stop_recording, id).start(10)
 
     # stop test after 15 seconds
-    t = OneShotTimer(sys.exit, 0).start(15)
+    t = kaa.OneShotTimer(sys.exit, 0).start(15)
 
 if 0:
     chain.append(kaa.record.Filewriter('foo.mpg', 0))
@@ -51,7 +50,7 @@ if 0:
     r.signals['stop'].connect(rec_stopped, r)
 
     # stop test after 15 seconds
-    t = OneShotTimer(sys.exit, 0).start(15)
+    t = kaa.OneShotTimer(sys.exit, 0).start(15)
 
 if 0:
     chain.append(kaa.record.UDPSend('127.0.0.1:12345'))
@@ -60,6 +59,6 @@ if 0:
     id = dvb.start_recording('ZDF', chain)
 
     # stop test after 60 seconds
-    t = OneShotTimer(sys.exit, 0).start(60)
+    t = kaa.OneShotTimer(sys.exit, 0).start(60)
 
-kaa.main()
+kaa.main.run()

@@ -30,7 +30,8 @@ __all__ = [ 'Image' ]
 
 from object import *
 import types, os, re
-from kaa import evas, notifier
+import kaa
+from kaa import evas
 
 try:
     from kaa import imlib2
@@ -94,7 +95,7 @@ class Image(Object):
 
         # For animated images
         self._mng = None
-        self._update_frame_timer = notifier.WeakTimer(self._update_frame)
+        self._update_frame_timer = kaa.WeakTimer(self._update_frame)
 
         if image_or_file:
             self.set_image(image_or_file)
@@ -294,7 +295,7 @@ class Image(Object):
             if not _mng:
                 raise ValueError, "MNG support has not been enabled"
 
-            self._mng = _mng.MNG(notifier.WeakCallback(self._mng_refresh))
+            self._mng = _mng.MNG(kaa.WeakCallback(self._mng_refresh))
             width, height, delay, buffer = self._mng.open(bytes)
             self["data"] = width, height, buffer, False
             return

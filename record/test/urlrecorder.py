@@ -4,7 +4,6 @@ import logging
 import socket
 
 import kaa
-from kaa.notifier import OneShotTimer
 from kaa.record import URLDevice, Filewriter, Recording
 
 logging.getLogger('record').setLevel(logging.DEBUG)
@@ -25,12 +24,12 @@ if 1:
     idB = dev.start_recording('2', chain2)
 
     # stop record after 10 seconds
-    t = OneShotTimer(dev.stop_recording, idA).start(10)
+    t = kaa.OneShotTimer(dev.stop_recording, idA).start(10)
 
     # stop record after 20 seconds
-    t = OneShotTimer(dev.stop_recording, idB).start(20)
+    t = kaa.OneShotTimer(dev.stop_recording, idB).start(20)
 
     # stop test after 15 seconds
-    t = OneShotTimer(sys.exit, 0).start(22)
+    t = kaa.OneShotTimer(sys.exit, 0).start(22)
 
-kaa.main()
+kaa.main.run()

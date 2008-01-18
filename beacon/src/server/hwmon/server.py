@@ -38,7 +38,6 @@ import logging
 
 # kaa imports
 import kaa.rpc
-import kaa.notifier
 import kaa.metadata
 
 # import the different hardware monitor modules

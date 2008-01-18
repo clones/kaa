@@ -39,8 +39,8 @@ import xml.sax
 import xml.sax.saxutils
 
 # kaa imports
+import kaa
 from kaa import TEMP
-import kaa.notifier
 
 from config_xmltv import config
 
@@ -281,7 +281,7 @@ class XmltvParser(object):
             self.channels[channel_id][1] = (start, title, attr)
 
 
-@kaa.notifier.execute_in_thread('epg')
+@kaa.execute_in_thread('epg')
 def update(epg):
     """
     Interface to source_xmltv.
@@ -294,7 +294,7 @@ def update(epg):
             xmltv_file = config.data_file
         log_file = os.path.join(TEMP, 'TV.xml.log')
         # TODO: using os.system is ugly because it blocks ... but we can make this
-        # nicer using kaa.notifier.Process later. We are inside a thread so it
+        # nicer using kaa.Process later. We are inside a thread so it
         # seems to be ok.
         ec = os.system('%s --output %s --days %s >%s 2>%s' % \
                        (config.grabber, xmltv_file, epg_config.days, log_file, log_file))

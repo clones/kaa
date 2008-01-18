@@ -26,7 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
-from kaa import notifier
+import kaa
 import time, math, _weakref
 
 __all__ = ["animate", "register_animator_method"]
@@ -42,7 +42,7 @@ def _step_animators():
         for anim in animators:
             anim.step()
 
-_step_animators_timer = notifier.Timer(_step_animators)
+_step_animators_timer = kaa.Timer(_step_animators)
 _step_animators_timer.restart_when_active = False
 
 

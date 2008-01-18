@@ -31,7 +31,7 @@ import sys
 import os
 
 # kaa imports
-from kaa.notifier import WeakCallback
+from kaa import WeakCallback
 
 # kaa.popcorn imports
 from kaa.popcorn.backends.base import MediaPlayer, runtime_policy, \

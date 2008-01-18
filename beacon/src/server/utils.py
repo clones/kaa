@@ -32,7 +32,7 @@
 __all__ = [ 'BurstHandler', 'do_thumbnail' ]
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 class BurstHandler(object):
     """
@@ -44,7 +44,7 @@ class BurstHandler(object):
     def __init__(self, interval, callback):
         self._ts = {}
         self._thumb = {}
-        self._timer = kaa.notifier.WeakTimer(self._poll)
+        self._timer = kaa.WeakTimer(self._poll)
         self._timer.start(interval)
         self._callback = callback
         self._all_instances.append(self)

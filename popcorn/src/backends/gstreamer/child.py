@@ -36,9 +36,9 @@ import pygst
 pygst.require('0.10')
 import gst
 
-# import kaa.notifier and set mainloop to glib
-import kaa.notifier
-kaa.notifier.init('gtk', x11=False)
+# import kaa and set mainloop to glib
+import kaa
+kaa.select_notifier('gtk', x11=False)
 
 # kaa.popcorn imports
 from kaa.popcorn.utils import Player
@@ -57,7 +57,7 @@ class GStreamer(Player):
         # create gst object
         self._gst = gst.element_factory_make("playbin", "player")
         self._gst.get_bus().add_watch(self._gst_message)
-        self._timer = kaa.notifier.WeakTimer(self._get_position)
+        self._timer = kaa.WeakTimer(self._get_position)
 
 
     def set_state(self, state):

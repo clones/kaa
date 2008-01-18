@@ -3,7 +3,7 @@
 import sys, math, threading, os, time, gc
 
 import kaa, kaa.input, kaa.input.stdin
-from kaa import xine, display, metadata, notifier
+from kaa import xine, display, metadata
 
 if len(sys.argv) <= 1:
     print "Usage: %s [mrl]" % sys.argv[0]
@@ -195,15 +195,15 @@ x = xine.Xine()
 #vo = x.open_video_driver("sdl", window = win)
 #vo = x.open_video_driver("xv", window = win)
 win._aspect = -1
-vo = x.open_video_driver("xv", wid = win.get_id(), frame_output_cb = notifier.WeakCallback(x._default_frame_output_cb, win), 
-    dest_size_cb = notifier.WeakCallback(x._default_dest_size_cb, win))
+vo = x.open_video_driver("xv", wid = win.get_id(), frame_output_cb = kaa.WeakCallback(x._default_frame_output_cb, win), 
+    dest_size_cb = kaa.WeakCallback(x._default_dest_size_cb, win))
 
 ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
 stream.signals["event"].connect(handle_xine_event)
 stream.is_in_menu = False
 
-kaa.signals["step"].connect_weak(output_status_line, stream, win)
+kaa.main.signals["step"].connect_weak(output_status_line, stream, win)
 kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream, win)
 win.signals["key_press_event"].connect_weak(handle_keypress_event, stream, win)
 
@@ -256,7 +256,7 @@ goom_post = None
 
 play_next_queued()
 
-kaa.main()
+kaa.main.run()
 win.hide()
 
 # Test garbage collection

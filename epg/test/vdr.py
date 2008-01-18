@@ -35,7 +35,7 @@ import logging
 
 # kaa imports
 from kaa import strutils
-import kaa.notifier
+import kaa
 from kaa.config import Var, Group
 from config_vdr import config
 
@@ -95,7 +95,7 @@ def _update_data_thread(epg, vdr_dir=None, channels_file=None, epg_file=None,
     info.epg              = epg
     info.progress_step    = info.total / 100
 
-    timer = kaa.notifier.Timer(_update_process_step, info)
+    timer = kaa.Timer(_update_process_step, info)
     timer.start(0)
 
 
@@ -144,7 +144,7 @@ def update(epg, vdr_dir=None, channels_file=None, epg_file=None,
            host=None, port=None, access_by='sid', limit_channels=''):
     log.debug('update')
 
-    thread = kaa.notifier.Thread(_update_data_thread, epg, vdr_dir,
+    thread = kaa.Thread(_update_data_thread, epg, vdr_dir,
                                  channels_file, epg_file, host, port, access_by,
                                  limit_channels)
     thread.start()

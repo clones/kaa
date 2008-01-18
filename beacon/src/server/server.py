@@ -36,8 +36,8 @@ import sys
 import logging
 
 # kaa imports
+from kaa import OneShotTimer, Timer, Callback
 import kaa.rpc
-from kaa.notifier import OneShotTimer, Timer, Callback
 from kaa.notifier.url import add_password
 
 # kaa.beacon server imports
@@ -287,7 +287,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('monitor.directory')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def monitor_dir(self, directory):
         """
         Monitor a directory in the background. One directories with a monitor
@@ -300,7 +300,7 @@ class Server(object):
 
         directory = os.path.realpath(directory)
         data = self._db.query(filename = directory)
-        if isinstance(data, kaa.notifier.InProgress):
+        if isinstance(data, kaa.InProgress):
             yield data
             data = data()
         items = []
@@ -310,14 +310,14 @@ class Server(object):
             items.append(i)
         while items:
             async = parser.parse(self._db, items.pop())
-            if isinstance(async, kaa.notifier.InProgress):
+            if isinstance(async, kaa.InProgress):
                 yield async
         log.info('monitor %s on %s', directory, data._beacon_media)
         data._beacon_media.crawler.append(data)
 
 
     @kaa.rpc.expose('monitor.add')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def monitor_add(self, client_id, request_id, query):
         """
         Create a monitor object to monitor a query for a client.
@@ -326,7 +326,7 @@ class Server(object):
         if query and 'parent' in query:
             type, id = query['parent']
             result = self._db.query(type=type, id=id)[0]
-            if isinstance(result, kaa.notifier.InProgress):
+            if isinstance(result, kaa.InProgress):
                 yield result
                 result = result()
             query['parent'] = result
@@ -361,7 +361,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('item.update')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def update(self, items):
         """
         Update items from the client.
@@ -375,13 +375,13 @@ class Server(object):
 
 
     @kaa.rpc.expose('item.request')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def request(self, filename):
         """
         Request item data.
         """
         data = self._db.query(filename=filename)
-        if isinstance(data, kaa.notifier.InProgress):
+        if isinstance(data, kaa.InProgress):
             yield data
             data = data()
         items = []
@@ -391,19 +391,19 @@ class Server(object):
             items.append(i)
         while items:
             async = parser.parse(self._db, items.pop())
-            if isinstance(async, kaa.notifier.InProgress):
+            if isinstance(async, kaa.InProgress):
                 yield async
         yield data._beacon_data
 
 
     @kaa.rpc.expose('item.create')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def item_create(self, type, parent, **kwargs):
         """
         Create a new item.
         """
         data = self._db.query(id=parent)
-        if isinstance(data, kaa.notifier.InProgress):
+        if isinstance(data, kaa.InProgress):
             yield data
             data = data()
         while self._db.read_lock.is_locked():
@@ -412,7 +412,7 @@ class Server(object):
 
     
     @kaa.rpc.expose('item.delete')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def item_delete(self, id):
         """
         Create a new item.

@@ -10,7 +10,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -43,7 +43,6 @@ import kaa
 import kaa.rpc
 import kaa.strutils
 from kaa.weakref import weakref
-from kaa.notifier import OneShotTimer, Signal
 
 # kaa.beacon imports
 from db import Database
@@ -70,10 +69,10 @@ class Client(object):
         self._db = None
 
         self.signals = {
-            'connect'   : Signal(),
-            'disconnect': Signal(),
-            'media.add' : Signal(),
-            'media.remove': Signal()
+            'connect'   : kaa.Signal(),
+            'disconnect': kaa.Signal(),
+            'media.add' : kaa.Signal(),
+            'media.remove': kaa.Signal()
         }
 
         # internal list of active queries
@@ -81,7 +80,7 @@ class Client(object):
         # internal list of items to update
         self._changed = []
         # add ourself to shutdown handler for correct disconnect
-        kaa.signals['shutdown'].connect(self._shutdown)
+        kaa.main.signals['shutdown'].connect(self._shutdown)
         self.status = DISCONNECTED
         self._connect()
 
@@ -97,7 +96,7 @@ class Client(object):
     # Public API
     # -------------------------------------------------------------------------
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def get(self, filename):
         """
         Return an object for the given filename.
@@ -115,10 +114,10 @@ class Client(object):
         """
         Query the database.
         """
-        if not kaa.notifier.is_mainthread():
+        if not kaa.is_mainthread():
             # sqlite db was opened in the mainthread, so we must perform
             # all our queries there as well.
-            cb = kaa.notifier.MainThreadCallback(self.query)
+            cb = kaa.MainThreadCallback(self.query)
             cb.set_async(False)
             return cb(**query)
 
@@ -167,14 +166,14 @@ class Client(object):
             self.rpc('monitor.directory', directory)
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def get_db_info(self):
         """
         Returns information about the database.  Look at
         kaa.db.Database.get_db_info() for more details.
         """
         if self.status != CONNECTED:
-            yield kaa.notifier.YieldCallback(self.signals['connect'])
+            yield kaa.YieldCallback(self.signals['connect'])
         yield self._db.get_db_info()
 
 
@@ -238,7 +237,7 @@ class Client(object):
         if self.status != CONNECTED:
             return
         log.info('disconnected from beacon server')
-        kaa.notifier.WeakTimer(self._reconnect).start(2)
+        kaa.WeakTimer(self._reconnect).start(2)
         self.status = DISCONNECTED
         self.signals['disconnect'].emit()
 
@@ -303,7 +302,7 @@ class Client(object):
             return
         if not self._changed:
             # register timer to do the changes
-            OneShotTimer(self._beacon_update_all).start(0.1)
+            kaa.OneShotTimer(self._beacon_update_all).start(0.1)
         self._changed.append(item)
 
 
@@ -323,7 +322,7 @@ class Client(object):
         self.rpc('item.update', items)
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _beacon_media_information(self, media):
         """
         Get some basic media information.
@@ -353,7 +352,7 @@ class Client(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose('connect')
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _connected(self, id, database, media):
         """
         Callback to pass the database information to the client.

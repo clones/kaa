@@ -36,7 +36,7 @@ import os
 import logging
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # kaa.beacon imports
 import utils
@@ -71,7 +71,7 @@ class Media(object):
         self._controller.eject(self)
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def update(self, prop):
         """
         Update media properties.
@@ -85,7 +85,7 @@ class Media(object):
             self.mountpoint += '/'
         # get basic information from database
         media = self._controller._beacon_media_information(self)
-        if isinstance(media, kaa.notifier.InProgress):
+        if isinstance(media, kaa.InProgress):
             # This will happen for the client because in the client
             # _beacon_media_information needs to lock the db.
             yield media
@@ -181,7 +181,7 @@ class MediaList(object):
         self._controller = controller
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def add(self, id, prop):
         """
         Add a media.
@@ -192,7 +192,7 @@ class MediaList(object):
             yield self._dict.get(id)
         media = Media(id, self._controller)
         async = media.update(prop)
-        if isinstance(async, kaa.notifier.InProgress):
+        if isinstance(async, kaa.InProgress):
             # This will happen for the client because update
             # needs to lock the db.
             yield async

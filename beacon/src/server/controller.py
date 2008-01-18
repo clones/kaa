@@ -32,7 +32,7 @@
 __all__ = [ 'Controller' ]
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # kaa.beacon imports
 import hwmon
@@ -60,7 +60,7 @@ class Controller(object):
         return parse(self._db, item)
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _beacon_update_all(self):
         """
         Timed callback to write all changes to the db.
@@ -82,7 +82,7 @@ class Controller(object):
         """
         if not self._changed:
             # register timer to do the changes
-            kaa.notifier.OneShotTimer(self._beacon_update_all).start(0.1)
+            kaa.OneShotTimer(self._beacon_update_all).start(0.1)
         self._changed.append(item)
 
 
@@ -93,7 +93,7 @@ class Controller(object):
         return self._db.query(**query)
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def delete_item(self, item):
         """
         Delete an item.

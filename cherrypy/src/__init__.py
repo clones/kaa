@@ -10,7 +10,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.cherrypy - Web Framework for Kaa based on CherryPy
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -56,4 +56,4 @@ def start():
     cherrypy.server.quickstart()
     cherrypy.engine.SIGHUP = cherrypy.engine.SIGTERM = None
     cherrypy.engine.start(blocking=False)
-    kaa.notifier.signals['shutdown'].connect(_stop)
+    kaa.main.signals['shutdown'].connect(_stop)

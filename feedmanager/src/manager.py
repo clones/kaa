@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.feedmanager - Manage RSS/Atom Feeds
-# Copyright (C) 2007 Dirk Meyer
+# Copyright (C) 2007-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -35,7 +35,7 @@ import logging
 from xml.dom import minidom
 
 # kaa imports
-import kaa.notifier
+import kaa
 from kaa.strutils import unicode_to_str
 
 # fallback RSS parser

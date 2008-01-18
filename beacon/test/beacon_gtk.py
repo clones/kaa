@@ -9,7 +9,6 @@ import gtk
 
 # now import kaa
 import kaa
-import kaa.notifier
 import kaa.beacon
 
 
@@ -137,4 +136,4 @@ class BeaconSearch:
         
 
 search = BeaconSearch()
-kaa.main()
+kaa.main.run()

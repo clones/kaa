@@ -37,7 +37,7 @@ import time
 import stat
 
 # kaa imports
-import kaa.notifier
+import kaa
 import kaa.metadata
 import kaa.imlib2
 import kaa.rpc
@@ -80,7 +80,7 @@ class Thumbnailer(object):
         self.clients = []
         self.jobs = []
         self._delayed_jobs = {}
-        self._timer = kaa.notifier.OneShotTimer(self.step)
+        self._timer = kaa.OneShotTimer(self.step)
         self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
         self._ipc.signals['client_connected'].connect(self.client_connect)
         self._ipc.connect(self)
@@ -154,7 +154,7 @@ class Thumbnailer(object):
         """
         Process one job
         """
-        if not self.jobs or kaa.notifier.shutting_down:
+        if not self.jobs or kaa.shutting_down:
             return False
 
         job = self.jobs.pop(0)

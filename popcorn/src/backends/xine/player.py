@@ -35,7 +35,6 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.notifier
 import kaa.shm
 import kaa.xine as xine
 
@@ -56,7 +55,7 @@ class Xine(MediaPlayer):
 
     def __init__(self, properties):
         super(Xine, self).__init__(properties)
-        self._check_new_frame_timer = kaa.notifier.WeakTimer(self._check_new_frame)
+        self._check_new_frame_timer = kaa.WeakTimer(self._check_new_frame)
         self._is_in_menu = False
         self._cur_frame_output_mode = [True, False, None] # vo, shmem, size
         self._child_spawn()
@@ -70,7 +69,7 @@ class Xine(MediaPlayer):
         # Launch self (-u is unbuffered stdout)
         script = os.path.join(os.path.dirname(__file__), 'main.py')
         self._xine = ChildProcess(self, script, gdb = log.getEffectiveLevel() == logging.DEBUG)
-        self._xine.set_stop_command(kaa.notifier.WeakCallback(self._xine.die))
+        self._xine.set_stop_command(kaa.WeakCallback(self._xine.die))
         signal = self._xine.start(str(self._osd_shmkey), str(self._frame_shmkey))
         signal.connect_weak(self._child_exited)
         self._xine_configured = False

@@ -38,6 +38,7 @@ import os
 import stat
 
 # kaa imports
+import kaa
 import kaa.rpc
 
 # kaa.beacon imports
@@ -137,7 +138,7 @@ class Client(object):
         self._device_add(dev)
 
 
-    @kaa.notifier.yield_execution(lock=True)
+    @kaa.yield_execution(lock=True)
     def _device_scanned(self, metadata, dev):
 
         # FIXME: ACTIVE WAITING:

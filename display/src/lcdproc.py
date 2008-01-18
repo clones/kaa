@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.display - Generic Display Module
-# Copyright (C) 2006 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2006-2008 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -37,7 +37,6 @@ import socket
 import logging
 
 # kaa imports
-import kaa.notifier
 import kaa
 from kaa.strutils import unicode_to_str
 
@@ -197,7 +196,7 @@ class LCD(object):
     """
     def __init__(self, server='127.0.0.1', port=13666):
         self.signals = {
-            'connected': kaa.notifier.Signal()
+            'connected': kaa.Signal()
         }
         self._connect(server, port)
         self._screenno = 0
@@ -220,13 +219,13 @@ class LCD(object):
         self.socket.write(line + '\n')
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _connect(self, server, port):
         """
         Connect to the server and init the connection.
         """
-        self.socket = kaa.notifier.Socket()
-        wait = kaa.notifier.YieldCallback()
+        self.socket = kaa.Socket()
+        wait = kaa.YieldCallback()
         self.socket.signals['connected'].connect_once(wait)
         self.socket.connect((server, port), async=True)
         yield wait
@@ -235,9 +234,9 @@ class LCD(object):
         if isinstance(result, (Exception, socket.error)):
             # try again later
             log.error('LCDproc: %s. Will try again later', result)
-            kaa.notifier.OneShotTimer(self._connect, server, port).start(10)
+            kaa.OneShotTimer(self._connect, server, port).start(10)
             yield False
-        wait = kaa.notifier.YieldCallback()
+        wait = kaa.YieldCallback()
         self.socket.signals['read'].connect_once(wait)
         self._send("hello")
         yield wait

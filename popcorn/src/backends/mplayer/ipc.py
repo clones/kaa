@@ -33,7 +33,7 @@ __all__ = [ 'ChildProcess' ]
 import logging
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # get logging object
 log = logging.getLogger('popcorn.mplayer')
@@ -91,12 +91,12 @@ class ChildProcess(object):
         if not command:
             return
         if self._gdb:
-            self._child = kaa.notifier.Process("gdb")
+            self._child = kaa.Process("gdb")
             self._command = command
         else:
-            self._child = kaa.notifier.Process(command)
+            self._child = kaa.Process(command)
         self.signals = self._child.signals
-        stop = kaa.notifier.WeakCallback(self._child_stop)
+        stop = kaa.WeakCallback(self._child_stop)
         self._child.set_stop_command(stop)
 
 

@@ -10,7 +10,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.cherrypy - Web Framework for Kaa based on CherryPy
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006,2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -38,7 +38,7 @@ import types
 import os
 
 # kaa imports
-from kaa.notifier import MainThreadCallback, is_mainthread
+import kaa
 
 engines = []
 
@@ -89,8 +89,8 @@ def expose(template=None, engine=None, mainloop=True):
 
         def newfunc(self, *args, **kwargs):
             _function = func
-            if mainloop and not is_mainthread():
-                _function = MainThreadCallback(func)
+            if mainloop and not kaa.is_mainthread():
+                _function = kaa.MainThreadCallback(func)
                 _function.set_async(False)
             result = _function(self, *args, **kwargs)
             if not template:

@@ -8,7 +8,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-record - A recording module
-# Copyright (C) 2005 Sönke Schwardt, Dirk Meyer
+# Copyright (C) 2005,2008 Sönke Schwardt, Dirk Meyer
 #
 # First Edition: Sönke Schwardt <bulk@schwardtnet.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -36,7 +36,7 @@ import os
 import logging
 
 # kaa imports
-from kaa.notifier import SocketDispatcher, Timer
+import kaa
 
 # kaa.record imports
 from _fdsplitter import FDSplitter as _FDSplitter
@@ -76,7 +76,7 @@ class FDSplitter(object):
         self._fdsplitter.set_input_type(inputtype)
 
         # create socket dispatcher
-        self.sd = SocketDispatcher( self._fdsplitter.read_fd_data )
+        self.sd = kaa.SocketDispatcher( self._fdsplitter.read_fd_data )
 
 
     def add_filter_chain(self, filter_chain):

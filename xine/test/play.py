@@ -3,7 +3,7 @@
 import sys, math, threading, os, time, gc
 
 import kaa, kaa.input, kaa.input.stdin
-from kaa import xine, display, metadata, notifier
+from kaa import xine, display, metadata
 
 
 #
@@ -91,8 +91,8 @@ if DISPLAY_TYPE == 'x11':
 
     vo = x.open_video_driver(
         "xv", wid = win.get_id(),
-        frame_output_cb = notifier.WeakCallback(x._default_frame_output_cb, win), 
-        dest_size_cb = notifier.WeakCallback(x._default_dest_size_cb, win))
+        frame_output_cb = kaa.WeakCallback(x._default_frame_output_cb, win), 
+        dest_size_cb = kaa.WeakCallback(x._default_dest_size_cb, win))
 
     # Hook the first resize event so we can show the window once we're resized
     # to the proper movie size.
@@ -121,12 +121,12 @@ ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)
 stream.signals["event"].connect(handle_xine_event)
 
-kaa.signals["step"].connect_weak(output_status_line, stream)
+kaa.main.signals["step"].connect_weak(output_status_line, stream)
 kaa.signals["stdin_key_press_event"].connect_weak(handle_keypress_event, stream)
 
 stream.open(sys.argv[1])
 stream.play()
 
-kaa.main()
+kaa.main.run()
 if DISPLAY_TYPE == 'x11':
     win.hide()

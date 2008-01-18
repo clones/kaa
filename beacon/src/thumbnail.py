@@ -50,7 +50,6 @@ import socket
 import kaa
 import kaa.rpc
 from kaa.weakref import weakref
-import kaa.notifier
 import kaa.metadata
 
 # kaa.thumb imports
@@ -75,7 +74,7 @@ class Job(object):
         self.valid = weakref(job)
         self.id = id
         self.priority = priority
-        self.signal = kaa.notifier.Signal()
+        self.signal = kaa.Signal()
         Job.all.append(self)
 
 _client = None

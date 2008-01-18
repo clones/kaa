@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006,2008 Dirk Meyer
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #                Dirk Meyer <dischi@freevo.org>
@@ -40,7 +40,7 @@ import stat
 import fuse
 import errno
 
-import kaa.notifier
+import kaa
 import kaa.utils
 
 # get logging object
@@ -237,7 +237,7 @@ class BeaconFS(fuse.Fuse):
     def main(self):
         """
         Main loop for fuse. This needs to be called in a thread. On fuse
-        shutdown, the kaa notifier main loop will be stopped.
+        shutdown, the kaa main loop will be stopped.
         """
 
         if True:
@@ -250,4 +250,4 @@ class BeaconFS(fuse.Fuse):
             
         self.check()
         fuse.Fuse.main(self)
-        kaa.notifier.MainThreadCallback(kaa.notifier.shutdown)()
+        kaa.MainThreadCallback(kaa.main.stop)()

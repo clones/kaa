@@ -3,7 +3,6 @@ import time
 import logging
 
 import kaa
-from kaa.notifier import OneShotTimer
 from kaa.record import IVTVDevice, Filewriter, Recording
 
 logging.getLogger('record').setLevel(logging.DEBUG)
@@ -24,13 +23,13 @@ def next():
     idB = ivtv.start_recording('14', chain2)
 
     # change the channel after 10 seconds
-    t = OneShotTimer(ivtv.setchannel, '11').start(10)
+    t = kaa.OneShotTimer(ivtv.setchannel, '11').start(10)
 
     # stop record after 20 seconds
-    t = OneShotTimer(ivtv.stop_recording, idB).start(20)
+    t = kaa.OneShotTimer(ivtv.stop_recording, idB).start(20)
 
     # stop test after 15 seconds
-    t = OneShotTimer(sys.exit, 0).start(15)
+    t = kaa.OneShotTimer(sys.exit, 0).start(15)
 
 
 if 1:
@@ -44,10 +43,10 @@ if 1:
     idA = ivtv.start_recording('17', chain)
 
     # stop record after 10 seconds
-    t = OneShotTimer(ivtv.stop_recording, idA).start(10)
+    t = kaa.OneShotTimer(ivtv.stop_recording, idA).start(10)
 
     # start another after 10 seconds
-    t = OneShotTimer(next).start(11)
+    t = kaa.OneShotTimer(next).start(11)
 
 
 if 0:
@@ -70,7 +69,7 @@ if 0:
     r.signals['stop'].connect(rec_stopped, r)
 
     # stop test after 15 seconds
-    t = OneShotTimer(sys.exit, 0).start(15)
+    t = kaa.OneShotTimer(sys.exit, 0).start(15)
 
 if 0:
     chain.append(kaa.record.UDPSend('127.0.0.1:12345'))
@@ -79,6 +78,6 @@ if 0:
     idA = ivtv.start_recording('17', chain)
 
     # stop test after 60 seconds
-    t = OneShotTimer(sys.exit, 0).start(60)
+    t = kaa.OneShotTimer(sys.exit, 0).start(60)
 
-kaa.main()
+kaa.main.run()

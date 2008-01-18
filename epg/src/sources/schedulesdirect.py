@@ -40,7 +40,6 @@ import urlparse
 
 # kaa imports
 import kaa
-import kaa.notifier
 from kaa.strutils import str_to_unicode
 from config_schedulesdirect import config
 
@@ -302,7 +301,7 @@ class Handler(xml.sax.handler.ContentHandler):
             # memory usage considerably).
 
 
-@kaa.notifier.execute_in_thread('epg')
+@kaa.execute_in_thread('epg')
 def update(epg, start = None, stop = None):
     from gzip import GzipFile
     from kaa.epg.config import config as epg_config

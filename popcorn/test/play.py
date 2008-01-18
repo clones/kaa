@@ -54,8 +54,8 @@ kaa.signals["stdin_key_press_event"].connect(handle_key, player)
 if player.get_window():
     player.get_window().signals["key_press_event"].connect(handle_key, player)
 
-kaa.notifier.OneShotTimer(next, BACKEND).start(0)
-#kaa.notifier.OneShotTimer(player.stop).start(1)
+kaa.OneShotTimer(next, BACKEND).start(0)
+#kaa.OneShotTimer(player.stop).start(1)
 
 def print_pos():
     print '\r', player.get_position(),
@@ -71,8 +71,8 @@ def do_something2():
 def do_zoom():
     player.set_property('zoom', player.get_property('zoom') - 10)
 
-kaa.notifier.Timer(print_pos).start(0.1)
-kaa.notifier.OneShotTimer(do_something1).start(2)
-# kaa.notifier.OneShotTimer(do_something2).start(4)
-# kaa.notifier.Timer(do_zoom).start(2)
-kaa.main()
+kaa.Timer(print_pos).start(0.1)
+kaa.OneShotTimer(do_something1).start(2)
+# kaa.OneShotTimer(do_something2).start(4)
+# kaa.Timer(do_zoom).start(2)
+kaa.main.run()

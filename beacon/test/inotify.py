@@ -13,4 +13,4 @@ i = INotify()
 dir = os.path.expanduser("~")
 i.watch(dir).connect(cb)
 print "Now monitoring", dir
-kaa.main()
+kaa.main.run()

@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -37,7 +37,7 @@ import time
 import signal
 import logging
 
-import kaa.notifier
+import kaa
 import kaa.metadata
 
 # check for dbus and it's version
@@ -47,7 +47,7 @@ if getattr(dbus, 'version', (0,0,0)) < (0,51,0):
 import dbus.glib
 
 # use gtk main loop
-kaa.notifier.init('gtk', x11=False)
+kaa.main.select_notifier('gtk', x11=False)
 
 # kaa.beacon imports
 from kaa.beacon.server.config import config
@@ -58,10 +58,10 @@ from cdrom import eject
 log = logging.getLogger('beacon.hal')
 
 # HAL signals
-signals = { 'add': kaa.notifier.Signal(),
-            'remove': kaa.notifier.Signal(),
-            'changed': kaa.notifier.Signal(),
-            'failed': kaa.notifier.Signal()
+signals = { 'add': kaa.Signal(),
+            'remove': kaa.Signal(),
+            'changed': kaa.Signal(),
+            'failed': kaa.Signal()
           }
 
 class Device(object):
@@ -97,7 +97,7 @@ class Device(object):
                 cmd = ("pumount", self.prop.get('volume.mount_point'))
             else:
                 cmd = ("pmount-hal", self.udi)
-        proc = kaa.notifier.Process(cmd)
+        proc = kaa.Process(cmd)
         proc.signals['stdout'].connect(log.warning)
         proc.signals['stderr'].connect(log.error)
         proc.start()
@@ -176,7 +176,7 @@ def _connect_to_hal():
             # give up
             signals['failed'].emit('unable to connect to dbus')
             return False
-        kaa.notifier.OneShotTimer(_connect_to_hal).start(2)
+        kaa.OneShotTimer(_connect_to_hal).start(2)
         return False
     try:
         obj = _bus.get_object('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
@@ -186,7 +186,7 @@ def _connect_to_hal():
         return False
 
     # DONT ASK! dbus sucks!
-    kaa.notifier.Timer(_connect_to_hal_because_dbus_sucks, obj).start(0.01)
+    kaa.Timer(_connect_to_hal_because_dbus_sucks, obj).start(0.01)
     return False
 
 
@@ -201,7 +201,7 @@ def _connect_to_hal_because_dbus_sucks(obj):
             # give up
             signals['failed'].emit('unable to connect to hal')
             return False
-        kaa.notifier.OneShotTimer(_connect_to_hal).start(2)
+        kaa.OneShotTimer(_connect_to_hal).start(2)
         return False
     hal = dbus.Interface(obj, 'org.freedesktop.Hal.Manager')
     hal.GetAllDevices(reply_handler=_device_all, error_handler=log.error)
@@ -224,7 +224,7 @@ def _device_all(device_names):
     for name in device_names:
         obj = _bus.get_object("org.freedesktop.Hal", str(name))
         obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
-                             reply_handler=kaa.notifier.Callback(_device_add, name),
+                             reply_handler=kaa.Callback(_device_add, name),
                              error_handler=log.error)
 
 
@@ -234,7 +234,7 @@ def _device_new(udi):
     """
     obj = _bus.get_object("org.freedesktop.Hal", udi)
     obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
-                         reply_handler=kaa.notifier.Callback(_device_add, udi, True),
+                         reply_handler=kaa.Callback(_device_add, udi, True),
                          error_handler=log.error)
 
 

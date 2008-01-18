@@ -14,7 +14,6 @@ import gtk.glade
 
 # now import kaa
 import kaa
-import kaa.notifier
 import kaa.beacon
 import kaa.popcorn
 
@@ -29,7 +28,7 @@ class Baloo(object):
                 "on_exit" : self.on_exit }
         self.xml.signal_autoconnect (dic)
 
-        self.timer = kaa.notifier.Timer(self.update_timer)
+        self.timer = kaa.Timer(self.update_timer)
         self.search = []
         self.current = None
         self.player = kaa.popcorn.Player()
@@ -116,4 +115,4 @@ class Baloo(object):
         self.xml.get_widget('pause').set_label('gtk-media-pause')
 
 baloo = Baloo()
-kaa.main()
+kaa.main.run()

@@ -36,7 +36,7 @@ import md5
 import logging
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
@@ -68,12 +68,12 @@ class MediaPlayer(object):
 
     def __init__(self, properties):
         self.signals = {
-            "elapsed": kaa.notifier.Signal(),
-            "stream_changed": kaa.notifier.Signal(),
-            "frame": kaa.notifier.Signal(),
-            "osd_configure": kaa.notifier.Signal(),
+            "elapsed": kaa.Signal(),
+            "stream_changed": kaa.Signal(),
+            "frame": kaa.Signal(),
+            "osd_configure": kaa.Signal(),
         }
-        self._state_changed = kaa.notifier.Signal()
+        self._state_changed = kaa.Signal()
         self._state_object = STATE_IDLE
         self._window = None
         self._size = None
@@ -98,7 +98,7 @@ class MediaPlayer(object):
         for name, func in [ (func, getattr(self, func)) for func in dir(self) ]:
             if callable(func) and hasattr(func, '_runtime_policy'):
                 name = name[10:].replace('_', '-')
-                self._property_callbacks[name] = kaa.notifier.WeakCallback(func)
+                self._property_callbacks[name] = kaa.WeakCallback(func)
 
     #
     # state handling

@@ -7,7 +7,7 @@ from version import VERSION
 
 import _xine
 import kaa
-from kaa import display, notifier
+from kaa import display
 from kaa.version import Version
 from constants import *
  
@@ -186,9 +186,9 @@ class Xine(Wrapper):
         if not obj:
             obj = _xine.Xine()
 
-        obj.log_callback = notifier.WeakCallback(self._log_callback)
+        obj.log_callback = kaa.WeakCallback(self._log_callback)
         self.signals = {
-            "log": notifier.Signal()
+            "log": kaa.Signal()
         }
         super(Xine, self).__init__(obj)
 
@@ -239,9 +239,9 @@ class Xine(Wrapper):
                 window = kwargs["window"]
                 assert(isinstance(window, display.X11Window))
                 if "frame_output_cb" not in kwargs:
-                    kwargs["frame_output_cb"] = notifier.WeakCallback(self._default_frame_output_cb, window)
+                    kwargs["frame_output_cb"] = kaa.WeakCallback(self._default_frame_output_cb, window)
                 if "dest_size_cb" not in kwargs:
-                    kwargs["dest_size_cb"] = notifier.WeakCallback(self._default_dest_size_cb, window)
+                    kwargs["dest_size_cb"] = kaa.WeakCallback(self._default_dest_size_cb, window)
                 window._aspect = -1
                 kwargs["window"] = window._window
 
@@ -454,11 +454,11 @@ class Stream(Wrapper):
     def __init__(self, obj):
         super(Stream, self).__init__(obj)
         self.signals = {
-            "event": notifier.Signal()
+            "event": kaa.Signal()
         }
         self.event_queue = self.new_event_queue()
-        kaa.signals["step"].connect_weak(self.flush_events)
-        #self.event_queue._obj.event_callback = notifier.WeakCallback(self._obj_callback)
+        kaa.main.signals["step"].connect_weak(self.flush_events)
+        #self.event_queue._obj.event_callback = kaa.WeakCallback(self._obj_callback)
 
     def flush_events(self):
         event = self.event_queue.get_event()

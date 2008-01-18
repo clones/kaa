@@ -30,9 +30,8 @@ __all__ = [ 'CanvasError', 'Object' ]
 
 import types, re
 import _weakref
-from kaa import evas
+from kaa import evas, Signal
 from kaa.weakref import weakref
-from kaa.notifier import Signal
 import animation
 
 _percent_re = re.compile("([\d.]+%)")

@@ -34,7 +34,6 @@ import os
 
 # kaa imports
 import kaa.rpc
-import kaa.notifier.url
 
 # feedmanager imports
 import manager

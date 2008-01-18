@@ -35,7 +35,7 @@ import copy
 import logging
 
 # kaa imports
-import kaa.notifier
+import kaa
 
 # kaa.beacon imports
 from item import Item
@@ -63,9 +63,9 @@ class Query(object):
 
     def __init__(self, client, **query):
         self.signals = {
-            'changed'   : kaa.notifier.Signal(),
-            'progress'  : kaa.notifier.Signal(),
-            'up-to-date': kaa.notifier.Signal(),
+            'changed'   : kaa.Signal(),
+            'progress'  : kaa.Signal(),
+            'up-to-date': kaa.Signal(),
         }
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
@@ -80,7 +80,7 @@ class Query(object):
         # some shortcuts from the client
         self._rpc = self._client.rpc
         # InProgress object or YieldContinue
-        self._async = kaa.notifier.InProgress()
+        self._async = kaa.InProgress()
         # start inititial query
         self._beacon_start_query(query)
 
@@ -129,10 +129,10 @@ class Query(object):
     def __iter__(self):
         """
         Iterate through theresults. This function will block using
-        kaa.notifier.step() if self.valid is False.
+        kaa.main.step() if self.valid is False.
         """
         while not self.valid:
-            kaa.notifier.step()
+            kaa.main.step()
         return self.result.__iter__()
 
 
@@ -143,7 +143,7 @@ class Query(object):
         list.
         """
         while not self.valid:
-            kaa.notifier.step()
+            kaa.main.step()
         return self.result[key]
 
 
@@ -159,20 +159,20 @@ class Query(object):
     def __len__(self):
         """
         Get length of results. This function will block using
-        kaa.notifier.step() if self.valid is False.
+        kaa.main.step() if self.valid is False.
         """
         while not self.valid:
-            kaa.notifier.step()
+            kaa.main.step()
         return len(self.result)
 
 
     def get(self, filter=None):
         """
-        Get the result. This function will block using kaa.notifier.step() if
+        Get the result. This function will block using kaa.main.step() if
         self.valid is False.
         """
         while not self.valid:
-            kaa.notifier.step()
+            kaa.main.step()
         if filter == None:
             # no spcial filter
             return self.result
@@ -185,14 +185,14 @@ class Query(object):
     # Internal API
     # -------------------------------------------------------------------------
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _beacon_start_query(self, query):
         """
         Start the database query.
         """
         if not self._client.is_connected():
             # wait until the client is connected
-            wait = kaa.notifier.YieldCallback()
+            wait = kaa.YieldCallback()
             self._client.signals['connect'].connect_once(wait)
             yield wait
 
@@ -204,7 +204,7 @@ class Query(object):
             parent = query['parent']
             log.info('force data for %s', parent)
             async = parent.scan()
-            if isinstance(async, kaa.notifier.InProgress):
+            if isinstance(async, kaa.InProgress):
                 yield async
 
         # we have to wait until we are sure that the db is free for
@@ -213,16 +213,16 @@ class Query(object):
         # can take up to two seconds.
         yield self._rpc('db.lock')
         self.result = self._client._db.query(**query)
-        if isinstance(self.result, kaa.notifier.InProgress):
+        if isinstance(self.result, kaa.InProgress):
             yield self.result
             self.result = self.result.get_result()
         self._rpc('db.unlock')
 
         self.valid = True
         self.signals['changed'].emit()
-        if isinstance(self._async, kaa.notifier.InProgress):
+        if isinstance(self._async, kaa.InProgress):
             self._async.finished(self)
-            self._async = kaa.notifier.YieldContinue
+            self._async = kaa.YieldContinue
 
 
     def __repr__(self):
@@ -244,7 +244,7 @@ class Query(object):
     # Server callbacks for changes (called by client.notify)
     # -------------------------------------------------------------------------
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _beacon_callback_changed(self, send_signal):
         """
         Changed message from server.
@@ -255,7 +255,7 @@ class Query(object):
         # can take up to two seconds.
         yield self._rpc('db.lock')
         result = self._client._db.query(**self._query)
-        if isinstance(result, kaa.notifier.InProgress):
+        if isinstance(result, kaa.InProgress):
             yield result
             result = result.get_result()
         self._rpc('db.unlock')

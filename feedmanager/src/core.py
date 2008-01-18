@@ -39,7 +39,7 @@ import logging
 from xml.dom import minidom
 
 # kaa imports
-import kaa.notifier
+import kaa
 import kaa.notifier.url
 import kaa.beacon
 from kaa.strutils import str_to_unicode, unicode_to_str
@@ -156,7 +156,7 @@ class Feed(object):
             d.appendChild(e)
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def _get_image(self, url):
         """
         Download image and store it to the image dir. Returns image
@@ -171,7 +171,7 @@ class Feed(object):
         yield fname
 
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def update(self, verbose=False):
         """
         Update feed.
@@ -204,7 +204,7 @@ class Feed(object):
         new_entries = []
 
         for entry in self:
-            if isinstance(entry, kaa.notifier.InProgress):
+            if isinstance(entry, kaa.InProgress):
                 # dummy entry to signal waiting
                 yield entry
                 continue
@@ -241,12 +241,12 @@ class Feed(object):
 
                 if os.path.isfile(filename):
                     item = kaa.beacon.get(filename)
-                    if isinstance(item, kaa.notifier.InProgress):
+                    if isinstance(item, kaa.InProgress):
                         yield item
                         item = item.get_result()
                     if not item.scanned():
                         async = item.scan()
-                        if isinstance(async, kaa.notifier.InProgress):
+                        if isinstance(async, kaa.InProgress):
                             yield async
                     if 'date' in entry:
                         item['timestamp'] = entry['date']
@@ -279,7 +279,7 @@ class Feed(object):
         yield True
     
 
-    @kaa.notifier.yield_execution()
+    @kaa.yield_execution()
     def remove(self):
         """
         Remove entries from this feed.
@@ -296,7 +296,7 @@ class Feed(object):
         beacondir = query.get()
         allurls = [ e[0] for e in self._entries ]
         listing = beacondir.list()
-        if isinstance(listing, kaa.notifier.InProgress):
+        if isinstance(listing, kaa.InProgress):
             yield listing
             listing = listing.get_result()
         for entry in listing:

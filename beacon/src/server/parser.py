@@ -39,9 +39,9 @@ import logging
 import time
 
 # kaa imports
+import kaa
 from kaa.strutils import str_to_unicode
 import kaa.metadata
-import kaa.notifier
 import kaa.imlib2
 
 # kaa.beacon imports
@@ -131,7 +131,7 @@ def parse(db, item, check_image=False):
     return _parse(db, item, mtime)
 
 
-@kaa.notifier.yield_execution()
+@kaa.yield_execution()
 def _parse(db, item, mtime):
     """
     Parse the item, this can take a while.
@@ -145,7 +145,7 @@ def _parse(db, item, mtime):
     if not parent._beacon_id:
         # There is a parent without id, update the parent now.
         r = parse(db, parent)
-        if isinstance(r, kaa.notifier.InProgress):
+        if isinstance(r, kaa.InProgress):
             yield r
         if not parent._beacon_id:
             # This should never happen
@@ -153,7 +153,7 @@ def _parse(db, item, mtime):
         # we had no parent id which we have now. Restart the whole
         # parsing process. maye this item was in the db already
         r = parse(db, parent)
-        if isinstance(r, kaa.notifier.InProgress):
+        if isinstance(r, kaa.InProgress):
             yield r
             yield r.get_result()
         yield r
@@ -318,7 +318,7 @@ def _parse(db, item, mtime):
 
         # delete all known tracks before adding new
         result = db.query(parent=item)
-        if isinstance(result, kaa.notifier.InProgress):
+        if isinstance(result, kaa.InProgress):
             yield result
             result = result.get_result()
         for track in result:
