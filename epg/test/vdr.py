@@ -144,8 +144,5 @@ def update(epg, vdr_dir=None, channels_file=None, epg_file=None,
            host=None, port=None, access_by='sid', limit_channels=''):
     log.debug('update')
 
-    thread = kaa.Thread(_update_data_thread, epg, vdr_dir,
-                                 channels_file, epg_file, host, port, access_by,
-                                 limit_channels)
-    thread.start()
-
+    kaa.ThreadCallback(_update_data_thread, epg, vdr_dir, channels_file,
+                       epg_file, host, port, access_by, limit_channels)()

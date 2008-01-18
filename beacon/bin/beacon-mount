@@ -148,8 +148,7 @@ if __name__ == '__main__':
     # FIXME: should only daemonize when we know fs is mounted.
     kaa.utils.daemonize(stdout = logfile)
 
-    thread = kaa.Thread(fs.main)
-    thread.signals["exception"].connect(lambda dummy: kaa.main.stop())
-    thread.start()
+    thread = kaa.ThreadCallback(fs.main)
+    thread().exception_handler.connect(lambda dummy: kaa.main.stop())
 
     kaa.main.run()
