@@ -138,7 +138,7 @@ class Client(object):
         self._device_add(dev)
 
 
-    @kaa.yield_execution(lock=True)
+    @kaa.yield_execution(synchronize = True)
     def _device_scanned(self, metadata, dev):
 
         # FIXME: ACTIVE WAITING:
