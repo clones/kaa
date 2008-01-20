@@ -94,7 +94,7 @@ def search(channel=None, time=None, block=False, **kwargs):
 
     if block:
         wait = guide.search(channel, time, **kwargs)
-        while not wait.is_finished:
+        while not wait.is_finished():
             kaa.main.step()
         return wait()
     return guide.search(channel, time, **kwargs)
