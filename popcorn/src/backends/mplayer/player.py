@@ -180,8 +180,8 @@ class MPlayer(MediaPlayer):
             self._osd_shmem.detach()
 
 
-    def _handle_mp_info(self, info):
-        if isinstance(info, Exception):
+    def _handle_mp_info(self, info, exception=None, traceback=None):
+        if exception is not None:
             self._state = STATE_NOT_RUNNING
             # TODO: handle me
             raise info
