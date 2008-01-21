@@ -15,8 +15,9 @@ def completed(result):
         print ASIN
     kaa.shutdown()
     
-def exception(ex):
-    print 'error:', ex
+def exception(type, value, tb):
+    print "Error:"
+    raise type, value, tb
     kaa.shutdown()
     
 # client key and version, do not use this one, get

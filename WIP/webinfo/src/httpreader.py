@@ -113,7 +113,7 @@ class HTTPReader(urllib.FancyURLopener):
             try:
                 result = self._handle_result_threaded(output)
             except Exception, e:
-                MainThreadCallback(self.signals['exception'].emit)(e)
+                MainThreadCallback(self.signals['exception'].emit)(e.__class__, e, sys.exc_traceback)
             else:
                 MainThreadCallback(self._finished, result)()
         self.running = False

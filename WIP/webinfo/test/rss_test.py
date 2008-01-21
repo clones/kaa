@@ -34,8 +34,8 @@ class RSSEntry(object):
         return "%s" % self.title
 
 
-def exception(e):
-    print e
+def exception(type, value, tb):
+    print value
 
 def parse_result(result):
     f = RSSFeed()
