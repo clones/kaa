@@ -63,10 +63,7 @@ class Feed(core.Feed):
         """
         Iterate over feed entries.
         """
-        feed = feedparser(self.url)
-        yield feed
-        feed = feed.get_result()
-
+        feed = yield feedparser(self.url)
         if not feed.entries:
             log.error('no entries in %s' % self.url)
             raise StopIteration
@@ -79,10 +76,7 @@ class Feed(core.Feed):
         if feedimage:
             # FIXME: beacon does not thumbnail the image without
             # a rescan of the directory!
-            feedimage = self._get_image(feedimage)
-            if isinstance(feedimage, kaa.InProgress):
-                yield feedimage
-                feedimage = feedimage.get_result()
+            feedimage = yield self._get_image(feedimage)
 
         # real iterate
         for f in feed.entries:

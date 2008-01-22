@@ -40,6 +40,7 @@ from kaa import OneShotTimer, Timer, YieldContinue
 
 # kaa.beacon imports
 from kaa.beacon.item import Item
+from parser import parse
 
 # get logging object
 log = logging.getLogger('beacon.monitor')
@@ -149,12 +150,9 @@ class Monitor(object):
             changes = self._check_changes + changes
             self._check_changes = []
 
-        current = self._db.query(**self._query)
-        if isinstance(current, kaa.InProgress):
-            self._checking = True
-            yield current
-            current = current()
-            self._checking = False
+        self._checking = True
+        current = yield self._db.query(**self._query)
+        self._checking = False
 
         # The query result length is different, this is a change
         if len(current) != len(self.items):
@@ -209,12 +207,7 @@ class Monitor(object):
         """
         self._checking = True
 
-        current = self._db.query(**self._query)
-        if isinstance(current, kaa.InProgress):
-            yield current
-            current = current()
-        self.items = current
-
+        self.items = yield self._db.query(**self._query)
         if not self.items or not isinstance(self.items[0], Item):
             self._checking = False
             yield False
@@ -228,7 +221,8 @@ class Monitor(object):
                 # stop it and continue in the next step
                 yield YieldContinue
             # TODO: maybe also check parents?
-            if i._beacon_mtime() != i._beacon_data.get('mtime'):
+            mtime = i._beacon_mtime()
+            if mtime != i._beacon_data.get('mtime'):
                 changed.append(i)
 
         if not changed:
@@ -246,7 +240,7 @@ class Monitor(object):
 
         for pos, item in enumerate(changed):
             self.notify_client('progress', pos+1, len(changed), item.url)
-            async = item.scan()
+            async = parse(item)
             if isinstance(async, kaa.InProgress):
                 yield async
             if not self._running:
@@ -257,11 +251,7 @@ class Monitor(object):
 
         # The client will update its query on this signal, so it should
         # be safe to do the same here. *cross*fingers*
-        current = self._db.query(**self._query)
-        if isinstance(current, kaa.InProgress):
-            yield current
-            current = current()
-        self.items = current
+        self.items = yield self._db.query(**self._query)
         # Do not send 'changed' signal here. The db was changed and the
         # master notification will do the rest. Just to make sure it will
         # happen, start a Timer

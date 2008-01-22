@@ -64,7 +64,7 @@ def connect(address = 'epg', auth_secret = ''):
 
 def get_channels(sort=False):
     """
-    Return a list of all channels.
+    Return a list of all channels as InProgress obejct
     """
     if guide.status == DISCONNECTED:
         connect()
@@ -73,7 +73,7 @@ def get_channels(sort=False):
 
 def get_channel(name):
     """
-    Return the channel with the given name.
+    Return the channel with the given name as InProgress obejct
     """
     if guide.status == DISCONNECTED:
         connect()

@@ -33,6 +33,11 @@
 # python imports
 import sys
 
+# We require python 2.5 or later, so complain if that isn't satisfied.
+if sys.version.split()[0] < '2.5':
+    print "Python 2.5 or later required."
+    sys.exit(1)
+
 try:
     # kaa base imports
     from kaa.distribution.core import Extension, setup

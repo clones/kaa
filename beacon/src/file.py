@@ -117,6 +117,7 @@ class File(Item):
         """
         Interface to kaa.beacon: List all files in the directory.
         """
+        # This function is only used by the client
         if recursive:
             return self._beacon_controller().query(parent=self, recursive=True)
         return self._beacon_controller().query(parent=self)
@@ -124,42 +125,49 @@ class File(Item):
 
     def scan(self):
         """
-        Request the item to be scanned. (Client API only)
+        Request the item to be scanned.
         Returns either False if not connected or an InProgress object.
         """
+        # This function is only used by the client
         result = self._beacon_controller()._beacon_parse(self)
         if isinstance(result, kaa.InProgress):
             result.connect_once(self._beacon_database_update)
         return result
 
 
+    def __repr__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        s = '<beacon.File %s' % self.filename
+        if not self.url.startswith('file://'):
+            s = '<beacon.File %s' % self.url
+        if self._beacon_data.get('mtime') == None:
+            s += ' (new)'
+        else:
+            s += ' (type=%s)' % str(self._beacon_data.get('type'))
+        return s + '>'
+
+
     # -------------------------------------------------------------------------
-    # Internal API for client and server
+    # Internal API for the server
     # -------------------------------------------------------------------------
 
-    @kaa.yield_execution()
-    def _beacon_listdir(self, cache=False, async=False):
+    def _beacon_listdir(self, cache=False):
         """
         Internal function to list all files in the directory and the overlay
         directory. The result is a list of tuples:
         basename, full filename, is_overlay, stat result
-        This function gets called by the client when doing a dirname query
-        and by the server for the query and inside the parser to get mtime
-        information. If async is True, this function may return an
-        InProgress object and not the results. In that case, connect to this
-        object to get the result later.
         """
         if self._beacon_listdir_cache and cache and \
                self._beacon_listdir_cache[0] + 3 > time.time():
             # use cached result if we have and caching time is less than
             # three seconds ago
-            yield self._beacon_listdir_cache[1:]
-
-        # FIXME: This doesn't hold a reference to items, so what does?
+            return self._beacon_listdir_cache[1:]
 
         # FIXME: this could block for everything except media 1. So this
         # should be done in the hwmon process. But the server doesn't like
-        # an InProgress return.
+        # an InProgress return in the function.
         try:
             # Try to list the overlay directory
             overlay_results = os.listdir(self._beacon_ovdir)
@@ -174,10 +182,9 @@ class File(Item):
         except OSError, e:
             log.warning(e)
             self._beacon_listdir_cache = time.time(), [], {}
-            yield [], {}
+            return [], {}
 
         results_file_map = {}
-        counter = 0
         timer = time.time()
 
         for is_overlay, prefix, results in \
@@ -198,15 +205,7 @@ class File(Item):
                     # unable to stat file, remove it from list
                     log.error(e)
                     continue
-
                 results_file_map[r] = (r, fullpath, is_overlay, statinfo)
-                counter += 1
-                if async and not counter % 30 and time.time() > timer + 0.04:
-                    # we are in async mode and already use too much time.
-                    # call yield YieldContinue at this point to continue
-                    # later.
-                    timer = time.time()
-                    yield kaa.YieldContinue
 
         # We want to avoid lambda on large data sets, so we sort the keys,
         # which is just a list of files.  This is the common case that sort()
@@ -216,21 +215,7 @@ class File(Item):
         result = [ results_file_map[x] for x in keys ]
         # store in cache
         self._beacon_listdir_cache = time.time(), result, results_file_map
-        yield result, results_file_map
-
-
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        s = '<beacon.File %s' % self.filename
-        if not self.url.startswith('file://'):
-            s = '<beacon.File %s' % self.url
-        if self._beacon_data.get('mtime') == None:
-            s += ' (new)'
-        else:
-            s += ' (type=%s)' % str(self._beacon_data.get('type'))
-        return s + '>'
+        return result, results_file_map
 
 
     def _beacon_mtime(self):

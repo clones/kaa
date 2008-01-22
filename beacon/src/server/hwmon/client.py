@@ -81,6 +81,7 @@ class Client(object):
     # rpc callbacks
 
     @kaa.rpc.expose('device.add')
+    @kaa.yield_execution()
     def _device_add(self, dev):
         # FIXME: check if the device is still valid
 
@@ -96,7 +97,7 @@ class Client(object):
         if not media:
             if not dev.get('volume.is_disc') == True:
                 # fake scanning for other media than rom drives
-                return self._device_scanned(None, dev)
+                yield self._device_scanned(None, dev)
             # scan the disc in background
             self.rpc('device.scan', id).connect(self._device_scanned, dev)
             return
@@ -107,7 +108,7 @@ class Client(object):
             self.mount(dev)
             return
 
-        m = self._db.medialist.add(id, dev)
+        m = yield self._db.medialist.add(id, dev)
 
         # create overlay directory structure
         if not os.path.isdir(m.overlay):
@@ -189,4 +190,4 @@ class Client(object):
                 mtime = os.stat(dev.get('block.device'))[stat.ST_MTIME]
             dir = self._db.add_object(
                 "dir", name="", parent=('media', mid), media=mid, mtime=mtime)
-        self._device_add(dev)
+        yield self._device_add(dev)

@@ -150,11 +150,11 @@ class Client(object):
     def search(self, channel=None, time=None, **kwargs):
         """
         Search the db. This will call the search function on server side using
-        kaa.ipc. This function will always return an InProgress object, even when
-        the client is disconnected.
+        kaa.ipc. This function will always return an InProgress object or raise
+        an exception if the client is disconnected.
         """
         if self.status == DISCONNECTED:
-            # make sure we always return InProgress
+            # TODO: make sure we always return InProgress
             raise SystemError('Client is disconnected')
 
         while self.status == CONNECTING:
@@ -183,10 +183,9 @@ class Client(object):
                 kwargs["start"] = kaa.db.QExpr(">=", (int(start) - max))
                 
         query_data = self.server.rpc('guide.query', type='program', **kwargs)
-        # wait for the rpc to finish
+        # wait for the rpc to finish and get result
         yield query_data
-        # get data
-        query_data = query_data()
+        query_data = query_data.get_result()
 
         # Convert raw search result data
         if kwargs.get('attrs'):

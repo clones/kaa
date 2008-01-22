@@ -299,10 +299,7 @@ class Server(object):
         # TODO: check if directory is already being monitored.
 
         directory = os.path.realpath(directory)
-        data = self._db.query(filename = directory)
-        if isinstance(data, kaa.InProgress):
-            yield data
-            data = data()
+        data = yield self._db.query(filename = directory)
         items = []
         for i in data.get_ancestors():
             if i._beacon_id:
@@ -325,10 +322,7 @@ class Server(object):
         log.info('add monitor %s', query)
         if query and 'parent' in query:
             type, id = query['parent']
-            result = self._db.query(type=type, id=id)[0]
-            if isinstance(result, kaa.InProgress):
-                yield result
-                result = result()
+            result = yield self._db.query(type=type, id=id)[0]
             query['parent'] = result
 
         for id, client, monitors in self._clients:
@@ -380,10 +374,7 @@ class Server(object):
         """
         Request item data.
         """
-        data = self._db.query(filename=filename)
-        if isinstance(data, kaa.InProgress):
-            yield data
-            data = data()
+        data = yield self._db.query(filename=filename)
         items = []
         for i in data.get_ancestors():
             if i._beacon_id:
@@ -402,10 +393,7 @@ class Server(object):
         """
         Create a new item.
         """
-        data = self._db.query(id=parent)
-        if isinstance(data, kaa.InProgress):
-            yield data
-            data = data()
+        data = yield self._db.query(id=parent)
         while self._db.read_lock.is_locked():
             yield self._db.read_lock.yield_unlock()
         yield self._db.add_object(type, parent=parent, **kwargs)

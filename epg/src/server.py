@@ -187,10 +187,15 @@ class Server(object):
                 continue
 
             log.info('Updating backend %s', backend)
-            # Backend's update() must be threaded, and so will return an
-            # InProgress object that we now yield.
-            yield sources[backend].update(self, *args, **kwargs)
-
+            # Backend's update() MUST return an InProgress object
+            try:
+                # The yield may crash on Python 2.5 using throw
+                # An error message will not be visible for 2.4
+                yield sources[backend].update(self, *args, **kwargs)
+            except (KeyboardInterrupt, SystemExit):
+                sys.exit(0)
+            except Exception, e:
+                log.exception('Backend %s failed' % backend)
         if not backends:
             log.warning('No valid backends specified for update.')
             return

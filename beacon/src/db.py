@@ -158,8 +158,8 @@ class Database(object):
     def query(self, **query):
         """
         Main query function. This function will call one of the specific
-        query functions ins this class depending on the query. This function
-        may raise an AsyncProcess exception.
+        query functions in this class depending on the query. This function
+        returns an InProgress.
         """
         qlen = len(query)
         if not 'media' in query:
@@ -173,9 +173,9 @@ class Database(object):
         # do query based on type
         if 'filename' in query and qlen == 1:
             fname = os.path.realpath(query['filename'])
-            return self.query_filename(fname)
+            return kaa.yield_execution()(self.query_filename)(fname)
         if 'id' in query and qlen == 1:
-            return self._db_query_id(query['id'])
+            return kaa.yield_execution()(self._db_query_id)(query['id'])
         if 'parent' in query and 'recursive' in query and qlen == 2:
             if not query['parent']._beacon_isdir:
                 raise AttributeError('parent is no directory')
@@ -186,9 +186,9 @@ class Database(object):
                     return self._db_query_dir(query['parent'])
             query['parent'] = query['parent']._beacon_id
         if 'attr' in query:
-            return self._db_query_attr(query)
+            return kaa.yield_execution()(self._db_query_attr)(query)
         if 'type' in query and query['type'] == 'media':
-            return self._db.query(**query)
+            return kaa.yield_execution()(self._db.query)(**query)
         return self._db_query_raw(query)
 
 
@@ -238,14 +238,7 @@ class Database(object):
         else:
             dirname = parent.filename[:-1]
 
-        listing = parent._beacon_listdir(async=True)
-
-        if isinstance(listing, kaa.InProgress):
-            # oops, something takes more time than we had in mind,
-            yield listing
-            # when we reach this point, we can continue
-            listing = listing()
-
+        listing = parent._beacon_listdir()
         items = []
         if parent._beacon_id:
             items = [ create_by_type(i, parent, isdir=i['type'] == 'dir') \
@@ -357,9 +350,8 @@ class Database(object):
                 else:
                     items.append(create_by_type(i, parent))
             if time.time() > timer + 0.1:
-                # we are in async mode and already use too much time.
-                # call yield YieldContinue at this point to continue
-                # later.
+                # we used too much time. Call yield YieldContinue at
+                # this point to continue later.
                 timer = time.time()
                 yield kaa.YieldContinue
 
@@ -453,9 +445,8 @@ class Database(object):
 
             counter += 1
             if not counter % 50 and time.time() > timer + 0.05:
-                # we are in async mode and already use too much time.
-                # call yield YieldContinue at this point to continue
-                # later.
+                # We used too much time. Call yield YieldContinue at
+                # this point to continue later.
                 timer = time.time()
                 yield kaa.YieldContinue
 
@@ -463,6 +454,13 @@ class Database(object):
             # sort results by url (name is not unique) and return
             result.sort(lambda x,y: cmp(x.url, y.url))
         yield result
+
+
+    def query_name_and_parent(self, name, parent):
+        """
+        Return item for name (string) and parent (type, id).
+        """
+        return self._db.query(name=name, parent=parent)[0]
 
 
     def query_filename(self, filename):

@@ -88,8 +88,7 @@ class Media(object):
         if isinstance(media, kaa.InProgress):
             # This will happen for the client because in the client
             # _beacon_media_information needs to lock the db.
-            yield media
-            media = media.get_result()
+            media = yield media
         prop['beacon.content'] = media['content']
         self._beacon_isdir = False
         if media['content'] == 'file':

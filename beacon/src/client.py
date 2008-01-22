@@ -333,9 +333,10 @@ class Client(object):
         # some time until it tries again. That time is too long, it
         # can take up to two seconds.
         yield self.rpc('db.lock')
-        result = self._db.query_media(media)
-        self.rpc('db.unlock')
-        yield result
+        try:
+            yield self._db.query_media(media)
+        finally:
+            self.rpc('db.unlock')
 
 
     def _beacon_parse(self, item):
@@ -367,9 +368,8 @@ class Client(object):
             # in the client medialist.add has to lock the db
             # and needs the db.lock rpc which will always result
             # in returning an InProgress object.
-            async = self._db.medialist.add(id, prop)
-            yield async
-            new_media.append(async.get_result())
+            m = yield self._db.medialist.add(id, prop)
+            new_media.append(m)
         self.status = CONNECTED
         self.signals['connect'].emit()
         # reconnect query monitors

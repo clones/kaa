@@ -240,14 +240,9 @@ class Feed(object):
                         continue
 
                 if os.path.isfile(filename):
-                    item = kaa.beacon.get(filename)
-                    if isinstance(item, kaa.InProgress):
-                        yield item
-                        item = item.get_result()
+                    item = yield kaa.beacon.get(filename)
                     if not item.scanned():
-                        async = item.scan()
-                        if isinstance(async, kaa.InProgress):
-                            yield async
+                        yield item.scan()
                     if 'date' in entry:
                         item['timestamp'] = entry['date']
                     for key in ('title', 'description'):
@@ -297,8 +292,9 @@ class Feed(object):
         allurls = [ e[0] for e in self._entries ]
         listing = beacondir.list()
         if isinstance(listing, kaa.InProgress):
-            yield listing
-            listing = listing.get_result()
+            # FIXME: can this happen? Shouldn't list always return a Query
+            # object and that may or may not be finished?
+            listing = yield listing
         for entry in listing:
             if entry.url in allurls:
                 log.info('delete %s', entry.url)

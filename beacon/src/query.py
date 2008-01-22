@@ -205,6 +205,7 @@ class Query(object):
             log.info('force data for %s', parent)
             async = parent.scan()
             if isinstance(async, kaa.InProgress):
+                # Not an InProgress object if it is not file.
                 yield async
 
         # we have to wait until we are sure that the db is free for
@@ -212,11 +213,12 @@ class Query(object):
         # some time until it tries again. That time is too long, it
         # can take up to two seconds.
         yield self._rpc('db.lock')
-        self.result = self._client._db.query(**query)
-        if isinstance(self.result, kaa.InProgress):
-            yield self.result
-            self.result = self.result.get_result()
-        self._rpc('db.unlock')
+        try:
+            self.result = self._client._db.query(**query)
+            if isinstance(self.result, kaa.InProgress):
+                self.result = yield self.result
+        finally:
+            self._rpc('db.unlock')
 
         self.valid = True
         self.signals['changed'].emit()
@@ -256,8 +258,7 @@ class Query(object):
         yield self._rpc('db.lock')
         result = self._client._db.query(**self._query)
         if isinstance(result, kaa.InProgress):
-            yield result
-            result = result.get_result()
+            result = yield result
         self._rpc('db.unlock')
         if send_signal or len(self.result) != len(result):
             # The query result length is different

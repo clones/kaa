@@ -485,10 +485,7 @@ class Crawler(object):
         subdirs = []
         counter = 0
 
-        result = self._db.query(parent=directory)
-        if isinstance(result, kaa.InProgress):
-            yield result
-            result = result()
+        result = yield self._db.query(parent=directory)
         for child in result:
             if child._beacon_isdir:
                 # add directory to list of files to return
@@ -497,8 +494,7 @@ class Crawler(object):
             # check file
             async = parse(self._db, child, check_image=self._startup)
             if isinstance(async, kaa.InProgress):
-                yield async
-                async = async()
+                async = yield async
             counter += async * 20
             while counter >= 20:
                 counter -= 20
@@ -511,9 +507,7 @@ class Crawler(object):
         if not subdirs:
             # No subdirectories that need to be checked. Add some extra
             # attributes based on the found items (recursive back to parents)
-            result = self._add_directory_attributes(directory)
-            if isinstance(result, kaa.InProgress):
-                yield result
+            yield self._add_directory_attributes(directory)
         yield subdirs
 
 
@@ -528,10 +522,7 @@ class Crawler(object):
         check_attr = data.keys()[:]
         check_attr.remove('length')
 
-        result = self._db.query(parent=directory)
-        if isinstance(result, kaa.InProgress):
-            yield result
-            result = result()
+        result = yield self._db.query(parent=directory)
         for child in result:
             data['length'] += child._beacon_data.get('length', 0) or 0
             for attr in check_attr:
@@ -579,6 +570,4 @@ class Crawler(object):
 
         # check parent
         if directory._beacon_parent.filename in self.monitoring:
-            result = self._add_directory_attributes(directory._beacon_parent)
-            if isinstance(result, kaa.InProgress):
-                yield result
+            yield self._add_directory_attributes(directory._beacon_parent)

@@ -180,7 +180,8 @@ class Item(object):
 
     def list(self):
         """
-        Return all subitems to his item.
+        Return all subitems to his item. The return is either an empty list,
+        an InProgress object (server) or a Query object (client).
         """
         if not self._beacon_id:
             return []

@@ -73,14 +73,15 @@ def register(ext, function):
     extention_plugins[ext].append(function)
 
 
+@kaa.yield_execution()
 def parse(db, item, check_image=False):
     """
     Main beacon parse function. Return the load this function produced:
     0 == nothing done
-    1 == normal parsing
-    2 == thumbnail storage
-    This function may return an InProgress object
+    1 == normal parsing (as InProgress object)
+    2 == thumbnail storage (as InProgress object)
     """
+
     mtime = item._beacon_mtime()
     if mtime == None:
         if item.isdir() or item.isfile():
@@ -103,9 +104,9 @@ def parse(db, item, check_image=False):
 
     if parent._beacon_id and not item._beacon_id:
         # check if the item is in the db now from a different
-        # list of items. FIXME: this kind of query would never
-        # return an InProgress object! This has to be made clear.
-        r = db.query(name=item._beacon_data['name'], parent=parent)
+        # list of items.
+        r = db.query_name_and_parent(name=item._beacon_data['name'],
+                                     parent=parent_beacon_id)
         if r:
             item._beacon_database_update(r[0]._beacon_data)
 
@@ -126,8 +127,7 @@ def parse(db, item, check_image=False):
         else:
             return 0
 
-    # looks like we have more to do. Start the yield_execution
-    # part of the parser
+    # looks like we have more to do. Start the yield_execution part of the parser
     return _parse(db, item, mtime)
 
 
@@ -154,8 +154,7 @@ def _parse(db, item, mtime):
         # parsing process. maye this item was in the db already
         r = parse(db, parent)
         if isinstance(r, kaa.InProgress):
-            yield r
-            yield r.get_result()
+            r = yield r
         yield r
 
 
@@ -317,10 +316,7 @@ def _parse(db, item, mtime):
             yield produced_load
 
         # delete all known tracks before adding new
-        result = db.query(parent=item)
-        if isinstance(result, kaa.InProgress):
-            yield result
-            result = result.get_result()
+        result = yield db.query(parent=item)
         for track in result:
             db.delete_object(track)
 
