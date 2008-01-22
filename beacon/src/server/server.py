@@ -322,8 +322,8 @@ class Server(object):
         log.info('add monitor %s', query)
         if query and 'parent' in query:
             type, id = query['parent']
-            result = yield self._db.query(type=type, id=id)[0]
-            query['parent'] = result
+            result = yield self._db.query(type=type, id=id)
+            query['parent'] = result[0]
 
         for id, client, monitors in self._clients:
             if id == client_id:
