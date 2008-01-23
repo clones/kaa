@@ -106,7 +106,7 @@ def parse(db, item, check_image=False):
         # check if the item is in the db now from a different
         # list of items.
         r = db.query_name_and_parent(name=item._beacon_data['name'],
-                                     parent=parent_beacon_id)
+                                     parent=parent._beacon_id)
         if r:
             item._beacon_database_update(r[0]._beacon_data)
 
