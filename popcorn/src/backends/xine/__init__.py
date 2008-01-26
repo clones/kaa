@@ -52,7 +52,7 @@ def get_capabilities():
     }
 
     schemes = [ "file", "fifo", "dvd", "vcd", "cdda", "http", "tcp", "udp",
-                "rtp", "smb", "mms", "pnm", "rtsp", "pvr" ]
+                "rtp", "smb", "mms", "pnm", "rtsp", "pvr", "xvdr:udp" ]
 
     # list of extensions when to prefer this player
     exts = ["mpg", "mpeg", "iso"]
