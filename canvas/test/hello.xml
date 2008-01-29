@@ -1,4 +1,4 @@
 <canvas class="hello">
     <image file="data/background.jpg" />
-    <text hcenter="50%" vcenter="50%">Hello world!</text>
+    <text hcenter="50%" vcenter="50%" font="data/Vera">Hello world!</text>
 </canvas>

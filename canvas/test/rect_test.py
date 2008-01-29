@@ -1,6 +1,8 @@
 import kaa, kaa.canvas
 from test_common import *
 
+kaa.main.select_notifier(notifier)
+
 if output == "DirectFB":
     canvas = kaa.canvas.DirectFBCanvas(size)
 elif output == "FB":

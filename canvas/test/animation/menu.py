@@ -89,8 +89,8 @@ c = canvas.X11Canvas((640,480), use_gl=None)
 bg = c.add_child(kaa.canvas.Image("royale/background.jpg"), width="100%", height="100%")
 
 marquee_box = c.add_child(canvas.Container(), width="100%")
-title_text = marquee_box.add_child(canvas.Text("Kaa Demo", "trebuc", 92), right="100%")
-section_text = marquee_box.add_child(canvas.Text(font="trebuc", size=72), vcenter="50%")
+title_text = marquee_box.add_child(canvas.Text("Kaa Demo", "../data/Vera", 92), right="100%")
+section_text = marquee_box.add_child(canvas.Text(font="../data/Vera", size=72), vcenter="50%")
 
 def start_animate_title_text():
     title_text.set_color(a = 80)
@@ -119,7 +119,7 @@ for item in ("tv", "videos", "music", "photos", "dvd", "settings"):
 
 selector_box = c.add_child(kaa.canvas.Container(), width = 200, clip = "auto")
 # Load the menu item selector animation.
-selector = selector_box.add_child(kaa.canvas.Image("royale/list_selector.mng"))
+selector = selector_box.add_child(kaa.canvas.Image("royale/list_selector.png"))
 # Set the border to 10 pixels in all directions, so that scaling the selector
 # won't distort its edges.
 selector.set_border(7, 7, 7, 7)
@@ -144,7 +144,7 @@ for item in ("Television", "Videos", "Music", "Photos", "Play DVD", "Settings"):
     # If you don't have Trebuchet installed, change this font name.
     # Offset the item 15 pixels from the top (gives each item a bit of 
     # padding)
-    menu_items.append(menu.add_child(canvas.Text(item, font="trebuc"), top=offset))
+    menu_items.append(menu.add_child(canvas.Text(item, font="../data/Vera"), top=offset))
 
 # We want to know when the menu item changes position or size, so we can
 # update the selector image.

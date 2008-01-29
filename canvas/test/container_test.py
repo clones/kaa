@@ -1,6 +1,8 @@
 import kaa, kaa.canvas
 from test_common import *
 
+kaa.main.select_notifier(notifier)
+
 if output == "DirectFB":
     canvas = kaa.canvas.DirectFBCanvas(size)
 elif output == "FB":
@@ -16,7 +18,7 @@ frame = kaa.canvas.Image("data/frame.png")
 frame.set_border(30, 30, 30, 30)
 container.add_child(frame, width = "75%", height = "50%")
 
-text = kaa.canvas.Text("Text inside a container.")
+text = kaa.canvas.Text("Text inside a container.", font="data/Vera")
 container.add_child(text, hcenter = "50%", vcenter = "50%")
 
 kaa.main.run()

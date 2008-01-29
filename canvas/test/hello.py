@@ -1,5 +1,8 @@
+import kaa
 import kaa.canvas
 from test_common import *
+
+kaa.main.select_notifier(notifier)
 
 if output == "DirectFB":
     canvas = kaa.canvas.DirectFBCanvas(size)
@@ -12,7 +15,7 @@ else: # X11
 background = kaa.canvas.Image("data/background.jpg")
 canvas.add_child(background)
 
-hello = kaa.canvas.Text("Hello world!")
+hello = kaa.canvas.Text("Hello world!", font="data/Vera")
 hello.move(hcenter = "50%", vcenter = "50%")
 canvas.add_child(hello)
 

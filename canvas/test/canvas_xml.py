@@ -2,6 +2,8 @@ import sys
 import kaa, kaa.canvas
 from test_common import *
 
+kaa.main.select_notifier(notifier)
+
 if len(sys.argv) < 2:
     print 'ERROR: you must specify the canvas xml file as an argument'
     print 'usage: %s <canvas_xml>' % sys.argv[0]
