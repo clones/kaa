@@ -83,7 +83,7 @@ class VideoThumb(object):
 
     def _run(self):
         if self.child.is_alive() or not self.jobs or self._current or \
-               kaa.shutting_down:
+               kaa.main.is_shutting_down():
             return True
         self._current = self.jobs.pop(0)
 

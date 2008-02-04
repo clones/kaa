@@ -154,7 +154,7 @@ class Thumbnailer(object):
         """
         Process one job
         """
-        if not self.jobs or kaa.shutting_down:
+        if not self.jobs or kaa.main.is_shutting_down():
             return False
 
         job = self.jobs.pop(0)
