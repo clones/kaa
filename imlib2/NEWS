@@ -1,5 +1,12 @@
 Release Notes, see ChangeLog for a detailed list of changes.
 
+0.2.3, 2008-02-04
+
+* Adjust to new kaa.notifier API
+* Convert to gdk pixbuf helper function
+* Thread Bugfixes
+
+
 0.2.2, 2007-12-22
 
 * Bugfixes
