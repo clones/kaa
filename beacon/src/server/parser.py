@@ -105,10 +105,7 @@ def parse(db, item, check_image=False):
     if parent._beacon_id and not item._beacon_id:
         # check if the item is in the db now from a different
         # list of items.
-        r = db.query_name_and_parent(name=item._beacon_data['name'],
-                                     parent=parent._beacon_id)
-        if r:
-            item._beacon_database_update(r[0]._beacon_data)
+        r = db.sync_item(item)
 
     if item._beacon_data.get('mtime') == mtime:
         # The item already is in the database and the mtime is unchanged.

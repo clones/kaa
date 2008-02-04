@@ -178,6 +178,17 @@ class Database(RO_Database):
         self.signals['changed'].emit(changes)
 
 
+    def sync_item(self, item):
+        """
+        Sync item with current db information.
+        This function is only needed for the parser.
+        """
+        r = self._db.query(name=item._beacon_data['name'],
+                           parent=item._beacon_parent._beacon_id)
+        if r:
+            item._beacon_database_update(r[0])
+
+
     def add_object(self, type, metadata=None, **kwargs):
         """
         Add an object to the db.

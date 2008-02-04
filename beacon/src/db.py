@@ -456,14 +456,6 @@ class Database(object):
         yield result
 
 
-    def query_name_and_parent(self, name, parent):
-        """
-        Return item for name (string) and parent (type, id).
-        FIXME: this function is only needed for the parser
-        """
-        return self._db.query(name=name, parent=parent)
-
-
     def query_filename(self, filename):
         """
         Return item for filename, can't be in overlay. This function will
