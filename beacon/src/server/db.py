@@ -131,6 +131,7 @@ class Database(RO_Database):
             name = (str, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords', db.split_path),
             overlay = (bool, ATTR_SIMPLE),
             media = (int, ATTR_SEARCHABLE | ATTR_INDEXED),
+            image = (int, ATTR_SIMPLE),
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs('file',
@@ -138,6 +139,7 @@ class Database(RO_Database):
             name = (str, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords', db.split_path),
             overlay = (bool, ATTR_SIMPLE),
             media = (int, ATTR_SEARCHABLE | ATTR_INDEXED),
+            image = (int, ATTR_SIMPLE),
             mtime = (int, ATTR_SIMPLE))
 
         self._db.register_object_type_attrs('media',
