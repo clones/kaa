@@ -45,11 +45,6 @@ from kaa.db import *
 from kaa.beacon.item import Item
 from kaa.beacon.db import Database as RO_Database
 
-# Update db File object
-import kaa.beacon.db
-from file import File
-kaa.beacon.db.File = File
-
 # get logging object
 log = logging.getLogger('beacon.db')
 
