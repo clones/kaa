@@ -40,7 +40,7 @@ from xml.dom import minidom
 
 # kaa imports
 import kaa
-import kaa.notifier.url
+import kaa.net.url
 import kaa.beacon
 from kaa.strutils import str_to_unicode, unicode_to_str
 
@@ -69,7 +69,7 @@ class Entry(dict):
         log.info('%s -> %s' % (self.url, filename))
         tmpname = os.path.join(os.path.dirname(filename),
                                '.' + os.path.basename(filename))
-        return kaa.notifier.url.fetch(self.url, filename, tmpname)
+        return kaa.net.url.fetch(self.url, filename, tmpname)
 
 
 class Feed(object):
@@ -167,7 +167,7 @@ class Feed(object):
         fname = os.path.join(self.IMAGEDIR, fname)
         if os.path.isfile(fname):
             yield fname
-        yield kaa.notifier.url.fetch(url, fname)
+        yield kaa.net.url.fetch(url, fname)
         yield fname
 
 

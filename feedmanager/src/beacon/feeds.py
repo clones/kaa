@@ -36,7 +36,7 @@ from logging.handlers import RotatingFileHandler
 
 # kaa imports
 import kaa
-import kaa.notifier.url
+import kaa.net.url
 import kaa.feedmanager
 import kaa.rpc
 
@@ -106,4 +106,4 @@ def plugin_init(server, db):
     server.ipc.connect(IPC())
     # add password information
     for auth in kaa.feedmanager.config.authentication:
-        kaa.notifier.url.add_password(None, auth.site, auth.username, auth.password)
+        kaa.net.url.add_password(None, auth.site, auth.username, auth.password)

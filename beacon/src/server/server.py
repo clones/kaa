@@ -38,7 +38,7 @@ import logging
 # kaa imports
 from kaa import OneShotTimer, Timer, Callback
 import kaa.rpc
-from kaa.notifier.url import add_password
+from kaa.net.url import add_password
 
 # kaa.beacon server imports
 import parser
