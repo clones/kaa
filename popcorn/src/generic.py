@@ -33,6 +33,7 @@ all = [ 'Player' ]
 
 # python imports
 import os
+import sys
 import logging
 
 # kaa imports
@@ -51,17 +52,24 @@ log = logging.getLogger('popcorn')
 def required_states(*states):
     """
     Decorator to make sure a function is only called in the corrent state
-    and in the correct order of all pending calls.
+    and in the correct order of all pending calls. A function decorated
+    with this decorator always returns an InProgress object.
     """
     def decorator(func):
 
         def newfunc(self, *args, **kwargs):
+            # always return an InProgress object and handle the
+            # function like it is decorated with yield_execution
+            afunc = kaa.yield_execution()(func)
+            async = kaa.InProgress()
             if self._get_state() in states and not self._pending:
-                return func(self, *args, **kwargs)
-            # print 'pending:', func, self.get_state(), states
-            callback = kaa.Callback(func, self, *args, **kwargs)
-            self._pending.append((states, callback))
-
+                # already finished
+                async.finished(afunc(self, *args, **kwargs))
+            else:
+                # add callback to list of pending calls
+                callback = kaa.Callback(afunc, self, *args, **kwargs)
+                self._pending.append((states, async, callback))
+            return async
         try:
             newfunc.func_name = func.func_name
         except TypeError:
@@ -148,6 +156,8 @@ class Player(object):
 
         # pending commands
         self._pending = []
+        # waiting InProgress objects
+        self._waiting = []
         self._blocked = False
         self._failed_player = []
 
@@ -161,67 +171,14 @@ class Player(object):
             self._player.set_size(self._size)
 
 
-    def _get_player_class(self, player=None):
-        """
-        Return player class object to play the current mrl. This function
-        uses self._media, self._open_caps as mrl and caps and respects
-        the failed player and the player disabled in the config. If player
-        is given as argument, this player will be used.
-        """
-        exclude = self._failed_player[:]
-        for p in backends.manager.get_all_players():
-            if not getattr(config, p).enabled and not p in exclude:
-                exclude.append(p)
-        return backends.manager.get_player_class(\
-            self._media, self._open_caps, exclude, player, self._window)
-
-
     def _state_change(self, old_state, state):
         """
         """
-        log.debug('%s %s -> %s', str(self._player)[1:-1], old_state, state)
+        log.info('%s %s -> %s', str(self._player)[1:-1], old_state, state)
 
-        if old_state in (STATE_OPENING, STATE_OPEN) and \
-               state in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
-            # From STATE_OPEN(ING) to not playing. This means something
-            # went wrong and the player failed to play.  This means
-            # that the player we wanted to use was unable to play this
-            # file. In that case we add the player the list of of
-            # failed_player and try to find a better one.
-            # TODO: What happens if the user tries to open a new file
-            # while we are trying to find a good player for the old
-            # mrl?
-            self._failed_player.append(self.get_player_id())
-            # FIXME: why is this here? If we delete our pending functions
-            # a 'play' after open may get missed. So let's see what happens
-            # if we don't delete the pending calls here :)
-            # self._pending = []
-            self._player.release()
-            cls = self._get_player_class()
-            if cls:
-                # a new possible player is found, try it
-                # remove all pending information to make it possible to call
-                # create and open now. After that, add them again.
-                pending = self._pending
-                self._pending = []
-                self._create_player(cls, True)
-                self._open()
-                if old_state == STATE_OPEN:
-                    self.play()
-                self._pending.extend(pending)
-                return True
-            # everything failed
-            self.signals["failed"].emit()
-
-        if old_state == STATE_OPENING and state == STATE_OPEN:
-            # stream open now for playing
-            self.signals["open"].emit(self._player.get_info())
-
-        if old_state == STATE_OPEN and \
-               state in (STATE_PLAYING, STATE_PAUSED):
-            # From STATE_OPENING to playing. Signal playback start
-            self.signals["start"].emit()
-            self.signals["play"].emit()
+        for wait, states in self._waiting[:]:
+            if state in states:
+                wait.finished(self._waiting.remove((wait, states)))
 
         if old_state in (STATE_PLAYING, STATE_PAUSED, STATE_STOPPING) and \
                state in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
@@ -236,13 +193,6 @@ class Player(object):
             self.signals["play"].emit()
             self.signals["pause_toggle"].emit()
 
-        if state == STATE_NOT_RUNNING == self._player.get_state() and \
-               not self._pending:
-            # Player released the video and audio device. Right now we set
-            # self._player to None to simulate STATE_NOT_RUNNING.
-            # This needs to be fixed.
-            self._player = None
-
         if self._get_state() == STATE_IDLE and not self._pending and \
                not old_state == STATE_NOT_RUNNING:
             # no new mrl to play, release player
@@ -256,45 +206,106 @@ class Player(object):
         self._blocked = True
         # Iterate through all pending commands and execute the ones that can
         # be called in our new state.
-        for states, callback in self._pending[:]:
+        for states, async, callback in self._pending[:]:
             if self._get_state() in states:
-                callback()
-                self._pending.remove((states, callback))
+                try:
+                    async.finished(callback())
+                except Exception, e:
+                    async.throw(*sys.exc_info())
+                self._pending.remove((states, async, callback))
         self._blocked = False
 
 
-    @required_states(STATE_NOT_RUNNING)
-    def _create_player(self, cls, copy_properties=False):
+    def wait(self, *states):
         """
-        Create a player based on cls.
+        Return InProgress object that will be finished when one of the
+        given states is reached.
         """
-        properties = self._properties
-        if copy_properties and self._player:
-            properties = self._player._properties
-            for key, value in self._player._property_delayed:
-                properties[key] = value
-            self._player._property_delayed = []
-        properties = properties.copy()
-
-        self._player = cls(properties)
-        self._player._state_changed.connect_weak(self._state_change)
-        for signal in self._player.signals:
-            self._player.signals[signal].connect_weak(self.signals[signal].emit)
+        async = kaa.InProgress()
+        if self._get_state() in states:
+            # already in a state we want
+            async.finished(True)
+            return async
+        # append to the list of waiting InProgress signals
+        self._waiting.append((async, states))
+        return async
 
 
-    @required_states(STATE_NOT_RUNNING, STATE_IDLE)
-    def _open(self):
+    @kaa.yield_execution()
+    def _open(self, player=None):
         """
-        The real open function called from 'open'.
+        The real open function called from 'open' and 'play'. This function
+        will try to open the current url. At the end of this function the
+        internal state is either STATE_OPEN or an error is raised.
         """
+        # use the exclude list and the given player to get a
+        # player class to start
+        exclude = self._failed_player[:]
+        for p in backends.manager.get_all_players():
+            if not getattr(config, p).enabled and not p in exclude:
+                exclude.append(p)
+        cls = backends.manager.get_player_class(\
+        self._media, self._open_caps, exclude, player, self._window)
+
+        if self._player:
+            # We already have a player. The player has to be stopped if
+            # it is running and has to release all resources if it is
+            # not the player we choose next.
+            if self._get_state() not in (STATE_IDLE, STATE_NOT_RUNNING,
+                                         STATE_SHUTDOWN, STATE_STOPPING):
+                # player is running, stop it
+                self._player.stop()
+                yield self.wait(STATE_IDLE, STATE_NOT_RUNNING)
+            if not cls or not isinstance(self._player, cls):
+                # wrong player, release resources
+                self._player.release()
+                yield self.wait(STATE_NOT_RUNNING)
+                self._player = None
+
+        if not cls:
+            # No possible player.
+            self.signals["failed"].emit()
+            raise PlayerError("No supported player found to play %s", self._media.url)
+
+        if self._player:
+            # Reuse player
+            self._player._properties = self._properties.copy()
+        else:
+            # Create a player based on cls.
+            properties = self._properties.copy()
+            self._player = cls(properties)
+            self._player._state_changed.connect_weak(self._state_change)
+            for signal in self._player.signals:
+                self._player.signals[signal].connect_weak(self.signals[signal].emit)
+
+        # set some player variables
         self._player.set_window(self._window)
         self._player.set_size(self._size)
-        # FIXME: maybe give the whole media object to the child
         self._player.open(self._media)
+
+        # wait until we reach STATE_OPEN (ready to play) or
+        # STATE_IDLE or STATE_NOT_RUNNING (failed)
+        yield self.wait(STATE_OPEN, STATE_IDLE, STATE_NOT_RUNNING)
+        if self._get_state() == STATE_IDLE:
+            # Player is idle. This means it was not possible to open
+            # the url. Release all resources.
+            self._player.release()
+        if self._get_state() in (STATE_IDLE, STATE_SHUTDOWN):
+            # Wait until the not working player is stopped.
+            yield self.wait(STATE_NOT_RUNNING)
+        if self._get_state() == STATE_NOT_RUNNING:
+            # Try next player if no specific player was given
+            if player:
+                self.signals["failed"].emit()
+                raise PlayerError("Forced player %s does not work", player)
+            self._failed_player.append(self.get_player_id())
+            yield self._open()
+
 
 
     # Player API
 
+    @kaa.yield_execution()
     def open(self, mrl, caps = None, player = None):
         """
         Open mrl. The parameter 'caps' defines the needed capabilities the
@@ -302,7 +313,7 @@ class Player(object):
         given player.
         """
         if kaa.main.is_shutting_down():
-            return False
+            yield False
 
         self._media = kaa.metadata.parse(mrl)
         if not self._media:
@@ -314,77 +325,76 @@ class Player(object):
 
         self._open_caps = caps
         self._failed_player = []
-        cls = self._get_player_class(player)
-
-        if not cls:
-            raise PlayerError("No supported player found to play %s", mrl)
-
         self._pending = []
-        if not self._player:
-            self._create_player(cls)
-        else:
-            if self._get_state() not in (STATE_IDLE, STATE_NOT_RUNNING,
-                                         STATE_SHUTDOWN, STATE_STOPPING):
-                self._player.stop()
-            if not isinstance(self._player, cls):
-                self._player.release()
-                self._create_player(cls)
-            else:
-                self._player._properties = self._properties.copy()
-        self._open()
+        yield self._open(player)
+        self.signals['open'].emit(self._player.get_info())
 
-
+        
     @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
     def play(self):
+        """
+        Start or resume playback. Returns an InProgress object.
+        """
         if self.get_state() in (STATE_PLAYING, STATE_PAUSED):
             # called to toggle play/pause
             log.info('resume playback')
             self._player.resume()
-        else:
-            log.info('start playback')
-            self._player.play()
+            yield self.wait(STATE_PLAYING)
+            return
+        log.info('start playback')
+        self._player.play()
+        yield self.wait(STATE_PLAYING, STATE_NOT_RUNNING, STATE_IDLE)
+        if self._get_state() == STATE_PLAYING:
+            return
+        self._failed_player.append(self.get_player_id())
+        yield self._open()
+        yield self.play()
+        self.signals["start"].emit()
+        self.signals["play"].emit()
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED, STATE_STOPPING)
     def stop(self):
         """
-        Stop playback.
+        Stop playback. Returns an InProgress object.
         """
-        if self._get_state() == STATE_STOPPING:
-            # ignore this stop() call
-            return
-        # FIXME: handle player that are in a deadlock and do not
-        # want to be killed.
-        self._player.stop()
+        if self._get_state() != STATE_STOPPING:
+            # FIXME: handle player that are in a deadlock and do not
+            # want to be killed.
+            self._player.stop()
+        return self.wait(STATE_NOT_RUNNING, STATE_IDLE)
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
     def pause(self):
         """
-        Pause playback.
+        Pause playback. Returns an InProgress object.
         """
-        if self.get_state() == STATE_PLAYING:
-            self._player.pause()
-
+        if self.get_state() == STATE_PAUSED:
+            return
+        self._player.pause()
+        yield self.wait(STATE_PAUSED)
+        
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
     def resume(self):
         """
-        Resume playback.
+        Resume playback. Returns an InProgress object.
         """
-        if self.get_state() == STATE_PAUSED:
-            self._player.resume()
+        if self.get_state() == STATE_PLAYING:
+            return
+        self._player.resume()
+        yield self.wait(STATE_PLAYING)
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
     def pause_toggle(self):
         """
-        Toggle play / pause.
+        Toggle play / pause. Returns an InProgress object.
         """
         if self.get_state() == STATE_PLAYING:
-            self._player.pause()
-        else:
-            self._player.resume()
+            return self.pause()
+        return self.resume()
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
