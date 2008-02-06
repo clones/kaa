@@ -163,7 +163,7 @@ class MPlayer(MediaPlayer):
         if not self._mp_cmd:
             raise PlayerError, "No MPlayer executable found in PATH"
 
-        self._mplayer = ChildProcess()
+        self._mplayer = None
 
         self._filters_pre = []
         self._filters_add = []
@@ -300,7 +300,7 @@ class MPlayer(MediaPlayer):
 
 
     def _is_alive(self):
-        return self._mplayer.is_alive()
+        return self._mplayer and self._mplayer.is_alive()
 
 
 
@@ -562,8 +562,9 @@ class MPlayer(MediaPlayer):
         """
         Stop playback.
         """
-        self._mplayer.stop()
-        self._state = STATE_SHUTDOWN
+        if self._mplayer:
+            self._mplayer.stop()
+            self._state = STATE_SHUTDOWN
 
 
     def pause(self):
