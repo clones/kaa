@@ -117,9 +117,7 @@ class Client(object):
         if not kaa.is_mainthread():
             # sqlite db was opened in the mainthread, so we must perform
             # all our queries there as well.
-            cb = kaa.MainThreadCallback(self.query)
-            cb.set_async(False)
-            return cb(**query)
+            return kaa.MainThreadCallback(self.query)(**query).wait()
 
         result = Query(self, **query)
         self._queries.append(weakref(result))

@@ -90,9 +90,9 @@ def expose(template=None, engine=None, mainloop=True):
         def newfunc(self, *args, **kwargs):
             _function = func
             if mainloop and not kaa.is_mainthread():
-                _function = kaa.MainThreadCallback(func)
-                _function.set_async(False)
-            result = _function(self, *args, **kwargs)
+                result = kaa.MainThreadCallback(func)(self, *args, **kwargs).wait()
+            else:
+                result = func(self, *args, **kwargs)
             if not template:
                 return result
             return engine.parse(template, result)
