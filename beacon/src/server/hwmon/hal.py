@@ -42,11 +42,13 @@ import kaa.metadata
 
 # check for dbus and it's version
 import dbus
-if getattr(dbus, 'version', (0,0,0)) < (0,51,0):
-    raise ImportError('dbus >= 0.51.0 not found')
-import dbus.glib
+if getattr(dbus, 'version', (0,0,0)) < (0,8,0):
+    raise ImportError('dbus >= 0.8.0 not found')
 
-# use gtk main loop
+# Set dbus to use gtk and adjust kaa to it. Right now python dbus
+# only supports the glib mainloop and no generic one.
+from dbus.mainloop.glib import DBusGMainLoop
+DBusGMainLoop(set_as_default=True)
 kaa.main.select_notifier('gtk', x11=False)
 
 # kaa.beacon imports
@@ -58,11 +60,8 @@ from cdrom import eject
 log = logging.getLogger('beacon.hal')
 
 # HAL signals
-signals = { 'add': kaa.Signal(),
-            'remove': kaa.Signal(),
-            'changed': kaa.Signal(),
-            'failed': kaa.Signal()
-          }
+signals = kaa.Signals('add', 'remove', 'changed', 'failed')
+
 
 class Device(object):
     """
@@ -160,7 +159,7 @@ class Device(object):
 _bus = None
 _connection_timeout = 5
 
-def _connect_to_hal():
+def start():
     """
     Connect to DBUS and start to connect to HAL.
     """
@@ -176,32 +175,13 @@ def _connect_to_hal():
             # give up
             signals['failed'].emit('unable to connect to dbus')
             return False
-        kaa.OneShotTimer(_connect_to_hal).start(2)
+        kaa.OneShotTimer(start).start(2)
         return False
     try:
         obj = _bus.get_object('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
     except Exception, e:
         # unable to connect to hal
         signals['failed'].emit('hal not found on dbus')
-        return False
-
-    # DONT ASK! dbus sucks!
-    kaa.Timer(_connect_to_hal_because_dbus_sucks, obj).start(0.01)
-    return False
-
-
-def _connect_to_hal_because_dbus_sucks(obj):
-    """
-    The real connection to HAL.
-    """
-    if obj._introspect_state == obj.INTROSPECT_STATE_INTROSPECT_IN_PROGRESS:
-        return True
-    if obj._introspect_state == obj.INTROSPECT_STATE_DONT_INTROSPECT:
-        if not _connection_timeout:
-            # give up
-            signals['failed'].emit('unable to connect to hal')
-            return False
-        kaa.OneShotTimer(_connect_to_hal).start(2)
         return False
     hal = dbus.Interface(obj, 'org.freedesktop.Hal.Manager')
     hal.GetAllDevices(reply_handler=_device_all, error_handler=log.error)
@@ -321,8 +301,9 @@ def _device_add(prop, udi, removable=False):
         signals['add'].emit(dev)
 
 
-def start():
-    """
-    Start HAL based device monitor.
-    """
-    _connect_to_hal()
+if __name__ == '__main__':      
+    def new_device(self, dev):
+        print dev
+    signals['add'].connect(new_device)
+    start()
+    kaa.main.run()
