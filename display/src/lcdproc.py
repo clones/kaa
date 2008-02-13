@@ -229,7 +229,7 @@ class LCD(object):
         self.socket.connect((server, port), async=True)
         yield wait
 
-        result = wait.get()
+        result = wait.get_result()
         if isinstance(result, (Exception, socket.error)):
             # try again later
             log.error('LCDproc: %s. Will try again later', result)
@@ -240,7 +240,7 @@ class LCD(object):
         self._send("hello")
         yield wait
 
-        line = wait.get().strip().split()
+        line = wait.get_result().strip().split()
         self._send('client_set name kaa')
         self.size = int(line[7]), int(line[9])
         self.width, self.height = self.size
