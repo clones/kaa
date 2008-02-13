@@ -498,10 +498,10 @@ class Crawler(object):
             counter += async * 20
             while counter >= 20:
                 counter -= 20
-                yield kaa.YieldContinue
+                yield kaa.NotFinished
                 if cpuinfo.cpuinfo()[cpuinfo.IDLE] < 50 or \
                        cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 30:
-                    yield kaa.YieldContinue
+                    yield kaa.NotFinished
             counter += 1
 
         if not subdirs:

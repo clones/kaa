@@ -50,7 +50,7 @@ DISCONNECTED, CONNECTING, CONNECTED = range(3)
 def wait_while_connecting():
     """
     Decorator that wraps kaa.coroutine, raising an exception if
-    the client is disconnected, YieldContinue if the client is in the process
+    the client is disconnected, NotFinished if the client is in the process
     of connecting, or the actual return value of the decorated function if the
     client is connected.
     """
@@ -59,7 +59,7 @@ def wait_while_connecting():
             if client.status == DISCONNECTED:
                 raise SystemError('Client is disconnected')
             while client.status == CONNECTING:
-                yield kaa.YieldContinue
+                yield kaa.NotFinished
             yield func(client, *args, **kwargs)
 
         newfunc.func_name = func.func_name
@@ -158,7 +158,7 @@ class Client(object):
             raise SystemError('Client is disconnected')
 
         while self.status == CONNECTING:
-            yield kaa.YieldContinue
+            yield kaa.NotFinished
 
         if channel is not None:
             if isinstance(channel, Channel):

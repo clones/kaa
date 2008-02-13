@@ -144,7 +144,7 @@ if __name__ == '__main__':
     def add_load():
         x = 0
         for i in range(300000):
-            yield kaa.YieldContinue
+            yield kaa.NotFinished
         print "Done load generation"
 
     add_load()

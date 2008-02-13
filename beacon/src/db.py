@@ -350,10 +350,10 @@ class Database(object):
                 else:
                     items.append(create_by_type(i, parent))
             if time.time() > timer + 0.1:
-                # we used too much time. Call yield YieldContinue at
+                # we used too much time. Call yield NotFinished at
                 # this point to continue later.
                 timer = time.time()
-                yield kaa.YieldContinue
+                yield kaa.NotFinished
 
         # sort items based on name. The listdir is also sorted by name,
         # that makes checking much faster
@@ -445,10 +445,10 @@ class Database(object):
 
             counter += 1
             if not counter % 50 and time.time() > timer + 0.05:
-                # We used too much time. Call yield YieldContinue at
+                # We used too much time. Call yield NotFinished at
                 # this point to continue later.
                 timer = time.time()
-                yield kaa.YieldContinue
+                yield kaa.NotFinished
 
         if not 'keywords' in query:
             # sort results by url (name is not unique) and return

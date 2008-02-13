@@ -79,7 +79,7 @@ class Query(object):
         self._client = client
         # some shortcuts from the client
         self._rpc = self._client.rpc
-        # InProgress object or YieldContinue
+        # InProgress object or NotFinished
         self._async = kaa.InProgress()
         # start inititial query
         self._beacon_start_query(query)
@@ -92,7 +92,7 @@ class Query(object):
 
     def wait(self):
         """
-        Return InProgress object or YieldContinue when the object is valid.
+        Return InProgress object or NotFinished when the object is valid.
         """
         return self._async
 
@@ -222,7 +222,7 @@ class Query(object):
         self.signals['changed'].emit()
         if isinstance(self._async, kaa.InProgress):
             self._async.finished(self)
-            self._async = kaa.YieldContinue
+            self._async = kaa.NotFinished
 
 
     def __repr__(self):

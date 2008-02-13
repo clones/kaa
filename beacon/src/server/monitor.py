@@ -36,7 +36,7 @@ import logging
 # kaa imports
 import kaa
 from kaa.weakref import weakref
-from kaa import OneShotTimer, Timer, YieldContinue
+from kaa import OneShotTimer, Timer, NotFinished
 
 # kaa.beacon imports
 from kaa.beacon.item import Item
@@ -219,7 +219,7 @@ class Monitor(object):
             c += 1
             if c > 20:
                 # stop it and continue in the next step
-                yield YieldContinue
+                yield NotFinished
             # TODO: maybe also check parents?
             mtime = i._beacon_mtime()
             if mtime != i._beacon_data.get('mtime'):
