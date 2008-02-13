@@ -82,7 +82,7 @@ signals = { 'add': Signal(),
 
 _rom_drives = []
 
-@kaa.execute_in_thread('beacon.cdrom')
+@kaa.threaded('beacon.cdrom')
 def eject(device):
     # open fd to the drive
     try:
@@ -174,7 +174,7 @@ class RomDrive(object):
         self.disc = None
 
 
-    @kaa.execute_in_thread('beacon.cdrom')
+    @kaa.threaded('beacon.cdrom')
     def check(self):
         log.debug('check drive status %s', self.device)
 

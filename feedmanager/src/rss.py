@@ -46,7 +46,7 @@ import core
 log = logging.getLogger('feedmanager')
 isotime = '%a, %d %b %Y %H:%M:%S'
 
-@kaa.execute_in_thread()
+@kaa.threaded()
 def feedparser(url):
     """
     feedparser.parse wrapper in a thread.

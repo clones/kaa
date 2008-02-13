@@ -239,7 +239,7 @@ class Server(object):
     # functions called by source_* modules
     # -------------------------------------------------------------------------
 
-    @kaa.execute_in_mainloop()
+    @kaa.threaded(kaa.MAINTHREAD)
     def add_channel(self, tuner_id, name, long_name):
         """
         This method requires at least one of tuner_id, name,
