@@ -40,8 +40,8 @@ import xml.sax.saxutils
 
 # kaa imports
 import kaa
-from kaa import TEMP
 
+# config file
 from config_xmltv import config
 
 # get logging object
@@ -289,10 +289,10 @@ def update(epg):
     from kaa.epg.config import config as epg_config
     if config.grabber:
         log.info('grabbing listings using %s', config.grabber)
-        xmltv_file = os.path.join(TEMP, 'TV.xml')
+        xmltv_file = kaa.tempfile('TV.xml')
         if config.data_file:
             xmltv_file = config.data_file
-        log_file = os.path.join(TEMP, 'TV.xml.log')
+        log_file = kaa.tempfile('TV.xml.log')
         # TODO: using os.system is ugly because it blocks ... but we can make this
         # nicer using kaa.Process later. We are inside a thread so it
         # seems to be ok.

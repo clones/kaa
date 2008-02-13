@@ -40,8 +40,8 @@ import xml.sax.saxutils
 
 # kaa imports
 import kaa
-from kaa import TEMP
 
+# config file
 from config_epgdata import config
 
 # get logging object
@@ -218,7 +218,7 @@ def update(epg):
         return False
 
     # create a tempdir as working area
-    tempdir = os.path.join(TEMP, 'epgdata')
+    tempdir = kaa.tempfile('epgdata')
     if not os.path.isdir(tempdir):
         os.mkdir(tempdir)
     # and clear it if needed
@@ -228,7 +228,7 @@ def update(epg):
     # temp file
     tmpfile = os.path.join(tempdir,'temp.zip')
     # logfile
-    logfile = os.path.join(TEMP,'epgdata.log')
+    logfile = kaa.tempfile('epgdata.log')
 
     # empty list for the xml docs
     docs = []

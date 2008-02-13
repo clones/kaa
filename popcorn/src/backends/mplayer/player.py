@@ -513,9 +513,7 @@ class MPlayer(MediaPlayer):
         # non-existent) command which causes MPlayer not to react to any key
         # presses, allowing us to implement our own handlers.  The temp file is
         # deleted once MPlayer has read it.
-        if not os.path.isdir(os.path.join(kaa.TEMP, 'popcorn')):
-            os.mkdir(os.path.join(kaa.TEMP, 'popcorn'))
-        tempfile = os.path.join(kaa.TEMP, 'popcorn', 'mplayer-input.conf')
+        tempfile = kaa.tempfile('popcorn/mplayer-input.conf')
         if not os.path.isfile(tempfile):
             keys = filter(lambda x: x not in string.whitespace, string.printable)
             keys = list(keys) + self._mp_info["keylist"]

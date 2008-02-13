@@ -275,7 +275,7 @@ def init():
     global thumbnailer
 
     # create tmp dir and change directory to it
-    tmpdir = os.path.join(kaa.TEMP, 'thumb')
+    tmpdir = kaa.tempfile('thumb')
     if not os.path.isdir(tmpdir):
         os.mkdir(tmpdir)
     os.chdir(tmpdir)
