@@ -42,7 +42,7 @@ except ImportError:
     raise ImportError('pybluez no installed')
 
 # kaa.notifier imports
-from kaa.notifier import SocketDispatcher, IO_WRITE, WeakOneShotTimer, Signal
+from kaa.notifier import IOMonitor, IO_WRITE, WeakOneShotTimer, Signal
 
 class Bluetooth(object):
     """
@@ -88,7 +88,7 @@ class Bluetooth(object):
         except Exception, e:
             if e.args[0] == 11:
                 # doing the connect, just wait until we can write
-                SocketDispatcher(self._write).register(self._sock.fileno(), IO_WRITE)
+                IOMonitor(self._write).register(self._sock.fileno(), IO_WRITE)
             elif e.args[0] == 16:
                 # busy, try again later
                 self._sock = None
@@ -127,7 +127,7 @@ class Bluetooth(object):
                 raise IOError(e.args)
         self._sock.send('AT+CMER=3,2,0,0,0\r')
         self.signals['connected'].emit()
-        SocketDispatcher(self._read).register(self._sock.fileno())
+        IOMonitor(self._read).register(self._sock.fileno())
         return False
 
 

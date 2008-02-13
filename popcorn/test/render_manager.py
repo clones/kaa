@@ -120,7 +120,7 @@ class Video(kaa.evas.Image):
                 pass
 
         print "Setup fifo", fifo
-        kaa.WeakSocketDispatcher(self._new_frame, fifo).register(fifo)
+        kaa.WeakIOMonitor(self._new_frame, fifo).register(fifo)
 
 
     def _new_frame(self, fifo):

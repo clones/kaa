@@ -33,7 +33,7 @@ import urllib
 import sys
 import cStringIO
 
-from kaa.notifier import Signal, MainThreadCallback, Thread, SocketDispatcher
+from kaa.notifier import Signal, MainThreadCallback, Thread, IOMonitor
 import kaa.notifier
 
 class HTTPReader(urllib.FancyURLopener):

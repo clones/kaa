@@ -103,7 +103,7 @@ class X11Display(object):
         self._display = _X11.X11Display(dispname)
         self._windows = {}
 
-        dispatcher = kaa.WeakSocketDispatcher(self.handle_events)
+        dispatcher = kaa.WeakIOMonitor(self.handle_events)
         dispatcher.register(self.socket)
         # Also connect to the step signal. It is a bad hack, but when
         # drawing is done, the socket is read and we will miss keypress

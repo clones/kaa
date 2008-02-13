@@ -181,7 +181,7 @@ class Player(object):
     to the parent and need to implement the function the parent is calling.
     """
     def __init__(self):
-        monitor = kaa.WeakSocketDispatcher(self._handle_line)
+        monitor = kaa.WeakIOMonitor(self._handle_line)
         monitor.register(sys.stdin.fileno())
         flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, flags | os.O_NONBLOCK)

@@ -189,7 +189,7 @@ class IPCServer:
         self.socket.setblocking(False)
         self.socket.bind(address)
         self.socket.listen(5)
-        self._monitor = kaa.notifier.WeakSocketDispatcher(self.handle_connection)
+        self._monitor = kaa.notifier.WeakIOMonitor(self.handle_connection)
         self._monitor.register(self.socket.fileno())
         # Remove socket file and close clients on shutdown
         kaa.signals["shutdown"].connect_weak(self.close)
@@ -270,10 +270,10 @@ class IPCChannel(object):
             self.socket = sock
             self.server = server_or_address
 
-        self._rmon = kaa.notifier.WeakSocketDispatcher(self.handle_read)
+        self._rmon = kaa.notifier.WeakIOMonitor(self.handle_read)
         self._rmon.register(self.socket.fileno(), kaa.notifier.IO_READ)
 
-        self._wmon = kaa.notifier.WeakSocketDispatcher(self.handle_write)
+        self._wmon = kaa.notifier.WeakIOMonitor(self.handle_write)
         #self._wmon.register(self.socket.fileno(), kaa.notifier.IO_WRITE)
 
         self.signals = {

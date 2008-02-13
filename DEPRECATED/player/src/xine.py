@@ -43,7 +43,7 @@ class XinePlayerChild(object):
         self._status.start(0.1)
         self._status_last = None
 
-        monitor = kaa.notifier.WeakSocketDispatcher(self._handle_line)
+        monitor = kaa.notifier.WeakIOMonitor(self._handle_line)
         monitor.register(sys.stdin.fileno())
         flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, flags | os.O_NONBLOCK)

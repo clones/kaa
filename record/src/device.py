@@ -80,7 +80,7 @@ class DvbDevice(Device):
     def __init__(self, device, channels):
         """
         Init the device by creating a C++ object for DVB and create a
-        SocketDispatcher for the file descriptor. The C++ objecty will
+        IOMonitor for the file descriptor. The C++ objecty will
         register and unregister from notifier.
         """
         self.adapter = device

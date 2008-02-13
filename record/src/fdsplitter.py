@@ -57,7 +57,7 @@ class FDSplitter(object):
     def __init__(self, filedesc, inputtype = INPUT_RAW):
         """
         Init the device by creating a C++ object and create a
-        SocketDispatcher for the file descriptor. The C++ objecty will
+        IOMonitor for the file descriptor. The C++ objecty will
         register and unregister from notifier.
         """
         # counter for added chains
@@ -76,7 +76,7 @@ class FDSplitter(object):
         self._fdsplitter.set_input_type(inputtype)
 
         # create socket dispatcher
-        self.sd = kaa.SocketDispatcher( self._fdsplitter.read_fd_data )
+        self.sd = kaa.IOMonitor( self._fdsplitter.read_fd_data )
 
 
     def add_filter_chain(self, filter_chain):
