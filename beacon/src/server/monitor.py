@@ -128,7 +128,7 @@ class Monitor(object):
             pass
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def check(self, changes):
         """
         This function compares the last query result with the current db status
@@ -199,7 +199,7 @@ class Monitor(object):
         yield True
 
 
-    @kaa.yield_execution(0.01)
+    @kaa.coroutine(0.01)
     def _initial_scan(self):
         """
         Start scanning the current list of items if they need to be updated.

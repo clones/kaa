@@ -166,7 +166,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('guide.update')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def update(self, backend = None, *args, **kwargs):
         """
         Start epg update calling the source_* files.  If backend is specified,

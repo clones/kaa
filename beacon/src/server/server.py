@@ -287,7 +287,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('monitor.directory')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def monitor_dir(self, directory):
         """
         Monitor a directory in the background. One directories with a monitor
@@ -314,7 +314,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('monitor.add')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def monitor_add(self, client_id, request_id, query):
         """
         Create a monitor object to monitor a query for a client.
@@ -355,7 +355,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('item.update')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def update(self, items):
         """
         Update items from the client.
@@ -369,7 +369,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('item.request')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def request(self, filename):
         """
         Request item data.
@@ -388,7 +388,7 @@ class Server(object):
 
 
     @kaa.rpc.expose('item.create')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def item_create(self, type, parent, **kwargs):
         """
         Create a new item.
@@ -400,7 +400,7 @@ class Server(object):
 
     
     @kaa.rpc.expose('item.delete')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def item_delete(self, id):
         """
         Create a new item.

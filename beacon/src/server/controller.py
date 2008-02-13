@@ -60,7 +60,7 @@ class Controller(object):
         return parse(self._db, item)
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _beacon_update_all(self):
         """
         Timed callback to write all changes to the db.
@@ -93,7 +93,7 @@ class Controller(object):
         return self._db.query(**query)
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def delete_item(self, item):
         """
         Delete an item.

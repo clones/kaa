@@ -59,8 +59,8 @@ def required_states(*states):
 
         def newfunc(self, *args, **kwargs):
             # always return an InProgress object and handle the
-            # function like it is decorated with yield_execution
-            afunc = kaa.yield_execution()(func)
+            # function like it is decorated with coroutine
+            afunc = kaa.coroutine()(func)
             async = kaa.InProgress()
             if self._get_state() in states and not self._pending:
                 # already finished
@@ -231,7 +231,7 @@ class Player(object):
         return async
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _open(self, player=None):
         """
         The real open function called from 'open' and 'play'. This function
@@ -305,7 +305,7 @@ class Player(object):
 
     # Player API
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def open(self, mrl, caps = None, player = None):
         """
         Open mrl. The parameter 'caps' defines the needed capabilities the

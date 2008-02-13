@@ -115,7 +115,7 @@ elif sys.argv[1] in ('--remove', '-r') and len(sys.argv) > 2:
 
 elif sys.argv[1] in ('--update', '-u'):
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def update():
         n = None
         if len(sys.argv) > 2:
@@ -134,7 +134,7 @@ elif sys.argv[1] in ('--update', '-u'):
                     print 'failed'
         sys.exit(0)
         
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def parallel_update():
         global active
         active = 0

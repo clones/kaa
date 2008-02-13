@@ -71,7 +71,7 @@ class Media(object):
         self._controller.eject(self)
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def update(self, prop):
         """
         Update media properties.
@@ -180,7 +180,7 @@ class MediaList(object):
         self._controller = controller
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def add(self, id, prop):
         """
         Add a media.

@@ -156,7 +156,7 @@ class Feed(object):
             d.appendChild(e)
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _get_image(self, url):
         """
         Download image and store it to the image dir. Returns image
@@ -171,7 +171,7 @@ class Feed(object):
         yield fname
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def update(self, verbose=False):
         """
         Update feed.
@@ -274,7 +274,7 @@ class Feed(object):
         yield True
     
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def remove(self):
         """
         Remove entries from this feed.

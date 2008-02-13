@@ -150,7 +150,7 @@ def uptodate():
     print 'Beacon has finished the query and parsing.'
 
 
-@kaa.yield_execution()
+@kaa.coroutine()
 def main():
     try:
         # list of modes this script can start in

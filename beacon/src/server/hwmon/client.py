@@ -81,7 +81,7 @@ class Client(object):
     # rpc callbacks
 
     @kaa.rpc.expose('device.add')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _device_add(self, dev):
         # FIXME: check if the device is still valid
 
@@ -139,7 +139,7 @@ class Client(object):
         self._device_add(dev)
 
 
-    @kaa.yield_execution(synchronize = True)
+    @kaa.coroutine(synchronize = True)
     def _device_scanned(self, metadata, dev):
 
         # FIXME: ACTIVE WAITING:

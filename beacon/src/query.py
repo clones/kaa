@@ -185,7 +185,7 @@ class Query(object):
     # Internal API
     # -------------------------------------------------------------------------
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _beacon_start_query(self, query):
         """
         Start the database query.
@@ -246,7 +246,7 @@ class Query(object):
     # Server callbacks for changes (called by client.notify)
     # -------------------------------------------------------------------------
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _beacon_callback_changed(self, send_signal):
         """
         Changed message from server.

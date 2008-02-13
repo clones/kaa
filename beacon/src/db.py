@@ -173,9 +173,9 @@ class Database(object):
         # do query based on type
         if 'filename' in query and qlen == 1:
             fname = os.path.realpath(query['filename'])
-            return kaa.yield_execution()(self.query_filename)(fname)
+            return kaa.coroutine()(self.query_filename)(fname)
         if 'id' in query and qlen == 1:
-            return kaa.yield_execution()(self._db_query_id)(query['id'])
+            return kaa.coroutine()(self._db_query_id)(query['id'])
         if 'parent' in query and 'recursive' in query and qlen == 2:
             if not query['parent']._beacon_isdir:
                 raise AttributeError('parent is no directory')
@@ -186,9 +186,9 @@ class Database(object):
                     return self._db_query_dir(query['parent'])
             query['parent'] = query['parent']._beacon_id
         if 'attr' in query:
-            return kaa.yield_execution()(self._db_query_attr)(query)
+            return kaa.coroutine()(self._db_query_attr)(query)
         if 'type' in query and query['type'] == 'media':
-            return kaa.yield_execution()(self._db.query)(**query)
+            return kaa.coroutine()(self._db.query)(**query)
         return self._db_query_raw(query)
 
 
@@ -222,7 +222,7 @@ class Database(object):
         return result
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _db_query_dir(self, parent):
         """
         A query to get all files in a directory. The parameter parent is a
@@ -313,7 +313,7 @@ class Database(object):
         yield items
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _db_query_dir_recursive(self, parent):
         """
         Return all files in the directory 'parent' including files in
@@ -406,7 +406,7 @@ class Database(object):
         return result
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _db_query_raw(self, query):
         """
         Do a 'raw' query. This means to query the database and create

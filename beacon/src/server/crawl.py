@@ -511,7 +511,7 @@ class Crawler(object):
         yield subdirs
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _add_directory_attributes(self, directory):
         """
         Add some extra attributes for a directory recursive. This function

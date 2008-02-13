@@ -96,7 +96,7 @@ class Client(object):
     # Public API
     # -------------------------------------------------------------------------
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def get(self, filename):
         """
         Return an object for the given filename.
@@ -164,7 +164,7 @@ class Client(object):
             self.rpc('monitor.directory', directory)
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def get_db_info(self):
         """
         Returns information about the database.  Look at
@@ -320,7 +320,7 @@ class Client(object):
         self.rpc('item.update', items)
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _beacon_media_information(self, media):
         """
         Get some basic media information.
@@ -351,7 +351,7 @@ class Client(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose('connect')
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _connected(self, id, database, media):
         """
         Callback to pass the database information to the client.

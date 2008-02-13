@@ -73,7 +73,7 @@ def register(ext, function):
     extention_plugins[ext].append(function)
 
 
-@kaa.yield_execution()
+@kaa.coroutine()
 def parse(db, item, check_image=False):
     """
     Main beacon parse function. Return the load this function produced:
@@ -124,11 +124,11 @@ def parse(db, item, check_image=False):
         else:
             return 0
 
-    # looks like we have more to do. Start the yield_execution part of the parser
+    # looks like we have more to do. Start the coroutine part of the parser
     return _parse(db, item, mtime)
 
 
-@kaa.yield_execution()
+@kaa.coroutine()
 def _parse(db, item, mtime):
     """
     Parse the item, this can take a while.

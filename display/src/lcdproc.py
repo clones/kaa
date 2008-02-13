@@ -219,7 +219,7 @@ class LCD(object):
         self.socket.write(line + '\n')
 
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def _connect(self, server, port):
         """
         Connect to the server and init the connection.

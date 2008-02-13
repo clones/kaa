@@ -140,7 +140,7 @@ if __name__ == '__main__':
     def debug():
         print "CPU:", cpuinfo()
 
-    @kaa.yield_execution()
+    @kaa.coroutine()
     def add_load():
         x = 0
         for i in range(300000):
