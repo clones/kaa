@@ -42,7 +42,6 @@ from xml.dom import minidom
 import kaa
 import kaa.net.url
 import kaa.beacon
-from kaa.strutils import str_to_unicode, unicode_to_str
 
 # get manager module
 import manager
@@ -62,7 +61,7 @@ class Entry(dict):
             if self.url.endswith('/'):
                 ext = os.path.splitext(self['url'])[1]
                 basename = self['title'].replace('/', '') + ext
-            self['basename'] = unicode_to_str(basename)
+            self['basename'] = kaa.unicode_to_str(basename)
         return self.get(attr)
 
     def fetch(self, filename):
@@ -129,7 +128,7 @@ class Feed(object):
             for node in d.childNodes:
                 if not node.nodeName == 'entry':
                     continue
-                fname = unicode_to_str(node.getAttribute('filename')) or None
+                fname = kaa.unicode_to_str(node.getAttribute('filename')) or None
                 self._entries.append((node.getAttribute('url'), fname))
         
 
@@ -152,7 +151,7 @@ class Feed(object):
             e = doc.createElement('entry')
             e.setAttribute('url', url)
             if fname:
-                e.setAttribute('filename', str_to_unicode(fname))
+                e.setAttribute('filename', kaa.str_to_unicode(fname))
             d.appendChild(e)
 
 
@@ -162,7 +161,7 @@ class Feed(object):
         Download image and store it to the image dir. Returns image
         filename.
         """
-        url = unicode_to_str(url)
+        url = kaa.unicode_to_str(url)
         fname = md5.md5(url).hexdigest() + os.path.splitext(url)[1]
         fname = os.path.join(self.IMAGEDIR, fname)
         if os.path.isfile(fname):
@@ -217,7 +216,7 @@ class Feed(object):
                 pass
             elif not self._download:
                 # use url as name
-                entry['name'] = unicode_to_str(entry.url)
+                entry['name'] = kaa.unicode_to_str(entry.url)
                 i = kaa.beacon.add_item(parent=beacondir, **entry)
             else:
                 # download

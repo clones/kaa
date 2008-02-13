@@ -41,7 +41,6 @@ import logging
 # kaa imports
 import kaa
 import kaa.rpc
-import kaa.strutils
 from kaa.weakref import weakref
 
 # kaa.beacon imports
@@ -131,7 +130,7 @@ class Client(object):
         if self.status == DISCONNECTED:
             return None
         if isinstance(url, unicode):
-            url = kaa.strutils.unicode_to_str(url)
+            url = kaa.unicode_to_str(url)
         if url.find('://') > 0:
             kwargs['scheme'] = url[:url.find('://')]
         kwargs['name'] = url

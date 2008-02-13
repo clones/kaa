@@ -40,7 +40,6 @@ import time
 
 # kaa imports
 import kaa
-from kaa.strutils import str_to_unicode
 import kaa.metadata
 import kaa.imlib2
 
@@ -270,7 +269,7 @@ def _parse(db, item, mtime):
         # try to set a good title
         # FIXME: if a file is renamed later, this tite should also update
         title = get_title(item._beacon_data['name'])
-        metadata['title'] = str_to_unicode(title)
+        metadata['title'] = kaa.str_to_unicode(title)
 
 
     #

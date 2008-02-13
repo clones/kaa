@@ -38,7 +38,6 @@ import logging
 
 # kaa imports
 import kaa
-from kaa.strutils import unicode_to_str
 
 # get logging object
 log = logging.getLogger('lcd')
@@ -154,7 +153,7 @@ class Screen(object):
 
         if type in ('string', 'title', 'scroller'):
             if isinstance(args[-1], unicode):
-                a = unicode_to_str(args[-1])
+                a = kaa.unicode_to_str(args[-1])
             args[-1] = '"%s"' % args[-1].replace('"', '\\"').replace('\n', '')
         self._send('widget_set %s %s %s' % \
                    (self.name, id, ' '.join([str(i) for i in args ])))

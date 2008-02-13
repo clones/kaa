@@ -36,7 +36,6 @@ from xml.dom import minidom
 
 # kaa imports
 import kaa
-from kaa.strutils import unicode_to_str
 
 # fallback RSS parser
 import rss
@@ -123,8 +122,8 @@ def init(cachefile):
         for d in c.childNodes:
             if not d.nodeName == 'directory':
                 continue
-            dirname = unicode_to_str(d.childNodes[0].data.strip())
-            url = unicode_to_str(c.getAttribute('url'))
+            dirname = kaa.unicode_to_str(d.childNodes[0].data.strip())
+            url = kaa.unicode_to_str(c.getAttribute('url'))
             feed = _get_feed(url, dirname)
             feed._readxml(c)
             _feeds.append(feed)

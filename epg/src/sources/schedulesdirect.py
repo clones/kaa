@@ -40,7 +40,6 @@ import urlparse
 
 # kaa imports
 import kaa
-from kaa.strutils import str_to_unicode
 from config_schedulesdirect import config
 
 # get logging object

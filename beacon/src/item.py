@@ -33,7 +33,7 @@
 import logging
 
 # kaa imports
-from kaa.strutils import str_to_unicode
+import kaa
 
 # kaa.beacon imports
 from thumbnail import Thumbnail
@@ -127,7 +127,7 @@ class Item(object):
             if t:
                 return t
             # generate some title and save local it for future use
-            t = str_to_unicode(get_title(self._beacon_data['name'], self.isfile()))
+            t = kaa.str_to_unicode(get_title(self._beacon_data['name'], self.isfile()))
             self._beacon_data['title'] = t
             return t
 

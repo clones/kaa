@@ -158,7 +158,7 @@ class BeaconFS(fuse.Fuse):
         # 
         # val = self._filename_map[file].get(name)
         # if isinstance(val, unicode):
-        #     val = unicode_to_str(val)
+        #     val = kaa.unicode_to_str(val)
         # val = str(val)
         
         if size == 0:

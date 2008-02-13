@@ -1,6 +1,6 @@
 import os
 import sys
-import kaa.strutils
+import kaa
 import kaa.metadata
 
 verbose = False
@@ -32,7 +32,7 @@ for pos, thumbnail in enumerate(files):
             os.unlink(thumbnail)
             num_deleted += 1
         continue
-    uri = kaa.strutils.unicode_to_str(uri)
+    uri = kaa.unicode_to_str(uri)
     if not uri.startswith('file://'):
         if FORCE:
             os.unlink(thumbnail)
