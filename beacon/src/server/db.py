@@ -96,12 +96,10 @@ class ReadLock(object):
 
     def yield_unlock(self):
         """
-        Return YieldCallback object to wait until the db is
+        Return InProgress object to wait until the db is
         not used by any reader.
         """
-        cb = kaa.YieldCallback()
-        self.signals['unlock'].connect_once(cb)
-        return cb
+        return kaa.YieldCallback(self.signals['unlock'])
 
 
 
