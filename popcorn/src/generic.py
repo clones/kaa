@@ -58,16 +58,14 @@ def required_states(*states):
     def decorator(func):
 
         def newfunc(self, *args, **kwargs):
-            # always return an InProgress object and handle the
-            # function like it is decorated with coroutine
-            afunc = kaa.coroutine()(func)
+            # always return an InProgress object
             async = kaa.InProgress()
             if self._get_state() in states and not self._pending:
                 # already finished
-                async.finished(afunc(self, *args, **kwargs))
+                async.execute(func, self, *args, **kwargs)
             else:
                 # add callback to list of pending calls
-                callback = kaa.Callback(afunc, self, *args, **kwargs)
+                callback = kaa.Callback(func, self, *args, **kwargs)
                 self._pending.append((states, async, callback))
             return async
         try:
@@ -331,6 +329,7 @@ class Player(object):
 
         
     @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
+    @kaa.coroutine()
     def play(self):
         """
         Start or resume playback. Returns an InProgress object.
@@ -366,6 +365,7 @@ class Player(object):
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
+    @kaa.coroutine()
     def pause(self):
         """
         Pause playback. Returns an InProgress object.
@@ -377,6 +377,7 @@ class Player(object):
         
 
     @required_states(STATE_PLAYING, STATE_PAUSED)
+    @kaa.coroutine()
     def resume(self):
         """
         Resume playback. Returns an InProgress object.
