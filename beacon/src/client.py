@@ -170,7 +170,7 @@ class Client(object):
         kaa.db.Database.get_db_info() for more details.
         """
         if self.status != CONNECTED:
-            yield kaa.YieldCallback(self.signals['connect'])
+            yield kaa.InProgressCallback(self.signals['connect'])
         yield self._db.get_db_info()
 
 

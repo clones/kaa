@@ -224,22 +224,15 @@ class LCD(object):
         Connect to the server and init the connection.
         """
         self.socket = kaa.Socket()
-        wait = kaa.YieldCallback()
-        self.socket.signals['connected'].connect_once(wait)
-        self.socket.connect((server, port), async=True)
-        yield wait
-
-        result = wait.get_result()
-        if isinstance(result, (Exception, socket.error)):
+        try:
+            yield self.socket.connect((server, port))
+        except Exception, e:
             # try again later
             log.error('LCDproc: %s. Will try again later', result)
             kaa.OneShotTimer(self._connect, server, port).start(10)
             yield False
-        wait = kaa.YieldCallback()
-        self.socket.signals['read'].connect_once(wait)
-        self._send("hello")
+        wait = kaa.InProgressCallback(self.socket.signals['read'])
         yield wait
-
         line = wait.get_result().strip().split()
         self._send('client_set name kaa')
         self.size = int(line[7]), int(line[9])
