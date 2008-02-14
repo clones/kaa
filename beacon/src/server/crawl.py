@@ -133,7 +133,7 @@ class Crawler(object):
         # create internal scan variables
         self._scan_list = []
         self._scan_dict = {}
-        self._scan_function = None
+        self._coroutine = None
         self._scan_restart_timer = None
         self._crawl_start_time = None
         self._startup = True
@@ -156,10 +156,10 @@ class Crawler(object):
         # stop running scan process
         self._scan_list = []
         self._scan_dict = []
-        if self._scan_function:
-            self._scan_function.stop()
-            self._scan_function = None
-            self._scan_stop([], False)
+        if self._coroutine:
+            self._coroutine.stop()
+            self._coroutine = None
+            self._scan_handle_result([], False)
         # stop inotify
         self._inotify = None
         # stop restart timer
@@ -360,20 +360,23 @@ class Crawler(object):
             self._scan_list.append((directory, recursive))
         self._scan_dict[directory.filename] = directory
 
-        # start ._scan_function
-        if self._scan_function == None:
+        # start scanning
+        if self._coroutine == None:
             Crawler.active += 1
-            self._scan_function = kaa.OneShotTimer(self._scan_start)
-            self._scan_function.start(0)
+            self._scan_next_item()
 
 
-    def _scan_start(self):
+    def _scan_next_item(self):
         """
-        Start the scan function using YieldFunction.
+        Start the scan function
         """
+        if self._coroutine != None:
+            # already running
+            return
         if self._crawl_start_time is None:
+            # remember start time for debugging output
             self._crawl_start_time = time.time()
-
+        # get interval to reduce CPU load
         interval = self.parse_timer * Crawler.active
         if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
             cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20) and interval < 1:
@@ -383,14 +386,23 @@ class Crawler(object):
             cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 40) and interval < 1:
             # way too much CPU load, slow down even more
             interval *= 2
-        self._scan_function = kaa.YieldFunction(self._scan, interval)
+        # get next item to scan and start the scanning
         directory, recursive = self._scan_list.pop(0)
         del self._scan_dict[directory.filename]
-        self._scan_function(directory)
-        self._scan_function.connect(self._scan_stop, recursive)
+        coroutine = self._scan(directory)
+        # handle result
+        if coroutine.is_finished():
+            # already done, handle result in a OneShotTimer to throttle down
+            # and to avoid too much recursive calls.
+            self._coroutine = kaa.OneShotTimer(
+                self._scan_handle_result, coroutine.get_result(), recursive)
+            return self._coroutine.start(interval)
+        self._coroutine = coroutine
+        self._coroutine.set_interval(interval)
+        self._coroutine.connect(self._scan_handle_result, recursive)
 
 
-    def _scan_stop(self, subdirs, recursive):
+    def _scan_handle_result(self, subdirs, recursive):
         """
         The scan function finished.
         """
@@ -398,12 +410,12 @@ class Crawler(object):
             # add results to the list of files to scan
             for d in subdirs:
                 self._scan_add(d, True)
+        self._coroutine = None
         if self._scan_list:
             # start again
-            self._scan_start()
+            self._scan_next_item()
             return
         # crawler finished
-        self._scan_function = None
         self._startup = False
         log.info('crawler %s finished; took %0.1f seconds.', \
                  self.num, time.time() - self._crawl_start_time)
@@ -437,6 +449,7 @@ class Crawler(object):
             self._scan_add(item, recursive=True)
 
 
+    @kaa.coroutine()
     def _scan(self, directory):
         """
         Scan a directory and all files in it, return list of subdirs.

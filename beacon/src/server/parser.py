@@ -72,7 +72,6 @@ def register(ext, function):
     extention_plugins[ext].append(function)
 
 
-@kaa.coroutine()
 def parse(db, item, check_image=False):
     """
     Main beacon parse function. Return the load this function produced:
