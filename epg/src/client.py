@@ -49,10 +49,10 @@ DISCONNECTED, CONNECTING, CONNECTED = range(3)
 
 def wait_while_connecting():
     """
-    Decorator that wraps kaa.coroutine, raising an exception if
-    the client is disconnected, NotFinished if the client is in the process
-    of connecting, or the actual return value of the decorated function if the
-    client is connected.
+    Decorator that is raising an exception if the client is disconnected,
+    NotFinished if the client is in the process of connecting, or the actual
+    return value in an InProgress object of the decorated function if the client
+    is connected.
     """
     def decorator(func):
         def newfunc(client, *args, **kwargs):
