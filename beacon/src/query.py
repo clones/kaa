@@ -221,7 +221,7 @@ class Query(object):
         self.valid = True
         self.signals['changed'].emit()
         if isinstance(self._async, kaa.InProgress):
-            self._async.finished(self)
+            self._async.finish(self)
             self._async = kaa.NotFinished
 
 

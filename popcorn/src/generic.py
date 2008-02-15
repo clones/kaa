@@ -176,7 +176,7 @@ class Player(object):
 
         for wait, states in self._waiting[:]:
             if state in states:
-                wait.finished(self._waiting.remove((wait, states)))
+                wait.finish(self._waiting.remove((wait, states)))
 
         if old_state in (STATE_PLAYING, STATE_PAUSED, STATE_STOPPING) and \
                state in (STATE_IDLE, STATE_NOT_RUNNING, STATE_SHUTDOWN):
@@ -207,7 +207,7 @@ class Player(object):
         for states, async, callback in self._pending[:]:
             if self._get_state() in states:
                 try:
-                    async.finished(callback())
+                    async.finish(callback())
                 except Exception, e:
                     async.throw(*sys.exc_info())
                 self._pending.remove((states, async, callback))
@@ -222,7 +222,7 @@ class Player(object):
         async = kaa.InProgress()
         if self._get_state() in states:
             # already in a state we want
-            async.finished(True)
+            async.finish(True)
             return async
         # append to the list of waiting InProgress signals
         self._waiting.append((async, states))
