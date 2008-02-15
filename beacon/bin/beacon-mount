@@ -74,7 +74,8 @@ def usage(error_code):
     sys.exit(error_code)
 
 
-if __name__ == '__main__':
+@kaa.coroutine()
+def main():
     try:
         # read arguments
         opts = [ 'umount', 'help', 'type=' ]
@@ -82,7 +83,7 @@ if __name__ == '__main__':
     except getopt.GetoptError:
         usage(1)
 
-    qtype    = None
+    qtype = None
     for o, a in opts:
         if o == '-u':
             # umount
@@ -130,9 +131,9 @@ if __name__ == '__main__':
     t1 = time.time()
     if 'dirname' in query:
         if 'recursive' in query:
-            result = kaa.beacon.get(query['dirname']).list(recursive=True)
+            result = (yield kaa.beacon.get(query['dirname'])).list(recursive=True)
         else:
-            result = kaa.beacon.get(query['dirname']).list()
+            result = (yield kaa.beacon.get(query['dirname'])).list()
     else:
         result = kaa.beacon.query(**query)
 
@@ -143,7 +144,7 @@ if __name__ == '__main__':
         print e
         sys.exit(1)
 
-    database = os.path.dirname(kaa.beacon.get_db_info()['file'])
+    database = os.path.dirname((yield kaa.beacon.get_db_info())['file'])
     logfile = os.path.join(database, 'fuse.log')
     # FIXME: should only daemonize when we know fs is mounted.
     kaa.utils.daemonize(stdout = logfile)
@@ -151,4 +152,8 @@ if __name__ == '__main__':
     thread = kaa.ThreadCallback(fs.main)
     thread().exception.connect(lambda dummy: kaa.main.stop())
 
+
+if __name__ == '__main__':
+    main()
     kaa.main.run()
+
