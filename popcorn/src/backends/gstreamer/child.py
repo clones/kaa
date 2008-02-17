@@ -52,7 +52,7 @@ class GStreamer(Player):
     def __init__(self):
         Player.__init__(self)
         self._gst = None
-        self._streaminfo = {}
+        self.streaminfo = {}
 
         # create gst object
         self._gst = gst.element_factory_make("playbin", "player")
@@ -104,8 +104,8 @@ class GStreamer(Player):
                 value = taglist[key]
                 if not isinstance(value, (str, unicode, int, long, float)):
                     value = str(value)
-                self._streaminfo[key] = value
-            self.parent.set_streaminfo(self._streaminfo)
+                self.streaminfo[key] = value
+            self.parent.set_streaminfo(self.streaminfo)
         return True
 
 
@@ -163,7 +163,7 @@ class GStreamer(Player):
         Open mrl.
         """
         self._gst.set_property('uri', uri)
-        self._streaminfo = {}
+        self.streaminfo = {}
         self.set_state(STATE_OPEN)
 
 
@@ -199,8 +199,8 @@ class GStreamer(Player):
             pos = current + value * 1000000000
         if type == SEEK_ABSOLUTE:
             pos = value * 1000000000
-        if type == SEEK_PERCENTAGE and 'duration' in self._streaminfo:
-            pos = (self._streaminfo['duration'] / 100) * value
+        if type == SEEK_PERCENTAGE and 'duration' in self.streaminfo:
+            pos = (self.streaminfo['duration'] / 100) * value
         # seek now
         self._gst.seek(1.0, gst.FORMAT_TIME,
                        gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,

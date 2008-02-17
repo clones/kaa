@@ -45,12 +45,12 @@ class GStreamer(MediaPlayer):
 
     def __init__(self, properties):
         super(GStreamer, self).__init__(properties)
-        self._state = STATE_NOT_RUNNING
+        self.state = STATE_NOT_RUNNING
         self._gst = None
 
 
     def _child_exited(self, exitcode):
-        self._state = STATE_NOT_RUNNING
+        self.state = STATE_NOT_RUNNING
         self._gst = None
 
 
@@ -66,11 +66,11 @@ class GStreamer(MediaPlayer):
             self._gst = ChildProcess(self, script)
             self._gst.set_stop_command(WeakCallback(self._gst.die))
             self._gst.start().connect_weak(self._child_exited)
-        self._position = 0.0
-        self._state = STATE_OPENING
+        self.position = 0.0
+        self.state = STATE_OPENING
         self._gst.open(self._mrl)
         if self._window:
-            aspect, size = self._get_aspect()
+            aspect, size = self.aspect
             self._gst.configure_video('xv', window=self._window.get_id(),
                                       aspect=aspect, size=size)
         else:
@@ -89,7 +89,7 @@ class GStreamer(MediaPlayer):
         """
         Stop playback.
         """
-        self._state = STATE_STOPPING
+        self.state = STATE_STOPPING
         self._gst.stop()
 
 
@@ -98,7 +98,7 @@ class GStreamer(MediaPlayer):
         Pause playback.
         """
         self._gst.pause()
-        self._state = STATE_PAUSED
+        self.state = STATE_PAUSED
 
 
     def resume(self):
@@ -106,7 +106,7 @@ class GStreamer(MediaPlayer):
         Resume playback.
         """
         self._gst.play()
-        self._state = STATE_PLAYING
+        self.state = STATE_PLAYING
 
 
     def release(self):
@@ -114,7 +114,7 @@ class GStreamer(MediaPlayer):
         Release audio and video devices.
         """
         if self._gst:
-            self._state = STATE_SHUTDOWN
+            self.state = STATE_SHUTDOWN
             self._gst.die()
 
 

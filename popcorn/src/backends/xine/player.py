@@ -103,7 +103,7 @@ class Xine(MediaPlayer):
             except kaa.shm.error:
                 pass
             self._frame_shmem = None
-        self._state = STATE_NOT_RUNNING
+        self.state = STATE_NOT_RUNNING
 
 
     #
@@ -111,28 +111,28 @@ class Xine(MediaPlayer):
     #
 
     def _child_set_status(self, pos, time, length, status, speed):
-        old_pos = self._position
-        if self.get_state() in (STATE_PAUSED, STATE_PLAYING, STATE_OPEN) and time is not None:
-            self._position = float(time)
+        old_pos = self.position
+        if self.state in (STATE_PAUSED, STATE_PLAYING, STATE_OPEN) and time is not None:
+            self.position = float(time)
         if length is not None:
-            self._streaminfo["length"] = length
+            self.streaminfo["length"] = length
 
         if status == 2:
-            if self.get_state() not in (STATE_PAUSED, STATE_PLAYING):
-                self._state = STATE_PLAYING
-            if speed == xine.SPEED_PAUSE and self.get_state() != STATE_PAUSED:
-                self._state = STATE_PAUSED
-            elif speed > xine.SPEED_PAUSE and self.get_state() != STATE_PLAYING:
-                prev_state = self.get_state()
-                self._state = STATE_PLAYING
+            if self.state not in (STATE_PAUSED, STATE_PLAYING):
+                self.state = STATE_PLAYING
+            if speed == xine.SPEED_PAUSE and self.state != STATE_PAUSED:
+                self.state = STATE_PAUSED
+            elif speed > xine.SPEED_PAUSE and self.state != STATE_PLAYING:
+                prev_state = self.state
+                self.state = STATE_PLAYING
             # TODO:
-            # if self._position - old_pos < 0 or self._position - old_pos > 1:
-            # self.signals["seek"].emit(self._position)
+            # if self.position - old_pos < 0 or self.position - old_pos > 1:
+            # self.signals["seek"].emit(self.position)
         elif status in (0, 1):
-            if self.get_state() in (STATE_PAUSED, STATE_PLAYING):
+            if self.state in (STATE_PAUSED, STATE_PLAYING):
                 # Stream ended.
                 log.debug('xine stream ended')
-                self._state = STATE_IDLE
+                self.state = STATE_IDLE
 
 
     def _child_osd_configure(self, width, height, aspect):
@@ -161,14 +161,14 @@ class Xine(MediaPlayer):
     def _child_set_streaminfo(self, status, info):
         if not status:
             # failed playback
-            self._state = STATE_IDLE
+            self.state = STATE_IDLE
             return
 
-        changed = info != self._streaminfo
-        self._streaminfo = info
+        changed = info != self.streaminfo
+        self.streaminfo = info
 
-        if self._state == STATE_OPENING:
-            self._state = STATE_OPEN
+        if self.state == STATE_OPENING:
+            self.state = STATE_OPEN
 
         if changed:
             self.signals["stream_changed"].emit()
@@ -181,8 +181,8 @@ class Xine(MediaPlayer):
 
     def _child_play_stopped(self):
         log.debug('xine stopped')
-        if not self._state in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
-            self._state = STATE_IDLE
+        if not self.state in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
+            self.state = STATE_IDLE
 
 
     #
@@ -229,8 +229,7 @@ class Xine(MediaPlayer):
                 elif self._xine_configured:
                     # No previous window, must reconfigure vo.
                     self._xine.configure_video(window.get_id(), window.get_size(),
-                                               self._get_pixel_aspect(),
-                                               config.video.colorkey)
+                                               self.pixel_aspect, config.video.colorkey)
 
         # Sends a window_changed command to slave.
         if window and self._xine:
@@ -245,7 +244,7 @@ class Xine(MediaPlayer):
         self._xine.set_config(config)
         if self._window:
             self._xine.configure_video(self._window.get_id(), self._window.get_size(),
-                                       self._get_pixel_aspect(), config.video.colorkey)
+                                       self.pixel_aspect, config.video.colorkey)
         else:
             self._xine.configure_video(None, None, None, None)
         self._xine.configure_audio(config.audio.driver)
@@ -265,10 +264,10 @@ class Xine(MediaPlayer):
             self._child_spawn()
 
         self.configure()
-        self._position = 0.0
+        self.position = 0.0
         log.debug('xine open %s' % self._mrl)
         self._xine.open(self._mrl)
-        self._state = STATE_OPENING
+        self.state = STATE_OPENING
 
 
     def play(self):
@@ -285,7 +284,7 @@ class Xine(MediaPlayer):
         Stop playback.
         """
         log.debug('xine stop')
-        self._state = STATE_STOPPING
+        self.state = STATE_STOPPING
         self._xine.stop()
 
 
@@ -308,7 +307,7 @@ class Xine(MediaPlayer):
         Release audio and video devices.
         """
         if self._xine:
-            self._state = STATE_SHUTDOWN
+            self.state = STATE_SHUTDOWN
             self._xine.die()
 
 
@@ -428,7 +427,7 @@ class Xine(MediaPlayer):
         if size != None:
             self._cur_frame_output_mode[2] = size
 
-        if self.get_state() == STATE_OPENING:
+        if self.state == STATE_OPENING:
             return
 
         vo, notify, size = self._cur_frame_output_mode

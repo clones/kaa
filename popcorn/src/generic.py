@@ -39,6 +39,7 @@ import logging
 # kaa imports
 import kaa
 import kaa.metadata
+from kaa.utils import property
 
 # kaa.popcorn imports
 import backends.manager
@@ -86,8 +87,7 @@ class Player(object):
     def __init__(self, window=None):
 
         self._player = None
-        self._media = None
-        self._size = (0,0)
+        self.media = None
         self.set_window(window)
 
         self._properties = {
@@ -158,15 +158,6 @@ class Player(object):
         self._waiting = []
         self._blocked = False
         self._failed_player = []
-
-
-    def set_window(self, window):
-        if window:
-            self._size = window.get_size()
-        self._window = window
-        if self._player:
-            self._player.set_window(self._window)
-            self._player.set_size(self._size)
 
 
     def _state_change(self, old_state, state):
@@ -242,7 +233,7 @@ class Player(object):
         for p in backends.manager.get_all_players():
             if not getattr(config, p).enabled and not p in exclude:
                 exclude.append(p)
-        cls = backends.manager.get_player_class(self._media, self._open_caps, exclude, player, self._window)
+        cls = backends.manager.get_player_class(self.media, self._open_caps, exclude, player, self._window)
 
         if self._player:
             # We already have a player. The player has to be stopped if
@@ -262,7 +253,7 @@ class Player(object):
         if not cls:
             # No possible player.
             self.signals["failed"].emit()
-            raise PlayerError("No supported player found to play %s" % self._media.url)
+            raise PlayerError("No supported player found to play %s" % self.media.url)
 
         if self._player:
             # Reuse player
@@ -271,14 +262,14 @@ class Player(object):
             # Create a player based on cls.
             properties = self._properties.copy()
             self._player = cls(properties)
-            self._player._state_changed.connect_weak(self._state_change)
+            self._player.signals['state_changed'].connect_weak(self._state_change)
             for signal in self._player.signals:
-                self._player.signals[signal].connect_weak(self.signals[signal].emit)
+                if signal in self.signals:
+                    self._player.signals[signal].connect_weak(self.signals[signal].emit)
 
         # set some player variables
         self._player.set_window(self._window)
-        self._player.set_size(self._size)
-        self._player.open(self._media)
+        self._player.open(self.media)
 
         # wait until we reach STATE_OPEN (ready to play) or
         # STATE_IDLE or STATE_NOT_RUNNING (failed)
@@ -312,19 +303,19 @@ class Player(object):
         if kaa.main.is_shutting_down():
             yield False
 
-        self._media = kaa.metadata.parse(mrl)
-        if not self._media:
+        self.media = kaa.metadata.parse(mrl)
+        if not self.media:
             # unable to detect, create dummy
             if '://' not in mrl:
                 mrl = 'file://' + mrl
-            self._media = kaa.metadata.Media(hash=dict(url=mrl, media='MEDIA_UNKNOWN'))
-        self._media.scheme = self._media.url[:self._media.url.find(':/')]
+            self.media = kaa.metadata.Media(hash=dict(url=mrl, media='MEDIA_UNKNOWN'))
+        self.media.scheme = self.media.url[:self.media.url.find(':/')]
 
         self._open_caps = caps
         self._failed_player = []
         self._pending = []
         yield self._open(player)
-        self.signals['open'].emit(self._player.get_info())
+        self.signals['open'].emit(self._player.streaminfo)
 
         
     @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
@@ -405,23 +396,45 @@ class Player(object):
         self._player.seek(value, type)
 
 
-    def get_position(self):
+    @property
+    def position(self):
         """
         Get current playing position.
         """
         if self._player:
-            return self._player.get_position()
+            return self._player.position
         return 0.0
 
 
-    def get_info(self):
+    def get_position(self):
+        """
+        Get current playing position.
+        """
+        log.warning('get_position() is DEPRECATED, use position')
+        if self._player:
+            return self._player.position
+        return 0.0
+
+
+    @property
+    def streaminfo(self):
         """
         Get information about the stream.
         """
         # FIXME: more sure the following variables can be accessed:
         # audio-track-list, subtitle-track-list, elapsed and length
         if self._player:
-            return self._player.get_info()
+            return self._player.streaminfo
+        return {}
+
+
+    def get_info(self):
+        """
+        Get information about the stream.
+        """
+        log.warning('get_info() is DEPRECATED, use streaminfo')
+        if self._player:
+            return self._player.streaminfo
         return {}
 
 
@@ -429,7 +442,8 @@ class Player(object):
         """
         Return kaa.metadata media object of the mrl loaded.
         """
-        return self._media
+        log.warning('get_media() is DEPRECATED, use media')
+        return self.media
 
 
     def nav_command(self, input):
@@ -472,13 +486,23 @@ class Player(object):
         return self._window
 
 
+    def set_window(self, window):
+        """
+        Set a new window for the player. Not all backends support changing
+        windows during runtime.
+        """
+        self._window = window
+        if self._player:
+            self._player.set_window(self._window)
+
+
     def _get_state(self):
         """
         Get state of the player for internal use.
         """
         if not self._player:
             return STATE_NOT_RUNNING
-        return self._player.get_state()
+        return self._player.state
 
 
     def get_state(self):
@@ -488,25 +512,9 @@ class Player(object):
         """
         if not self._player:
             return STATE_IDLE
-        if self._player.get_state() in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
+        if self._player.state in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
             return STATE_IDLE
-        return self._player.get_state()
-
-
-    def get_size(self):
-        """
-        Get output size.
-        """
-        return self._size
-
-
-    def set_size(self, size):
-        """
-        Set output size.
-        """
-        self._size = size
-        if self._player:
-            return self._player.set_size(size)
+        return self._player.state
 
 
     def set_property(self, prop, value):
@@ -517,6 +525,7 @@ class Player(object):
         # FIXME: use pending for some properties to respect the state.
         # E.g. user calls open();play();set_property() the set_property
         # should be handled in STATE_PLAYING.
+        # XXX: this can not happen if the pending command stuff will be removed.
         if self._player:
             return self._player.set_property(prop, value)
         self._properties[prop] = value

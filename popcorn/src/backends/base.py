@@ -37,6 +37,7 @@ import logging
 
 # kaa imports
 import kaa
+from kaa.utils import property
 
 # kaa.popcorn imports
 from kaa.popcorn.ptypes import *
@@ -72,18 +73,18 @@ class MediaPlayer(object):
             "stream_changed": kaa.Signal(),
             "frame": kaa.Signal(),
             "osd_configure": kaa.Signal(),
+            "state_changed": kaa.Signal(),
         }
-        self._state_changed = kaa.Signal()
-        self._state_object = STATE_IDLE
+        self._state = STATE_IDLE
         self._window = None
-        self._size = None
+        self._position = 0.0
         self._properties = properties
         self._instance_id = "popcorn-%d-%d" % (os.getpid(), self._instance_count)
         MediaPlayer._instance_count += 1
 
-        # some variables for the inherting class
-        self._position_value = 0.0
-        self._streaminfo = {}
+        # some variables for the inherting class the generic player will
+        # access at some point.
+        self.streaminfo = {}
 
         # shared memory keys
         key = md5.md5(self._instance_id + "osd").hexdigest()[:7]
@@ -95,71 +96,74 @@ class MediaPlayer(object):
 
         self._property_callbacks = {}
         self._property_delayed = []
-        for name, func in [ (func, getattr(self, func)) for func in dir(self) ]:
+        for name in dir(self):
+            func = getattr(self.__class__, name, None)
             if callable(func) and hasattr(func, '_runtime_policy'):
+                func = getattr(self, name)
                 name = name[10:].replace('_', '-')
                 self._property_callbacks[name] = kaa.WeakCallback(func)
 
-    #
-    # state handling
-    #
 
-    def get_state(self):
+    def __repr__(self):
+        """
+        For debugging only.
+        """
+        c = str(self.__class__)
+        return '<popcorn%s' % c[c.rfind('.'):]
+
+
+    @property
+    def state(self):
         """
         Get current state.
         """
-        return self._state_object
+        return self._state
 
 
-    def _set_state(self, state):
+    @state.setter
+    def state(self, state):
         """
         Set state and emit 'failed', 'start' or 'end' signal if needed.
         """
-        if self._state_object == state:
+        if self._state == state:
             return
-        if state == STATE_IDLE and self._state_object == STATE_SHUTDOWN:
+        if state == STATE_IDLE and self._state == STATE_SHUTDOWN:
             return
-        old_state = self._state_object
-        self._state_object = state
+        old_state = self._state
+        self._state = state
         if state == STATE_PLAYING and self._property_delayed:
             # now set changed properties
             for key, value in self._property_delayed:
                 self.set_property(key, value)
             self._property_delayed = []
-        self._state_changed.emit(old_state, state)
-
-    _state = property(get_state, _set_state, None, 'state of the player')
+        self.signals['state_changed'].emit(old_state, state)
 
 
-    #
-    # position handling
-    #
-
-    def get_position(self):
+    @property
+    def position(self):
         """
         Get current playing position.
         """
-        return self._position_value
+        return self._position
 
 
-    def _set_position(self, pos):
+    @position.setter
+    def position(self, pos):
         """
         Set position and emit 'elapsed' signal.
         """
-        if self._position_value == pos:
+        if self._position == pos:
             return
-        self._position_value = pos
+        self._position = pos
         self.signals['elapsed'].emit(pos)
 
-    # position property based on get_state and _set_state
-    _position = property(get_position, _set_position, None, 'player position')
-
 
     #
-    # internal use
+    # used only by inheriting player
     #
 
-    def _get_aspect(self):
+    @property
+    def aspect(self):
         """
         Get aspect ration values. Returns a tuple monitoraspect and a
         tuple with the fullscreen pixel size.
@@ -173,20 +177,13 @@ class MediaPlayer(object):
         return aspect, size
 
 
-    def _get_pixel_aspect(self):
+    @property
+    def pixel_aspect(self):
         """
         Get pixel aspect ratio based on monitoraspect and window size
         """
-        a, fs = self._get_aspect()
+        a, fs = self.aspect
         return (float(a[0])/a[1]) / (float(fs[0])/fs[1])
-
-
-    def __repr__(self):
-        """
-        For debugging only.
-        """
-        c = str(self.__class__)
-        return '<popcorn%s' % c[c.rfind('.'):]
 
 
     #
@@ -204,28 +201,14 @@ class MediaPlayer(object):
         """
         Return if the player is paused.
         """
-        return self._state == STATE_PAUSED
+        return self.state == STATE_PAUSED
 
 
     def is_playing(self):
         """
         Return if the player is playing.
         """
-        return self._state == STATE_PLAYING
-
-
-    def set_size(self, size):
-        """
-        Set a new output size.
-        """
-        self._size = size
-
-
-    def get_size(self):
-        """
-        Get output size.
-        """
-        return self._size
+        return self.state == STATE_PLAYING
 
 
     def get_capabilities(self):
@@ -249,7 +232,7 @@ class MediaPlayer(object):
     # Methods to be implemented by subclasses.
     #
 
-    # Please set self._state when something changes, signals will be send
+    # Please set self.state when something changes, signals will be send
     # by this base class when you change the state. The following states
     # are valid:
     #
@@ -323,14 +306,6 @@ class MediaPlayer(object):
         pass
 
 
-    def get_info(self):
-        """
-        Returns info about the currently playing stream, or the file that
-        has just been opened.
-        """
-        return self._streaminfo
-
-
     def nav_command(self, input):
         """
         Issue the navigation command to the player.  'input' is a string
@@ -359,7 +334,7 @@ class MediaPlayer(object):
             self._properties[prop] = value
             return
         func = self._property_callbacks[prop]
-        if self._state not in (STATE_PAUSED, STATE_PLAYING):
+        if self.state not in (STATE_PAUSED, STATE_PLAYING):
             # We are not in playback mode.
             if func._runtime_policy == DEFER_UNTIL_PLAYING:
                 # delay property call until playing

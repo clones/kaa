@@ -155,7 +155,7 @@ class MPlayer(MediaPlayer):
 
     def __init__(self, properties):
         super(MPlayer, self).__init__(properties)
-        self._state = STATE_NOT_RUNNING
+        self.state = STATE_NOT_RUNNING
         self._mp_cmd = config.mplayer.path
         if not self._mp_cmd:
             self._mp_cmd = kaa.utils.which("mplayer")
@@ -182,7 +182,7 @@ class MPlayer(MediaPlayer):
 
     def _handle_mp_info(self, info, exception=None, traceback=None):
         if exception is not None:
-            self._state = STATE_NOT_RUNNING
+            self.state = STATE_NOT_RUNNING
             # TODO: handle me
             raise info
         self._mp_info = info
@@ -202,24 +202,24 @@ class MPlayer(MediaPlayer):
         if line.startswith("V:") or line.startswith("A:"):
             m = MPlayer.RE_STATUS.search(line)
             if m:
-                old_pos = self._position
+                old_pos = self.position
                 p = (m.group(1) or m.group(2)).replace(",", ".")
-                self._position = float(p)
-                # if self._position - old_pos < 0 or \
-                # self._position - old_pos > 1:
-                # self.signals["seek"].emit(self._position)
+                self.position = float(p)
+                # if self.position - old_pos < 0 or \
+                # self.position - old_pos > 1:
+                # self.signals["seek"].emit(self.position)
 
                 # XXX this logic won't work with seek-while-paused patch; state
                 # will be "playing" after a seek.
-                if self._state == STATE_PAUSED:
-                    self._state = STATE_PLAYING
-                if self._state == STATE_OPEN:
+                if self.state == STATE_PAUSED:
+                    self.state = STATE_PLAYING
+                if self.state == STATE_OPEN:
                     self.set_frame_output_mode()
-                    self._state = STATE_PLAYING
+                    self.state = STATE_PLAYING
                     self.signals["stream_changed"].emit()
 
         elif line.startswith("  =====  PAUSE"):
-            self._state = STATE_PAUSED
+            self.state = STATE_PAUSED
 
         elif line.startswith("ID_") and line.find("=") != -1:
             attr, value = line.split('=', 1)
@@ -237,21 +237,21 @@ class MPlayer(MediaPlayer):
                      "LENGTH": ("length", float),
                      "FILENAME": ("filename", str) }
             if attr in info:
-                self._streaminfo[info[attr][0]] = info[attr][1](value)
+                self.streaminfo[info[attr][0]] = info[attr][1](value)
 
         elif line.startswith("Movie-Aspect"):
             aspect = line[16:].split(":")[0].replace(",", ".")
             if aspect[0].isdigit():
-                self._streaminfo["aspect"] = float(aspect)
+                self.streaminfo["aspect"] = float(aspect)
 
         elif line.startswith("VO:"):
             m = re.search("=> (\d+)x(\d+)", line)
             if m:
                 vo_w, vo_h = int(m.group(1)), int(m.group(2))
-                if "aspect" not in self._streaminfo or \
-                       self._streaminfo["aspect"] == 0:
+                if "aspect" not in self.streaminfo or \
+                       self.streaminfo["aspect"] == 0:
                     # No aspect defined, so base it on vo size.
-                    self._streaminfo["aspect"] = vo_w / float(vo_h)
+                    self.streaminfo["aspect"] = vo_w / float(vo_h)
 
         elif line.startswith("overlay:") and line.find("reusing") == -1:
             m = re.search("(\d+)x(\d+)", line)
@@ -280,14 +280,14 @@ class MPlayer(MediaPlayer):
             self.set_frame_output_mode()  # Sync
 
         elif line.startswith("EOF code"):
-            if self._state in (STATE_PLAYING, STATE_PAUSED):
+            if self.state in (STATE_PLAYING, STATE_PAUSED):
                 # The player may be idle bow, but we can't set the
                 # state. If we do, generic will start a new file while
                 # the mplayer process is still running and that does
                 # not work. Unless we reuse mplayer proccesses we
                 # don't react on EOF and only handle the dead
                 # proccess.
-                # self._state = STATE_IDLE
+                # self.state = STATE_IDLE
                 pass
 
         elif line.startswith("FATAL:"):
@@ -296,7 +296,7 @@ class MPlayer(MediaPlayer):
 
     def _child_exited(self, exitcode):
         log.info('mplayer exited')
-        self._state = STATE_NOT_RUNNING
+        self.state = STATE_NOT_RUNNING
 
 
     def _is_alive(self):
@@ -312,7 +312,7 @@ class MPlayer(MediaPlayer):
         """
         Open media.
         """
-        if self.get_state() != STATE_NOT_RUNNING:
+        if self.state != STATE_NOT_RUNNING:
             raise RuntimeError('mplayer not in STATE_NOT_RUNNING')
 
         args = []
@@ -330,7 +330,7 @@ class MPlayer(MediaPlayer):
 
         self._media = media
         self._media.mplayer_args = args
-        self._state = STATE_OPENING
+        self.state = STATE_OPENING
 
         # We have a problem at this point. The 'open' function is used to
         # open the stream and provide information about it. After that, the
@@ -348,7 +348,7 @@ class MPlayer(MediaPlayer):
         """
         mplayer -identify finished
         """
-        self._state = STATE_OPEN
+        self.state = STATE_OPEN
 
 
     def configure_video(self):
@@ -364,7 +364,7 @@ class MPlayer(MediaPlayer):
         # some problems when we don't have an 1:1 pixel aspect
         # ratio on the monitor and using software scaler.
 
-        aspect, dsize = self._get_aspect()
+        aspect, dsize = self.aspect
         size = self._window.get_size()
         # This may be needed for some non X based displays
         args.add(screenw=size[0], screenh=size[1])
@@ -443,8 +443,8 @@ class MPlayer(MediaPlayer):
 
         if config.audio.driver == 'alsa':
             args[-1] += ":noblock"
-            n_channels = self._streaminfo.get('channels')
-            if self._streaminfo.get('acodec') in ('a52', 'hwac3', 'ffdts', 'hwdts'):
+            n_channels = self.streaminfo.get('channels')
+            if self.streaminfo.get('acodec') in ('a52', 'hwac3', 'ffdts', 'hwdts'):
                 device = config.audio.device.passthrough
             elif n_channels == 1:
                 device = config.audio.device.mono
@@ -562,7 +562,7 @@ class MPlayer(MediaPlayer):
         """
         if self._mplayer:
             self._mplayer.stop()
-            self._state = STATE_SHUTDOWN
+            self.state = STATE_SHUTDOWN
 
 
     def pause(self):
