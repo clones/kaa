@@ -344,12 +344,12 @@ class Player(object):
         self._player.play()
         yield self.wait(STATE_PLAYING, STATE_NOT_RUNNING, STATE_IDLE)
         if self._get_state() == STATE_PLAYING:
+            self.signals["start"].emit()
+            self.signals["play"].emit()
             return
         self._failed_player.append(self.get_player_id())
         yield self._open()
         yield self.play()
-        self.signals["start"].emit()
-        self.signals["play"].emit()
 
 
     @required_states(STATE_PLAYING, STATE_PAUSED, STATE_STOPPING)
