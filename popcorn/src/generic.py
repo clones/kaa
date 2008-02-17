@@ -242,8 +242,7 @@ class Player(object):
         for p in backends.manager.get_all_players():
             if not getattr(config, p).enabled and not p in exclude:
                 exclude.append(p)
-        cls = backends.manager.get_player_class(\
-        self._media, self._open_caps, exclude, player, self._window)
+        cls = backends.manager.get_player_class(self._media, self._open_caps, exclude, player, self._window)
 
         if self._player:
             # We already have a player. The player has to be stopped if
@@ -263,7 +262,7 @@ class Player(object):
         if not cls:
             # No possible player.
             self.signals["failed"].emit()
-            raise PlayerError("No supported player found to play %s", self._media.url)
+            raise PlayerError("No supported player found to play %s" % self._media.url)
 
         if self._player:
             # Reuse player
