@@ -29,6 +29,8 @@
 # python imports
 import sys
 import logging
+import os
+import struct
 
 # kaa imports
 import kaa
@@ -57,15 +59,14 @@ USE_EXPAND = False
 
 class XinePlayerChild(Player):
 
-    def __init__(self, osd_shmkey, frame_shmkey):
+    def __init__(self, osd_shmkey):
         Player.__init__(self)
 
         self._xine = xine.Xine()
         self._vfilter = FilterChain(self._xine)
         self._stream = self._vo = self._ao = None
         self._osd_shmkey = int(osd_shmkey)
-        self._frame_shmkey = int(frame_shmkey)
-        self._osd_shmem = self._frame_shmem = None
+        self._osd_shmem = None
 
         self._window_size = 0, 0
         self._window_aspect = -1
@@ -234,11 +235,6 @@ class XinePlayerChild(Player):
 
 
     def _osd_configure(self, width, height, aspect):
-        frame_shmem_size = width * height * 4 + 16
-        #if self._frame_shmem and self._frame_shmem.size != frame_shmem_size:
-        if not self._frame_shmem:
-            self._frame_shmem = kaa.shm.create_memory(self._frame_shmkey, frame_shmem_size)
-            self._frame_shmem.attach()
         if not self._osd_shmem:
             self._osd_shmem = kaa.shm.create_memory(self._osd_shmkey, 2000 * 2000 * 4 + 16)
             self._osd_shmem.attach()
@@ -247,7 +243,7 @@ class XinePlayerChild(Player):
         # FIXME: don't hardcode buffer dimensions
         assert(width*height*4 < 2000*2000*4)
         self.parent.osd_configure(width, height, aspect)
-        return self._osd_shmem.addr + 16, width * 4, self._frame_shmem.addr
+        return self._osd_shmem.addr + 16, width * 4
 
 
     def _handle_xine_event(self, event):
@@ -285,6 +281,12 @@ class XinePlayerChild(Player):
         self._vo.send_gui_data(xine.GUI_SEND_DRAWABLE_CHANGED, wid)
         self._vo_settings = None
 
+    def _frame_notify_cb(self, fd):
+        size = struct.calcsize("LL8s")
+        packet = os.read(fd, size)
+        shmid, offset, padding = struct.unpack('LL8s', packet)
+        self.parent.frame_notify(shmid, offset)
+
 
     def configure_video(self, wid, size, aspect, colorkey):
         """
@@ -315,9 +317,13 @@ class XinePlayerChild(Player):
         # if colorkey is not None:
         #     self._xine.set_config_value("video.device.xv_colorkey", colorkey)
 
+        frame_notify_pipe = os.pipe()
+        kaa.IOMonitor(self._frame_notify_cb, frame_notify_pipe[0]).register(frame_notify_pipe[0])
+
         control_return = []
         self._vo = self._xine.open_video_driver(
             "kaa", control_return = control_return,
+            notify_fd = frame_notify_pipe[1],
             osd_configure_cb = kaa.WeakCallback(self._osd_configure),
             frame_output_cb = kaa.WeakCallback(self._xine_frame_output_cb),
             dest_size_cb = kaa.WeakCallback(self._xine_dest_size_cb),

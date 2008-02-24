@@ -12,7 +12,7 @@ import kaa.shm
 
 from child import XinePlayerChild as Xine
 
-player = Xine(sys.argv[1], sys.argv[2])
+player = Xine(sys.argv[1])
 kaa.main.run()
 
 # Remove shared memory.  We don't detach right away, because the vo
@@ -20,8 +20,6 @@ kaa.main.run()
 # to that memory.
 if player._osd_shmem:
     kaa.shm.remove_memory(player._osd_shmem.shmid)
-if player._frame_shmem:
-    kaa.shm.remove_memory(player._frame_shmem.shmid)
 
 # Force garbage collection for testing.
 del player

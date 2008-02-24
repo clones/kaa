@@ -48,16 +48,16 @@ from kaa.popcorn.utils import ChildProcess
 # get logging object
 log = logging.getLogger('popcorn.xine')
 
-BUFFER_UNLOCKED = 0x10
-BUFFER_LOCKED = 0x20
+BUFFER_UNLOCKED = 0x00
+BUFFER_LOCKED = 0x01
 
 class Xine(MediaPlayer):
 
     def __init__(self, properties):
         super(Xine, self).__init__(properties)
-        self._check_new_frame_timer = kaa.WeakTimer(self._check_new_frame)
         self._is_in_menu = False
         self._cur_frame_output_mode = [True, False, None] # vo, shmem, size
+        self._locked_buffer_offsets = []
         self._child_spawn()
 
 
@@ -70,7 +70,7 @@ class Xine(MediaPlayer):
         script = os.path.join(os.path.dirname(__file__), 'main.py')
         self._xine = ChildProcess(self, script, gdb = log.getEffectiveLevel() == logging.DEBUG)
         self._xine.set_stop_command(kaa.WeakCallback(self._xine.die))
-        signal = self._xine.start(str(self._osd_shmkey), str(self._frame_shmkey))
+        signal = self._xine.start(str(self._osd_shmkey))
         signal.connect_weak(self._child_exited)
         self._xine_configured = False
 
@@ -99,7 +99,6 @@ class Xine(MediaPlayer):
         if self._frame_shmem:
             try:
                 self._frame_shmem.detach()
-                kaa.shm.remove_memory(self._frame_shmem.shmid)
             except kaa.shm.error:
                 pass
             self._frame_shmem = None
@@ -141,16 +140,10 @@ class Xine(MediaPlayer):
             if shmid:
                 self._osd_shmem = kaa.shm.memory(shmid)
                 self._osd_shmem.attach()
-        if not self._frame_shmem:
-            shmid = kaa.shm.getshmid(self._frame_shmkey)
-            if shmid:
-                self._frame_shmem = kaa.shm.memory(shmid)
-                self._frame_shmem.attach()
 
         # TODO: remember these values and emit them to new connections to
         # this signal after this point.
-        self.signals["osd_configure"].emit(\
-            width, height, self._osd_shmem.addr + 16, width, height)
+        self.signals["osd_configure"].emit(width, height, self._osd_shmem.addr + 16, width, height)
 
 
     def _child_resize(self, size):
@@ -184,6 +177,25 @@ class Xine(MediaPlayer):
         if not self.state in (STATE_NOT_RUNNING, STATE_SHUTDOWN):
             self.state = STATE_IDLE
 
+
+    def _child_frame_notify(self, shmid, offset):
+        if not self._frame_shmem or shmid != self._frame_shmem.shmid:
+            if self._frame_shmem:
+                self._frame_shmem.detach()
+            self._frame_shmem = kaa.shm.memory(shmid)
+            self._frame_shmem.attach()
+
+        try:
+            lock, width, height, aspect = struct.unpack("bhhd", self._frame_shmem.read(16, offset))
+        except kaa.shm.error:
+            self._frame_shmem.detach()
+            self._frame_shmem = None
+            return
+
+        if width > 0 and height > 0 and aspect > 0:
+            self._locked_buffer_offsets.append(offset)
+            a = self._frame_shmem.addr + 32 + offset
+            self.signals["frame"].emit(width, height, aspect, a, "yv12")
 
     #
     # Window handling
@@ -431,12 +443,6 @@ class Xine(MediaPlayer):
             return
 
         vo, notify, size = self._cur_frame_output_mode
-
-        if notify:
-            self._check_new_frame_timer.start(0.01)
-        else:
-            self._check_new_frame_timer.stop()
-
         log.debug('Setting frame output: vo=%s notify=%s size=%s' % (vo, notify, size))
         self._xine.set_frame_output_mode(vo, notify, size)
 
@@ -446,28 +452,9 @@ class Xine(MediaPlayer):
         Unlocks the frame buffer provided by the last 'frame' signal
         See generic.unlock_frame_buffer for details.
         """
+        offset = self._locked_buffer_offsets.pop(0)
         try:
-            self._frame_shmem.write(chr(BUFFER_UNLOCKED))
+            self._frame_shmem.write(chr(BUFFER_UNLOCKED), offset)
         except kaa.shm.error:
             self._frame_shmem.detach()
             self._frame_shmem = None
-
-
-    def _check_new_frame(self):
-        if not self._frame_shmem:
-            return
-
-        try:
-            lock, width, height, aspect = struct.unpack(\
-                "hhhd", self._frame_shmem.read(16))
-        except kaa.shm.error:
-            self._frame_shmem.detach()
-            self._frame_shmem = None
-            return
-
-        if lock & BUFFER_UNLOCKED:
-            return
-
-        if width > 0 and height > 0 and aspect > 0:
-            a = self._frame_shmem.addr + 16
-            self.signals["frame"].emit(width, height, aspect, a, "bgr32")
