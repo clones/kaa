@@ -169,7 +169,7 @@ x11_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
 
     frame_output_callback = PyDict_GetItemString(kwargs, "frame_output_cb");
     dest_size_callback = PyDict_GetItemString(kwargs, "dest_size_cb");
-    if (!frame_output_callback || !dest_size_callback) {
+    if (!frame_output_callback && !dest_size_callback) {
         PyErr_Format(xine_error, "Must specify frame_output_cb or dest_size_cb");
         return 0;
     }

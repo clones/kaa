@@ -29,19 +29,10 @@ typedef struct _kaa_vo_user_data {
     int yv12_strides[3];
 
     // Frame notification
-    //yuv2rgb_factory_t *yuv2rgb_factory;
     uint8_t *shmem, *buffers[NUM_FRAME_BUFFERS];
     int do_notify_frame, notify_fd, shm_id, cur_buffer_idx, buffer_size;
 
-    // Not used right now.
-    int notify_frame_width, notify_frame_height;
-
 } kaa_vo_user_data;
-
-typedef struct _kaa_frame_user_data {
-    //yuv2rgb_t *yuv2rgb;
-} kaa_frame_user_data;
-
 
 typedef struct {
     uint8_t lock;
@@ -54,92 +45,6 @@ typedef struct {
     uint32_t offset;
     char padding[8];
 } notify_packet_t;
-
-
-#if 0
-
-static void
-_alloc_yv12(kaa_vo_user_data *user_data, int width, int height)
-{
-    int i;
-
-    user_data->yv12_strides[0] = 8*((width + 7) / 8);
-    user_data->yv12_strides[1] = 8*((width + 15) / 16);
-    user_data->yv12_strides[2] = 8*((width + 15) / 16);
-
-    for (i = 0; i < 3; i++) {
-        if (user_data->yv12_planes[i])
-            free(user_data->yv12_planes[i]);
-
-        user_data->yv12_planes[i] = (uint8_t *)memalign(16, user_data->yv12_strides[i] * (height >> (i > 0)));
-    }
-    user_data->yv12_width = width;
-    user_data->yv12_height = height;
-}
-
-
-static void
-_kaa_frame_to_buffer(kaa_vo_user_data *user_data, vo_frame_t *frame, kaa_frame_user_data *frame_user_data, 
-                     int dst_width, int dst_height)
-{
-    int y_stride = frame->pitches[0],
-        uv_stride = frame->pitches[1];
-    if (dst_width <= 0 || dst_height <= 0)
-        return;
-
-    // TODO: use swscaler when it's available.
-
-    if (frame->format == XINE_IMGFMT_YUY2 && dst_width*dst_height > YUY2_SIZE_THRESHOLD) {
-        y_stride = 8*((frame->width + 7) / 8);
-        uv_stride = 8*((frame->width + 15) / 16);
-    }
-
-    if (frame->width != frame_user_data->yuv2rgb->source_width ||
-        frame->height != frame_user_data->yuv2rgb->source_height ||
-        (frame->format == XINE_IMGFMT_YV12 && (
-             y_stride != frame_user_data->yuv2rgb->y_stride ||
-             uv_stride != frame_user_data->yuv2rgb->uv_stride)
-        ) ||
-        (frame->format == XINE_IMGFMT_YUY2 &&
-             y_stride != frame_user_data->yuv2rgb->y_stride
-        ) ||
-        dst_width != frame_user_data->yuv2rgb->dest_width ||
-        dst_height != frame_user_data->yuv2rgb->dest_height) {
-
-        frame_user_data->yuv2rgb->configure(frame_user_data->yuv2rgb, frame->width, frame->height,
-            y_stride, uv_stride, dst_width, dst_height, 4*dst_width);
-
-    }
-
-    if (frame->format == XINE_IMGFMT_YV12) {
-        frame_user_data->yuv2rgb->yuv2rgb_fun(frame_user_data->yuv2rgb,
-                user_data->frame_buffer + 16, frame->base[0], frame->base[1], frame->base[2]);
-    } else {
-        if (dst_width * dst_height > YUY2_SIZE_THRESHOLD) {
-            // Naive optimization: yuv2rgb has an accelerated version
-            // but yuy22rgb doesn't.  So when the area of the image is
-            // greater than the size threshold (determined empirically)
-            // first convert the yuy2 image to yv12 and then convert
-            // yv12 to rgb, both operations of which are accelerated.
-            if (user_data->yv12_width != frame->width || user_data->yv12_height != frame->height)
-                _alloc_yv12(user_data, frame->width, frame->height);
-
-            yuy2_to_yv12(frame->base[0], frame->pitches[0],
-                         user_data->yv12_planes[0], user_data->yv12_strides[0],
-                         user_data->yv12_planes[1], user_data->yv12_strides[1],
-                         user_data->yv12_planes[2], user_data->yv12_strides[2],
-                         frame->width, frame->height);
-            frame_user_data->yuv2rgb->yuv2rgb_fun (frame_user_data->yuv2rgb, user_data->frame_buffer + 16,
-                                         user_data->yv12_planes[0],
-                                         user_data->yv12_planes[1],
-                                         user_data->yv12_planes[2]);
-        } else {
-            frame_user_data->yuv2rgb->yuy22rgb_fun(frame_user_data->yuv2rgb, user_data->frame_buffer + 16,
-                                            frame->base[0]);
-        }
-    }
-}
-#endif 
 
 static int
 setup_shmem(kaa_vo_user_data *user_data, int stride, int height)
@@ -196,11 +101,15 @@ static int
 handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *data)
 {
     kaa_vo_user_data *user_data = (kaa_vo_user_data *)data;
-    //kaa_frame_user_data *frame_user_data = *(kaa_frame_user_data **)frame_user_data_gen;
 
     if (cmd == KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD && user_data->do_notify_frame) {
         uint8_t *lock, *y_dst, *u_dst, *v_dst;
         int stride = (frame->format == XINE_IMGFMT_YUY2) ? frame->pitches[0] >> 1: frame->pitches[0];
+
+        if (user_data->notify_fd == -1) {
+            printf("[export] no notify_fd specified, can't export frame.\n");
+            return 0;
+        }
 
         if (32 + stride*frame->height*2 > user_data->buffer_size)
             setup_shmem(user_data, stride, frame->height);
@@ -243,7 +152,7 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
 
         memcpy(user_data->buffers[user_data->cur_buffer_idx], &header, sizeof(header));
         *lock = 1;
-        // TODO: check return value
+        // TODO: check return value for write()
         write(user_data->notify_fd, &notify, sizeof(notify));
         fsync(user_data->notify_fd);
 
@@ -256,65 +165,6 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
         if (user_data->cur_buffer_idx == NUM_FRAME_BUFFERS)
             user_data->cur_buffer_idx = 0;
     }
-
-#if 0
-    switch (cmd) {
-        case KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD:
-        {
-        case KAA_VO_HANDLE_FRAME_ALLOC:
-            *frame_user_data_gen = malloc(sizeof(kaa_frame_user_data));
-            frame_user_data = *(kaa_frame_user_data **)frame_user_data_gen;
-            memset(frame_user_data, 0, sizeof(kaa_frame_user_data));
-            frame_user_data->yuv2rgb = user_data->yuv2rgb_factory->create_converter(user_data->yuv2rgb_factory);
-            break;
-
-
-        case KAA_VO_HANDLE_FRAME_DISPOSE:
-            frame_user_data->yuv2rgb->dispose(frame_user_data->yuv2rgb);
-            free(*frame_user_data_gen);
-            break;
-
-        case KAA_VO_HANDLE_FRAME_DISPLAY_PRE_OSD: {
-            struct { short lock, width, height; double aspect; } header = { .lock = 0x10 };
-            struct timeval curtime;
-            struct timezone tz;
-            double start_time, now;
-            int dst_width = user_data->notify_frame_width, 
-                dst_height = user_data->notify_frame_height;
-
-            if (!user_data->frame_buffer || !user_data->do_notify_frame)
-                break;
-
-            // Wait at most 0.1 seconds for the client to unlock the buffer.
-            gettimeofday(&curtime, &tz);
-            start_time = now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
-            while (user_data->frame_buffer[0] == 0x20 && now - start_time < 0.1) {
-                gettimeofday(&curtime, &tz);
-                now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
-                usleep(1);
-            }
-            if (now - start_time >= 0.1)
-                break;
-            
-            if (dst_width == -1)
-                dst_width = frame->width;
-            if (dst_height == -1)
-                dst_height = frame->height;
-
-            _kaa_frame_to_buffer(user_data, frame, frame_user_data, dst_width, dst_height);
-
-            header.width = dst_width;
-            header.height = dst_height;
-            header.aspect = frame->ratio;
-            memcpy(user_data->frame_buffer, &header, sizeof(header));
-            *user_data->frame_buffer = 0x20;
-
-            // TODO: could callback into python to notify new frame.  (Note:
-            // we're in a thread here, will require GIL.)
-            break;
-        }
-    }
-#endif
     return 0;
 }
 
@@ -355,10 +205,10 @@ osd_configure_cb(int width, int height, double aspect, void *data, uint8_t **buf
     args = Py_BuildValue("(iid)", width, height, aspect);
     result = PyEval_CallObject(user_data->osd_configure_cb, args);
     if (result) {
-        PyObject *py_osd_buffer, *py_frame_buffer = 0;
+        PyObject *py_osd_buffer;
         int buflen = -1;
 
-        if (!PyArg_ParseTuple(result, "Oi|O", &py_osd_buffer, buffer_stride_return, &py_frame_buffer))
+        if (!PyArg_ParseTuple(result, "Oi", &py_osd_buffer, buffer_stride_return))
             goto bail;
 
         if ((*buffer_return = _get_ptr_from_pyobject(py_osd_buffer, &buflen)) == 0)
@@ -367,14 +217,6 @@ osd_configure_cb(int width, int height, double aspect, void *data, uint8_t **buf
             PyErr_Format(PyExc_ValueError, "OSD buffer is not big enough");
             goto bail;
         }
-/*
-        if (py_frame_buffer && (frame_buffer = _get_ptr_from_pyobject(py_frame_buffer, &buflen)))
-            user_data->frame_buffer = frame_buffer;
-        if (buflen != -1 && buflen < width * height * 4) {
-            PyErr_Format(PyExc_ValueError, "Frame buffer is not big enough");
-            goto bail;
-        }
-*/
     }
 
 bail:
@@ -410,10 +252,6 @@ _control(PyObject *self, PyObject *args, PyObject *kwargs)
     if (!strcmp(command, "set_notify_frame")) {
         type_check(cmd_arg, Bool, "Argument must be a boolean");
         user_data->do_notify_frame = PyLong_AsLong(cmd_arg);
-    }
-    else if (!strcmp(command, "set_notify_frame_size")) {
-        if (!PyArg_ParseTuple(cmd_arg, "ii", &user_data->notify_frame_width, &user_data->notify_frame_height))
-            return NULL;
     }
     else if (!strcmp(command, "set_passthrough")) {
         type_check(cmd_arg, Bool, "Argument must be a boolean");
@@ -490,7 +328,6 @@ kaa_driver_dealloc(void *data)
     if (user_data->passthrough_visual)
         free(user_data->passthrough_visual);
 
-    //user_data->yuv2rgb_factory->dispose(user_data->yuv2rgb_factory);
      for (i = 0; i < 3; i++) {
          if (user_data->yv12_planes[i])
              free(user_data->yv12_planes[i]);
@@ -582,11 +419,8 @@ kaa_get_visual_info(Xine_PyObject *xine, PyObject *kwargs, void **visual_return,
     user_data->common.dealloc_cb       = kaa_driver_dealloc;
     user_data->passthrough_visual      = passthrough_visual;
     user_data->passthrough_driver_info = passthrough_driver_info;
-    user_data->notify_frame_width      = -1;
-    user_data->notify_frame_height     = -1;
     user_data->do_notify_frame         = 0;
     user_data->notify_fd               = notify_fd;
-    //user_data->yuv2rgb_factory         = yuv2rgb_factory_init(MODE_32_RGB, 0, NULL);
 
     vis.osd_configure_cb_data = user_data;
     vis.handle_frame_cb_data  = user_data;
