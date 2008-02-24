@@ -245,7 +245,7 @@ class Movie(Image):
 
 
     def _set_frame_output_size(self):
-        info = self._player.get_info()
+        info = self._player.streaminfo
         frame_w, frame_h = info["width"], info["height"]
         if 0 in (frame_w, frame_h):
             return
@@ -302,7 +302,7 @@ class Movie(Image):
         # If we receive more than 5 frames of a certain size, ask the player
         # to do the scaling for us (to width multiples of 2)
         d_width, d_height = self._get_computed_size()
-        info = self._player.get_info()
+        info = self._player.streaminfo
         frame_w, frame_h = info["width"], info["height"]
         if (d_width, d_height) != (width, height) and d_width*d_height < frame_w*frame_h:# and \
             #d_width*d_height > 320*200:
@@ -356,7 +356,7 @@ class Movie(Image):
 
     def get_info(self):
         if self._player:
-            self._player.get_info()
+            self._player.streaminfo
 
     def nav_command(self, input):
         if self._player:
