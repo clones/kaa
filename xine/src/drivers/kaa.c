@@ -13,6 +13,8 @@
 #endif
 
 #define NUM_FRAME_BUFFERS 3
+#define BUFFER_UNLOCKED 0x10
+#define BUFFER_LOCKED 0x20
 
 typedef struct _kaa_vo_user_data {
     driver_info_common common;
@@ -80,12 +82,12 @@ wait_for_buffer(uint8_t *lock, float max_wait)
 
     gettimeofday(&curtime, NULL);
     start = now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
-    while (*lock && now - start < max_wait) {
+    while (*lock & BUFFER_LOCKED && now - start < max_wait) {
         gettimeofday(&curtime, NULL);
         now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
         usleep(1);
     }
-    return *lock == 0;
+    return *lock & BUFFER_UNLOCKED;
 } 
 
 
@@ -120,7 +122,7 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
         };
 
         buffer_header_t header = {
-            .lock = 0,
+            .lock = BUFFER_UNLOCKED,
             .width = frame->width,
             .height = frame->height,
             .stride = stride,
@@ -151,7 +153,7 @@ handle_frame_cb(int cmd, vo_frame_t *frame, void **frame_user_data_gen, void *da
         }
 
         memcpy(user_data->buffers[user_data->cur_buffer_idx], &header, sizeof(header));
-        *lock = 1;
+        *lock = BUFFER_LOCKED;
         // TODO: check return value for write()
         write(user_data->notify_fd, &notify, sizeof(notify));
         fsync(user_data->notify_fd);

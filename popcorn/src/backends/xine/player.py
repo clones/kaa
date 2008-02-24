@@ -48,8 +48,8 @@ from kaa.popcorn.utils import ChildProcess
 # get logging object
 log = logging.getLogger('popcorn.xine')
 
-BUFFER_UNLOCKED = 0x00
-BUFFER_LOCKED = 0x01
+BUFFER_UNLOCKED = 0x10
+BUFFER_LOCKED = 0x20
 
 class Xine(MediaPlayer):
 
