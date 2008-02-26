@@ -58,7 +58,7 @@ kaa.OneShotTimer(next, BACKEND).start(0)
 #kaa.OneShotTimer(player.stop).start(1)
 
 def print_pos():
-    print '\r', player.get_position(),
+    print '\r', player.position,
     sys.stdout.flush()
     return True
 
