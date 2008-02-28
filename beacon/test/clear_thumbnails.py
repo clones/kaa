@@ -1,9 +1,11 @@
+# TODO: maybe move that into one of the bin scripts
+# e.g. beacon-daemon --clear-thumbnails
+
 import os
 import sys
 import kaa
 import kaa.metadata
 
-verbose = False
 files = []
 num_deleted = 0
 
@@ -11,8 +13,9 @@ FORCE=True
 
 for directory in ('fail/kaa', 'large', 'normal'):
     path = os.path.expanduser('~/.thumbnails/' + directory)
-    for thumbnail in os.listdir(path):
-        files.append(path + '/' + thumbnail)
+    if os.path.isdir(path):
+        for thumbnail in os.listdir(path):
+            files.append(path + '/' + thumbnail)
 
 for pos, thumbnail in enumerate(files):
 
@@ -39,8 +42,6 @@ for pos, thumbnail in enumerate(files):
             num_deleted += 1
         continue
     if not os.path.isfile(uri[7:]):
-        if verbose:
-            print '\ndelete thumbnail for', uri[7:]
         os.unlink(thumbnail)
         num_deleted += 1
         
