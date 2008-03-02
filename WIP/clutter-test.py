@@ -6,6 +6,17 @@ import sys
 import clutter
 import gobject
 
+def clutter_access():
+    def decorator(func):
+        def newfunc(*args, **kwargs):
+            clutter.threads_enter()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                clutter.threads_leave()
+        return newfunc
+    return decorator
+
 class BehaviourRotate (clutter.Behaviour):
     __gtype_name__ = 'BehaviourRotate'
     def __init__ (self, alpha=None):
@@ -27,15 +38,12 @@ class BehaviourRotate (clutter.Behaviour):
 def key_press(stages, event):
     print 'exit'
     sys.exit(0)
-    
-@kaa.threaded(kaa.GOBJECT)
+
 def do_stuff ():
-    # clutter is not thread safe. They claim they are, but they are
-    # not. So better change clutter stuff in the GOBJECT thread.
-    stage = clutter.Stage()
-    stage.set_size(800, 600)
-    stage.set_color(clutter.Color(0xcc, 0xcc, 0xcc, 0xff))
-    stage.connect('key-press-event', key_press)
+
+    # create rectangle, animations and timeline. This should be thread safe
+    # at this point because the objects have no connection to other clutter
+    # objects yet.
 
     rect = clutter.Rectangle()
     rect.set_position(0, 0)
@@ -66,18 +74,35 @@ def do_stuff ():
     r_behaviour = BehaviourRotate(alpha)
     r_behaviour.apply(rect)
 
-    stage.add(rect)
-    stage.show()
-
+    # this should be thread safe because I guess it is a glib timer which
+    # is safe to add from a thread (I hope)
     timeline.start()
+
+    # adding the rect to the stage is critical. In fact, every manipulation
+    # of the stage is.
+    do_thread_critical_stuff(rect)
     # return all animation objects to prevent the gc from deleting them
     return o_behaviour, p_behaviour, r_behaviour
 
+# clutter_access will use threads_enter and threads_leave to protect
+# clutter data structures. It would also be possible to use 
+# @kaa.threaded(kaa.GOBJECT)
+@clutter_access()
+def do_thread_critical_stuff(rect):
+    stage = clutter.Stage()
+    stage.add(rect)
 
 @kaa.threaded(kaa.GOBJECT)
 def clutter_init():
     clutter.threads_init()
     clutter.init()
+    stage = clutter.Stage()
+    stage.set_size(800, 600)
+    stage.set_color(clutter.Color(0xcc, 0xcc, 0xcc, 0xff))
+    stage.connect('key-press-event', key_press)
+    # This MUST be called from the glib thread, the clutter_access decorator
+    # does not work.
+    stage.show()
 
 def block():
     # a long running function that should not stop the animations
