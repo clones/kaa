@@ -267,7 +267,7 @@ def _parse(db, item, mtime):
     if not metadata.get('title'):
         # try to set a good title
         # FIXME: if a file is renamed later, this tite should also update
-        title = get_title(item._beacon_data['name'])
+        title = get_title(item._beacon_data['name'], strip=not item._beacon_isdir)
         metadata['title'] = kaa.str_to_unicode(title)
 
 
