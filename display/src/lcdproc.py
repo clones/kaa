@@ -231,6 +231,7 @@ class LCD(object):
             log.error('LCDproc: %s. Will try again later', result)
             kaa.OneShotTimer(self._connect, server, port).start(10)
             yield False
+        self._send('hello')
         wait = kaa.InProgressCallback(self.socket.signals['read'])
         yield wait
         line = wait.get_result().strip().split()
