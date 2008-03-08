@@ -521,7 +521,9 @@ class MPlayer(MediaPlayer):
             for key in keys:
                 fd.write("%s noop\n" % key)
             fd.close()
-        args.add(input='conf=%s' % tempfile)
+        # only prevent input if the player is embedded
+        if config.mplayer.embedded:
+            args.add(input='conf=%s' % tempfile)
 
         # set properties subtitle filename and subtitle track
         if self._properties.get('subtitle-filename'):
