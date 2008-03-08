@@ -1,3 +1,4 @@
+~/projects/mplayer/mplayer ~/projects/mplayer
 Index: libmpcodecs/vf_overlay.c
 ===================================================================
 --- libmpcodecs/vf_overlay.c	(revision 0)
@@ -1245,7 +1246,7 @@ Index: libmpcodecs/vf_overlay.c
 +        }
 +    }
 +    stopwatch(3, NULL);
-+    return vf_next_put_image(vf, dmpi, MP_NOPTS_VALUE);
++    return vf_next_put_image(vf, dmpi, pts);
 +}
 +
 +
@@ -1460,47 +1461,399 @@ Index: libmpcodecs/vf_overlay.c
 +};
 +
 +#endif
-Index: libmpcodecs/Makefile
+Index: libmpcodecs/vf_outbuf.c
 ===================================================================
---- libmpcodecs/Makefile	(revision 23502)
-+++ libmpcodecs/Makefile	(working copy)
-@@ -65,6 +65,7 @@
-               vf_mirror.c \
-               vf_noformat.c \
-               vf_noise.c \
-+              vf_overlay.c \
-               vf_palette.c \
-               vf_perspective.c \
-               vf_phase.c \
+--- libmpcodecs/vf_outbuf.c	(revision 0)
++++ libmpcodecs/vf_outbuf.c	(revision 0)
+@@ -0,0 +1,258 @@
++#include "config.h"
++
++#ifdef HAVE_SHM
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <sys/param.h>
++#include <sys/time.h>
++#include <sys/shm.h>
++#include <sys/ipc.h>
++#include <fcntl.h>
++#include "mp_image.h"
++#include "vf.h"
++#include "img_format.h"
++
++#include <sys/mman.h>
++
++#include "mp_msg.h"
++#include "libvo/fastmemcpy.h"
++#include "libvo/video_out.h"
++#include "libswscale/swscale.h"
++#include "input/input.h"
++#include "osdep/timer.h"
++#include "libavutil/avutil.h"
++#include "vf_scale.h"
++
++// defined in fmt-conversion.h and included by vf_scale.c
++enum PixelFormat imgfmt2pixfmt(int fmt);
++
++// Lock flags.
++//
++#define BUFFER_UNLOCKED 0x10
++#define BUFFER_LOCKED 0x20
++
++
++struct vf_priv_s {
++    int mpi_w, mpi_h, active, mpifmt, buffmt,
++        dst_w, dst_h;
++    double aspect;
++    uint8_t *shmem;
++    int shm_id;
++    key_t shm_key;
++    struct SwsContext *sws;
++};
++
++static void setup_sws(struct vf_priv_s *priv)
++{
++    if (priv->sws)
++        sws_freeContext(priv->sws);
++
++    priv->sws = sws_getContext(priv->mpi_w, priv->mpi_h, imgfmt2pixfmt(priv->mpifmt), 
++                               priv->dst_w, priv->dst_h, imgfmt2pixfmt(priv->buffmt),
++                               get_sws_cpuflags()|SWS_PRINT_INFO|SWS_BILINEAR,
++                               NULL, NULL, NULL);
++}
++
++
++static int
++config(struct vf_instance_s* vf, int width, int height,
++       int d_width, int d_height, unsigned int flags, unsigned int mpifmt)
++{
++    int fd, size;
++    vf->priv->dst_w = vf->priv->mpi_w = (width+1) & ~1;
++    vf->priv->dst_h = vf->priv->mpi_h = (height+1) & ~1;
++    size = vf->priv->dst_w * vf->priv->dst_h * 4 + 16;
++
++    vf->priv->shm_id = shmget(vf->priv->shm_key, size, IPC_CREAT | 0600);
++    if (vf->priv->shm_id < 0) {
++        mp_msg(MSGT_VFILTER, MSGL_ERR, "\noutbuf: ERROR: unable to open shmem (key %d)\n", vf->priv->shm_key);
++        return 0;
++    }
++    vf->priv->shmem = shmat(vf->priv->shm_id, NULL, 0);
++    if (!vf->priv->shmem) {
++        mp_msg(MSGT_VFILTER, MSGL_ERR, "\noutbuf: ERROR: couldn't mmap %d bytes from shmem (%d)\n", size, vf->priv->shm_key);
++        return 0;
++    }
++
++    vf->priv->mpifmt = mpifmt;
++    vf->priv->active = 1;
++    vf->priv->aspect = (double)d_width/d_height;
++    mp_msg(MSGT_VFILTER, MSGL_INFO, "outbuf: %dx%d %s; shmem key: %u.\n",
++           width, height, vo_format_name(vf->priv->buffmt), vf->priv->shm_key);
++
++    setup_sws(vf->priv);
++    return vf_next_config(vf, width, height, d_width, d_height, flags, mpifmt);
++}
++
++
++static int
++query_format(struct vf_instance_s* vf, unsigned int fmt)
++{
++    if (fmt == IMGFMT_YV12)
++        return vf_next_query_format(vf, fmt);
++    return 0;
++}
++
++
++static int
++put_image(struct vf_instance_s* vf, mp_image_t* mpi, double pts) 
++{
++    struct { 
++        short lock, width, height;
++        double aspect;
++    } header = { 
++        .lock = BUFFER_UNLOCKED, 
++        .width = vf->priv->dst_w, 
++        .height = vf->priv->dst_h,
++        .aspect = vf->priv->aspect
++    };
++
++    struct timeval curtime;
++    struct timezone tz;
++    double start_time, now;
++
++    if (vf->priv->active == 0)
++        return 0;
++
++    if (vf->priv->active == 1) {
++        return vf_next_put_image(vf, mpi, pts);
++    }
++
++    if (vf->priv->mpi_w != mpi->width || vf->priv->mpi_h != mpi->height) {
++        vf->priv->mpi_w = mpi->width;
++        vf->priv->mpi_h = mpi->height;
++        setup_sws(vf->priv);
++    }
++
++    // Wait at most 0.1 seconds for the client to unlock the buffer.
++    gettimeofday(&curtime, &tz);
++    start_time = now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
++    while (*vf->priv->shmem & BUFFER_LOCKED && now - start_time < 0.1) {
++        gettimeofday(&curtime, &tz);
++        now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
++        usec_sleep(1);
++    }
++
++    if (now - start_time < 0.1) {
++        switch (vf->priv->buffmt) {
++            case IMGFMT_BGR32: {
++                uint8_t *dst[3]= {vf->priv->shmem + 16, NULL, NULL};
++                int dst_stride[3]= {vf->priv->dst_w * 4, 0, 0};
++                sws_scale(vf->priv->sws, mpi->planes, mpi->stride, 0, vf->priv->mpi_h, dst, dst_stride);
++                break;
++            }
++            case IMGFMT_YV12: {
++                uint8_t *dst[3];
++                int dst_stride[3], i, stride = vf->priv->dst_w, h = vf->priv->dst_h;
++                unsigned char *p = vf->priv->shmem + 16;
++
++                for (i = 0; i < 3; p += stride * h, i++) {
++                    if (i == 1) { stride >>= 1; h >>= 1;}
++                    dst[i] = p;
++                    dst_stride[i] = stride;
++                }
++                sws_scale(vf->priv->sws, mpi->planes, mpi->stride, 0, vf->priv->mpi_h, dst, dst_stride);
++                break;
++            }
++        }
++        memcpy(vf->priv->shmem, &header, sizeof(header));
++        *vf->priv->shmem = BUFFER_LOCKED;
++    } 
++
++    if (vf->priv->active == 3)
++        return vf_next_put_image(vf, mpi, pts);
++
++    return 0;
++
++}
++        
++static int 
++cmd_filter(mp_cmd_t* cmd, int paused, struct vf_priv_s * priv) 
++{
++    if (cmd->id == MP_CMD_VF_OUTBUF) {
++        int w = priv->dst_w, h = priv->dst_h;
++        priv->active = cmd->args[0].v.i;
++        if (cmd->nargs > 1)
++            w = cmd->args[1].v.i ? cmd->args[1].v.i : priv->mpi_w;
++        if (cmd->nargs > 2)
++            h = cmd->args[2].v.i ? cmd->args[2].v.i : priv->mpi_h;
++
++        w = (w > priv->mpi_w) ? priv->mpi_w : w;
++        h = (h > priv->mpi_h) ? priv->mpi_h : h;
++        if (w != priv->dst_w || h != priv->dst_h) {
++            priv->dst_w = (w+1) & ~1;
++            priv->dst_h = (h+1) & ~1;
++            setup_sws(priv);
++        }
++
++        return 1;
++    }
++    return 0;
++}
++
++static void uninit(struct vf_instance_s *vf)
++{
++    struct shmid_ds shmemds;
++
++    sws_freeContext(vf->priv->sws);
++    shmctl(vf->priv->shm_id, IPC_RMID, &shmemds);
++    shmdt(vf->priv->shmem);
++
++    free(vf->priv);
++}
++
++
++static int
++vf_open(vf_instance_t* vf, char* args)
++{
++    char *p;
++    int argn = 0;
++
++    vf->config = config;
++    vf->put_image = put_image;
++    vf->query_format = query_format;
++    vf->uninit = uninit;
++
++    vf->priv = calloc(1, sizeof(struct vf_priv_s));
++    vf->priv->active = 1;
++    vf->priv->buffmt = IMGFMT_YV12;
++
++    while ((p = strsep(&args, ":"))) {
++        //if (argn == 0) strcpy(vf->priv->shmem_name, p);
++        if (argn == 0) vf->priv->shm_key = atoi(p);
++        else if (argn == 1) {
++            if (!strcasecmp(p, "bgr32"))
++                vf->priv->buffmt = IMGFMT_BGR32;
++            else if (!strcasecmp(p, "yv12"))
++                vf->priv->buffmt = IMGFMT_YV12;
++            else {
++                mp_msg(MSGT_VFILTER, MSGL_ERR, "\noutbuf: ERROR: invalid format '%s'\n", p);
++                return 0;
++            }
++        }
++        else if (argn == 2) 
++            vf->priv->active = atoi(p);
++        argn++;
++    }
++        
++    mp_input_add_cmd_filter((mp_input_cmd_filter)cmd_filter, vf->priv);
++    return 1;
++}
++
++
++vf_info_t vf_info_outbuf = {
++    "Write video frame to shared memory",
++    "outbuf",
++    "Jason Tackaberry",
++    "",
++    vf_open,
++    NULL
++};
++
++#endif
+Index: mplayer.c
+===================================================================
+--- mplayer.c	(revision 26171)
++++ mplayer.c	(working copy)
+@@ -1324,6 +1324,30 @@
+ }
+ 
+ 
++/**
++ * \brief send a VFCTRL_PERIODIC_UPDATE through the filter chain
++ * \param vf first video filter to receive the control
++ * \param vo needed to flip if requested
++ * \param time_avail time available, might decide not to send the 
++ *         control if this is too small
++ * \return 1 if the event was consumed or not sent, 0 otherwise
++ * 
++ * When the filter chain returns CONTROL_TRUE, a flip_page
++ * will be performed, a value < 0 means it was not consumed,
++ * causing less events to be produced in the future
++ */
++static int periodic_update(vf_instance_t *vf, const vo_functions_t *vo,
++                            float time_avail) {
++   int res;
++   if (!vf) return 0;
++   if (time_avail < 0.01) return 1;
++   res = vf->control(vf, VFCTRL_PERIODIC_UPDATE, &time_avail);
++   if (res == CONTROL_OK && vo_config_count)
++     vo->flip_page();
++   return res > 0;
++}
++
++
+ typedef struct mp_osd_msg mp_osd_msg_t;
+ struct mp_osd_msg {
+     /// Previous message on the stack.
+@@ -1760,6 +1784,8 @@
+ 	current_module="sleep_rtc";
+         while (time_frame > 0.000) {
+ 	    unsigned long rtc_ts;
++	    periodic_update(mpctx->sh_video->vfilter, mpctx->video_out, time_frame);
++	    time_frame-=GetRelativeTime();
+ 	    if (read(rtc_fd, &rtc_ts, sizeof(rtc_ts)) <= 0)
+ 		mp_msg(MSGT_CPLAYER, MSGL_ERR, MSGTR_LinuxRTCReadError, strerror(errno));
+     	    time_frame -= GetRelativeTime();
+@@ -1772,8 +1798,10 @@
+ 	float margin = softsleep ? 0.011 : 0;
+ 	current_module = "sleep_timer";
+ 	while (time_frame > margin) {
+-	    usec_sleep(1000000 * (time_frame - margin));
++	    int mul = 100 * !periodic_update(mpctx->sh_video->vfilter, mpctx->video_out, time_frame);
+ 	    time_frame -= GetRelativeTime();
++	    usec_sleep(10000 * mul * (time_frame - margin));
++	    time_frame -= GetRelativeTime();
+ 	}
+ 	if (softsleep){
+ 	    current_module = "sleep_soft";
+@@ -2341,7 +2369,7 @@
+     if (mpctx->audio_out && mpctx->sh_audio)
+ 	mpctx->audio_out->pause();	// pause audio, keep data if possible
+ 
+-    while ( (cmd = mp_input_get_cmd(20, 1, 1)) == NULL
++    while ( (cmd = mp_input_get_cmd(3, 1, 1)) == NULL
+             || cmd->id == MP_CMD_SET_MOUSE_POS) {
+ 	if (cmd) {
+ 	  cmd = mp_input_get_cmd(0,1,0);
+@@ -2362,6 +2390,9 @@
+ 	if (vf_menu)
+ 	    vf_menu_pause_update(vf_menu);
+ #endif
++	if (mpctx->sh_video && periodic_update(mpctx->sh_video->vfilter, mpctx->video_out, 1))
++	    usec_sleep(1000);
++	else
+ 	usec_sleep(20000);
+     }
+     if (cmd && cmd->id == MP_CMD_PAUSE) {
+Index: mencoder.c
+===================================================================
+--- mencoder.c	(revision 26171)
++++ mencoder.c	(working copy)
+@@ -231,6 +231,11 @@
+ char *current_module;
+ #include "mpcommon.h"
+ 
++// Stubs for filters that might call these functions, to satisfy linker.  These
++// filters are probably only useful for mplayer.
++void mp_input_add_cmd_filter(void *func, void* ctx) {}
++void *mp_input_get_cmd(int time, int paused, int peek_only) { return NULL; }
++
+ //char *out_audio_codec=NULL; // override audio codec
+ //char *out_video_codec=NULL; // override video codec
+ 
 Index: libmpcodecs/vf.c
 ===================================================================
---- libmpcodecs/vf.c	(revision 23502)
+--- libmpcodecs/vf.c	(revision 26171)
 +++ libmpcodecs/vf.c	(working copy)
-@@ -98,6 +98,9 @@
- extern vf_info_t vf_info_yadif;
- extern vf_info_t vf_info_blackframe;
- extern vf_info_t vf_info_geq;
+@@ -99,6 +99,10 @@
+ extern const vf_info_t vf_info_blackframe;
+ extern const vf_info_t vf_info_geq;
+ extern const vf_info_t vf_info_ow;
 +#ifdef HAVE_SHM
 +extern vf_info_t vf_info_overlay;
++extern vf_info_t vf_info_outbuf;
 +#endif
  
  // list of available filters:
- static vf_info_t* filter_list[]={
-@@ -191,6 +194,9 @@
+ static const vf_info_t* const filter_list[]={
+@@ -190,6 +194,10 @@
  #endif
      &vf_info_yadif,
      &vf_info_blackframe,
 +#ifdef HAVE_SHM
 +    &vf_info_overlay,
++    &vf_info_outbuf,
 +#endif
+     &vf_info_ow,
      NULL
  };
- 
 Index: libmpcodecs/vf.h
 ===================================================================
---- libmpcodecs/vf.h	(revision 23502)
+--- libmpcodecs/vf.h	(revision 26171)
 +++ libmpcodecs/vf.h	(working copy)
-@@ -82,6 +82,7 @@
+@@ -68,6 +68,7 @@
+     int value;
+ } vf_equalizer_t;
+ 
++#define VFCTRL_NOTIFY_PTS         99
+ #define VFCTRL_QUERY_MAX_PP_LEVEL 4 /* test for postprocessing support (max level) */
+ #define VFCTRL_SET_PP_LEVEL 5 /* set postprocessing level */
+ #define VFCTRL_SET_EQUALIZER 6 /* set color options (brightness,contrast etc) */
+@@ -84,6 +85,7 @@
  #define VFCTRL_GET_PTS         17 /* Return last pts value that reached vf_vo*/
  #define VFCTRL_SET_DEINTERLACE 18 /* Set deinterlacing status */
  #define VFCTRL_GET_DEINTERLACE 19 /* Get deinterlacing status */
@@ -1508,11 +1861,37 @@ Index: libmpcodecs/vf.h
  
  #include "vfcap.h"
  
+Index: libmpcodecs/Makefile
+===================================================================
+--- libmpcodecs/Makefile	(revision 26171)
++++ libmpcodecs/Makefile	(working copy)
+@@ -66,6 +66,8 @@
+               vf_mirror.c \
+               vf_noformat.c \
+               vf_noise.c \
++              vf_overlay.c \
++              vf_outbuf.c \
+               vf_palette.c \
+               vf_perspective.c \
+               vf_phase.c \
+Index: input/input.h
+===================================================================
+--- input/input.h	(revision 26171)
++++ input/input.h	(working copy)
+@@ -2,6 +2,8 @@
+ #define MPLAYER_INPUT_H
+ 
+ // All command IDs
++#define MP_CMD_VF_OVERLAY 200
++#define MP_CMD_VF_OUTBUF 201
+ #define MP_CMD_SEEK   0
+ #define MP_CMD_AUDIO_DELAY 1
+ #define MP_CMD_QUIT 2
 Index: input/input.c
 ===================================================================
---- input/input.c	(revision 23502)
+--- input/input.c	(revision 26171)
 +++ input/input.c	(working copy)
-@@ -169,7 +169,11 @@
+@@ -190,7 +190,12 @@
    
    { MP_CMD_SEEK_CHAPTER, "seek_chapter", 1, { {MP_CMD_ARG_INT,{0}}, {MP_CMD_ARG_INT,{0}}, {-1,{0}} } },
    { MP_CMD_SET_MOUSE_POS, "set_mouse_pos", 2, { {MP_CMD_ARG_INT,{0}}, {MP_CMD_ARG_INT,{0}}, {-1,{0}} } },
@@ -1520,23 +1899,12 @@ Index: input/input.c
 +
 +#ifdef HAVE_SHM
 +  { MP_CMD_VF_OVERLAY, "overlay", 1, { {MP_CMD_ARG_STRING,{0}}, {-1,{0}}}},
++  { MP_CMD_VF_OUTBUF, "outbuf", 1, { {MP_CMD_ARG_INT,{0}}, {-1,{0}}}},
 +#endif
 +
    { 0, NULL, 0, {} }
  };
  
-Index: input/input.h
-===================================================================
---- input/input.h	(revision 23502)
-+++ input/input.h	(working copy)
-@@ -93,6 +93,7 @@
- #define MP_CMD_STEP_PROPERTY 91
- #define MP_CMD_RADIO_STEP_FREQ 92
- #define MP_CMD_TV_STEP_FREQ 93
-+#define MP_CMD_VF_OVERLAY 93
- 
- #define MP_CMD_GUI_EVENTS       5000
- #define MP_CMD_GUI_LOADFILE     5001
 Index: DOCS/tech/vf_overlay.txt
 ===================================================================
 --- DOCS/tech/vf_overlay.txt	(revision 0)
@@ -1807,9 +2175,9 @@ Index: DOCS/tech/vf_overlay.txt
 +to use an image library to render images and/or text to the buffer.
 Index: DOCS/tech/slave.txt
 ===================================================================
---- DOCS/tech/slave.txt	(revision 23502)
+--- DOCS/tech/slave.txt	(revision 26171)
 +++ DOCS/tech/slave.txt	(working copy)
-@@ -184,6 +184,10 @@
+@@ -192,6 +192,10 @@
  osd_show_text <string> [duration] [level]
      Show <string> on the OSD.
  
@@ -1822,9 +2190,9 @@ Index: DOCS/tech/slave.txt
      Negative values decrease the pan-and-scan range.
 Index: DOCS/man/en/mplayer.1
 ===================================================================
---- DOCS/man/en/mplayer.1	(revision 23502)
+--- DOCS/man/en/mplayer.1	(revision 26171)
 +++ DOCS/man/en/mplayer.1	(working copy)
-@@ -6565,6 +6565,35 @@
+@@ -6932,6 +6932,35 @@
  .PD 1
  .
  .TP
@@ -1860,103 +2228,3 @@ Index: DOCS/man/en/mplayer.1
  .B framestep=I|[i]step
  Renders only every nth frame or every intra frame (keyframe).
  .sp 1
-Index: mplayer.c
-===================================================================
---- mplayer.c	(revision 23502)
-+++ mplayer.c	(working copy)
-@@ -1228,6 +1228,28 @@
-   return result;
- }
- 
-+/**
-+  * \brief send a VFCTRL_PERIODIC_UPDATE through the filter chain
-+  * \param vf first video filter to receive the control
-+  * \param vo needed to flip if requested
-+  * \param time_avail time available, might decide not to send the 
-+  *         control if this is too small
-+  * \return 1 if the event was consumed, 0 otherwise
-+  * 
-+  * When the filter chain returns CONTROL_TRUE, a flip_page
-+  * will be performed, a value < 0 means it was not consumed,
-+  * causing less events to be produced in the future
-+  */
-+static int periodic_update(vf_instance_t *vf, vo_functions_t *vo,
-+                            float time_avail) {
-+   int res;
-+   if (!vf) return 0;
-+   if (time_avail < 0.01) return 0;
-+   res = vf->control(vf, VFCTRL_PERIODIC_UPDATE, &time_avail);
-+   if (res == CONTROL_TRUE && vo_config_count)
-+     vo->flip_page();
-+   return res >= 0;
-+}
- 
- typedef struct mp_osd_msg mp_osd_msg_t;
- struct mp_osd_msg {
-@@ -1645,6 +1667,7 @@
- 	current_module="sleep_rtc";
-         while (time_frame > 0.000) {
- 	    unsigned long rtc_ts;
-+	    periodic_update(mpctx->sh_video->vfilter, mpctx->video_out, time_frame);
- 	    if (read(rtc_fd, &rtc_ts, sizeof(rtc_ts)) <= 0)
- 		mp_msg(MSGT_CPLAYER, MSGL_ERR, MSGTR_LinuxRTCReadError, strerror(errno));
-     	    time_frame -= GetRelativeTime();
-@@ -1655,8 +1678,10 @@
- 	{
- 	    current_module = "sleep_darwin";
- 	    while (time_frame > 0.005) {
--		usec_sleep(1000000*time_frame);
-+		int short_sleep = periodic_update(mpctx->sh_video->vfilter, mpctx->video_out, time_frame);
- 		time_frame -= GetRelativeTime();
-+		usec_sleep(short_sleep ? 10000 : 1000000*time_frame);
-+		time_frame -= GetRelativeTime();
- 	    }
- 	}
- #else
-@@ -1666,8 +1691,10 @@
- 	float margin = softsleep ? 0.011 : 0;
- 	current_module = "sleep_timer";
- 	while (time_frame > margin) {
--	    usec_sleep(1000000 * (time_frame - margin));
-+	    int short_sleep = periodic_update(mpctx->sh_video->vfilter, mpctx->video_out, time_frame);
- 	    time_frame -= GetRelativeTime();
-+	    usec_sleep(short_sleep ? 10000 : 1000000 * (time_frame - margin));
-+	    time_frame -= GetRelativeTime();
- 	}
- 	if (softsleep){
- 	    current_module = "sleep_soft";
-@@ -2096,7 +2123,7 @@
-     if (mpctx->audio_out && mpctx->sh_audio)
- 	mpctx->audio_out->pause();	// pause audio, keep data if possible
- 
--    while ( (cmd = mp_input_get_cmd(20, 1, 1)) == NULL) {
-+    while ( (cmd = mp_input_get_cmd(10, 1, 1)) == NULL) {
- 	if (mpctx->sh_video && mpctx->video_out && vo_config_count)
- 	    mpctx->video_out->check_events();
- #ifdef HAVE_NEW_GUI
-@@ -2111,7 +2138,8 @@
- 	if (vf_menu)
- 	    vf_menu_pause_update(vf_menu);
- #endif
--	usec_sleep(20000);
-+	if (!mpctx->sh_video || !periodic_update(mpctx->sh_video->vfilter, mpctx->video_out, 1))
-+	    usec_sleep(20000);
-     }
-     if (cmd && cmd->id == MP_CMD_PAUSE) {
- 	cmd = mp_input_get_cmd(0,1,0);
-Index: mencoder.c
-===================================================================
---- mencoder.c	(revision 23502)
-+++ mencoder.c	(working copy)
-@@ -229,6 +229,11 @@
- char *current_module;
- #include "mpcommon.h"
- 
-+// Stubs for filters that might call these functions, to satisfy linker.  These
-+// filters are probably only useful for mplayer.
-+void mp_input_add_cmd_filter(void *func, void* ctx) {}
-+void *mp_input_get_cmd(int time, int paused, int peek_only) { return NULL; }
-+
- //char *out_audio_codec=NULL; // override audio codec
- //char *out_video_codec=NULL; // override video codec
- 
