@@ -1,0 +1,9 @@
+vf_overlay_outbuf-*-TESTING.diff
+--------------------------------
+Provides on-screen display support for MPlayer (vf_overlay), and ability for a
+running video to act as a canvas object for kaa.canvas (vf_outbuf).
+kaa.popcorn detects existence of this patch and offers up its functionality.
+It is not mandatory.
+
+The patch is diffed against MPlayer svn as of the date indicated in the
+filename.
