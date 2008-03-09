@@ -21,19 +21,16 @@
 7. Try to reduce algorithm complexity in certain places.  e.g. maybe Query
    objects keep a dict of items keyed on url rather than a sorted item list.
 
-8. Support yield_execution from kaa.db.query
+8. Move the code from the extra process into the main daemon
+   - Use the glib thread for hal
+   - kaa.imlib2 in a thread (does not block for large images)
 
 9. Ability to give changes back to the caller in stages; useful for doing
    live queries while a user is typing in a word.
 
 A. When an image is deleted, beacon should delete any corresponding thumbnail.
 
-B. When a file is growing (copy, download), the code checks in a
-   small interval. This is good and what we want, but we don't want
-   new thumbnails (screenshots) while the download / copy is not
-   complete.
-
-C. Subject: Music: cover art per album
+B. Subject: Music: cover art per album
    To: freevo-users@lists.sourceforge.net
    Date: Mon Oct 30 19:32:32 2006 +0100
 
@@ -42,6 +39,6 @@ C. Subject: Music: cover art per album
    look for files called (ID3AlbumName).jpg. This will allow users to
    store music from several albums in a single directory.
 
-D. Put new/changed files discovered by inotify at the top of the scan queue.
+C. Put new/changed files discovered by inotify at the top of the scan queue.
 
-E. Item object should offer mimetype attribute.
+D. Item object should offer mimetype attribute.
