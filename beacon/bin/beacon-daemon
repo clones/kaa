@@ -147,18 +147,16 @@ if mode == 'stop':
     kaa.main.run()
     sys.exit(0)
 
-    
+
+if kaa.utils.is_running('beacon'):
+    print 'beacon-daemon is already running.'
+    sys.exit(1)
+
+kaa.utils.set_running('freevo-tvserver')
+
 # Start a new beacon server. If run in daemon mode we fork and detach from the
 # parent. After that a logger is created and the thumbnail server will be
 # forked out.
-
-try:
-    # this should not be possible
-    kaa.beacon.connect()
-    print 'beacon-daemon is already running.'
-    sys.exit(1)
-except kaa.beacon.ConnectError:
-    pass
 
 if detach:
     if not logfile:
