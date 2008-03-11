@@ -270,7 +270,7 @@ def _device_add(prop, udi, removable=False):
         # No disc and not already marked as removable.
         # Check if the device is removable
         try:
-            fd = open(os.path.dirname(prop["linux.sysfs_path_device"]) + '/removable')
+            fd = open(os.path.dirname(prop["linux.sysfs_path"]) + '/removable')
             rm = fd.read(1)
             fd.close()
             if rm != '1':
@@ -302,8 +302,8 @@ def _device_add(prop, udi, removable=False):
 
 
 if __name__ == '__main__':      
-    def new_device(self, dev):
-        print dev
+    def new_device(dev):
+        print dev.udi
     signals['add'].connect(new_device)
     start()
     kaa.main.run()
