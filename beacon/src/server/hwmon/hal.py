@@ -4,6 +4,7 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
+# http://people.freedesktop.org/~david/hal-spec/hal-spec.html#interface-manager
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
 # Copyright (C) 2006-2008 Dirk Meyer
@@ -49,7 +50,10 @@ if getattr(dbus, 'version', (0,0,0)) < (0,8,0):
 # only supports the glib mainloop and no generic one.
 from dbus.mainloop.glib import DBusGMainLoop
 DBusGMainLoop(set_as_default=True)
-kaa.main.select_notifier('gtk', x11=False)
+
+# hal needs dbus
+kaa.gobject_set_threaded()
+# kaa.main.select_notifier('gtk', x11=False)
 
 # kaa.beacon imports
 from kaa.beacon.server.config import config
@@ -62,74 +66,87 @@ log = logging.getLogger('beacon.hal')
 # HAL signals
 signals = kaa.Signals('add', 'remove', 'changed', 'failed')
 
+@kaa.threaded(kaa.MAINTHREAD)
+def emit_signal(signal, *args):
+    """
+    Wrapper to emit the signal in the main thread.
+    """
+    return signals[signal].emit(*args)
+
 
 class Device(object):
     """
     A device object
+    FIXME: lock because dbus and mainthread use this object
     """
     def __init__(self, prop, bus):
         self.udi = prop['info.udi']
         self.prop = prop
-        self._eject = False
         self._bus = bus
 
     # -------------------------------------------------------------------------
     # Public API
     # -------------------------------------------------------------------------
 
-    def mount(self, umount=False):
+    @kaa.threaded(kaa.GOBJECT)
+    def mount(self):
         """
-        Mount or umount the device.
+        Mount the device.
+        FIXME: use HAL API
         """
-        if self.prop.get('volume.mount_point') and not umount:
+        if self.prop.get('volume.mount_point'):
             # already mounted
             return False
         for device, mountpoint, type, options in fstab():
             if device == self.prop['block.device'] and \
                    (options.find('users') >= 0 or os.getuid() == 0):
                 cmd = ('mount', self.prop['block.device'])
-                if umount:
-                    cmd = ('umount', self.prop['block.device'])
                 break
         else:
-            if umount:
-                cmd = ("pumount", self.prop.get('volume.mount_point'))
-            else:
-                cmd = ("pmount-hal", self.udi)
-        proc = kaa.Process(cmd)
-        proc.signals['stdout'].connect(log.warning)
-        proc.signals['stderr'].connect(log.error)
-        proc.start()
+            cmd = ("pmount-hal", self.udi)
+        os.system(' '.join(cmd))
         return True
 
 
+    @kaa.threaded(kaa.GOBJECT)
     def eject(self):
         """
         Eject the device. This includes umounting and removing from
         the list. Devices that can't be ejected (USB sticks) are only
         umounted and removed from the list.
+        FIXME: use HAL API
         """
-        if self.prop.get('volume.mount_point'):
-            # umount before eject
-            self._eject = True
-            return self.mount(umount=True)
         # remove from list
         _device_remove(self.udi)
+        if self.prop.get('volume.mount_point'):
+            # umount before eject
+            for device, mountpoint, type, options in fstab():
+                if device == self.prop['block.device'] and \
+                       (options.find('users') >= 0 or os.getuid() == 0):
+                    cmd = ('umount', self.prop['block.device'])
+                    break
+            else:
+                cmd = ("pumount", self.prop.get('volume.mount_point'))
+            os.system(' '.join(cmd))
         if self.prop.get('volume.is_disc'):
             eject(self.prop['block.device'])
-
+            
 
     def __getattr__(self, attr):
+        """
+        Return attribute based on the properties.
+        """
         return getattr(self.prop, attr)
 
 
     # -------------------------------------------------------------------------
-    # Callbacks
+    # Callbacks called in the GOBJECT thread
     # -------------------------------------------------------------------------
 
     def _modified(self, num_changes, change_list):
         """
         Device was modified (mount, umount..)
+        Called by dbus in GOBJECT thread
         """
         for c in change_list:
             if c[0] == 'volume.mount_point':
@@ -142,23 +159,27 @@ class Device(object):
     def _property_update(self, prop):
         """
         Update internal property list and call signal.
+        Called by dbus in GOBJECT thread
         """
+        prop = dict(prop)
         prop['info.parent'] = self.prop.get('info.parent')
-        if not prop.get('volume.mount_point') and self._eject:
-            self.prop = prop
-            return self.eject()
-        signals['changed'].emit(self, prop)
+        emit_signal('changed', self, prop).wait()
         self.prop = prop
 
 
 
 # -----------------------------------------------------------------------------
 # Connection handling
+#
+# All functions below this point are called in the GOBJECT thread. The used
+# global variables are only used by this functions, but they modify the device
+# objects. This needs a lock.
 # -----------------------------------------------------------------------------
 
 _bus = None
 _connection_timeout = 5
 
+@kaa.threaded(kaa.GOBJECT)
 def start():
     """
     Connect to DBUS and start to connect to HAL.
@@ -173,7 +194,7 @@ def start():
         # unable to connect to dbus
         if not _connection_timeout:
             # give up
-            signals['failed'].emit('unable to connect to dbus')
+            emit_signal('failed', 'unable to connect to dbus')
             return False
         kaa.OneShotTimer(start).start(2)
         return False
@@ -181,7 +202,7 @@ def start():
         obj = _bus.get_object('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
     except Exception, e:
         # unable to connect to hal
-        signals['failed'].emit('hal not found on dbus')
+        emit_signal('failed', 'hal not found on dbus')
         return False
     hal = dbus.Interface(obj, 'org.freedesktop.Hal.Manager')
     hal.GetAllDevices(reply_handler=_device_all, error_handler=log.error)
@@ -200,6 +221,7 @@ _blockdevices = {}
 def _device_all(device_names):
     """
     HAL callback with the list of all known devices.
+    Called by dbus in GOBJECT thread.
     """
     for name in device_names:
         obj = _bus.get_object("org.freedesktop.Hal", str(name))
@@ -211,6 +233,7 @@ def _device_all(device_names):
 def _device_new(udi):
     """
     HAL callback for a new device.
+    Called by dbus in GOBJECT thread.
     """
     obj = _bus.get_object("org.freedesktop.Hal", udi)
     obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
@@ -218,9 +241,11 @@ def _device_new(udi):
                          error_handler=log.error)
 
 
+@kaa.threaded(kaa.GOBJECT)
 def _device_remove(udi):
     """
     HAL callback when a device is removed.
+    Called by dbus in GOBJECT thread or by eject
     """
     if udi in _blockdevices:
         del _blockdevices[udi]
@@ -238,21 +263,23 @@ def _device_remove(udi):
     _devices.remove(dev)
     # signal changes
     if isinstance(dev.prop.get('info.parent'), dict):
-        signals['remove'].emit(dev)
+        emit_signal('remove', dev)
 
 
 def _device_add(prop, udi, removable=False):
     """
     HAL callback for property list of a new device. If removable is set to
     False this functions tries to detect if it is removable or not.
+    Called by dbus in GOBJECT thread.
     """
+    prop = dict(prop)
     if not 'volume.mount_point' in prop:
         if 'linux.sysfs_path' in prop and 'block.device' in prop:
             _blockdevices[udi] = prop
             for dev in _devices:
                 if dev.prop.get('info.parent') == udi:
                     dev.prop['info.parent'] = prop
-                    signals['add'].emit(dev)
+                    emit_signal('add', dev)
         return
 
     if prop.get('block.device').startswith('/dev/mapper') or \
@@ -298,12 +325,23 @@ def _device_add(prop, udi, removable=False):
     if parent:
         prop['info.parent'] = parent
         # signal changes
-        signals['add'].emit(dev)
+        emit_signal('add', dev)
 
 
 if __name__ == '__main__':      
+    def changed(dev, prop):
+        print 'changed', dev.get('info.parent')
+        print
+    def remove(dev):
+        print 'lost', dev
     def new_device(dev):
+        print kaa.is_mainthread()
         print dev.udi
+        dev.mount()
+        kaa.OneShotTimer(dev.eject).start(1)
+    kaa.gobject_set_threaded()
     signals['add'].connect(new_device)
+    signals['changed'].connect(changed)
+    signals['remove'].connect(remove)
     start()
     kaa.main.run()
