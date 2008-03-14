@@ -202,11 +202,13 @@ class Feed(object):
         entries = self._entries
         new_entries = []
 
-        for entry in self:
-            if isinstance(entry, kaa.InProgress):
+        iter = self.iterate()
+        for entry in iter:
+            while isinstance(entry, kaa.InProgress):
                 # dummy entry to signal waiting
-                yield entry
-                continue
+                result = yield entry
+                # send result back to the iterator
+                entry = iter.send(result)
 
             log.info('process %s', entry.url)
             filename = None

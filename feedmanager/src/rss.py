@@ -59,7 +59,7 @@ class Feed(core.Feed):
     RSS Feed.
     """
 
-    def __iter__(self):
+    def iterate(self):
         """
         Iterate over feed entries.
         """
