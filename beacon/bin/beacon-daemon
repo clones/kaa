@@ -152,8 +152,6 @@ if kaa.utils.is_running('beacon-daemon'):
     print 'beacon-daemon is already running.'
     sys.exit(1)
 
-kaa.utils.set_running('beacon-daemon')
-
 # Start a new beacon server. If run in daemon mode we fork and detach from the
 # parent. After that a logger is created and the thumbnail server will be
 # forked out.
@@ -162,7 +160,9 @@ if detach:
     if not logfile:
         logfile = os.path.join(database, 'server.log')
     daemonize_lock = kaa.utils.daemonize(wait = True)
-    
+
+kaa.utils.set_running('beacon-daemon')
+
 # create logger
 if logfile:
     if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
