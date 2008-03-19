@@ -173,9 +173,9 @@ class Database(object):
         # do query based on type
         if 'filename' in query and qlen == 1:
             fname = os.path.realpath(query['filename'])
-            return kaa.InProgressExecution(self.query_filename, fname)
+            return kaa.execute(self.query_filename, fname)
         if 'id' in query and qlen == 1:
-            return kaa.InProgressExecution(self._db_query_id, query['id'])
+            return kaa.execute(self._db_query_id, query['id'])
         if 'parent' in query and 'recursive' in query and qlen == 2:
             if not query['parent']._beacon_isdir:
                 raise AttributeError('parent is no directory')
@@ -186,9 +186,9 @@ class Database(object):
                     return self._db_query_dir(query['parent'])
             query['parent'] = query['parent']._beacon_id
         if 'attr' in query:
-            return kaa.InProgressExecution(self._db_query_attr, query)
+            return kaa.execute(self._db_query_attr, query)
         if 'type' in query and query['type'] == 'media':
-            return kaa.InProgressExecution(self._db.query, **query)
+            return kaa.execute(self._db.query, **query)
         return self._db_query_raw(query)
 
 

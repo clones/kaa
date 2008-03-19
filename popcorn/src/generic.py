@@ -62,7 +62,7 @@ def required_states(*states):
             # always return an InProgress object
             if self._get_state() in states and not self._pending:
                 # already finished
-                return kaa.InProgressExecution(func, self, *args, **kwargs)
+                return kaa.execute(func, self, *args, **kwargs)
             # add callback to list of pending calls
             async = kaa.InProgress()
             callback = kaa.Callback(func, self, *args, **kwargs)
