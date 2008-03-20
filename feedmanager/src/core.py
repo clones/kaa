@@ -234,7 +234,7 @@ class Feed(object):
                 else:
                     async = entry.fetch(filename)
                     if verbose:
-                        async.get_status().connect(print_status, async.get_status())
+                        async.progress.connect(print_status)
                     yield async
                     if not os.path.isfile(filename):
                         log.error('error fetching', entry.url)
