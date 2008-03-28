@@ -1,9 +1,26 @@
+# Note: this requires kaa.base from
+# svn://svn.freevo.org/kaa/trunk/base to be installed
+#
+# Thread information:
+#
+# There are two threads running here. One is the kaa mainloop (default) and
+# the other one is the gobject mainloop. Functions decorated with the threaded
+# decorator force execution of the function in the mainthread or the gobject
+# thread.
+
 import kaa
+
+kaa.main.select_notifier('generic')
+kaa.gobject_set_threaded()
+
 import gst
 
 class DVB(object):
 
     def __init__(self, adapter, frontend):
+        """
+        Thread Information: created by the main thread
+        """
         self.signals = kaa.Signals('state-change', 'lock')
         self.adapter = adapter
         self.frontend = frontend
@@ -20,18 +37,18 @@ class DVB(object):
         dvbsrc = self.pipeline.get_by_name("dvbsrc")
         dvbsrc.connect("pad-added", self._pad_added)
         dvbsrc.connect("pad-removed", self._pad_removed)
-        
+
     @kaa.threaded(kaa.MAINTHREAD)
     def bus_watch_func(self, bus, message):
+        """
+        Thread Information: called by gobject but forced into main thread
+        This code is not needed right now
+        """
         # needed for scanning
+        # print message
         # return
         if message.type == gst.MESSAGE_STATE_CHANGED:
             # print message
-            dvbsrc = self.pipeline.get_by_name("dvbsrc")
-            if message.src == dvbsrc:
-                self.state = message.parse_state_changed()[1]
-                print 'change state', self.state
-                self.signals['state-change'].emit(self.state)
             return
         if message.type == gst.MESSAGE_ELEMENT:
             if message.structure.get_name() == 'dvb-adapter':
@@ -64,7 +81,7 @@ class DVB(object):
                     sid = p['program-number']
                     pmt = p['pid']
                     # e.g. sid 160 (Das Erste) on pmt 260
-                    print 'found program %s on pid %s' % (sid, pmt)
+                    # print 'found program %s on pid %s' % (sid, pmt)
                     dvbsrc = self.pipeline.get_by_name("dvbsrc")
                 return
             if message.structure.get_name() == 'sdt':
@@ -75,16 +92,16 @@ class DVB(object):
                         sid = int(name[8:])
                         if service.has_key("name"):
                             name = service["name"]
-                        # e.g. Das Erste with sid=160 tsid=3329
-                        print name, sid, s["transport-stream-id"]
+                        # e.g. Das Erste with sid=160 # tsid=3329
+                        print name, sid #, s["transport-stream-id"]
                 return
             if message.structure.get_name() == 'pmt':
                 s = message.structure
                 # e.g. 160 (ARD)
-                print 'pmt for', s['program-number']
-                for stream in s['streams']:
-                    print '', stream.keys()
-                    print stream['pid'], stream['stream-type'], stream['descriptors']
+                # print 'pmt for', s['program-number']
+                # for stream in s['streams']:
+                #     print '', stream.keys()
+                #     print stream['pid'], stream['stream-type'], stream['descriptors']
                 return
             if message.structure.get_name() == 'eit':
                 # print message.structure.keys()
@@ -92,44 +109,58 @@ class DVB(object):
             print 'Bus watch function for message %r' % message
 
     def _pad_added(self, element, pad):
+        """
+        Thread Information: called by gobject thread
+        """
         print 'START', pad
         sid = pad.get_name()[8:]
         if sid == '0':
             return
         pad.link(self.streams[sid].get_pad())
-    
+
     def _pad_removed(self, bin, pad):
+        """
+        Thread Information: called by gobject thread
+        """
         print 'STOP', pad
 
-    @kaa.coroutine()
+    @kaa.threaded(kaa.GOBJECT)
     def tune(self, tuning_data):
+        """
+        Thread Information: called by main but forced into gobject thread
+        """
         dvbsrc = self.pipeline.get_by_name("dvbsrc")
-        if self.state in (gst.STATE_PLAYING, gst.STATE_PAUSED):
-            print 'switch to gst.STATE_READY for tuning'
-            dvbsrc.set_property("program-numbers", "")
-            # FIXME: that may block for several seconds
-            self.pipeline.set_state(gst.STATE_READY)
-            while self.state in (gst.STATE_PLAYING, gst.STATE_PAUSED):
-                yield kaa.InProgressSignals(self.signals, 'state-change')
-            dvbsrc.set_property("program-numbers", "0")
+        print 'BEGIN TUNE', kaa.is_mainthread()
+        print 'set ready'
+        element = self.pipeline
+        if dvbsrc.get_state()[1] == gst.STATE_PLAYING:
+            element = dvbsrc
+        # XXX This sometimes blocks on re-tuning. Sometimes it is non blocking,
+        # XXX sometimes it blocks for 10 or 20 seconds and sometimes it does not
+        # XXX return after over a minute when I killed the app.
+        element.set_state(gst.STATE_READY)
+        print dvbsrc.get_state()
         print 'tune'
         for key, value in tuning_data.items():
             dvbsrc.set_property(key, value)
-        self.pipeline.set_state(gst.STATE_PLAYING)
-        yield kaa.InProgressSignals(self.signals, 'state-change')
-
-
-    def shutdown(self):
-        self.pipeline.set_state(gst.STATE_NULL)
+        element.set_state(gst.STATE_PLAYING)
+        print dvbsrc.get_state()
+        print 'END TUNE'
 
 
     def get_stream(self, sid):
+        """
+        Thread Information: called by main thread
+        """
         if not str(sid) in self.streams:
             self.streams[str(sid)] = Stream(self, sid=str(sid))
         return self.streams[str(sid)]
-    
+
 
     def _stream_activate(self, stream):
+        """
+        Thread Information: called by gobject thread
+        """
         dvbsrc = self.pipeline.get_by_name("dvbsrc")
         programs = dvbsrc.get_property("program-numbers").split(':')
         if not stream.sid in programs:
@@ -138,6 +169,9 @@ class DVB(object):
 
 
     def _stream_deactivate(self, stream):
+        """
+        Thread Information: called by gobject thread
+        """
         dvbsrc = self.pipeline.get_by_name("dvbsrc")
         programs = dvbsrc.get_property("program-numbers").split(':')
         if stream.sid in programs:
@@ -147,57 +181,68 @@ class DVB(object):
             programs = ':'
         dvbsrc.set_property("program-numbers", programs)
 
-        
+
 class Stream(object):
+    """
+    'queue ! tee' bin for recordings
+    """
     def __init__(self, device, **kwargs):
+        """
+        Thread Information: created by the main thread
+        """
         self.device = device
-        self.tee = None
-        self.queue = None
-        self.sinks = []
+        self.bin = None
+        self.sinks = 0
         for key, value in kwargs.items():
             setattr(self, key, value)
-        
-    def append(self, sink):
-        if self.tee == None:
-            print 'create stream'
-            for attr in ('queue', 'tee'):
-                setattr(self, attr, gst.element_factory_make(attr))
-                getattr(self, attr).set_state(gst.STATE_PLAYING)
-                self.device.pipeline.add(getattr(self, attr))
-            self.queue.link(self.tee)
-            self.device._stream_activate(self)
-        print 'start', sink
-        sink.set_state(gst.STATE_PLAYING)
-        self.device.pipeline.add(sink)
-        pad = self.tee.get_request_pad('src%d')
-        pad.link(sink.get_pad('sink'))
-        self.sinks.append(sink)
 
+    @kaa.threaded(kaa.GOBJECT)
+    def append(self, sink):
+        """
+        Thread Information: called by main but forced into gobject thread
+        """
+        if self.bin == None:
+            print 'create stream'
+            self.bin = gst.parse_bin_from_description('queue ! tee name=tee', True)
+            self.device.pipeline.add(self.bin)
+            self.device._stream_activate(self)
+            self.bin.set_state(gst.STATE_PLAYING)
+        print 'start', sink
+        self.bin.add(sink)
+        pad = self.bin.get_by_name("tee").get_request_pad('src%d')
+        pad.link(sink.get_pad('sink'))
+        sink.set_state(gst.STATE_PLAYING)
+        self.sinks += 1
+
+    @kaa.threaded(kaa.GOBJECT)
     def remove(self, sink):
-        print 'remove', sink
-        self.sinks.remove(sink)
-        pad = sink.get_pad('sink').get_peer()
-        pad.unlink(sink.get_pad('sink'))
-        self.tee.remove_pad(pad)
-        # sink.set_state(gst.STATE_NULL)
+        """
+        Thread Information: called by main but forced into gobject thread
+        """
+        print 'BEGIN remove', sink
+        self.sinks -= 1
+        self.bin.get_by_name("tee").unlink(sink)
+        sink.set_state(gst.STATE_NULL)
+        sink.get_state()
+        self.bin.remove(sink)
         if self.sinks:
+            print 'END remove', sink
             return
         print 'remove stream'
-        for attr in ('queue', 'tee'):
-            self.device.pipeline.remove(getattr(self, attr))
-            getattr(self, attr).set_state(gst.STATE_NULL)
-        print self.queue.get_pad('src').get_peer()
-        print self.queue.get_pad('sink').get_peer()
-        for attr in ('queue', 'tee'):
-            setattr(self, attr, None)
         self.device._stream_deactivate(self)
+        self.bin.set_state(gst.STATE_NULL)
+        self.bin.get_state()
+        self.device.pipeline.remove(self.bin)
+        self.bin = None
+        print 'END remove', sink
 
     def get_pad(self):
-        return self.queue.get_pad('sink')
-    
-kaa.main.select_notifier('generic')
-kaa.gobject_set_threaded()
+        """
+        Thread Information: called by gobject thread
+        """
+        return self.bin.get_pad('sink')
 
+# create device for /dev/dvb/adapter0/frontend0
 d = DVB(0, 0)
 
 # ARD (Das Erste) in Bremen
@@ -225,22 +270,29 @@ ZDF = {
     "hierarchy":"NONE"
 }
 
+# tune to ARD in 0.5 seconds
 kaa.OneShotTimer(d.tune, ARD).start(0.5)
-kaa.OneShotTimer(d.tune, ZDF).start(6)
 
-sink = gst.element_factory_make('filesink')
-sink.set_property('location', 'foo1.ts')
+# start recording 1 after 1 second from startup and stop 4 seconds later
+sink = gst.parse_bin_from_description('queue ! filesink name=sink', True)
+sink.get_by_name("sink").set_property('location', 'foo1.ts')
 kaa.OneShotTimer(d.get_stream(160).append, sink).start(1.0)
 kaa.OneShotTimer(d.get_stream(160).remove, sink).start(5.0)
 
+# start recording 2 after 4 second from startup and stop 1 second later
 sink = gst.element_factory_make('filesink')
 sink.set_property('location', 'foo2.ts')
 kaa.OneShotTimer(d.get_stream(160).append, sink).start(4.0)
 kaa.OneShotTimer(d.get_stream(160).remove, sink).start(5.0)
 
+# tune to ZDF after 6 seconds from startup
+kaa.OneShotTimer(d.tune, ZDF).start(6)
+
+# start recording 3 after 8 second from startup (ZDF) and stop 2 seconds later
 sink = gst.element_factory_make('filesink')
 sink.set_property('location', 'zdf.ts')
 kaa.OneShotTimer(d.get_stream(514).append, sink).start(8.0)
 kaa.OneShotTimer(d.get_stream(514).remove, sink).start(10.0)
 
+# stop with C-c every time
 kaa.main.run()
