@@ -38,11 +38,53 @@ class DVB(object):
         dvbsrc.connect("pad-added", self._pad_added)
         dvbsrc.connect("pad-removed", self._pad_removed)
 
+    def _parse_nit(self, nit):
+        """
+        Parse network information
+        Thread Information: called by bus_watch_func from main thread
+        """
+        name = nit['network-id']
+        actual = nit['actual-network']
+        if nit.has_key('network-name'):
+            name = nit['network-name']
+        transports = nit['transports']
+        for transport in transports:
+            tsid = transport['transport-stream-id']
+            if not transport.has_key('delivery'):
+                continue
+            # delivery information to get the real tuning_data
+            delivery = transport['delivery']
+            modulation = delivery["constellation"]
+            if modulation == "reserved":
+                modulation = "QAM 64"
+            hierarchy = delivery['hierarchy']
+            if hierarchy == 0:
+                hierarchy = "NONE"
+            transmission = delivery['transmission-mode']
+            if transmission == 'reserved':
+                # FIXME: how to handle this?
+                transmission = '8k'
+            # FIXME: this is DVB-T only yet
+            tuning_data = {
+                "frequency": delivery['frequency'],
+                "inversion": 'AUTO',
+                "bandwidth": str(delivery['bandwidth']),
+                "code-rate-hp": delivery['code-rate-hp'],
+                "code-rate-lp": delivery['code-rate-hp'],
+                "modulation": modulation,
+                "trans-mode": delivery['transmission-mode'],
+                "guard": str(delivery['guard-interval']),
+                "hierarchy": hierarchy
+            }
+            # FIXME: wait for this on scanning. It may take a while
+            # until it arrives, but it gives us the correct tuning_data
+            # Note: it may not arrive for bad channels. Timeout?
+            print name, tuning_data
+        
     @kaa.threaded(kaa.MAINTHREAD)
     def bus_watch_func(self, bus, message):
         """
         Thread Information: called by gobject but forced into main thread
-        This code is not needed right now
         """
         # needed for scanning
         # print message
@@ -58,46 +100,9 @@ class DVB(object):
                 if message.structure["lock"]:
                     self.signals['lock'].emit()
                 return
-
             if message.structure.get_name() == 'nit':
-                s = message.structure
-                name = s['network-id']
-                actual = s['actual-network']
-                if s.has_key('network-name'):
-                    name = s['network-name']
-                transports = s['transports']
-                for transport in transports:
-                    tsid = transport['transport-stream-id']
-                    if transport.has_key('delivery'):
-                        # delivery information to get the real tuning_data
-                        delivery = transport['delivery']
-                        modulation = delivery["constellation"]
-                        if modulation == "reserved":
-                            modulation = "QAM 64"
-                        hierarchy = delivery['hierarchy']
-                        if hierarchy == 0:
-                            hierarchy = "NONE"
-                        transmission = delivery['transmission-mode']
-                        if transmission == 'reserved':
-                            # FIXME: how to handle this?
-                            transmission = '8k'
-                        tuning_data = {
-                            "frequency": delivery['frequency'],
-                            "inversion": 'AUTO',
-                            "bandwidth": str(delivery['bandwidth']),
-                            "code-rate-hp": delivery['code-rate-hp'],
-                            "code-rate-lp": delivery['code-rate-hp'],
-                            "modulation": modulation,
-                            "trans-mode": delivery['transmission-mode'],
-                            "guard": str(delivery['guard-interval']),
-                            "hierarchy": hierarchy
-                        }
-                        # FIXME: wait for this on scanning. It may take a while
-                        # until it arrives, but it gives us the correct tuning_data
-                        # Note: it may not arrive for bad channels. Timeout?
-                        print tuning_data
+                self._parse_nit(message.structure)
                 return
-
             if message.structure.get_name() == 'pat':
                 programs = message.structure['programs']
                 for p in programs:
@@ -107,7 +112,6 @@ class DVB(object):
                     sid = p['program-number']
                     pmt = p['pid']
                 return
-
             if message.structure.get_name() == 'sdt':
                 # channel listing
                 s = message.structure
@@ -122,7 +126,6 @@ class DVB(object):
                     # Note: it may not arrive for bad channels. Timeout?
                     self.signals['channels'].emit(self.channels)
                 return
-
             if message.structure.get_name() == 'pmt':
                 s = message.structure
                 # e.g. 160 (ARD), no idea how to read the descriptor or if this
@@ -131,7 +134,6 @@ class DVB(object):
                 # for stream in s['streams']:
                 #     print stream['pid'], stream['stream-type'], stream['descriptors']
                 return
-
             if message.structure.get_name() == 'eit':
                 # print message.structure.keys()
                 return
@@ -188,7 +190,7 @@ class DVB(object):
 
     def _stream_activate(self, stream):
         """
-        Thread Information: called by gobject thread
+        Thread Information: called by Stream object in gobject thread
         """
         dvbsrc = self.pipeline.get_by_name("dvbsrc")
         programs = dvbsrc.get_property("program-numbers").split(':')
@@ -199,7 +201,7 @@ class DVB(object):
 
     def _stream_deactivate(self, stream):
         """
-        Thread Information: called by gobject thread
+        Thread Information: called by Stream object in gobject thread
         """
         dvbsrc = self.pipeline.get_by_name("dvbsrc")
         programs = dvbsrc.get_property("program-numbers").split(':')
