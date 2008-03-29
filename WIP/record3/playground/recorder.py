@@ -55,7 +55,7 @@ kaa.OneShotTimer(d.tune, ZDF).start(6)
 sink = gst.element_factory_make('filesink')
 sink.set_property('location', 'zdf.ts')
 kaa.OneShotTimer(d.get_stream(514).append, sink).start(8.0)
-kaa.OneShotTimer(d.get_stream(514).remove, sink).start(10.0)
+#kaa.OneShotTimer(d.get_stream(514).remove, sink).start(10.0)
 
 # stop with C-c
 kaa.main.run()

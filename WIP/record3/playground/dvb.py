@@ -25,7 +25,7 @@ class DVB(object):
         self.frontend = frontend
         self.type = None
         self.streams = {}
-        self.channels = []
+        self.channels = {}
         self.pipeline =  gst.parse_launch(
             "dvbbasebin name=dvbsrc adapter=%d frontend=%d " \
             "stats-reporting-interval=0 ! queue ! " \
@@ -58,32 +58,58 @@ class DVB(object):
                 if message.structure["lock"]:
                     self.signals['lock'].emit()
                 return
-            # if message.structure.get_name() == 'nit':
-            #     s = message.structure
-            #     name = s['network-id']
-            #     actual = s['actual-network']
-            #     if s.has_key('network-name'):
-            #         name = s['network-name']
-            #     transports = s['transports']
-            #     for transport in transports:
-            #         tsid = transport['transport-stream-id']
-            #         print transport.keys()
-            #         if transport.has_key('delivery'):
-            #             delivery = transport['delivery']
-            #             # delivery['frequency']
-            #     return
-            # if message.structure.get_name() == 'pat':
-            #     # print message.structure.keys()
-            #     programs = message.structure['programs']
-            #     for p in programs:
-            #         # print p.keys()
-            #         sid = p['program-number']
-            #         pmt = p['pid']
-            #         # e.g. sid 160 (Das Erste) on pmt 260
-            #         # print 'found program %s on pid %s' % (sid, pmt)
-            #         dvbsrc = self.pipeline.get_by_name("dvbsrc")
-            #     return
+
+            if message.structure.get_name() == 'nit':
+                s = message.structure
+                name = s['network-id']
+                actual = s['actual-network']
+                if s.has_key('network-name'):
+                    name = s['network-name']
+                transports = s['transports']
+                for transport in transports:
+                    tsid = transport['transport-stream-id']
+                    if transport.has_key('delivery'):
+                        # delivery information to get the real tuning_data
+                        delivery = transport['delivery']
+                        modulation = delivery["constellation"]
+                        if modulation == "reserved":
+                            modulation = "QAM 64"
+                        hierarchy = delivery['hierarchy']
+                        if hierarchy == 0:
+                            hierarchy = "NONE"
+                        transmission = delivery['transmission-mode']
+                        if transmission == 'reserved':
+                            # FIXME: how to handle this?
+                            transmission = '8k'
+                        tuning_data = {
+                            "frequency": delivery['frequency'],
+                            "inversion": 'AUTO',
+                            "bandwidth": str(delivery['bandwidth']),
+                            "code-rate-hp": delivery['code-rate-hp'],
+                            "code-rate-lp": delivery['code-rate-hp'],
+                            "modulation": modulation,
+                            "trans-mode": delivery['transmission-mode'],
+                            "guard": str(delivery['guard-interval']),
+                            "hierarchy": hierarchy
+                        }
+                        # FIXME: wait for this on scanning. It may take a while
+                        # until it arrives, but it gives us the correct tuning_data
+                        # Note: it may not arrive for bad channels. Timeout?
+                        print tuning_data
+                return
+
+            if message.structure.get_name() == 'pat':
+                programs = message.structure['programs']
+                for p in programs:
+                    # e.g. sid 160 (Das Erste) on pmt 260
+                    # This information is not needed in kaa.record, dvbbasebin
+                    # handles this, only the sid is needed.
+                    sid = p['program-number']
+                    pmt = p['pid']
+                return
+
             if message.structure.get_name() == 'sdt':
+                # channel listing
                 s = message.structure
                 if s["actual-transport-stream"]:
                     self.channels = []
@@ -93,20 +119,23 @@ class DVB(object):
                         if service.has_key("name"):
                             name = service["name"]
                         self.channels.append((name, sid))
+                    # Note: it may not arrive for bad channels. Timeout?
                     self.signals['channels'].emit(self.channels)
                 return
+
             if message.structure.get_name() == 'pmt':
                 s = message.structure
-                # e.g. 160 (ARD)
+                # e.g. 160 (ARD), no idea how to read the descriptor or if this
+                # information is needed at all for kaa.record
                 # print 'pmt for', s['program-number']
                 # for stream in s['streams']:
-                #     print '', stream.keys()
                 #     print stream['pid'], stream['stream-type'], stream['descriptors']
                 return
+
             if message.structure.get_name() == 'eit':
                 # print message.structure.keys()
                 return
-            # print 'Bus watch function for message %r' % message
+            print 'Bus watch function for message %r' % message
 
     def _pad_added(self, element, pad):
         """
@@ -138,7 +167,7 @@ class DVB(object):
         # XXX sometimes it blocks for 10 or 20 seconds and sometimes it blocks
         # XXX over a minute
         element.set_state(gst.STATE_READY)
-        self.channels = []
+        self.channels = None
         print 'tune'
         for key, value in tuning_data.items():
             dvbsrc.set_property(key, value)
