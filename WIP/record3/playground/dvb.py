@@ -20,12 +20,12 @@ class DVB(object):
         """
         Thread Information: created by the main thread
         """
-        self.signals = kaa.Signals('state-change', 'lock', 'channels')
+        self.signals = kaa.Signals('state-change', 'lock', 'streaminfo')
         self.adapter = adapter
         self.frontend = frontend
         self.type = None
         self.streams = {}
-        self.channels = {}
+        self.streaminfo = {}
         self.pipeline =  gst.parse_launch(
             "dvbbasebin name=dvbsrc adapter=%d frontend=%d " \
             "stats-reporting-interval=0 ! queue ! " \
@@ -72,14 +72,16 @@ class DVB(object):
                 "code-rate-hp": delivery['code-rate-hp'],
                 "code-rate-lp": delivery['code-rate-hp'],
                 "modulation": modulation,
-                "trans-mode": delivery['transmission-mode'],
+                "trans-mode": transmission,
                 "guard": str(delivery['guard-interval']),
                 "hierarchy": hierarchy
             }
             # FIXME: wait for this on scanning. It may take a while
             # until it arrives, but it gives us the correct tuning_data
             # Note: it may not arrive for bad channels. Timeout?
-            print name, tuning_data
+            self.streaminfo['network'] = name
+            self.streaminfo['tuning-data'] = tuning_data
+            self.signals['streaminfo'].emit(self.streaminfo)
         
     @kaa.threaded(kaa.MAINTHREAD)
     def bus_watch_func(self, bus, message):
@@ -116,15 +118,15 @@ class DVB(object):
                 # channel listing
                 s = message.structure
                 if s["actual-transport-stream"]:
-                    self.channels = []
+                    self.streaminfo['channels'] = []
                     for service in s["services"]:
                         name = service.get_name()
                         sid = int(name[8:])
                         if service.has_key("name"):
                             name = service["name"]
-                        self.channels.append((name, sid))
+                        self.streaminfo['channels'].append((name, sid))
                     # Note: it may not arrive for bad channels. Timeout?
-                    self.signals['channels'].emit(self.channels)
+                    self.signals['streaminfo'].emit(self.streaminfo)
                 return
             if message.structure.get_name() == 'pmt':
                 s = message.structure
@@ -161,7 +163,7 @@ class DVB(object):
         Thread Information: called by main but forced into gobject thread
         """
         dvbsrc = self.pipeline.get_by_name("dvbsrc")
-        print 'set ready for tuning'
+        print 'dvd.tune: set ready'
         element = self.pipeline
         if dvbsrc.get_state()[1] == gst.STATE_PLAYING:
             element = dvbsrc
@@ -169,12 +171,15 @@ class DVB(object):
         # XXX sometimes it blocks for 10 or 20 seconds and sometimes it blocks
         # XXX over a minute
         element.set_state(gst.STATE_READY)
-        self.channels = None
-        print 'tune'
+        dvbsrc.get_state()
+        self.streaminfo = {}
+        print 'dvd.tune: tune to %s' % tuning_data['frequency'] 
         for key, value in tuning_data.items():
             dvbsrc.set_property(key, value)
         element.set_state(gst.STATE_PLAYING)
+        print 'dvd.tune: wait'
         (statereturn, state, pending) = dvbsrc.get_state()
+        print 'dvd.tune: done'
         if statereturn == gst.STATE_CHANGE_FAILURE:
             raise TuneExeception('no lock')
 

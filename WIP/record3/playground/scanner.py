@@ -4,17 +4,26 @@ import dvb
 
 @kaa.coroutine()
 def scan(device, tuning_data):
-    channels = []
+    streaminfo = []
     for t in tuning_data:
         try:
             yield device.tune(t)
         except dvb.TuneExeception, e:
             print 'failed'
             continue
-        yield kaa.InProgressSignals(device.signals, 'channels')
-        print 'found:', ', '.join([c[0] for c in device.channels])
-        channels.append((t, device.channels))
-    yield channels
+        while not 'channels' in device.streaminfo or \
+                  not 'tuning-data' in device.streaminfo:
+            try:
+                yield kaa.InProgressSignals(device.signals, 'streaminfo').timeout(5)
+            except kaa.TimeoutException:
+                break
+        if not device.streaminfo.get('channels'):
+            print 'no channels'
+            continue
+        device.streaminfo['tuning-data'] = device.streaminfo.get('tuning-data', t)
+        print 'found:', ', '.join([c[0] for c in device.streaminfo.get('channels')])
+        streaminfo.append(device.streaminfo)
+    yield streaminfo
 
 def read_tuning_data(filename):
     tuning_data = []
@@ -38,9 +47,11 @@ def read_tuning_data(filename):
 
 @kaa.coroutine()
 def scan_region(device, filename):
-    channels = yield scan(device, read_tuning_data(filename))
+    streaminfo = yield scan(device, read_tuning_data(filename))
     print 'SCANNING COMPLETE'
-    for t, c in channels:
+    for s in streaminfo:
+        c = s['channels']
+        t = s['tuning-data']
         for name, sid in c:
             print name, t['frequency'], t['bandwidth'], t['code-rate-hp'], \
                   t['code-rate-lp'], t['modulation'], t['trans-mode'], \
