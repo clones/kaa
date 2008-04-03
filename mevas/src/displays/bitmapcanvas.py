@@ -149,3 +149,9 @@ class BitmapCanvas(Canvas):
         if child.get_parent() and hasattr(child, "_backing_store_info"):
             #print "Child deleted", child
             child.parent().queue_paint()
+
+    def __del__(self):
+        # Note: unparent() is not needed for a display and without it
+        # the __del__ function in canvasobject will raise an exception
+        # on python shutdown
+        pass
