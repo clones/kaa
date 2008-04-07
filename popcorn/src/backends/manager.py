@@ -92,7 +92,7 @@ def get_player_class(media, caps = None, exclude = None, force = None,
     import_backends()
 
     # Ensure all players have their capabilities fetched.
-    for player_id in _players:
+    for player_id in _players.keys()[:]:
         if _players[player_id]["loaded"]:
             continue
 
@@ -101,6 +101,7 @@ def get_player_class(media, caps = None, exclude = None, force = None,
         if player_caps is None:
             # failed to load, ignore this player
             log.error('failed to load %s backend', player_id)
+            del _players[player_id]
             continue
             
         _players[player_id].update({
