@@ -98,6 +98,11 @@ def get_player_class(media, caps = None, exclude = None, force = None,
 
         player_caps, schemes, exts, codecs, vo = _players[player_id]["callback"]()
 
+        if player_caps is None:
+            # failed to load, ignore this player
+            log.error('failed to load %s backend', player_id)
+            continue
+            
         _players[player_id].update({
             "caps": player_caps,
             "schemes": schemes,
