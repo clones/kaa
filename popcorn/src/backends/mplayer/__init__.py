@@ -60,7 +60,7 @@ def get_capabilities():
         mp_cmd = kaa.utils.which("mplayer")
     info = _get_mplayer_info(mp_cmd)
     if not info:
-        return None, None, None
+        return None, None, None, None, None
 
     if "overlay" in info["video_filters"]:
         capabilities[CAP_OSD] = True
