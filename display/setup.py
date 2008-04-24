@@ -103,14 +103,14 @@ if get_library('X11'):
         features['without'].append('imlib2')
 
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_Software_X11.h>']):
-        features.append('evas')
+        features['with'].append('evas')
         x11.add_library('evas')
         config.define('ENABLE_ENGINE_SOFTWARE_X11')
     else:
         features['without'].append('evas')
 
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_GL_X11.h>']):
-        features.append('evasGL')
+        features['with'].append('evasGL')
         x11.add_library('evas')
         x11.libraries.append("GL")
         config.define('ENABLE_ENGINE_GL_X11')
