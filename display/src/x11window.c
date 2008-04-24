@@ -521,6 +521,97 @@ X11Window_PyObject__get_properties(X11Window_PyObject * self, PyObject * args)
 }
 
 
+PyObject *
+X11Window_PyObject__set_shape_mask(X11Window_PyObject * self, PyObject * args)
+{
+    const char *data;
+    Pixmap pix;
+    int allocated_bit_buffer = 0, len, x, y, width, height;
+    
+    
+    if (!PyArg_ParseTuple(args, "s#(ii)(ii)", &data, &len, &x, &y, &width, &height))
+        return NULL;
+    
+    if ((width * height) == len) {
+        int bit_count = 0, data_pos = 0, bit_buffer_pos = 0;
+        char *bit_buffer = malloc( ((width * height) + 7) / 8);
+
+        if (bit_buffer == NULL) {
+            return NULL;
+        }
+        
+        for (data_pos = 0; data_pos < len; data_pos ++) {
+            bit_buffer[bit_buffer_pos] |= data[data_pos] << bit_count;
+            bit_count ++;
+            if (bit_count == 8) {
+                bit_count = 0;
+                bit_buffer_pos ++;
+                bit_buffer[bit_buffer_pos] = 0;
+            }
+        }        
+        data = bit_buffer;
+        allocated_bit_buffer = 1;
+    }
+    
+    XLockDisplay(self->display);
+    // Construct a bitmap from the supplied data for passing to the XShape extension
+    pix = XCreateBitmapFromData(self->display, self->window, data, width, height);
+    if (pix != None) {
+        XShapeCombineMask(self->display, self->window, ShapeBounding, x, y, pix, ShapeSet);
+        XFreePixmap(self->display, pix);
+    }
+    XUnlockDisplay(self->display);
+    
+    if (allocated_bit_buffer) {
+        free((void*)data);
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *
+X11Window_PyObject__reset_shape_mask(X11Window_PyObject * self, PyObject * args)
+{
+    XLockDisplay(self->display);
+    XShapeCombineMask(self->display, self->window, ShapeBounding, 0, 0, None, ShapeSet);
+    XUnlockDisplay(self->display);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *
+X11Window_PyObject__set_decorated(X11Window_PyObject * self, PyObject * args)
+{
+    int decorated = 1;
+    long data[1];
+    Atom _NET_WM_WINDOW_TYPE;
+
+    if (!PyArg_ParseTuple(args, "i", &decorated))
+        return NULL;
+        
+
+    _NET_WM_WINDOW_TYPE = XInternAtom(self->display, "_NET_WM_WINDOW_TYPE", False);    
+    
+    if (decorated) {
+        Atom _NET_WM_WINDOW_TYPE_NORMAL = XInternAtom(self->display, "_NET_WM_WINDOW_TYPE_NORMAL", False);
+        
+        data[0] = (long) _NET_WM_WINDOW_TYPE_NORMAL;
+
+    } else {
+        Atom _NET_WM_WINDOW_TYPE_SPLASH = XInternAtom(self->display, "_NET_WM_WINDOW_TYPE_SPLASH", False);
+        
+        data[0] = (long) _NET_WM_WINDOW_TYPE_SPLASH;
+    }
+    
+    XLockDisplay(self->display);
+    XChangeProperty(self->display, self->window, _NET_WM_WINDOW_TYPE, XA_ATOM, 32, PropModeReplace, 
+                    (unsigned char*)&data, 1);
+    XUnlockDisplay(self->display);
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
 
 PyMethodDef X11Window_PyObject_methods[] = {
     { "show", (PyCFunction)X11Window_PyObject__show, METH_VARARGS },
@@ -539,6 +630,9 @@ PyMethodDef X11Window_PyObject_methods[] = {
     { "get_children", (PyCFunction)X11Window_PyObject__get_children, METH_VARARGS },
     { "get_parent", (PyCFunction)X11Window_PyObject__get_parent, METH_VARARGS },
     { "get_properties", (PyCFunction)X11Window_PyObject__get_properties, METH_VARARGS },
+    { "set_shape_mask", (PyCFunction)X11Window_PyObject__set_shape_mask, METH_VARARGS },
+    { "reset_shape_mask", (PyCFunction)X11Window_PyObject__reset_shape_mask, METH_VARARGS },
+    { "set_decorated", (PyCFunction)X11Window_PyObject__set_decorated, METH_VARARGS },
     { NULL, NULL }
 };
 

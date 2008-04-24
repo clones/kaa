@@ -93,26 +93,32 @@ if get_library('X11'):
         config.define('HAVE_X11_COMPOSITE')
         x11.add_library('XComposite')
         
-    features = []
-    if get_library('imlib2') and 'X11' in get_library('imlib2').libraries:
+    features = { 'with': [], 'without': [] }
+    imlib2 = get_library('imlib2')
+    if imlib2 and imlib2.compile(['<Imlib2.h>'], 'imlib_context_set_display(NULL);'):
         config.define('USE_IMLIB2_X11')
         x11.add_library('imlib2')
-        features.append('imlib2')
+        features['with'].append('imlib2')
+    else:
+        features['without'].append('imlib2')
+
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_Software_X11.h>']):
         features.append('evas')
         x11.add_library('evas')
         config.define('ENABLE_ENGINE_SOFTWARE_X11')
+    else:
+        features['without'].append('evas')
+
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_GL_X11.h>']):
         features.append('evasGL')
         x11.add_library('evas')
         x11.libraries.append("GL")
         config.define('ENABLE_ENGINE_GL_X11')
-    if not features:
-        features = [ 'yes' ]
-        get_library('X11').libraries.append('X11')
-        x11.add_library('X11')
     else:
-        print "+ X11 (%s)" % ', '.join(features)
+        features['without'].append('evasGL')
+
+    features = ', '.join(features['with'] + [ 'no %s' % x for x in features['without'] ])
+    print '+ X11 (%s)' % features
     modules.append(x11)
 else:
     print '- X11'
@@ -129,7 +135,7 @@ if get_library('imlib2'):
         config.define('ENABLE_ENGINE_FB')
         print "+ Framebuffer (imlib2, evas)"
     else:
-        print "+ Framebuffer (imlib2)"
+        print "+ Framebuffer (imlib2, no evas)"
     modules.append(fb)
 else:
     print "- Framebuffer"

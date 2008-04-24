@@ -186,8 +186,7 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    x11 = ENGINE_COMMON_X11_SETUP(evas, kwargs, display, einfo->func,
-                                  einfo->info);
+    x11 = ENGINE_COMMON_X11_SETUP(evas, kwargs, display, einfo->func, einfo->info);
     evas_engine_info_set(evas, (Evas_Engine_Info *) einfo);
     return x11;
 }
@@ -195,8 +194,6 @@ new_evas_gl_x11(PyObject *self, PyObject *args, PyObject *kwargs)
 
 #endif  /* defined(ENABLE_ENGINE_GL_X11) ||
            defined (ENABLE_ENGINE_SOFTWARE_X11) */
-
-
 
 
 PyObject *render_imlib2_image(PyObject *self, PyObject *args)
@@ -237,8 +234,7 @@ PyObject *render_imlib2_image(PyObject *self, PyObject *args)
     if (src_x == 0 && src_y == 0 && w == img_w && h == img_h)
         imlib_render_image_on_drawable(dst_x, dst_y);
     else
-        imlib_render_image_part_on_drawable_at_size(src_x, src_y, w, h, dst_x,
-                                dst_y, w, h);
+        imlib_render_image_part_on_drawable_at_size(src_x, src_y, w, h, dst_x, dst_y, w, h);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -248,8 +244,55 @@ PyObject *render_imlib2_image(PyObject *self, PyObject *args)
 #endif
 }
 
+
+PyObject *set_shape_mask_from_imlib2_image(PyObject *self, PyObject *args)
+{
+#if defined(USE_IMLIB2_X11) && !defined(X_DISPLAY_MISSING)
+    X11Window_PyObject *window;
+    PyObject *pyimg;
+    Imlib_Image *img;
+    int x = 0, y = 0, threshold;
+    XWindowAttributes attrs;
+    Pixmap image_pixmap, mask_pixmap;
+    
+    CHECK_IMAGE_PYOBJECT
+
+    if (!PyArg_ParseTuple(args, "O!O!|(ii)i",
+                &X11Window_PyObject_Type, &window,
+                Image_PyObject_Type, &pyimg,
+                &x, &y, &threshold))
+        return NULL;
+
+    img = imlib_image_from_pyobject(pyimg);
+    
+    XGetWindowAttributes(window->display, window->window, &attrs);
+    
+    imlib_context_set_display(window->display);
+    imlib_context_set_drawable(window->window);
+    imlib_context_set_visual(attrs.visual);
+    imlib_context_set_colormap(attrs.colormap);    
+    
+    imlib_context_set_image(img);
+    imlib_context_set_mask_alpha_threshold(threshold);
+    
+    imlib_render_pixmaps_for_whole_image(&image_pixmap, &mask_pixmap);
+    if (mask_pixmap != None) {
+        XShapeCombineMask(window->display, window->window, ShapeBounding, x, y, mask_pixmap, ShapeSet);
+        imlib_free_pixmap_and_mask(image_pixmap);
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+#else
+    #error here
+    PyErr_Format(PyExc_SystemError, "kaa-display compiled without imlib2 display support.");
+    return NULL;
+#endif
+}
+
 PyMethodDef display_methods[] = {
     { "render_imlib2_image", (PyCFunction) render_imlib2_image, METH_VARARGS },
+    { "set_shape_mask_from_imlib2_image", (PyCFunction) set_shape_mask_from_imlib2_image, METH_VARARGS },
 #ifdef ENABLE_ENGINE_SOFTWARE_X11
     { "new_evas_software_x11", (PyCFunction) new_evas_software_x11, METH_VARARGS | METH_KEYWORDS },
 #endif

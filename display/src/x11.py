@@ -467,6 +467,54 @@ class X11Window(object):
 
         return props
 
+    def set_shape_mask(self, mask, pos, size ):
+        """
+        Set the shape mask for a window using the XShape extension.
+        
+        @param mask: A string containing either a bitmask or a byte-per-pixel 
+                     to use as the shape mask.
+        @param pos: X,Y Position in the window to apply the mask.
+        @param size: Width,Height of the mask.
+        """
+        
+        if len(mask) == ((size[0] * size[1]) + 7) / 8 or len(mask) == size[0] * size[1]:
+            # Add 7 ensures that when we divided by 8 we have enough bytes to store 
+            # all the bits needed. Take 3w * 3h = 9 bits, (3 * 3) + 7 = 16 bits 
+            # ie 2 bytes.
+            self._window.set_shape_mask(mask, pos, size)
+        else:
+            raise ValueError('Mask is wrong length!')
+    
+    def set_shape_mask_from_imlib2_image(self, image, pos=(0,0), threshold=128):
+        """
+        Set the shape mask for the window based on the pixel alpha values.
+        
+        @param image: Imlib2 image with per pixel alpha to use as the mask.
+        @param pos: X,Y Position in the window to apply the mask.
+        @param threshold: Pixels with alpha values >= to this will be shown.
+        """
+        if image.has_alpha:
+           _X11.set_shape_mask_from_imlib2_image(self._window, image._image, pos, threshold)
+        else:
+            raise ValueError('Image does not have an alpha channel!')
+        
+    def reset_shape_mask(self):
+        """
+        Reset (remove) the shape mask of the window.
+        """
+        self._window.reset_shape_mask()
+    
+    def set_decorated(self, setting):
+        """
+        Set whether the window manager should add a border and controls to the
+        window or not.
+        
+        Note: Windows must be hidden or not yet shown before changing this setting.
+        
+        @param setting: True if the window should be decorated, false if not.
+        """
+        self._window.set_decorated(setting)
+    
 
 class EvasX11Window(X11Window):
     def __init__(self, gl = False, display = None, size = (640, 480),
