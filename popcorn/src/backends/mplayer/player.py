@@ -215,6 +215,7 @@ class MPlayer(MediaPlayer):
                     self.state = STATE_PLAYING
                 if self.state == STATE_OPEN:
                     self.set_frame_output_mode()
+                    self._mplayer.sub_visibility(False)
                     self.state = STATE_PLAYING
                     self.signals["stream_changed"].emit()
 
@@ -624,6 +625,13 @@ class MPlayer(MediaPlayer):
         """
         self._mplayer.sub_load(filename)
 
+
+    @runtime_policy(DEFER_UNTIL_PLAYING)
+    def _set_prop_subtitle_visibility(self, enabled):
+        """
+        Change subtitle visibility
+        """
+        self._mplayer.sub_visibility(int(enabled))
 
     #
     # Methods for filter handling (not yet in generic and base)
