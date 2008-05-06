@@ -34,7 +34,7 @@ from image import *
 import kaa
 import kaa.popcorn
 from kaa import display, evas, weakref
-from kaa.popcorn import SEEK_RELATIVE, SEEK_ABSOLUTE, SEEK_PERCENTAGE
+from kaa.popcorn import SEEK_RELATIVE, SEEK_ABSOLUTE, SEEK_PERCENTAGE, STATE_NOT_RUNNING
 
 
 class PlayerOSDCanvas(BufferCanvas):
@@ -356,7 +356,13 @@ class Movie(Image):
 
     def get_info(self):
         if self._player:
-            self._player.streaminfo
+            return self._player.streaminfo
+        return {}
+
+    def get_state(self):
+        if self._player:
+            return self._player.get_state()
+        return STATE_NOT_RUNNING
 
     def nav_command(self, input):
         if self._player:
