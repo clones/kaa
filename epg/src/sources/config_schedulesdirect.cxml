@@ -6,9 +6,6 @@
         Schedules Direct provides EPG data for North American television
         providers.  A paid Schedules Direct subscription is needed, which can be obtained
         at reasonable cost at https://www.schedulesdirect.org/
-
-        (Note: Schedules Direct is currently in beta and may not be accepting
-        new accounts at this time.)
     </desc>
     <var name="username" type="str" />
     <var name="password" type="str" />
