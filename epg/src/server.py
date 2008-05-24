@@ -59,6 +59,8 @@ class Server(object):
 
         db = Database(dbfile)
         db.register_inverted_index('keywords', min = 2, max = 30)
+        db.register_inverted_index('genres', min = 3, max = 30)
+
         db.register_object_type_attrs("channel",
             tuner_id   = (list, ATTR_SIMPLE),
             name = (unicode, ATTR_SEARCHABLE),
@@ -72,7 +74,7 @@ class Server(object):
             stop = (int, ATTR_SEARCHABLE),
             episode = (unicode, ATTR_SIMPLE),
             subtitle = (unicode, ATTR_SIMPLE),
-            genre = (unicode, ATTR_SEARCHABLE),
+            genres = (list, ATTR_SIMPLE | ATTR_INVERTED_INDEX, 'genres'),
             category = (unicode, ATTR_SEARCHABLE),  
             date = (int, ATTR_SEARCHABLE),
             rating = (dict, ATTR_SIMPLE)

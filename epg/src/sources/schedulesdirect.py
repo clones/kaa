@@ -157,14 +157,19 @@ class Handler(xml.sax.handler.ContentHandler):
         self._obj_type = None
         self._stations_by_id = {}
         self._schedule_by_program = {}
+        self._handle_elements_list = []
+        self._node_name = []
+        self._program_info = {}
 
+    def handle_elements(self, *args):
+        self._handle_elements_list = args
 
     def startElement(self, name, attrs):
-        self._node_name = name
-        if self._obj_type:
+        self._node_name.append(name)
+        if self._obj_type or (self._handle_elements_list and name not in self._handle_elements_list):
             return
 
-        if name == 'schedule':
+        if name == 'schedule' and not self._obj_type:
             # Schedule elements map programs to times, but they are defined
             # before programs in the xml, so we have to keep this map in
             # memory.
@@ -213,7 +218,7 @@ class Handler(xml.sax.handler.ContentHandler):
             try:
                 self._obj = { 
                     'program': attrs.getValue('program'),
-                    'class': []
+                    'genres': {},
                 }
                 self._obj_type = name
             except KeyError, e:
@@ -248,21 +253,25 @@ class Handler(xml.sax.handler.ContentHandler):
 
     def characters(self, content):
         if self._obj_type == 'program':
-            if self._node_name in ('title', 'description', 'year', 'originalAirDate',
+            if self._node_name[-1] in ('title', 'description', 'year', 'originalAirDate',
                                    'syndicatedEpisodeNumber', 'mpaaRating'):
-                self._obj[self._node_name] = self._obj.get(self._node_name, '') + content
+                self._obj[self._node_name[-1]] = self._obj.get(self._node_name[-1], '') + content
 
         elif self._obj_type == 'station':
-            if self._node_name in ('callSign', 'name'):
-                self._obj[self._node_name] = self._obj.get(self._node_name, '') + content
+            if self._node_name[-1] in ('callSign', 'name'):
+                self._obj[self._node_name[-1]] = self._obj.get(self._node_name[-1], '') + content
 
         elif self._obj_type == 'programGenre':
-            if self._node_name == 'class':
-                self._obj[self._node_name].append(content)
+            if self._node_name[-1] == 'class':
+                self._obj['_class'] = content
+            elif self._node_name[-1] == 'relevance':
+                self._obj['_relevance'] = content
 
 
     def endElement(self, name):
-        self._node_name = None
+        self._node_name.pop()
+        if self._handle_elements_list and name not in self._handle_elements_list:
+            return
         if name == 'station':
             self._obj_type = None
             self._stations_by_id[self._obj['id']] = self._obj
@@ -283,6 +292,8 @@ class Handler(xml.sax.handler.ContentHandler):
                 program['rating'] = program['mpaaRating']
             if 'date' in program:
                 program['date'] = int(calendar.timegm(program['date']))
+            if program['id'] in self._program_info:
+                program['genres'] = self._program_info[program['id']].get('genres')
 
             for schedule in self._schedule_by_program[program['id']]:
                 channel_db_id = schedule['station']['db_id']
@@ -290,14 +301,18 @@ class Handler(xml.sax.handler.ContentHandler):
                 self._epg.add_program(channel_db_id, schedule['start'], schedule['stop'],
                                       program.get('title'), desc = program.get('description'),
                                       date = program.get('date'), episode = program.get('episode'),
-                                      rating = rating)
+                                      genres = program.get('genres'), rating = rating)
+
+        elif name == 'genre':
+            self._obj['genres'][self._obj['_class']] = self._obj['_relevance']
 
         elif name == 'programGenre':
             self._obj_type = None
-            # TODO: genres specified after programs, so we need to either keep
-            # a map of programs to dbids and update the db here, or store all
-            # programs in memory until we read the genres (which would increase
-            # memory usage considerably).
+            pid = self._obj['program']
+            if pid not in self._program_info:
+                self._program_info[pid] = {}
+            genres = self._obj['genres']
+            self._program_info[pid]['genres'] = sorted(genres.keys(), key=lambda x: genres[x])
 
 
 @kaa.threaded('epg')
@@ -319,9 +334,18 @@ def update(epg, start = None, stop = None):
         return
 
     parser = xml.sax.make_parser()
-    parser.setContentHandler(Handler(epg))
+    handler = Handler(epg)
+    parser.setContentHandler(handler)
     t0=time.time()
+
+    # Pass 1: map genres to program ids
+    handler.handle_elements('programGenre', 'genre')
     parser.parse(GzipFile(filename))
+
+    # Pass 2: Parse everything else.
+    handler.handle_elements('schedule', 'program', 'station', 'map')
+    parser.parse(GzipFile(filename))
+
     os.unlink(filename)
     epg.add_program_wait()
     log.info('schedulesdirect XML parsing took %.03f seconds' % (time.time() - t0))

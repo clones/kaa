@@ -42,7 +42,7 @@ class Program(object):
         self.description = dbdata.get('desc', u'')
         self.subtitle = dbdata.get('subtitle',  u'')
         self.episode = dbdata.get('episode', u'')
-        self.genre = dbdata.get('genre', u'')
+        self.genres = dbdata.get('genres', u'')
         self.rating = dbdata.get('rating', u'')
 
     def __repr__(self):

@@ -151,7 +151,7 @@ class ProgramParser(BaseParser):
         'd4':'start',
         'd5':'stop',
         'd10':'category',
-        'd25':'genre',
+        'd25':'genres',
         'd19':'title',
         'd20':'subtitle',
         'd21':'desc',
@@ -190,7 +190,8 @@ class ProgramParser(BaseParser):
                 attr['date'] = 0
             else:
                 attr['date'] = int(time.mktime(time.strptime(date, '%Y')))
-        for metadata in ('category', 'genre'):
+        for metadata in ('category', 'genres'):
+            # FIXME: genres should be a list
             if metadata in attr:
                 if attr[metadata] in self.metadata:
                     attr[metadata] = self.metadata[attr[metadata]]
@@ -249,6 +250,7 @@ def update(epg):
          pass
     # download the meta data file
     log.info ('Downloading meta data')
+    # FIXME: don't rely on wget
     exit = os.system('wget -N -O %s "%s" >>%s 2>>%s'
                     %(tmpfile, address, logfile, logfile))
     if not os.path.exists(tmpfile) or exit:
@@ -256,6 +258,7 @@ def update(epg):
         return False
     # and unzip the zip file
     log.info('Unzipping data for meta data')
+    # FIXME: don't rely on unzip (can probably use zipfile module)
     exit = os.system('unzip -uo -d %s %s >>%s 2>>%s'
                     %(tempdir, tmpfile, logfile, logfile))
     if exit:
