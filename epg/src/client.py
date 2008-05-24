@@ -36,44 +36,43 @@ import logging
 import kaa
 import kaa.db
 import kaa.rpc
+from kaa.utils import property
 
 # kaa.epg imports
 from channel import Channel
 from program import Program
-from util import cmp_channel
+from util import cmp_channel, EPGError
 
 # get logging object
 log = logging.getLogger('epg')
 
 DISCONNECTED, CONNECTING, CONNECTED = range(3)
 
-def wait_while_connecting():
+def require_connected():
     """
-    Decorator that is raising an exception if the client is disconnected,
-    NotFinished if the client is in the process of connecting, or the actual
-    return value in an InProgress object of the decorated function if the client
+    Decorator that raises an exception if the client is not connected, or
+    the return value of the decorated function in the case that the client
     is connected.
     """
     def decorator(func):
         def newfunc(client, *args, **kwargs):
-            if client.status == DISCONNECTED:
-                raise SystemError('Client is disconnected')
-            while client.status == CONNECTING:
-                yield kaa.NotFinished
-            yield func(client, *args, **kwargs)
+            if client._status != CONNECTED:
+                raise EPGError('Client is not connected')
+
+            return func(client, *args, **kwargs)
 
         newfunc.func_name = func.func_name
-        return kaa.coroutine()(newfunc)
+        return newfunc
+
     return decorator
 
-       
 
 class Client(object):
     """
     EPG client class to access the epg on server side.
     """
     def __init__(self):
-        self.status = DISCONNECTED
+        self._status = DISCONNECTED
         self.server = None
 
         self._channels_list = []
@@ -89,12 +88,16 @@ class Client(object):
         self._channels_list = []
 
 
+    @property
+    def status(self):
+        return self._status
+
 
     def connect(self, server_or_socket = 'epg', auth_secret = ''):
         """
         Connect to EPG server.
         """
-        self.status = CONNECTING
+        self._status = CONNECTING
         self.server = kaa.rpc.Client(server_or_socket, auth_secret = auth_secret)
         self.server.connect(self)
         self.server.signals['closed'].connect_weak(self._handle_disconnected)
@@ -105,7 +108,7 @@ class Client(object):
         Signal callback when server disconnects.
         """
         log.debug('kaa.epg client disconnected')
-        self.status = DISCONNECTED
+        self._status = DISCONNECTED
         self.signals["disconnected"].emit()
         self.server = None
 
@@ -120,8 +123,7 @@ class Client(object):
         self._channels_by_tuner_id = {}
         self._channels_list = []
 
-        for row in epgdata:
-            db_id, tuner_id, name, long_name = row
+        for db_id, tuner_id, name, long_name in epgdata:
             chan = Channel(tuner_id, name, long_name)
             chan.db_id = db_id
             self._channels_by_name[name] = chan
@@ -140,8 +142,9 @@ class Client(object):
         self._max_program_length = max_program_length
         self._num_programs = num_programs
 
-        if self.status == CONNECTING:
-            self.status = CONNECTED
+        if self._status == CONNECTING:
+            self._status = CONNECTED
+            print "epg: connected now emit"
             self.signals["connected"].emit()
         self.signals["updated"].emit()
 
@@ -150,14 +153,19 @@ class Client(object):
     def search(self, channel=None, time=None, **kwargs):
         """
         Search the db. This will call the search function on server side using
-        kaa.ipc. This function will always return an InProgress object or raise
+        kaa.rpc. This function will always return an InProgress object or raise
         an exception if the client is disconnected.
-        """
-        if self.status == DISCONNECTED:
-            # TODO: make sure we always return InProgress
-            raise SystemError('Client is disconnected')
 
-        while self.status == CONNECTING:
+        The time kwarg is a unix timestamp or 2-tuple of timestamps.  In the
+        former case, all programs playing at the given time are returned.  In
+        the latter case, the 2-tuple represents a start and end range, and all
+        programs playing within the range are returned.  If stop is 0, then it
+        is treated as infinity.
+        """
+        if self._status == DISCONNECTED:
+            raise EPGError('Client is disconnected')
+
+        while self._status == CONNECTING:
             yield kaa.NotFinished
 
         if channel is not None:
@@ -235,7 +243,7 @@ class Client(object):
         return Channel(tuner_id, name, long_name)
 
 
-    @wait_while_connecting()
+    @require_connected()
     def get_channel(self, name):
         """
         Get channel by name.
@@ -245,7 +253,7 @@ class Client(object):
         return self._channels_by_name[name]
 
 
-    @wait_while_connecting()
+    @require_connected()
     def get_channel_by_db_id(self, db_id):
         """
         Get channel by database id.
@@ -255,7 +263,7 @@ class Client(object):
         return self._channels_by_db_id[db_id]
 
 
-    @wait_while_connecting()
+    @require_connected()
     def get_channel_by_tuner_id(self, tuner_id):
         """
         Get channel by tuner id.
@@ -265,7 +273,7 @@ class Client(object):
         return self._channels_by_tuner_id[tuner_id]
 
 
-    @wait_while_connecting()
+    @require_connected()
     def get_channels(self, sort=False):
         """
         Get all channels
@@ -283,6 +291,6 @@ class Client(object):
         Update the database. This will call the update function in the server
         and the server needs to be configured for that.
         """
-        if self.status == DISCONNECTED:
+        if self._status == DISCONNECTED:
             return False
         return self.server.rpc('guide.update', *args, **kwargs)

@@ -27,6 +27,9 @@
 #
 # -----------------------------------------------------------------------------
 
+class EPGError(Exception):
+    pass
+
 def cmp_channel(c1, c2):
     """
     Compare two channels for sorting.
