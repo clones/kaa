@@ -37,6 +37,7 @@ __all__ = [ 'expose', 'Template', 'template', 'thread_template' ]
 import types
 import os
 import traceback
+import cherrypy
 
 # kaa imports
 import kaa
@@ -96,7 +97,7 @@ def _get_engine(template, engine):
     raise RuntimeError('unable to detect template engine for %s' % template)
 
 
-def expose(template=None, engine=None, mainloop=True):
+def expose(template=None, engine=None, mainloop=False):
     """
     Expose function / wrapper. It adds the possiblity to define a template
     for the function and executes the callback from the mainloop.
@@ -114,10 +115,22 @@ def expose(template=None, engine=None, mainloop=True):
 
         def newfunc(self, *args, **kwargs):
             _function = func
+
+            # We pass this context as the first arg to each handler.  The
+            # reason is that in cherrypy, the request and response objects are
+            # dependent on which thread they are being accessed from.  So if
+            # the handler wants to modify the response.headers dict and that
+            # handler is being called from the main thread, it cannot access
+            # cherrypy.response.headers because this is the response object for
+            # the main thread, not the current thread.
+            class ctx:
+                request = cherrypy.serving.request
+                response = cherrypy.serving.response
+
             if mainloop and not kaa.is_mainthread():
-                result = kaa.MainThreadCallback(func)(self, *args, **kwargs).wait()
+                result = kaa.MainThreadCallback(func)(self, ctx, *args, **kwargs).wait()
             else:
-                result = func(self, *args, **kwargs)
+                result = func(self, ctx, *args, **kwargs)
             if not template:
                 return result
             return engine.parse(template, result)

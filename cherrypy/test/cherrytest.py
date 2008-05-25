@@ -22,21 +22,21 @@ import header
 class Test:
 
     @kaa.cherrypy.expose()
-    def index(self):
+    def index(self, ctx):
         return 'test'
 
     @kaa.cherrypy.expose()
-    def seven(self):
+    def seven(self, ctx):
         return '7'
 
 class Browse:
 
     @kaa.cherrypy.expose()
-    def index(self, path='/'):
+    def index(self, ctx, path='/'):
         return path
 
     @kaa.cherrypy.expose()
-    def default(self, *args):
+    def default(self, ctx, *args):
         return self.index('/' + '/'.join(args))
         
 class Root:
@@ -45,7 +45,7 @@ class Root:
     browse = Browse()
     
     @kaa.cherrypy.expose(template='test.kid', mainloop=False)
-    def index(self):
+    def index(self, ctx):
         main = kaa.notifier.thread._thread_notifier_mainthread
         return dict(title = 'Test Kid Page',
                     lines = os.listdir('/tmp/'),
@@ -54,7 +54,7 @@ class Root:
     
 
     @kaa.cherrypy.expose(template='test.kid')
-    def main(self):
+    def main(self, ctx):
         main = kaa.notifier.thread._thread_notifier_mainthread
         return dict(title = 'Test Kid Page',
                     lines = ['qwe','asd','zxc'],
@@ -63,13 +63,14 @@ class Root:
         
 
     @kaa.cherrypy.expose(template='cheetah.html', engine='cheetah')
-    def cheetah(self):
+    def cheetah(self, ctx):
         return dict(lines = ['qwe','asd','zxc'])
         
 
     @kaa.cherrypy.expose()
-    def foo(self):
-        return 'foo'
+    def img(self, ctx):
+        ctx.response.headers['Content-Type'] = 'image/png'
+        return file('freevo.png').read()
 
 # http://www.cherrypy.org/wiki/StaticContent
 kaa.cherrypy.mount(Root, '/', {
