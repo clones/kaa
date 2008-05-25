@@ -37,6 +37,10 @@ if int(cherrypy.__version__.split('.')[0]) < 3:
     msg = 'CherryPy >= 3.0.0 required, %s found' % cherrypy.__version__
     raise ImportError(msg)
 
+# Import everything from cherrypy into kaa.cherrypy namespace, so its
+# APIs are conveniently accessible.
+from cherrypy import *
+
 # kaa imports
 import kaa
 
@@ -44,15 +48,24 @@ import kaa
 from version import VERSION
 from controller import expose, Template, template, thread_template
 
-config = cherrypy.config
 
-def start():
+def mount(root, path, config = None):
+    """
+    Binds the given root (which is a class) to the path.  Optional config
+    can be specified for this path.  Config is a dict of dicts.
+    """
+    cherrypy.tree.mount(root(), path, config)
+
+
+def start(config = None):
     """
     Start cherrypy server.
     """
     def _stop():
         cherrypy.engine.stop()
         cherrypy.server.stop()
+    if config:
+        cherrypy.config.update(config)
     cherrypy.server.quickstart()
     cherrypy.engine.SIGHUP = cherrypy.engine.SIGTERM = None
     cherrypy.engine.start(blocking=False)

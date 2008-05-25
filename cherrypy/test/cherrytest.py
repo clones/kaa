@@ -6,7 +6,7 @@ import kaa.notifier.thread
 import threading
 
 # cherrypy doc
-# http://www.cherrypy.org/cherrypy-2.1.0/docs/book/chunk/index.html
+# http://www.cherrypy.org/wiki/TableOfContents
 
 # kid doc
 # http://kid.lesscode.org/guide.html
@@ -71,11 +71,28 @@ class Root:
     def foo(self):
         return 'foo'
 
-kaa.cherrypy.config.port = 8080
-kaa.cherrypy.config.debug = True
-kaa.cherrypy.config.root = '..'
-kaa.cherrypy.config.static['/images'] = 'test'
-kaa.cherrypy.config.static['/css'] = '/tmp'
+# http://www.cherrypy.org/wiki/StaticContent
+kaa.cherrypy.mount(Root, '/', {
+    # Base directory for all static dirs.
+    '/': {
+        'tools.staticdir.root': '/tmp'
+    },
 
-kaa.cherrypy.start(Root)
+    # Request http://server:8080/css/foo.css loads /tmp/styles/foo.css
+    '/css': {
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': 'styles'
+    },
+
+    '/images': {
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': os.path.dirname(os.path.realpath(__file__))
+    },
+
+})
+
+kaa.cherrypy.start({
+    'server.socket_port': 8080
+})
+
 kaa.main.run()
