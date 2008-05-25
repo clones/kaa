@@ -36,11 +36,13 @@ __all__ = [ 'expose', 'Template', 'template', 'thread_template' ]
 # python imports
 import types
 import os
+import traceback
 
 # kaa imports
 import kaa
 
 engines = []
+default_engine = None
 
 # load template engines
 for f in os.listdir(os.path.dirname(__file__)):
@@ -57,12 +59,30 @@ for f in os.listdir(os.path.dirname(__file__)):
         pass
 
 
+def set_default_engine(engine):
+    """
+    Sets the template engine to use when no engine is explicitly specified
+    in expose decorator.
+    """
+    global default_engine
+    for e in engines:
+        if e.name == engine:
+            default_engine = e
+            return
+    raise ValueError('Unknown engine "%s"' % engine)
+
+
 def _get_engine(template, engine):
     """
     Get the engine object for the given template. If engine is given, use
     that as name to find the engine.
     """
     if not engine:
+
+        if default_engine:
+            # Default engine was specified, so return that.
+            return default_engine
+
         # get engine by detecting the type
         for e in engines:
             if e.detect(template):
@@ -81,8 +101,13 @@ def expose(template=None, engine=None, mainloop=True):
     Expose function / wrapper. It adds the possiblity to define a template
     for the function and executes the callback from the mainloop.
     """
-
     if template:
+        if not template.startswith('/'):
+            # Template path is relative; convert to absolute path, which is
+            # relative to the location of the file calling the expose
+            # decorator.
+            caller_dir = os.path.dirname(os.path.realpath(traceback.extract_stack()[-2][0]))
+            template = os.path.join(caller_dir, template)
         engine = _get_engine(template, engine)
 
     def decorator(func):

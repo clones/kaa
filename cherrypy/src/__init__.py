@@ -46,7 +46,7 @@ import kaa
 
 # kaa.cherrypy imports
 from version import VERSION
-from controller import expose, Template, template, thread_template
+from controller import expose, Template, template, thread_template, set_default_engine
 
 
 def mount(root, path, config = None):
