@@ -75,7 +75,6 @@ class Client(object):
         self._status = DISCONNECTED
         self.server = None
 
-        self._channels_list = []
         self.signals = {
             "updated": kaa.Signal(),
             "connected": kaa.Signal(),
@@ -85,7 +84,7 @@ class Client(object):
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
-        self._channels_list = []
+        self._channels = []
 
 
     @property
@@ -114,29 +113,26 @@ class Client(object):
 
 
     @kaa.rpc.expose('guide.update')
-    def _handle_guide_update(self, (epgdata, max_program_length, num_programs)):
+    def _handle_guide_update(self, (channels, max_program_length, num_programs)):
         """
         (re)load some static information
         """
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
-        self._channels_list = []
+        self._channels = []
 
-        for db_id, tuner_id, name, long_name in epgdata:
-            chan = Channel(tuner_id, name, long_name)
-            chan.db_id = db_id
-            self._channels_by_name[name] = chan
-            self._channels_by_db_id[db_id] = chan
-            for t in tuner_id:
+        for objrow in channels:
+            chan = Channel(objrow)
+            self._channels_by_name[chan.name] = chan
+            self._channels_by_db_id[chan.db_id] = chan
+            for t in chan.tuner_id:
                 if self._channels_by_tuner_id.has_key(t):
-                    log.warning('loading channel %s with tuner_id %s '+\
-                                'allready claimed by channel %s',
-                                chan.name, t,
-                                self._channels_by_tuner_id[t].name)
+                    log.warning('loading channel %s with tuner_id %s already claimed by channel %s',
+                                chan.name, t, self._channels_by_tuner_id[t].name)
                 else:
                     self._channels_by_tuner_id[t] = chan
-            self._channels_list.append(chan)
+            self._channels.append(chan)
 
         # get attributes from server and store local
         self._max_program_length = max_program_length
@@ -144,7 +140,6 @@ class Client(object):
 
         if self._status == CONNECTING:
             self._status = CONNECTED
-            print "epg: connected now emit"
             self.signals["connected"].emit()
         self.signals["updated"].emit()
 
@@ -279,11 +274,11 @@ class Client(object):
         Get all channels
         """
         if sort:
-            channels = self._channels_list[:]
+            channels = self._channels[:]
             channels.sort(lambda a, b: cmp(a.name, b.name))
             channels.sort(lambda a, b: cmp_channel(a, b))
             return channels
-        return self._channels_list
+        return self._channels
 
 
     def update(self, *args, **kwargs):

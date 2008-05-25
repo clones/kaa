@@ -185,11 +185,10 @@ class ProgramParser(BaseParser):
             elif len(date.split('-'))==2:
                 # if it is '1999-2004', take the first year
                 date = date.split('-')[0]
-            if not len(date) == 4:
-                # format unknown, ignore
-                attr['date'] = 0
-            else:
-                attr['date'] = int(time.mktime(time.strptime(date, '%Y')))
+            del attr['date']
+            if len(date) == 4:
+                attr['year'] = int(date)
+
         for metadata in ('category', 'genres'):
             # FIXME: genres should be a list
             if metadata in attr:

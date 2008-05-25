@@ -248,13 +248,14 @@ class XmltvParser(object):
         # then there should of course be a title
         title = attr.pop('title')
 
-        # the date element should be a integer
+        # determine format of date element
         try:
             date = attr.pop('date')
-            fmt = "%Y-%m-%d"
-            if len(date) == 4:
-                fmt = "%Y"
-            attr['date'] = int(time.mktime(time.strptime(date, fmt)))
+            if len(date) == 4 and date.isdigit():
+                attr['year'] = int(date)
+                del attr['date']
+            else:
+                attr['date'] = int(time.mktime(time.strptime(date, '%Y-%m-%d')))
         except KeyError:
             pass
 

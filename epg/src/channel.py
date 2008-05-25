@@ -33,11 +33,21 @@ class Channel(object):
     """
     kaa.epg.Channel class.
     """
-    def __init__(self, tuner_id, name, long_name):
-        self.db_id      = None
-        self.tuner_id   = tuner_id
-        self.name       = name
-        self.long_name  = long_name
+    def __init__(self, dbdata):
+        self._dbdata = dbdata
+
+    def __getattr__(self, attr):
+        """
+        Defer accessing the ObjectRow (dbdata) until referenced, as this will
+        defer any ObjectRow unpickling.
+        """
+        if attr != '_dbdata' and hasattr(self, '_dbdata'):
+            self.db_id = self._dbdata['id']
+            self.tuner_id  = self._dbdata['tuner_id']
+            self.name = self._dbdata['name']
+            self.long_name = self._dbdata['long_name']
+            del self._dbdata
+        return self.__getattribute__(attr)
 
     def __repr__(self):
         return '<kaa.epg.Channel %s>' % self.name

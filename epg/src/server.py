@@ -70,14 +70,28 @@ class Server(object):
             [ ("start", "stop") ],
             title = (unicode, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords'),
             desc = (unicode, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords'),
+            # Program start time as a unix timestamp in UTC
             start = (int, ATTR_SEARCHABLE),
+            # Program end time as a unix timestamp in UTC
             stop = (int, ATTR_SEARCHABLE),
+            # Optional episode number or identifier (freeform string)
             episode = (unicode, ATTR_SIMPLE),
-            subtitle = (unicode, ATTR_SIMPLE),
+            # Optional program subtitle
+            subtitle = (unicode, ATTR_SIMPLE | ATTR_INVERTED_INDEX, 'keywords'),
+            # List of genres
             genres = (list, ATTR_SIMPLE | ATTR_INVERTED_INDEX, 'genres'),
+            # FIXME: no idea what this is, it's used by epgdata backend.
             category = (unicode, ATTR_SEARCHABLE),  
+            # Original air date of the program.
             date = (int, ATTR_SEARCHABLE),
-            rating = (dict, ATTR_SIMPLE)
+            # For movies, the year.
+            year = (int, ATTR_SEARCHABLE),
+            # Rating (could be TV, MPAA, etc.).  Freeform string.
+            rating = (unicode, ATTR_SIMPLE),
+            # List of unicode strings indicating any program advisors (violence, etc)
+            advisories = (list, ATTR_SIMPLE),
+            # A critical rating for the show/film.  Should be out of 4.0.
+            score = (float, ATTR_SEARCHABLE)
         )
 
         self._clients = []
@@ -124,8 +138,9 @@ class Server(object):
             self._num_programs = res[0][0]
 
         self._tuner_ids = []
-        channels = self._db.query(type = "channel")
-        for c in channels:
+        # get channel list to be passed to a client on connect / update
+        self._channels = self._db.query(type = "channel")
+        for c in self._channels:
             for t in c["tuner_id"]:
                 if t in self._tuner_ids:
                     log.warning('loading channel %s with tuner_id %s '+\
@@ -134,11 +149,7 @@ class Server(object):
                 else:
                     self._tuner_ids.append(t)
 
-        # get channel list to be passed to a client on connect / update
-        self._channel_list = [ (r['id'], r['tuner_id'], r['name'], r['long_name']) \
-                               for r in self._db.query(type="channel") ]
-
-        info = self._channel_list, self._max_program_length, self._num_programs
+        info = self._channels, self._max_program_length, self._num_programs
         for client in self._clients:
             log.info('update client %s', client)
             client.rpc('guide.update', info)
@@ -212,7 +223,7 @@ class Server(object):
                 kwargs["parent"] = [("channel", x) for x in channel]
             else:
                 kwargs["parent"] = "channel", channel
-        return [ dict(row) for row in self._db.query(**kwargs) ]
+        return self._db.query(**kwargs)
 
 
     # -------------------------------------------------------------------------
@@ -223,7 +234,7 @@ class Server(object):
         """
         Connect a new client to the server.
         """
-        info = self._channel_list, self._max_program_length, self._num_programs
+        info = self._channels, self._max_program_length, self._num_programs
         client.rpc('guide.update', info)
         client.signals['closed'].connect(self.client_closed, client)
         self._clients.append(client)

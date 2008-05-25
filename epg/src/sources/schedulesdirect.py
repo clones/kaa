@@ -253,8 +253,8 @@ class Handler(xml.sax.handler.ContentHandler):
 
     def characters(self, content):
         if self._obj_type == 'program':
-            if self._node_name[-1] in ('title', 'description', 'year', 'originalAirDate',
-                                   'syndicatedEpisodeNumber', 'mpaaRating'):
+            if self._node_name[-1] in ('title', 'subtitle', 'description', 'year', 'originalAirDate', 'year',
+                                       'syndicatedEpisodeNumber', 'mpaaRating', 'starRating'):
                 self._obj[self._node_name[-1]] = self._obj.get(self._node_name[-1], '') + content
 
         elif self._obj_type == 'station':
@@ -283,25 +283,34 @@ class Handler(xml.sax.handler.ContentHandler):
                 return
 
             if 'year' in program:
-                program['date'] = time.strptime(program['year'], '%Y')
+                if program['year'].isdigit():
+                    program['year'] = int(program['year'])
+                else:
+                    # Malformed.
+                    del program['year']
             if 'originalAirDate' in program:
-                program['date'] = time.strptime(program['originalAirDate'], '%Y-%m-%d')
+                date = time.strptime(program['originalAirDate'], '%Y-%m-%d')
+                program['date'] = int(calendar.timegm(date))
             if 'syndicatedEpisodeNumber' in program:
                 program['episode'] = program['syndicatedEpisodeNumber']
             if 'mpaaRating' in program:
                 program['rating'] = program['mpaaRating']
-            if 'date' in program:
-                program['date'] = int(calendar.timegm(program['date']))
+            if 'starRating' in program:
+                score = program['starRating']
+                program['score'] = score.count('*') + score.count('+') * 0.5
             if program['id'] in self._program_info:
                 program['genres'] = self._program_info[program['id']].get('genres')
 
             for schedule in self._schedule_by_program[program['id']]:
                 channel_db_id = schedule['station']['db_id']
+                # Prefer the TV rating over the mpaa rating.
                 rating = schedule.get('rating') or program.get('rating')
                 self._epg.add_program(channel_db_id, schedule['start'], schedule['stop'],
                                       program.get('title'), desc = program.get('description'),
                                       date = program.get('date'), episode = program.get('episode'),
-                                      genres = program.get('genres'), rating = rating)
+                                      genres = program.get('genres'), score = program.get('score'),
+                                      subtitle = program.get('subtitle'), year = program.get('year'),
+                                      rating = rating)
 
         elif name == 'genre':
             self._obj['genres'][self._obj['_class']] = self._obj['_relevance']
@@ -330,6 +339,7 @@ def update(epg, start = None, stop = None):
 
     urlparts = urlparse.urlparse(config.url)
     filename = request(str(config.username), str(config.password), urlparts[1], urlparts[2], start, stop)
+    #filename = '/tmp/schedulesdirect.xml.gz'
     if not filename:
         return
 

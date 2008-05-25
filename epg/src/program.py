@@ -36,14 +36,25 @@ class Program(object):
     def __init__(self, channel, dbdata):
         self.channel = channel
         self._dbdata = dbdata
-        self.start = dbdata.get('start', 0)
-        self.stop = dbdata.get('stop', 0)
-        self.title = dbdata.get('title', u'')
-        self.description = dbdata.get('desc', u'')
-        self.subtitle = dbdata.get('subtitle',  u'')
-        self.episode = dbdata.get('episode', u'')
-        self.genres = dbdata.get('genres', u'')
-        self.rating = dbdata.get('rating', u'')
+
+    def __getattr__(self, attr):
+        """
+        Defer accessing the ObjectRow (dbdata) until referenced, as this will
+        defer any ObjectRow unpickling.
+        """
+        if attr != '_dbdata' and hasattr(self, '_dbdata'):
+            self.start = self._dbdata.get('start', 0)
+            self.stop = self._dbdata.get('stop', 0)
+            self.title = self._dbdata.get('title', u'')
+            self.description = self._dbdata.get('desc', u'')
+            self.subtitle = self._dbdata.get('subtitle',  u'')
+            self.episode = self._dbdata.get('episode')
+            self.genres = self._dbdata.get('genres', [])
+            self.advisories = self._dbdata.get('advisories', [])
+            self.rating = self._dbdata.get('rating')
+            self.score = self._dbdata.get('score')
+            del self._dbdata
+        return self.__getattribute__(attr)
 
     def __repr__(self):
         return '<kaa.epg.Program %s>' % self.title
