@@ -38,9 +38,11 @@ import types
 import os
 import traceback
 import cherrypy
+import time
 
 # kaa imports
 import kaa
+from kaa import strutils
 
 engines = []
 default_engine = None
@@ -97,10 +99,29 @@ def _get_engine(template, engine):
     raise RuntimeError('unable to detect template engine for %s' % template)
 
 
-def expose(template=None, engine=None, mainloop=False):
+def expose(template=None, engine=None, mainloop=False, content_type='text/html', cache=None, json=False):
     """
-    Expose function / wrapper. It adds the possiblity to define a template
-    for the function and executes the callback from the mainloop.
+    Decorator used to expose functions to HTTP requests.  This decorator is 
+    similar to cherrypy's native expose decorator, but adds the following
+    functionality:
+
+        template: path pointing to a template to display for the request.  If
+                  path is relative, it will be relative to the location of the
+                  file calling the expose decorator.
+          engine: template engine to use to evaluate template.  If None, the
+                  engine will be detected, unless set_default_engine() was called,
+                  and in that case the default engine will be used.
+        mainloop: if True, decorated function will execute in the main thread.  If
+                  False, decorated function is executed in the cherrypy handler
+                  thread.
+    content_type: value to use for the Content-Type header in the HTTP response
+           cache: number of hours to cache the page.  0 will prevent client from
+                  caching; None will not send cache headers.
+            json: encodes the return value of the decorated function as JSON
+                  and sends to client as text/plain.  The JSON data is prefixed
+                  with '{}&& ' to thwart JSON hijacking; the client will 
+                  therefore be required to strip this prefix before parsing.
+                  Requires python-json to be installed.
     """
     if template:
         if not template.startswith('/'):
@@ -131,9 +152,32 @@ def expose(template=None, engine=None, mainloop=False):
                 result = kaa.MainThreadCallback(func)(self, ctx, *args, **kwargs).wait()
             else:
                 result = func(self, ctx, *args, **kwargs)
+
+            # FIXME: should get supported charsets from request
+            charset = cherrypy.config.get('charset', 'utf-8')
+
+            if cache is not None:
+                seconds = int(cache * 60 * 60)
+                if seconds != 0:
+                    gmtime = time.gmtime(time.time() + seconds)
+                    ctx.response.headers['Expires'] = time.strftime('%a, %d %b %Y %H:%M:%S GMT', gmtime)
+                    ctx.response.headers['Cache-Control'] = 'public, max-age=%d' % seconds
+                else:
+                    ctx.response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+
+            if json:
+                # Handle JSON response.
+                import json as pyjson
+                # Do not set charset here, it breaks IE.  Yes, seriously.
+                ctx.response.headers['Content-Type'] = 'text/plain'
+                return u'{}&& ' + pyjson.write(result).encode(charset)
+            else:
+                ctx.response.headers['Content-Type'] = '%s; charset=%s' % (content_type, charset)
+
             if not template:
-                return result
-            return engine.parse(template, result)
+                return strutils.to_unicode(result).encode(charset)
+            # Engine should return a string encoded with charset
+            return engine.parse(template, charset, result)
 
         try:
             newfunc.func_name = func.func_name

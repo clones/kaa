@@ -53,10 +53,10 @@ class Template(object):
         return False
 
 
-    def parse(self, template, args):
+    def parse(self, template, charset, args):
         """
         Parse the template and execute it based on the arguments.
         """
         if type(template) == types.ModuleType:
-            return template.Template(**args).serialize(output='xhtml')
-        return kid.Template(file=template, **args).serialize(output='xhtml')
+            return template.Template(**args).serialize(encoding=charset, output='xhtml')
+        return kid.Template(file=template, **args).serialize(encoding=charset, output='xhtml')

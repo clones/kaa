@@ -35,8 +35,11 @@
 import os
 import types
 
+from kaa import strutils
+
 # import cheetah
-import Cheetah.Template
+import Cheetah.Template, Cheetah.Filters
+
 
 class Template(object):
 
@@ -55,10 +58,20 @@ class Template(object):
         return False
 
 
-    def parse(self, template, args):
+    def parse(self, template, charset, args):
         """
         Parse the template and execute it based on the arguments.
         """
+        # FIXME: not the most efficient to create this class every request
+        class UnicodeFilter(Cheetah.Filters.Filter):
+            """
+            Filter which encodes all unicode objects to the given charset before
+            passing into the template.
+            """
+            def filter(self, val, **kw):
+                return super(UnicodeFilter, self).filter(val, encoding=charset, **kw)
+
         if type(template) == types.ModuleType:
-            return str(template.__KaaCherrypyTemplate(searchList=[args]))
-        return str(Cheetah.Template.Template(file=template, searchList=[args]))
+            return str(template.__KaaCherrypyTemplate(searchList=[args]), filter=UnicodeFilter)
+
+        return str(Cheetah.Template.Template(file=template, searchList=[args], filter=UnicodeFilter))
