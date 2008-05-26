@@ -73,7 +73,7 @@ class Root:
         return file('freevo.png').read()
 
 # http://www.cherrypy.org/wiki/StaticContent
-kaa.cherrypy.mount(Root, '/', {
+kaa.cherrypy.mount(Root(), '/', {
     # Base directory for all static dirs.
     '/': {
         'tools.staticdir.root': '/tmp'
