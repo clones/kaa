@@ -51,10 +51,11 @@ from controller import expose, Template, template, thread_template, set_default_
 
 def mount(root, path, config = None):
     """
-    Binds the given root (which is a class) to the path.  Optional config
-    can be specified for this path.  Config is a dict of dicts.
+    Binds the given root (which is an object containing methods decorated with
+    exposed) to the path.  Optional config can be specified for this path.
+    Config is a dict of dicts.
     """
-    cherrypy.tree.mount(root(), path, config)
+    cherrypy.tree.mount(root, path, config)
 
 
 def start(config = None):
@@ -62,8 +63,8 @@ def start(config = None):
     Start cherrypy server.
     """
     def _stop():
-        cherrypy.engine.stop()
         cherrypy.server.stop()
+        cherrypy.engine.stop()
     if config:
         cherrypy.config.update(config)
     cherrypy.server.quickstart()
