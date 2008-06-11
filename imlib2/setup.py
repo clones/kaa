@@ -63,6 +63,7 @@ setup(module      = 'imlib2',
       version     = '0.2.3',
       license     = 'LGPL',
       summary     = 'Python bindings for Imlib2',
+      epydoc      = [ 'doc/epydoc' ],
       rpminfo     = {
           'requires':       'python-kaa-base >= 0.1.2, imlib2 >= 1.2.1',
           'build_requires': 'python-kaa-base >= 0.1.2, imlib2-devel >= 1.2.1'

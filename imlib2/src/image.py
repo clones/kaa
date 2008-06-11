@@ -62,11 +62,10 @@ class Image(object):
         """
         Create a new Image object.
 
-        Arguments:
-          image_or_filename: Instantiate the image from another Image
-                             instance, an instance of the backend's image
-                             class or type, or a file name from which to load
-                             the image.
+        @param image_or_filename: Instantiate the image from another Image
+               instance, an instance of the backend's image
+               class or type, or a file name from which to load
+               the image.
         """
         if type(image_or_filename) in types.StringTypes:
             self._image = _Imlib2.open(image_or_filename, use_cache)
@@ -88,13 +87,13 @@ class Image(object):
         """
         Supports these attributes:
 
-               size: tuple containing the width and height of the image
-              width: width of the image
-             height: height of the image
-             format: format of the image if loaded from file (e.g. PNG, JPEG)
-          rowstride: number of bytes per row of pixels
-          has_alpha: True if the image has an alpha channel, False otherwise
-           filename: filename if loaded from file
+         - B{size}: tuple containing the width and height of the image
+         - B{width}: width of the image
+         - B{height}: height of the image
+         - B{format}: format of the image if loaded from file (e.g. PNG, JPEG)
+         - B{rowstride}: number of bytes per row of pixels
+         - B{has_alpha}: True if the image has an alpha channel, False otherwise
+         - B{filename}: filename if loaded from file
         """
         if attr in ("width", "height", "format", "mode", "filename",
                 "rowstride"):
@@ -125,16 +124,15 @@ class Image(object):
         """
         Returns raw image data for read only access.
 
-        Arguments:
-          format: pixel format of the raw data to be returned.  If 'format' is
-                  not a supported format, ValueError is raised.  Format
-                  can be any combination of RGB or RGBA.
+        @param format: pixel format of the raw data to be returned.  If 'format' is
+            not a supported format, ValueError is raised.  Format
+            can be any combination of RGB or RGBA.
 
-        Returns: A buffer object representing the raw pixel data.  The buffer
-                 will be a writable buffer if 'write' was True or if the
-                 'format' was non-native (i.e. something other than BGRA).  If
-                 'format' was BGRA and 'write' was True, you'll need to call
-                 put_back_raw_data() when you're done writing to the buffer.
+        @return: A buffer object representing the raw pixel data.  The buffer
+            will be a writable buffer if 'write' was True or if the
+            'format' was non-native (i.e. something other than BGRA).  If
+            'format' was BGRA and 'write' was True, you'll need to call
+            put_back_raw_data() when you're done writing to the buffer.
         """
         if False in map(lambda x: x in "RGBA", list(format)):
             raise ValueError, "Converting from unsupported format: " + format
@@ -153,12 +151,11 @@ class Image(object):
         """
         Scale the image and return a new image.
 
-        Arguments:
-          w, h: the width and height of the new image.  If either argument
+        @param w,h: the width and height of the new image.  If either argument
                 is -1, that dimension is calculated from the other dimension
                 while retaining the original aspect ratio.
 
-        Returns: a new Image instance representing the scaled image.
+        @return: a new Image instance representing the scaled image.
         """
         src_w, src_h = src_size
         x, y = src_pos
@@ -193,12 +190,10 @@ class Image(object):
         """
         Rotate the image and return a new image.
 
-        Arguments:
-          angle: the angle in degrees by which to rotate the image.
+        @param angle: the angle in degrees by which to rotate the image.
+        @return: a new Image instance representing the rotated image.
 
-        Returns: a new Image instance representing the rotated image.
-
-        FIXME: imlib2's rotate works all wonky.  Doesn't act how I expect.
+        @bug: imlib2's rotate works all wonky.  Doesn't act how I expect.
         """
         return Image(self._image.rotate(angle * math.pi / 180))
 
@@ -207,12 +202,12 @@ class Image(object):
         """
         Performs 90 degree rotations on the image.
 
-        Arguments:
-          orientation: 0: no rotation; 1: rotate clockwise 90 degrees,
-                       2: rotate clockwise 180 degrees; 3: rotates clockwise
-                       270 degrees.
-
-        Returns: None
+        @param orientation:
+          - 0: no rotation;
+          - 1: rotate clockwise 90 degrees,
+          - 2: rotate clockwise 180 degrees;
+          - 3: rotates clockwise 270 degrees.
+        @return: None
         """
         self._image.orientate(orientation)
         self._changed()
@@ -222,7 +217,7 @@ class Image(object):
         """
         Flips the image on its horizontal axis.
 
-        Returns: None.
+        @return: None.
         """
         self._image.flip(True, False, False)
         self._changed()
@@ -232,7 +227,7 @@ class Image(object):
         """
         Flips the image on its vertical axis.
 
-        Returns: None.
+        @return: None.
         """
         self._image.flip(False, True, False)
         self._changed()
@@ -242,7 +237,7 @@ class Image(object):
         """
         Flips the image on along its diagonal.
 
-        Returns: None.
+        @return: None.
         """
         self._image.flip(False, False, True)
         self._changed()
@@ -252,7 +247,7 @@ class Image(object):
         """
         Blur the image
 
-        Returns: None.
+        @return: None.
         """
         self._image.blur(radius)
         self._changed()
@@ -262,7 +257,7 @@ class Image(object):
         """
         Sharpen the image
 
-        Returns: None.
+        @return: None.
         """
         self._image.sharpen(radius)
         self._changed()
@@ -316,7 +311,7 @@ class Image(object):
                    the far edge of the image.
           dst_pos: a tuple holding the x, y coordinates within the image
                    where the region will be moved to.
-        Returns: None
+        @return: None
         """
         self._image.copy_rect(src_pos, size, dst_pos)
         self._changed()
@@ -328,27 +323,26 @@ class Image(object):
         """
         Blends one image onto another.
 
-        Arguments:
-                  src: the image being blended onto 'self'
-              dst_pos: a tuple holding the x, y coordinates where the source
-                       image will be blended onto the destination image.
-              src_pos: a tuple holding the x, y coordinates within the source
-                       image where blending will start.
-             src_size: a tuple holding the width and height of the source
-                       image to be blended.  A value of -1 for either one
-                       indicates the full dimension of the source image.
-                alpha: the "layer" alpha that is applied to all pixels of the
-                       image.  If an individual pixel has an alpha of 128 and
-                       this value is 128, the resulting pixel will have an
-                       alpha of 64 before it is blended to the destination
-                       image.  0 is fully transparent and 255 is fully opaque,
-                       and 256 is a special value that means alpha blending is
-                       disabled.
-          merge_alpha: if True, the alpha channel is also blended.  If False,
-                       the destination image's alpha channel is untouched and
-                       the RGB values are compensated
+        @param src: the image being blended onto 'self'
+        @param dst_pos: a tuple holding the x, y coordinates where the source
+            image will be blended onto the destination image.
+        @param src_pos: a tuple holding the x, y coordinates within the source
+            image where blending will start.
+        @param src_size: a tuple holding the width and height of the source
+            image to be blended.  A value of -1 for either one
+            indicates the full dimension of the source image.
+        @param alpha: the "layer" alpha that is applied to all pixels of the
+            image.  If an individual pixel has an alpha of 128 and
+            this value is 128, the resulting pixel will have an
+            alpha of 64 before it is blended to the destination
+            image.  0 is fully transparent and 255 is fully opaque,
+            and 256 is a special value that means alpha blending is
+            disabled.
+        @param merge_alpha: if True, the alpha channel is also blended.  If False,
+            the destination image's alpha channel is untouched and
+            the RGB values are compensated
 
-        Returns: None.
+        @return: None.
         """
 
         if src_size[0] == -1: src_size = src.width, src_size[1]
@@ -371,7 +365,7 @@ class Image(object):
           w, h: width and height of the rectangle to be cleared.  If either
                 value is -1 then the image is cleared to the far edge.
 
-        Returns: None
+        @return: None
         """
         x = max(0, min(self.width, x))
         y = max(0, min(self.height, y))
@@ -394,7 +388,7 @@ class Image(object):
                    alpha channel will be modified.  The mask is drawn to the
                    full width/height of maskimg.
 
-        Returns: None
+        @return: None
         """
 
         self._image.draw_mask(maskimg._image, int(x), int(y))
@@ -405,7 +399,7 @@ class Image(object):
         """
         Creates a copy of the current image.
 
-        Returns: a new Image instance with a copy of the current image.
+        @return: a new Image instance with a copy of the current image.
         """
         return Image(self._image.clone())
 
@@ -436,7 +430,7 @@ class Image(object):
         """
         Gets the current Font context.
 
-        Returns: A Font instance as created by set_font() or None if no font
+        @return: A Font instance as created by set_font() or None if no font
                  context is defined.
         """
         return self.font
@@ -448,25 +442,24 @@ class Image(object):
         """
         Draws text on the image.
 
-        Arguments:
-                      x, y: the left/top coordinates within the current image
-                            where the text will be rendered.
-                      text: a string holding the text to be rendered.
-                     color: a 3- or 4-tuple holding the red, green, blue, and
-                            alpha values of the color in which to render the
-                            font.  If color is a 3-tuple, the implied alpha
-                            is 255.  If color is None, the color of the font
-                            context, as specified by set_font(), is used.
-          font_or_fontname: either a Font object, or a string containing the
-                            font's name and size.  This string is in the
-                            form "Fontname/Size" such as "Arial/16".  If this
-                            parameter is none, the font context is used, as
-                            specified by set_font().
-          style:            The style to use. Id style is None, the style from
-                            the font object will be used.
+        @param x, y: the left/top coordinates within the current image
+            where the text will be rendered.
+        @param text: a string holding the text to be rendered.
+        @param color: a 3- or 4-tuple holding the red, green, blue, and
+            alpha values of the color in which to render the
+            font.  If color is a 3-tuple, the implied alpha
+            is 255.  If color is None, the color of the font
+            context, as specified by set_font(), is used.
+        @param font_or_fontname: either a Font object, or a string containing the
+            font's name and size.  This string is in the
+            form "Fontname/Size" such as "Arial/16".  If this
+            parameter is none, the font context is used, as
+            specified by set_font().
+        @param style: The style to use. Id style is None, the style from
+            the font object will be used.
 
-        Returns: a 4-tuple representing the width, height, horizontal advance,
-                 and vertical advance of the rendered text.
+        @return: a 4-tuple representing the width, height, horizontal advance,
+            and vertical advance of the rendered text.
         """
         if not font_or_fontname:
             font = self.font
@@ -516,16 +509,15 @@ class Image(object):
         """
         Draws a rectangle on the image.
 
-        Arguments:
-           x, y: the top left corner of the rectangle.
-           w, h: the width and height of the rectangle.
-          color: a 3- or 4-tuple holding the red, green, blue, and alpha
-                 values of the color in which to draw the rectangle.  If
-                 color is a 3-tuple, the implied alpha is 255.
-           fill: whether the rectangle should be filled or not.  The default
-                 is true.
+        @param x, y: the top left corner of the rectangle.
+        @param w, h: the width and height of the rectangle.
+        @param color: a 3- or 4-tuple holding the red, green, blue, and alpha
+            values of the color in which to draw the rectangle.  If
+            color is a 3-tuple, the implied alpha is 255.
+        @param fill: whether the rectangle should be filled or not.  The default
+            is true.
 
-        Returns: None
+        @return: None
         """
         if len(color) == 3:
             color = tuple(color) + (255,)
@@ -537,16 +529,15 @@ class Image(object):
         """
         Draws an ellipse on the image.
 
-        Arguments:
-          xc, yc: the x, y coordinates of the center of the ellipse.
-            a, b: the horizontal and veritcal amplitude of the ellipse.
-           color: a 3- or 4-tuple holding the red, green, blue, and alpha
-                  values of the color in which to draw the ellipse.  If
-                  color is a 3-tuple, the implied alpha is 255.
-            fill: whether the ellipse should be filled or not.  The default
-                  is true.
+        @param xc, yc: the x, y coordinates of the center of the ellipse.
+        @param a, b: the horizontal and veritcal amplitude of the ellipse.
+        @param color: a 3- or 4-tuple holding the red, green, blue, and alpha
+            values of the color in which to draw the ellipse.  If
+            color is a 3-tuple, the implied alpha is 255.
+        @param fill: whether the ellipse should be filled or not.  The default
+            is true.
 
-        Returns: None
+        @return: None
         """
         if len(color) == 3:
             color = tuple(color) + (255,)
@@ -559,11 +550,9 @@ class Image(object):
         """
         Get the color for the specified pixel.
 
-        Arguments:
-          x, y: Coordinates of the pixel for which to return the color.
-
-        Returns: a 4-tuple representing the color of the pixel.  The tuple is
-                 in BGRA format, or (blue, green, red, alpha).
+        @param x, y: Coordinates of the pixel for which to return the color.
+        @return: a 4-tuple representing the color of the pixel.  The tuple is
+            in BGRA format, or (blue, green, red, alpha).
         """
         return self._image.get_pixel((x,y))
 
@@ -572,10 +561,9 @@ class Image(object):
         """
         Enable / disable the alpha layer.
 
-        Arguments:
-        has_alpha: if True, the alpha layer will be enabled, if
-                   False disabled
-        Returns: None
+        @param has_alpha: if True, the alpha layer will be enabled, if
+            False disabled
+        @return: None
         """
         if has_alpha:
             self._image.set_alpha(1)
@@ -588,11 +576,10 @@ class Image(object):
         """
         Saves the image to a file.
 
-        Arguments:
-          format: the format of the written file (jpg, png, etc.).  If format
-                  is None, the format is gotten from the filename extension.
+        @param format: the format of the written file (jpg, png, etc.).  If format
+            is None, the format is gotten from the filename extension.
 
-        Returns: None.
+        @return: None.
         """
         if not format:
             format = os.path.splitext(filename)[1][1:]
@@ -601,11 +588,13 @@ class Image(object):
 
     def as_gdk_pixbuf(self):
         """
-        Returns the current image as a gdk.Pixbuf if pygtk is available.
-        Otherwise raises ImportError.
+        Convert the image into a gdk.Pixbuf object
+
+        @return: the current image as a gdk.Pixbuf
+        @raise ImportError: if pygtk is unavailable.
         """
         import gtk
         data = self.get_raw_data('RGBA')
-        return gtk.gdk.pixbuf_new_from_data(data, gtk.gdk.COLORSPACE_RGB, True, 8, 
+        return gtk.gdk.pixbuf_new_from_data(data, gtk.gdk.COLORSPACE_RGB, True, 8,
                                             self.width, self.height, self.width * 4)
 
