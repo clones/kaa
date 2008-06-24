@@ -9,18 +9,21 @@
 
 # python imports
 import re
+import clutter
 import pango
 
 # gui imports
 import core
 import kaa.candy
 
-class Text(core.Text):
+class Text(core.Widget, clutter.Label):
     """
     Complex text widget.
     """
     __gui_name__ = 'text'
     context_sensitive = True
+
+    ALIGN_CENTER = pango.ALIGN_CENTER
 
     _regexp_space = re.compile('[\n\t \r][\n\t \r]+')
     _regexp_if = re.compile('#if(.*?):(.*?)#fi ?')
@@ -28,7 +31,8 @@ class Text(core.Text):
     _regexp_br = re.compile(' *<br/> *')
 
     def __init__(self, pos, size, text, font, color, align, context=None):
-        super(Text, self).__init__(pos, size, context=context)
+        clutter.Label.__init__(self)
+        core.Widget.__init__(self, pos, size, context)
         text = self._regexp_space.sub(' ', text)
         if context:
             depends = []
@@ -59,6 +63,9 @@ class Text(core.Text):
         self.set_font_name("%s %spx" % (font.name, font.size))
         self.set_color(color)
         self.set_text(text)
+
+    def set_color(self, color):
+        super(Text, self).set_color(clutter.Color(*color))
 
     @classmethod
     def parse_XML(cls, element):

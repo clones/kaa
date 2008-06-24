@@ -62,11 +62,14 @@ def init():
         from timeline import Timeline, MasterTimeline
         global Color, Font
         from core import Color, Font
-        global Widget, Template, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
-        from widgets import Widget, Template, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
+        global Widget, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
+        from widgets import Widget, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
         global Stage
         from stage import Stage
-        import animation
+        import animation as _animation
+        global animation
+        animation = _animation
+        
     # set generic notifier and start the clutter thread
     kaa.main.select_notifier('generic')
     kaa.gobject_set_threaded(Mainloop())

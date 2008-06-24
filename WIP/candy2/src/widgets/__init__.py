@@ -31,7 +31,7 @@ import sys
 if not 'clutter' in sys.modules.keys():
     raise RuntimeError('kaa.candy not initialized')
 
-from core import Template, Widget, Group, Texture, Imlib2Texture, CairoTexture
+from core import Widget, Group, Texture, Imlib2Texture, CairoTexture
 from container import Container
 from label import Label
 from rectangle import Rectangle

@@ -26,7 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Template', 'Widget', 'Group', 'Text', 'Texture', 'Imlib2Texture', 'CairoTexture']
+__all__ = [ 'Widget', 'Group', 'Texture', 'Imlib2Texture', 'CairoTexture']
 
 # python imports
 import logging
@@ -58,15 +58,14 @@ class XMLDict(dict):
 
 class Template(object):
     """
-    Template to create a widget on demand. All XML parser will create such an
+    Template to create a widget on demand. All XML parsers will create such an
     object to parse everything at once.
     """
-    def __init__(self, type, cls, kwargs, properties=None):
-        self.type = type
+    def __init__(self, cls, **kwargs):
         self._cls = cls
+        self._properties = kwargs.pop('properties', None)
         self._kwargs = kwargs
-        self._properties = properties
-        self._userdata = {}
+        self.__userdata = {}
 
     def __call__(self, context=None, **override):
         """
@@ -97,25 +96,41 @@ class Template(object):
             return None
         if self._properties:
             self._properties.apply(widget)
-        log.info('Create %s: %s secs', self.type, time.time() - t1)
+        log.info('Create %s: %s secs', self._cls.__gui_name__, time.time() - t1)
         return widget
 
     def get_userdata(self, key):
-        return self._userdata.get(key)
+        """
+        Get additional data stored in this object.
+        """
+        return self.__userdata.get(key)
 
     def set_userdata(self, key, value):
-        self._userdata[key] = value
+        """
+        Store additional data in this object.
+        """
+        self.__userdata[key] = value
 
-    def get(self, attr):
+    def get_attribute(self, attr):
+        """
+        Get the value for the attribute for object creation.
+        """
         return self._kwargs.get(attr)
 
     def set_property(self, key, *value):
+        """
+        Set a property for the template. The properties will be set after the
+        object is created.
+        """
         if self._properties is None:
              self._properties = kaa.candy.Properties()
         self._properties[key] = value
 
     @classmethod
     def get_class_from_XML(cls, element):
+        """
+        Get the class for the XML element
+        """
         return kaa.candy.xmlparser.get_class(element.node, element.style)
 
     @classmethod
@@ -135,7 +150,8 @@ class Template(object):
         if widget is None:
             log.error('undefined widget %s:%s', element.node, element.style)
         kwargs = widget.parse_XML(element)
-        template = cls(element.node, widget, kwargs, properties)
+        kwargs['properties'] = properties
+        template = cls(widget, **kwargs)
         if animations:
             template.set_property('animations', animations)
         return template
@@ -145,11 +161,17 @@ class Widget(object):
     """
     Basic widget. All widgets from the backend must inherit from it.
     """
+
+    #: set if the object reacts on set_context
     context_sensitive = False
+
+    #: template for object creation
     __template__ = Template
 
     def __init__(self, pos=None, size=None, context=None):
-        self._animations = []
+        """
+        Basic widget constructor
+        """
         if size is not None:
             if size[0] is not None:
                 self.set_width(size[0])
@@ -157,9 +179,11 @@ class Widget(object):
                 self.set_height(size[1])
         if pos is not None:
             self.set_position(*pos)
-        self._context = context
+        # FIXME: make _depends private
         self._depends = []
-        self._userdata = {}
+        self.__animations = []
+        self.__context = context
+        self.__userdata = {}
 
     def set_parent(self, parent):
         """
@@ -182,14 +206,14 @@ class Widget(object):
         Get the context the widget is in.
         """
         if key is None:
-            return self._context
-        return self._context.get(key)
+            return self.__context
+        return self.__context.get(key)
 
     def set_context(self, context):
         """
         Set a new context.
         """
-        self._context = context
+        self.__context = context
 
     def try_context(self, context):
         """
@@ -207,28 +231,44 @@ class Widget(object):
         """
         Set list of dependencies this widget has based on the context.
         """
-        self._depends = [ (str(d), eval(str(d), self._context)) for d in dependencies ]
+        self._depends = [ (str(d), eval(str(d), self.__context)) for d in dependencies ]
 
     def set_animations(self, animations):
-        self._animations = animations
+        """
+        Set additional animations for object.animate()
+        """
+        self.__animations = animations
 
     def get_userdata(self, key):
-        return self._userdata.get(key)
+        """
+        Get additional data stored in this object.
+        """
+        return self.__userdata.get(key)
 
     def set_userdata(self, key, value):
-        self._userdata[key] = value
+        """
+        Store additional data in this object.
+        """
+        self.__userdata[key] = value
 
     def animate(self, name, *args, **kwargs):
         """
         Animate the object with the given animation.
         """
-        if name in self._animations:
-            return self._animations[name](self)
-        a = kaa.candy.xmlparser.get_class('animation', name)
+        if name in self.__animations:
+            return self.__animations[name](self)
+        a = kaa.candy.animation.get(name)
         if a:
             return a(self, *args, **kwargs)
         if not name in ('hide', 'show'):
             log.error('no animation named %s', name)
+
+    @classmethod
+    def create_template(cls, **kwargs):
+        """
+        Create a template for this class.
+        """
+        return cls.__template__(cls, **kwargs)
 
     @classmethod
     def parse_XML(cls, element):
@@ -251,12 +291,21 @@ class Group(Widget, clutter.Group):
         self._max_size = size
 
     def get_max_size(self):
+        """
+        Return maximum available size
+        """
         return self._max_size
     
     def get_max_width(self):
+        """
+        Return maximum available width
+        """
         return self._max_size[0]
     
     def get_max_height(self):
+        """
+        Return maximum available height
+        """
         return self._max_size[1]
     
     def add(self, child, visible=True):
@@ -266,21 +315,6 @@ class Group(Widget, clutter.Group):
         if visible:
             child.show()
         super(Group, self).add(child)
-
-
-class Text(Widget, clutter.Label):
-    """
-    Pango based text widget.
-    Used by the higher level text widget
-    """
-    ALIGN_CENTER = pango.ALIGN_CENTER
-
-    def __init__(self, pos, size, context=None):
-        clutter.Label.__init__(self)
-        Widget.__init__(self, pos, size, context)
-
-    def set_color(self, color):
-        super(Text, self).set_color(clutter.Color(*color))
 
 
 class Texture(Widget, clutter.Texture):
