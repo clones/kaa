@@ -33,7 +33,7 @@ import clutter
 import kaa
 
 # kaa.candy imports
-from decorator import gui_execution
+from core import threaded
 
 class Stage(object):
     """
@@ -63,7 +63,7 @@ class Stage(object):
         if key is not None:
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
-    @gui_execution()
+    @threaded()
     def add(self, child, visible=True):
         """
         Add the child to the screen.
@@ -72,7 +72,7 @@ class Stage(object):
             child.show()
         self._stage.add(child)
 
-    @gui_execution()
+    @threaded()
     def remove(self, child):
         """
         Remove the child from the screen.

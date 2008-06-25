@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# .py - 
+# .py -
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -32,28 +32,30 @@ import logging
 # kaa imports
 import kaa
 
-# gui imports
+# kaa.candy imports
 import kaa.candy
 import core
 
 # get logging object
-log = logging.getLogger('gui')
+log = logging.getLogger('kaa.candy')
 
 class Container(core.Group):
     """
     Container widget with other widgets in it.
     """
-    __gui_name__ = 'container'
+    candyxml_name = 'container'
     context_sensitive = True
 
     def __init__(self, pos, size, widgets, dependency=None, context=None):
         super(Container, self).__init__(pos, size, context)
-        for template in widgets:
+        for widget in widgets:
             try:
-                child = template(context)
-                if child.context_sensitive:
-                    child.set_userdata('template', template)
-                self.add(child)
+                if kaa.candy.is_template(widget):
+                    template = widget
+                    widget = template(context)
+                    if widget.context_sensitive:
+                        widget.set_userdata('template', template)
+                self.add(widget)
             except:
                 log.exception('render')
         if dependency and context:
@@ -70,6 +72,7 @@ class Container(core.Group):
                 continue
             try:
                 # FIXME: this code needs some updates
+                # FIXME: only works for templates
                 child.set_userdata('removing', True)
                 template = child.get_userdata('template')
                 new = template(context)
@@ -80,7 +83,7 @@ class Container(core.Group):
                 self.remove(child, kaa.InProgressList(a1 + a2))
             except:
                 log.exception('render')
-                
+
     def get_element(self, name):
         """
         Get child element with the given name.
@@ -104,7 +107,7 @@ class Container(core.Group):
         super(Container, self).remove(child)
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the widget.
         """
@@ -115,10 +118,10 @@ class Container(core.Group):
                 log.error('unable to parse %s', child.node)
             else:
                 widgets.append(w)
-        return super(Container, cls).parse_XML(element).update(
+        return super(Container, cls).candyxml_parse(element).update(
             dependency=(element.depends or '').split(' '),
             widgets=widgets)
 
 
-# register widgets to the core
-kaa.candy.xmlparser.register(Container)
+# register widget to the xmlparser
+Container.candyxml_register()

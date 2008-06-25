@@ -11,7 +11,7 @@ from behaviour import BehaviourColor
 
 
 # get logging object
-log = logging.getLogger('gui')
+log = logging.getLogger('kaa.candy')
 
 # frames per second (hard-coded)
 FPS = 25
@@ -41,14 +41,14 @@ class Template(object):
         return self._cls(widget, **self._kwargs)
 
     @classmethod
-    def from_XML(cls, element):
+    def candyxml_create(cls, element):
         """
         Parse the XML element for parameter and create a Template.
         """
         animation = kaa.candy.xmlparser.get_class(element.node, element.style)
         if not animation:
             return None
-        return cls(element.style, animation, animation.parse_XML(element))
+        return cls(element.style, animation, animation.candyxml_parse(element))
 
 
 class Animation(kaa.InProgress):
@@ -57,7 +57,7 @@ class Animation(kaa.InProgress):
     """
 
     __template__ = Template
-    __gui_name__ = 'animation'
+    candyxml_name = 'animation'
 
     running = []
 
@@ -103,7 +103,7 @@ class Animation(kaa.InProgress):
         self.finish()
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the animation.
         """
@@ -118,7 +118,7 @@ class List(object):
     Animation template for new defined animations from the define-animation XML
     node. It contains other animation nodes and optional a properties node.
     """
-    __gui_name__ = 'define-animation'
+    candyxml_name = 'define-animation'
 
     def __init__(self, animations, properties):
         self._animations = animations
@@ -134,7 +134,7 @@ class List(object):
         return [ a(widget) for a in self._animations ]
 
     @classmethod
-    def from_XML(cls, element):
+    def candyxml_create(cls, element):
         """
         Parse the XML element for parameter and create an AnimationTemplate.
         """
@@ -142,7 +142,7 @@ class List(object):
         animations = []
         for element in element:
             if element.node == 'properties':
-                properties = kaa.candy.Properties.from_XML(element)
+                properties = kaa.candy.Properties.candyxml_create(element)
             elif element.node == 'animation':
                 a = element.xmlcreate()
                 if a is None:
@@ -186,7 +186,7 @@ class Scale(Animation):
     """
     Zoom-out the given object.
     """
-    __gui_style__ = 'scale'
+    candyxml_style = 'scale'
 
     class Behaviour(ExclusiveBehaviour, clutter.BehaviourScale):
         effects = [ 'scale' ]
@@ -200,11 +200,11 @@ class Scale(Animation):
         self.start(scale)
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the animation.
         """
-        return super(Scale, cls).parse_XML(element).update(
+        return super(Scale, cls).candyxml_parse(element).update(
             x_factor=float(element.x_factor), y_factor=float(element.y_factor))
 
 
@@ -212,7 +212,7 @@ class Opacity(Animation):
     """
     Fade in or out the given object.
     """
-    __gui_style__ = 'opacity'
+    candyxml_style = 'opacity'
 
     class Behaviour(ExclusiveBehaviour, clutter.BehaviourOpacity):
         effects = [ 'opacity' ]
@@ -225,11 +225,11 @@ class Opacity(Animation):
         self.start(opacity)
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the animation.
         """
-        return super(Opacity, cls).parse_XML(element).update(
+        return super(Opacity, cls).candyxml_parse(element).update(
             stop=int(element.stop))
 
 
@@ -237,7 +237,7 @@ class Move(Animation):
     """
     Move the given object.
     """
-    __gui_style__ = 'move'
+    candyxml_style = 'move'
 
     class Behaviour(ExclusiveBehaviour, clutter.BehaviourPath):
         effects = [ 'move' ]
@@ -255,11 +255,11 @@ class Move(Animation):
         self.start(path)
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the animation.
         """
-        return super(Move, cls).parse_XML(element).update(
+        return super(Move, cls).candyxml_parse(element).update(
             x=int(element.x), y=int(element.y))
 
 
@@ -267,7 +267,7 @@ class ColorChange(Animation):
     """
     Color change animation.
     """
-    __gui_style__ = 'color'
+    candyxml_style = 'color'
 
     class Behaviour(ExclusiveBehaviour, BehaviourColor):
         effects = [ 'color' ]
@@ -280,11 +280,11 @@ class ColorChange(Animation):
         self.start(a)
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the animation.
         """
-        return super(Move, cls).parse_XML(element).update(
+        return super(Move, cls).candyxml_parse(element).update(
             x=int(element.x), y=int(element.y))
 
 

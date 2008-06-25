@@ -61,6 +61,9 @@ class Template(object):
     Template to create a widget on demand. All XML parsers will create such an
     object to parse everything at once.
     """
+
+    __is_template__ = True
+
     def __init__(self, cls, **kwargs):
         self._cls = cls
         self._properties = kwargs.pop('properties', None)
@@ -74,6 +77,7 @@ class Template(object):
         """
         kwargs = self._kwargs
         if override:
+            # FIXME: this part is kind of ugly
             kwargs = self._kwargs.copy()
             for key, value in override.items():
                 if key == 'x':
@@ -96,7 +100,7 @@ class Template(object):
             return None
         if self._properties:
             self._properties.apply(widget)
-        log.info('Create %s: %s secs', self._cls.__gui_name__, time.time() - t1)
+        log.info('Create %s: %s secs', self._cls.candyxml_name, time.time() - t1)
         return widget
 
     def get_userdata(self, key):
@@ -127,29 +131,30 @@ class Template(object):
         self._properties[key] = value
 
     @classmethod
-    def get_class_from_XML(cls, element):
+    def candyxml_get_class(cls, element):
         """
         Get the class for the XML element
         """
         return kaa.candy.xmlparser.get_class(element.node, element.style)
 
     @classmethod
-    def from_XML(cls, element):
+    def candyxml_create(cls, element):
         """
         Parse the XML element for parameter and create a Template.
         """
         properties = element.properties
         if properties is not None:
             element.remove(properties)
-            properties = kaa.candy.Properties.from_XML(properties)
+            properties = kaa.candy.Properties.candyxml_create(properties)
         animations = {}
+        # FIXME: rewrite animation support
         for child in element.get_children('define-animation'):
             element.remove(child)
             animations[child.style] = child.xmlcreate()
-        widget = cls.get_class_from_XML(element)
+        widget = cls.candyxml_get_class(element)
         if widget is None:
             log.error('undefined widget %s:%s', element.node, element.style)
-        kwargs = widget.parse_XML(element)
+        kwargs = widget.candyxml_parse(element)
         kwargs['properties'] = properties
         template = cls(widget, **kwargs)
         if animations:
@@ -200,7 +205,7 @@ class Widget(object):
         """
         if self.get_parent():
             self.get_parent().remove(self)
-        
+
     def get_context(self, key=None):
         """
         Get the context the widget is in.
@@ -255,6 +260,7 @@ class Widget(object):
         """
         Animate the object with the given animation.
         """
+        # FIXME: rewrite animation code
         if name in self.__animations:
             return self.__animations[name](self)
         a = kaa.candy.animation.get(name)
@@ -271,11 +277,19 @@ class Widget(object):
         return cls.__template__(cls, **kwargs)
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the widget.
         """
         return XMLDict(pos=element.pos, size=(element.width, element.height))
+
+    @classmethod
+    def candyxml_register(cls, style=None):
+        """
+        Register class to the xmlparser. This function can only be called
+        once when the class is loaded.
+        """
+        kaa.candy.xmlparser.register(cls, style)
 
     # def __del__(self):
     #     print '__del__', self
@@ -288,26 +302,26 @@ class Group(Widget, clutter.Group):
     def __init__(self, pos=None, size=None, context=None):
         clutter.Group.__init__(self)
         Widget.__init__(self, pos, size, context)
-        self._max_size = size
+        self._max_size = size or (None, None)
 
     def get_max_size(self):
         """
         Return maximum available size
         """
         return self._max_size
-    
+
     def get_max_width(self):
         """
         Return maximum available width
         """
         return self._max_size[0]
-    
+
     def get_max_height(self):
         """
         Return maximum available height
         """
         return self._max_size[1]
-    
+
     def add(self, child, visible=True):
         """
         Add a child and set it visible.

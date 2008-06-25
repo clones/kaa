@@ -30,7 +30,7 @@ class Properties(dict):
     """
     Properties class to apply the given properties to a widget.
     """
-    __gui_name__ = 'properties'
+    candyxml_name = 'properties'
 
     def apply(self, widget):
         """
@@ -42,7 +42,7 @@ class Properties(dict):
                 widget.move_by(*value)
 
     @classmethod
-    def from_XML(cls, element):
+    def candyxml_create(cls, element):
         """
         Parse the XML element for parameter and create a Properties object.
         """

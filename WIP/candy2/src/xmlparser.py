@@ -112,10 +112,10 @@ class Element(object):
         """
         parser = _parser.get(element.node)
         if isinstance(parser, dict):
-            parser = parser.parse_XML(element)
+            parser = parser.candyxml_parse(element)
         if parser is None:
             raise RuntimeError('no parser for %s:%s' % (element.node, element.style))
-        return getattr(parser, '__template__', parser).from_XML(element)
+        return getattr(parser, '__template__', parser).candyxml_create(element)
 
     def get_children(self, node=None):
         """
@@ -205,7 +205,7 @@ def parse(theme, (width, height)):
     return Theme(theme, (width, height)).screens
 
 class Styles(dict):
-    def parse_XML(self, element):
+    def candyxml_parse(self, element):
         return self.get(element.style)
         
 _parser = {}
@@ -214,8 +214,8 @@ def register(cls, style=None):
     """
     Register a class with the given style.
     """
-    name = cls.__gui_name__
-    style = style or getattr(cls, '__gui_style__', None)
+    name = cls.candyxml_name
+    style = style or getattr(cls, 'candyxml_style', None)
     parser = _parser
     if style is not None:
         if not name in parser:

@@ -28,7 +28,7 @@
 
 import kaa
 
-from decorator import gui_execution
+from core import threaded, Lock, Font, Color
 
 class Mainloop(object):
     """
@@ -47,11 +47,14 @@ class Mainloop(object):
         import clutter
         clutter.main_quit()
 
+def is_template(obj):
+    return getattr(obj, '__is_template__', False)
+
 def init():
     """
     Set the mainloop and load the widgets into our namespace
     """
-    @gui_execution()
+    @threaded()
     def load_modules():
         import xmlparser as _xmlparser
         global xmlparser
@@ -60,8 +63,6 @@ def init():
         from properties import Properties
         global Timeline, MasterTimeline
         from timeline import Timeline, MasterTimeline
-        global Color, Font
-        from core import Color, Font
         global Widget, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
         from widgets import Widget, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
         global Stage

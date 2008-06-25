@@ -1,7 +1,7 @@
 # clutter imports
 import clutter
 
-# gui imports
+# kaa.candy imports
 from kaa.candy import Color
 
 class BehaviourColor(clutter.Behaviour):

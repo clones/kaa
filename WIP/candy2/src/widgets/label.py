@@ -34,13 +34,13 @@ import re
 
 # kaa.candy imports
 import core
-import kaa.candy
+
 
 class Label(core.CairoTexture):
     """
     Text label widget based on cairo.
     """
-    __gui_name__ = 'label'
+    candyxml_name = 'label'
     context_sensitive = True
     _font_instance = None
     _font_cache = {}
@@ -130,13 +130,14 @@ class Label(core.CairoTexture):
         #del context
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the widget.
         """
-        return super(Label, cls).parse_XML(element).update(
+        return super(Label, cls).candyxml_parse(element).update(
             font=element.font, color=element.color,
             text=element.content, align=element.align)
 
-# register widget to the core
-kaa.candy.xmlparser.register(Label)
+
+# register widget to the xmlparser
+Label.candyxml_register()

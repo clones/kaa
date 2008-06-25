@@ -27,14 +27,13 @@
 # -----------------------------------------------------------------------------
 
 # kaa.candy imports
-import kaa.candy
 import core
 
 class Rectangle(core.CairoTexture):
     """
     Rectange with border and round corners based on cairo.
     """
-    __gui_name__ = 'rectangle'
+    candyxml_name = 'rectangle'
 
     def __init__(self, pos, size, color=None, border_size=0,
                  border_color=None, radius=0):
@@ -101,13 +100,14 @@ class Rectangle(core.CairoTexture):
         del context
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the widget.
         """
-        return super(Rectangle, cls).parse_XML(element).update(
+        return super(Rectangle, cls).candyxml_parse(element).update(
             radius=int(element.radius or 0), border_size=float(element.border_size or 0),
             color=element.color, border_color=element.border_color)
-        
-# register widgets to the core
-kaa.candy.xmlparser.register(Rectangle)
+
+
+# register widget to the xmlparser
+Rectangle.candyxml_register()

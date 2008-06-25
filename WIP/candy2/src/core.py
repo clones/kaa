@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# core.py - Basic Classes
+# core.py - Helper classes and decorator
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -26,7 +26,20 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Color', 'Font' ]
+__all__ = [ 'Color', 'Font', 'threaded', 'Lock' ]
+
+# python imports
+import logging
+import sys
+import threading
+import gobject
+
+# kaa imports
+import kaa
+
+# get logging object
+log = logging.getLogger('kaa.candy')
+
 
 class Color(list):
     """
@@ -63,4 +76,113 @@ class Font(object):
     def __init__(self, name):
         self.name, size = name.split(':')
         self.size = int(size)
-        
+
+
+#: thread the clutter mainloop is running in
+gobject_thread = None
+
+def gobject_execute(callback):
+    """
+    Execute the callback in the gobject thread.
+    """
+    try:
+        callback.exception = None
+        callback.result = callback()
+    except Exception, e:
+        callback.exception = sys.exc_info()
+    finally:
+        callback.event.set()
+
+
+def set_gobject_thread(dummy):
+    """
+    Set the current thread as gobject_thread.
+    """
+    global gobject_thread
+    gobject_thread = threading.currentThread()
+
+
+class Lock(object):
+    """
+    Class to lock the clutter thread. While a lock is active the gobject
+    mainloop will block in idle_add executing all threaded callbacks
+    without redrawing. You can use the acquire() and release() functions.
+    """
+    instance = None
+    counter = 0
+    _locked = False
+
+    def acquire(self, auto_release=True):
+        """
+        Lock the clutter thread. If auto_release is True, the lock will be
+        released on the next iteration of the kaa mainloop by itself.
+        """
+        Lock.counter += 1
+        if auto_release:
+            kaa.signals['step'].connect_once(self.release)
+        self._locked = True
+        if Lock.instance:
+            return self
+        self._gobject_event = threading.Event()
+        self._callbacks = []
+        self._stopping = False
+        self._main_event = threading.Event()
+        Lock.instance = self
+        gobject.idle_add(self._gobject_callback, None)
+        return self
+
+    def release(self):
+        """
+        Release the clutter thread.
+        """
+        if not self._locked:
+            return
+        self._locked = False
+        Lock.counter -= 1
+        if Lock.counter:
+            return
+        Lock.instance._stopping = True
+        Lock.instance._gobject_event.set()
+        Lock.instance._main_event.wait()
+        Lock.instance = None
+
+    def _gobject_callback(self, arg=None):
+        """
+        GObject loop handler.
+        """
+        while not self._stopping:
+            self._gobject_event.wait()
+            while self._callbacks:
+                gobject_execute(self._callbacks.pop(0))
+        self._main_event.set()
+
+
+class threaded(object):
+    """
+    Decorator to force the execution of the function in the clutter mainloop
+    and _blocking_ the mainloop during that time.
+    """
+
+    def __call__(self, func):
+        """
+        Decorator function.
+        """
+        def newfunc(*args, **kwargs):
+            if gobject_thread == threading.currentThread():
+                return func(*args, **kwargs)
+            if gobject_thread is None:
+                gobject.idle_add(set_gobject_thread, None)
+            callback = kaa.Callback(func, *args, **kwargs)
+            callback.event = threading.Event()
+            if Lock.instance:
+                Lock.instance._callbacks.append(callback)
+                Lock.instance._gobject_event.set()
+            else:
+                gobject.idle_add(gobject_execute, callback)
+            callback.event.wait()
+            if callback.exception:
+                exc_type, exc_value, exc_tb_or_stack = callback.exception
+                raise exc_type, exc_value, exc_tb_or_stack
+            return callback.result
+        newfunc.func_name = func.func_name
+        return newfunc

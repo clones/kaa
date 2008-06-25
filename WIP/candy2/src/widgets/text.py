@@ -12,15 +12,15 @@ import re
 import clutter
 import pango
 
-# gui imports
+# kaa.candy imports
 import core
-import kaa.candy
+
 
 class Text(core.Widget, clutter.Label):
     """
     Complex text widget.
     """
-    __gui_name__ = 'text'
+    candyxml_name = 'text'
     context_sensitive = True
 
     ALIGN_CENTER = pango.ALIGN_CENTER
@@ -68,13 +68,14 @@ class Text(core.Widget, clutter.Label):
         super(Text, self).set_color(clutter.Color(*color))
 
     @classmethod
-    def parse_XML(cls, element):
+    def candyxml_parse(cls, element):
         """
         Parse the XML element for parameter to create the widget.
         """
-        return super(Text, cls).parse_XML(element).update(
+        return super(Text, cls).candyxml_parse(element).update(
             text=element.content, align=element.align, color=element.color,
             font=element.font)
 
-# register widget to the core
-kaa.candy.xmlparser.register(Text)
+
+# register widget to the xmlparser
+Text.candyxml_register()
