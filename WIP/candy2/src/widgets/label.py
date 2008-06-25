@@ -96,13 +96,9 @@ class Label(core.CairoTexture):
         """
         Render the text.
         """
-        try:
-            self.clear()
-            # draw new text string
-            context = self.cairo_create()
-        except cairo.Error, e:
-            # surface already gone
-            return
+        self.clear()
+        # draw new text string
+        context = self.cairo_create()
         context.set_operator(cairo.OPERATOR_SOURCE)
         context.set_source_rgba(*self._color.to_cairo())
         context.select_font_face(self._font.name, cairo.FONT_SLANT_NORMAL)

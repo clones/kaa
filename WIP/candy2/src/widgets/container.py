@@ -80,7 +80,7 @@ class Container(core.Group):
                 self.add(new)
                 a1 = child.animate('hide', context=context) or []
                 a2 = new.animate('show', context=context) or []
-                self.remove(child, kaa.InProgressList(a1 + a2))
+                self.destroy_child(child, kaa.InProgressList(a1 + a2))
             except:
                 log.exception('render')
 
@@ -97,14 +97,14 @@ class Container(core.Group):
                     return result
         return None
 
-    def remove(self, child, delay=None):
+    @kaa.candy.threaded()
+    def destroy_child(self, child, delay=None):
         """
-        Remove the given child and hide it.
+        Destroy the replaced child
         """
         if delay is not None and not delay.is_finished():
-            return delay.connect_once(self.remove, child).set_ignore_caller_args()
-        child.hide()
-        super(Container, self).remove(child)
+            return delay.connect_once(self.destroy_child, child).set_ignore_caller_args()
+        child.destroy()
 
     @classmethod
     def candyxml_parse(cls, element):

@@ -189,22 +189,23 @@ class Widget(object):
         self.__animations = []
         self.__context = context
         self.__userdata = {}
+        self.connect('destroy', self._destroy)
 
+    def _destroy(self, actor):
+        """
+        Destroy callback when this actor is no longer used by clutter. This
+        means that is unusable at this point and we can help the python gc
+        by cleaning up some circular references e.g. for animations.
+        """
+        self.__userdata = {}
+        
     def set_parent(self, parent):
         """
         Set the parent widget
         """
         if self.get_parent():
             self.get_parent().remove(self)
-        if parent:
-            parent.add(self)
-
-    def unparent(self):
-        """
-        Remove the widget
-        """
-        if self.get_parent():
-            self.get_parent().remove(self)
+        parent.add(self)
 
     def get_context(self, key=None):
         """

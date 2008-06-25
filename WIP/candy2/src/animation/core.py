@@ -1,4 +1,5 @@
 # python imports
+import _weakref
 import logging
 
 # kaa imports
@@ -59,49 +60,57 @@ class Animation(kaa.InProgress):
     __template__ = Template
     candyxml_name = 'animation'
 
-    running = []
-
     def __init__(self, secs):
         super(Animation, self).__init__()
         timeline = clutter.Timeline(int(float(secs) * FPS), FPS)
         timeline.set_loop(False)
         # FIXME: do not hardcode alpha function
         self.alpha = clutter.Alpha(timeline, clutter.ramp_inc_func)
-        self._refs = None
 
-    def start(self, *refs):
+    def start(self, widgets, behaviour):
         """
         Start the animation.
         """
-        # print refs[0].get_alpha().get_timeline()
-        self.running.append(self)
-        # store references or the animation won't run
-        self._refs = refs
+        # store reference to the behaviour or the animation won't run
+        for widget in widgets:
+            current = widget.get_userdata('__animations__') or {}
+            for e in behaviour.effects:
+                # set behaviour for the efect. This may override
+                # existing behaviour with the same effect, they
+                # will be removed to avoid race conditions.
+                current[e] = behaviour
+            # This creates a circular reference which will be resolved
+            # on the destroy signal callback in widgets/core.py
+            # FIXME: this is all far away from perfect
+            widget.set_userdata('__animations__', current)
         timeline = self.alpha.get_timeline()
         timeline.rewind()
         timeline.start()
-        timeline.connect('completed', self.finish)
         self.alpha = None
+        # it this pount we have no references anymore. Neither to
+        # the running timeline not to the alpha. The only existing
+        # reference to the behaviour is in the widgets and that will
+        # be destroyed once the widget is destroyed
+        # Store a weakref to the behaviour to emit finished when the
+        # behaviour is gone because it will not be triggered ever
+        # if we do not do this.
+        timeline.connect('completed', self._clutter_finish)
+        self._weak_behaviour = _weakref.ref(behaviour, self._clutter_finish)
+
+    def _clutter_finish(self, result):
+        """
+        Callback from any thread when the animation is finished.
+        """
+        self._weak_behaviour = None
+        kaa.MainThreadCallback(self.finish)(None)
 
     def finish(self, result):
         """
-        Callback when the animation is finished.
+        Callback in the mainthread when the animation is finished.
         """
-        self.running.remove(self)
-        # run callback
-        # deleted references for gc
-        for behaviour in self._refs:
-            behaviour.stop()
-        self._refs = None
-        kaa.MainThreadCallback(super(Animation, self).finish, None)()
-
-    def stop(self):
-        """
-        Stop the animation.
-        """
-        timeline.stop()
-        self.finish()
-
+        if not self._finished:
+            super(Animation, self).finish(result)
+            
     @classmethod
     def candyxml_parse(cls, element):
         """
@@ -153,34 +162,6 @@ class List(object):
                 log.error('unknown element %s in define-animation', element.node)
         return cls(animations, properties)
 
-class ExclusiveBehaviour(object):
-
-    effects = []
-
-    def add_widget(self, widget):
-        running = widget.get_userdata('running_animations')
-        if running is None:
-            running = {}
-            widget.set_userdata('running_animations', running)
-        for effect in self.effects:
-            if effect in running:
-                running[effect].remove(widget)
-            running[effect] = self
-        # real add function
-        self.apply(widget)
-
-    def remove_widget(self, widget):
-        running = widget.get_userdata('running_animations')
-        for effect, animation in running.items():
-            if animation == self:
-                del running[effect]
-        # real remove function
-        self.remove(widget)
-
-    def stop(self):
-        for widget in self.get_actors()[:]:
-            self.remove_widget(widget)
-
 
 class Scale(Animation):
     """
@@ -188,7 +169,7 @@ class Scale(Animation):
     """
     candyxml_style = 'scale'
 
-    class Behaviour(ExclusiveBehaviour, clutter.BehaviourScale):
+    class Behaviour(clutter.BehaviourScale):
         effects = [ 'scale' ]
 
     def __init__(self, obj, secs, x_factor, y_factor):
@@ -197,7 +178,7 @@ class Scale(Animation):
         scale = Scale.Behaviour(s[0], s[1], x_factor, y_factor, self.alpha)
         scale.apply(obj)
         # give references to start function
-        self.start(scale)
+        self.start([obj], scale)
 
     @classmethod
     def candyxml_parse(cls, element):
@@ -214,15 +195,18 @@ class Opacity(Animation):
     """
     candyxml_style = 'opacity'
 
-    class Behaviour(ExclusiveBehaviour, clutter.BehaviourOpacity):
+    class Behaviour(clutter.BehaviourOpacity):
         effects = [ 'opacity' ]
 
     def __init__(self, obj, secs, stop):
-        super(Opacity, self).__init__(secs)
+        try:
+            super(Opacity, self).__init__(secs)
+        except Exception, e:
+            print e
         opacity = Opacity.Behaviour(obj.get_opacity(), stop, self.alpha)
-        opacity.add_widget(obj)
+        opacity.apply(obj)
         # give references to start function
-        self.start(opacity)
+        self.start([obj], opacity)
 
     @classmethod
     def candyxml_parse(cls, element):
@@ -239,7 +223,7 @@ class Move(Animation):
     """
     candyxml_style = 'move'
 
-    class Behaviour(ExclusiveBehaviour, clutter.BehaviourPath):
+    class Behaviour(clutter.BehaviourPath):
         effects = [ 'move' ]
 
     def __init__(self, obj, secs, x=None, y=None):
@@ -250,9 +234,9 @@ class Move(Animation):
         if y is None:
             y = y0
         path = Move.Behaviour(self.alpha, ((x0, y0), (x, y)))
-        path.add_widget(obj)
+        path.apply(obj)
         # give references to start function
-        self.start(path)
+        self.start([obj], path)
 
     @classmethod
     def candyxml_parse(cls, element):
@@ -269,15 +253,15 @@ class ColorChange(Animation):
     """
     candyxml_style = 'color'
 
-    class Behaviour(ExclusiveBehaviour, BehaviourColor):
+    class Behaviour(BehaviourColor):
         effects = [ 'color' ]
 
     def __init__(self, obj, secs, color):
         super(ColorChange, self).__init__(secs)
         a = ColorChange.Behaviour(self.alpha, obj.get_color(), color)
-        a.add_widget(obj)
+        a.apply(obj)
         # give references to start function
-        self.start(a)
+        self.start([obj], a)
 
     @classmethod
     def candyxml_parse(cls, element):

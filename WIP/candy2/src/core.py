@@ -90,6 +90,7 @@ def gobject_execute(callback):
         callback.result = callback()
     except Exception, e:
         callback.exception = sys.exc_info()
+        log.exception('threaded')
     finally:
         callback.event.set()
 
