@@ -1,20 +1,47 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# core.py - Animation Core
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa-candy - Third generation Canvas System using Clutter as backend
+# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version
+# 2.1 as published by the Free Software Foundation.
+#
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA
+#
+# -----------------------------------------------------------------------------
+
+__all__ = [ 'Animation' ]
+
 # python imports
-import _weakref
 import logging
 
 # kaa imports
 import kaa
 import kaa.candy
 
+# clutter imports
 import clutter
-
-from behaviour import BehaviourColor
-
 
 # get logging object
 log = logging.getLogger('kaa.candy')
 
-# frames per second (hard-coded)
+# frames per second (FIXME: hard-coded)
 FPS = 25
 
 class XMLDict(dict):
@@ -24,6 +51,7 @@ class XMLDict(dict):
     def update(self, **kwargs):
         super(XMLDict, self).update(**kwargs)
         return self
+
 
 class Template(object):
     """
@@ -35,11 +63,11 @@ class Template(object):
         self._cls = cls
         self._kwargs = kwargs
 
-    def __call__(self, widget):
+    def __call__(self, widget, context=None):
         """
         Create the animation bound to the given widget.
         """
-        return self._cls(widget, **self._kwargs)
+        return self._cls(widget, context=context, **self._kwargs)
 
     @classmethod
     def candyxml_create(cls, element):
@@ -62,55 +90,64 @@ class Animation(kaa.InProgress):
 
     def __init__(self, secs):
         super(Animation, self).__init__()
-        timeline = clutter.Timeline(int(float(secs) * FPS), FPS)
-        timeline.set_loop(False)
+        self.timeline = clutter.Timeline(int(float(secs) * FPS), FPS)
+        self.timeline.set_loop(False)
         # FIXME: do not hardcode alpha function
-        self.alpha = clutter.Alpha(timeline, clutter.ramp_inc_func)
+        self.alpha = clutter.Alpha(self.timeline, clutter.ramp_inc_func)
 
-    def start(self, widgets, behaviour):
+    def _start(self, widgets, behaviour, effects):
         """
         Start the animation.
         """
         # store reference to the behaviour or the animation won't run
+        self.behaviour = behaviour
+        self.widgets = widgets
+
+        # store reference to ourself
         for widget in widgets:
-            current = widget.get_userdata('__animations__') or {}
-            for e in behaviour.effects:
-                # set behaviour for the efect. This may override
+            for e in effects:
+                # set behaviour for the effect. This may override
                 # existing behaviour with the same effect, they
                 # will be removed to avoid race conditions.
-                current[e] = behaviour
+                running = widget._running_animations.get(e, None)
+                if running is not None:
+                    running.stop()
+                widget._running_animations[e] = self
             # This creates a circular reference which will be resolved
             # on the destroy signal callback in widgets/core.py
-            # FIXME: this is all far away from perfect
-            widget.set_userdata('__animations__', current)
-        timeline = self.alpha.get_timeline()
-        timeline.rewind()
-        timeline.start()
-        self.alpha = None
-        # it this pount we have no references anymore. Neither to
-        # the running timeline not to the alpha. The only existing
-        # reference to the behaviour is in the widgets and that will
-        # be destroyed once the widget is destroyed
-        # Store a weakref to the behaviour to emit finished when the
-        # behaviour is gone because it will not be triggered ever
-        # if we do not do this.
-        timeline.connect('completed', self._clutter_finish)
-        self._weak_behaviour = _weakref.ref(behaviour, self._clutter_finish)
+        self.timeline.start()
+        self.timeline.connect('completed', self._clutter_finish)
 
-    def _clutter_finish(self, result):
+    def _clutter_finish(self, result=None):
         """
         Callback from any thread when the animation is finished.
         """
-        self._weak_behaviour = None
-        kaa.MainThreadCallback(self.finish)(None)
+        # delete all references
+        for widget in self.widgets:
+            for key, value in widget._running_animations.items():
+                if value == self:
+                    del widget._running_animations[key]
+        self.timeline.disconnect_by_func(self._clutter_finish)
+        self.timeline = self.alpha = self.behaviour = self.widgets = None
+        super(Animation, self).finish(result)
 
-    def finish(self, result):
+    def _clutter_stop(self):
         """
-        Callback in the mainthread when the animation is finished.
+        Stop the animation
         """
-        if not self._finished:
-            super(Animation, self).finish(result)
-            
+        if self.timeline is None:
+            # already done
+            return
+        self.timeline.stop()
+        self._clutter_finish()
+
+    @kaa.candy.threaded()
+    def stop(self):
+        """
+        Stop the animation
+        """
+        self._clutter_finish()
+
     @classmethod
     def candyxml_parse(cls, element):
         """
@@ -118,8 +155,16 @@ class Animation(kaa.InProgress):
         """
         return XMLDict(secs=float(element.secs))
 
-    # def __del__(self):
-    #     print '__del__', self
+    @classmethod
+    def candyxml_register(cls):
+        """
+        Register animation to the xmlparser. This function can only be called
+        once when the class is loaded.
+        """
+        kaa.candy.xmlparser.register(cls)
+
+#     def __del__(self):
+#         print '__del__', self
 
 
 class List(object):
@@ -133,14 +178,13 @@ class List(object):
         self._animations = animations
         self._properties = properties
 
-    def __call__(self, widget):
+    def __call__(self, widget, context=None):
         """
         Create the animation bound to the given widget.
         """
-        # FIXME: better return InProgressList object
         if self._properties:
             self._properties.apply(widget)
-        return [ a(widget) for a in self._animations ]
+        return [ a(widget, context) for a in self._animations ]
 
     @classmethod
     def candyxml_create(cls, element):
@@ -162,120 +206,14 @@ class List(object):
                 log.error('unknown element %s in define-animation', element.node)
         return cls(animations, properties)
 
-
-class Scale(Animation):
-    """
-    Zoom-out the given object.
-    """
-    candyxml_style = 'scale'
-
-    class Behaviour(clutter.BehaviourScale):
-        effects = [ 'scale' ]
-
-    def __init__(self, obj, secs, x_factor, y_factor):
-        super(Scale, self).__init__(secs)
-        s = obj.get_scale()
-        scale = Scale.Behaviour(s[0], s[1], x_factor, y_factor, self.alpha)
-        scale.apply(obj)
-        # give references to start function
-        self.start([obj], scale)
-
     @classmethod
-    def candyxml_parse(cls, element):
+    def candyxml_register(cls):
         """
-        Parse the XML element for parameter to create the animation.
+        Register animation to the xmlparser. This function can only be called
+        once when the class is loaded.
         """
-        return super(Scale, cls).candyxml_parse(element).update(
-            x_factor=float(element.x_factor), y_factor=float(element.y_factor))
+        kaa.candy.xmlparser.register(cls)
 
 
-class Opacity(Animation):
-    """
-    Fade in or out the given object.
-    """
-    candyxml_style = 'opacity'
-
-    class Behaviour(clutter.BehaviourOpacity):
-        effects = [ 'opacity' ]
-
-    def __init__(self, obj, secs, stop):
-        try:
-            super(Opacity, self).__init__(secs)
-        except Exception, e:
-            print e
-        opacity = Opacity.Behaviour(obj.get_opacity(), stop, self.alpha)
-        opacity.apply(obj)
-        # give references to start function
-        self.start([obj], opacity)
-
-    @classmethod
-    def candyxml_parse(cls, element):
-        """
-        Parse the XML element for parameter to create the animation.
-        """
-        return super(Opacity, cls).candyxml_parse(element).update(
-            stop=int(element.stop))
-
-
-class Move(Animation):
-    """
-    Move the given object.
-    """
-    candyxml_style = 'move'
-
-    class Behaviour(clutter.BehaviourPath):
-        effects = [ 'move' ]
-
-    def __init__(self, obj, secs, x=None, y=None):
-        super(Move, self).__init__(secs)
-        x0, y0 = obj.get_position()
-        if x is None:
-            x = x0
-        if y is None:
-            y = y0
-        path = Move.Behaviour(self.alpha, ((x0, y0), (x, y)))
-        path.apply(obj)
-        # give references to start function
-        self.start([obj], path)
-
-    @classmethod
-    def candyxml_parse(cls, element):
-        """
-        Parse the XML element for parameter to create the animation.
-        """
-        return super(Move, cls).candyxml_parse(element).update(
-            x=int(element.x), y=int(element.y))
-
-
-class ColorChange(Animation):
-    """
-    Color change animation.
-    """
-    candyxml_style = 'color'
-
-    class Behaviour(BehaviourColor):
-        effects = [ 'color' ]
-
-    def __init__(self, obj, secs, color):
-        super(ColorChange, self).__init__(secs)
-        a = ColorChange.Behaviour(self.alpha, obj.get_color(), color)
-        a.apply(obj)
-        # give references to start function
-        self.start([obj], a)
-
-    @classmethod
-    def candyxml_parse(cls, element):
-        """
-        Parse the XML element for parameter to create the animation.
-        """
-        return super(Move, cls).candyxml_parse(element).update(
-            x=int(element.x), y=int(element.y))
-
-
-
-# register the animations
-kaa.candy.xmlparser.register(List)
-kaa.candy.xmlparser.register(Scale)
-kaa.candy.xmlparser.register(Opacity)
-kaa.candy.xmlparser.register(Move)
-kaa.candy.xmlparser.register(ColorChange)
+# register the animation template
+List.candyxml_register()

@@ -184,19 +184,12 @@ class Widget(object):
                 self.set_height(size[1])
         if pos is not None:
             self.set_position(*pos)
+        # animations running created by self.animate()
+        self._running_animations = {}
         # FIXME: make _depends private
         self._depends = []
         self.__animations = []
         self.__context = context
-        self.__userdata = {}
-        self.connect('destroy', self._destroy)
-
-    def _destroy(self, actor):
-        """
-        Destroy callback when this actor is no longer used by clutter. This
-        means that is unusable at this point and we can help the python gc
-        by cleaning up some circular references e.g. for animations.
-        """
         self.__userdata = {}
         
     def set_parent(self, parent):
@@ -263,13 +256,24 @@ class Widget(object):
         """
         # FIXME: rewrite animation code
         if name in self.__animations:
-            return self.__animations[name](self)
+            return self.__animations[name](self, *args, **kwargs)
         a = kaa.candy.animation.get(name)
         if a:
             return a(self, *args, **kwargs)
         if not name in ('hide', 'show'):
             log.error('no animation named %s', name)
 
+    def destroy(self):
+        """
+        Destroy the widget. This function _must_ be called when animations
+        running in the widget to stop them first.
+        """
+        for animation in self._running_animations.values():
+            animation._clutter_stop()
+        parent = self.get_parent()
+        if parent is not None:
+            parent.remove(self)
+            
     @classmethod
     def create_template(cls, **kwargs):
         """
@@ -331,7 +335,14 @@ class Group(Widget, clutter.Group):
             child.show()
         super(Group, self).add(child)
 
-
+    def destroy(self):
+        """
+        Destroy the group and all children
+        """
+        for child in self.get_children():
+            child.destroy()
+        super(Group, self).destroy()
+        
 class Texture(Widget, clutter.Texture):
     """
     Clutter Texture widget.

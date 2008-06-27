@@ -71,13 +71,15 @@ class Container(core.Group):
                    child.get_userdata('removing'):
                 continue
             try:
-                # FIXME: this code needs some updates
-                # FIXME: only works for templates
                 child.set_userdata('removing', True)
                 template = child.get_userdata('template')
+                if not template:
+                    # this only works for items based on templates
+                    log.warning('unable to replace child %s', child)
+                    continue
                 new = template(context)
                 new.set_userdata('template', template)
-                self.add(new)
+                new.set_parent(self)
                 a1 = child.animate('hide', context=context) or []
                 a2 = new.animate('show', context=context) or []
                 self.destroy_child(child, kaa.InProgressList(a1 + a2))
