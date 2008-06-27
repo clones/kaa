@@ -56,20 +56,21 @@ def init():
     """
     @threaded()
     def load_modules():
-        import xmlparser as _xmlparser
-        global xmlparser
-        xmlparser = _xmlparser
-        global Properties
+        """
+        Load submodules in the clutter thread and add some classes
+        to globals()
+        """
+        import xmlparser
+        import config
+        import animation
+        global Properties, Timeline, MasterTimeline, Widget, Group, \
+               Text, Texture, Imlib2Texture, CairoTexture, Container, \
+               Label, Rectangle, Progressbar, Stage
         from properties import Properties
-        global Timeline, MasterTimeline
         from timeline import Timeline, MasterTimeline
-        global Widget, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
-        from widgets import Widget, Group, Text, Texture, Imlib2Texture, CairoTexture, Container, Label, Rectangle, Progressbar
-        global Stage
+        from widgets import Widget, Group, Text, Texture, Imlib2Texture, \
+             CairoTexture, Container, Label, Rectangle, Progressbar
         from stage import Stage
-        import animation as _animation
-        global animation
-        animation = _animation
         
     # set generic notifier and start the clutter thread
     kaa.main.select_notifier('generic')

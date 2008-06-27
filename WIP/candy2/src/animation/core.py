@@ -41,9 +41,6 @@ import clutter
 # get logging object
 log = logging.getLogger('kaa.candy')
 
-# frames per second (FIXME: hard-coded)
-FPS = 25
-
 class XMLDict(dict):
     """
     XML parser dict helper class.
@@ -90,7 +87,8 @@ class Animation(kaa.InProgress):
 
     def __init__(self, secs):
         super(Animation, self).__init__()
-        self.timeline = clutter.Timeline(int(float(secs) * FPS), FPS)
+        fps = kaa.candy.config.fps
+        self.timeline = clutter.Timeline(int(float(secs) * fps), fps)
         self.timeline.set_loop(False)
         # FIXME: do not hardcode alpha function
         self.alpha = clutter.Alpha(self.timeline, clutter.ramp_inc_func)
