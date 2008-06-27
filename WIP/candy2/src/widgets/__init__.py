@@ -37,3 +37,4 @@ from label import Label
 from rectangle import Rectangle
 from progressbar import Progressbar
 from text import Text
+from image import Image

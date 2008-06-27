@@ -65,11 +65,11 @@ def init():
         import animation
         global Properties, Timeline, MasterTimeline, Widget, Group, \
                Text, Texture, Imlib2Texture, CairoTexture, Container, \
-               Label, Rectangle, Progressbar, Stage
+               Label, Rectangle, Progressbar, Image, Stage
         from properties import Properties
         from timeline import Timeline, MasterTimeline
         from widgets import Widget, Group, Text, Texture, Imlib2Texture, \
-             CairoTexture, Container, Label, Rectangle, Progressbar
+             CairoTexture, Container, Label, Rectangle, Progressbar, Image
         from stage import Stage
         
     # set generic notifier and start the clutter thread

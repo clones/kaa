@@ -37,7 +37,6 @@ import clutter
 import clutter.cluttercairo
 import pango
 import cairo
-import gtk
 
 # kaa imports
 import kaa.imlib2
@@ -343,6 +342,7 @@ class Group(Widget, clutter.Group):
             child.destroy()
         super(Group, self).destroy()
         
+
 class Texture(Widget, clutter.Texture):
     """
     Clutter Texture widget.
@@ -350,13 +350,6 @@ class Texture(Widget, clutter.Texture):
     def __init__(self, pos=None, size=None, context=None):
         clutter.Texture.__init__(self)
         Widget.__init__(self, pos, size, context)
-
-    def set_from_file(self, filename):
-        """
-        Set content based on a filename.
-        """
-        pixbuf = gtk.gdk.pixbuf_new_from_file(filename)
-        self.set_pixbuf(pixbuf)
 
 
 class Imlib2Texture(Texture):

@@ -31,3 +31,6 @@
 
 #; frames per second for animations
 fps = 25
+
+#; path to search for image files
+imagepath = []
