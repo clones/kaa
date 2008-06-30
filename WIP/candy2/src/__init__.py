@@ -28,9 +28,12 @@
 
 import kaa
 
-from core import threaded, Lock, Font, Color
+import candyxml
+import config
 
-class Mainloop(object):
+from core import threaded, Lock, Font, Color, Properties, is_template
+
+class _Mainloop(object):
     """
     Clutter mainloop.
     """
@@ -47,9 +50,6 @@ class Mainloop(object):
         import clutter
         clutter.main_quit()
 
-def is_template(obj):
-    return getattr(obj, '__is_template__', False)
-
 def init():
     """
     Set the mainloop and load the widgets into our namespace
@@ -60,21 +60,19 @@ def init():
         Load submodules in the clutter thread and add some classes
         to globals()
         """
-        import xmlparser
-        import config
         import animation
-        global Properties, Timeline, MasterTimeline, Widget, Group, \
-               Text, Texture, Imlib2Texture, CairoTexture, Container, \
-               Label, Rectangle, Progressbar, Image, Stage
-        from properties import Properties
+        import widgets
+        # copy all widgets in the kaa.candy namespace
+        for key in widgets.__all__:
+            globals()[key] = getattr(widgets, key)
+        # copy some extra classes into the kaa.candy namespace
+        global Timeline, MasterTimeline, Stage
         from timeline import Timeline, MasterTimeline
-        from widgets import Widget, Group, Text, Texture, Imlib2Texture, \
-             CairoTexture, Container, Label, Rectangle, Progressbar, Image
         from stage import Stage
-        
+
     # set generic notifier and start the clutter thread
     kaa.main.select_notifier('generic')
-    kaa.gobject_set_threaded(Mainloop())
+    kaa.gobject_set_threaded(_Mainloop())
     load_modules()
 
 # we need an extra init function and that function _must_ be

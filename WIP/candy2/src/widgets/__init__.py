@@ -26,9 +26,21 @@
 #
 # -----------------------------------------------------------------------------
 
+"""
+High level widgets for kaa.candy
+
+Each widget MUST inherit from a clutter actor and the kaa.candy.Widget base
+class. After calling kaa.candy.init() all the widgets are in the kaa.candy
+namespace directly, e.g. kaa.candy.Container
+
+For basic functions read the Widget class documentation and the clutter
+U{Actor API <http://www.clutter-project.org/docs/clutter/0.6/ClutterActor.html>}.
+In case a function is defined in both classes Widget overrides Actor.
+"""
+
 import sys
 # check if kaa.candy is initialized in the thread
-if not 'clutter' in sys.modules.keys():
+if not 'clutter' in sys.modules and not 'epydoc' in sys.modules:
     raise RuntimeError('kaa.candy not initialized')
 
 from core import Widget, Group, Texture, Imlib2Texture, CairoTexture
@@ -38,3 +50,11 @@ from rectangle import Rectangle
 from progressbar import Progressbar
 from text import Text
 from image import Image
+
+__all__ = []
+for key, value in globals().items():
+    try:
+        if issubclass(value, Widget):
+            __all__.append(key)
+    except TypeError:
+        pass

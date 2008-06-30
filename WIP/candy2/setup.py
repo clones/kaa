@@ -37,4 +37,4 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
     
-setup(module = 'candy', version = '0.1')
+setup(module = 'candy', version = '0.1', epydoc = [ 'doc/epydoc' ])

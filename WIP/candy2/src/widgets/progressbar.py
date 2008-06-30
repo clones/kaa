@@ -8,7 +8,7 @@
 # -----------------------------------------------------------------------------
 
 # kaa.candy imports
-import kaa.candy
+from ..core import is_template, threaded
 import core
 
 class Progressbar(core.Group):
@@ -22,7 +22,7 @@ class Progressbar(core.Group):
         super(Progressbar, self).__init__(pos, size)
         self._width = size[0]
         self._max = 0
-        if kaa.candy.is_template(progress):
+        if is_template(progress):
             progress = progress(pos=(0,0), size=size)
             # FIXME: set pos and size for non templates
         self._progress = progress
@@ -30,14 +30,14 @@ class Progressbar(core.Group):
         self._progress.show()
         self.add(self._progress)
 
-    @kaa.candy.threaded()
+    @threaded()
     def set_max(self, max):
         """
         Set maximum value of the progress.
         """
         self._max = max
 
-    @kaa.candy.threaded()
+    @threaded()
     def set_progress(self, value):
         """
         Set a new progress and redraw the widget.
@@ -54,5 +54,5 @@ class Progressbar(core.Group):
             progress=element[0].xmlcreate())
 
 
-# register widget to the xmlparser
+# register widget to candyxml
 Progressbar.candyxml_register()

@@ -77,5 +77,5 @@ class Text(core.Widget, clutter.Label):
             font=element.font)
 
 
-# register widget to the xmlparser
+# register widget to candyxml
 Text.candyxml_register()

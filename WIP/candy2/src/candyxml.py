@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# xmlparser.py - Parser to parse XML text into widget Templates
+# candyxml.py - Parser to parse XML text into widget Templates
 # -----------------------------------------------------------------------------
 # $Id$
 #

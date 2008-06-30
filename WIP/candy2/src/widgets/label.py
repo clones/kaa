@@ -135,5 +135,5 @@ class Label(core.CairoTexture):
             text=element.content, align=element.align)
 
 
-# register widget to the xmlparser
+# register widget to candyxml
 Label.candyxml_register()

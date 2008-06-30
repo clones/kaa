@@ -26,7 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Color', 'Font', 'threaded', 'Lock' ]
+__all__ = [ 'is_template', 'Color', 'Font', 'Properties', 'threaded', 'Lock' ]
 
 # python imports
 import logging
@@ -39,6 +39,10 @@ import kaa
 
 # get logging object
 log = logging.getLogger('kaa.candy')
+
+
+def is_template(obj):
+    return getattr(obj, '__is_template__', False)
 
 
 class Color(list):
@@ -76,6 +80,41 @@ class Font(object):
     def __init__(self, name):
         self.name, size = name.split(':')
         self.size = int(size)
+
+
+class Properties(dict):
+    """
+    Properties class to apply the given properties to a widget.
+    """
+    candyxml_name = 'properties'
+
+    def apply(self, widget):
+        """
+        Apply to the given widget.
+        """
+        for func, value in self.items():
+            getattr(widget, 'set_' + func)(*value)
+            if func == 'anchor_point':
+                widget.move_by(*value)
+
+    @classmethod
+    def candyxml_create(cls, element):
+        """
+        Parse the XML element for parameter and create a Properties object.
+        """
+        properties = cls()
+        for key, value in element.attributes():
+            if key in ('opacity', 'depth'):
+                value = [ int(value) ]
+            elif key in ('scale','anchor_point'):
+                value = [ float(x) for x in value.split(',') ]
+                if key in ('scale','anchor_point'):
+                    value = int(value[0] * element.get_scale_factor()[0]), \
+                            int(value[1] * element.get_scale_factor()[1])
+            else:
+                value = [ value ]
+            properties[key] = value
+        return properties
 
 
 #: thread the clutter mainloop is running in

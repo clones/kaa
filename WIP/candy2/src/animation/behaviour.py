@@ -32,7 +32,7 @@ __all__ = [ 'BehaviourColor' ]
 import clutter
 
 # kaa.candy imports
-from kaa.candy import Color
+from ..core import Color
 
 class BehaviourColor(clutter.Behaviour):
     """

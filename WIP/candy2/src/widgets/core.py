@@ -42,7 +42,7 @@ import cairo
 import kaa.imlib2
 
 # kaa.candy imports
-import kaa.candy
+from .. import candyxml, animation, Properties
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -126,7 +126,7 @@ class Template(object):
         object is created.
         """
         if self._properties is None:
-             self._properties = kaa.candy.Properties()
+             self._properties = Properties()
         self._properties[key] = value
 
     @classmethod
@@ -134,7 +134,7 @@ class Template(object):
         """
         Get the class for the XML element
         """
-        return kaa.candy.xmlparser.get_class(element.node, element.style)
+        return candyxml.get_class(element.node, element.style)
 
     @classmethod
     def candyxml_create(cls, element):
@@ -144,7 +144,7 @@ class Template(object):
         properties = element.properties
         if properties is not None:
             element.remove(properties)
-            properties = kaa.candy.Properties.candyxml_create(properties)
+            properties = Properties.candyxml_create(properties)
         animations = {}
         # FIXME: rewrite animation support
         for child in element.get_children('define-animation'):
@@ -256,7 +256,7 @@ class Widget(object):
         # FIXME: rewrite animation code
         if name in self.__animations:
             return self.__animations[name](self, *args, **kwargs)
-        a = kaa.candy.animation.get(name)
+        a = animation.get(name)
         if a:
             return a(self, *args, **kwargs)
         if not name in ('hide', 'show'):
@@ -290,10 +290,10 @@ class Widget(object):
     @classmethod
     def candyxml_register(cls, style=None):
         """
-        Register class to the xmlparser. This function can only be called
+        Register class to candyxml. This function can only be called
         once when the class is loaded.
         """
-        kaa.candy.xmlparser.register(cls, style)
+        candyxml.register(cls, style)
 
     # def __del__(self):
     #     print '__del__', self

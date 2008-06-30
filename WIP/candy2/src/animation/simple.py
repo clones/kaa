@@ -133,7 +133,7 @@ class Color(Animation):
             x=int(element.x), y=int(element.y))
 
 
-# register the animations to the xmlparser
+# register the animations to candyxml
 Scale.candyxml_register()
 Opacity.candyxml_register()
 Move.candyxml_register()

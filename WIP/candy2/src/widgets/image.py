@@ -34,7 +34,7 @@ import os
 import gtk.gdk
 
 # kaa.candy imports imports
-import kaa.candy
+from .. import config
 import core
 
 imagedir = None
@@ -60,7 +60,7 @@ class Image(core.Texture):
         """
         Helper function to get the full path of the image.
         """
-        for path in kaa.candy.config.imagepath:
+        for path in config.imagepath:
             filename = os.path.join(path, name)
             if os.path.isfile(filename):
                 return filename
@@ -75,5 +75,5 @@ class Image(core.Texture):
             filename=element.filename)
 
 
-# register widget to the xmlparser
+# register widget to candyxml
 Image.candyxml_register()

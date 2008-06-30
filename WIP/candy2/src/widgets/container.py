@@ -26,6 +26,8 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'Container' ]
+
 # python imports
 import logging
 
@@ -33,7 +35,7 @@ import logging
 import kaa
 
 # kaa.candy imports
-import kaa.candy
+from ..core import is_template, threaded
 import core
 
 # get logging object
@@ -50,7 +52,7 @@ class Container(core.Group):
         super(Container, self).__init__(pos, size, context)
         for widget in widgets:
             try:
-                if kaa.candy.is_template(widget):
+                if is_template(widget):
                     template = widget
                     widget = template(context)
                     if widget.context_sensitive:
@@ -99,7 +101,7 @@ class Container(core.Group):
                     return result
         return None
 
-    @kaa.candy.threaded()
+    @threaded()
     def destroy_child(self, child, delay=None):
         """
         Destroy the replaced child
@@ -125,5 +127,5 @@ class Container(core.Group):
             widgets=widgets)
 
 
-# register widget to the xmlparser
+# register widget to candyxml
 Container.candyxml_register()

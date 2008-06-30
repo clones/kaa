@@ -33,10 +33,12 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.candy
 
 # clutter imports
 import clutter
+
+# kaa.candy imports
+from .. import config, candyxml, threaded, Properties
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -71,7 +73,7 @@ class Template(object):
         """
         Parse the XML element for parameter and create a Template.
         """
-        animation = kaa.candy.xmlparser.get_class(element.node, element.style)
+        animation = candyxml.get_class(element.node, element.style)
         if not animation:
             return None
         return cls(element.style, animation, animation.candyxml_parse(element))
@@ -87,7 +89,7 @@ class Animation(kaa.InProgress):
 
     def __init__(self, secs):
         super(Animation, self).__init__()
-        fps = kaa.candy.config.fps
+        fps = config.fps
         self.timeline = clutter.Timeline(int(float(secs) * fps), fps)
         self.timeline.set_loop(False)
         # FIXME: do not hardcode alpha function
@@ -139,7 +141,7 @@ class Animation(kaa.InProgress):
         self.timeline.stop()
         self._clutter_finish()
 
-    @kaa.candy.threaded()
+    @threaded()
     def stop(self):
         """
         Stop the animation
@@ -156,10 +158,10 @@ class Animation(kaa.InProgress):
     @classmethod
     def candyxml_register(cls):
         """
-        Register animation to the xmlparser. This function can only be called
+        Register animation to candyxml. This function can only be called
         once when the class is loaded.
         """
-        kaa.candy.xmlparser.register(cls)
+        candyxml.register(cls)
 
 #     def __del__(self):
 #         print '__del__', self
@@ -193,7 +195,7 @@ class List(object):
         animations = []
         for element in element:
             if element.node == 'properties':
-                properties = kaa.candy.Properties.candyxml_create(element)
+                properties = Properties.candyxml_create(element)
             elif element.node == 'animation':
                 a = element.xmlcreate()
                 if a is None:
@@ -207,10 +209,10 @@ class List(object):
     @classmethod
     def candyxml_register(cls):
         """
-        Register animation to the xmlparser. This function can only be called
+        Register animation to candyxml. This function can only be called
         once when the class is loaded.
         """
-        kaa.candy.xmlparser.register(cls)
+        candyxml.register(cls)
 
 
 # register the animation template

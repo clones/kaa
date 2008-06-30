@@ -109,5 +109,5 @@ class Rectangle(core.CairoTexture):
             color=element.color, border_color=element.border_color)
 
 
-# register widget to the xmlparser
+# register widget to candyxml
 Rectangle.candyxml_register()

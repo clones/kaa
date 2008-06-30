@@ -30,7 +30,7 @@ __all__ = [ 'Timeline', 'MasterTimeline' ]
 
 import sys
 # check if kaa.candy is initialized in the thread
-if not 'clutter' in sys.modules.keys():
+if not 'clutter' in sys.modules and not 'epydoc' in sys.modules:
     raise RuntimeError('kaa.candy not initialized')
 
 import clutter

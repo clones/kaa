@@ -29,7 +29,7 @@
 __all__ = [ 'get', 'Animation' ]
 
 # kaa.candy imports
-import kaa.candy
+from ..candyxml import get_class
 import simple
 
 # export classes
@@ -39,4 +39,4 @@ def get(name):
     """
     Get animation by name
     """
-    return kaa.candy.xmlparser.get_class('animation', name)
+    return get_class('animation', name)
