@@ -47,6 +47,19 @@ class Label(core.CairoTexture):
 
     def __init__(self, pos, size, font, color, text, align='left',
                  context=None):
+        """
+        Create a new label widget
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget or None. The height
+            parameter is ignored, the widget will always be as height as one line
+            of text with the given font.
+        @param font: kaa.candy.Font object
+        @param text: Text to render. This can also be a context based string like
+            C{$text} with the context containing C{text='My String'}. This will
+            make the widget context sensitive.
+        @param align: Text alignment. One of 'left' (default), 'center' or 'right'
+        @param context: the context the widget is created in
+        """
         depends = []
         if context:
             def replace_context(matchobj):
@@ -66,7 +79,8 @@ class Label(core.CairoTexture):
 
     def set_color(self, color):
         """
-        Set a new color
+        Set a new color and re-render the label
+        @param color: kaa.candy.Color object
         """
         self._color = color
         self._render()
@@ -74,11 +88,17 @@ class Label(core.CairoTexture):
     def get_color(self):
         """
         Return color object.
+        @returns: kaa.candy.Color object
         """
         return self._color
 
     @classmethod
     def get_font_height(cls, name, size):
+        """
+        Return font information for the given font name and size
+        @param name: font name
+        @param size: font size
+        """
         info = cls._font_cache.get((name, size))
         if info:
             return info
@@ -94,7 +114,7 @@ class Label(core.CairoTexture):
 
     def _render(self):
         """
-        Render the text.
+        Render the label.
         """
         self.clear()
         # draw new text string
@@ -128,7 +148,12 @@ class Label(core.CairoTexture):
     @classmethod
     def candyxml_parse(cls, element):
         """
-        Parse the XML element for parameter to create the widget.
+        Parse the candyxml element for parameter to create the widget. Example::
+          <label x='10' y='50' width='100' font='Vera:24' color='0xffffffff'
+              text='my string' align='left'/>
+
+        The text can also be a context based variable like C{$text}. This
+        will make the widget context sensitive.
         """
         return super(Label, cls).candyxml_parse(element).update(
             font=element.font, color=element.color,

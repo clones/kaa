@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# rectangle.py - Rectange Widgets
+# rectangle.py - Rectange Widget
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -37,6 +37,16 @@ class Rectangle(core.CairoTexture):
 
     def __init__(self, pos, size, color=None, border_size=0,
                  border_color=None, radius=0):
+        """
+        Create a Rectange widget
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget or None.
+        @param color: kaa.candy.Color to fill the rectangle
+        @param border_size: size of the rectangle border
+        @param border_color: kaa.candy.Color of the border. This argument is
+            not needed when border_size is 0.
+        @param radius: radius for rectnagles with round edges.
+        """
         super(Rectangle, self).__init__(pos, size)
         self._radius = radius
         self._color = color
@@ -102,7 +112,9 @@ class Rectangle(core.CairoTexture):
     @classmethod
     def candyxml_parse(cls, element):
         """
-        Parse the XML element for parameter to create the widget.
+        Parse the candyxml element for parameter to create the widget. Example::
+            <rectangle x='0' y='0' width='100' height='100' color='0xff0000'
+                border_size='2' border_color='0x000000' radius='10'/>
         """
         return super(Rectangle, cls).candyxml_parse(element).update(
             radius=int(element.radius or 0), border_size=float(element.border_size or 0),

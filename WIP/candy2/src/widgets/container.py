@@ -49,6 +49,14 @@ class Container(core.Group):
     context_sensitive = True
 
     def __init__(self, pos, size, widgets, dependency=None, context=None):
+        """
+        Create a container
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget or None.
+        @param widgets: list of widgets or widget templates to put into the container
+        @param dependency: list of context dependencies for set_context
+        @param context: the context the widget is created in
+        """
         super(Container, self).__init__(pos, size, context)
         for widget in widgets:
             try:
@@ -65,7 +73,8 @@ class Container(core.Group):
 
     def set_context(self, context):
         """
-        Set a new context for the widget and redraw it.
+        Set a new context for the container and redraw it.
+        @param context: context dict
         """
         super(Container, self).set_context(context)
         for child in self.get_children()[:]:
@@ -90,7 +99,10 @@ class Container(core.Group):
 
     def get_element(self, name):
         """
-        Get child element with the given name.
+        Get child element with the given name. For container as child elements this
+        function will search recursive.
+        @param name: name of the child
+        @returns: widget or None
         """
         for child in self.get_children():
             if child.get_name() == name:
@@ -104,7 +116,9 @@ class Container(core.Group):
     @threaded()
     def destroy_child(self, child, delay=None):
         """
-        Destroy the replaced child
+        Destroy a child.
+        @param child: widget to destroy
+        @param delay: kaa.InProgress object to wait for until destroying the child
         """
         if delay is not None and not delay.is_finished():
             return delay.connect_once(self.destroy_child, child).set_ignore_caller_args()
@@ -113,7 +127,11 @@ class Container(core.Group):
     @classmethod
     def candyxml_parse(cls, element):
         """
-        Parse the XML element for parameter to create the widget.
+        Parse the candyxml element for parameter to create the widget. Example::
+            <container x='10' y='0' width='200' height=100'>
+                <child_widget1/>
+                <child_widget2/>
+            </container>
         """
         widgets = []
         for child in element:

@@ -42,7 +42,7 @@ import cairo
 import kaa.imlib2
 
 # kaa.candy imports
-from .. import candyxml, animation, Properties
+from .. import candyxml, animation, Properties, threaded
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -61,9 +61,15 @@ class Template(object):
     object to parse everything at once.
     """
 
+    #: class is a template class
     __is_template__ = True
 
     def __init__(self, cls, **kwargs):
+        """
+        Create a template for the given class
+        @param cls: widget class
+        @param kwargs: keyword arguments for cls.__init__
+        """
         self._cls = cls
         self._properties = kwargs.pop('properties', None)
         self._kwargs = kwargs
@@ -73,6 +79,9 @@ class Template(object):
         """
         Create the widget with the given context and override some
         constructor arguments.
+        @param context: context to create the widget in
+        @param override: override the given keyword arguments on creation
+        @returns: widget object
         """
         kwargs = self._kwargs
         if override:
@@ -105,18 +114,26 @@ class Template(object):
     def get_userdata(self, key):
         """
         Get additional data stored in this object.
+        @param key: key of the userdata
+        @returns: value or None if not set
         """
         return self.__userdata.get(key)
 
     def set_userdata(self, key, value):
         """
-        Store additional data in this object.
+        Store additional data in this object. This function can be used if additional
+        information should be stored in a template for later reference. The userdata
+        is not copied to a created widget.
+        @param key: key to name the userdata
+        @param value: value of the userdata.
         """
         self.__userdata[key] = value
 
     def get_attribute(self, attr):
         """
         Get the value for the attribute for object creation.
+        @param attr: attribute name for cls.__init__
+        @returns: attribute value or None if not set
         """
         return self._kwargs.get(attr)
 
@@ -132,14 +149,17 @@ class Template(object):
     @classmethod
     def candyxml_get_class(cls, element):
         """
-        Get the class for the XML element
+        Get the class for the candyxml element. This function may be overwritten
+        by inheriting classes and should not be called from outside such a class.
         """
         return candyxml.get_class(element.node, element.style)
 
     @classmethod
     def candyxml_create(cls, element):
         """
-        Parse the XML element for parameter and create a Template.
+        Parse the candyxml element for parameter and create a Template.
+        @param element: kaa.candy.candyxml.Element with widget information
+        @returns: Template object
         """
         properties = element.properties
         if properties is not None:
@@ -164,6 +184,10 @@ class Template(object):
 class Widget(object):
     """
     Basic widget. All widgets from the backend must inherit from it.
+    @group Context Management: set_context, get_context, try_context, set_dependency
+    @group Animations: animate, stop_animations, set_animations
+    @cvar context_sensitive: class variable for inherting class if the class
+        depends on the context.
     """
 
     #: set if the object reacts on set_context
@@ -174,7 +198,10 @@ class Widget(object):
 
     def __init__(self, pos=None, size=None, context=None):
         """
-        Basic widget constructor
+        Basic widget constructor.
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget or None.
+        @param context: the context the widget is created in
         """
         if size is not None:
             if size[0] is not None:
@@ -190,18 +217,13 @@ class Widget(object):
         self.__animations = []
         self.__context = context
         self.__userdata = {}
-        
-    def set_parent(self, parent):
-        """
-        Set the parent widget
-        """
-        if self.get_parent():
-            self.get_parent().remove(self)
-        parent.add(self)
 
     def get_context(self, key=None):
         """
         Get the context the widget is in.
+        @param key: if key is not None return only the value for key
+            from the context
+        @returns: context dict or value for the key
         """
         if key is None:
             return self.__context
@@ -210,14 +232,16 @@ class Widget(object):
     def set_context(self, context):
         """
         Set a new context.
+        @param context: dict of context key,value pairs
         """
         self.__context = context
 
     def try_context(self, context):
         """
         Check if the widget is capable of the given context based on its
-        dependencies and return False if not or set the context and return
-        True if it is.
+        dependencies. If it is possible set the context.
+        @param context: context dict
+        @returns: False if the widget can not handle the context or True
         """
         for var, value in self._depends:
             if value != eval(var, context):
@@ -227,31 +251,28 @@ class Widget(object):
 
     def set_dependency(self, *dependencies):
         """
-        Set list of dependencies this widget has based on the context.
+        Set list of dependencies this widget has based on the context. This function
+        is used internally in a widget implementation.
+        @param dependencies: list of keys of the context this widget requires to
+           be set to the same values as they were when the widget was created.
         """
         self._depends = [ (str(d), eval(str(d), self.__context)) for d in dependencies ]
 
     def set_animations(self, animations):
         """
         Set additional animations for object.animate()
+        @param animations: dict with key,Animation
         """
         self.__animations = animations
 
-    def get_userdata(self, key):
-        """
-        Get additional data stored in this object.
-        """
-        return self.__userdata.get(key)
-
-    def set_userdata(self, key, value):
-        """
-        Store additional data in this object.
-        """
-        self.__userdata[key] = value
-
+    @threaded()
     def animate(self, name, *args, **kwargs):
         """
-        Animate the object with the given animation.
+        Animate the object with the given animation. The animations are defined
+        by C{set_animations}, the candyxml definition or the basic animation
+        classes in kaa.candy.animation. Calling this function is thread-safe.
+        @param name: name of the animation used by C{set_animations} or
+            kaa.candy.animations
         """
         # FIXME: rewrite animation code
         if name in self.__animations:
@@ -261,6 +282,24 @@ class Widget(object):
             return a(self, *args, **kwargs)
         if not name in ('hide', 'show'):
             log.error('no animation named %s', name)
+
+    def stop_animations(self):
+        """
+        Stop all running animations for the widget. This function must be called
+        when a widget is removed from the stage. Calling C{destroy} will also
+        stop all animations.
+        """
+        for animation in self._running_animations.values():
+            animation._clutter_stop()
+
+    def set_parent(self, parent):
+        """
+        Set the parent widget.
+        @param parent: kaa.candy Group or Stage object
+        """
+        if self.get_parent():
+            self.get_parent().remove(self)
+        parent.add(self)
 
     def destroy(self):
         """
@@ -272,18 +311,39 @@ class Widget(object):
         parent = self.get_parent()
         if parent is not None:
             parent.remove(self)
-            
+
+    def get_userdata(self, key):
+        """
+        Get additional data stored in this object.
+        @param key: key of the userdata
+        @returns: value or None if not set
+        """
+        return self.__userdata.get(key)
+
+    def set_userdata(self, key, value):
+        """
+        Store additional data in this object. This function can be used if additional
+        information should be stored in a widget for later reference.
+        @param key: key to name the userdata
+        @param value: value of the userdata.
+        """
+        self.__userdata[key] = value
+
     @classmethod
     def create_template(cls, **kwargs):
         """
         Create a template for this class.
+        @param kwargs: keyword arguments based on the class __init__ function
         """
         return cls.__template__(cls, **kwargs)
 
     @classmethod
     def candyxml_parse(cls, element):
         """
-        Parse the XML element for parameter to create the widget.
+        Parse the candyxml element for parameter to create the widget. This function
+        must be overwitten by a subclass for the correct parsing. This class
+        only parses pos and size::
+          <widget x='10' y='20' width='100' height='50'/>
         """
         return XMLDict(pos=element.pos, size=(element.width, element.height))
 
@@ -304,6 +364,14 @@ class Group(Widget, clutter.Group):
     Group widget.
     """
     def __init__(self, pos=None, size=None, context=None):
+        """
+        Simple clutter.Group widget
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget or None. A clutter.Group
+            does not respect the given geometry. If set, the geometry can be
+            read with the get_max memeber functions.
+        @param context: the context the widget is created in
+        """
         clutter.Group.__init__(self)
         Widget.__init__(self, pos, size, context)
         self._max_size = size or (None, None)
@@ -329,6 +397,8 @@ class Group(Widget, clutter.Group):
     def add(self, child, visible=True):
         """
         Add a child and set it visible.
+        @param child: kaa.candy.Widget, NOT a Template
+        @param visible: set the child status to visible when adding
         """
         if visible:
             child.show()
@@ -336,18 +406,25 @@ class Group(Widget, clutter.Group):
 
     def destroy(self):
         """
-        Destroy the group and all children
+        Destroy the group and all children. The object is removed from the
+        parant and not usable anymore.
         """
         for child in self.get_children():
             child.destroy()
         super(Group, self).destroy()
-        
+
 
 class Texture(Widget, clutter.Texture):
     """
     Clutter Texture widget.
     """
     def __init__(self, pos=None, size=None, context=None):
+        """
+        Simple clutter.Texture widget
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget or None.
+        @param context: the context the widget is created in
+        """
         clutter.Texture.__init__(self)
         Widget.__init__(self, pos, size, context)
 
@@ -372,27 +449,41 @@ class Imlib2Texture(Texture):
                   self.width, self.height, 1, 4, 0)
 
     def __init__(self, pos, size, context=None):
+        """
+        Create a kaa.imlib2 based texture.
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget
+        @param context: the context the widget is created in
+        """
         super(Imlib2Texture, self).__init__(pos, size, context)
         self._image = kaa.imlib2.new(size)
 
     def imlib2_create(self):
         """
-        Return Imlib2 context image.
+        Return Imlib2 context image. The widget will update once the returned
+        kaa.imlib2 Image is deleted.
         """
         return Imlib2Texture.Context(self, self._image._image)
 
 
 class CairoTexture(Widget, clutter.cluttercairo.CairoTexture):
     """
-    Cairo based Texture widget,
+    Cairo based Texture widget.
     """
     def __init__(self, pos, size, context=None):
+        """
+        Create a cairo based texture.
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget
+        @param context: the context the widget is created in
+        """
         clutter.cluttercairo.CairoTexture.__init__(self, *size)
         Widget.__init__(self, pos, None, context)
 
     def clear(self):
         """
-        Clear the complete surface
+        Clear the complete surface. This function may be called by an
+        inheriting class in a render function on update.
         """
         context = self.cairo_create()
         context.set_operator(cairo.OPERATOR_CLEAR)
