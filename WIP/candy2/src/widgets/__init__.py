@@ -49,7 +49,7 @@ from label import Label
 from rectangle import Rectangle
 from progressbar import Progressbar
 from text import Text
-from image import Image
+from image import Image, Thumbnail
 
 __all__ = []
 for key, value in globals().items():
