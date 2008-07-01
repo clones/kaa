@@ -39,8 +39,6 @@ import gtk.gdk
 from .. import config, threaded
 import core
 
-imagedir = None
-
 class Image(core.Texture):
     """
     Image widget based on a filename.
