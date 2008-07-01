@@ -101,12 +101,17 @@ class Thumbnail(Image):
         @todo: add default image
         """
         super(Thumbnail, self).__init__(pos, size, None, context)
-        self._thumbnail = eval(thumbnail, context)
-        self.set_dependency(thumbnail)
-        if self._thumbnail.exists():
+        if isinstance(thumbnail, (str, unicode)):
+            # get thumbnail from context
+            self.set_dependency(thumbnail)
+            thumbnail = eval(thumbnail, context)
+        self._thumbnail = thumbnail
+        if self._thumbnail is not None and self._thumbnail.exists():
+            # show thumbnail
             return self._show_thumbnail()
-        # create thumbnail; be carefull with threads
-        self._thumbnail.create().connect_weak_once(self._show_thumbnail)
+        if self._thumbnail is not None:
+            # create thumbnail; be carefull with threads
+            self._thumbnail.create().connect_weak_once(self._show_thumbnail)
 
     @threaded()
     def _show_thumbnail(self):
