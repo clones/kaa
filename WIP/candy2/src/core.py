@@ -42,14 +42,29 @@ log = logging.getLogger('kaa.candy')
 
 
 def is_template(obj):
+    """
+    Returns True if the given object is a kaa.candy template class. This function
+    is needed to check if a given widget is a real clutter widget or only a template
+    for creating one.
+    """
     return getattr(obj, '__is_template__', False)
 
 
 class Color(list):
     """
-    Color object.
+    Color object which is a list of r,g,b,a with values between 0 and 255.
     """
     def __init__(self, *col):
+        """
+        Create a new color object. All C{set_color} member functions of kaa.candy
+        widgets use this class for setting a color and not the clutter color object.
+        The Color object is list of r,g,b,a with values between 0 and 255.
+
+        @param col: one of the following types
+         - a tuple r,g,b,a
+         - a clutter color object
+         - a string #aarrggbb
+        """
         if len(col) > 1:
             return super(Color, self).__init__(col)
         # Convert a 32-bit (A)RGB color
@@ -69,28 +84,41 @@ class Color(list):
 
     def to_cairo(self):
         """
-        Convert to list used by cairo (float values from 0-1)
+        Convert to list used by cairo.
+        @returns: list with float values from 0 to 1.0
         """
         return [ x / 255.0 for x in self ]
 
+
 class Font(object):
     """
-    Font object
+    Font object containing font name and font size
+    @ivar name: font name
+    @ivar size: font size
     """
     def __init__(self, name):
+        """
+        Create a new font object
+        @param name: name and size of the font, e.g. Vera:24
+        """
         self.name, size = name.split(':')
         self.size = int(size)
 
 
 class Properties(dict):
     """
-    Properties class to apply the given properties to a widget.
+    Properties class to apply the given properties to a widget. This is a
+    dictionary for clutter functions to call after the widget is created.
+    It is used by candyxml and the animation submodule.
     """
+
+    #: candyxml name
     candyxml_name = 'properties'
 
     def apply(self, widget):
         """
         Apply to the given widget.
+        @param widget: a kaa.candy.Widget
         """
         for func, value in self.items():
             getattr(widget, 'set_' + func)(*value)
@@ -100,7 +128,14 @@ class Properties(dict):
     @classmethod
     def candyxml_create(cls, element):
         """
-        Parse the XML element for parameter and create a Properties object.
+        Parse the candyxml element and create a Properties object::
+
+          <widget_or_animation>
+            <properties key=value key=value>
+          </widget_or_animation>
+
+        Possible keys are C{opacity} (int), C{depth} (int),
+        C{scale} (float,float), C{anchor_point} (float,float)
         """
         properties = cls()
         for key, value in element.attributes():
@@ -154,8 +189,10 @@ class Lock(object):
 
     def acquire(self, auto_release=True):
         """
-        Lock the clutter thread. If auto_release is True, the lock will be
-        released on the next iteration of the kaa mainloop by itself.
+        Lock the clutter thread.
+        @param auto_release: if True, the lock will be released on the next
+            iteration of the kaa mainloop by itself.
+        @returns: None
         """
         Lock.counter += 1
         if auto_release:
@@ -173,7 +210,9 @@ class Lock(object):
 
     def release(self):
         """
-        Release the clutter thread.
+        Release the lock. The clutter thread will still be locked if another
+        Lock instance is holding a lock.
+        @returns: None
         """
         if not self._locked:
             return
@@ -197,13 +236,17 @@ class Lock(object):
         self._main_event.set()
 
 
-class threaded(object):
+def threaded():
     """
     Decorator to force the execution of the function in the clutter mainloop
-    and _blocking_ the mainloop during that time.
+    and blocking the mainloop during that time. This decorator should be
+    used for function that create or manipulate kaa.candy widgets. Since the
+    kaa mainloop will be blocked during execution to avoid race conditions
+    decorated functions should be very small and can not wait for additional
+    input from the mainloop.
     """
 
-    def __call__(self, func):
+    def decorator(func):
         """
         Decorator function.
         """
@@ -224,5 +267,10 @@ class threaded(object):
                 exc_type, exc_value, exc_tb_or_stack = callback.exception
                 raise exc_type, exc_value, exc_tb_or_stack
             return callback.result
+
+        if 'epydoc' in sys.modules:
+            return func
         newfunc.func_name = func.func_name
         return newfunc
+
+    return decorator

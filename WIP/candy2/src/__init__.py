@@ -26,6 +26,47 @@
 #
 # -----------------------------------------------------------------------------
 
+"""
+B{kaa.candy - Third generation Canvas System using Clutter as backend}
+
+kaa.candy is a module using clutter as canvas backend for the drawing operations.
+It provides a higher level API for the basic clutter objects like Actor,
+Timeline and Behaviour. The four main features are:
+
+ 1. More complex widgets. Clutter only supports basic actors Text, Texture,
+    Rectangle and Group. kaa.canvas uses these primitives to create more
+    powerful widgets. See the widgets submodule for details.
+
+ 2. More powerful scripting language. The clutter scripting language is very
+    primitive. With candyxml you can define higher level widgets and they can
+    react on context changes with automatic redraws. See the candyxml submodule for
+    details.
+
+ 3. Better thread support. In kaa.candy two mainloops are running. The first one is
+    the generic kaa mainloop and the second one is the clutter mainloop based on the
+    glib mainloop. kaa.candy defines secure communication between these two mainloops.
+    All widget operations should be done in the clutter thread. See the C{init},
+    C{threaded} and C{Lock} in this module for details.
+
+ 4. Template engine. Instead of creating a widget it is possible to create a
+    template how to create a widget. Is a a thread-safe way to create widgets by
+    creating a template in the mainloop and let the clutter thread create the
+    real widget based on that template. The candyxml module also uses templates
+    for faster object instantiation.
+
+Because of the threading and clutter limitations you must call C{kaa.candy.init()}
+in the main python file (not in an imported module) to set up kaa.candy and the
+clutter thread. After that all widgets in the widgets submodule can be accessed
+directly from the kaa.candy namespace.
+
+@group Decorator: threaded
+@group Submodules with classes in the kaa.candy namespace: widgets, timeline, stage
+@group Submodules in the kaa.candy namespace: animation, candyxml, config
+@group Additional submodules: version
+"""
+
+__all__ = [ 'threaded', 'Lock', 'Font', 'Color', 'Properties', 'is_template', 'init' ]
+
 import kaa
 
 import candyxml
@@ -33,7 +74,7 @@ import config
 
 from core import threaded, Lock, Font, Color, Properties, is_template
 
-class _Mainloop(object):
+class Mainloop(object):
     """
     Clutter mainloop.
     """
@@ -52,7 +93,15 @@ class _Mainloop(object):
 
 def init():
     """
-    Set the mainloop and load the widgets into our namespace
+    Initialize kaa.candy. This sets the mainloop to the generic kaa mainloop and
+    starts the glib mainloop in a thread and imports clutter and all kaa.candy
+    classes depending on clutter in that thread. The function will be block until
+    kaa.candy is initialized. After calling this function all widgtes and clutter
+    based classes will be copied to the kaa.candy namespace.
+
+    The function must be called from the main python file of the application because
+    it imports files from a thread and python locks import statements against
+    race conditions.
     """
     @threaded()
     def load_modules():
@@ -72,7 +121,7 @@ def init():
 
     # set generic notifier and start the clutter thread
     kaa.main.select_notifier('generic')
-    kaa.gobject_set_threaded(_Mainloop())
+    kaa.gobject_set_threaded(Mainloop())
     load_modules()
 
 # we need an extra init function and that function _must_ be

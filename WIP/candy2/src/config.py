@@ -29,6 +29,10 @@
 #
 # -----------------------------------------------------------------------------
 
+"""
+Basic configuration settings
+"""
+
 #; frames per second for animations
 fps = 25
 

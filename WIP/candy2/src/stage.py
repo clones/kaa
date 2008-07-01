@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# stage.py - Clutter Stage (thread safe)
+# stage.py - Clutter Stage Wrapper
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -26,6 +26,12 @@
 #
 # -----------------------------------------------------------------------------
 
+"""
+kaa.candy window for widgets
+"""
+
+__all__ = [ 'Stage' ]
+
 # clutter imports
 import clutter
 
@@ -33,18 +39,26 @@ import clutter
 import kaa
 
 # kaa.candy imports
-from core import threaded
+from core import threaded, is_template
 
 class Stage(object):
     """
-    Window main window.
+    Wrapper around clutter.Stage.
+    @ivar signals: kaa.Signal dictionary for the object
+      - key-press: sends a key pressed in the window. The signal is emited in
+           the kaa mainloop.
     """
     def __init__(self, (width, height)):
+        """
+        Create a window with the given geometry
+        @param width: width of the window
+        @param height: height of the window
+        """
         self.signals = kaa.Signals('key-press')
         self._geomertry = width, height
         self._stage = clutter.Stage()
         self._stage.set_size(width, height)
-        self._stage.connect('key-press-event', self.handle_key)
+        self._stage.connect('key-press-event', self._handle_key)
         self._stage.set_color(clutter.Color(0, 0, 0, 0xff))
         self._keysyms = {}
         # get list of clutter key code. We must access the module
@@ -55,9 +69,10 @@ class Stage(object):
                 self._keysyms[getattr(clutter.keysyms, name)] = name
         self._stage.show()
 
-    def handle_key(self, stage, event):
+    def _handle_key(self, stage, event):
         """
-        Translate clutter keycode to name and emit signal in main loop.
+        Translate clutter keycode to name and emit signal in main loop. This
+        function is a callback from clutter.
         """
         key = self._keysyms.get(event.keyval)
         if key is not None:
@@ -67,7 +82,11 @@ class Stage(object):
     def add(self, child, visible=True):
         """
         Add the child to the screen.
+        @param child: Widget or widget Template object
+        @param visible: set the child status to visible when adding
         """
+        if is_template(child):
+            child = child()
         if visible:
             child.show()
         self._stage.add(child)
@@ -76,5 +95,6 @@ class Stage(object):
     def remove(self, child):
         """
         Remove the child from the screen.
+        @param child: child connected to the window
         """
         self._stage.remove(child)
