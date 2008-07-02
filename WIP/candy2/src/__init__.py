@@ -35,12 +35,12 @@ Timeline and Behaviour. The four main features are:
 
  1. More complex widgets. Clutter only supports basic actors Text, Texture,
     Rectangle and Group. kaa.canvas uses these primitives to create more
-    powerful widgets. See the widgets submodule for details.
+    powerful widgets. See the L{widgets} submodule for details.
 
  2. More powerful scripting language. The clutter scripting language is very
     primitive. With candyxml you can define higher level widgets and they can
-    react on context changes with automatic redraws. See the candyxml submodule for
-    details.
+    react on context changes with automatic redraws. See the L{candyxml} submodule
+    for details.
 
  3. Better thread support. In kaa.candy two mainloops are running. The first one is
     the generic kaa mainloop and the second one is the clutter mainloop based on the
@@ -52,7 +52,7 @@ Timeline and Behaviour. The four main features are:
     template how to create a widget. Is a a thread-safe way to create widgets by
     creating a template in the mainloop and let the clutter thread create the
     real widget based on that template. The candyxml module also uses templates
-    for faster object instantiation.
+    for faster object instantiation. See L{candyxml} for details.
 
 Because of the threading and clutter limitations you must call C{kaa.candy.init()}
 in the main python file (not in an imported module) to set up kaa.candy and the
