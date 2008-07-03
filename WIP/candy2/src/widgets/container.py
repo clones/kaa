@@ -140,9 +140,11 @@ class Container(core.Group):
                 log.error('unable to parse %s', child.node)
             else:
                 widgets.append(w)
+        dependency=(element.depends or '').split(' ')
+        while '' in dependency:
+            dependency.remove('')
         return super(Container, cls).candyxml_parse(element).update(
-            dependency=(element.depends or '').split(' ').remove(''),
-            widgets=widgets)
+            dependency=dependency, widgets=widgets)
 
 
 # register widget to candyxml
