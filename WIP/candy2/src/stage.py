@@ -40,6 +40,7 @@ import kaa
 
 # kaa.candy imports
 from core import threaded, is_template
+import candyxml
 
 class Stage(object):
     """
@@ -55,9 +56,13 @@ class Stage(object):
         @param height: height of the window
         """
         self.signals = kaa.Signals('key-press')
-        self._geomertry = width, height
+        self._geometry = width, height
+        self._create_stage()
+
+    @threaded()
+    def _create_stage(self):
         self._stage = clutter.Stage()
-        self._stage.set_size(width, height)
+        self._stage.set_size(*self._geometry)
         self._stage.connect('key-press-event', self._handle_key)
         self._stage.set_color(clutter.Color(0, 0, 0, 0xff))
         self._keysyms = {}
@@ -79,17 +84,20 @@ class Stage(object):
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
     @threaded()
-    def add(self, child, visible=True):
+    def add(self, child, visible=True, context=None):
         """
         Add the child to the screen.
         @param child: Widget or widget Template object
+        @param context: context to create templates with
         @param visible: set the child status to visible when adding
+        @returns: child object
         """
         if is_template(child):
-            child = child()
+            child = child(context=context)
         if visible:
             child.show()
         self._stage.add(child)
+        return child
 
     @threaded()
     def remove(self, child):
@@ -98,3 +106,11 @@ class Stage(object):
         @param child: child connected to the window
         """
         self._stage.remove(child)
+
+    def candyxml(self, data):
+        """
+        Load a candyxml file based on the given screen resolution.
+        @param data: filename of the XML file to parse or XML data
+        @returns: root element attributes and dict of parsed elements
+        """
+        return candyxml.parse(data, self._geometry)
