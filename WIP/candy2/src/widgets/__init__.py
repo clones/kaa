@@ -50,6 +50,7 @@ from rectangle import Rectangle
 from progressbar import Progressbar
 from text import Text
 from image import Image, Thumbnail
+from grid import Grid
 
 __all__ = []
 for key, value in globals().items():
