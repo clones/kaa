@@ -141,7 +141,7 @@ class Container(core.Group):
             else:
                 widgets.append(w)
         return super(Container, cls).candyxml_parse(element).update(
-            dependency=(element.depends or '').split(' '),
+            dependency=(element.depends or '').split(' ').remove(''),
             widgets=widgets)
 
 

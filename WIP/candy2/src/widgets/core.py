@@ -256,7 +256,12 @@ class Widget(object):
         @param dependencies: list of keys of the context this widget requires to
            be set to the same values as they were when the widget was created.
         """
-        self._depends = [ (str(d), eval(str(d), self.__context)) for d in dependencies ]
+        try:
+            self._depends = [ (str(d), eval(str(d), self.__context)) \
+                              for d in dependencies ]
+        except Exception, e:
+            log.error('bad dependencies: %s in context %s for %s', dependencies,
+                      self.__context, self)
 
     def set_animations(self, animations):
         """
