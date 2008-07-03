@@ -61,7 +61,9 @@ class Image(core.Texture):
             config.imagepath will be searched for the image. If the url
             starts with C{$} the url will be searched in the context.
         @param context: the context the widget is created in
-        @todo: add keep aspect and add default image if not found or still fetched
+        @todo: add keep aspect; aspect ratio is a property on clutter 0.7 so we wait.
+        @todo: add default image if not found or still fetched
+        @todo: better url handling (see FIXME in the code)
         """
         super(Image, self).__init__(pos, size, context)
         if not url:
@@ -80,6 +82,10 @@ class Image(core.Texture):
             if not os.path.isfile(cachefile):
                 # Download the image
                 # FIXME: errors will be dropped
+                # FIXME: support other remote sources
+                # FIXME: use one thread (jobserver) for all downloads
+                #  or at least a max number of threads to make the individual
+                #  image loading faster
                 tmpfile = kaa.tempfile('candy-images/.' + base)
                 download = kaa.net.url.fetch(url, cachefile, tmpfile)
                 download.connect_weak_once(self._fetched, cachefile)
