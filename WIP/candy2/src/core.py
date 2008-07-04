@@ -315,3 +315,14 @@ def threaded():
         return newfunc
 
     return decorator
+
+
+class Callback(kaa.Callback):
+    """
+    Callback that will be executed blocked in the clutter mainloop.
+    """
+    def __call__(self, *args, **kwargs):
+        """
+        Call the function with the given arguments.
+        """
+        return threaded()(super(Callback, self).__call__)(*args, **kwargs)

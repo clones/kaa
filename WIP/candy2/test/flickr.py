@@ -49,21 +49,41 @@ class Image(object):
         self.title = title
         self.thumbnail = thumbnail
 
-feed = feedparser.parse('http://api.flickr.com/services/feeds/photos_public.gne?tags=beach&lang=en-us&format=atom')
+@kaa.threaded()
+def load_feed(tag):
+    feed = feedparser.parse('http://api.flickr.com/services/feeds/photos_public.gne?' +
+                            'tags=%s&lang=en-us&format=atom' % tag)
 
-items = []
-for item in feed.entries:
-    tmp = item.content[0]['value'][item.content[0]['value'].find('img src="')+9:]
-    url = tmp[:tmp.find('"')]
-    items.append(Image(item.title, url))
+    items = []
+    for item in feed.entries:
+        tmp = item.content[0]['value'][item.content[0]['value'].find('img src="')+9:]
+        url = tmp[:tmp.find('"')]
+        items.append(Image(item.title, url))
+    return feed, items
 
-# this is the context for the flickr widget
-context = dict(title=feed.feed.title, items=items)
+@kaa.coroutine()
+def main():
+    feed, items = yield load_feed('beach')
+    
+    # this is the context for the flickr widget
+    context = dict(title=feed.feed.title, items=items)
 
-# remove the wait label (it is safe to remove something from the stage in the
-# mainloop) and add the flickr container based on the context
-stage.remove(label)
-stage.add(candy.container.flickr, context=context)
+    # remove the wait label (it is safe to remove something from the stage in the
+    # mainloop) and add the flickr container based on the context
+    stage.remove(label)
+    container = stage.add(candy.container.flickr, context=context)
+
+    wait = kaa.InProgressCallback()
+    kaa.OneShotTimer(wait).start(5)
+    yield wait
+    print 'load more'
+
+    # create new context and replace it
+    feed, items = yield load_feed('hdr')
+    context = dict(title=feed.feed.title, items=items)
+    kaa.candy.Callback(container.set_context)(context=context)
+    
+main()
 
 # run the kaa mainloop, it takes some time to load all the images.
 kaa.main.run()
