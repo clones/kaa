@@ -65,14 +65,15 @@ directly from the kaa.candy namespace.
 @group Additional submodules: version
 """
 
-__all__ = [ 'threaded', 'Lock', 'Font', 'Color', 'Properties', 'is_template', 'init' ]
+__all__ = [ 'threaded', 'Lock', 'Font', 'Color', 'Modifier', 'Properties',
+            'is_template', 'init' ]
 
 import kaa
 
 import candyxml
 import config
 
-from core import threaded, Lock, Font, Color, Properties, is_template
+from core import threaded, Lock, Font, Color, Modifier, Properties, is_template
 
 class Mainloop(object):
     """

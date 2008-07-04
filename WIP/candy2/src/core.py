@@ -26,7 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'is_template', 'Color', 'Font', 'Properties', 'threaded', 'Lock' ]
+__all__ = [ 'is_template', 'Color', 'Font', 'Modifier', 'Properties', 'threaded', 'Lock' ]
 
 # python imports
 import logging
@@ -105,7 +105,45 @@ class Font(object):
         self.size = int(size)
 
 
-class Properties(dict):
+class Modifier(object):
+    """
+    Modifier base class for classes that change widgets on creation by
+    templates. In the XML file they are added as subnode to the widget
+    to change.
+    """
+    __modifier = {}
+
+    def modify(self, widget):
+        """
+        Modify the given widget.
+        @param widget: widget to modify
+        @returns: changed widget (may be the same)
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def candyxml_create(cls, element):
+        """
+        Create the modifier for the given element.
+        @note: do not call this function from inheriting functions. The name
+            is the same but the logic is different. This functions calls the
+            implementation variant, not the other way around.
+        """
+        cls = Modifier.__modifier.get(element.node)
+        if cls is None:
+            return cls
+        return cls.candyxml_create(element)
+
+    @classmethod
+    def candyxml_register(cls):
+        """
+        Register class to candyxml. This function can only be called
+        once when the class is loaded.
+        """
+        Modifier.__modifier[cls.candyxml_name] = cls
+
+
+class Properties(dict, Modifier):
     """
     Properties class to apply the given properties to a widget. This is a
     dictionary for clutter functions to call after the widget is created.
@@ -115,7 +153,7 @@ class Properties(dict):
     #: candyxml name
     candyxml_name = 'properties'
 
-    def apply(self, widget):
+    def modify(self, widget):
         """
         Apply to the given widget.
         @param widget: a kaa.candy.Widget
@@ -124,6 +162,7 @@ class Properties(dict):
             getattr(widget, 'set_' + func)(*value)
             if func == 'anchor_point':
                 widget.move_by(*value)
+        return widget
 
     @classmethod
     def candyxml_create(cls, element):
@@ -151,6 +190,8 @@ class Properties(dict):
             properties[key] = value
         return properties
 
+# register Properties modifier
+Properties.candyxml_register()
 
 #: thread the clutter mainloop is running in
 gobject_thread = None

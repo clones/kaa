@@ -4,22 +4,9 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# This class is completly broken. To test it, run flickr2.py in test
-#
-# You can see one bug here. Reflection does not describe a reflection, it
-# describes a texture _and_ its reflection. You also have to set the height
-# to something larger than the cell height to have the image which has a smaller
-# height still fit nicly in the cell. The height for reflection is the height
-# of both objects.
-#
-# A second bug is that this widget sets the anchor point and this changes
-# the x and y coordinates of the widget. kaa.candy MUST deal with this somehow,
-# other widgets may do the same. So set_y will not do what you expect it to do,
-# only relative moves work.
-#
-# And the last bug: I have no idea how to control the gradient effect. Changing
-# some variables do not have the effect I think it should have
-# http://cairographics.org/manual/cairo-Patterns.html#cairo-pattern-add-color-stop-rgba
+# BUG: I have no idea how to control the gradient effect. Changing some variables
+# does not have the effect I think it should have
+# http://cairographics.org/manual/cairo-Patterns.html
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
@@ -49,22 +36,39 @@ import cairo
 import clutter
 
 # kaa.candy imports
+from .. import Modifier
 import core
 
-__all__ = [ 'Reflection' ]
+__all__ = [ 'ReflectionTexture', 'ReflectionModifier' ]
 
 class ReflectionTexture(core.CairoTexture):
-
+    """
+    Texture to show a reflection of another texture. This widget only works
+    for Texture based widgets and uses software rendering.
+    @param texture: source texture to reflect
+    @todo: use GL based implementation
+    """
     def __init__(self, texture):
+        # FIXME: use correct height for valid texture
         super(ReflectionTexture, self).__init__(None, (1, 1))
         # FIXME: check for memory leak
-        texture.connect('pixbuf-change', self.update)
+        texture.connect('pixbuf-change', self._update)
         if texture.get_pixbuf():
-            self.update(texture)
+            self._render(texture)
 
-    def update(self, src):
+    def _update(self, src):
+        """
+        Update the source texture
+        """
         self.clear()
+        self._render(src)
+
+    def _render(self, src):
+        """
+        Render the reflection
+        """
         pixbuf = src.get_pixbuf()
+        # FIXME: maybe size is correct
         self.surface_resize(pixbuf.get_width(), pixbuf.get_height())
         context = self.cairo_create()
         ct = gtk.gdk.CairoContext(context)
@@ -104,35 +108,49 @@ class ReflectionTexture(core.CairoTexture):
         self.set_position(x, h+y)
 
 
-class Reflection(core.Group):
+class ReflectionModifier(Modifier):
     """
-    Widget with child and its reflection (broken)
-    @bug: this code is broken
+    Modifier to add a reflection.
     """
-    candyxml_name = 'reflection'
-    context_sensitive = True
 
-    def __init__(self, pos, size, texture, context=None):
-        super(Reflection, self).__init__(pos, size, context)
-        texture_height = int(size[1] / 1.8)
-        # set anchor point to the center
-        self.set_anchor_point(size[0]/2, texture_height)
-        self.move_by(size[0]/2, texture_height)
-        texture = texture(context, x=0, y=0, width=size[0], height=texture_height)
-        self.add(texture)
-        self._depends = texture._depends
-        self.reflection = ReflectionTexture(texture)
-        self.reflection.set_opacity(50)
-        self.reflection.set_parent(self)
+    candyxml_name = 'reflection'
+
+    def __init__(self, opacity=50):
+        """
+        Create modifier
+        @param opacity: opacity of the reflection
+        """
+        self._opacity = opacity
+
+    def modify(self, widget):
+        """
+        Modify the given widget.
+        @param widget: widget to modify
+        @returns: Group widget with src and reflection textures
+        """
+        w, h = widget.get_size()
+        group = core.Group(widget.get_position(), (w,h))
+        group.set_anchor_point(w/2, h)
+        group.move_by(w/2, h)
+        group.context_sensitive = True
+        group._depends = widget._depends
+        widget.set_position(0,0)
+        widget.set_parent(group)
+        reflection = ReflectionTexture(widget)
+        reflection.set_opacity(self._opacity)
+        reflection.set_parent(group)
+        return group
 
     @classmethod
-    def candyxml_parse(cls, element):
+    def candyxml_create(cls, element):
         """
-        Parse the candyxml element for parameter to create the widget. No example
-        yet, the code is broken.
+        Parse the candyxml element and create the modifier. Any texture based
+        widget can be used as base. Example::
+          <image width='100' height='100'>
+              <reflection opacity='50'/>
+          </image>
         """
-        return super(Reflection, cls).candyxml_parse(element).update(
-            texture=element.get_children()[0].xmlcreate())
+        return cls(opacity = int(element.opacity or 50))
 
 # register widget to the core
-Reflection.candyxml_register()
+ReflectionModifier.candyxml_register()

@@ -26,14 +26,14 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'get', 'Animation' ]
+__all__ = [ 'get', 'Animation', 'AnimationModifier' ]
 
 # kaa.candy imports
 from ..candyxml import get_class
 import simple
 
 # export classes
-from core import Animation
+from core import Animation, AnimationModifier
 
 def get(name):
     """

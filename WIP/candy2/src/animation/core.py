@@ -26,7 +26,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Animation' ]
+__all__ = [ 'Animation', 'AnimationModifier' ]
 
 # python imports
 import logging
@@ -38,7 +38,7 @@ import kaa
 import clutter
 
 # kaa.candy imports
-from .. import config, candyxml, threaded, Properties
+from .. import config, candyxml, threaded, Modifier
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -166,54 +166,54 @@ class Animation(kaa.InProgress):
 #     def __del__(self):
 #         print '__del__', self
 
-
-class List(object):
+class AnimationModifier(Modifier):
     """
-    Animation template for new defined animations from the define-animation XML
-    node. It contains other animation nodes and optional a properties node.
+    Widget modifier to add additional animations.
     """
     candyxml_name = 'define-animation'
 
-    def __init__(self, animations, properties):
+    def __init__(self, style, animations, modifier):
+        self._style = style
         self._animations = animations
-        self._properties = properties
+        self._modifier = modifier
+
+    def modify(self, widget):
+        """
+        Modify the given widget.
+        @param widget: widget to modify
+        @returns: same widget
+        """
+        widget.set_animation(self._style, self)
+        return widget
 
     def __call__(self, widget, context=None):
         """
         Create the animation bound to the given widget.
         """
-        if self._properties:
-            self._properties.apply(widget)
+        for modifier in self._modifier:
+            widget = modifier.modify(widget)
         return [ a(widget, context) for a in self._animations ]
 
     @classmethod
     def candyxml_create(cls, element):
         """
-        Parse the XML element for parameter and create an AnimationTemplate.
+        Parse the candyxml element for parameter and create the Modifier.
         """
-        properties = None
+        modifier = []
         animations = []
-        for element in element:
-            if element.node == 'properties':
-                properties = Properties.candyxml_create(element)
-            elif element.node == 'animation':
-                a = element.xmlcreate()
+        for subelement in element:
+            mod = Modifier.candyxml_create(subelement)
+            if mod:
+                modifier.append(mod)
+            elif subelement.node == 'animation':
+                a = subelement.xmlcreate()
                 if a is None:
-                    log.error('unknown animation %s', element.style)
+                    log.error('unknown animation %s', subelement.style)
                 else:
                     animations.append(a)
             else:
-                log.error('unknown element %s in define-animation', element.node)
-        return cls(animations, properties)
+                log.error('unknown element %s in define-animation', subelement.node)
+        return cls(element.style, animations, modifier)
 
-    @classmethod
-    def candyxml_register(cls):
-        """
-        Register animation to candyxml. This function can only be called
-        once when the class is loaded.
-        """
-        candyxml.register(cls)
-
-
-# register the animation template
-List.candyxml_register()
+# register the modifier
+AnimationModifier.candyxml_register()

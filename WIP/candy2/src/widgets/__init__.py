@@ -43,6 +43,7 @@ import sys
 if not 'clutter' in sys.modules and not 'epydoc' in sys.modules:
     raise RuntimeError('kaa.candy not initialized')
 
+from ..core import Modifier
 from core import Widget, Group, Texture, Imlib2Texture, CairoTexture
 from container import Container
 from label import Label
@@ -51,12 +52,12 @@ from progressbar import Progressbar
 from text import Text
 from image import Image, Thumbnail
 from grid import Grid
-from reflection import Reflection
+from reflection import ReflectionTexture, ReflectionModifier
 
 __all__ = []
 for key, value in globals().items():
     try:
-        if issubclass(value, Widget):
+        if issubclass(value, (Widget, Modifier)) and not value == Modifier:
             __all__.append(key)
     except TypeError:
         pass

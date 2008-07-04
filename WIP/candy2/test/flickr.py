@@ -10,7 +10,7 @@ kaa.candy.init()
 # a grid in it. The grid needs a template for each cell which is again a
 # container with a label and an image. The flickr container depends on
 # two variables in the context: title for the label and items for the
-# grid.
+# grid. The image also has a reflection modifier.
 xml = '''
 <candyxml geometry="800x600">
     <label name="wait" y="100" font="Vera:24" color="0xcccccc" align="center">
@@ -23,7 +23,9 @@ xml = '''
         <grid y="50" height="530" cell-width="140"
             cell-height="140" items="items" cell-item="item">
             <container>
-                <image url="$item.thumbnail" height="100"/>
+                <image url="$item.thumbnail" height="100">
+                    <reflection opacity="70"/>
+                </image>
                 <label y="110" font="Vera:10" color="0xcccccc" align="center">
                     $item.title
                 </label>

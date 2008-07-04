@@ -42,7 +42,7 @@ import cairo
 import kaa.imlib2
 
 # kaa.candy imports
-from .. import candyxml, animation, Properties, threaded
+from .. import candyxml, animation, threaded, Modifier
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -71,7 +71,7 @@ class Template(object):
         @param kwargs: keyword arguments for cls.__init__
         """
         self._cls = cls
-        self._properties = kwargs.pop('properties', None)
+        self._modifier = kwargs.pop('modifier', [])
         self._kwargs = kwargs
         self.__userdata = {}
 
@@ -106,8 +106,8 @@ class Template(object):
         except TypeError, e:
             log.exception('error creating %s%s', self._cls, kwargs.keys())
             return None
-        if self._properties:
-            self._properties.apply(widget)
+        for modifier in self._modifier:
+            widget = modifier.modify(widget)
         log.info('Create %s: %s secs', self._cls.candyxml_name, time.time() - t1)
         return widget
 
@@ -137,15 +137,6 @@ class Template(object):
         """
         return self._kwargs.get(attr)
 
-    def set_property(self, key, *value):
-        """
-        Set a property for the template. The properties will be set after the
-        object is created.
-        """
-        if self._properties is None:
-             self._properties = Properties()
-        self._properties[key] = value
-
     @classmethod
     def candyxml_get_class(cls, element):
         """
@@ -161,23 +152,19 @@ class Template(object):
         @param element: kaa.candy.candyxml.Element with widget information
         @returns: Template object
         """
-        properties = element.properties
-        if properties is not None:
-            element.remove(properties)
-            properties = Properties.candyxml_create(properties)
-        animations = {}
-        # FIXME: rewrite animation support
-        for child in element.get_children('define-animation'):
-            element.remove(child)
-            animations[child.style] = child.xmlcreate()
+        modifier = []
+        for subelement in element.get_children():
+            mod = Modifier.candyxml_create(subelement)
+            if mod:
+                modifier.append(mod)
+                element.remove(subelement)
         widget = cls.candyxml_get_class(element)
         if widget is None:
             log.error('undefined widget %s:%s', element.node, element.style)
         kwargs = widget.candyxml_parse(element)
-        kwargs['properties'] = properties
+        if modifier:
+            kwargs['modifier'] = modifier
         template = cls(widget, **kwargs)
-        if animations:
-            template.set_property('animations', animations)
         return template
 
 
@@ -185,7 +172,7 @@ class Widget(object):
     """
     Basic widget. All widgets from the backend must inherit from it.
     @group Context Management: set_context, get_context, try_context, set_dependency
-    @group Animations: animate, stop_animations, set_animations
+    @group Animations: animate, stop_animations, set_animation
     @cvar context_sensitive: class variable for inherting class if the class
         depends on the context.
     """
@@ -214,7 +201,7 @@ class Widget(object):
         self._running_animations = {}
         # FIXME: make _depends private
         self._depends = []
-        self.__animations = []
+        self.__animations = {}
         self.__context = context
         self.__userdata = {}
 
@@ -263,20 +250,20 @@ class Widget(object):
             log.error('bad dependencies: %s in context %s for %s', dependencies,
                       self.__context, self)
 
-    def set_animations(self, animations):
+    def set_animation(self, name, animations):
         """
         Set additional animations for object.animate()
         @param animations: dict with key,Animation
         """
-        self.__animations = animations
+        self.__animations[name] = animations
 
     @threaded()
     def animate(self, name, *args, **kwargs):
         """
         Animate the object with the given animation. The animations are defined
-        by C{set_animations}, the candyxml definition or the basic animation
+        by C{set_animation}, the candyxml definition or the basic animation
         classes in kaa.candy.animation. Calling this function is thread-safe.
-        @param name: name of the animation used by C{set_animations} or
+        @param name: name of the animation used by C{set_animation} or
             kaa.candy.animations
         """
         # FIXME: rewrite animation code
