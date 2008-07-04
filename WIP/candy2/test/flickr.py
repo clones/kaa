@@ -11,6 +11,8 @@ kaa.candy.init()
 # container with a label and an image. The flickr container depends on
 # two variables in the context: title for the label and items for the
 # grid. The image also has a reflection modifier.
+# Note: this reflection is the reason why the scrolling is not smooth
+# because we render in software. Remove that line for a better result.
 xml = '''
 <candyxml geometry="800x600">
     <label name="wait" y="100" font="Vera:24" color="0xcccccc" align="center">
@@ -20,8 +22,9 @@ xml = '''
         <label font="Vera:24" color="0xcccccc" align="center">
             $title
         </label>
-        <grid y="50" height="530" cell-width="140"
-            cell-height="140" items="items" cell-item="item">
+        <grid y="50" height="530" cell-width="160" cell-height="140"
+            items="items" cell-item="item" orientation="vertical" start="1">
+            <properties name="items"/>
             <container>
                 <image url="$item.thumbnail" height="100">
                     <reflection opacity="70"/>
@@ -61,6 +64,12 @@ def load_feed(tag):
         items.append(Image(item.title, url))
     return feed, items
 
+def wait(secs):
+    # maybe move that into kaa.notifier
+    wait = kaa.InProgressCallback()
+    kaa.OneShotTimer(wait).start(secs)
+    return wait
+    
 @kaa.coroutine()
 def main():
     feed, items = yield load_feed('beach')
@@ -72,14 +81,23 @@ def main():
     # mainloop) and add the flickr container based on the context
     stage.remove(label)
     container = stage.add(candy.container.flickr, context=context)
-
-    wait = kaa.InProgressCallback()
-    kaa.OneShotTimer(wait).start(5)
-    yield wait
+    print 'scroll down'
+    grid = container.get_element('items')
+    kaa.candy.Callback(grid.scroll)(2, 1.0)
+    yield wait(2)
+    print 'scroll up faster'
+    kaa.candy.Callback(grid.scroll)(-3, 0.8)
+    yield wait(2)
+    print 'and down again'
+    kaa.candy.Callback(grid.scroll)(1, 0.8)
+    yield wait(0.7)
+    print 'and up again while the animation is still running'
+    kaa.candy.Callback(grid.scroll)(-1, 0.8)
+    yield wait(2)
     print 'load more'
 
     # create new context and replace it
-    feed, items = yield load_feed('hdr')
+    feed, items = yield load_feed('sunset')
     context = dict(title=feed.feed.title, items=items)
     kaa.candy.Callback(container.set_context)(context=context)
     
