@@ -34,9 +34,11 @@ if not 'clutter' in sys.modules and not 'epydoc' in sys.modules:
     raise RuntimeError('kaa.candy not initialized')
 
 import clutter
+import config
 
-#: Basic Timeline class from clutter
-Timeline = clutter.Timeline
+class Timeline(clutter.Timeline):
+    def __init__(self, secs):
+        super(Timeline, self).__init__(int(float(secs) * config.fps), config.fps)
 
 class MasterTimeline(object):
     """
