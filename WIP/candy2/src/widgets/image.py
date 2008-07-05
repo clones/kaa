@@ -53,6 +53,8 @@ class Image(core.Texture):
     candyxml_name = 'image'
     context_sensitive = True
 
+    _downloads = {}
+    
     def __init__(self, pos, size, url, context=None):
         """
         @param pos: (x,y) position of the widget or None
@@ -86,9 +88,10 @@ class Image(core.Texture):
                 # FIXME: use one thread (jobserver) for all downloads
                 #  or at least a max number of threads to make the individual
                 #  image loading faster
-                tmpfile = kaa.tempfile('candy-images/.' + base)
-                download = kaa.net.url.fetch(url, cachefile, tmpfile)
-                download.connect_weak_once(self._fetched, cachefile)
+                if not cachefile in self._downloads:
+                    tmpfile = kaa.tempfile('candy-images/.' + base)
+                    self._downloads[cachefile] = kaa.net.url.fetch(url, cachefile, tmpfile)
+                self._downloads[cachefile].connect_weak_once(self._fetched, cachefile)
                 return
             # use cachefile as image
             url = cachefile
@@ -104,6 +107,8 @@ class Image(core.Texture):
         """
         Callback for HTTP GET result. The image should be in the cachefile.
         """
+        if cachefile in self._downloads:
+            del self._downloads[cachefile]
         try:
             self.set_pixbuf(gtk.gdk.pixbuf_new_from_file(cachefile))
         except Exception, e:
