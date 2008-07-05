@@ -55,7 +55,7 @@ log = logging.getLogger('kaa.candy')
 class ScrollBehaviour(clutter.Behaviour):
     __gtype_name__ = 'GridScroll'
 
-    def __init__ (self, widget, start, stop, secs):
+    def __init__ (self, widget, start, stop, secs, orientation):
         clutter.Behaviour.__init__(self)
         self._timeline = timeline.Timeline(secs)
         self._alpha = clutter.Alpha(self._timeline, clutter.ramp_inc_func)
@@ -63,6 +63,7 @@ class ScrollBehaviour(clutter.Behaviour):
         self._start = start
         self._diff = stop - start
         self._current = start
+        self._orientation = orientation
         self.apply(widget)
         self._timeline.start()
 
@@ -79,13 +80,13 @@ class ScrollBehaviour(clutter.Behaviour):
         step = self._current - current
         self._current = current
         for actor in self.get_actors():
-            actor._set_scroll_step(current, step)
+            actor._set_scroll_step(step, self._orientation)
 
 class Grid(core.Group):
     """
     Grid Widget
     @note: see C{test/flickr.py} for an example
-    @todo: add anaimation support to move inside the grid
+    @todo: add animation support to move inside the grid
     @todo: add parameter to sort items x or y first
     """
     candyxml_name = 'grid'
@@ -115,94 +116,153 @@ class Grid(core.Group):
             self.set_dependency(items)
             items = eval(items, context)
         # store arguments for later public use
-        self.orientation = orientation
         self.cell_size = cell_size
         # do some calculations
         self.num_cols = size[0] / cell_size[0]
         self.num_rows = size[1] / cell_size[1]
+        # padding between cells
         self._padx = size[0] /self.num_cols - cell_size[0]
         self._pady = size[1] /self.num_rows - cell_size[1]
-        self._rendered = []
-        self._scroll_animation = None
-        self._current = start
+        # size of cells
+        self._col_size = self.cell_size[0] + self._padx
+        self._row_size = self.cell_size[1] + self._pady
+        # x0/y0 coordinates for the upper left corner based on
+        # start position and later movements
+        if orientation == Grid.HORIZONTAL:
+            self._x0, self._y0 = [ start * self._col_size, 0 ]
+        if orientation == Grid.VERTICAL:
+            self._x0, self._y0 = [ 0, start * self._row_size ]
+        # current position, may not be x0 and y0 while in an animation
+        self._curx, self._cury = self._x0, self._y0
+        # list of rendered items
+        self._rendered = {}
+        # animations for row and col animation
+        self._row_animation = None
+        self._col_animation = None
         # store arguments for later private use
+        self._orientation = orientation
         self._items = items
         self._cell_item = cell_item
-        self._template = template
-        # set line_size (col_size or row_size) and draw the visible area
-        if self.orientation == Grid.HORIZONTAL:
-            self._line_size = self.cell_size[0] + self._padx
-            for col in range(self.num_cols):
-                self._render_line(col + start, -start * self._line_size)
-        if self.orientation == Grid.VERTICAL:
-            self._line_size = self.cell_size[1] + self._pady
-            for row in range(self.num_rows):
-                self._render_line(row + start, -start * self._line_size)
+        self._child_template = template
+        self._render()
 
     def destroy(self):
         """
         Destroy the widget by stopping running animations.
         """
-        if self._scroll_animation and self._scroll_animation.is_playing():
-            self._scroll_animation.stop()
-        self._scroll_animation = None
+        if self._row_animation and self._row_animation.is_playing():
+            self._row_animation.stop()
+        self._row_animation = None
+        if self._col_animation and self._col_animation.is_playing():
+            self._col_animation.stop()
+        self._col_animation = None
         super(Grid, self).destroy()
 
-    def scroll(self, cells, secs):
+    def scroll(self, (rows, cols), secs):
         """
-        Scroll by cells rows or cols based on the orientation
+        Scroll by cells rows and cols
         """
-        skip = 0
-        if self._scroll_animation and self._scroll_animation.is_playing():
-            skip = self._scroll_animation.stop()
-        start = self._current * self._line_size - skip
-        self._current += cells
-        stop = self._current * self._line_size
-        self._scroll_animation = ScrollBehaviour(self, start, stop, secs)
+        while True:
+            # check if it possible to go there
+            base_x = float(self._x0 + rows * self._col_size) / self.cell_size[0]
+            base_y = float(self._y0 + cols * self._row_size) / self.cell_size[1]
+            if self._orientation == Grid.HORIZONTAL:
+                item_num = int(base_x * self.num_rows + base_y)
+            if self._orientation == Grid.VERTICAL:
+                item_num = int(base_y * self.num_cols + base_x)
+            # TODO: check this calculation
+            if item_num >= 0 and item_num - self.num_rows <= len(self._items):
+                break
+            # remove one cell in scroll, start with rows and use cols if
+            # there are no rows to scroll anymore
+            if rows:
+                rows -= (rows / abs(rows))
+            else:
+                cols -= (cols / abs(cols))
+        if rows:
+            start = self._x0
+            if self._row_animation and self._row_animation.is_playing():
+                start -= self._row_animation.stop()
+            self._x0 += rows * self._col_size
+            self._row_animation = ScrollBehaviour(self, start, self._x0, secs, 0)
+        if cols:
+            start = self._y0
+            if self._col_animation and self._col_animation.is_playing():
+                start -= self._col_animation.stop()
+            self._y0 += cols * self._row_size
+            self._col_animation = ScrollBehaviour(self, start, self._y0, secs, 1)
 
-    def _render_line(self, num, delta=0):
+    def _render_child(self, item_num, pos_x, pos_y):
         """
-        Render one line (row or col based on orientation)
+        Render one child
         """
-        if num < 0:
-            # this makes no sense
+        if item_num < 0 or item_num >= len(self._items):
+            self._rendered[(pos_x, pos_y)] = None
             return
-        self._rendered.append(num)
-        x = self._padx / 2
-        y = self._pady / 2
-        if self.orientation == Grid.HORIZONTAL:
-            x +=  self._line_size * num + delta
-            line = self.num_rows
-        if self.orientation == Grid.VERTICAL:
-            y +=  self._line_size * num + delta
-            line = self.num_cols
+        x = self._padx / 2 + pos_x * self._col_size -self._curx
+        y = self._pady / 2 + pos_y * self._row_size -self._cury
         context = copy.copy(self.get_context())
-        for item in self._items[num*line:(num+1)*line]:
-            context[self._cell_item] = item
-            child = self._template(x=x, y=y, size=self.cell_size, context=context)
-            child.set_parent(self)
-            if self.orientation == Grid.HORIZONTAL:
-                y += self.cell_size[1] + self._pady
-            if self.orientation == Grid.VERTICAL:
-                x += self.cell_size[0] + self._padx
+        context[self._cell_item] = self._items[item_num]
+        child = self._child_template(x=x, y=y, size=self.cell_size, context=context)
+        child.set_parent(self)
+        self._rendered[(pos_x, pos_y)] = child
 
-    def _set_scroll_step(self, current, step):
+    def _render(self):
+        """
+        Render grid.
+        """
+        # This function is highly optimized for fast rendering when there is nothing
+        # to change. Some code is duplicated for HORIZONTAL and VERTICAL but creating
+        # smaller code size increases the running time.
+
+        # current item left/top position in the grid
+        base_x = self._curx / self.cell_size[0]
+        base_y = self._cury / self.cell_size[1]
+        pos_x = base_x
+        pos_y = base_y
+        if self._orientation == Grid.HORIZONTAL:
+            item_num = base_x * self.num_rows + base_y
+            while True:
+                if not (pos_x, pos_y) in self._rendered:
+                    self._render_child(item_num, pos_x, pos_y)
+                item_num += 1
+                pos_y += 1
+                if pos_y - base_y >= self.num_rows:
+                    if not (pos_x, pos_y) in self._rendered:
+                        self._render_child(item_num, pos_x, pos_y)
+                    pos_y = base_y
+                    pos_x += 1
+                    if pos_x - base_x > self.num_cols:
+                        return
+        # self._orientation == Grid.VERTICAL
+        item_num = base_y * self.num_cols + base_x
+        while True:
+            if not (pos_x, pos_y) in self._rendered:
+                self._render_child(item_num, pos_x, pos_y)
+            item_num += 1
+            pos_x += 1
+            if pos_x - base_x >= self.num_cols:
+                if not (pos_x, pos_y) in self._rendered:
+                    self._render_child(item_num, pos_x, pos_y)
+                pos_x = base_x
+                pos_y += 1
+                if pos_y - base_y > self.num_rows:
+                    return
+
+    def _set_scroll_step(self, step, orientation):
         """
         Callback from the animation
         """
+        self._render()
         # move children
-        move = [ step, 0 ]
-        if self.orientation == Grid.VERTICAL:
-            move.reverse()
+        if orientation == Grid.HORIZONTAL:
+            self._curx -= step
+            x, y = step, 0
+        if orientation == Grid.VERTICAL:
+            self._cury -= step
+            x, y = 0, step
         for child in self.get_children():
-            child.move_by(*move)
-        cell_size = self.cell_size[self.orientation]
-        min_needed = current / cell_size
-        if not min_needed in self._rendered:
-            self._render_line(min_needed, - current)
-        max_needed = (self.get_max_size()[self.orientation] + current) / cell_size - 1
-        if not max_needed in self._rendered:
-            self._render_line(max_needed, -current)
+            child.move_by(x, y)
 
     @classmethod
     def candyxml_parse(cls, element):

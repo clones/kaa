@@ -58,10 +58,12 @@ def load_feed(tag):
                             'tags=%s&lang=en-us&format=atom' % tag)
 
     items = []
+    num = 0
     for item in feed.entries:
         tmp = item.content[0]['value'][item.content[0]['value'].find('img src="')+9:]
         url = tmp[:tmp.find('"')]
-        items.append(Image(item.title, url))
+        items.append(Image('%s' % num, url))
+        num += 1
     return feed, items
 
 def wait(secs):
@@ -83,16 +85,16 @@ def main():
     container = stage.add(candy.container.flickr, context=context)
     print 'scroll down'
     grid = container.get_element('items')
-    kaa.candy.Callback(grid.scroll)(2, 1.0)
+    kaa.candy.Callback(grid.scroll)((2, 0), 4)
     yield wait(2)
-    print 'scroll up faster'
-    kaa.candy.Callback(grid.scroll)(-3, 0.8)
+    print 'scroll up very fast, more than possible'
+    kaa.candy.Callback(grid.scroll)((0,-15), 0.5)
     yield wait(2)
     print 'and down again'
-    kaa.candy.Callback(grid.scroll)(1, 0.8)
+    kaa.candy.Callback(grid.scroll)((1,1), 0.8)
     yield wait(0.7)
-    print 'and up again while the animation is still running'
-    kaa.candy.Callback(grid.scroll)(-1, 0.8)
+    print 'and left again while the animation is still running'
+    kaa.candy.Callback(grid.scroll)((-1, 0), 0.8)
     yield wait(2)
     print 'load more'
 
