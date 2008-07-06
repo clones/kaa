@@ -184,14 +184,20 @@ class Grid(core.Group):
                 start -= self._row_animation.stop()
             self._cell0[0] += rows
             stop = self._cell0[0] * self._col_size
-            self._row_animation = ScrollBehaviour(self, start, stop, secs, 0)
+            if secs == 0:
+                self._set_scroll_step(start - stop, 0)
+            else:
+                self._row_animation = ScrollBehaviour(self, start, stop, secs, 0)
         if cols:
             start = self._cell0[1] * self._row_size
             if self._col_animation and self._col_animation.is_playing():
                 start -= self._col_animation.stop()
             self._cell0[1] += cols
             stop = self._cell0[1] * self._row_size
-            self._col_animation = ScrollBehaviour(self, start, stop, secs, 1)
+            if secs == 0:
+                self._set_scroll_step(start - stop, 1)
+            else:
+                self._col_animation = ScrollBehaviour(self, start, stop, secs, 1)
 
     def _render_child(self, item_num, pos_x, pos_y):
         """
@@ -202,11 +208,15 @@ class Grid(core.Group):
             return
         x = pos_x * self._col_size -self._x0
         y = pos_y * self._row_size -self._y0
+        if x >= self.get_max_width() or y >= self.get_max_height():
+            # refuse to draw invisible items
+            return
         context = copy.copy(self.get_context())
         context[self._cell_item] = self._items[item_num]
         child = self._child_template(x=x, y=y, size=self.cell_size, context=context)
         child.set_parent(self)
         self._rendered[(pos_x, pos_y)] = child
+        return child
 
     def _render(self):
         """
@@ -254,7 +264,6 @@ class Grid(core.Group):
         """
         Callback from the animation
         """
-        self._render()
         # move children
         if orientation == Grid.HORIZONTAL:
             self._x0 -= step
@@ -264,6 +273,7 @@ class Grid(core.Group):
             x, y = 0, step
         for child in self.get_children():
             child.move_by(x, y)
+        self._render()
 
     @classmethod
     def candyxml_parse(cls, element):
