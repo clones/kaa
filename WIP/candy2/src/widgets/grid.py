@@ -41,6 +41,7 @@ __all__ = [ 'Grid' ]
 # python imports
 import logging
 import copy
+import time
 
 # clutter imports
 import clutter
@@ -277,6 +278,7 @@ class Grid(core.Group):
         Callback from the animation
         """
         # move children
+        t0 = time.time()
         if orientation == Grid.HORIZONTAL:
             self._x0 -= step
             x, y = step, 0
@@ -286,6 +288,9 @@ class Grid(core.Group):
         for child in self.get_children():
             child.move_by(x, y)
         self._render()
+        elapsed = int((time.time() - t0) * 1000)
+        if elapsed:
+            log.info('grid move took %s ms', elapsed)
 
     @classmethod
     def candyxml_parse(cls, element):

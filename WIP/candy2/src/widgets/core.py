@@ -98,7 +98,7 @@ class Template(object):
                     kwargs['size'] = kwargs['size'][0], value
                 else:
                     kwargs[key] = value
-        t1 = time.time()
+        t0 = time.time()
         if self._cls.context_sensitive:
             kwargs['context'] = context
         try:
@@ -108,7 +108,9 @@ class Template(object):
             return None
         for modifier in self._modifier:
             widget = modifier.modify(widget)
-        log.info('Create %s: %s secs', self._cls.candyxml_name, time.time() - t1)
+        elapsed = int((time.time() - t0) * 1000)
+        if elapsed:
+            log.info('template.create %s: %s ms', self._cls.candyxml_name, elapsed)
         return widget
 
     def get_userdata(self, key):
