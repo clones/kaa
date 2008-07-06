@@ -23,7 +23,7 @@ xml = '''
             $title
         </label>
         <grid y="50" height="530" cell-width="160" cell-height="140"
-            items="items" cell-item="item" orientation="vertical" start="1">
+            items="items" cell-item="item" orientation="vertical">
             <properties name="items"/>
             <container>
                 <image url="$item.thumbnail" height="100">

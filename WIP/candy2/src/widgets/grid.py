@@ -94,7 +94,7 @@ class Grid(core.Group):
     HORIZONTAL, VERTICAL =  range(2)
 
     def __init__(self, pos, size, cell_size, cell_item, items, template,
-                 orientation, start=0, context=None):
+                 orientation, context=None):
         """
         Simple grid widget to show the items based on the template.
         @param pos: (x,y) position of the widget or None
@@ -104,7 +104,6 @@ class Grid(core.Group):
         @param items: list of objects or object name in the context
         @param template: child template for each cell
         @param orientation: how to arange the grid: Grid.HORIZONTAL or Grid.VERTICAL
-        @param start: start row/col of the grid
         @param context: the context the widget is created in
         """
         super(Grid, self).__init__(pos, size, context)
@@ -127,13 +126,9 @@ class Grid(core.Group):
         self._row_size = self.cell_size[1] + padding_y
         # x0/y0 coordinates for the upper left corner and cell visible
         # there if all animations would be done
-        self._x0, self._y0 = [ - padding_x / 2, - padding_y / 2 ]
-        if orientation == Grid.HORIZONTAL:
-            self._x0 += start * self._col_size
-            self._cell0 = [ start, 0 ]
-        if orientation == Grid.VERTICAL:
-            self._y0 += start * self._row_size
-            self._cell0 = [ 0, start ]
+        self._x0 = - padding_x / 2
+        self._y0 = - padding_y / 2
+        self._cell0 = [ 0, 0 ]
         # list of rendered items
         self._rendered = {}
         # animations for row and col animation
@@ -321,7 +316,7 @@ class Grid(core.Group):
         return super(Grid, cls).candyxml_parse(element).update(
             template=subelement.xmlcreate(), items=element.items,
             cell_size=(cell_width, cell_height), cell_item=element.cell_item,
-            orientation=orientation, start=int(element.start or 0))
+            orientation=orientation)
 
 # register widget to candyxml
 Grid.candyxml_register()
