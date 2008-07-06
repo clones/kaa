@@ -46,14 +46,21 @@ class ReflectionTexture(core.CairoTexture):
     Texture to show a reflection of another texture. This widget only works
     for Texture based widgets and uses software rendering.
     @param texture: source texture to reflect
+    @param height: height of the reflection (between 0.0 and 1.0)
+    @param opacity: opacity of the gradient
     @todo: use GL based implementation
     """
-    def __init__(self, texture):
-        # FIXME: use correct height for valid texture
-        super(ReflectionTexture, self).__init__(None, (1, 1))
+    def __init__(self, texture, height=0.5, opacity=0.8):
+        size = (1,1)
+        pixbuf = texture.get_pixbuf()
+        if pixbuf:
+            size = pixbuf.get_width(), pixbuf.get_height()
+        super(ReflectionTexture, self).__init__(None, size)
+        self._reflection_height = height
+        self._opacity = opacity
         # FIXME: check for memory leak
         texture.connect('pixbuf-change', self._update)
-        if texture.get_pixbuf():
+        if pixbuf:
             self._render(texture)
 
     def _update(self, src):
@@ -63,25 +70,21 @@ class ReflectionTexture(core.CairoTexture):
         self.clear()
         self._render(src)
 
-    def _render(self, src):
+    def _render(self, src, pixbuf=None):
         """
         Render the reflection
         """
-        pixbuf = src.get_pixbuf()
-        # FIXME: maybe size is correct
-        self.surface_resize(pixbuf.get_width(), pixbuf.get_height())
+        if not pixbuf:
+            # FIXME: maybe size is still correct
+            pixbuf = src.get_pixbuf()
+            self.surface_resize(pixbuf.get_width(), pixbuf.get_height())
         context = self.cairo_create()
         ct = gtk.gdk.CairoContext(context)
-        gradient = cairo.LinearGradient(0, 0, 0, src.get_height())
 
-        # FIXME: I have no idea what these two lines. At least playing
-        # with the values does not do what I think it should do. But
-        # maybe using cairo here is a bad idea in general, there is
-        # a tidy actor in clutter for this, maybe that will work (at it
-        # will use GL, always better than software rendering)
-        gradient.add_color_stop_rgba(0.5, 1, 1, 1, 0)
-        gradient.add_color_stop_rgba(1, 0, 0, 0, 0.8)
-
+        # create gradient and use it as mask
+        gradient = cairo.LinearGradient(0, 0, 0, pixbuf.get_height())
+        gradient.add_color_stop_rgba(1 - self._reflection_height, 1, 1, 1, 0)
+        gradient.add_color_stop_rgba(1, 0, 0, 0, self._opacity)
         ct.set_source_pixbuf(pixbuf, 0, 0)
         context.mask(gradient)
 
