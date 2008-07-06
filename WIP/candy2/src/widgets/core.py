@@ -420,6 +420,14 @@ class Texture(Widget, clutter.Texture):
         clutter.Texture.__init__(self)
         Widget.__init__(self, pos, size, context)
 
+    def set_imlib2(self, image_or_filename):
+        """
+        Fill the texture with an Imlib2 Image or load one from file
+        """
+        if not isinstance(image_or_filename, kaa.imlib2.Image):
+            image_or_filename = kaa.imlib2.Image(image_or_filename)
+        self.set_from_rgb_data(image_or_filename.get_raw_data('RGBA'), True,
+            image_or_filename.width, image_or_filename.height, 1, 4, 0)
 
 class Imlib2Texture(Texture):
     """

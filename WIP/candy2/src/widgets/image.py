@@ -33,9 +33,6 @@ import os
 import md5
 import logging
 
-# clutter imports
-import gtk.gdk
-
 # kaa imports
 import kaa.net.url
 
@@ -54,7 +51,7 @@ class Image(core.Texture):
     context_sensitive = True
 
     _downloads = {}
-    
+
     def __init__(self, pos, size, url, context=None):
         """
         @param pos: (x,y) position of the widget or None
@@ -99,8 +96,9 @@ class Image(core.Texture):
             url = self._get_image(url)
             if not url:
                 return
-        # load the image to the texture
-        self.set_pixbuf(gtk.gdk.pixbuf_new_from_file(url))
+        # load the image to the texture. We use kaa.imlib2 here because it
+        # is faster and maybe we can add async loading here later.
+        self.set_imlib2(url)
 
     @threaded()
     def _fetched(self, status, cachefile):
@@ -110,7 +108,7 @@ class Image(core.Texture):
         if cachefile in self._downloads:
             del self._downloads[cachefile]
         try:
-            self.set_pixbuf(gtk.gdk.pixbuf_new_from_file(cachefile))
+            self.set_imlib2(cachefile)
         except Exception, e:
             log.exception('bad image: %s' % cachefile)
 
@@ -172,7 +170,7 @@ class Thumbnail(Image):
         """
         if not self._thumbnail.is_failed():
             print self._thumbnail.get()
-            self.set_pixbuf(gtk.gdk.pixbuf_new_from_file(self._thumbnail.get()))
+            self.set_imlib2(self._thumbnail.get())
 
     @classmethod
     def candyxml_parse(cls, element):
