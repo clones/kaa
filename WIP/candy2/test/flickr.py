@@ -27,7 +27,7 @@ xml = '''
             <properties name="items"/>
             <container>
                 <image url="$item.thumbnail" height="100">
-                    <reflection opacity="70"/>
+                    <reflection opacity="80"/>
                 </image>
                 <label y="110" font="Vera:10" color="0xcccccc" align="center">
                     $item.title
@@ -85,16 +85,18 @@ def main():
     container = stage.add(candy.container.flickr, context=context)
     print 'scroll down'
     grid = container.get_element('items')
-    kaa.candy.Callback(grid.scroll)((2, 0), 4)
+    kaa.candy.Callback(grid.scroll_by)((2, 0), 4)
     yield wait(2)
     print 'scroll up very fast, more than possible'
-    kaa.candy.Callback(grid.scroll)((0,-15), 0.5)
+    kaa.candy.Callback(grid.scroll_by)((0,-15), 0.5)
     yield wait(2)
     print 'and down again'
-    kaa.candy.Callback(grid.scroll)((1,1), 0.8)
+    kaa.candy.Callback(grid.scroll_by)((1,1), 0.8)
     yield wait(0.7)
     print 'and left again while the animation is still running'
-    kaa.candy.Callback(grid.scroll)((-1, 0), 0.8)
+    kaa.candy.Callback(grid.scroll_by)((-1, 0), 0.8)
+    yield wait(2)
+    kaa.candy.Callback(grid.scroll_to)((0, 0), 0.8)
     yield wait(2)
     print 'load more'
 

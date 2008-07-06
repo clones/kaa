@@ -86,8 +86,6 @@ class Grid(core.Group):
     """
     Grid Widget
     @note: see C{test/flickr.py} for an example
-    @todo: add animation support to move inside the grid
-    @todo: add parameter to sort items x or y first
     """
     candyxml_name = 'grid'
     context_sensitive = True
@@ -145,7 +143,13 @@ class Grid(core.Group):
         self._items = items
         self._cell_item = cell_item
         self._child_template = template
+
+    def show(self):
+        """
+        Make the grid visible. This triggers rendering.
+        """
         self._render()
+        super(Grid, self).show()
 
     def destroy(self):
         """
@@ -159,9 +163,9 @@ class Grid(core.Group):
         self._col_animation = None
         super(Grid, self).destroy()
 
-    def scroll(self, (rows, cols), secs):
+    def scroll_by(self, (rows, cols), secs):
         """
-        Scroll by cells rows and cols
+        Scroll by rows and cols cells
         """
         while True:
             # check if it possible to go there
@@ -178,21 +182,29 @@ class Grid(core.Group):
                 rows -= (rows / abs(rows))
             else:
                 cols -= (cols / abs(cols))
-        if rows:
+        self.scroll_to((self._cell0[0] + rows, self._cell0[1] + cols), secs)
+
+    def scroll_to(self, (row, col), secs):
+        """
+        Scroll to row / cell position
+        """
+        if self._cell0[0] != row:
+            # need to scroll rows
             start = self._cell0[0] * self._col_size
             if self._row_animation and self._row_animation.is_playing():
                 start -= self._row_animation.stop()
-            self._cell0[0] += rows
+            self._cell0[0] = row
             stop = self._cell0[0] * self._col_size
             if secs == 0:
                 self._set_scroll_step(start - stop, 0)
             else:
                 self._row_animation = ScrollBehaviour(self, start, stop, secs, 0)
-        if cols:
+        if self._cell0[1] != col:
+            # need to scroll cols
             start = self._cell0[1] * self._row_size
             if self._col_animation and self._col_animation.is_playing():
                 start -= self._col_animation.stop()
-            self._cell0[1] += cols
+            self._cell0[1] = col
             stop = self._cell0[1] * self._row_size
             if secs == 0:
                 self._set_scroll_step(start - stop, 1)
