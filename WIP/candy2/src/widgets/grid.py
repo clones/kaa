@@ -121,19 +121,20 @@ class Grid(core.Group):
         self.num_cols = size[0] / cell_size[0]
         self.num_rows = size[1] / cell_size[1]
         # padding between cells
-        self._padx = size[0] /self.num_cols - cell_size[0]
-        self._pady = size[1] /self.num_rows - cell_size[1]
+        padding_x = size[0] /self.num_cols - cell_size[0]
+        padding_y = size[1] /self.num_rows - cell_size[1]
         # size of cells
-        self._col_size = self.cell_size[0] + self._padx
-        self._row_size = self.cell_size[1] + self._pady
-        # x0/y0 coordinates for the upper left corner based on
-        # start position and later movements
+        self._col_size = self.cell_size[0] + padding_x
+        self._row_size = self.cell_size[1] + padding_y
+        # x0/y0 coordinates for the upper left corner and cell visible
+        # there if all animations would be done
+        self._x0, self._y0 = [ - padding_x / 2, - padding_y / 2 ]
         if orientation == Grid.HORIZONTAL:
-            self._x0, self._y0 = [ start * self._col_size, 0 ]
+            self._x0 += start * self._col_size
+            self._cell0 = [ start, 0 ]
         if orientation == Grid.VERTICAL:
-            self._x0, self._y0 = [ 0, start * self._row_size ]
-        # current position, may not be x0 and y0 while in an animation
-        self._curx, self._cury = self._x0, self._y0
+            self._y0 += start * self._row_size
+            self._cell0 = [ 0, start ]
         # list of rendered items
         self._rendered = {}
         # animations for row and col animation
@@ -164,14 +165,12 @@ class Grid(core.Group):
         """
         while True:
             # check if it possible to go there
-            base_x = float(self._x0 + rows * self._col_size) / self.cell_size[0]
-            base_y = float(self._y0 + cols * self._row_size) / self.cell_size[1]
             if self._orientation == Grid.HORIZONTAL:
-                item_num = int(base_x * self.num_rows + base_y)
+                num = (self._cell0[0] + rows) * self.num_rows + (self._cell0[1] + cols)
             if self._orientation == Grid.VERTICAL:
-                item_num = int(base_y * self.num_cols + base_x)
-            # TODO: check this calculation
-            if item_num >= 0 and item_num - self.num_rows <= len(self._items):
+                num = (self._cell0[1] + cols) * self.num_cols + (self._cell0[0] + rows)
+            if num >= 0 and num < len(self._items):
+                # there is an item in the upper left corner
                 break
             # remove one cell in scroll, start with rows and use cols if
             # there are no rows to scroll anymore
@@ -180,17 +179,19 @@ class Grid(core.Group):
             else:
                 cols -= (cols / abs(cols))
         if rows:
-            start = self._x0
+            start = self._cell0[0] * self._col_size
             if self._row_animation and self._row_animation.is_playing():
                 start -= self._row_animation.stop()
-            self._x0 += rows * self._col_size
-            self._row_animation = ScrollBehaviour(self, start, self._x0, secs, 0)
+            self._cell0[0] += rows
+            stop = self._cell0[0] * self._col_size
+            self._row_animation = ScrollBehaviour(self, start, stop, secs, 0)
         if cols:
-            start = self._y0
+            start = self._cell0[1] * self._row_size
             if self._col_animation and self._col_animation.is_playing():
                 start -= self._col_animation.stop()
-            self._y0 += cols * self._row_size
-            self._col_animation = ScrollBehaviour(self, start, self._y0, secs, 1)
+            self._cell0[1] += cols
+            stop = self._cell0[1] * self._row_size
+            self._col_animation = ScrollBehaviour(self, start, stop, secs, 1)
 
     def _render_child(self, item_num, pos_x, pos_y):
         """
@@ -199,8 +200,8 @@ class Grid(core.Group):
         if item_num < 0 or item_num >= len(self._items):
             self._rendered[(pos_x, pos_y)] = None
             return
-        x = self._padx / 2 + pos_x * self._col_size -self._curx
-        y = self._pady / 2 + pos_y * self._row_size -self._cury
+        x = pos_x * self._col_size -self._x0
+        y = pos_y * self._row_size -self._y0
         context = copy.copy(self.get_context())
         context[self._cell_item] = self._items[item_num]
         child = self._child_template(x=x, y=y, size=self.cell_size, context=context)
@@ -216,8 +217,8 @@ class Grid(core.Group):
         # smaller code size increases the running time.
 
         # current item left/top position in the grid
-        base_x = self._curx / self.cell_size[0]
-        base_y = self._cury / self.cell_size[1]
+        base_x = self._x0 / self._col_size
+        base_y = self._y0 / self._row_size
         pos_x = base_x
         pos_y = base_y
         if self._orientation == Grid.HORIZONTAL:
@@ -256,10 +257,10 @@ class Grid(core.Group):
         self._render()
         # move children
         if orientation == Grid.HORIZONTAL:
-            self._curx -= step
+            self._x0 -= step
             x, y = step, 0
         if orientation == Grid.VERTICAL:
-            self._cury -= step
+            self._y0 -= step
             x, y = 0, step
         for child in self.get_children():
             child.move_by(x, y)
