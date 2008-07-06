@@ -202,7 +202,7 @@ class Widget(object):
         # FIXME: make _depends private
         self._depends = []
         self.__animations = {}
-        self.__context = context
+        self.__context = context or {}
         self.__userdata = {}
 
     def get_context(self, key=None):
