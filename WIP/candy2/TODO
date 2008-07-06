@@ -1,0 +1,14 @@
+1. Add padding information to Widget that can be set with a property
+   in the XML file or with set/get functions. If padding is used,
+   widgets like the grid should honor them.
+
+2. Add a layout container so children do not need to have x/y values set.
+   This widget also has to honor padding information
+
+3. Support libcandy C based actors with Python bindings. One actor should
+   be the reflection actor with clutter toys or tidy.
+
+
+
+X. All FIXME, TODO and @todo messages in the code should be fixed. And add
+   more doc (always a good idea)
