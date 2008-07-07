@@ -83,7 +83,13 @@ def main():
     # mainloop) and add the flickr container based on the context
     stage.remove(label)
     container = stage.add(candy.container.flickr, context=context)
+    print 'take a look'
+    yield wait(1)
     print 'scroll down'
+    grid = container.get_element('items')
+    kaa.candy.Callback(grid.scroll_by)((0, 2), 1)
+    yield wait(2)
+    print 'scroll right'
     grid = container.get_element('items')
     kaa.candy.Callback(grid.scroll_by)((2, 0), 4)
     yield wait(2)
@@ -96,6 +102,7 @@ def main():
     print 'and left again while the animation is still running'
     kaa.candy.Callback(grid.scroll_by)((-1, 0), 0.8)
     yield wait(2)
+    print 'go home (0,0)'
     kaa.candy.Callback(grid.scroll_to)((0, 0), 0.8)
     yield wait(2)
     print 'load more'
