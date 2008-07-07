@@ -50,10 +50,24 @@ if os.environ.get('PKG_CONFIG_PATH'):
     pkgconfig += ':' + os.environ.get('PKG_CONFIG_PATH')
 os.environ['PKG_CONFIG_PATH'] = pkgconfig
 
+# create libcandy extension, gen_libcandy.c may not exist yet
+files = [ 'src/libcandy/%s.c' % m for m in libcandy_modules ]
+files.extend(['src/libcandy/gen_libcandy.c', 'src/libcandy/libcandymodule.c'])
+libcandy = Extension('kaa/candy/libcandy', files)
+
+# check dependencies
+if not libcandy.check_library('clutter-0.6', '0.6.2'):
+    print 'clutter >= 0.6.2 not found'
+    sys.exit(1)
+if not libcandy.check_library('pygtk-2.0', '2.10.0'):
+    print 'pygtk >= 2.10.0 not found'
+    sys.exit(1)
+
 # check for pygtk-codegen to generate python bindings
+# should be part of pygtk
 pygtk_codegen = kaa.utils.which('pygtk-codegen-2.0')
 if not pygtk_codegen:
-    print 'pygtk-codegen-2.0 not found'
+    print 'pygtk-codegen-2.0 not found, should be part of pygtk'
     sys.exit(1)
 
 # check for pyclutter defs for pygtk-codegen
@@ -81,19 +95,6 @@ for m in libcandy_modules:
             'src/libcandy/libcandy.defs > src/libcandy/gen_libcandy.c' \
             % (pygtk_codegen,clutter_defs))
         break
-
-# all done. Now use the normal extension code
-libcandy_modules.extend(['gen_libcandy', 'libcandymodule'])
-files = [ 'src/libcandy/%s.c' % m for m in libcandy_modules ]
-libcandy = Extension('kaa/candy/libcandy', files)
-
-# check should not be needed but we need the lib and include paths
-if not libcandy.check_library('clutter-0.6', '0.6.2'):
-    print 'clutter >= 0.6.2 not found'
-    sys.exit(1)
-if not libcandy.check_library('pygtk-2.0', '2.10.0'):
-    print 'pygtk >= 2.10.0 not found'
-    sys.exit(1)
 
 # now trigger the python magic
 setup(
