@@ -80,36 +80,38 @@ def main():
     context = dict(title=feed.feed.title, items=items)
 
     # remove the wait label (it is safe to remove something from the stage in the
-    # mainloop) and add the flickr container based on the context
+    # mainloop) and add the flickr container based on the context. Calling
+    # scroll_(by|to) is thread safe.
     stage.remove(label)
     container = stage.add(candy.container.flickr, context=context)
     print 'take a look'
     yield wait(1)
     print 'scroll down'
     grid = container.get_element('items')
-    kaa.candy.Callback(grid.scroll_by)((0, 2), 1)
+    grid.scroll_by((0, 2), 1)
     yield wait(2)
     print 'scroll right'
     grid = container.get_element('items')
-    kaa.candy.Callback(grid.scroll_by)((2, 0), 4)
+    grid.scroll_by((2, 0), 4)
     yield wait(2)
     print 'scroll up very fast, more than possible'
-    kaa.candy.Callback(grid.scroll_by)((0,-15), 0.5)
+    grid.scroll_by((0,-15), 0.5)
     yield wait(2)
     print 'and down again'
-    kaa.candy.Callback(grid.scroll_by)((1,1), 0.8)
+    grid.scroll_by((1,1), 0.8)
     yield wait(0.7)
     print 'and left again while the animation is still running'
-    kaa.candy.Callback(grid.scroll_by)((-1, 0), 0.8)
+    grid.scroll_by((-1, 0), 0.8)
     yield wait(2)
     print 'go home (0,0)'
-    kaa.candy.Callback(grid.scroll_to)((0, 0), 0.8)
+    grid.scroll_to((0, 0), 0.8)
     yield wait(2)
     print 'load more'
 
     # create new context and replace it
     feed, items = yield load_feed('sunset')
     context = dict(title=feed.feed.title, items=items)
+    # set context is not thread-sfae, use kaa.candy.Callback here
     kaa.candy.Callback(container.set_context)(context=context)
     
 main()

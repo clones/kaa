@@ -48,7 +48,7 @@ import clutter
 
 # kaa.candy imports imports
 import core
-from .. import candyxml, timeline
+from .. import candyxml, timeline, threaded
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -159,6 +159,7 @@ class Grid(core.Group):
         self._col_animation = None
         super(Grid, self).destroy()
 
+    @threaded()
     def scroll_by(self, (rows, cols), secs):
         """
         Scroll by rows and cols cells
@@ -180,6 +181,7 @@ class Grid(core.Group):
                 cols -= (cols / abs(cols))
         self.scroll_to((self._cell0[0] + rows, self._cell0[1] + cols), secs)
 
+    @threaded()
     def scroll_to(self, (row, col), secs):
         """
         Scroll to row / cell position
