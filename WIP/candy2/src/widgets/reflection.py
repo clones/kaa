@@ -4,10 +4,6 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# BUG: I have no idea how to control the gradient effect. Changing some variables
-# does not have the effect I think it should have
-# http://cairographics.org/manual/cairo-Patterns.html
-#
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
 # Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
@@ -37,25 +33,25 @@ import clutter
 
 # kaa.candy imports
 from .. import Modifier
+from .. import libcandy
 import core
 
 __all__ = [ 'ReflectionTexture', 'ReflectionModifier' ]
 
-class ReflectionTexture(core.CairoTexture):
+class CairoReflectionTexture(core.CairoTexture):
     """
     Texture to show a reflection of another texture. This widget only works
     for Texture based widgets and uses software rendering.
     @param texture: source texture to reflect
     @param height: height of the reflection (between 0.0 and 1.0)
     @param opacity: opacity of the gradient
-    @todo: use GL based implementation
     """
     def __init__(self, texture, height=0.5, opacity=0.8):
         size = (1,1)
         pixbuf = texture.get_pixbuf()
         if pixbuf:
             size = pixbuf.get_width(), pixbuf.get_height()
-        super(ReflectionTexture, self).__init__(None, size)
+        super(CairoReflectionTexture, self).__init__(None, size)
         self._reflection_height = height
         self._opacity = opacity
         # FIXME: check for memory leak
@@ -111,6 +107,21 @@ class ReflectionTexture(core.CairoTexture):
         self.set_position(x, h+y)
 
 
+class ReflectionTexture(core.Widget, libcandy.ReflectTexture):
+    """
+    Texture to show a reflection of another texture. The code uses the
+    reflection actor from libcandy.
+    """
+    def __init__(self, pos, size, src):
+        """
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget or None.
+        @param src: source texture to reflect
+        """
+        libcandy.ReflectTexture.__init__(self, src, size[1])
+        core.Widget.__init__(self, pos, size)
+
+
 class ReflectionModifier(Modifier):
     """
     Modifier to add a reflection.
@@ -139,7 +150,7 @@ class ReflectionModifier(Modifier):
         group._depends = widget._depends
         widget.set_position(0,0)
         widget.set_parent(group)
-        reflection = ReflectionTexture(widget)
+        reflection = ReflectionTexture((0,h), (w, h/2), widget)
         reflection.set_opacity(self._opacity)
         reflection.set_parent(group)
         return group

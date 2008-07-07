@@ -1,0 +1,30 @@
+;; -*- scheme -*-
+; object definitions ...
+(define-object ReflectTexture
+  (in-module "Clutter")
+  (parent "ClutterCloneTexture")
+  (c-name "ClutterReflectTexture")
+  (gtype-id "CLUTTER_TYPE_REFLECT_TEXTURE")
+)
+
+;; Enumerations and flags ...
+
+
+;; From clutter-reflect-texture.h
+
+(define-function clutter_reflect_texture_get_type
+  (c-name "clutter_reflect_texture_get_type")
+  (return-type "GType")
+)
+
+(define-function clutter_reflect_texture_new
+  (c-name "clutter_reflect_texture_new")
+  (is-constructor-of "ClutterReflectTexture")
+  (return-type "ClutterActor*")
+  (parameters
+    '("ClutterTexture*" "texture")
+    '("gint" "reflection_height")
+  )
+)
+
+
