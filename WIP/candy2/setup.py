@@ -35,11 +35,21 @@ import stat
 try:
     # kaa base imports
     from kaa.distribution.core import Extension, setup
+    import kaa.utils
 except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
-import kaa.utils
+if len(sys.argv) == 2 and sys.argv[1] == 'clean':
+    for file in ('build', 'dist', 'src/version.py', 'MANIFEST',
+                 'src/libcandy/gen_libcandy.c', 'doc/html'):
+        if os.path.isdir(file):
+            print 'removing %s' % file
+            os.system('rm -rf %s' % file)
+        if os.path.isfile(file):
+            print 'removing %s' % file
+            os.unlink(file)
+    sys.exit(0)
 
 libcandy_modules = [ 'clutter-reflect-texture' ]
 
