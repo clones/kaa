@@ -1,0 +1,42 @@
+kaa-candy - Third generation Canvas System using Clutter as backend
+===================================================================
+
+This module provides a high level API for clutter including new
+widgets based on simple clutter actors. It also includes a XML based
+scripting language. It will be used as GUI module for Freevo 2.0. If
+widget do not depend on data structures of Freevo they should be
+included in kaa.candy.
+
+For questions please contact the freevo devel mailing list or ask on
+#freevo at irc.gnu.org.
+
+Documentation:
+--------------
+
+Please run 'python setup.py doc' in the kaa.candy directory. This will
+build the API doc with additional information in doc/html. Besides the
+requirements below this needs epydoc to be installed.
+
+See the test directory for examples.
+
+
+Requirements:
+-------------
+
+kaa.base
+kaa.imlib2
+
+Latest versions of clutter-0.6, the 0.7 development releases will not
+work. When 0.8 is out the code will be updated. Get the files from
+http://www.clutter-project.org
+
+clutter-0.6.4
+clutter-cairo-0.6.2
+pyclutter-0.6 latest svn
+http://svn.o-hand.com/repos/clutter/branches/pyclutter-0-6
+
+pygtk-2 including pygtk-codegen. When you are able to install
+pyclutter you have pygtk-codegen installed.
+
+The flickr.py test case also requires feedparser
+http://www.feedparser.org
