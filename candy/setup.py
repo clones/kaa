@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2004-2005 Jason Tackaberry <tack@sault.org>
+# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 # Maintainer:    Jason Tackaberry <tack@sault.org>
