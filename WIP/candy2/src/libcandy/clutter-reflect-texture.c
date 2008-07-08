@@ -21,6 +21,13 @@
  * License along with this library; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
+ *
+ * **************************************************************
+ * Note: replace reflect_texture_render_to_gl_quad and 
+ * clutter_reflect_texture_paint by functions from tidy!
+ * Changed in r3347.
+ * **************************************************************
+ *
  */
 
 #define CLUTTER_PARAM_READWRITE \
@@ -61,6 +68,7 @@ struct _ClutterReflectTexturePrivate
 
 static void
 reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture, 
+				 ClutterTexture        *parent,
 				 int             x1, 
 				 int             y1, 
 				 int             x2, 
@@ -72,33 +80,28 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
   gint   n_x_tiles, n_y_tiles; 
   gint   pwidth, pheight, rheight;
   float tx, ty, ty2 = 0.0;
-
   ClutterReflectTexturePrivate *priv = ctexture->priv;
-  ClutterActor *parent_texture = CLUTTER_ACTOR(clutter_clone_texture_get_parent_texture(CLUTTER_CLONE_TEXTURE(ctexture)));
-
-  priv = ctexture->priv;
+  ClutterColor white = { 255, 255, 255, 255 };
 
   qwidth  = x2 - x1;
   qheight = y2 - y1;
 
   rheight = priv->reflection_height;
+  if (rheight < 0)
+    rheight = clutter_actor_get_height (CLUTTER_ACTOR (parent)) / 2;
 
   if (rheight > qheight)
     rheight = qheight;
 
-  if (!CLUTTER_ACTOR_IS_REALIZED (parent_texture))
-      clutter_actor_realize (parent_texture);
-
   /* Only paint if parent is in a state to do so */
-  if (!clutter_texture_has_generated_tiles (CLUTTER_TEXTURE(parent_texture)))
+  if (!clutter_texture_has_generated_tiles (parent))
     return;
   
-  clutter_texture_get_base_size (CLUTTER_TEXTURE(parent_texture), 
-				 &pwidth, &pheight); 
+  clutter_texture_get_base_size (parent, &pwidth, &pheight); 
 
-  if (!clutter_texture_is_tiled (CLUTTER_TEXTURE(parent_texture)))
+  if (!clutter_texture_is_tiled (parent))
     {
-      clutter_texture_bind_tile (CLUTTER_TEXTURE(parent_texture), 0);
+      clutter_texture_bind_tile (parent, 0);
 
       /* NPOTS textures *always* used if extension available
        */
@@ -120,10 +123,11 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
       qx1 = x1; qx2 = x2;
       qy1 = y1; qy2 = y1 + rheight;
 
+#ifdef CLUTTER_COGL_HAS_GL
       glBegin (GL_QUADS);
 
-      glColor4ub (255, 255, 255, 
-		  clutter_actor_get_opacity (CLUTTER_ACTOR(ctexture)));
+      white.alpha = clutter_actor_get_opacity (CLUTTER_ACTOR (ctexture));
+      cogl_color (&white);
 
       glTexCoord2f (0, ty);   
       glVertex2i   (qx1, qy1);
@@ -131,7 +135,8 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
       glTexCoord2f (tx,  ty);   
       glVertex2i   (qx2, qy1);
 
-      glColor4ub (255, 255, 255, 0);
+      white.alpha = 0;
+      cogl_color (&white);
 
       glTexCoord2f (tx,  ty2);    
       glVertex2i   (qx2, qy2);
@@ -140,12 +145,20 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
       glVertex2i   (qx1, qy2);
 
       glEnd ();	
-      
+#else
+#warning "ClutterReflectTexture does not currently support GL ES"
+#endif
       return;
     }
+  else
+    {
+      g_warning("ClutterReflectTexture doesn't support tiled textures.."); 
+    }
 
-  clutter_texture_get_n_tiles (CLUTTER_TEXTURE(parent_texture), 
-			       &n_x_tiles, &n_y_tiles); 
+  /* FIXME: Below wont actually render the corrent graduated effect. */
+
+#ifdef CLUTTER_COGL_HAS_GL
+  clutter_texture_get_n_tiles (parent, &n_x_tiles, &n_y_tiles); 
 
   for (x = 0; x < n_x_tiles; x++)
     {
@@ -156,13 +169,12 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
 	  gint actual_w, actual_h;
 	  gint xpos, ypos, xsize, ysize, ywaste, xwaste;
 	  
-	  clutter_texture_bind_tile (CLUTTER_TEXTURE(parent_texture), i);
+	  clutter_texture_bind_tile (parent, i);
 	 
-	  clutter_texture_get_x_tile_detail (CLUTTER_TEXTURE(parent_texture), 
-					     x, &xpos, &xsize, &xwaste);
-
-	  clutter_texture_get_y_tile_detail (CLUTTER_TEXTURE(parent_texture), 
-					     y, &ypos, &ysize, &ywaste);
+	  clutter_texture_get_x_tile_detail (parent, x,
+                                             &xpos, &xsize, &xwaste);
+	  clutter_texture_get_y_tile_detail (parent, y,
+                                             &ypos, &ysize, &ywaste);
 
 	  actual_w = xsize - xwaste;
 	  actual_h = ysize - ywaste;
@@ -189,33 +201,33 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
 	}
       lastx += qx2 - qx1;
     }
+#endif
 }
 
 static void
 clutter_reflect_texture_paint (ClutterActor *self)
 {
-  ClutterReflectTexturePrivate  *priv;
-  ClutterActor                *parent_texture;
-  gint                         x1, y1, x2, y2;
-  GLenum                       target_type;
+#ifdef CLUTTER_COGL_HAS_GL
+  ClutterReflectTexture *texture;
+  ClutterCloneTexture *clone;
+  ClutterTexture *parent;
+  ClutterActorBox box = { 0, };
 
-  priv = CLUTTER_REFLECT_TEXTURE (self)->priv;
+  COGLenum target_type;
+  ClutterColor white = { 255, 255, 255, 255 };
 
-  /* no need to paint stuff if we don't have a texture to reflect */
-  if (!clutter_clone_texture_get_parent_texture(CLUTTER_CLONE_TEXTURE(self)))
+  texture = CLUTTER_REFLECT_TEXTURE (self);
+  clone = CLUTTER_CLONE_TEXTURE (self);
+
+  parent = clutter_clone_texture_get_parent_texture (clone);
+  if (!parent)
     return;
 
-  /* parent texture may have been hidden, there for need to make sure its 
-   * realised with resources available.  
-  */
-  parent_texture = CLUTTER_ACTOR (clutter_clone_texture_get_parent_texture(CLUTTER_CLONE_TEXTURE(self)));
-  if (!CLUTTER_ACTOR_IS_REALIZED (parent_texture))
-    clutter_actor_realize (parent_texture);
+  if (!CLUTTER_ACTOR_IS_REALIZED (parent))
+    clutter_actor_realize (CLUTTER_ACTOR (parent));
 
-  /* FIXME: figure out nicer way of getting at this info...  
-   */  
   if (clutter_feature_available (CLUTTER_FEATURE_TEXTURE_RECTANGLE) &&
-      clutter_texture_is_tiled (CLUTTER_TEXTURE (parent_texture)) == FALSE)
+      clutter_texture_is_tiled (parent) == FALSE)
     {
       target_type = CGL_TEXTURE_RECTANGLE_ARB;
       cogl_enable (CGL_ENABLE_TEXTURE_RECT | CGL_ENABLE_BLEND);
@@ -228,17 +240,18 @@ clutter_reflect_texture_paint (ClutterActor *self)
   
   cogl_push_matrix ();
 
-  glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  white.alpha = clutter_actor_get_opacity (self);
+  cogl_color (&white);
 
-  glColor4ub (255, 255, 255, clutter_actor_get_opacity (self));
+  clutter_actor_query_coords (self, &box);
 
-  clutter_actor_get_coords (self, &x1, &y1, &x2, &y2);
-
-  /* Parent paint translated us into position */
-  reflect_texture_render_to_gl_quad (CLUTTER_REFLECT_TEXTURE (self), 
-				   0, 0, x2 - x1, y2 - y1);
+  reflect_texture_render_to_gl_quad (texture, parent,
+                                     0, 0,
+                                     CLUTTER_UNITS_TO_DEVICE (box.x2 - box.x1),
+                                     CLUTTER_UNITS_TO_DEVICE (box.y2 - box.y1));
 
   cogl_pop_matrix ();
+#endif
 }
 
 

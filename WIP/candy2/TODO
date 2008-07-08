@@ -5,9 +5,6 @@
 2. Add a layout container so children do not need to have x/y values set.
    This widget also has to honor padding information
 
-3. Update src/libcandy/clutter-reflect-texture.c to the code used in the
-   tidy reflection actor.
-
 
 X. All FIXME, TODO and @todo messages in the code should be fixed. And add
    more doc (always a good idea)
