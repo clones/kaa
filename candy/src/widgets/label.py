@@ -10,6 +10,9 @@
 # kaa-candy - Third generation Canvas System using Clutter as backend
 # Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
 #
+# First Version: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
 # Please see the file AUTHORS for a complete list of authors.
 #
 # This library is free software; you can redistribute it and/or modify
