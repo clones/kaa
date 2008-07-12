@@ -57,16 +57,19 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
             PyDict_SetItemString_STEAL(o->data, "num_buttons", PyInt_FromLong(d->num_buttons));
             break;
         }
+
         case XINE_EVENT_UI_SET_TITLE: {
             xine_ui_data_t *d = (xine_ui_data_t *)event->data;
             PyDict_SetItemString_STEAL(o->data, "str", PyString_FromString(d->str));
             break;
         }
+
         case XINE_EVENT_UI_MESSAGE: {
             xine_ui_message_data_t *d = (xine_ui_message_data_t *)event->data;
             PyDict_SetItemString_STEAL(o->data, "type", PyInt_FromLong(d->type));
             if (d->explanation)
-                PyDict_SetItemString_STEAL(o->data, "explanation", PyString_FromString((char *)(event->data + d->explanation)));
+                PyDict_SetItemString_STEAL(o->data, "explanation", 
+                                           PyString_FromString((char *)(event->data + d->explanation)));
             if (d->num_parameters) {
                 PyObject *params = PyList_New(0);
                 int i;
@@ -80,6 +83,16 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
 
             }
         }
+
+        case XINE_EVENT_DROPPED_FRAMES: {
+            xine_dropped_frames_t *d = (xine_dropped_frames_t *)event->data;
+            PyDict_SetItemString_STEAL(o->data, "skipped_frames", PyInt_FromLong(d->skipped_frames));
+            PyDict_SetItemString_STEAL(o->data, "skipped_threshold", PyInt_FromLong(d->skipped_threshold));
+            PyDict_SetItemString_STEAL(o->data, "discarded_frames", PyInt_FromLong(d->discarded_frames));
+            PyDict_SetItemString_STEAL(o->data, "discarded_threshold", PyInt_FromLong(d->discarded_threshold));
+            break;
+        }
+
 
     }
 
