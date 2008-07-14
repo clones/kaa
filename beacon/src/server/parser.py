@@ -62,6 +62,9 @@ media_types = {
     kaa.metadata.MEDIA_DIRECTORY: 'dir'
 }
 
+#: parse in a named thread
+parse_thread = kaa.NamedThreadCallback('beacon:metadata', kaa.metadata.parse)
+
 def register(ext, function):
     """
     Register a plugin to the parser. This function gets called by the
@@ -95,7 +98,7 @@ def parse(db, item, check_image=False):
         return 0
 
     parent = item._beacon_parent
-    
+
     if not parent:
         log.warning('no parent, skip %s' % item)
         return 0
@@ -103,11 +106,11 @@ def parse(db, item, check_image=False):
     if parent._beacon_id and not item._beacon_id:
         # check if the item is in the db now from a different
         # list of items.
-        r = db.sync_item(item)
+        db.sync_item(item)
 
     if item._beacon_data.get('mtime') == mtime:
         # The item already is in the database and the mtime is unchanged.
-        # This menas we don't need to scan again, but we check if the
+        # This means we don't need to scan again, but we check if the
         # thumbnail is valid or not.
         if check_image and item._beacon_data.get('image'):
             image = item._beacon_data.get('image')
@@ -135,7 +138,7 @@ def _parse(db, item, mtime):
     #
     # Parent checking
     #
-    
+
     parent = item._beacon_parent
     if not parent._beacon_id:
         # There is a parent without id, update the parent now.
@@ -164,8 +167,8 @@ def _parse(db, item, mtime):
     # - never force (faster but maybe wrong)
     # - only force on media 1 (good default)
 
-    # FIXME: put scanning in a thread for item with media != root
-    metadata = kaa.metadata.parse(item.filename)
+    # Parse metadata in an extra named thread
+    metadata = yield parse_thread(item.filename)
     if not metadata:
         metadata = {}
 
@@ -213,6 +216,7 @@ def _parse(db, item, mtime):
                 if os.path.isfile(item.filename + cover):
                     attributes['image'] = item.filename + cover
                     break
+
         # TODO: do some more stuff here:
         # Audio directories may have a different cover if there is only
         # one jpg in a dir of mp3 files or a files with 'front' in the name.
@@ -258,6 +262,7 @@ def _parse(db, item, mtime):
                 break
 
     if attributes.get('image'):
+        # create thumbnail
         t = thumbnail.Thumbnail(attributes.get('image'), item._beacon_media)
         if not t.get(thumbnail.LARGE, check_mtime=True) and \
                (not type == 'video' or not hasattr(item, 'filename') or \

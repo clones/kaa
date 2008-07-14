@@ -492,14 +492,14 @@ class Crawler(object):
                 yield async
 
         # add to monitor list using inotify
-        self.monitoring.add(directory.filename)
+        if not directory.filename in self.monitoring:
+            self.monitoring.add(directory.filename)
 
         # iterate through the files
         subdirs = []
         counter = 0
 
-        result = yield self._db.query(parent=directory)
-        for child in result:
+        for child in (yield self._db.query(parent=directory)):
             if child._beacon_isdir:
                 # add directory to list of files to return
                 subdirs.append(child)
@@ -508,14 +508,15 @@ class Crawler(object):
             async = parse(self._db, child, check_image=self._startup)
             if isinstance(async, kaa.InProgress):
                 async = yield async
-            counter += async * 20
+            # adjust load counter
+            counter += async * 5 + 1
             while counter >= 20:
+                # throttle down
                 counter -= 20
                 yield kaa.NotFinished
                 if cpuinfo.cpuinfo()[cpuinfo.IDLE] < 50 or \
                        cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 30:
                     yield kaa.NotFinished
-            counter += 1
 
         if not subdirs:
             # No subdirectories that need to be checked. Add some extra
@@ -535,8 +536,7 @@ class Crawler(object):
         check_attr = data.keys()[:]
         check_attr.remove('length')
 
-        result = yield self._db.query(parent=directory)
-        for child in result:
+        for child in (yield self._db.query(parent=directory)):
             data['length'] += child._beacon_data.get('length', 0) or 0
             for attr in check_attr:
                 value = child._beacon_data.get(attr, data[attr])
