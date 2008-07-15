@@ -73,7 +73,7 @@ class Image(core.Texture):
         if url.startswith('$'):
             # variable from the context, e.g. $varname
             self.set_dependency(url[1:])
-            url = eval(url[1:], context)
+            url = self.eval_context(url[1:])
             if not url:
                 return
         if url.startswith('http://'):
@@ -156,24 +156,50 @@ class Thumbnail(Image):
         if isinstance(thumbnail, (str, unicode)):
             # get thumbnail from context
             self.set_dependency(thumbnail)
-            thumbnail = eval(thumbnail, context)
+            thumbnail = self.eval_context(thumbnail)
+        item = None
+        if hasattr(thumbnail, 'scan'):
+            # FIXME: bad detection
+            # thumbnail is a kaa.beacon.Item
+            item, thumbnail = thumbnail, thumbnail.get('thumbnail')
         self._thumbnail = thumbnail
-        if self._thumbnail is not None and self._thumbnail.exists():
-            # show thumbnail
-            return self._show_thumbnail()
         if self._thumbnail is not None:
-            # create thumbnail; be carefull with threads
-            self._thumbnail.create().connect_weak_once(self._show_thumbnail)
+            # show thumbnail
+            return self._show_thumbnail(force=True)
+        if item is not None and not item.scanned():
+            scanning = item.scan()
+            if scanning:
+                scanning.connect_weak_once(self._beacon_update, item)
+
+    def _beacon_update(self, changes, item):
+        self._thumbnail = item.get('thumbnail')
+        return self._show_thumbnail(force=True)
 
     @threaded()
-    def _show_thumbnail(self):
+    def _show_thumbnail(self, force=False):
         """
         Callback to render the thumbnail to the texture.
         @todo: add thumbnail update based on beacon mtime
+        @todo: try to force large thumbnails
         """
-        if not self._thumbnail.is_failed():
-            print self._thumbnail.get()
-            self.set_imlib2(self._thumbnail.get())
+        if self._thumbnail is None or self._thumbnail.is_failed():
+            return False
+        large = self._thumbnail.get(self._thumbnail.LARGE)
+        image = large
+        if not large:
+            image = self._thumbnail.get(self._thumbnail.NORMAL)
+        if image:
+            self.set_imlib2(image)
+        if force and not large:
+            # Create thumbnail; This object will hold a reference to the
+            # beacon.Thumbnail object and uses high priority. Since we
+            # only connect weak to the result we loose the thumbnail object
+            # when this widget is removed which will reduce the priority
+            # to low. This is exactly what we want. The create will be
+            # scheduled in the mainloop but since we do not wait it is ok.
+            self._thumbnail.create(
+                self._thumbnail.LARGE, self._thumbnail.PRIORITY_HIGH).\
+                connect_weak_once(self._show_thumbnail)
 
     @classmethod
     def candyxml_parse(cls, element):
