@@ -94,7 +94,7 @@ def parse(db, item, check_image=False):
             t = thumbnail.Thumbnail(image, item._beacon_media)
             if not t.get(thumbnail.LARGE, check_mtime=True):
                 log.info('create missing image %s for %s', image, item)
-                t.create(thumbnail.LARGE, thumbnail.PRIORITY_LOW)
+                t.create(thumbnail.LARGE, t.PRIORITY_LOW)
         return 0
 
     parent = item._beacon_parent
@@ -118,7 +118,7 @@ def parse(db, item, check_image=False):
                 t = thumbnail.Thumbnail(image, item._beacon_media)
                 if not t.get(thumbnail.LARGE, check_mtime=True):
                     log.info('create missing image %s for %s', image, item)
-                    t.create(thumbnail.LARGE, thumbnail.PRIORITY_LOW)
+                    t.create(thumbnail.LARGE, t.PRIORITY_LOW)
                 return 0
             else:
                 log.info('image "%s" for %s is gone, rescan', image, item)
@@ -267,7 +267,7 @@ def _parse(db, item, mtime):
         if not t.get(thumbnail.LARGE, check_mtime=True) and \
                (not type == 'video' or not hasattr(item, 'filename') or \
                 utils.do_thumbnail(item.filename)):
-            t.create(thumbnail.LARGE, thumbnail.PRIORITY_LOW)
+            t.create(thumbnail.LARGE, t.PRIORITY_LOW)
 
     if not metadata.get('title'):
         # try to set a good title

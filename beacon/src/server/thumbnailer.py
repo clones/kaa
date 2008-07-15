@@ -236,8 +236,9 @@ class Thumbnailer(object):
         if self._timer.active() or not self.jobs:
             return
         delay = (1 + self.jobs[0].priority * 5) * THUMBNAIL_TIMER
-        if fast:
-            # do fast scanning, we skip the last one
+        if fast or not self.jobs[0].priority:
+            # do fast scanning, we skiped the last one or we have a
+            # very high priority
             delay = delay / 10
         elif (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
               cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15):
@@ -255,6 +256,7 @@ class Thumbnailer(object):
         # FIXME: check if job is already scheduled!!!!
         job = Job(id, filename, imagefile, size, priority)
         self.jobs.append(job)
+        self.jobs.sort(lambda x,y: cmp(x.priority, y.priority))
         self.schedule_next()
 
 

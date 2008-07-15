@@ -34,10 +34,6 @@ __all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'SUPPORT_VIDEO', 'connect' ]
 NORMAL  = 'normal'
 LARGE   = 'large'
 
-PRIORITY_HIGH   = 0
-PRIORITY_NORMAL = 1
-PRIORITY_LOW    = 2
-
 # python imports
 import os
 import md5
@@ -80,6 +76,15 @@ class Job(object):
 _client = None
 
 class Thumbnail(object):
+
+    # priority for creating
+    PRIORITY_HIGH   = 0
+    PRIORITY_NORMAL = 1
+    PRIORITY_LOW    = 2
+
+    # sizes
+    LARGE = 'large'
+    NORMAL = 'normal'
 
     next_id = 0
 
@@ -145,7 +150,9 @@ class Thumbnail(object):
         return self.get('fail/beacon')
 
 
-    def create(self, type=NORMAL, priority=PRIORITY_NORMAL):
+    def create(self, type=NORMAL, priority=None):
+        if priority is None:
+            priority = Thumbnail.PRIORITY_NORMAL
         Thumbnail.next_id += 1
 
         dest = '%s/%s' % (self.destdir, type)
@@ -211,8 +218,8 @@ class Client(object):
                 continue
             # set old jobs to lower priority
             Job.all.remove(job)
-            if job.priority != PRIORITY_LOW:
-                self.rpc('set_priority', (self.id, job.id), PRIORITY_LOW)
+            if job.priority != Thumbnail.PRIORITY_LOW:
+                self.rpc('set_priority', (self.id, job.id), Thumbnail.PRIORITY_LOW)
 
 
 def connect():
@@ -231,7 +238,3 @@ def connect():
                 # start time is up, something is wrong here
                 raise RuntimeError('unable to connect to thumbnail server')
             time.sleep(0.01)
-
-
-
-

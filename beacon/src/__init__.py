@@ -44,8 +44,11 @@ import kaa
 from version import VERSION
 from client import Client, ConnectError
 import thumbnail
+# FIXME: remove THUMBNAIL_NORMAL and THUMBNAIL_LARGE and replace code
+# using it with Thumbnail.LARGE and Thumbnail.NORMAL
 from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
+from thumbnail import Thumbnail
 from query import register_filter, wrap, Query
 from item import Item
 from kaa.db import *
