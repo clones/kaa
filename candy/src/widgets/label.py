@@ -63,16 +63,16 @@ class Label(core.CairoTexture):
         @param align: Text alignment. One of 'left' (default), 'center' or 'right'
         @param context: the context the widget is created in
         """
+        if size[1] is None:
+            size = size[0], Label.get_font_height(font.name, font.size)[2]
+        super(Label, self).__init__(pos, size, context)
         depends = []
         if context:
             def replace_context(matchobj):
                 if not matchobj.groups()[0] in depends:
                     depends.append(matchobj.groups()[0])
-                return eval(matchobj.groups()[0], context)
+                return self.eval_context(matchobj.groups()[0])
             text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
-        if size[1] is None:
-            size = size[0], Label.get_font_height(font.name, font.size)[2]
-        super(Label, self).__init__(pos, size, context)
         self.set_dependency(*depends)
         self._font = font
         self._color = color

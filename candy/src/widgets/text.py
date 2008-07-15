@@ -61,14 +61,14 @@ class Text(core.Widget, clutter.Label):
             def eval_expression(matchobj):
                 if not matchobj.groups()[0] in depends:
                     depends.append(matchobj.groups()[0])
-                if eval(matchobj.groups()[0], context):
+                if self.eval_context(matchobj.groups()[0]):
                     return matchobj.groups()[1]
                 return ''
             def replace_context(matchobj):
                 if not matchobj.groups()[0] in depends:
                     depends.append(matchobj.groups()[0])
                 # FIXME: maybe the string has markup to use
-                return eval(matchobj.groups()[0], context).replace('&', '&amp;').\
+                return self.eval_context(matchobj.groups()[0]).replace('&', '&amp;').\
                        replace('<', '&lt;').replace('>', '&gt;')
             text = self._regexp_if.sub(eval_expression, text)
             text = self._regexp_eval.sub(replace_context, text).strip()

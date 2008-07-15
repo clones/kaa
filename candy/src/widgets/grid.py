@@ -115,7 +115,7 @@ class Grid(core.Group):
         if isinstance(items, (str, unicode)):
             # items is a string, get it from the context
             self.set_dependency(items)
-            items = eval(items, context)
+            items = self.eval_context(items)
         # store arguments for later public use
         self.cell_size = cell_size
         # do some calculations

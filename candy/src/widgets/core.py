@@ -236,10 +236,39 @@ class Widget(object):
         @returns: False if the widget can not handle the context or True
         """
         for var, value in self._depends:
-            if value != eval(var, context):
+            if value != self.eval_context(var, context=context):
                 return False
         self.set_context(context)
         return True
+
+    def eval_context(self, var, default=None, context=None):
+        """
+        Evaluate the context for the given variable.
+        """
+        if var.startswith('$'):
+            # strip prefix for variables if set
+            var = var[1:]
+        context = context or self.__context
+        try:
+            # try the variable as it is
+            return eval(var, context)
+        except AttributeError:
+            # not found. Maybe it is an object with a get method.
+            # foo.bar.buz could be foo.bar.get('buz')
+            pos = var.rfind('.')
+            if pos == -1:
+                # no dot found, too bad
+                log.error('unable to evaluate %s', var)
+                return default
+            try:
+                value = eval(var[:pos], context).get(var[pos+1:])
+                if value is None:
+                    value = default
+                return value
+            except AttributeError:
+                log.error('unable to evaluate %s', var)
+                return default
+        return value
 
     def set_dependency(self, *dependencies):
         """
@@ -247,9 +276,11 @@ class Widget(object):
         is used internally in a widget implementation.
         @param dependencies: list of keys of the context this widget requires to
            be set to the same values as they were when the widget was created.
+        @todo: fix function not to eval the context again. Maybe also update
+           try_context to avoid eval
         """
         try:
-            self._depends = [ (str(d), eval(str(d), self.__context)) \
+            self._depends = [ (str(d), self.eval_context(str(d))) \
                               for d in dependencies ]
         except Exception, e:
             log.error('bad dependencies: %s in context %s for %s', dependencies,
