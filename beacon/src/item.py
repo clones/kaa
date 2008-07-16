@@ -109,9 +109,13 @@ class Item(object):
         if key in ('image', 'thumbnail'):
             image = self._beacon_data.get('image')
             if not image:
-                if self._beacon_parent:
-                    # This is not a good solution, maybe the parent is not
-                    # up to date. Well, we have to live with that for now.
+                if self._beacon_parent and self._beacon_id:
+                    # This is not a good solution, maybe the parent is
+                    # not up to date. Well, we have to live with that
+                    # for now.  Only get image from parent if the item
+                    # is scanned because it is a very bad idea that
+                    # unscanned images (we do not know that they are
+                    # images yet) inherit the image from a directory.
                     image = self._beacon_parent.get('image')
                 if not image:
                     return default
