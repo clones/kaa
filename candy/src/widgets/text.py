@@ -57,22 +57,16 @@ class Text(core.Widget, clutter.Label):
         core.Widget.__init__(self, pos, size, context)
         text = self._regexp_space.sub(' ', text)
         if context:
-            depends = []
             def eval_expression(matchobj):
-                if not matchobj.groups()[0] in depends:
-                    depends.append(matchobj.groups()[0])
                 if self.eval_context(matchobj.groups()[0]):
                     return matchobj.groups()[1]
                 return ''
             def replace_context(matchobj):
-                if not matchobj.groups()[0] in depends:
-                    depends.append(matchobj.groups()[0])
                 # FIXME: maybe the string has markup to use
                 return self.eval_context(matchobj.groups()[0]).replace('&', '&amp;').\
                        replace('<', '&lt;').replace('>', '&gt;')
             text = self._regexp_if.sub(eval_expression, text)
             text = self._regexp_eval.sub(replace_context, text).strip()
-            self.set_dependency(*depends)
         text = self._regexp_br.sub('\n', text)
         layout = self.get_layout()
         self.set_line_wrap(True)

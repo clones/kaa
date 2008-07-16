@@ -114,7 +114,6 @@ class Grid(core.Group):
         self.set_clip(0, 0, *size)
         if isinstance(items, (str, unicode)):
             # items is a string, get it from the context
-            self.set_dependency(items)
             items = self.eval_context(items)
         # store arguments for later public use
         self.cell_size = cell_size

@@ -176,7 +176,7 @@ class Template(object):
 class Widget(object):
     """
     Basic widget. All widgets from the backend must inherit from it.
-    @group Context Management: set_context, get_context, try_context, set_dependency
+    @group Context Management: set_context, get_context, try_context, eval_context
     @group Animations: animate, stop_animations, set_animation
     @cvar context_sensitive: class variable for inherting class if the class
         depends on the context.
@@ -205,7 +205,7 @@ class Widget(object):
         # animations running created by self.animate()
         self._running_animations = {}
         # FIXME: make _depends private
-        self._depends = []
+        self._depends = {}
         self.__animations = {}
         self.__context = context or {}
         self.__userdata = {}
@@ -235,15 +235,27 @@ class Widget(object):
         @param context: context dict
         @returns: False if the widget can not handle the context or True
         """
-        for var, value in self._depends:
-            if value != self.eval_context(var, context=context):
+        if self._depends:
+            try:
+                for var, value in self._depends.items():
+                    if value != repr(eval(var, context)):
+                        return False
+            except AttributeError:
                 return False
         self.set_context(context)
         return True
 
-    def eval_context(self, var, default=None, context=None):
+    def eval_context(self, var, default=None, context=None, depends=True):
         """
-        Evaluate the context for the given variable.
+        Evaluate the context for the given variable. This function is used by
+        widgets to evaluate the context and set their dependencies. It should
+        not be called from outside the widget.
+        @param var: variable name to eval
+        @param default: default return value if var is not found
+        @param context: context to search, default is the context set on init
+            or by set_context.
+        @param depends: if set the true the variable and the value will be stored
+            as dependency and try_context will return False if the value changes.
         """
         if var.startswith('$'):
             # strip prefix for variables if set
@@ -251,7 +263,7 @@ class Widget(object):
         context = context or self.__context
         try:
             # try the variable as it is
-            return eval(var, context)
+            value = eval(var, context)
         except AttributeError:
             # not found. Maybe it is an object with a get method.
             # foo.bar.buz could be foo.bar.get('buz')
@@ -260,31 +272,18 @@ class Widget(object):
                 # no dot found, too bad
                 log.error('unable to evaluate %s', var)
                 return default
-            try:
-                value = eval(var[:pos], context).get(var[pos+1:])
-                if value is None:
-                    value = default
-                return value
-            except AttributeError:
-                log.error('unable to evaluate %s', var)
-                return default
+            else:
+                try:
+                    var = '%s.get("%s")' % (var[:pos], var[pos+1:])
+                    value = eval(var, context)
+                    if value is None:
+                        value = default
+                except AttributeError:
+                    log.error('unable to evaluate %s', var)
+                    return default
+        if depends:
+            self._depends[var] = repr(value)
         return value
-
-    def set_dependency(self, *dependencies):
-        """
-        Set list of dependencies this widget has based on the context. This function
-        is used internally in a widget implementation.
-        @param dependencies: list of keys of the context this widget requires to
-           be set to the same values as they were when the widget was created.
-        @todo: fix function not to eval the context again. Maybe also update
-           try_context to avoid eval
-        """
-        try:
-            self._depends = [ (str(d), self.eval_context(str(d))) \
-                              for d in dependencies ]
-        except Exception, e:
-            log.error('bad dependencies: %s in context %s for %s', dependencies,
-                      self.__context, self)
 
     def set_animation(self, name, animations):
         """

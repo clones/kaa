@@ -66,14 +66,10 @@ class Label(core.CairoTexture):
         if size[1] is None:
             size = size[0], Label.get_font_height(font.name, font.size)[2]
         super(Label, self).__init__(pos, size, context)
-        depends = []
         if context:
             def replace_context(matchobj):
-                if not matchobj.groups()[0] in depends:
-                    depends.append(matchobj.groups()[0])
                 return self.eval_context(matchobj.groups()[0])
             text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
-        self.set_dependency(*depends)
         self._font = font
         self._color = color
         self._text = text

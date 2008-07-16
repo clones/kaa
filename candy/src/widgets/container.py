@@ -71,8 +71,9 @@ class Container(core.Group):
                 self.add(widget)
             except:
                 log.exception('render')
-        if dependency and context:
-            self.set_dependency(*dependency)
+        if dependency:
+            for var in dependency:
+                self.eval_context(var)
 
     def set_context(self, context):
         """

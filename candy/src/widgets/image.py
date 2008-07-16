@@ -72,7 +72,6 @@ class Image(core.Texture):
             return
         if url.startswith('$'):
             # variable from the context, e.g. $varname
-            self.set_dependency(url[1:])
             url = self.eval_context(url[1:])
             if not url:
                 return
@@ -155,7 +154,6 @@ class Thumbnail(Image):
         super(Thumbnail, self).__init__(pos, size, None, context)
         if isinstance(thumbnail, (str, unicode)):
             # get thumbnail from context
-            self.set_dependency(thumbnail)
             thumbnail = self.eval_context(thumbnail)
         item = None
         if hasattr(thumbnail, 'scan'):
