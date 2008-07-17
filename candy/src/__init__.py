@@ -65,7 +65,7 @@ directly from the kaa.candy namespace.
 @group Decorator: threaded
 @group Submodules with classes in the kaa.candy namespace: widgets, timeline, stage
 @group Submodules in the kaa.candy namespace: animation, candyxml, config
-@group Additional submodules: version
+@group Additional submodules: version, libcandy
 """
 
 __all__ = [ 'threaded', 'Callback', 'Lock', 'Font', 'Color', 'Modifier', 'Properties',

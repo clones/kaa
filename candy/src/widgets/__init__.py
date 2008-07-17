@@ -55,7 +55,7 @@ from progressbar import Progressbar
 from text import Text
 from image import Image, Thumbnail
 from grid import Grid
-from reflection import ReflectionTexture, ReflectionModifier
+from reflection import ReflectionTexture, ReflectionGroup, ReflectionModifier
 
 __all__ = []
 for key, value in globals().items():

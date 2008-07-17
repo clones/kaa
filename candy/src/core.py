@@ -139,7 +139,7 @@ class Modifier(object):
     """
     Modifier base class for classes that change widgets on creation by
     templates. In the XML file they are added as subnode to the widget
-    to change.
+    to change. Examples are Properties and ReflectionModifier.
     """
     __modifier = {}
 

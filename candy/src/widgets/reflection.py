@@ -125,10 +125,17 @@ class ReflectionTexture(core.Widget, libcandy.ReflectTexture):
         core.Widget.__init__(self, pos, size)
 
 class ReflectionGroup(core.Group):
-
+    """
+    Widget containing a widget and its reflection.
+    """
     context_sensitive = True
 
     def __init__(self, widget, opacity):
+        """
+        Create new group of widget and reflection.
+        @param widget: source widget (will be added to the group)
+        @param opacity: opacity of the reflection.
+        """
         w, h = widget.get_size()
         super(ReflectionGroup, self).__init__(widget.get_position(), (w,h))
         self.set_anchor_point(w/2, h)

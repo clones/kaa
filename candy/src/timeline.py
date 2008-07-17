@@ -29,6 +29,10 @@
 #
 # -----------------------------------------------------------------------------
 
+"""
+Timeline classes for animations
+"""
+
 __all__ = [ 'Timeline', 'MasterTimeline' ]
 
 import sys
@@ -40,7 +44,16 @@ import clutter
 import config
 
 class Timeline(clutter.Timeline):
+    """
+    Timeline class with different constructor.
+    """
     def __init__(self, secs):
+        """
+        Create a clutter.Timeline based on seconds to run. The frames per
+        seconds will taken from kaa.candy.config and thae number of frames
+        calculated based on seconds.
+        @param secs: seconds of the timeline.
+        """
         super(Timeline, self).__init__(int(float(secs) * config.fps), config.fps)
 
 class MasterTimeline(object):
