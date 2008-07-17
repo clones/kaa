@@ -104,7 +104,7 @@ class Font(object):
     __cairo_surface = None
     __height_cache = {}
 
-    ASCENT, TYPICAL, MAX = range(3)
+    ASCENT, TYPICAL, MAX_HEIGHT = range(3)
 
     def __init__(self, name):
         """
