@@ -45,8 +45,6 @@ class Label(core.CairoTexture):
     """
     candyxml_name = 'label'
     context_sensitive = True
-    _font_instance = None
-    _font_cache = {}
 
     def __init__(self, pos, size, font, color, text, align='left',
                  context=None):
@@ -64,7 +62,7 @@ class Label(core.CairoTexture):
         @param context: the context the widget is created in
         """
         if size[1] is None:
-            size = size[0], Label.get_font_height(font.name, font.size)[2]
+            size = size[0], font.get_height(font.MAX_HEIGHT)
         super(Label, self).__init__(pos, size, context)
         if context:
             def replace_context(matchobj):
@@ -90,26 +88,6 @@ class Label(core.CairoTexture):
         @returns: kaa.candy.Color object
         """
         return self._color
-
-    @classmethod
-    def get_font_height(cls, name, size):
-        """
-        Return font information for the given font name and size
-        @param name: font name
-        @param size: font size
-        """
-        info = cls._font_cache.get((name, size))
-        if info:
-            return info
-        if cls._font_instance is None:
-            cls._font_instance = core.CairoTexture(None, (200,200))
-        c = cls._font_instance.cairo_create()
-        c.select_font_face(name, cairo.FONT_SLANT_NORMAL)
-        c.set_font_size(size)
-        extents = c.font_extents()
-        info = extents[0], -c.text_extents('ARG:FIXME')[1], extents[0] + extents[1]
-        cls._font_cache[(name, size)] = info
-        return info
 
     def _render(self):
         """

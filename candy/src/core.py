@@ -36,6 +36,7 @@ import logging
 import sys
 import threading
 import gobject
+import cairo
 
 # kaa imports
 import kaa
@@ -99,6 +100,12 @@ class Font(object):
     @ivar name: font name
     @ivar size: font size
     """
+
+    __cairo_surface = None
+    __height_cache = {}
+
+    ASCENT, TYPICAL, MAX = range(3)
+
     def __init__(self, name):
         """
         Create a new font object
@@ -106,6 +113,26 @@ class Font(object):
         """
         self.name, size = name.split(':')
         self.size = int(size)
+
+    def get_height(self, field=None):
+        """
+        Get height of a text with this font.
+        @returns: ascent (typical height above the baseline), normal (typical height
+            of a string without special characters) and ascent + descent
+        """
+        info = self.__height_cache.get((self.name, self.size))
+        if info is None:
+            if self.__cairo_surface is None:
+                self.__cairo_surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 10, 10)
+            c = cairo.Context(self.__cairo_surface)
+            c.select_font_face(self.name, cairo.FONT_SLANT_NORMAL)
+            c.set_font_size(self.size)
+            ascent, descent = c.font_extents()[:2]
+            info = int(ascent), int(-c.text_extents(u'Ag')[1]), int(ascent + descent)
+            self.__height_cache[(self.name, self.size)] = info
+        if field is None:
+            return info
+        return info[field]
 
 
 class Modifier(object):
