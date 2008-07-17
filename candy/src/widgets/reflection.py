@@ -39,7 +39,7 @@ from .. import Modifier
 from .. import libcandy
 import core
 
-__all__ = [ 'ReflectionTexture', 'ReflectionModifier' ]
+__all__ = [ 'ReflectionTexture', 'ReflectionGroup', 'ReflectionModifier' ]
 
 class CairoReflectionTexture(core.CairoTexture):
     """
@@ -124,6 +124,34 @@ class ReflectionTexture(core.Widget, libcandy.ReflectTexture):
         libcandy.ReflectTexture.__init__(self, src, size[1])
         core.Widget.__init__(self, pos, size)
 
+class ReflectionGroup(core.Group):
+
+    context_sensitive = True
+
+    def __init__(self, widget, opacity):
+        w, h = widget.get_size()
+        super(ReflectionGroup, self).__init__(widget.get_position(), (w,h))
+        self.set_anchor_point(w/2, h)
+        self.move_by(w/2, h)
+        self.context_sensitive = True
+        widget.set_position(0,0)
+        widget.set_parent(self)
+        reflection = ReflectionTexture((0,h), (w, h/2), widget)
+        reflection.set_opacity(opacity)
+        reflection.set_parent(self)
+
+    def try_context(self, context):
+        """
+        Check if the widget is capable of the given context based on its
+        dependencies. If it is possible set the context.
+        @param context: context dict
+        @returns: False if the widget can not handle the context or True
+        """
+        # This widget does only depend indirect on a context. The real widget
+        # inside may depend on a context and the reflection depends on the
+        # widget. So we just use the widget try_context function here.
+        return self.get_children()[0].try_context(context)
+
 
 class ReflectionModifier(Modifier):
     """
@@ -145,18 +173,7 @@ class ReflectionModifier(Modifier):
         @param widget: widget to modify
         @returns: Group widget with src and reflection textures
         """
-        w, h = widget.get_size()
-        group = core.Group(widget.get_position(), (w,h))
-        group.set_anchor_point(w/2, h)
-        group.move_by(w/2, h)
-        group.context_sensitive = True
-        group._depends = widget._depends
-        widget.set_position(0,0)
-        widget.set_parent(group)
-        reflection = ReflectionTexture((0,h), (w, h/2), widget)
-        reflection.set_opacity(self._opacity)
-        reflection.set_parent(group)
-        return group
+        return ReflectionGroup(widget, self._opacity)
 
     @classmethod
     def candyxml_create(cls, element):

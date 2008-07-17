@@ -204,8 +204,7 @@ class Widget(object):
             self.set_position(*pos)
         # animations running created by self.animate()
         self._running_animations = {}
-        # FIXME: make _depends private
-        self._depends = {}
+        self.__depends = {}
         self.__animations = {}
         self.__context = context or {}
         self.__userdata = {}
@@ -235,9 +234,9 @@ class Widget(object):
         @param context: context dict
         @returns: False if the widget can not handle the context or True
         """
-        if self._depends:
+        if self.__depends:
             try:
-                for var, value in self._depends.items():
+                for var, value in self.__depends.items():
                     if value != repr(eval(var, context)):
                         return False
             except AttributeError:
@@ -282,7 +281,7 @@ class Widget(object):
                     log.error('unable to evaluate %s', var)
                     return default
         if depends:
-            self._depends[var] = repr(value)
+            self.__depends[var] = repr(value)
         return value
 
     def set_animation(self, name, animations):
