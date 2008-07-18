@@ -1,5 +1,9 @@
 import sys
 import kaa
+
+kaa.main.select_notifier('generic')
+kaa.gobject_set_threaded()
+
 import dvb
 
 @kaa.coroutine()
@@ -57,9 +61,6 @@ def scan_region(device, filename):
                   t['code-rate-lp'], t['modulation'], t['trans-mode'], \
                   t['guard'], t['hierarchy'], sid
     sys.exit(0)
-
-kaa.main.select_notifier('generic')
-kaa.gobject_set_threaded()
 
 scanfile = '/home/dmeyer/src/dvb-apps/util/scan/dvb-t/de-Bremen'
 scan_region(dvb.DVB(adapter=0, frontend=0), scanfile)

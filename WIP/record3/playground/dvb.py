@@ -26,22 +26,24 @@ class DVB(object):
         self.type = None
         self.streams = {}
         self.streaminfo = {}
+        self.state = None
+        self._gst_init()
+        
+    @kaa.threaded(kaa.GOBJECT)
+    def _gst_init(self):
         self.pipeline =  gst.parse_launch(
             "dvbbasebin name=dvbsrc adapter=%d frontend=%d " \
-            "stats-reporting-interval=0 ! queue ! " \
-            "fakesink silent=true" % (self.adapter, self.frontend))
-        self.state = None
-        bus = self.pipeline.get_bus()
-        bus.add_signal_watch()
-        bus.connect("message", self.bus_watch_func)
-        dvbsrc = self.pipeline.get_by_name("dvbsrc")
-        dvbsrc.connect("pad-added", self._pad_added)
-        dvbsrc.connect("pad-removed", self._pad_removed)
+            "queue ! fakesink silent=true" % (self.adapter, self.frontend))
+        self.bus = self.pipeline.get_bus()
+        self.bus.add_signal_watch()
+        self.bus.connect("message", self._gst_bus_watch)
+        self.dvbsrc = self.pipeline.get_by_name("dvbsrc")
+        self.dvbsrc.connect("pad-added", self._gst_pad_added)
+        self.dvbsrc.connect("pad-removed", self._gst_pad_removed)
 
-    def _parse_nit(self, nit):
+    def _gst_parse_nit(self, nit):
         """
         Parse network information
-        Thread Information: called by bus_watch_func from main thread
         """
         name = nit['network-id']
         actual = nit['actual-network']
@@ -81,12 +83,10 @@ class DVB(object):
             # Note: it may not arrive for bad channels. Timeout?
             self.streaminfo['network'] = name
             self.streaminfo['tuning-data'] = tuning_data
-            self.signals['streaminfo'].emit(self.streaminfo)
+            kaa.MainThreadCallback(self.signals['streaminfo'].emit)(self.streaminfo)
         
-    @kaa.threaded(kaa.MAINTHREAD)
-    def bus_watch_func(self, bus, message):
+    def _gst_bus_watch(self, bus, message):
         """
-        Thread Information: called by gobject but forced into main thread
         """
         # needed for scanning
         # print message
@@ -95,15 +95,16 @@ class DVB(object):
             # print message
             return
         if message.type == gst.MESSAGE_ELEMENT:
+            return
             if message.structure.get_name() == 'dvb-adapter':
                 self.type = message.structure['type']
                 return
             if message.structure.get_name() == 'dvb-frontend-stats':
                 if message.structure["lock"]:
-                    self.signals['lock'].emit()
+                    kaa.MainThreadCallback(self.signals['lock'].emit)()
                 return
             if message.structure.get_name() == 'nit':
-                self._parse_nit(message.structure)
+                self._gst_parse_nit(message.structure)
                 return
             if message.structure.get_name() == 'pat':
                 programs = message.structure['programs']
@@ -126,7 +127,7 @@ class DVB(object):
                             name = service["name"]
                         self.streaminfo['channels'].append((name, sid))
                     # Note: it may not arrive for bad channels. Timeout?
-                    self.signals['streaminfo'].emit(self.streaminfo)
+                    kaa.MainThreadCallback(self.signals['streaminfo'].emit)(self.streaminfo)
                 return
             if message.structure.get_name() == 'pmt':
                 s = message.structure
@@ -141,9 +142,8 @@ class DVB(object):
                 return
             print 'Bus watch function for message %r' % message
 
-    def _pad_added(self, element, pad):
+    def _gst_pad_added(self, element, pad):
         """
-        Thread Information: called by gobject thread
         """
         print 'START', pad
         sid = pad.get_name()[8:]
@@ -151,34 +151,54 @@ class DVB(object):
             return
         pad.link(self.streams[sid].get_pad())
 
-    def _pad_removed(self, bin, pad):
+    def _gst_pad_removed(self, bin, pad):
         """
         Thread Information: called by gobject thread
         """
         print 'STOP', pad
+
+    def _gst_stream_activate(self, stream):
+        """
+        """
+        programs = self.dvbsrc.get_property("program-numbers").split(':')
+        if not stream.sid in programs:
+            programs.append(stream.sid)
+        self.dvbsrc.set_property("program-numbers", ':'.join(programs))
+
+    def _gst_stream_deactivate(self, stream):
+        """
+        """
+        programs = self.dvbsrc.get_property("program-numbers").split(':')
+        if stream.sid in programs:
+            programs.remove(stream.sid)
+        programs = ':'.join(programs)
+        if not programs:
+            programs = ':'
+        self.dvbsrc.set_property("program-numbers", programs)
 
     @kaa.threaded(kaa.GOBJECT)
     def tune(self, tuning_data):
         """
         Thread Information: called by main but forced into gobject thread
         """
-        dvbsrc = self.pipeline.get_by_name("dvbsrc")
-        print 'dvd.tune: set ready'
+        print 'dvd.tune: start'
         element = self.pipeline
-        if dvbsrc.get_state()[1] == gst.STATE_PLAYING:
-            element = dvbsrc
+        if self.dvbsrc.get_state()[1] == gst.STATE_PLAYING:
+            element = self.dvbsrc
         # XXX This sometimes blocks on re-tuning. Sometimes it is non blocking,
         # XXX sometimes it blocks for 10 or 20 seconds and sometimes it blocks
         # XXX over a minute
+        print 'dvd.tune: set ready'
         element.set_state(gst.STATE_READY)
-        dvbsrc.get_state()
+        self.dvbsrc.get_state()
         self.streaminfo = {}
         print 'dvd.tune: tune to %s' % tuning_data['frequency'] 
         for key, value in tuning_data.items():
-            dvbsrc.set_property(key, value)
+            self.dvbsrc.set_property(key, value)
         element.set_state(gst.STATE_PLAYING)
         print 'dvd.tune: wait'
-        (statereturn, state, pending) = dvbsrc.get_state()
+        # Note: the complete pipeline does not reach PLAYING in scanning mode
+        (statereturn, state, pending) = self.dvbsrc.get_state()
         print 'dvd.tune: done'
         if statereturn == gst.STATE_CHANGE_FAILURE:
             raise TuneExeception('no lock')
@@ -192,30 +212,6 @@ class DVB(object):
             self.streams[str(sid)] = Stream(self, sid=str(sid))
         return self.streams[str(sid)]
 
-
-    def _stream_activate(self, stream):
-        """
-        Thread Information: called by Stream object in gobject thread
-        """
-        dvbsrc = self.pipeline.get_by_name("dvbsrc")
-        programs = dvbsrc.get_property("program-numbers").split(':')
-        if not stream.sid in programs:
-            programs.append(stream.sid)
-        dvbsrc.set_property("program-numbers", ':'.join(programs))
-
-
-    def _stream_deactivate(self, stream):
-        """
-        Thread Information: called by Stream object in gobject thread
-        """
-        dvbsrc = self.pipeline.get_by_name("dvbsrc")
-        programs = dvbsrc.get_property("program-numbers").split(':')
-        if stream.sid in programs:
-            programs.remove(stream.sid)
-        programs = ':'.join(programs)
-        if not programs:
-            programs = ':'
-        dvbsrc.set_property("program-numbers", programs)
 
 
 class Stream(object):
@@ -241,7 +237,7 @@ class Stream(object):
             print 'create stream'
             self.bin = gst.parse_bin_from_description('queue ! tee name=tee', True)
             self.device.pipeline.add(self.bin)
-            self.device._stream_activate(self)
+            self.device._gst_stream_activate(self)
             self.bin.set_state(gst.STATE_PLAYING)
         print 'start', sink
         self.bin.add(sink)
@@ -265,7 +261,7 @@ class Stream(object):
             print 'END remove', sink
             return
         print 'remove stream'
-        self.device._stream_deactivate(self)
+        self.device._gst_stream_deactivate(self)
         self.bin.set_state(gst.STATE_NULL)
         self.bin.get_state()
         self.device.pipeline.remove(self.bin)
