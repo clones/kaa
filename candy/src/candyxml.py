@@ -163,13 +163,15 @@ cover, title, etc and every time a new track starts you can set a new context an
 the whole GUI will redraw on its own.
 """
 
-__all__ = [ 'parse', 'register', 'get_class' ]
+__all__ = [ 'parse', 'register', 'get_class', 'STYLE_HANDLER' ]
 
 # python imports
 import xml.sax
 
 # kaa.candy imports
 import core
+
+STYLE_HANDLER = 'STYLE_HANDLER'
 
 class ElementDict(dict):
 
@@ -255,8 +257,9 @@ class Element(object):
         Create a template or object from XML.
         """
         parser = _parser.get(element.node)
-        if isinstance(parser, dict):
-            parser = parser.candyxml_parse(element)
+        if parser is None:
+            raise RuntimeError('no parser for %s' % element.node)
+        parser = parser.candyxml_parse(element)
         if parser is None:
             raise RuntimeError('no parser for %s:%s' % (element.node, element.style))
         return getattr(parser, '__template__', parser).candyxml_create(element)
@@ -392,7 +395,7 @@ def register(cls, style=None):
     name = cls.candyxml_name
     style = style or getattr(cls, 'candyxml_style', None)
     parser = _parser
-    if style is not None:
+    if style != STYLE_HANDLER:
         if not name in parser:
             parser[name] = Styles()
         parser, name = parser[name], style

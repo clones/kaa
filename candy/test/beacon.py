@@ -21,7 +21,7 @@ xml = '''
         <label font="Vera:24" color="0xcccccc" align="center">
             $title
         </label>
-        <grid y="50" height="530" cell-width="160" cell-height="140"
+        <grid style="selection" y="50" height="530" cell-width="160" cell-height="140"
             items="items" cell-item="item" orientation="vertical">
             <properties name="items"/>
             <container>

@@ -51,7 +51,7 @@ import clutter
 
 # kaa.candy imports imports
 import core
-from .. import candyxml, timeline, threaded
+from .. import candyxml, timeline, threaded, is_template
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -322,5 +322,39 @@ class Grid(core.Group):
             cell_size=(cell_width, cell_height), cell_item=element.cell_item,
             orientation=orientation)
 
-# register widget to candyxml
+
+class SelectionGrid(Grid):
+
+    candyxml_style = 'selection'
+
+    def __init__(self, pos, size, cell_size, cell_item, items, template,
+                 selection, orientation, context=None):
+        """
+        Simple grid widget to show the items based on the template.
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget.
+        @param cell_size: (width,height) of each cell
+        @param cell_item: string how the cell item should be added to the context
+        @param items: list of objects or object name in the context
+        @param template: child template for each cell
+        @param selection: widget for the selection
+        @param orientation: how to arange the grid: Grid.HORIZONTAL or Grid.VERTICAL
+        @param context: the context the widget is created in
+        """
+        super(SelectionGrid, self).__init__(pos, size, cell_size, cell_item, items,
+            template, orientation, context)
+        if is_template(selection):
+            selection = selection()
+        if selection:
+            self.add(selection)
+
+    @classmethod
+    def candyxml_parse(cls, element):
+        selection = None
+        return super(SelectionGrid, cls).candyxml_parse(element).update(
+            selection=selection)
+
+
+# register widgets to candyxml
 Grid.candyxml_register()
+SelectionGrid.candyxml_register()
