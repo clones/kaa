@@ -150,7 +150,8 @@ class Player(object):
             # for more info.
             "osd_configure": kaa.Signal(),  # CAP_OSD
         }
-
+        # currently open a new stream
+        self._opening = False
         # pending commands
         self._pending = []
         # waiting InProgress objects
@@ -164,6 +165,7 @@ class Player(object):
         """
         log.info('%s %s -> %s', str(self._player)[1:-1], old_state, state)
 
+        async = self._pending and self._opening
         for wait, states in self._waiting[:]:
             if state in states:
                 wait.finish(self._waiting.remove((wait, states)))
@@ -181,7 +183,7 @@ class Player(object):
             self.signals["play"].emit()
             self.signals["pause_toggle"].emit()
 
-        if self._get_state() == STATE_IDLE and not self._pending and \
+        if self._get_state() == STATE_IDLE and not async and \
                not old_state == STATE_NOT_RUNNING:
             # no new mrl to play, release player
             log.info('release player')
@@ -242,6 +244,9 @@ class Player(object):
                                          STATE_SHUTDOWN, STATE_STOPPING):
                 # player is running, stop it
                 self._player.stop()
+                yield self.wait(STATE_IDLE, STATE_NOT_RUNNING)
+            if self._get_state() in (STATE_SHUTDOWN, STATE_STOPPING):
+                # wait until we have a clean state
                 yield self.wait(STATE_IDLE, STATE_NOT_RUNNING)
             if not cls or not isinstance(self._player, cls):
                 # wrong player, release resources
@@ -313,8 +318,12 @@ class Player(object):
         self._open_caps = caps
         self._failed_player = []
         self._pending = []
-        yield self._open(player)
-        self.signals['open'].emit(self._player.streaminfo)
+        try:
+            self._opening = True
+            yield self._open(player)
+            self.signals['open'].emit(self._player.streaminfo)
+        finally:
+            self._opening = False
 
         
     @required_states(STATE_OPEN, STATE_PLAYING, STATE_PAUSED)

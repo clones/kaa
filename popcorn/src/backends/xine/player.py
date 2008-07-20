@@ -68,7 +68,10 @@ class Xine(MediaPlayer):
     def _child_spawn(self):
         # Launch self (-u is unbuffered stdout)
         script = os.path.join(os.path.dirname(__file__), 'main.py')
-        self._xine = ChildProcess(self, script, gdb = log.getEffectiveLevel() == logging.DEBUG)
+        # Put this into ChildProcess to enable gdb traces. It is deactivated
+        # as default because it messes up kaa shutdown handling.
+        # gdb = log.getEffectiveLevel() == logging.DEBUG
+        self._xine = ChildProcess(self, script, gdb=False)
         self._xine.set_stop_command(kaa.WeakCallback(self._xine.die))
         signal = self._xine.start(str(self._osd_shmkey))
         signal.connect_weak(self._child_exited)
@@ -117,6 +120,9 @@ class Xine(MediaPlayer):
             self.streaminfo["length"] = length
 
         if status == 2:
+            if self.state in (STATE_STOPPING, STATE_SHUTDOWN):
+                # ignore the status update, we are stopping the player
+                return
             if self.state not in (STATE_PAUSED, STATE_PLAYING):
                 self.state = STATE_PLAYING
             if speed == xine.SPEED_PAUSE and self.state != STATE_PAUSED:
