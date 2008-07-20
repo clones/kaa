@@ -277,6 +277,7 @@ class Xine(MediaPlayer):
         """
         Open media.
         """
+        self._is_in_menu = False
         self._mrl = media.url
         if not self._xine:
             self._child_spawn()
