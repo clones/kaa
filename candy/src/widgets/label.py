@@ -36,6 +36,7 @@ import cairo
 import re
 
 # kaa.candy imports
+from ..core import Color
 import core
 
 
@@ -68,6 +69,8 @@ class Label(core.CairoTexture):
             def replace_context(matchobj):
                 return self.eval_context(matchobj.groups()[0])
             text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
+        if not isinstance(color, Color):
+            color = Color(color)
         self._font = font
         self._color = color
         self._text = text

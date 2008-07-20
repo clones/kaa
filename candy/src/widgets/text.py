@@ -35,6 +35,7 @@ import clutter
 import pango
 
 # kaa.candy imports
+from ..core import Color
 import core
 
 
@@ -55,6 +56,8 @@ class Text(core.Widget, clutter.Label):
     def __init__(self, pos, size, text, font, color, align, context=None):
         clutter.Label.__init__(self)
         core.Widget.__init__(self, pos, size, context)
+        if not isinstance(color, Color):
+            color = Color(color)
         text = self._regexp_space.sub(' ', text)
         if context:
             def eval_expression(matchobj):
