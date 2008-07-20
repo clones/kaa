@@ -101,7 +101,7 @@ class Grid(core.Group):
         """
         Simple grid widget to show the items based on the template.
         @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None.
+        @param size: (width,height) geometry of the widget.
         @param cell_size: (width,height) of each cell
         @param cell_item: string how the cell item should be added to the context
         @param items: list of objects or object name in the context
