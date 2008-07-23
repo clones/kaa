@@ -5,6 +5,9 @@
 2. Add a layout container so children do not need to have x/y values set.
    This widget also has to honor padding information
 
+3. Use the height parameter in Label. If font size is not given, calculate
+   it based on height. If both are given, add additional valign parameter
+   (top, center, bottom)
 
 X. All FIXME, TODO and @todo messages in the code should be fixed. And add
    more doc (always a good idea)
