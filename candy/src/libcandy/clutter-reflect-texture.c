@@ -44,8 +44,13 @@
  */
 
 #include <GL/gl.h>
-#include <clutter/cogl.h>
+#include <clutter/clutter.h>
 
+#if CLUTTER_VERSION_HEX < 0x00070000
+#   include <clutter/cogl.h>
+#else
+#   include <cogl/cogl.h>
+#endif
 #include "clutter-reflect-texture.h"
 
 enum
@@ -76,8 +81,11 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
 {
   gint   qx1 = 0, qx2 = 0, qy1 = 0, qy2 = 0;
   gint   qwidth = 0, qheight = 0;
+#if CLUTTER_VERSION_HEX < 0x00070000
   gint   x, y, i =0, lastx = 0, lasty = 0;
   gint   n_x_tiles, n_y_tiles; 
+#endif
+
   gint   pwidth, pheight, rheight;
   float tx, ty, ty2 = 0.0;
   ClutterReflectTexturePrivate *priv = ctexture->priv;
@@ -94,18 +102,29 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
     rheight = qheight;
 
   /* Only paint if parent is in a state to do so */
+#if CLUTTER_VERSION_HEX < 0x00070000
   if (!clutter_texture_has_generated_tiles (parent))
     return;
-  
+#endif 
   clutter_texture_get_base_size (parent, &pwidth, &pheight); 
 
+#if CLUTTER_VERSION_HEX < 0x00070000
   if (!clutter_texture_is_tiled (parent))
+#else
+  if (!cogl_texture_is_sliced(clutter_texture_get_cogl_texture(parent)))
+#endif
     {
+#if CLUTTER_VERSION_HEX < 0x00070000
       clutter_texture_bind_tile (parent, 0);
+#endif
 
       /* NPOTS textures *always* used if extension available
        */
+#if CLUTTER_VERSION_HEX < 0x00070000
       if (clutter_feature_available (CLUTTER_FEATURE_TEXTURE_RECTANGLE))
+#else
+      if (cogl_features_available(COGL_FEATURE_TEXTURE_RECTANGLE))
+#endif
 	{
 	  tx = (float) pwidth;
 	  ty = (float) pheight;
@@ -146,18 +165,20 @@ reflect_texture_render_to_gl_quad (ClutterReflectTexture *ctexture,
 
       glEnd ();	
 #else
-#warning "ClutterReflectTexture does not currently support GL ES"
+#   warning "ClutterReflectTexture does not currently support GL ES"
 #endif
       return;
     }
-  else
-    {
-      g_warning("ClutterReflectTexture doesn't support tiled textures.."); 
-    }
 
-  /* FIXME: Below wont actually render the corrent graduated effect. */
+  /* FIXME: Below wont actually render the corrent graduated effect.
+   * The code below is disabled for clutter 0.7+ as porting it is
+   * non-trivial.
+   */
 
-#ifdef CLUTTER_COGL_HAS_GL
+  g_warning("ClutterReflectTexture doesn't support tiled textures."); 
+
+#if defined(CLUTTER_COGL_HAS_GL) && CLUTTER_VERSION_HEX < 0x00070000
+
   clutter_texture_get_n_tiles (parent, &n_x_tiles, &n_y_tiles); 
 
   for (x = 0; x < n_x_tiles; x++)
@@ -226,16 +247,25 @@ clutter_reflect_texture_paint (ClutterActor *self)
   if (!CLUTTER_ACTOR_IS_REALIZED (parent))
     clutter_actor_realize (CLUTTER_ACTOR (parent));
 
+#if CLUTTER_VERSION_HEX < 0x00070000
   if (clutter_feature_available (CLUTTER_FEATURE_TEXTURE_RECTANGLE) &&
       clutter_texture_is_tiled (parent) == FALSE)
+#else
+      if (cogl_features_available(COGL_FEATURE_TEXTURE_RECTANGLE) &&
+          !cogl_texture_is_sliced(clutter_texture_get_cogl_texture(parent)))
+#endif
     {
       target_type = CGL_TEXTURE_RECTANGLE_ARB;
+#if CLUTTER_VERSION_HEX < 0x00070000
       cogl_enable (CGL_ENABLE_TEXTURE_RECT | CGL_ENABLE_BLEND);
+#endif
     }
   else
     {
       target_type = CGL_TEXTURE_2D;
+#if CLUTTER_VERSION_HEX < 0x00070000
       cogl_enable (CGL_ENABLE_TEXTURE_2D|CGL_ENABLE_BLEND);
+#endif
     }
   
   cogl_push_matrix ();
@@ -243,7 +273,11 @@ clutter_reflect_texture_paint (ClutterActor *self)
   white.alpha = clutter_actor_get_opacity (self);
   cogl_color (&white);
 
+#if CLUTTER_VERSION_HEX < 0x00070000
   clutter_actor_query_coords (self, &box);
+#else
+  clutter_actor_get_allocation_box (self, &box);
+#endif
 
   reflect_texture_render_to_gl_quad (texture, parent,
                                      0, 0,

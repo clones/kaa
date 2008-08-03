@@ -37,7 +37,11 @@ import time
 
 # clutter imports
 import clutter
-import clutter.cluttercairo
+try:
+    import cluttercairo
+except ImportError:
+    # 0.6
+    import clutter.cluttercairo as cluttercairo
 import pango
 import cairo
 
@@ -500,7 +504,7 @@ class Imlib2Texture(Texture):
         return Imlib2Texture.Context(self, self._image._image)
 
 
-class CairoTexture(Widget, clutter.cluttercairo.CairoTexture):
+class CairoTexture(Widget, cluttercairo.CairoTexture):
     """
     Cairo based Texture widget.
     """
@@ -511,7 +515,7 @@ class CairoTexture(Widget, clutter.cluttercairo.CairoTexture):
         @param size: (width,height) geometry of the widget
         @param context: the context the widget is created in
         """
-        clutter.cluttercairo.CairoTexture.__init__(self, *size)
+        cluttercairo.CairoTexture.__init__(self, *size)
         Widget.__init__(self, pos, None, context)
 
     def clear(self):

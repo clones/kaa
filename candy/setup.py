@@ -66,8 +66,9 @@ files.extend(['src/libcandy/gen_libcandy.c', 'src/libcandy/libcandymodule.c'])
 libcandy = Extension('kaa/candy/libcandy', files)
 
 # check dependencies
-if not libcandy.check_library('clutter-0.6', '0.6.2'):
-    print 'clutter >= 0.6.2 not found'
+if not libcandy.check_library('clutter-0.8', '0.8.0') and \
+   not libcandy.check_library('clutter-0.6', '0.6.2'):
+    print 'clutter-0.6 >= 0.6.2 or clutter-0.8 >= 0.8.0 not found'
     sys.exit(1)
 if not libcandy.check_library('pygtk-2.0', '2.10.0'):
     print 'pygtk >= 2.10.0 not found'
@@ -81,9 +82,12 @@ if not pygtk_codegen:
     sys.exit(1)
 
 # check for pyclutter defs for pygtk-codegen
-clutter_defs = os.popen('pkg-config pyclutter-0.6 --variable=defsdir').read().strip()
-if not clutter_defs:
-    print 'pyclutter-0.6 not found'
+for version in '0.8', '0.6':
+    clutter_defs = os.popen('pkg-config pyclutter-%s --variable=defsdir' % version).read().strip()
+    if clutter_defs:
+        break
+else:
+    print 'pyclutter-0.6 or pyclutter-0.8 not found'
     sys.exit(1)
 # ok, add defs file to the path
 clutter_defs += '/clutter-base-types.defs'
