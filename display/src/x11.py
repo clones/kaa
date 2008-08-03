@@ -248,13 +248,21 @@ class X11Window(object):
     def get_display(self):
         return self._display
 
-    def raise_window(self):
-        self._window.raise_window()
+    def raise_(self):
+        self._window.raise_()
         self._display.handle_events()
 
-    def lower_window(self):
-        self._window.lower_window()
+    def lower(self):
+        self._window.lower()
         self._display.handle_events()
+
+    def lower_window():
+        'Deprecated: do not use in new code; use lower() instead.'
+        return self.lower()
+
+    def raise_window():
+        'Deprecated: do not use in new code; use raise_() instead.'
+        return self.raise_()
 
     def show(self, raised = False):
         self._window.show(raised)

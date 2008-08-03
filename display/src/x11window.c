@@ -616,8 +616,8 @@ X11Window_PyObject__set_decorated(X11Window_PyObject * self, PyObject * args)
 PyMethodDef X11Window_PyObject_methods[] = {
     { "show", (PyCFunction)X11Window_PyObject__show, METH_VARARGS },
     { "hide", (PyCFunction)X11Window_PyObject__hide, METH_VARARGS },
-    { "raise_window", (PyCFunction)X11Window_PyObject__raise, METH_VARARGS },
-    { "lower_window", (PyCFunction)X11Window_PyObject__lower, METH_VARARGS },
+    { "raise_", (PyCFunction)X11Window_PyObject__raise, METH_VARARGS },
+    { "lower", (PyCFunction)X11Window_PyObject__lower, METH_VARARGS },
     { "set_geometry", (PyCFunction)X11Window_PyObject__set_geometry, METH_VARARGS },
     { "get_geometry", (PyCFunction)X11Window_PyObject__get_geometry, METH_VARARGS },
     { "set_cursor_visible", (PyCFunction)X11Window_PyObject__set_cursor_visible, METH_VARARGS },
