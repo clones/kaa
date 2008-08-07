@@ -496,12 +496,14 @@ class Group(Widget):
             return False
         while self._del_children:
             child = self._del_children.pop(0)
+            # FIXME: do not access _obj of a different widget
             self._obj.remove(child._obj)
             if child.parent is None:
                 child._candy_unparent()
         for child in self.children:
             child._candy_update()
         while self._new_children:
+            # FIXME: do not access _obj of a different widget
             actor = self._new_children.pop(0)._obj
             actor.show()
             self._obj.add(actor)

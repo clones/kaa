@@ -64,6 +64,7 @@ class Reflection(core.Group):
             raise RuntimeError('Reflection does not support re-rendering')
         self._obj = backend.Group()
         self.source._candy_update()
+        # FIXME: do not access _obj of a different widget
         actor = self.source._obj
         w, h = actor.get_size()
         self.anchor_point = w/2, h
