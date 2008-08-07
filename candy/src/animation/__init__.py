@@ -33,6 +33,7 @@ __all__ = [ 'Animation', 'alpha_inc_func', 'MAX_ALPHA' ]
 
 from core import Animation, candy_update
 from alpha import alpha_inc_func, MAX_ALPHA
+from behaviour import BehaviourOpacity, BehaviourScale, BehaviourColor
 
 signals = {
     'candy-update': candy_update

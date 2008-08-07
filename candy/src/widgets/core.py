@@ -33,6 +33,7 @@ __all__ = [ 'Widget', 'Group', 'Texture', 'CairoTexture']
 
 # python imports
 import logging
+import _weakref
 import time
 from copy import deepcopy
 
@@ -161,6 +162,9 @@ class Widget(object):
     __y = 0
     __width = 0
     __height = 0
+    __scale = None
+    __depth = 0
+    __opacity = 255
 
     # misc
     name = None
@@ -260,52 +264,20 @@ class Widget(object):
             self.__depends[var] = repr(value)
         return value
 
-    def destroy(self):
+    def animate(self, secs, alpha='inc', unparent=False):
         """
-        Destroy the widget. This function _must_ be called when animations
-        running in the widget to stop them first.
+        Animate the object with the given animation. The animations are defined
+        by C{set_animation}, the candyxml definition or the basic animation
+        classes in kaa.candy.animation. Calling this function is thread-safe.
+        @param name: name of the animation used by C{set_animation} or
+            kaa.candy.animations
         """
-        # DEPRECATED ANIMATION SUPPORT
-        # for animation in self._running_animations.values():
-        #     animation._clutter_stop()
-        if self.__parent is not None:
-            self.__parent._remove_child(self)
-        self.__parent = None
-        self._obj = None
-
-    # DEPRECATED ANIMATION SUPPORT
-    # def set_animation(self, name, animations):
-    #     """
-    #     Set additional animations for object.animate()
-    #     @param animations: dict with key,Animation
-    #     """
-    #     self.__animations[name] = animations
-
-    # def animate(self, name, *args, **kwargs):
-    #     """
-    #     Animate the object with the given animation. The animations are defined
-    #     by C{set_animation}, the candyxml definition or the basic animation
-    #     classes in kaa.candy.animation. Calling this function is thread-safe.
-    #     @param name: name of the animation used by C{set_animation} or
-    #         kaa.candy.animations
-    #     """
-    #     # FIXME: rewrite animation code
-    #     if name in self.__animations:
-    #         return self.__animations[name](self, *args, **kwargs)
-    #     a = animation.get(name)
-    #     if a:
-    #         return a(self, *args, **kwargs)
-    #     if not name in ('hide', 'show'):
-    #         log.error('no animation named %s', name)
-
-    # def stop_animations(self):
-    #     """
-    #     Stop all running animations for the widget. This function must be called
-    #     when a widget is removed from the stage. Calling C{destroy} will also
-    #     stop all animations.
-    #     """
-    #     for animation in self._running_animations.values():
-    #         animation._clutter_stop()
+        a = animation.Animation(secs, alpha)
+        a.apply(self)
+        a.start()
+        if unparent:
+            a.running.connect(setattr, self, 'parent', None).set_ignore_caller_args()
+        return a
 
     # rendering
 
@@ -319,8 +291,9 @@ class Widget(object):
         if layout:
             self.__need_layout = True
         self.__need_update = True
-        if self.__parent and not self.__parent.__need_update:
-            self.__parent._require_update()
+        parent = self.parent
+        if parent and not parent.__need_update:
+            parent._require_update()
 
     def _candy_update(self):
         """
@@ -353,6 +326,16 @@ class Widget(object):
                 self.__x + self.__anchor[0], self.__y + self.__anchor[1])
         else:
             self._obj.set_position(self.__x, self.__y)
+        if self.__scale:
+            self._obj.set_scale(*self.__scale)
+        self._obj.set_depth(self.__depth)
+        self._obj.set_opacity(self.__opacity)
+        
+    def _candy_unparent(self):
+        """
+        Callback when the widget has no parent anymore
+        """
+        self._obj = None
 
     # properties
 
@@ -408,8 +391,37 @@ class Widget(object):
         self._require_update(layout=True)
 
     @property
+    def scale(self):
+        return self.__scale or (1, 1)
+
+    @scale.setter
+    def scale(self, (x, y)):
+        self.__scale = x, y
+        self._require_update(layout=True)
+
+    @property
+    def depth(self):
+        return self.__depth
+
+    @depth.setter
+    def depth(self, depth):
+        self.__depth = depth
+        self._require_update(layout=True)
+
+    @property
+    def opacity(self):
+        return self.__opacity
+
+    @opacity.setter
+    def opacity(self, opacity):
+        self.__opacity = opacity
+        self._require_update(layout=True)
+
+    @property
     def parent(self):
-        return __parent
+        if self.__parent is None:
+            return None
+        return self.__parent()
 
     @parent.setter
     def parent(self, parent):
@@ -417,10 +429,14 @@ class Widget(object):
         Set the parent widget.
         @param parent: kaa.candy Group or Stage object
         """
-        if self.__parent:
-            self.__parent._remove_child(self)
-        self.__parent = parent
-        self.__parent._add_child(self)
+        if self.__parent is not None:
+            curent = self.__parent()
+            if curent is not None:
+                curent._remove_child(self)
+        self.__parent = None
+        if parent:
+            self.__parent = _weakref.ref(parent)
+            parent._add_child(self)
 
 
     # candyxml stuff
@@ -451,8 +467,8 @@ class Widget(object):
         """
         candyxml.register(cls, style)
 
-    # def __del__(self):
-    #     print '__del__', self
+#     def __del__(self):
+#         print '__del__', self
 
 class Group(Widget):
     """
@@ -479,7 +495,10 @@ class Group(Widget):
         if not super(Group, self)._candy_update():
             return False
         while self._del_children:
-            self._obj.remove(self._del_children.pop(0))
+            child = self._del_children.pop(0)
+            self._obj.remove(child._obj)
+            if child.parent is None:
+                child._candy_unparent()
         for child in self.children:
             child._candy_update()
         while self._new_children:
@@ -495,6 +514,14 @@ class Group(Widget):
         if self._obj is None:
             self._obj = backend.Group()
 
+    def _candy_unparent(self):
+        """
+        Callback when the widget has no parent anymore
+        """
+        super(Group, self)._candy_unparent()
+        for child in self.children:
+            child._candy_unparent()
+
     def _add_child(self, child):
         """
         Add a child and set it visible.
@@ -507,16 +534,7 @@ class Group(Widget):
     def _remove_child(self, child):
         self._require_update()
         self.children.remove(child)
-        self._del_children.append(child._obj)
-
-    def destroy(self):
-        """
-        Destroy the group and all children. The object is removed from the
-        parant and not usable anymore.
-        """
-        for child in self.children:
-            child.destroy()
-        super(Group, self).destroy()
+        self._del_children.append(child)
 
 
 class Texture(Widget):

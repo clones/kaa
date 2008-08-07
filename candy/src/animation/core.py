@@ -40,6 +40,8 @@ import kaa
 
 # kaa.candy imports
 from .. import config
+import alpha as mod_alpha
+import behaviour as mod_behaviour
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -55,10 +57,13 @@ class Animation(object):
     __active = False
     running = None
 
-    def __init__(self, secs, alpha):
+    def __init__(self, secs, alpha_func='inc'):
         self.current_frame_num = 0
         self.n_frames = int(float(secs) * config.fps)
-        self.alpha_func = alpha
+        if isinstance(alpha_func, str):
+            alpha_func = getattr(mod_alpha, 'alpha_%s_func' % alpha_func)
+        self.alpha_func = alpha_func
+        self.behaviour = []
         self.widgets = []
 
     def start(self):
@@ -71,6 +76,7 @@ class Animation(object):
             Animation.__active = True
             gobject.timeout_add(1000 / config.fps, Animation.__step)
         Animation.__animations.append(self)
+        return self.running
 
     def stop(self):
         Animation.__animations.remove(self)
@@ -80,13 +86,18 @@ class Animation(object):
     def is_playing(self):
         return self.running is not None
 
+    def behave(self, behaviour, *args, **kwargs):
+        if isinstance(behaviour, str):
+            behaviour = getattr(mod_behaviour, 'Behaviour%s' % behaviour.capitalize())
+        self.behaviour.append(behaviour(*args, **kwargs))
+        return self
+
     def apply(self, widget):
-        # FIXME: add behaviour objects
         self.widgets.append(widget)
 
-    def _candy_animate(self):
-        # FIXME: add default with behaviour objects
-        raise NotImplementedError
+    def _candy_animate(self, alpha_value):
+        for behaviour in self.behaviour:
+            behaviour.set_alpha(alpha_value, self.widgets)
 
     @classmethod
     def __step(cls):

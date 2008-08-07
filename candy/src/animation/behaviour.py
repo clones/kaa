@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Behaviour', 'BehaviourAlpha', 'BehaviourColor' ]
+__all__ = [ 'Behaviour', 'BehaviourOpacity', 'BehaviourScale', 'BehaviourColor' ]
 
 # kaa.candy imports
 from ..core import Color
@@ -42,7 +42,10 @@ class Behaviour(object):
     def __init__(self, start, end):
         self.start_value = start
         self.end_value = end
-        self.diff = end - start
+        if isinstance(start, (int, long)):
+            self.diff = end - start
+        if isinstance(start, (list, tuple)):
+            self.diff = [ end[1] - start[i] for i in range(len(start)) ]
 
     def set_alpha(self, alpha_value, widgets):
         """
@@ -52,7 +55,7 @@ class Behaviour(object):
         """
         raise NotImplementedError
 
-class BehaviourAlpha(Behaviour):
+class BehaviourOpacity(Behaviour):
     """
     Behaviour to change the alpha value
     """
@@ -65,6 +68,29 @@ class BehaviourAlpha(Behaviour):
         opacity = alpha_value * self.diff / MAX_ALPHA + self.start_value;
         for widget in widgets:
             widget.opacity = opacity
+
+class BehaviourScale(Behaviour):
+    """
+    Behaviour to change the alpha value
+    """
+    def set_alpha(self, alpha_value, widgets):
+        """
+        Update widgets based on alpha value
+        @param alpha_value: alpha value between 0 and MAX_ALPHA
+        @param widgets: widgets to modify
+        """
+        if alpha_value == MAX_ALPHA:
+            scale_x = self.end_value[0]
+            scale_y = self.end_value[1]
+        else:
+            scale_x = self.start_value[0]
+            scale_y = self.start_value[1]
+            if alpha_value > 0:
+                factor = float(alpha_value) / MAX_ALPHA
+                scale_x += factor * self.diff[0]
+                scale_y += factor * self.diff[1]
+        for widget in widgets:
+            widget.scale = scale_x, scale_y
 
 class BehaviourColor(Behaviour):
     """

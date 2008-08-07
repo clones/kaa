@@ -96,7 +96,7 @@ class Container(core.Group):
                 new.userdata['template'] = template
                 new.parent = self
                 # FIXME: add hide/show animations
-                child.destroy()
+                child.parent = None
             except:
                 log.exception('render')
 

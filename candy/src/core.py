@@ -206,7 +206,7 @@ class Properties(dict, Modifier):
         properties = cls()
         for key, value in element.attributes():
             if key in ('opacity', 'depth'):
-                value = [ int(value) ]
+                value = int(value)
             elif key in ('scale','anchor_point'):
                 value = [ float(x) for x in value.split(',') ]
                 if key in ('scale','anchor_point'):

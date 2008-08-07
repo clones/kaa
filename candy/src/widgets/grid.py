@@ -138,17 +138,17 @@ class Grid(core.Group):
         self._child_template = template
         self._check_items()
 
-    def destroy(self):
+    def _candy_unparent(self):
         """
         Destroy the widget by stopping running animations.
         """
+        super(Grid, self)._candy_unparent()
         if self._row_animation and self._row_animation.is_playing():
             self._row_animation.stop()
         self._row_animation = None
         if self._col_animation and self._col_animation.is_playing():
             self._col_animation.stop()
         self._col_animation = None
-        super(Grid, self).destroy()
 
     def scroll_by(self, (rows, cols), secs):
         """

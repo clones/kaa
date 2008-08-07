@@ -78,7 +78,7 @@ class Stage(Group):
         Remove the child from the screen.
         @param child: child connected to the window
         """
-        child.destroy()
+        child.parent = None
         
     def candyxml(self, data):
         """
