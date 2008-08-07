@@ -4,6 +4,8 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
+# THIS MODULE IS DEPRECATED AND DOES NOT WORK
+#
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
 # Copyright (C) 2008 Dirk Meyer, Jason Tackaberry

@@ -75,7 +75,6 @@ class Label(core.CairoTexture):
         self._color = color
         self._text = text
         self._align = align
-        self._render()
 
     def set_color(self, color):
         """
@@ -83,7 +82,7 @@ class Label(core.CairoTexture):
         @param color: kaa.candy.Color object
         """
         self._color = color
-        self._render()
+        self._require_update(rendering=True)
 
     def get_color(self):
         """
@@ -92,13 +91,13 @@ class Label(core.CairoTexture):
         """
         return self._color
 
-    def _render(self):
+    def _candy_render(self):
         """
-        Render the label.
+        Render the widget
         """
-        self.clear()
+        super(Label, self)._candy_render()
         # draw new text string
-        context = self.cairo_create()
+        context = self._obj.cairo_create()
         context.set_operator(cairo.OPERATOR_SOURCE)
         context.set_source_rgba(*self._color.to_cairo())
         context.select_font_face(self._font.name, cairo.FONT_SLANT_NORMAL)
@@ -108,12 +107,12 @@ class Label(core.CairoTexture):
         if self._align == 'left':
             x = -x
         if self._align == 'center':
-            x = (self.get_property('surface_width') - w) / 2 - x
+            x = (self.width - w) / 2 - x
         if self._align == 'right':
-            x = self.get_property('surface_width') - w - x
+            x = self.width - w - x
         if x < 0:
             x = 0
-            w = self.get_property('surface_width')
+            w = self.width
             s = cairo.LinearGradient(0, 0, w, 0)
             c = self._color.to_cairo()
             s.add_color_stop_rgba(0, *c)

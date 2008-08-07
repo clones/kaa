@@ -35,19 +35,19 @@ kaa.candy window for widgets
 
 __all__ = [ 'Stage' ]
 
-# clutter imports
-import clutter
-
 # kaa imports
 import kaa
 
 # kaa.candy imports
-from core import threaded, is_template
+from core import clutter_sync, is_template
+from widgets import Group
+
+import backend
+import animation
 import candyxml
 
-class Stage(object):
+class Stage(Group):
     """
-    Wrapper around clutter.Stage.
     @ivar signals: kaa.Signal dictionary for the object
       - key-press: sends a key pressed in the window. The signal is emited in
            the kaa mainloop.
@@ -58,26 +58,37 @@ class Stage(object):
         @param width: width of the window
         @param height: height of the window
         """
+        super(Stage, self).__init__(None, (width, height))
         self.signals = kaa.Signals('key-press')
-        self._geometry = width, height
-        self._create_stage()
+        # FIXME: sync called every step
+        # add more logic and maybe add and remove the callback when needed.
+        kaa.signals['step'].connect(self.sync)
+        animation.signals['candy-update'].connect(self._candy_update)
+        
+    def add(self, child, context=None):
+        """
+        """
+        if is_template(child):
+            child = child(context=context)
+        child.parent = self
+        return child
+        
+    def remove(self, child):
+        """
+        Remove the child from the screen.
+        @param child: child connected to the window
+        """
+        child.destroy()
+        
+    def candyxml(self, data):
+        """
+        Load a candyxml file based on the given screen resolution.
+        @param data: filename of the XML file to parse or XML data
+        @returns: root element attributes and dict of parsed elements
+        """
+        return candyxml.parse(data, (self.width, self.height))
 
-    @threaded()
-    def _create_stage(self):
-        self._stage = clutter.Stage()
-        self._stage.set_size(*self._geometry)
-        self._stage.connect('key-press-event', self._handle_key)
-        self._stage.set_color(clutter.Color(0, 0, 0, 0xff))
-        self._keysyms = {}
-        # get list of clutter key code. We must access the module
-        # first before it is working, therefor we access Left.
-        clutter.keysyms.Left
-        for name in dir(clutter.keysyms):
-            if not name.startswith('_'):
-                self._keysyms[getattr(clutter.keysyms, name)] = name
-        self._stage.show()
-
-    def _handle_key(self, stage, event):
+    def _candy_handle_key(self, stage, event):
         """
         Translate clutter keycode to name and emit signal in main loop. This
         function is a callback from clutter.
@@ -86,34 +97,25 @@ class Stage(object):
         if key is not None:
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
-    @threaded()
-    def add(self, child, visible=True, context=None):
+    @clutter_sync()
+    def sync(self):
         """
-        Add the child to the screen.
-        @param child: Widget or widget Template object
-        @param context: context to create templates with
-        @param visible: set the child status to visible when adding
-        @returns: child object
+        Called from the mainloop to update all widgets in the clutter thread.
         """
-        if is_template(child):
-            child = child(context=context)
-        if visible:
-            child.show()
-        self._stage.add(child)
-        return child
+        self._candy_update()
 
-    @threaded()
-    def remove(self, child):
-        """
-        Remove the child from the screen.
-        @param child: child connected to the window
-        """
-        self._stage.remove(child)
-
-    def candyxml(self, data):
-        """
-        Load a candyxml file based on the given screen resolution.
-        @param data: filename of the XML file to parse or XML data
-        @returns: root element attributes and dict of parsed elements
-        """
-        return candyxml.parse(data, self._geometry)
+    def _candy_render(self):
+        if self._obj:
+            raise RuntimeError('unable to re-render stage')
+        self._obj = backend.Stage()
+        self._obj.set_size(self.width, self.height)
+        self._obj.connect('key-press-event', self._candy_handle_key)
+        self._obj.set_color(backend.Color(0, 0, 0, 0xff))
+        self._keysyms = {}
+        # get list of clutter key code. We must access the module
+        # first before it is working, therefor we access Left.
+        backend.keysyms.Left
+        for name in dir(backend.keysyms):
+            if not name.startswith('_'):
+                self._keysyms[getattr(backend.keysyms, name)] = name
+        self._obj.show()

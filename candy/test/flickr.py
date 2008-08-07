@@ -2,9 +2,6 @@ import kaa
 import kaa.candy
 import feedparser
 
-# before anything else, init kaa.candy
-kaa.candy.init()
-
 # we use the following xml (file) as gui. There are two main widgets:
 # a label called "wait" and a container called "flickr" with a label and
 # a grid in it. The grid needs a template for each cell which is again a
@@ -80,8 +77,7 @@ def main():
     context = dict(title=feed.feed.title, items=items)
 
     # remove the wait label (it is safe to remove something from the stage in the
-    # mainloop) and add the flickr container based on the context. Calling
-    # scroll_(by|to) is thread safe.
+    # mainloop) and add the flickr container based on the context.
     stage.remove(label)
     container = stage.add(candy.container.flickr, context=context)
     print 'take a look'
@@ -111,8 +107,8 @@ def main():
     # create new context and replace it
     feed, items = yield load_feed('sunset')
     context = dict(title=feed.feed.title, items=items)
-    # set context is not thread-sfae, use kaa.candy.Callback here
-    kaa.candy.Callback(container.set_context)(context=context)
+    # set context
+    container.set_context(context=context)
     
 main()
 

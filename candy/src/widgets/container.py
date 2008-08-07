@@ -38,7 +38,7 @@ import logging
 import kaa
 
 # kaa.candy imports
-from ..core import is_template, threaded
+from ..core import is_template
 import core
 
 # get logging object
@@ -67,8 +67,8 @@ class Container(core.Group):
                     template = widget
                     widget = template(context)
                     if widget.context_sensitive:
-                        widget.set_userdata('template', template)
-                self.add(widget)
+                        widget.userdata['template'] = template
+                widget.parent = self
             except:
                 log.exception('render')
         if dependency:
@@ -81,23 +81,22 @@ class Container(core.Group):
         @param context: context dict
         """
         super(Container, self).set_context(context)
-        for child in self.get_children()[:]:
+        for child in self.children[:]:
             if not child.context_sensitive or child.try_context(context) or \
-                   child.get_userdata('removing'):
+                   child.userdata.get('removing'):
                 continue
             try:
-                child.set_userdata('removing', True)
-                template = child.get_userdata('template')
+                child.userdata['removing'] = True
+                template = child.userdata.get('template')
                 if not template:
                     # this only works for items based on templates
                     log.warning('unable to replace child %s', child)
                     continue
                 new = template(context)
-                new.set_userdata('template', template)
-                new.set_parent(self)
-                a1 = child.animate('hide', context=context) or []
-                a2 = new.animate('show', context=context) or []
-                self.destroy_child(child, kaa.InProgressList(a1 + a2))
+                new.userdata['template'] = template
+                new.parent = self
+                # FIXME: add hide/show animations
+                child.destroy()
             except:
                 log.exception('render')
 
@@ -108,25 +107,14 @@ class Container(core.Group):
         @param name: name of the child
         @returns: widget or None
         """
-        for child in self.get_children():
-            if child.get_name() == name:
+        for child in self.children:
+            if child.name == name:
                 return child
             if isinstance(child, Container):
                 result = child.get_element(name)
                 if result is not None:
                     return result
         return None
-
-    @threaded()
-    def destroy_child(self, child, delay=None):
-        """
-        Destroy a child.
-        @param child: widget to destroy
-        @param delay: kaa.InProgress object to wait for until destroying the child
-        """
-        if delay is not None and not delay.is_finished():
-            return delay.connect_once(self.destroy_child, child).set_ignore_caller_args()
-        child.destroy()
 
     @classmethod
     def candyxml_parse(cls, element):

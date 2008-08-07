@@ -4,6 +4,8 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
+# THIS MODULE IS DEPRECATED AND DOES NOT WORK
+#
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
 # Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
@@ -35,15 +37,10 @@ Timeline classes for animations
 
 __all__ = [ 'Timeline', 'MasterTimeline' ]
 
-import sys
-# check if kaa.candy is initialized in the thread
-if not 'clutter' in sys.modules and not 'epydoc' in sys.modules:
-    raise RuntimeError('kaa.candy not initialized')
-
 import clutter
-import config
+from .. import config
 
-class Timeline(clutter.Timeline):
+class ClutterTimeline(clutter.Timeline):
     """
     Timeline class with different constructor.
     """
@@ -54,7 +51,7 @@ class Timeline(clutter.Timeline):
         calculated based on seconds.
         @param secs: seconds of the timeline.
         """
-        super(Timeline, self).__init__(int(float(secs) * config.fps), config.fps)
+        super(ClutterTimeline, self).__init__(int(float(secs) * config.fps), config.fps)
 
 class MasterTimeline(object):
     """

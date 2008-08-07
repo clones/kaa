@@ -32,120 +32,49 @@
 # clutter imports
 import gtk
 import cairo
-import clutter
 
 # kaa.candy imports
 from .. import Modifier
-from .. import libcandy
+from .. import backend
 import core
 
-__all__ = [ 'ReflectionTexture', 'ReflectionGroup', 'ReflectionModifier' ]
+__all__ = [ 'Reflection', 'ReflectionModifier' ]
 
-class CairoReflectionTexture(core.CairoTexture):
+class Reflection(core.Group):
     """
-    Texture to show a reflection of another texture. This widget only works
-    for Texture based widgets and uses software rendering.
-    @param texture: source texture to reflect
-    @param height: height of the reflection (between 0.0 and 1.0)
-    @param opacity: opacity of the gradient
+    Widget containing a widget and its reflection actor.
     """
-    def __init__(self, texture, height=0.5, opacity=0.8):
-        size = (1,1)
-        pixbuf = texture.get_pixbuf()
-        if pixbuf:
-            size = pixbuf.get_width(), pixbuf.get_height()
-        super(CairoReflectionTexture, self).__init__(None, size)
-        self._reflection_height = height
-        self._opacity = opacity
-        # FIXME: check for memory leak
-        texture.connect('pixbuf-change', self._update)
-        if pixbuf:
-            self._render(texture)
-
-    def _update(self, src):
-        """
-        Update the source texture
-        """
-        self.clear()
-        self._render(src)
-
-    def _render(self, src, pixbuf=None):
-        """
-        Render the reflection
-        """
-        if not pixbuf:
-            # FIXME: maybe size is still correct
-            pixbuf = src.get_pixbuf()
-            self.surface_resize(pixbuf.get_width(), pixbuf.get_height())
-        context = self.cairo_create()
-        ct = gtk.gdk.CairoContext(context)
-
-        # create gradient and use it as mask
-        gradient = cairo.LinearGradient(0, 0, 0, pixbuf.get_height())
-        gradient.add_color_stop_rgba(1 - self._reflection_height, 1, 1, 1, 0)
-        gradient.add_color_stop_rgba(1, 0, 0, 0, self._opacity)
-        ct.set_source_pixbuf(pixbuf, 0, 0)
-        context.mask(gradient)
-
-        # Update texture
-        del context
-        del ct
-
-        # Rotate the reflection based on any rotations to the master
-        ang_y = src.get_rotation(clutter.Y_AXIS)
-        self.set_rotation(clutter.Y_AXIS, ang_y[0], (src.get_width()), 0, 0)
-        ang_x = src.get_rotation(clutter.X_AXIS)
-        self.set_rotation(clutter.X_AXIS, ang_x[0], 0, (src.get_height()), 0)
-
-        (w, h) = src.get_size()
-        self.set_width(w)
-        self.set_height(h)
-
-        # Flip it upside down
-        self.set_anchor_point(0, h)
-        self.set_rotation(clutter.X_AXIS, 180, 0, 0, 0)
-
-        # Get/Set the location for it
-        (x, y) = src.get_position()
-        self.set_position(x, h+y)
-
-
-class ReflectionTexture(core.Widget, libcandy.ReflectTexture):
-    """
-    Texture to show a reflection of another texture. The code uses the
-    reflection actor from libcandy.
-    """
-    def __init__(self, pos, size, src):
-        """
-        @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None.
-        @param src: source texture to reflect
-        """
-        libcandy.ReflectTexture.__init__(self, src, size[1])
-        core.Widget.__init__(self, pos, size)
-
-class ReflectionGroup(core.Group):
-    """
-    Widget containing a widget and its reflection.
-    """
-    context_sensitive = True
-
     def __init__(self, widget, opacity):
         """
         Create new group of widget and reflection.
         @param widget: source widget (will be added to the group)
         @param opacity: opacity of the reflection.
         """
-        w, h = widget.get_size()
-        super(ReflectionGroup, self).__init__(widget.get_position(), (w,h))
-        self.set_anchor_point(w/2, h)
-        self.move_by(w/2, h)
-        self.context_sensitive = True
-        widget.set_position(0,0)
-        widget.set_parent(self)
-        reflection = ReflectionTexture((0,h), (w, h/2), widget)
-        reflection.set_opacity(opacity)
-        reflection.set_parent(self)
+        super(Reflection, self).__init__((widget.x, widget.y))
+        self.context_sensitive = widget.context_sensitive
+        self.source = widget
+        self.source.parent = self
+        self._reflection_opacity = opacity
+
+    def _candy_render(self):
+        """
+        Render the widget
+        """
+        if self._obj is not None:
+            raise RuntimeError('Reflection does not support re-rendering')
+        self._obj = backend.Group()
+        self.source._candy_update()
+        actor = self.source._obj
+        w, h = actor.get_size()
+        self.anchor_point = w/2, h
+        actor.set_position(0,0)
+        reflection = backend.ReflectTexture(actor, h/2)
+        # reflection = backend.CairoReflectTexture(actor)
+        reflection.set_size(w, h)
+        reflection.set_position(0, h)
+        reflection.show()
+        self._obj.add(reflection)
+        reflection.set_opacity(self._reflection_opacity)
 
     def try_context(self, context):
         """
@@ -157,7 +86,7 @@ class ReflectionGroup(core.Group):
         # This widget does only depend indirect on a context. The real widget
         # inside may depend on a context and the reflection depends on the
         # widget. So we just use the widget try_context function here.
-        return self.get_children()[0].try_context(context)
+        return self.source.try_context(context)
 
 
 class ReflectionModifier(Modifier):
@@ -180,7 +109,7 @@ class ReflectionModifier(Modifier):
         @param widget: widget to modify
         @returns: Group widget with src and reflection textures
         """
-        return ReflectionGroup(widget, self._opacity)
+        return Reflection(widget, self._opacity)
 
     @classmethod
     def candyxml_create(cls, element):

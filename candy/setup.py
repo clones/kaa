@@ -42,7 +42,7 @@ except ImportError:
 
 if len(sys.argv) == 2 and sys.argv[1] == 'clean':
     for file in ('build', 'dist', 'src/version.py', 'MANIFEST',
-                 'src/libcandy/gen_libcandy.c', 'doc/html'):
+                 'src/backend/libcandy/gen_libcandy.c', 'doc/html'):
         if os.path.isdir(file):
             print 'removing %s' % file
             os.system('rm -rf %s' % file)
@@ -61,9 +61,10 @@ if os.environ.get('PKG_CONFIG_PATH'):
 os.environ['PKG_CONFIG_PATH'] = pkgconfig
 
 # create libcandy extension, gen_libcandy.c may not exist yet
-files = [ 'src/libcandy/%s.c' % m for m in libcandy_modules ]
-files.extend(['src/libcandy/gen_libcandy.c', 'src/libcandy/libcandymodule.c'])
-libcandy = Extension('kaa/candy/libcandy', files)
+files = [ 'src/backend/libcandy/%s.c' % m for m in libcandy_modules ]
+files.extend(['src/backend/libcandy/gen_libcandy.c',
+              'src/backend/libcandy/libcandymodule.c'])
+libcandy = Extension('kaa/candy/backend/libcandy', files)
 
 # check dependencies
 if not libcandy.check_library('clutter-0.8', '0.8.0') and \
@@ -98,15 +99,15 @@ clutter_defs += '/clutter-base-types.defs'
 # This it may be needed in the future to edit this file manually it is
 # in svn and not generated on the fly
 gen_stat = 0
-if os.path.isfile('src/libcandy/gen_libcandy.c'):
-    gen_stat = os.stat('src/libcandy/gen_libcandy.c')[stat.ST_MTIME]
+if os.path.isfile('src/backend/libcandy/gen_libcandy.c'):
+    gen_stat = os.stat('src/backend/libcandy/gen_libcandy.c')[stat.ST_MTIME]
 for m in libcandy_modules:
-    if os.stat('src/libcandy/%s.h' % m)[stat.ST_MTIME] > gen_stat:
+    if os.stat('src/backend/libcandy/%s.h' % m)[stat.ST_MTIME] > gen_stat:
         print 'creating python wrapper file'
         os.system(
-            '%s -I src/libcandy --py_ssize_t-clean --prefix libcandy ' \
-            '--register %s --override src/libcandy/libcandy.override ' \
-            'src/libcandy/libcandy.defs > src/libcandy/gen_libcandy.c' \
+            '%s -I src/backend/libcandy --py_ssize_t-clean --prefix libcandy ' \
+            '--register %s --override src/backend/libcandy/libcandy.override ' \
+            'src/backend/libcandy/libcandy.defs > src/backend/libcandy/gen_libcandy.c' \
             % (pygtk_codegen,clutter_defs))
         break
 

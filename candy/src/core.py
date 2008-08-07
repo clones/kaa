@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'is_template', 'Color', 'Font', 'Modifier', 'Properties', 'threaded', 'Lock' ]
+__all__ = [ 'is_template', 'Color', 'Font', 'Modifier', 'Properties', 'clutter_sync' ]
 
 # python imports
 import logging
@@ -43,7 +43,6 @@ import kaa
 
 # get logging object
 log = logging.getLogger('kaa.candy')
-
 
 def is_template(obj):
     """
@@ -188,10 +187,8 @@ class Properties(dict, Modifier):
         Apply to the given widget.
         @param widget: a kaa.candy.Widget
         """
-        for func, value in self.items():
-            getattr(widget, 'set_' + func)(*value)
-            if func == 'anchor_point':
-                widget.move_by(*value)
+        for key, value in self.items():
+            setattr(widget, key, value)
         return widget
 
     @classmethod
@@ -215,8 +212,6 @@ class Properties(dict, Modifier):
                 if key in ('scale','anchor_point'):
                     value = int(value[0] * element.get_scale_factor()[0]), \
                             int(value[1] * element.get_scale_factor()[1])
-            else:
-                value = [ value ]
             properties[key] = value
         return properties
 
@@ -248,66 +243,7 @@ def set_gobject_thread(dummy):
     gobject_thread = threading.currentThread()
 
 
-class Lock(object):
-    """
-    Class to lock the clutter thread. While a lock is active the gobject
-    mainloop will block in idle_add executing all threaded callbacks
-    without redrawing. You can use the acquire() and release() functions.
-    """
-    instance = None
-    counter = 0
-    _locked = False
-
-    def acquire(self, auto_release=True):
-        """
-        Lock the clutter thread.
-        @param auto_release: if True, the lock will be released on the next
-            iteration of the kaa mainloop by itself.
-        @returns: None
-        """
-        Lock.counter += 1
-        if auto_release:
-            kaa.signals['step'].connect_once(self.release)
-        self._locked = True
-        if Lock.instance:
-            return self
-        self._gobject_event = threading.Event()
-        self._callbacks = []
-        self._stopping = False
-        self._main_event = threading.Event()
-        Lock.instance = self
-        gobject.idle_add(self._gobject_callback, None)
-        return self
-
-    def release(self):
-        """
-        Release the lock. The clutter thread will still be locked if another
-        Lock instance is holding a lock.
-        @returns: None
-        """
-        if not self._locked:
-            return
-        self._locked = False
-        Lock.counter -= 1
-        if Lock.counter:
-            return
-        Lock.instance._stopping = True
-        Lock.instance._gobject_event.set()
-        Lock.instance._main_event.wait()
-        Lock.instance = None
-
-    def _gobject_callback(self, arg=None):
-        """
-        GObject loop handler.
-        """
-        while not self._stopping:
-            self._gobject_event.wait()
-            while self._callbacks:
-                gobject_execute(self._callbacks.pop(0))
-        self._main_event.set()
-
-
-def threaded():
+def clutter_sync():
     """
     Decorator to force the execution of the function in the clutter mainloop
     and blocking the mainloop during that time. This decorator should be
@@ -328,11 +264,7 @@ def threaded():
                 gobject.idle_add(set_gobject_thread, None)
             callback = kaa.Callback(func, *args, **kwargs)
             callback.event = threading.Event()
-            if Lock.instance:
-                Lock.instance._callbacks.append(callback)
-                Lock.instance._gobject_event.set()
-            else:
-                gobject.idle_add(gobject_execute, callback)
+            gobject.idle_add(gobject_execute, callback)
             callback.event.wait()
             if callback.exception:
                 exc_type, exc_value, exc_tb_or_stack = callback.exception
@@ -345,14 +277,3 @@ def threaded():
         return newfunc
 
     return decorator
-
-
-class Callback(kaa.Callback):
-    """
-    Callback that will be executed blocked in the clutter mainloop.
-    """
-    def __call__(self, *args, **kwargs):
-        """
-        Call the function with the given arguments.
-        """
-        return threaded()(super(Callback, self).__call__)(*args, **kwargs)

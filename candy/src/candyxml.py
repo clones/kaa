@@ -94,10 +94,8 @@ define a theme in 800x600 and use it at a window with 1024x768.
 The subnodes of the root element can be created using the template system. Each
 of these subnodes must have a unique name attribute. The C{parse} function will
 return a dict with these names and the template objects to create the widgets.
-The XML parser will not create widgets, it only creates templates. This makes
-the code thread-safe, you can parse a file from the mainloop and at start of
-your application. Note: if the name contains a minus it is converted into an
-underscore.
+The XML parser will not create widgets, it only creates templates.
+Note: if the name contains a minus it is converted into an underscore.
 
 XML Example::
   <xandyxml width='800' height='600'>
@@ -114,17 +112,6 @@ Usage in Python::
   stage.add(elements.container.many_bars)
   stage.add(elements.foo.one_foo)
   stage.add(elements.foo.something)
-
-You can add templates instead of widgets to a stage from the mainloop. A
-container does support neither templates nor is it thread-safe. In that
-case you need a functions decorated with the C{threaded} decorator.
-
-Example::
-  @kaa.candy.threaded():
-  def add_stuff():
-      container = kaa.candy.Container()
-      container.add(elements.foo.one_foo())
-      container.set_parent(stage)
 
 Context
 =======

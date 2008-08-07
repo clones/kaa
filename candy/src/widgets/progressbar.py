@@ -29,8 +29,11 @@
 #
 # -----------------------------------------------------------------------------
 
+# kaa imports
+from kaa.utils import property
+
 # kaa.candy imports
-from ..core import is_template, threaded
+from ..core import is_template
 import core
 
 class Progressbar(core.Group):
@@ -40,32 +43,48 @@ class Progressbar(core.Group):
     """
     candyxml_name = 'progressbar'
 
+    __max = 0
+    __progress = 0
+
     def __init__(self, pos, size, progress):
         super(Progressbar, self).__init__(pos, size)
-        self._width = size[0]
-        self._max = 0
         if is_template(progress):
-            progress = progress(pos=(0,0), size=size)
-            # FIXME: set pos and size for non templates
-        self._progress = progress
-        self._progress.set_width(1)
-        self._progress.show()
-        self.add(self._progress)
+            progress = progress()
+        self._bar = progress
+        self._bar.x = 0
+        self._bar.y = 0
+        self._bar.width, self._bar.height = size
+        self._bar.parent = self
 
-    @threaded()
-    def set_max(self, max):
-        """
-        Set maximum value of the progress.
-        """
-        self._max = max
+    @property
+    def max(self):
+        return self.__max
 
-    @threaded()
-    def set_progress(self, value):
+    @max.setter
+    def max(self, value):
+        self.__max = value
+
+    @property
+    def progress(self):
+        return self.__progress
+
+    @progress.setter
+    def progress(self, value):
         """
         Set a new progress and redraw the widget.
         """
-        pos = float(value) / max(self._max, value, 0.1)
-        self._progress.set_width(int(max(pos * self._width, 1)))
+        self.__progress = value
+        self._require_update(rendering=True)
+
+    def _candy_render(self):
+        """
+        Render the widget
+        """
+        super(Progressbar, self)._candy_render()
+        pos = float(self.__progress) / max(self.__max, self.__progress, 0.1)
+        if self._bar._obj:
+            # FIXME: do not access _obj of a different widget
+            self._bar._obj.set_width(int(max(pos * self.width, 1)))
 
     @classmethod
     def candyxml_parse(cls, element):

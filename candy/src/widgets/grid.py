@@ -46,45 +46,41 @@ import logging
 import copy
 import time
 
-# clutter imports
-import clutter
-
 # kaa.candy imports imports
 import core
-from .. import candyxml, timeline, threaded, is_template
+from .. import candyxml, animation, is_template, config
 
 # get logging object
 log = logging.getLogger('kaa.candy')
 
-class ScrollBehaviour(clutter.Behaviour):
-    __gtype_name__ = 'GridScroll'
+class ScrollAnimation(animation.Animation):
 
     def __init__ (self, widget, start, stop, secs, orientation):
-        clutter.Behaviour.__init__(self)
-        self._timeline = timeline.Timeline(secs)
-        self._alpha = clutter.Alpha(self._timeline, clutter.ramp_inc_func)
-        self.set_alpha(self._alpha)
+        super(ScrollAnimation, self).__init__(secs, animation.alpha_inc_func)
         self._start = start
         self._diff = stop - start
         self._current = start
         self._orientation = orientation
         self.apply(widget)
-        self._timeline.start()
-
-    def is_playing(self):
-        return self._timeline.is_playing()
+        self.start()
 
     def stop(self):
-        self._timeline.stop()
+        """
+        Stop the animation and return missing steps
+        """
+        super(ScrollAnimation, self).stop()
         return self._diff - (self._current - self._start)
 
-    def do_alpha_notify(self, alpha_value):
-        alpha = float(alpha_value) / clutter.MAX_ALPHA
+    def _candy_animate(self, alpha_value):
+        """
+        Callback with the new alpha value
+        """
+        alpha = float(alpha_value) / animation.MAX_ALPHA
         current = self._start + int(self._diff * alpha)
         step = self._current - current
         self._current = current
-        for actor in self.get_actors():
-            actor._set_scroll_step(step, self._orientation)
+        for actor in self.widgets:
+            actor._scroll(step, self._orientation)
 
 class Grid(core.Group):
     """
@@ -111,7 +107,6 @@ class Grid(core.Group):
         """
         super(Grid, self).__init__(pos, size, context)
         # clip the grid to hide cells moved outside the visible area
-        self.set_clip(0, 0, *size)
         if isinstance(items, (str, unicode)):
             # items is a string, get it from the context
             items = self.eval_context(items)
@@ -141,13 +136,7 @@ class Grid(core.Group):
         self._items = items
         self._cell_item = cell_item
         self._child_template = template
-
-    def show(self):
-        """
-        Make the grid visible. This triggers rendering.
-        """
-        self._render()
-        super(Grid, self).show()
+        self._check_items()
 
     def destroy(self):
         """
@@ -161,7 +150,6 @@ class Grid(core.Group):
         self._col_animation = None
         super(Grid, self).destroy()
 
-    @threaded()
     def scroll_by(self, (rows, cols), secs):
         """
         Scroll by rows and cols cells
@@ -183,7 +171,6 @@ class Grid(core.Group):
                 cols -= (cols / abs(cols))
         self.scroll_to((self._cell0[0] + rows, self._cell0[1] + cols), secs)
 
-    @threaded()
     def scroll_to(self, (row, col), secs):
         """
         Scroll to row / cell position
@@ -196,9 +183,9 @@ class Grid(core.Group):
             self._cell0[0] = row
             stop = self._cell0[0] * self._col_size
             if secs == 0:
-                self._set_scroll_step(start - stop, 0)
+                self._scroll(start - stop, 0)
             else:
-                self._row_animation = ScrollBehaviour(self, start, stop, secs, 0)
+                self._row_animation = ScrollAnimation(self, start, stop, secs, 0)
         if self._cell0[1] != col:
             # need to scroll cols
             start = self._cell0[1] * self._row_size
@@ -207,11 +194,11 @@ class Grid(core.Group):
             self._cell0[1] = col
             stop = self._cell0[1] * self._row_size
             if secs == 0:
-                self._set_scroll_step(start - stop, 1)
+                self._scroll(start - stop, 1)
             else:
-                self._col_animation = ScrollBehaviour(self, start, stop, secs, 1)
+                self._col_animation = ScrollAnimation(self, start, stop, secs, 1)
 
-    def _render_child(self, item_num, pos_x, pos_y):
+    def _create_item(self, item_num, pos_x, pos_y):
         """
         Render one child
         """
@@ -220,20 +207,20 @@ class Grid(core.Group):
             return
         x = pos_x * self._col_size -self._x0
         y = pos_y * self._row_size -self._y0
-        if x >= self.get_max_width() or y >= self.get_max_height():
+        if x >= self.width or y >= self.height:
             # refuse to draw invisible items
             return
         context = copy.copy(self.get_context())
         context[self._cell_item] = self._items[item_num]
-        child = self._child_template(x=x, y=y, size=self.cell_size, context=context)
-        child.set_parent(self)
+        child = self._child_template(context=context)
+        child.x = x
+        child.y = y
+        child.width, child.height = self.cell_size
+        child.parent = self
         self._rendered[(pos_x, pos_y)] = child
         return child
 
-    def _render(self):
-        """
-        Render grid.
-        """
+    def _check_items(self):
         # This function is highly optimized for fast rendering when there is nothing
         # to change. Some code is duplicated for HORIZONTAL and VERTICAL but creating
         # smaller code size increases the running time.
@@ -247,49 +234,55 @@ class Grid(core.Group):
             item_num = base_x * self.num_rows + base_y
             while True:
                 if not (pos_x, pos_y) in self._rendered:
-                    self._render_child(item_num, pos_x, pos_y)
+                    self._create_item(item_num, pos_x, pos_y)
                 item_num += 1
                 pos_y += 1
                 if pos_y - base_y >= self.num_rows:
                     if not (pos_x, pos_y) in self._rendered:
-                        self._render_child(item_num, pos_x, pos_y)
+                        self._create_item(item_num, pos_x, pos_y)
                     pos_y = base_y
                     pos_x += 1
                     if pos_x - base_x > self.num_cols:
                         return
+
         # self._orientation == Grid.VERTICAL
         item_num = base_y * self.num_cols + base_x
         while True:
             if not (pos_x, pos_y) in self._rendered:
-                self._render_child(item_num, pos_x, pos_y)
+                self._create_item(item_num, pos_x, pos_y)
             item_num += 1
             pos_x += 1
             if pos_x - base_x >= self.num_cols:
                 if not (pos_x, pos_y) in self._rendered:
-                    self._render_child(item_num, pos_x, pos_y)
+                    self._create_item(item_num, pos_x, pos_y)
                 pos_x = base_x
                 pos_y += 1
                 if pos_y - base_y > self.num_rows:
                     return
+        return
 
-    def _set_scroll_step(self, step, orientation):
+    def _candy_layout(self):
+        """
+        Layout the widget
+        """
+        super(Grid, self)._candy_layout()
+        self._obj.set_clip(0, 0, self.width, self.height)
+
+    def _scroll(self, step, orientation):
         """
         Callback from the animation
         """
         # move children
-        t0 = time.time()
         if orientation == Grid.HORIZONTAL:
             self._x0 -= step
-            x, y = step, 0
+            for child in self.children:
+                child.x += step
         if orientation == Grid.VERTICAL:
             self._y0 -= step
-            x, y = 0, step
-        for child in self.get_children():
-            child.move_by(x, y)
-        self._render()
-        elapsed = int((time.time() - t0) * 1000)
-        if elapsed:
-            log.info('grid move took %s ms', elapsed)
+            for child in self.children:
+                child.y += step
+        self._check_items()
+        self._require_update(rendering=True)
 
     @classmethod
     def candyxml_parse(cls, element):

@@ -29,27 +29,23 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Widget', 'Group', 'Texture', 'Imlib2Texture', 'CairoTexture']
+__all__ = [ 'Widget', 'Group', 'Texture', 'CairoTexture']
 
 # python imports
 import logging
 import time
+from copy import deepcopy
 
 # clutter imports
-import clutter
-try:
-    import cluttercairo
-except ImportError:
-    # 0.6
-    import clutter.cluttercairo as cluttercairo
 import pango
 import cairo
 
 # kaa imports
 import kaa.imlib2
+from kaa.utils import property
 
 # kaa.candy imports
-from .. import candyxml, animation, threaded, Modifier
+from .. import candyxml, animation, Modifier, backend
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -80,63 +76,25 @@ class Template(object):
         self._cls = cls
         self._modifier = kwargs.pop('modifier', [])
         self._kwargs = kwargs
-        self.__userdata = {}
+        self.userdata = {}
 
-    def __call__(self, context=None, **override):
+    def __call__(self, context=None):
         """
         Create the widget with the given context and override some
         constructor arguments.
         @param context: context to create the widget in
-        @param override: override the given keyword arguments on creation
         @returns: widget object
         """
-        kwargs = self._kwargs
-        if override:
-            # FIXME: this part is kind of ugly
-            kwargs = self._kwargs.copy()
-            for key, value in override.items():
-                if key == 'x':
-                    kwargs['pos'] = value, kwargs['pos'][1]
-                elif key == 'y':
-                    kwargs['pos'] = kwargs['pos'][0], value
-                elif key == 'width':
-                    kwargs['size'] = value, kwargs['size'][1]
-                elif key == 'height':
-                    kwargs['size'] = kwargs['size'][0], value
-                else:
-                    kwargs[key] = value
-        t0 = time.time()
         if self._cls.context_sensitive:
-            kwargs['context'] = context
+            self._kwargs['context'] = context
         try:
-            widget = self._cls(**kwargs)
+            widget = self._cls(**self._kwargs)
         except TypeError, e:
-            log.exception('error creating %s%s', self._cls, kwargs.keys())
+            log.exception('error creating %s%s', self._cls, self._kwargs.keys())
             return None
         for modifier in self._modifier:
             widget = modifier.modify(widget)
-        elapsed = int((time.time() - t0) * 1000)
-        if elapsed:
-            log.info('template.create %s: %s ms', self._cls.candyxml_name, elapsed)
         return widget
-
-    def get_userdata(self, key):
-        """
-        Get additional data stored in this object.
-        @param key: key of the userdata
-        @returns: value or None if not set
-        """
-        return self.__userdata.get(key)
-
-    def set_userdata(self, key, value):
-        """
-        Store additional data in this object. This function can be used if additional
-        information should be stored in a template for later reference. The userdata
-        is not copied to a created widget.
-        @param key: key to name the userdata
-        @param value: value of the userdata.
-        """
-        self.__userdata[key] = value
 
     def get_attribute(self, attr):
         """
@@ -192,6 +150,22 @@ class Widget(object):
     #: template for object creation
     __template__ = Template
 
+    # some default values
+    __need_update = True
+    __need_rendering = True
+    __need_layout = True
+    # properties
+    __parent = None
+    __anchor = None
+    __x = 0
+    __y = 0
+    __width = 0
+    __height = 0
+
+    # misc
+    name = None
+    _obj = None
+
     def __init__(self, pos=None, size=None, context=None):
         """
         Basic widget constructor.
@@ -200,18 +174,17 @@ class Widget(object):
         @param context: the context the widget is created in
         """
         if size is not None:
-            if size[0] is not None:
-                self.set_width(size[0])
-            if size[1] is not None:
-                self.set_height(size[1])
+            self.__width  = size[0] or 0
+            self.__height = size[1] or 0
         if pos is not None:
-            self.set_position(*pos)
-        # animations running created by self.animate()
-        self._running_animations = {}
+            self.__x, self.__y = pos
         self.__depends = {}
-        self.__animations = {}
         self.__context = context or {}
-        self.__userdata = {}
+        self.userdata = {}
+        # DEPRECATED ANIMATION SUPPORT
+        # # animations running created by self.animate()
+        # self._running_animations = {}
+        # self.__animations = {}
 
     def get_context(self, key=None):
         """
@@ -275,89 +248,182 @@ class Widget(object):
                 # no dot found, too bad
                 log.error('unable to evaluate %s', var)
                 return default
-            else:
-                try:
-                    var = '%s.get("%s")' % (var[:pos], var[pos+1:])
-                    value = eval(var, context)
-                    if value is None:
-                        value = default
-                except AttributeError:
-                    log.error('unable to evaluate %s', var)
-                    return default
+            try:
+                var = '%s.get("%s")' % (var[:pos], var[pos+1:])
+                value = eval(var, context)
+                if value is None:
+                    value = default
+            except AttributeError:
+                log.error('unable to evaluate %s', var)
+                return default
         if depends:
             self.__depends[var] = repr(value)
         return value
-
-    def set_animation(self, name, animations):
-        """
-        Set additional animations for object.animate()
-        @param animations: dict with key,Animation
-        """
-        self.__animations[name] = animations
-
-    @threaded()
-    def animate(self, name, *args, **kwargs):
-        """
-        Animate the object with the given animation. The animations are defined
-        by C{set_animation}, the candyxml definition or the basic animation
-        classes in kaa.candy.animation. Calling this function is thread-safe.
-        @param name: name of the animation used by C{set_animation} or
-            kaa.candy.animations
-        """
-        # FIXME: rewrite animation code
-        if name in self.__animations:
-            return self.__animations[name](self, *args, **kwargs)
-        a = animation.get(name)
-        if a:
-            return a(self, *args, **kwargs)
-        if not name in ('hide', 'show'):
-            log.error('no animation named %s', name)
-
-    def stop_animations(self):
-        """
-        Stop all running animations for the widget. This function must be called
-        when a widget is removed from the stage. Calling C{destroy} will also
-        stop all animations.
-        """
-        for animation in self._running_animations.values():
-            animation._clutter_stop()
-
-    def set_parent(self, parent):
-        """
-        Set the parent widget.
-        @param parent: kaa.candy Group or Stage object
-        """
-        if self.get_parent():
-            self.get_parent().remove(self)
-        parent.add(self)
 
     def destroy(self):
         """
         Destroy the widget. This function _must_ be called when animations
         running in the widget to stop them first.
         """
-        for animation in self._running_animations.values():
-            animation._clutter_stop()
-        parent = self.get_parent()
-        if parent is not None:
-            parent.remove(self)
+        # DEPRECATED ANIMATION SUPPORT
+        # for animation in self._running_animations.values():
+        #     animation._clutter_stop()
+        if self.__parent is not None:
+            self.__parent._remove_child(self)
+        self.__parent = None
+        self._obj = None
 
-    def get_userdata(self, key):
-        """
-        Get additional data stored in this object.
-        @param key: key of the userdata
-        @returns: value or None if not set
-        """
-        return self.__userdata.get(key)
+    # DEPRECATED ANIMATION SUPPORT
+    # def set_animation(self, name, animations):
+    #     """
+    #     Set additional animations for object.animate()
+    #     @param animations: dict with key,Animation
+    #     """
+    #     self.__animations[name] = animations
 
-    def set_userdata(self, key, value):
+    # def animate(self, name, *args, **kwargs):
+    #     """
+    #     Animate the object with the given animation. The animations are defined
+    #     by C{set_animation}, the candyxml definition or the basic animation
+    #     classes in kaa.candy.animation. Calling this function is thread-safe.
+    #     @param name: name of the animation used by C{set_animation} or
+    #         kaa.candy.animations
+    #     """
+    #     # FIXME: rewrite animation code
+    #     if name in self.__animations:
+    #         return self.__animations[name](self, *args, **kwargs)
+    #     a = animation.get(name)
+    #     if a:
+    #         return a(self, *args, **kwargs)
+    #     if not name in ('hide', 'show'):
+    #         log.error('no animation named %s', name)
+
+    # def stop_animations(self):
+    #     """
+    #     Stop all running animations for the widget. This function must be called
+    #     when a widget is removed from the stage. Calling C{destroy} will also
+    #     stop all animations.
+    #     """
+    #     for animation in self._running_animations.values():
+    #         animation._clutter_stop()
+
+    # rendering
+
+    def _require_update(self, rendering=False, layout=False):
         """
-        Store additional data in this object. This function can be used if additional
-        information should be stored in a widget for later reference.
-        @param key: key to name the userdata
-        @param value: value of the userdata.
+        Trigger rendering or layout functions to be called from the
+        clutter mainloop.
         """
-        self.__userdata[key] = value
+        if rendering:
+            self.__need_rendering = True
+        if layout:
+            self.__need_layout = True
+        self.__need_update = True
+        if self.__parent and not self.__parent.__need_update:
+            self.__parent._require_update()
+
+    def _candy_update(self):
+        """
+        Called from the clutter thread to update the widget.
+        """
+        if not self.__need_update:
+            return False
+        self.__need_update = False
+        if self.__need_rendering:
+            self.__need_rendering = False
+            self._candy_render()
+        if self.__need_layout:
+            self.__need_layout = False
+            self._candy_layout()
+        return True
+
+    def _candy_render(self):
+        """
+        Render the widget
+        """
+        raise NotImplemented
+
+    def _candy_layout(self):
+        """
+        Layout the widget
+        """
+        if self.__anchor:
+            self._obj.set_anchor_point(*self.__anchor)
+            self._obj.set_position(
+                self.__x + self.__anchor[0], self.__y + self.__anchor[1])
+        else:
+            self._obj.set_position(self.__x, self.__y)
+
+    # properties
+
+    @property
+    def x(self):
+        return self.__x
+
+    @x.setter
+    def x(self, x):
+        self.__x = x
+        self._require_update(layout=True)
+
+    @property
+    def y(self):
+        return self.__y
+
+    @y.setter
+    def y(self, y):
+        self.__y = y
+        self._require_update(layout=True)
+
+    @property
+    def width(self):
+        return self.__width
+
+    @width.setter
+    def width(self, width):
+        if self._obj is not None:
+            # FIXME: support changing the geometry
+            raise RuntimeError('unable to update during runtime')
+        self.__width = width
+        self._require_update(rendering=True, layout=True)
+
+    @property
+    def height(self):
+        return self.__height
+
+    @height.setter
+    def height(self, height):
+        if self._obj is not None:
+            # FIXME: support changing the geometry
+            raise RuntimeError('unable to update during runtime')
+        self.__height = height
+        self._require_update(rendering=True, layout=True)
+
+    @property
+    def anchor_point(self):
+        return self.__anchor or (0, 0)
+
+    @anchor_point.setter
+    def anchor_point(self, (x, y)):
+        self.__anchor = x, y
+        self._require_update(layout=True)
+
+    @property
+    def parent(self):
+        return __parent
+
+    @parent.setter
+    def parent(self, parent):
+        """
+        Set the parent widget.
+        @param parent: kaa.candy Group or Stage object
+        """
+        if self.__parent:
+            self.__parent._remove_child(self)
+        self.__parent = parent
+        self.__parent._add_child(self)
+
+
+    # candyxml stuff
 
     @classmethod
     def create_template(cls, **kwargs):
@@ -388,8 +454,7 @@ class Widget(object):
     # def __del__(self):
     #     print '__del__', self
 
-
-class Group(Widget, clutter.Group):
+class Group(Widget):
     """
     Group widget.
     """
@@ -402,49 +467,59 @@ class Group(Widget, clutter.Group):
             read with the get_max memeber functions.
         @param context: the context the widget is created in
         """
-        clutter.Group.__init__(self)
-        Widget.__init__(self, pos, size, context)
-        self._max_size = size or (None, None)
+        super(Group, self).__init__(pos, size, context)
+        self.children = []
+        self._new_children = []
+        self._del_children = []
 
-    def get_max_size(self):
+    def _candy_update(self):
         """
-        Return maximum available size
+        Called from the clutter thread to update the widget.
         """
-        return self._max_size
+        if not super(Group, self)._candy_update():
+            return False
+        while self._del_children:
+            self._obj.remove(self._del_children.pop(0))
+        for child in self.children:
+            child._candy_update()
+        while self._new_children:
+            actor = self._new_children.pop(0)._obj
+            actor.show()
+            self._obj.add(actor)
+        return True
 
-    def get_max_width(self):
+    def _candy_render(self):
         """
-        Return maximum available width
+        Render the widget
         """
-        return self._max_size[0]
+        if self._obj is None:
+            self._obj = backend.Group()
 
-    def get_max_height(self):
-        """
-        Return maximum available height
-        """
-        return self._max_size[1]
-
-    def add(self, child, visible=True):
+    def _add_child(self, child):
         """
         Add a child and set it visible.
         @param child: kaa.candy.Widget, NOT a Template
-        @param visible: set the child status to visible when adding
         """
-        if visible:
-            child.show()
-        super(Group, self).add(child)
+        self._require_update()
+        self._new_children.append(child)
+        self.children.append(child)
+
+    def _remove_child(self, child):
+        self._require_update()
+        self.children.remove(child)
+        self._del_children.append(child._obj)
 
     def destroy(self):
         """
         Destroy the group and all children. The object is removed from the
         parant and not usable anymore.
         """
-        for child in self.get_children():
+        for child in self.children:
             child.destroy()
         super(Group, self).destroy()
 
 
-class Texture(Widget, clutter.Texture):
+class Texture(Widget):
     """
     Clutter Texture widget.
     """
@@ -455,76 +530,43 @@ class Texture(Widget, clutter.Texture):
         @param size: (width,height) geometry of the widget or None.
         @param context: the context the widget is created in
         """
-        clutter.Texture.__init__(self)
-        Widget.__init__(self, pos, size, context)
+        super(Texture, self).__init__(pos, size, context)
+        self._imagedata = None
 
-    def set_imlib2(self, image_or_filename):
-        """
-        Fill the texture with an Imlib2 Image or load one from file
-        """
-        if not isinstance(image_or_filename, kaa.imlib2.Image):
-            image_or_filename = kaa.imlib2.Image(image_or_filename)
-        self.set_from_rgb_data(image_or_filename.get_raw_data('RGBA'), True,
-            image_or_filename.width, image_or_filename.height, 1, 4, 0)
+    def set_image(self, image):
+        if image and not isinstance(image, kaa.imlib2.Image):
+            image = kaa.imlib2.Image(image)
+        self._imagedata = image
+        self._require_update(rendering=True)
 
-class Imlib2Texture(Texture):
-    """
-    Imlib2 based Texture widget.
-    """
-    class Context(kaa.imlib2.Image):
+    def _candy_render(self):
         """
-        Imlib2 context to draw on.
+        Render the widget
         """
-        def __init__(self, texture, image):
-            super(Imlib2Texture.Context, self).__init__(image)
-            self.__texture = texture
-
-        def __del__(self):
-            """
-            Redraw clutter Texture object.
-            """
-            self.__texture.set_from_rgb_data(self.get_raw_data(), True,
-                  self.width, self.height, 1, 4, 0)
-
-    def __init__(self, pos, size, context=None):
-        """
-        Create a kaa.imlib2 based texture.
-        @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget
-        @param context: the context the widget is created in
-        """
-        super(Imlib2Texture, self).__init__(pos, size, context)
-        self._image = kaa.imlib2.new(size)
-
-    def imlib2_create(self):
-        """
-        Return Imlib2 context image. The widget will update once the returned
-        kaa.imlib2 Image is deleted.
-        """
-        return Imlib2Texture.Context(self, self._image._image)
+        if self._obj is None:
+            self._obj = backend.Texture()
+            self._obj.set_size(self.width, self.height)
+        if not self._imagedata:
+            return
+        self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
+            self._imagedata.width, self._imagedata.height, 1, 4,
+            backend.TEXTURE_RGB_FLAG_BGR)
 
 
-class CairoTexture(Widget, cluttercairo.CairoTexture):
+class CairoTexture(Widget):
     """
     Cairo based Texture widget.
     """
-    def __init__(self, pos, size, context=None):
-        """
-        Create a cairo based texture.
-        @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget
-        @param context: the context the widget is created in
-        """
-        cluttercairo.CairoTexture.__init__(self, *size)
-        Widget.__init__(self, pos, None, context)
 
-    def clear(self):
+    def _candy_render(self):
         """
-        Clear the complete surface. This function may be called by an
-        inheriting class in a render function on update.
+        Render the widget
         """
-        context = self.cairo_create()
-        context.set_operator(cairo.OPERATOR_CLEAR)
-        context.set_source_rgba(255,255,255,255)
-        context.paint()
-        del context
+        if self._obj is None:
+            self._obj = backend.CairoTexture(self.width, self.height)
+        else:
+            context = self._obj.cairo_create()
+            context.set_operator(cairo.OPERATOR_CLEAR)
+            context.set_source_rgba(255,255,255,255)
+            context.paint()
+            del context

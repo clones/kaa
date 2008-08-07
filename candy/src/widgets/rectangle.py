@@ -55,13 +55,13 @@ class Rectangle(core.CairoTexture):
         self._color = color
         self._border_size = border_size
         self._border_color = border_color
-        self._render()
 
-    def _render(self):
+    def _candy_render(self):
         """
-        Render the rectangle.
+        Render the widget
         """
-        context = self.cairo_create()
+        super(Rectangle, self)._candy_render()
+        context = self._obj.cairo_create()
 
         if not self._border_size and not self._radius:
             # A simple fill on the surface. Using clutter.Rectangle
@@ -73,8 +73,8 @@ class Rectangle(core.CairoTexture):
             return
 
         stroke = self._border_size or 1
-        width  = self.get_property('surface_width') - 2 * stroke
-        height = self.get_property('surface_height') - 2 * stroke
+        width  = self._obj.get_property('surface_width') - 2 * stroke
+        height = self._obj.get_property('surface_height') - 2 * stroke
         radius = min(self._radius, width, height)
 
         x0 = stroke

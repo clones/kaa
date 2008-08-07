@@ -40,7 +40,7 @@ import logging
 import kaa.net.url
 
 # kaa.candy imports imports
-from .. import config, threaded
+from .. import config
 import core
 
 # get logging object
@@ -95,26 +95,20 @@ class Image(core.Texture):
             # use cachefile as image
             url = cachefile
         if not url.startswith('/'):
-            url = self._get_image(url)
+            url = self._get_image_by_url(url)
             if not url:
                 return
-        # load the image to the texture. We use kaa.imlib2 here because it
-        # is faster and maybe we can add async loading here later.
-        self.set_imlib2(url)
+        self.set_image(url)
 
-    @threaded()
     def _fetched(self, status, cachefile):
         """
         Callback for HTTP GET result. The image should be in the cachefile.
         """
         if cachefile in self._downloads:
             del self._downloads[cachefile]
-        try:
-            self.set_imlib2(cachefile)
-        except Exception, e:
-            log.exception('bad image: %s' % cachefile)
+        self.set_image(cachefile)
 
-    def _get_image(self, name):
+    def _get_image_by_url(self, name):
         """
         Helper function to get the full path of the image.
         @param name: image filename without path
@@ -163,31 +157,31 @@ class Thumbnail(Image):
         self._thumbnail = thumbnail
         if self._thumbnail is not None:
             # show thumbnail
-            return self._show_thumbnail(force=True)
-        if item is not None and not item.scanned():
-            scanning = item.scan()
-            if scanning:
-                scanning.connect_weak_once(self._beacon_update, item)
+            self._show_thumbnail(force=True)
+        else:
+            if item is not None and not item.scanned():
+                scanning = item.scan()
+                if scanning:
+                    scanning.connect_weak_once(self._beacon_update, item)
 
     def _beacon_update(self, changes, item):
         self._thumbnail = item.get('thumbnail')
-        return self._show_thumbnail(force=True)
+        if self._thumbnail is not None:
+            return self._show_thumbnail(force=True)
 
-    @threaded()
     def _show_thumbnail(self, force=False):
         """
         Callback to render the thumbnail to the texture.
         @todo: add thumbnail update based on beacon mtime
         @todo: try to force large thumbnails
         """
-        if self._thumbnail is None or self._thumbnail.is_failed():
-            return False
-        large = self._thumbnail.get(self._thumbnail.LARGE)
-        image = large
-        if not large:
+        large = image = self._thumbnail.get(self._thumbnail.LARGE)
+        if not image:
             image = self._thumbnail.get(self._thumbnail.NORMAL)
+            if not image and self._thumbnail.is_failed():
+                return False
         if image:
-            self.set_imlib2(image)
+            self.set_image(image)
         if force and not large:
             # Create thumbnail; This object will hold a reference to the
             # beacon.Thumbnail object and uses high priority. Since we

@@ -37,7 +37,7 @@ Basic configuration settings
 """
 
 #; frames per second for animations
-fps = 25
+fps = 30
 
 #; path to search for image files
 imagepath = []

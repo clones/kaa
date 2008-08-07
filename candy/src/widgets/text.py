@@ -31,15 +31,18 @@
 
 # python imports
 import re
-import clutter
+
 import pango
+
+from kaa.utils import property
 
 # kaa.candy imports
 from ..core import Color
+from .. import backend
 import core
 
 
-class Text(core.Widget, clutter.Label):
+class Text(core.Widget):
     """
     Complex text widget.
     """
@@ -53,38 +56,70 @@ class Text(core.Widget, clutter.Label):
     _regexp_eval = re.compile('\$([a-zA-Z_\.\[\]]*)')
     _regexp_br = re.compile(' *<br/> *')
 
+    __text = __text_eval = ''
+    __color = None
+
     def __init__(self, pos, size, text, font, color, align, context=None):
-        clutter.Label.__init__(self)
-        core.Widget.__init__(self, pos, size, context)
+        super(Text, self).__init__(pos, size, context)
+        self.__align = align
+        self.__font = font
+        self.text = text
+        self.color = color
+
+    @property
+    def text(self):
+        return self.__text
+
+    @text.setter
+    def text(self, text):
+        self.__text = text
+        def eval_expression(matchobj):
+            if self.eval_context(matchobj.groups()[0]):
+                return matchobj.groups()[1]
+            return ''
+        def replace_context(matchobj):
+            # FIXME: maybe the string has markup to use
+            return self.eval_context(matchobj.groups()[0]).replace('&', '&amp;').\
+                   replace('<', '&lt;').replace('>', '&gt;')
+        text = self._regexp_space.sub(' ', text)
+        text = self._regexp_if.sub(eval_expression, text)
+        text = self._regexp_eval.sub(replace_context, text).strip()
+        self.__text_eval = self._regexp_br.sub('\n', text)
+
+    @property
+    def color(self):
+        return self.__color
+
+    @color.setter
+    def color(self, color):
         if not isinstance(color, Color):
             color = Color(color)
-        text = self._regexp_space.sub(' ', text)
-        if context:
-            def eval_expression(matchobj):
-                if self.eval_context(matchobj.groups()[0]):
-                    return matchobj.groups()[1]
-                return ''
-            def replace_context(matchobj):
-                # FIXME: maybe the string has markup to use
-                return self.eval_context(matchobj.groups()[0]).replace('&', '&amp;').\
-                       replace('<', '&lt;').replace('>', '&gt;')
-            text = self._regexp_if.sub(eval_expression, text)
-            text = self._regexp_eval.sub(replace_context, text).strip()
-        text = self._regexp_br.sub('\n', text)
-        layout = self.get_layout()
-        self.set_line_wrap(True)
-        self.set_line_wrap_mode(pango.WRAP_WORD_CHAR)
-        self.set_use_markup(True)
-        # requires pango 1.20
-        # self.get_layout().set_height(70)
-        if align == 'center':
-            self.set_alignment(Text.ALIGN_CENTER)
-        self.set_font_name("%s %spx" % (font.name, font.size))
-        self.set_color(color)
-        self.set_text(text)
+        self.__color = color
 
-    def set_color(self, color):
-        super(Text, self).set_color(clutter.Color(*color))
+    def _candy_render(self):
+        """
+        Render the widget
+        """
+        if not self._obj:
+            self._obj = backend.Label()
+        layout = self._obj.get_layout()
+        self._obj.set_line_wrap(True)
+        self._obj.set_line_wrap_mode(pango.WRAP_WORD_CHAR)
+        self._obj.set_use_markup(True)
+        # requires pango 1.20
+        # layout.set_height(70)
+        self._obj.set_font_name("%s %spx" % (self.__font.name, self.__font.size))
+        self._obj.set_color(backend.Color(*self.__color))
+        self._obj.set_text(self.__text_eval)
+
+    def _candy_layout(self):
+        """
+        Layout the widget
+        """
+        super(Text, self)._candy_layout()
+        # FIXME: alignment does not work
+        if self.__align == 'center':
+            self._obj.set_alignment(Text.ALIGN_CENTER)
 
     @classmethod
     def candyxml_parse(cls, element):

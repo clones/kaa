@@ -1,8 +1,8 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# kaa.candy.widgets.py - Basic Widgets for kaa.candy
+# alpha.py - Alpha functions based on clutter alpha functions
 # -----------------------------------------------------------------------------
-# $Id$
+# $Id: __init__.py 3369 2008-07-17 19:51:56Z dmeyer $
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
@@ -29,33 +29,11 @@
 #
 # -----------------------------------------------------------------------------
 
-"""
-High level widgets for kaa.candy
+__all__ = [ 'alpha_inc_func', 'MAX_ALPHA' ]
 
-Each widget MUST inherit from a clutter actor and the kaa.candy.Widget base
-class. After calling kaa.candy.init() all the widgets are in the kaa.candy
-namespace directly, e.g. kaa.candy.Container
+import sys
 
-For basic functions read the Widget class documentation and the clutter
-U{Actor API <http://www.clutter-project.org/docs/clutter/0.6/ClutterActor.html>}.
-In case a function is defined in both classes Widget overrides Actor.
-"""
+MAX_ALPHA = sys.maxint
 
-from ..core import Modifier
-from core import Widget, Group, Texture, CairoTexture
-from container import Container
-from label import Label
-from rectangle import Rectangle
-from progressbar import Progressbar
-from text import Text
-from image import Image, Thumbnail
-from grid import Grid
-from reflection import Reflection, ReflectionModifier
-
-__all__ = []
-for key, value in globals().items():
-    try:
-        if issubclass(value, (Widget, Modifier)) and not value == Modifier:
-            __all__.append(key)
-    except TypeError:
-        pass
+def alpha_inc_func(current_frame_num, n_frames):
+    return (current_frame_num * MAX_ALPHA) / n_frames;

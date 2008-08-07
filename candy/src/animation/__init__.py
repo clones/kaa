@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# animation - Animation support for widget.animate
+# animation - Animation support
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -29,17 +29,11 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'get', 'Animation', 'AnimationModifier' ]
+__all__ = [ 'Animation', 'alpha_inc_func', 'MAX_ALPHA' ]
 
-# kaa.candy imports
-from ..candyxml import get_class
-import simple
+from core import Animation, candy_update
+from alpha import alpha_inc_func, MAX_ALPHA
 
-# export classes
-from core import Animation, AnimationModifier
-
-def get(name):
-    """
-    Get animation by name
-    """
-    return get_class('animation', name)
+signals = {
+    'candy-update': candy_update
+}

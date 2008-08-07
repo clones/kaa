@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# behaviour.py - Additional Behaviour Classes
+# behaviour.py - Behaviour Classes
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -29,32 +29,59 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'BehaviourColor' ]
-
-# clutter imports
-import clutter
+__all__ = [ 'Behaviour', 'BehaviourAlpha', 'BehaviourColor' ]
 
 # kaa.candy imports
 from ..core import Color
+from alpha import MAX_ALPHA
 
-class BehaviourColor(clutter.Behaviour):
+class Behaviour(object):
     """
-    Behaviour to change the color of an actor.
+    Behaviour base class
     """
-    __gtype_name__ = 'BehaviourColor'
+    def __init__(self, start, end):
+        self.start_value = start
+        self.end_value = end
+        self.diff = end - start
 
-    def __init__ (self, alpha, start_color, end_color):
-        clutter.Behaviour.__init__(self)
-        self.set_alpha(alpha)
-        self._start = start_color
-        self._end = end_color
+    def set_alpha(self, alpha_value, widgets):
+        """
+        Update widgets based on alpha value
+        @param alpha_value: alpha value between 0 and MAX_ALPHA
+        @param widgets: widgets to modify
+        """
+        raise NotImplementedError
 
-    def do_alpha_notify(self, alpha_value):
+class BehaviourAlpha(Behaviour):
+    """
+    Behaviour to change the alpha value
+    """
+    def set_alpha(self, alpha_value, widgets):
+        """
+        Update widgets based on alpha value
+        @param alpha_value: alpha value between 0 and MAX_ALPHA
+        @param widgets: widgets to modify
+        """
+        opacity = alpha_value * self.diff / MAX_ALPHA + self.start_value;
+        for widget in widgets:
+            widget.opacity = opacity
+
+class BehaviourColor(Behaviour):
+    """
+    Behaviour to change the color
+    """
+    def set_alpha(self, alpha_value, widgets):
+        """
+        Update widgets based on alpha value
+        @param alpha_value: alpha value between 0 and MAX_ALPHA
+        @param widgets: widgets to modify
+        """
         color = []
         for pos in range(4):
-            start = self._start[pos]
-            diff =  self._end[pos] - start
-            alpha = float(alpha_value) / clutter.MAX_ALPHA
+            start = self.start_value[pos]
+            diff =  self.end_value[pos] - start
+            alpha = float(alpha_value) / MAX_ALPHA
             color.append(start + int(diff * alpha))
-        for actor in self.get_actors():
-            actor.set_color(Color(*color))
+        color = Color(*color)
+        for widget in widgets:
+            widget.color = color

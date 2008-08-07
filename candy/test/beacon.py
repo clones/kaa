@@ -8,9 +8,6 @@ import kaa.candy
 import feedparser
 import kaa.beacon
 
-# before anything else, init kaa.candy
-kaa.candy.init()
-
 # we use the following xml (file) as gui. There is one widget:
 # a container called "thumbnails" with a label and a grid in it.
 # The grid needs a template for each cell which is again a
