@@ -89,17 +89,20 @@ class Thumbnail(object):
     next_id = 0
 
     def __init__(self, name, media, url=None):
-        self.name = os.path.realpath(name)
+        if not name.startswith('/'):
+            # FIXME: realpath should not be needed here because
+            # beacon itself should take care of it.
+            name = os.path.abspath(name)
+        self.name = name
         self.destdir = media.thumbnails
-
-        if not url:
-            # create url to be placed in the thumbnail
-            # FIXME: handle media.mountpoint
-            url = 'file://' + os.path.normpath(name)
-        self.url = url
-
+        # create url to be placed in the thumbnail
+        # os.path.normpath(name) should be used but takes
+        # extra CPU time and beacon should always create
+        # a correct path
+        # FIXME: handle media.mountpoint
+        self.url = url or 'file://' + name
         # create digest for filename (with %s for the size)
-        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(url).hexdigest()
+        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(self.url).hexdigest()
 
 
     def get(self, type='any', check_mtime=False):
