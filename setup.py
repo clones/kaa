@@ -32,8 +32,8 @@ import sys
 import distutils.core
 
 submodules = [ 'base', 'imlib2', 'display', 'mevas', 'epg', 'record',
-               'metadata', 'evas', 'canvas', 'xine', 'cherrypy',
-               'beacon', 'popcorn', 'feedmanager' ]
+               'metadata', 'xine', 'cherrypy', 'beacon', 'popcorn',
+               'feedmanager' ]
 
 # We require python 2.4 or later, so complain if that isn't satisfied.
 if sys.version.split()[0] < '2.4':
@@ -93,6 +93,3 @@ else:
     print 'Summary:'
     print '+', ', '.join(build)
     print '-', ', '.join(failed)
-    print
-    print 'The failed modules (-) may not be required by Freevo, e.g.'
-    print 'evas, canvas and xine are not needed right now.'
