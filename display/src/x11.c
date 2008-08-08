@@ -284,7 +284,6 @@ PyObject *set_shape_mask_from_imlib2_image(PyObject *self, PyObject *args)
     Py_INCREF(Py_None);
     return Py_None;
 #else
-    #error here
     PyErr_Format(PyExc_SystemError, "kaa-display compiled without imlib2 display support.");
     return NULL;
 #endif
