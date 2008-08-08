@@ -53,34 +53,18 @@ from .. import candyxml, animation, is_template, config
 # get logging object
 log = logging.getLogger('kaa.candy')
 
-class ScrollAnimation(animation.Animation):
-
-    def __init__ (self, widget, start, stop, secs, orientation):
-        super(ScrollAnimation, self).__init__(secs, animation.alpha_inc_func)
-        self._start = start
-        self._diff = stop - start
+class ScrollBehaviour(animation.Behaviour):
+    def __init__(self, start, end, orientation):
+        super(ScrollBehaviour, self).__init__(start, end)
+        self.orientation = orientation
         self._current = start
-        self._orientation = orientation
-        self.apply(widget)
-        self.start()
-
-    def stop(self):
-        """
-        Stop the animation and return missing steps
-        """
-        super(ScrollAnimation, self).stop()
-        return self._diff - (self._current - self._start)
-
-    def _candy_animate(self, alpha_value):
-        """
-        Callback with the new alpha value
-        """
-        alpha = float(alpha_value) / animation.MAX_ALPHA
-        current = self._start + int(self._diff * alpha)
+        
+    def set_alpha(self, alpha_value, widgets):
+        current = int(self.get_current(alpha_value))
         step = self._current - current
         self._current = current
-        for actor in self.widgets:
-            actor._scroll(step, self._orientation)
+        for widget in widgets:
+            widget._scroll(step, self.orientation)
 
 class Grid(core.Group):
     """
@@ -121,10 +105,11 @@ class Grid(core.Group):
         # size of cells
         self._col_size = self.cell_size[0] + padding_x
         self._row_size = self.cell_size[1] + padding_y
-        # x0/y0 coordinates for the upper left corner and cell visible
-        # there if all animations would be done
-        self._x0 = - padding_x / 2
-        self._y0 = - padding_y / 2
+        # x0/y0 coordinates for the upper left corner
+        # the c* variables will not be changed surung runtime
+        self._x0 = self._cx0 = - padding_x / 2
+        self._y0 = self._cy0 = - padding_y / 2
+        # cell number of the upper left corner if all animations are done
         self._cell0 = [ 0, 0 ]
         # list of rendered items
         self._rendered = {}
@@ -177,26 +162,28 @@ class Grid(core.Group):
         """
         if self._cell0[0] != row:
             # need to scroll rows
-            start = self._cell0[0] * self._col_size
             if self._row_animation and self._row_animation.is_playing():
-                start -= self._row_animation.stop()
+                self._row_animation.stop()
+            start = self._x0 - self._cx0
             self._cell0[0] = row
             stop = self._cell0[0] * self._col_size
             if secs == 0:
                 self._scroll(start - stop, 0)
             else:
-                self._row_animation = ScrollAnimation(self, start, stop, secs, 0)
+                self._row_animation = self.animate(secs)
+                self._row_animation.behave(ScrollBehaviour, start, stop, 0)
         if self._cell0[1] != col:
             # need to scroll cols
-            start = self._cell0[1] * self._row_size
             if self._col_animation and self._col_animation.is_playing():
-                start -= self._col_animation.stop()
+                self._col_animation.stop()
+            start = self._y0 - self._cy0
             self._cell0[1] = col
             stop = self._cell0[1] * self._row_size
             if secs == 0:
                 self._scroll(start - stop, 1)
             else:
-                self._col_animation = ScrollAnimation(self, start, stop, secs, 1)
+                self._col_animation = self.animate(secs)
+                self._col_animation.behave(ScrollBehaviour, start, stop, 1)
 
     def _create_item(self, item_num, pos_x, pos_y):
         """

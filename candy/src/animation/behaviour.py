@@ -42,11 +42,25 @@ class Behaviour(object):
     def __init__(self, start, end):
         self.start_value = start
         self.end_value = end
-        if isinstance(start, (int, long)):
+        if isinstance(start, (int, long, float)):
             self.diff = end - start
         if isinstance(start, (list, tuple)):
             self.diff = [ end[1] - start[i] for i in range(len(start)) ]
 
+    def get_current(self, alpha_value):
+        """
+        Get current value between start and end based on alpha value.
+        """
+        if alpha_value == MAX_ALPHA:
+            return self.end_value
+        if alpha_value == 0:
+            return self.start_value
+        factor = float(alpha_value) / MAX_ALPHA
+        if isinstance(self.start_value, (int, long, float)):
+            return self.start_value + factor * self.diff
+        return [ self.start_value[i] + factor * self.diff[i] \
+                 for i in range(len(self.start_value)) ]
+    
     def set_alpha(self, alpha_value, widgets):
         """
         Update widgets based on alpha value
@@ -65,7 +79,7 @@ class BehaviourOpacity(Behaviour):
         @param alpha_value: alpha value between 0 and MAX_ALPHA
         @param widgets: widgets to modify
         """
-        opacity = alpha_value * self.diff / MAX_ALPHA + self.start_value;
+        opacity = int(self.get_current(alpha_value))
         for widget in widgets:
             widget.opacity = opacity
 
@@ -79,18 +93,9 @@ class BehaviourScale(Behaviour):
         @param alpha_value: alpha value between 0 and MAX_ALPHA
         @param widgets: widgets to modify
         """
-        if alpha_value == MAX_ALPHA:
-            scale_x = self.end_value[0]
-            scale_y = self.end_value[1]
-        else:
-            scale_x = self.start_value[0]
-            scale_y = self.start_value[1]
-            if alpha_value > 0:
-                factor = float(alpha_value) / MAX_ALPHA
-                scale_x += factor * self.diff[0]
-                scale_y += factor * self.diff[1]
+        scale = self.get_current(alpha_value)
         for widget in widgets:
-            widget.scale = scale_x, scale_y
+            widget.scale = scale
 
 class BehaviourColor(Behaviour):
     """
