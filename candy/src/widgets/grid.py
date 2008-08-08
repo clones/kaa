@@ -98,10 +98,23 @@ class Grid(core.Group):
             items = self.eval_context(items)
         # store arguments for later public use
         self.cell_size = cell_size
+        # store arguments for later private use
+        self._orientation = orientation
+        self._items = items
+        self._cell_item = cell_item
+        self._child_template = template
         # do some calculations
         self.num_cols = size[0] / cell_size[0]
         self.num_rows = size[1] / cell_size[1]
+        # cell number of the upper left corner if all animations are done
+        self._cell0 = [ 0, 0 ]
+        # list of rendered items
+        self._rendered = {}
+        # animations for row and col animation
+        self._row_animation = None
+        self._col_animation = None
         # padding between cells
+        # FIXME: maybe the users wants to set this manually
         padding_x = size[0] /self.num_cols - cell_size[0]
         padding_y = size[1] /self.num_rows - cell_size[1]
         # size of cells
@@ -111,20 +124,7 @@ class Grid(core.Group):
         # the c* variables will not be changed surung runtime
         self._x0 = self._cx0 = - padding_x / 2
         self._y0 = self._cy0 = - padding_y / 2
-        # cell number of the upper left corner if all animations are done
-        self._cell0 = [ 0, 0 ]
-        # list of rendered items
-        self._rendered = {}
-        # animations for row and col animation
-        self._row_animation = None
-        self._col_animation = None
-        # store arguments for later private use
-        self._orientation = orientation
-        self._items = items
-        self._cell_item = cell_item
-        self._child_template = template
-
-    def _prepare(self):
+        # render visisble items
         self._check_items()
 
     def _candy_unparent(self):
@@ -207,6 +207,7 @@ class Grid(core.Group):
         child.x = x
         child.y = y
         child.width, child.height = self.cell_size
+        child.anchor_point = self.cell_size[0] / 2, self.cell_size[1] / 2
         child.parent = self
         self._rendered[(pos_x, pos_y)] = child
         return child
@@ -257,6 +258,7 @@ class Grid(core.Group):
         Layout the widget
         """
         super(Grid, self)._candy_layout()
+        # FIXME: this cuts of selected items
         self._obj.set_clip(0, 0, self.width, self.height)
 
     def _scroll(self, x, y):
@@ -308,12 +310,32 @@ class Grid(core.Group):
 
 class SelectionGrid(Grid):
 
+    class BehaviourScale(object):
+        def __init__(self, factor):
+            self._factor = 100.0 / (factor - 1)
+
+        def apply(self, child, percent):
+            child.scale = 1 + percent / self._factor, 1 + percent / self._factor
+
+    class BehaviourDepth(object):
+        def apply(self, child, percent):
+            # depth is broken, I have no idea how it is supposed to work
+            child.depth = percent / 20
+
+    class BehaviourOpacity(object):
+        def __init__(self, low=155, high=255):
+            self._low = low
+            self._diff = float(high - low) / 100
+        def apply(self, child, percent):
+            child.opacity = self._low + int(percent * self._diff)
+
     candyxml_style = 'selection'
 
     def __init__(self, pos, size, cell_size, cell_item, items, template,
                  selection, orientation, context=None):
         """
         Simple grid widget to show the items based on the template.
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget.
         @param cell_size: (width,height) of each cell
@@ -324,22 +346,29 @@ class SelectionGrid(Grid):
         @param orientation: how to arange the grid: Grid.HORIZONTAL or Grid.VERTICAL
         @param context: the context the widget is created in
         """
+        self.behaviour = []
         super(SelectionGrid, self).__init__(pos, size, cell_size, cell_item, items,
             template, orientation, context)
         if is_template(selection):
             selection = selection()
         self.selection = selection
+        self.selection.parent = self
         self._sel_x = (self.cell_size[0] - self.selection.width) / 2 - self._cx0
         self._sel_y = (self.cell_size[1] - self.selection.height) / 2 - self._cy0
         self._sel_animation = None
-
-    def _prepare(self):
-        """
-        Prepare the widget before connecting to a parent
-        """
-        self.selection.parent = self
+        self._sel_modified = []
         self.select((0, 0), 0)
-        super(SelectionGrid, self)._prepare()
+
+    def behave(self, behaviour, *args, **kwargs):
+        if isinstance(behaviour, str):
+            behaviour = getattr(self, 'Behaviour%s' % behaviour.capitalize())(*args, **kwargs)
+        self.behaviour.append(behaviour)
+        for child in self.children:
+            if child != self.selection:
+                behaviour.apply(child, 0)
+        # scroll by 0,0 to update covered items
+        self._scroll_listing(0,0)
+        return self
 
     def select(self, (col, row), secs):
         dest_x = self._sel_x + col * self._col_size + self._cx0 - self._x0
@@ -351,12 +380,58 @@ class SelectionGrid(Grid):
             self._sel_animation.behave(ScrollBehaviour,
                  (self.selection.x, self.selection.y), (dest_x, dest_y), self._scroll_listing)
         else:
-            self.selection.x = dest_x
-            self.selection.y = dest_y
+            self._scroll_listing(dest_x - self.selection.x, dest_y - self.selection.y)
+
+    def _create_item(self, item_num, pos_x, pos_y):
+        child = super(SelectionGrid, self)._create_item(item_num, pos_x, pos_y)
+        if child:
+            for behaviour in self.behaviour:
+                behaviour.apply(child, 0)
+        return child
 
     def _scroll_listing(self, x, y):
         self.selection.x -= x
         self.selection.y -= y
+        if not self.behaviour:
+            # no behaviour means no items to change
+            return
+        x, y, width, height = self.selection.geometry
+        # current cell position of the selection bar
+        # get the items that could be affected by a behaviour and check
+        # if they are covered by the selection widget
+        base_x = (x + self._x0) / self._col_size
+        base_y = (y + self._y0) / self._row_size
+        in_area = []
+        for x0 in range(-1, 2):
+            for y0 in range(-1, 2):
+                child = self._rendered.get((base_x + x0, base_y + y0))
+                if child is None:
+                    # not rendered
+                    continue
+                px = abs(child.x - x)
+                py = abs(child.y - y)
+                if px > width or py > height:
+                    # not covered
+                    continue
+                percent = ((100 - 100 * px / width) * (100 - 100 * py / height)) / 100
+                if percent:
+                    # percent % covered
+                    in_area.append((percent, child))
+        # sort by percent and draw from the lowest
+        in_area.sort(lambda x,y: cmp(x[0], y[0]))
+        modified = self._sel_modified
+        self._sel_modified = []
+        for percent, child in in_area:
+            child.raise_top()
+            for behaviour in self.behaviour:
+                behaviour.apply(child, percent)
+            if child in modified:
+                modified.remove(child)
+            self._sel_modified.append(child)
+        # reset children covered before and not anymore
+        for child in modified:
+            for behaviour in self.behaviour:
+                behaviour.apply(child, 0)
 
     @classmethod
     def candyxml_parse(cls, element):
