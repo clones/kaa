@@ -52,14 +52,11 @@ def main():
 
     if 1:
         # add effects and hide selection rectangle
-        grid.behave('opacity', 80).behave('scale', 1.1)
+        grid.behave('opacity', 80, 255).behave('scale', (1, 1), (1.1, 1.1))
         grid.selection.opacity = 0
     if 0:
         # add effects and hide selection rectangle
-        grid.behave('opacity').behave('scale', 1.1)
-    if 0:
-        # add effects and hide selection rectangle
-        grid.behave('scale', 1.5)
+        grid.behave('scale', (1, 1), (1.5, 1.5))
 
     yield wait(0.5)
 

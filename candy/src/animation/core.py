@@ -97,7 +97,7 @@ class Animation(object):
 
     def _candy_animate(self, alpha_value):
         for behaviour in self.behaviour:
-            behaviour.set_alpha(alpha_value, self.widgets)
+            behaviour.apply(alpha_value, self.widgets)
 
     @classmethod
     def __step(cls):

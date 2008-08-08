@@ -39,7 +39,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Grid' ]
+__all__ = [ 'Grid', 'SelectionGrid' ]
 
 # python imports
 import logging
@@ -61,7 +61,7 @@ class ScrollBehaviour(animation.Behaviour):
         self._current = start
         self._callback = callback
 
-    def set_alpha(self, alpha_value, widgets):
+    def apply(self, alpha_value, widgets):
         current = [ int(v) for v in self.get_current(alpha_value) ]
         x = self._current[0] - current[0]
         y = self._current[1] - current[1]
@@ -184,7 +184,7 @@ class Grid(core.Group):
             self._cell0[1] = col
             stop = self._cell0[1] * self._row_size
             if secs == 0:
-                self._scroll(start - stop, 1)
+                self._scroll(0, start - stop)
             else:
                 self._col_animation = self.animate(secs)
                 self._col_animation.behave(ScrollBehaviour, (0, start), (0, stop), self._scroll)
@@ -289,8 +289,8 @@ class Grid(core.Group):
         """
         # scale cell-width and cell-height because the auto-scaler does not
         # know about the variables
-        cell_width = element.get_scaled('cell-width', 0, int)
-        cell_height = element.get_scaled('cell-height', 1, int)
+        cell_width = element.get_scaled('cell-width', 0, int, 0)
+        cell_height = element.get_scaled('cell-height', 1, int, 0)
         subelement = element[0]
         # if subelement width or height are the same of the grid it was
         # copied by candyxml from the parent. Set it to cell width or height
@@ -300,7 +300,7 @@ class Grid(core.Group):
             subelement.height = cell_height
         # return dict
         orientation = Grid.HORIZONTAL
-        if element.orientation and element.orientation.lower() in 'vertical':
+        if element.orientation and element.orientation.lower() == 'vertical':
             orientation = Grid.VERTICAL
         return super(Grid, cls).candyxml_parse(element).update(
             template=subelement.xmlcreate(), items=element.items,
@@ -309,25 +309,6 @@ class Grid(core.Group):
 
 
 class SelectionGrid(Grid):
-
-    class BehaviourScale(object):
-        def __init__(self, factor):
-            self._factor = 100.0 / (factor - 1)
-
-        def apply(self, child, percent):
-            child.scale = 1 + percent / self._factor, 1 + percent / self._factor
-
-    class BehaviourDepth(object):
-        def apply(self, child, percent):
-            # depth is broken, I have no idea how it is supposed to work
-            child.depth = percent / 20
-
-    class BehaviourOpacity(object):
-        def __init__(self, low=155, high=255):
-            self._low = low
-            self._diff = float(high - low) / 100
-        def apply(self, child, percent):
-            child.opacity = self._low + int(percent * self._diff)
 
     candyxml_style = 'selection'
 
@@ -361,11 +342,11 @@ class SelectionGrid(Grid):
 
     def behave(self, behaviour, *args, **kwargs):
         if isinstance(behaviour, str):
-            behaviour = getattr(self, 'Behaviour%s' % behaviour.capitalize())(*args, **kwargs)
+            behaviour = getattr(animation, 'Behaviour%s' % behaviour.capitalize())(*args, **kwargs)
         self.behaviour.append(behaviour)
         for child in self.children:
             if child != self.selection:
-                behaviour.apply(child, 0)
+                behaviour.apply(0, [child])
         # scroll by 0,0 to update covered items
         self._scroll_listing(0,0)
         return self
@@ -380,13 +361,13 @@ class SelectionGrid(Grid):
             self._sel_animation.behave(ScrollBehaviour,
                  (self.selection.x, self.selection.y), (dest_x, dest_y), self._scroll_listing)
         else:
-            self._scroll_listing(dest_x - self.selection.x, dest_y - self.selection.y)
+            self._scroll_listing(self.selection.x - dest_x, self.selection.y - dest_y)
 
     def _create_item(self, item_num, pos_x, pos_y):
         child = super(SelectionGrid, self)._create_item(item_num, pos_x, pos_y)
         if child:
             for behaviour in self.behaviour:
-                behaviour.apply(child, 0)
+                behaviour.apply(0, [child])
         return child
 
     def _scroll_listing(self, x, y):
@@ -413,25 +394,24 @@ class SelectionGrid(Grid):
                 if px > width or py > height:
                     # not covered
                     continue
-                percent = ((100 - 100 * px / width) * (100 - 100 * py / height)) / 100
-                if percent:
-                    # percent % covered
-                    in_area.append((percent, child))
-        # sort by percent and draw from the lowest
+                coverage = (100 - 100 * px / width) * (100 - 100 * py / height)
+                if coverage:
+                    # x and y percent coverage
+                    in_area.append((coverage, child))
+        # sort by coverage and draw from the lowest
         in_area.sort(lambda x,y: cmp(x[0], y[0]))
         modified = self._sel_modified
         self._sel_modified = []
-        for percent, child in in_area:
+        for coverage, child in in_area:
             child.raise_top()
             for behaviour in self.behaviour:
-                behaviour.apply(child, percent)
+                behaviour.apply(float(coverage) / 10000 * animation.MAX_ALPHA, [child])
             if child in modified:
                 modified.remove(child)
             self._sel_modified.append(child)
         # reset children covered before and not anymore
-        for child in modified:
-            for behaviour in self.behaviour:
-                behaviour.apply(child, 0)
+        for behaviour in self.behaviour:
+            behaviour.apply(0, modified)
 
     @classmethod
     def candyxml_parse(cls, element):

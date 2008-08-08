@@ -49,7 +49,7 @@ from rectangle import Rectangle
 from progressbar import Progressbar
 from text import Text
 from image import Image, Thumbnail
-from grid import Grid
+from grid import Grid, SelectionGrid
 from reflection import Reflection, ReflectionModifier
 
 __all__ = []
