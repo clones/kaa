@@ -170,11 +170,6 @@ class Widget(object):
     name = None
     _obj = None
 
-    # callback to prepare widget when parent
-    # is set. Override it in a widget and remove
-    # it wehn done
-    _prepare = None
-
     def __init__(self, pos=None, size=None, context=None):
         """
         Basic widget constructor.
@@ -284,6 +279,14 @@ class Widget(object):
             a.running.connect(setattr, self, 'parent', None).set_ignore_caller_args()
         return a
 
+    def raise_top(self):
+        if self.parent:
+            self.parent._restack_child(self, 'top')
+
+    def lower_bottom(self):
+        if self.parent:
+            self.parent._restack_child(self, 'bottom')
+        
     # rendering
 
     def _require_update(self, rendering=False, layout=False):
@@ -387,6 +390,10 @@ class Widget(object):
         self._require_update(rendering=True, layout=True)
 
     @property
+    def geometry(self):
+        return self.__x, self.__y, self.__width, self.__height
+
+    @property
     def anchor_point(self):
         return self.__anchor or (0, 0)
 
@@ -438,9 +445,6 @@ class Widget(object):
             curent = self.__parent()
             if curent is not None:
                 curent._remove_child(self)
-        elif self._prepare:
-            self._prepare()
-            self._prepare = None
         self.__parent = None
         if parent:
             self.__parent = _weakref.ref(parent)
@@ -495,7 +499,8 @@ class Group(Widget):
         self.children = []
         self._new_children = []
         self._del_children = []
-
+        self._restack_children = []
+        
     def _candy_update(self):
         """
         Called from the clutter thread to update the widget.
@@ -515,6 +520,12 @@ class Group(Widget):
             actor = self._new_children.pop(0)._obj
             actor.show()
             self._obj.add(actor)
+        while self._restack_children:
+            child, direction = self._restack_children.pop(0)
+            if direction == 'top':
+                child._obj.raise_top()
+            if direction == 'bottom':
+                child._obj.lower_bottom()
         return True
 
     def _candy_render(self):
@@ -546,7 +557,9 @@ class Group(Widget):
         self.children.remove(child)
         self._del_children.append(child)
 
-
+    def _restack_child(self, child, direction):
+        self._restack_children.append((child, direction))
+        
 class Texture(Widget):
     """
     Clutter Texture widget.
