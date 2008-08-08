@@ -35,6 +35,8 @@
 import cairo
 import re
 
+from kaa.utils import property
+
 # kaa.candy imports
 from ..core import Color
 import core
@@ -72,24 +74,20 @@ class Label(core.CairoTexture):
         if not isinstance(color, Color):
             color = Color(color)
         self._font = font
-        self._color = color
         self._text = text
         self._align = align
+        self.color = color
+        
+    @property
+    def color(self):
+        return self.__color
 
-    def set_color(self, color):
-        """
-        Set a new color and re-render the label
-        @param color: kaa.candy.Color object
-        """
-        self._color = color
+    @color.setter
+    def color(self, color):
+        if not isinstance(color, Color):
+            color = Color(color)
+        self.__color = color
         self._require_update(rendering=True)
-
-    def get_color(self):
-        """
-        Return color object.
-        @returns: kaa.candy.Color object
-        """
-        return self._color
 
     def _candy_render(self):
         """
@@ -99,7 +97,7 @@ class Label(core.CairoTexture):
         # draw new text string
         context = self._obj.cairo_create()
         context.set_operator(cairo.OPERATOR_SOURCE)
-        context.set_source_rgba(*self._color.to_cairo())
+        context.set_source_rgba(*self.__color.to_cairo())
         context.select_font_face(self._font.name, cairo.FONT_SLANT_NORMAL)
         context.set_font_size(self._font.size)
         x, y, w, h = context.text_extents(self._text)[:4]
@@ -114,7 +112,7 @@ class Label(core.CairoTexture):
             x = 0
             w = self.width
             s = cairo.LinearGradient(0, 0, w, 0)
-            c = self._color.to_cairo()
+            c = self.__color.to_cairo()
             s.add_color_stop_rgba(0, *c)
             # 50 pixel fading
             s.add_color_stop_rgba(1 - (50.0 / w), *c)
