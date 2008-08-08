@@ -97,14 +97,6 @@ class Template(object):
             widget = modifier.modify(widget)
         return widget
 
-    def get_attribute(self, attr):
-        """
-        Get the value for the attribute for object creation.
-        @param attr: attribute name for cls.__init__
-        @returns: attribute value or None if not set
-        """
-        return self._kwargs.get(attr)
-
     @classmethod
     def candyxml_get_class(cls, element):
         """
@@ -286,7 +278,7 @@ class Widget(object):
     def lower_bottom(self):
         if self.parent:
             self.parent._restack_child(self, 'bottom')
-        
+
     # rendering
 
     def _require_update(self, rendering=False, layout=False):
@@ -500,7 +492,7 @@ class Group(Widget):
         self._new_children = []
         self._del_children = []
         self._restack_children = []
-        
+
     def _candy_update(self):
         """
         Called from the clutter thread to update the widget.
@@ -559,7 +551,7 @@ class Group(Widget):
 
     def _restack_child(self, child, direction):
         self._restack_children.append((child, direction))
-        
+
 class Texture(Widget):
     """
     Clutter Texture widget.

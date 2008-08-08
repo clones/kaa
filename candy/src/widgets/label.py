@@ -38,7 +38,7 @@ import re
 from kaa.utils import property
 
 # kaa.candy imports
-from ..core import Color
+from ..core import Color, Font
 import core
 
 
@@ -67,17 +67,26 @@ class Label(core.CairoTexture):
         if size[1] is None:
             size = size[0], font.get_height(font.MAX_HEIGHT)
         super(Label, self).__init__(pos, size, context)
-        if context:
-            def replace_context(matchobj):
-                return self.eval_context(matchobj.groups()[0])
-            text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
-        if not isinstance(color, Color):
-            color = Color(color)
-        self._font = font
-        self._text = text
-        self._align = align
+        self.font = font
+        self.text = text
+        self.__align = align
         self.color = color
-        
+
+    @property
+    def text(self):
+        return self.__text
+
+    @text.setter
+    def text(self, text):
+        self.__text = text
+        def replace_context(matchobj):
+            return self.eval_context(matchobj.groups()[0])
+        if self.get_context():
+            # we have a context, use it
+            text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
+        self.__text_eval = text
+        self._require_update(rendering=True)
+
     @property
     def color(self):
         return self.__color
@@ -89,6 +98,20 @@ class Label(core.CairoTexture):
         self.__color = color
         self._require_update(rendering=True)
 
+    @property
+    def font(self):
+        return self.__font
+
+    @font.setter
+    def font(self, font):
+        if self._obj is not None:
+            # FIXME: make it possible to change the font
+            raise RuntimeError('unable to change font during runtime')
+        if not isinstance(font, Font):
+            font = Font(font)
+        self.__font = font
+        self._require_update(rendering=True)
+
     def _candy_render(self):
         """
         Render the widget
@@ -98,15 +121,15 @@ class Label(core.CairoTexture):
         context = self._obj.cairo_create()
         context.set_operator(cairo.OPERATOR_SOURCE)
         context.set_source_rgba(*self.__color.to_cairo())
-        context.select_font_face(self._font.name, cairo.FONT_SLANT_NORMAL)
-        context.set_font_size(self._font.size)
-        x, y, w, h = context.text_extents(self._text)[:4]
+        context.select_font_face(self.__font.name, cairo.FONT_SLANT_NORMAL)
+        context.set_font_size(self.__font.size)
+        x, y, w, h = context.text_extents(self.__text_eval)[:4]
         # http://www.tortall.net/mu/wiki/CairoTutorial
-        if self._align == 'left':
+        if self.__align == 'left':
             x = -x
-        if self._align == 'center':
+        if self.__align == 'center':
             x = (self.width - w) / 2 - x
-        if self._align == 'right':
+        if self.__align == 'right':
             x = self.width - w - x
         if x < 0:
             x = 0
@@ -119,7 +142,7 @@ class Label(core.CairoTexture):
             s.add_color_stop_rgba(1, c[0], c[1], c[2], 0)
             context.set_source(s)
         context.move_to(x, context.font_extents()[0])
-        context.show_text(self._text)
+        context.show_text(self.__text_eval)
         #del context
 
     @classmethod

@@ -37,7 +37,7 @@ import pango
 from kaa.utils import property
 
 # kaa.candy imports
-from ..core import Color
+from ..core import Color, Font
 from .. import backend
 import core
 
@@ -62,7 +62,7 @@ class Text(core.Widget):
     def __init__(self, pos, size, text, font, color, align, context=None):
         super(Text, self).__init__(pos, size, context)
         self.__align = align
-        self.__font = font
+        self.font = font
         self.text = text
         self.color = color
 
@@ -81,10 +81,13 @@ class Text(core.Widget):
             # FIXME: maybe the string has markup to use
             return self.eval_context(matchobj.groups()[0]).replace('&', '&amp;').\
                    replace('<', '&lt;').replace('>', '&gt;')
-        text = self._regexp_space.sub(' ', text)
-        text = self._regexp_if.sub(eval_expression, text)
-        text = self._regexp_eval.sub(replace_context, text).strip()
+        if self.get_context():
+            # we have a context, use it
+            text = self._regexp_space.sub(' ', text)
+            text = self._regexp_if.sub(eval_expression, text)
+            text = self._regexp_eval.sub(replace_context, text).strip()
         self.__text_eval = self._regexp_br.sub('\n', text)
+        self._require_update(rendering=True)
 
     @property
     def color(self):
@@ -95,6 +98,20 @@ class Text(core.Widget):
         if not isinstance(color, Color):
             color = Color(color)
         self.__color = color
+
+    @property
+    def font(self):
+        return self.__font
+
+    @font.setter
+    def font(self, font):
+        if self._obj is not None:
+            # FIXME: make it possible to change the font
+            raise RuntimeError('unable to change font during runtime')
+        if not isinstance(font, Font):
+            font = Font(font)
+        self.__font = font
+        self._require_update(rendering=True)
 
     def _candy_render(self):
         """
