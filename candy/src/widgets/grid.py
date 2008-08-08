@@ -46,6 +46,8 @@ import logging
 import copy
 import time
 
+from kaa.utils import property
+
 # kaa.candy imports imports
 import core
 from .. import candyxml, animation, is_template, config
@@ -54,17 +56,17 @@ from .. import candyxml, animation, is_template, config
 log = logging.getLogger('kaa.candy')
 
 class ScrollBehaviour(animation.Behaviour):
-    def __init__(self, start, end, orientation):
+    def __init__(self, start, end, callback):
         super(ScrollBehaviour, self).__init__(start, end)
-        self.orientation = orientation
         self._current = start
-        
+        self._callback = callback
+
     def set_alpha(self, alpha_value, widgets):
-        current = int(self.get_current(alpha_value))
-        step = self._current - current
+        current = [ int(v) for v in self.get_current(alpha_value) ]
+        x = self._current[0] - current[0]
+        y = self._current[1] - current[1]
         self._current = current
-        for widget in widgets:
-            widget._scroll(step, self.orientation)
+        self._callback(x, y)
 
 class Grid(core.Group):
     """
@@ -121,6 +123,8 @@ class Grid(core.Group):
         self._items = items
         self._cell_item = cell_item
         self._child_template = template
+
+    def _prepare(self):
         self._check_items()
 
     def _candy_unparent(self):
@@ -171,7 +175,7 @@ class Grid(core.Group):
                 self._scroll(start - stop, 0)
             else:
                 self._row_animation = self.animate(secs)
-                self._row_animation.behave(ScrollBehaviour, start, stop, 0)
+                self._row_animation.behave(ScrollBehaviour, (start, 0), (stop, 0), self._scroll)
         if self._cell0[1] != col:
             # need to scroll cols
             if self._col_animation and self._col_animation.is_playing():
@@ -183,7 +187,7 @@ class Grid(core.Group):
                 self._scroll(start - stop, 1)
             else:
                 self._col_animation = self.animate(secs)
-                self._col_animation.behave(ScrollBehaviour, start, stop, 1)
+                self._col_animation.behave(ScrollBehaviour, (0, start), (0, stop), self._scroll)
 
     def _create_item(self, item_num, pos_x, pos_y):
         """
@@ -255,19 +259,18 @@ class Grid(core.Group):
         super(Grid, self)._candy_layout()
         self._obj.set_clip(0, 0, self.width, self.height)
 
-    def _scroll(self, step, orientation):
+    def _scroll(self, x, y):
         """
         Callback from the animation
         """
-        # move children
-        if orientation == Grid.HORIZONTAL:
-            self._x0 -= step
+        if x:
+            self._x0 -= x
             for child in self.children:
-                child.x += step
-        if orientation == Grid.VERTICAL:
-            self._y0 -= step
+                child.x += x
+        if y:
+            self._y0 -= y
             for child in self.children:
-                child.y += step
+                child.y += y
         self._check_items()
         self._require_update(rendering=True)
 
@@ -325,12 +328,43 @@ class SelectionGrid(Grid):
             template, orientation, context)
         if is_template(selection):
             selection = selection()
-        if selection:
-            self.add(selection)
+        self.selection = selection
+        self._sel_x = (self.cell_size[0] - self.selection.width) / 2 - self._cx0
+        self._sel_y = (self.cell_size[1] - self.selection.height) / 2 - self._cy0
+        self._sel_animation = None
+
+    def _prepare(self):
+        """
+        Prepare the widget before connecting to a parent
+        """
+        self.selection.parent = self
+        self.select((0, 0), 0)
+        super(SelectionGrid, self)._prepare()
+
+    def select(self, (col, row), secs):
+        dest_x = self._sel_x + col * self._col_size + self._cx0 - self._x0
+        dest_y = self._sel_y + row * self._row_size + self._cy0 - self._y0
+        if self._sel_animation and self._sel_animation.is_playing():
+            self._sel_animation.stop()
+        if secs:
+            self._sel_animation = self.animate(secs)
+            self._sel_animation.behave(ScrollBehaviour,
+                 (self.selection.x, self.selection.y), (dest_x, dest_y), self._scroll_listing)
+        else:
+            self.selection.x = dest_x
+            self.selection.y = dest_y
+
+    def _scroll_listing(self, x, y):
+        self.selection.x -= x
+        self.selection.y -= y
 
     @classmethod
     def candyxml_parse(cls, element):
         selection = None
+        for child in element:
+            if child.node == 'selection':
+                selection = child[0].xmlcreate()
+                element.remove(child)
         return super(SelectionGrid, cls).candyxml_parse(element).update(
             selection=selection)
 

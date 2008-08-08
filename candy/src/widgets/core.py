@@ -170,6 +170,11 @@ class Widget(object):
     name = None
     _obj = None
 
+    # callback to prepare widget when parent
+    # is set. Override it in a widget and remove
+    # it wehn done
+    _prepare = None
+
     def __init__(self, pos=None, size=None, context=None):
         """
         Basic widget constructor.
@@ -330,7 +335,7 @@ class Widget(object):
             self._obj.set_scale(*self.__scale)
         self._obj.set_depth(self.__depth)
         self._obj.set_opacity(self.__opacity)
-        
+
     def _candy_unparent(self):
         """
         Callback when the widget has no parent anymore
@@ -433,6 +438,9 @@ class Widget(object):
             curent = self.__parent()
             if curent is not None:
                 curent._remove_child(self)
+        elif self._prepare:
+            self._prepare()
+            self._prepare = None
         self.__parent = None
         if parent:
             self.__parent = _weakref.ref(parent)

@@ -45,8 +45,7 @@ class Behaviour(object):
         if isinstance(start, (int, long, float)):
             self.diff = end - start
         if isinstance(start, (list, tuple)):
-            self.diff = [ end[1] - start[i] for i in range(len(start)) ]
-
+            self.diff = [ end[i] - start[i] for i in range(len(start)) ]
     def get_current(self, alpha_value):
         """
         Get current value between start and end based on alpha value.
@@ -60,7 +59,7 @@ class Behaviour(object):
             return self.start_value + factor * self.diff
         return [ self.start_value[i] + factor * self.diff[i] \
                  for i in range(len(self.start_value)) ]
-    
+
     def set_alpha(self, alpha_value, widgets):
         """
         Update widgets based on alpha value
@@ -85,7 +84,7 @@ class BehaviourOpacity(Behaviour):
 
 class BehaviourScale(Behaviour):
     """
-    Behaviour to change the alpha value
+    Behaviour to scale widgets
     """
     def set_alpha(self, alpha_value, widgets):
         """
@@ -96,6 +95,21 @@ class BehaviourScale(Behaviour):
         scale = self.get_current(alpha_value)
         for widget in widgets:
             widget.scale = scale
+
+class BehaviourMove(Behaviour):
+    """
+    Behaviour to move widgets
+    """
+    def set_alpha(self, alpha_value, widgets):
+        """
+        Update widgets based on alpha value
+        @param alpha_value: alpha value between 0 and MAX_ALPHA
+        @param widgets: widgets to modify
+        """
+        x, y = self.get_current(alpha_value)
+        for widget in widgets:
+            widget.x = int(x)
+            widget.y = int(y)
 
 class BehaviourColor(Behaviour):
     """
