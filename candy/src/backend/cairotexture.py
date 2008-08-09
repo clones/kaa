@@ -34,8 +34,26 @@ import clutter
 import gtk
 import cairo
 
-# backend imports
-from ..backend import CairoTexture
+try:
+    import cluttercairo
+except ImportError, e:
+    try:
+        # 0.6
+        import clutter.cluttercairo as cluttercairo
+    except ImportError:
+        raise ImportError('clutter.cairo bindings not installed')
+
+class CairoTexture(cluttercairo.CairoTexture):
+    """
+    Texture rendered by cairo
+    """
+    def clear(self):
+        context = self.cairo_create()
+        context.set_operator(cairo.OPERATOR_CLEAR)
+        context.set_source_rgba(255,255,255,255)
+        context.paint()
+        del context
+
 
 class CairoReflectTexture(CairoTexture):
     """
@@ -59,11 +77,7 @@ class CairoReflectTexture(CairoTexture):
         """
         Update the source texture
         """
-        context = self.cairo_create()
-        context.set_operator(cairo.OPERATOR_CLEAR)
-        context.set_source_rgba(255,255,255,255)
-        context.paint()
-        del context
+        self.clear()
         self._render(src)
 
     def _render(self, src, pixbuf=None):

@@ -609,8 +609,4 @@ class CairoTexture(Widget):
         if self._obj is None:
             self._obj = backend.CairoTexture(self.width, self.height)
         else:
-            context = self._obj.cairo_create()
-            context.set_operator(cairo.OPERATOR_CLEAR)
-            context.set_source_rgba(255,255,255,255)
-            context.paint()
-            del context
+            self._obj.clear()

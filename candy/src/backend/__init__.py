@@ -53,23 +53,13 @@ def import_modules():
     for key in dir(clutter):
         if key[0].isalpha():
             globals()[key] = getattr(clutter, key)
-    try:
-        import cluttercairo
-    except ImportError, e:
-        try:
-            # 0.6
-            import clutter.cluttercairo as cluttercairo
-        except ImportError:
-            raise ImportError('clutter.cairo bindings not installed')
-    global CairoTexture
-    CairoTexture = cluttercairo.CairoTexture
-    import reflection
-    global CairoReflectTexture
-    CairoReflectTexture = reflection.CairoReflectTexture
+    import cairotexture
+    global CairoTexture, CairoReflectTexture
+    CairoTexture = cairotexture.CairoTexture
+    CairoReflectTexture = cairotexture.CairoReflectTexture
     global ReflectTexture
     import libcandy
     ReflectTexture = libcandy.ReflectTexture
-
 
 class Mainloop(object):
     """
