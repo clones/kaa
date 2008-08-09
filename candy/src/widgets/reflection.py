@@ -29,7 +29,10 @@
 #
 # -----------------------------------------------------------------------------
 
-# clutter imports
+__all__ = [ 'Reflection', 'ReflectionModifier' ]
+
+# python imports
+import logging
 import gtk
 import cairo
 
@@ -38,7 +41,9 @@ from .. import Modifier
 from .. import backend
 import core
 
-__all__ = [ 'Reflection', 'ReflectionModifier' ]
+# get logging object
+log = logging.getLogger('kaa.candy')
+
 
 class Reflection(core.Group):
     """
@@ -61,8 +66,9 @@ class Reflection(core.Group):
         """
         Render the widget
         """
-        if self._obj is not None:
-            raise RuntimeError('Reflection does not support re-rendering')
+        if 'size' in self._sync_properties:
+            log.error('FIXME: kaa.candy.Reflection does not support resize')
+            return
         self._obj = backend.Group()
         self.source._candy_update()
         # FIXME: do not access _obj of a different widget

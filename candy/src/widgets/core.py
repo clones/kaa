@@ -395,8 +395,7 @@ class Widget(object):
     @width.setter
     def width(self, width):
         if self._obj is not None:
-            # FIXME: support changing the geometry
-            raise RuntimeError('unable to update during runtime')
+            self._sync_properties['size'] = True
         self.__width = width
         self._require_update(rendering=True, layout=True)
 
@@ -407,8 +406,7 @@ class Widget(object):
     @height.setter
     def height(self, height):
         if self._obj is not None:
-            # FIXME: support changing the geometry
-            raise RuntimeError('unable to update during runtime')
+            self._sync_properties['size'] = True
         self.__height = height
         self._require_update(rendering=True, layout=True)
 
@@ -631,6 +629,8 @@ class Texture(Widget):
         if self._obj is None:
             self._obj = backend.Texture()
             self._obj.set_size(self.width, self.height)
+        if 'size' in self._sync_properties:
+            self._obj.set_size(self.width, self.height)
         if not self._imagedata:
             return
         self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
@@ -648,5 +648,8 @@ class CairoTexture(Widget):
         """
         if self._obj is None:
             self._obj = backend.CairoTexture(self.width, self.height)
-        else:
-            self._obj.clear()
+            return
+        if 'size' in self._sync_properties:
+            self._obj.set_size(self.width, self.height)
+            self._obj.surface_resize(*self._obj.get_size())
+        self._obj.clear()

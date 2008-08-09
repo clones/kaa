@@ -272,6 +272,15 @@ class Grid(core.Group):
                     return
         return
 
+    def _candy_render(self):
+        """
+        Render the widget
+        """
+        if 'size' in self._sync_properties:
+            log.error('FIXME: kaa.candy.Grid does not support resize')
+            return
+        super(Grid, self)._candy_render()
+
     def _candy_layout(self):
         """
         Layout the widget

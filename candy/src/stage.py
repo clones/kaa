@@ -116,8 +116,9 @@ class Stage(Group):
         """
         Render the widget. This will only be called on stage creation
         """
-        if self._obj:
-            raise RuntimeError('unable to re-render stage')
+        if 'size' in self._sync_properties:
+            log.error('FIXME: kaa.candy.Stage does not support resize')
+            return
         self._obj = backend.Stage()
         self._obj.set_size(self.width, self.height)
         self._obj.connect('key-press-event', self._candy_handle_key)

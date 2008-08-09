@@ -32,6 +32,7 @@
 # -----------------------------------------------------------------------------
 
 # python imports
+import logging
 import cairo
 import re
 
@@ -40,6 +41,9 @@ from kaa.utils import property
 # kaa.candy imports
 from ..core import Color, Font
 import core
+
+# get logging object
+log = logging.getLogger('kaa.candy')
 
 
 class Label(core.CairoTexture):
@@ -106,8 +110,8 @@ class Label(core.CairoTexture):
     @font.setter
     def font(self, font):
         if self._obj is not None:
-            # FIXME: make it possible to change the font
-            raise RuntimeError('unable to change font during runtime')
+            log.error('FIXME: kaa.candy.Label does not support changing font')
+            return
         if not isinstance(font, Font):
             font = Font(font)
         self.__font = font
@@ -117,6 +121,9 @@ class Label(core.CairoTexture):
         """
         Render the widget
         """
+        if 'size' in self._sync_properties:
+            log.error('FIXME: kaa.candy.Label does not support resize')
+            return
         super(Label, self)._candy_render()
         # draw new text string
         context = self._obj.cairo_create()

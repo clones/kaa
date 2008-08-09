@@ -74,8 +74,8 @@ class Rectangle(core.CairoTexture):
             return
 
         stroke = self._border_size or 1
-        width  = self._obj.get_property('surface_width') - 2 * stroke
-        height = self._obj.get_property('surface_height') - 2 * stroke
+        width  = self.width - 2 * stroke
+        height = self.height - 2 * stroke
         radius = min(self._radius, width, height)
 
         x0 = stroke
