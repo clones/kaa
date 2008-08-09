@@ -289,8 +289,8 @@ class Grid(core.Group):
         """
         # scale cell-width and cell-height because the auto-scaler does not
         # know about the variables
-        cell_width = element.get_scaled('cell-width', 0, int, 0)
-        cell_height = element.get_scaled('cell-height', 1, int, 0)
+        cell_width = element.get_scaled('cell-width', 0, int)
+        cell_height = element.get_scaled('cell-height', 1, int)
         subelement = element[0]
         # if subelement width or height are the same of the grid it was
         # copied by candyxml from the parent. Set it to cell width or height
