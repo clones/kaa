@@ -30,13 +30,18 @@
 # -----------------------------------------------------------------------------
 
 __all__ = [ 'Behaviour', 'BehaviourOpacity', 'BehaviourScale', 'BehaviourColor',
-            'create', 'register' ]
+            'MAX_ALPHA', 'create_behaviour', 'register_behaviour',
+            'create_alpha', 'register_alpha' ]
+
+import sys
 
 # kaa.candy imports
 from core import Color
-from alpha_func import MAX_ALPHA
+
+MAX_ALPHA = sys.maxint
 
 _behaviour = {}
+_alpha = {}
 
 class Behaviour(object):
     """
@@ -141,8 +146,20 @@ _behaviour['scale'] = BehaviourScale
 _behaviour['move'] = BehaviourMove
 _behaviour['color'] = BehaviourColor
 
-def create(name, *args, **kwargs):
+def create_behaviour(name, *args, **kwargs):
     return _behaviour.get(name)(*args, **kwargs)
 
-def register(name, cls):
+def register_behaviour(name, cls):
     _behaviour[name] = cls
+
+def alpha_inc_func(current_frame_num, n_frames):
+    return (current_frame_num * MAX_ALPHA) / n_frames;
+
+# register alpha functions
+_alpha['inc'] = alpha_inc_func
+
+def create_alpha(name, *args, **kwargs):
+    return _alpha.get(name)
+
+def register_alpha(name, func):
+    _alpha[name] = func

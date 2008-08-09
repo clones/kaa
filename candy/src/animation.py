@@ -41,8 +41,7 @@ import kaa
 
 # kaa.candy imports
 import config
-from alpha_func import create as create_alpha
-from behaviour import create as create_behaviour
+from behaviour import create_alpha, create_behaviour
 
 # get logging object
 log = logging.getLogger('kaa.candy')

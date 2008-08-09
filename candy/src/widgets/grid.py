@@ -51,7 +51,7 @@ from kaa.utils import property
 # kaa.candy imports imports
 import core
 from .. import candyxml, animation, is_template, config
-from ..behaviour import MAX_ALPHA, Behaviour, create as create_behaviour
+from ..behaviour import MAX_ALPHA, Behaviour, create_behaviour
 
 # get logging object
 log = logging.getLogger('kaa.candy')
