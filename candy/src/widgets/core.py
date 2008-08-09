@@ -137,10 +137,11 @@ class Widget(object):
     #: template for object creation
     __template__ = Template
 
-    # some default values
-    __need_update = True
-    __need_rendering = True
-    __need_layout = True
+    # sync indications
+    _sync_required = True
+    _sync_rendering = True
+    _sync_layout = True
+
     # properties
     __parent = None
     __anchor = None
@@ -288,38 +289,48 @@ class Widget(object):
 
     # rendering
 
-    def _require_update(self, rendering=False, layout=False):
+    def _queue_sync(self, rendering=False, layout=False):
         """
-        Trigger rendering or layout functions to be called from the
-        clutter mainloop.
+        Queue rendering or re-layout to be called on the next sync.
 
         @param rendering: child requires calling _candy_render
-        @param layout: child requires calling _candy_layout
+        @param layout: child requires calling _candy_sync_layout
         """
         if rendering:
-            self.__need_rendering = True
+            self._sync_rendering = True
         if layout:
-            self.__need_layout = True
-        self.__need_update = True
+            self._sync_layout = True
+        self._sync_required = True
         parent = self.parent
-        if parent and not parent.__need_update:
-            parent._require_update()
+        if parent and not parent._sync_required:
+            parent._queue_sync()
 
-    def _candy_update(self):
+    def _queue_sync_properties(self, *properties):
+        """
+        Queue clutter properties to be set on the next sync.
+        """
+        for prop in properties:
+            self._sync_properties[prop] = True
+        self._sync_required = True
+        parent = self.parent
+        if parent and not parent._sync_required:
+            parent._queue_sync()
+
+    def _candy_sync(self):
         """
         Called from the clutter thread to update the widget.
         """
-        if not self.__need_update:
+        if not self._sync_required:
             return False
-        self.__need_update = False
-        if self.__need_rendering:
-            self.__need_rendering = False
+        self._sync_required = False
+        if self._sync_rendering:
+            self._sync_rendering = False
             self._candy_render()
-        if self.__need_layout:
-            self.__need_layout = False
-            self._candy_layout()
+        if self._sync_layout:
+            self._sync_layout = False
+            self._candy_sync_layout()
         if self._sync_properties:
-            self._candy_properties()
+            self._candy_sync_properties()
             self._sync_properties = {}
         return True
 
@@ -329,7 +340,7 @@ class Widget(object):
         """
         raise NotImplemented
 
-    def _candy_layout(self):
+    def _candy_sync_layout(self):
         """
         Layout the widget
         """
@@ -340,7 +351,7 @@ class Widget(object):
         else:
             self._obj.set_position(self.__x, self.__y)
 
-    def _candy_properties(self):
+    def _candy_sync_properties(self):
         """
         Set some simple properties of the clutter.Actor
         """
@@ -354,6 +365,7 @@ class Widget(object):
     def _candy_set_parent(self, parent):
         """
         Callback to set the parent of the clutter actor
+        @todo: replace this function
         """
         if self._obj.get_parent():
             self._obj.get_parent().remove(self._obj)
@@ -377,7 +389,7 @@ class Widget(object):
     @x.setter
     def x(self, x):
         self.__x = x
-        self._require_update(layout=True)
+        self._queue_sync(layout=True)
 
     @property
     def y(self):
@@ -386,7 +398,7 @@ class Widget(object):
     @y.setter
     def y(self, y):
         self.__y = y
-        self._require_update(layout=True)
+        self._queue_sync(layout=True)
 
     @property
     def width(self):
@@ -395,9 +407,9 @@ class Widget(object):
     @width.setter
     def width(self, width):
         if self._obj is not None:
-            self._sync_properties['size'] = True
+            self._queue_sync_properties('size')
         self.__width = width
-        self._require_update(rendering=True, layout=True)
+        self._queue_sync(rendering=True, layout=True)
 
     @property
     def height(self):
@@ -406,9 +418,9 @@ class Widget(object):
     @height.setter
     def height(self, height):
         if self._obj is not None:
-            self._sync_properties['size'] = True
+            self._queue_sync_properties('size')
         self.__height = height
-        self._require_update(rendering=True, layout=True)
+        self._queue_sync(rendering=True, layout=True)
 
     @property
     def geometry(self):
@@ -421,7 +433,7 @@ class Widget(object):
     @anchor_point.setter
     def anchor_point(self, (x, y)):
         self.__anchor = x, y
-        self._require_update(layout=True)
+        self._queue_sync(layout=True)
 
     @property
     def scale(self):
@@ -430,8 +442,7 @@ class Widget(object):
     @scale.setter
     def scale(self, (x, y)):
         self.__scale = x, y
-        self._sync_properties['scale'] = True
-        self._require_update()
+        self._queue_sync_properties('scale')
 
     @property
     def depth(self):
@@ -440,8 +451,7 @@ class Widget(object):
     @depth.setter
     def depth(self, depth):
         self.__depth = depth
-        self._sync_properties['depth'] = True
-        self._require_update()
+        self._queue_sync_properties('depth')
 
     @property
     def opacity(self):
@@ -450,8 +460,7 @@ class Widget(object):
     @opacity.setter
     def opacity(self, opacity):
         self.__opacity = opacity
-        self._sync_properties['opacity'] = True
-        self._require_update(layout=True)
+        self._queue_sync_properties('opacity')
 
     @property
     def parent(self):
@@ -523,18 +532,19 @@ class Group(Widget):
         self.__children_removed = []
         self.__children_restack = []
 
-    def _candy_update(self):
+    def _candy_sync(self):
         """
         Called from the clutter thread to update the widget.
         """
-        if not super(Group, self)._candy_update():
+        if not super(Group, self)._candy_sync():
             return False
         while self.__children_removed:
             child = self.__children_removed.pop(0)
             if child.parent is None:
                 child._candy_unparent(self._obj)
         for child in self.children:
-            child._candy_update()
+            if child._sync_required:
+                child._candy_sync()
         while self.__children_added:
             self.__children_added.pop(0)._candy_set_parent(self._obj)
         while self.__children_restack:
@@ -568,7 +578,7 @@ class Group(Widget):
 
         @param child: child widget
         """
-        self._require_update()
+        self._queue_sync()
         self.__children_added.append(child)
         self.children.append(child)
 
@@ -582,7 +592,7 @@ class Group(Widget):
             self.__children_added.remove(child)
         else:
             self.__children_removed.append(child)
-        self._require_update()
+        self._queue_sync()
         self.children.remove(child)
 
     def _child_restack(self, child, direction):
@@ -620,7 +630,7 @@ class Texture(Widget):
         if image and not isinstance(image, kaa.imlib2.Image):
             image = kaa.imlib2.Image(image)
         self._imagedata = image
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     def _candy_render(self):
         """

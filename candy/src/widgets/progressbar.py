@@ -74,7 +74,7 @@ class Progressbar(core.Group):
         Set a new progress and redraw the widget.
         """
         self.__progress = value
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     def _candy_render(self):
         """

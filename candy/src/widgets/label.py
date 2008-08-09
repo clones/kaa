@@ -90,7 +90,7 @@ class Label(core.CairoTexture):
             # we have a context, use it
             text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
         self.__text_eval = text
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     @property
     def color(self):
@@ -101,7 +101,7 @@ class Label(core.CairoTexture):
         if not isinstance(color, Color):
             color = Color(color)
         self.__color = color
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     @property
     def font(self):
@@ -115,7 +115,7 @@ class Label(core.CairoTexture):
         if not isinstance(font, Font):
             font = Font(font)
         self.__font = font
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     def _candy_render(self):
         """

@@ -87,7 +87,7 @@ class Text(core.Widget):
             text = self._regexp_if.sub(eval_expression, text)
             text = self._regexp_eval.sub(replace_context, text).strip()
         self.__text_eval = self._regexp_br.sub('\n', text)
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     @property
     def color(self):
@@ -108,7 +108,7 @@ class Text(core.Widget):
         if not isinstance(font, Font):
             font = Font(font)
         self.__font = font
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     def _candy_render(self):
         """

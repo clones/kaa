@@ -70,7 +70,7 @@ class Reflection(core.Group):
             log.error('FIXME: kaa.candy.Reflection does not support resize')
             return
         self._obj = backend.Group()
-        self.source._candy_update()
+        self.source._candy_sync()
         # FIXME: do not access _obj of a different widget
         actor = self.source._obj
         w, h = actor.get_size()

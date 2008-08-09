@@ -66,9 +66,9 @@ class Stage(Group):
         @param height: height of the window
         """
         super(Stage, self).__init__(None, (width, height))
-        self.signals = kaa.Signals('key-press')
+        self.signals = kaa.Signals('key-press', 'resize')
         kaa.signals['step'].connect(self.sync)
-        animation.signals['candy-update'].connect(self._candy_update)
+        animation.signals['candy-update'].connect(self._candy_sync)
 
     def candyxml(self, data):
         """
@@ -83,12 +83,14 @@ class Stage(Group):
         """
         Called from the mainloop to update all widgets in the clutter thread.
         """
-        # FIXME: it would be nice to know at this point if the gui
-        # needs an update or not to avoid switching threads for nothing
+        if not self._sync_required:
+            # No update needed, no need to jump into the clutter thread
+            # and return without doing anything usefull.
+            return
         if animation.thread_locked():
             animation.thread_leave(force=True)
         event = threading.Event()
-        gobject.idle_add(self._candy_update, event)
+        gobject.idle_add(self._candy_sync, event)
         event.wait()
 
     def _candy_handle_key(self, stage, event):
@@ -100,12 +102,12 @@ class Stage(Group):
         if key is not None:
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
-    def _candy_update(self, event=None):
+    def _candy_sync(self, event=None):
         """
         Execute update inside safe try/except environment
         """
         try:
-            super(Stage, self)._candy_update()
+            super(Stage, self)._candy_sync()
         except Exception, e:
             log.exception('kaa.candy.sync')
         if event:
@@ -117,7 +119,12 @@ class Stage(Group):
         Render the widget. This will only be called on stage creation
         """
         if 'size' in self._sync_properties:
-            log.error('FIXME: kaa.candy.Stage does not support resize')
+            # object already created but user changed the size
+            # FIXME: this information has to be passed on to children in a later
+            # version when kaa.candy supports sizes and positions based on
+            # percentage of container.
+            self._obj.set_size(self.width, self.height)
+            self.signals['resize'].emit()
             return
         self._obj = backend.Stage()
         self._obj.set_size(self.width, self.height)

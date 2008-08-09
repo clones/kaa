@@ -280,13 +280,6 @@ class Grid(core.Group):
             log.error('FIXME: kaa.candy.Grid does not support resize')
             return
         super(Grid, self)._candy_render()
-
-    def _candy_layout(self):
-        """
-        Layout the widget
-        """
-        super(Grid, self)._candy_layout()
-        # FIXME: this cuts of selected items
         self._obj.set_clip(0, 0, self.width, self.height)
 
     def _scroll(self, x, y):
@@ -302,7 +295,7 @@ class Grid(core.Group):
             for child in self.children:
                 child.y += y
         self._check_items()
-        self._require_update(rendering=True)
+        self._queue_sync(rendering=True)
 
     @classmethod
     def candyxml_parse(cls, element):
