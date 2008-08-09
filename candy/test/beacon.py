@@ -47,7 +47,8 @@ def main():
 
     # this is the context for the images widget
     context = dict(title=os.path.basename(sys.argv[1]), items=query)
-    container = stage.add(candy.container.thumbnails, context=context)
+    container = candy.container.thumbnails(context=context)
+    container.parent = stage
     grid = container.get_element('items')
 
     if 1:

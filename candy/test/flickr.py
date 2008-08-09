@@ -41,7 +41,8 @@ candy = stage.candyxml(xml)[1]
 
 # add the wait widget to the stage. Since it is only a template it is
 # safe to do this in the mainloop.
-label = stage.add(candy.label.wait)
+label = candy.label.wait()
+label.parent = stage
 
 # now load a flickr RSS feed and create the context
 class Image(object):
@@ -68,18 +69,20 @@ def wait(secs):
     wait = kaa.InProgressCallback()
     kaa.OneShotTimer(wait).start(secs)
     return wait
-    
+
 @kaa.coroutine()
 def main():
     feed, items = yield load_feed('beach')
-    
+
     # this is the context for the flickr widget
     context = dict(title=feed.feed.title, items=items)
 
     # remove the wait label (it is safe to remove something from the stage in the
     # mainloop) and add the flickr container based on the context.
-    stage.remove(label)
-    container = stage.add(candy.container.flickr, context=context)
+    label.parent = None
+    container = candy.container.flickr(context=context)
+    container.parent = stage
+
     print 'take a look'
     yield wait(1)
     print 'scroll down'
@@ -109,7 +112,7 @@ def main():
     context = dict(title=feed.feed.title, items=items)
     # set context
     container.set_context(context=context)
-    
+
 main()
 
 # run the kaa mainloop, it takes some time to load all the images.

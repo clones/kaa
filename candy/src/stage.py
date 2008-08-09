@@ -61,38 +61,35 @@ class Stage(Group):
     def __init__(self, (width, height)):
         """
         Create a window with the given geometry
+
         @param width: width of the window
         @param height: height of the window
         """
         super(Stage, self).__init__(None, (width, height))
         self.signals = kaa.Signals('key-press')
-        # FIXME: sync called every step
-        # add more logic and maybe add and remove the callback when needed.
         kaa.signals['step'].connect(self.sync)
         animation.signals['candy-update'].connect(self._candy_update)
-
-    def add(self, child, context=None):
-        """
-        """
-        if is_template(child):
-            child = child(context=context)
-        child.parent = self
-        return child
-
-    def remove(self, child):
-        """
-        Remove the child from the screen.
-        @param child: child connected to the window
-        """
-        child.parent = None
 
     def candyxml(self, data):
         """
         Load a candyxml file based on the given screen resolution.
+
         @param data: filename of the XML file to parse or XML data
         @returns: root element attributes and dict of parsed elements
         """
         return candyxml.parse(data, (self.width, self.height))
+
+    def sync(self):
+        """
+        Called from the mainloop to update all widgets in the clutter thread.
+        """
+        # FIXME: it would be nice to know at this point if the gui
+        # needs an update or not to avoid switching threads for nothing
+        if animation.thread_locked():
+            animation.thread_leave(force=True)
+        event = threading.Event()
+        gobject.idle_add(self._candy_update, event)
+        event.wait()
 
     def _candy_handle_key(self, stage, event):
         """
@@ -103,16 +100,6 @@ class Stage(Group):
         if key is not None:
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
-    def sync(self):
-        """
-        Called from the mainloop to update all widgets in the clutter thread.
-        """
-        if animation.thread_locked():
-            animation.thread_leave(force=True)
-        event = threading.Event()
-        gobject.idle_add(self._candy_update, event)
-        event.wait()
-
     def _candy_update(self, event=None):
         """
         Execute update inside safe try/except environment
@@ -120,12 +107,15 @@ class Stage(Group):
         try:
             super(Stage, self)._candy_update()
         except Exception, e:
-            log.exception('threaded')
+            log.exception('kaa.candy.sync')
         if event:
             event.set()
         return False
 
     def _candy_render(self):
+        """
+        Render the widget. This will only be called on stage creation
+        """
         if self._obj:
             raise RuntimeError('unable to re-render stage')
         self._obj = backend.Stage()
