@@ -64,11 +64,6 @@ def load_feed(tag):
         num += 1
     return feed, items
 
-def wait(secs):
-    # maybe move that into kaa.notifier
-    wait = kaa.InProgressCallback()
-    kaa.OneShotTimer(wait).start(secs)
-    return wait
 
 @kaa.coroutine()
 def main():
@@ -84,27 +79,27 @@ def main():
     container.parent = stage
 
     print 'take a look'
-    yield wait(1)
+    yield kaa.delay(1)
     print 'scroll down'
     grid = container.get_element('items')
     grid.scroll_by((0, 2), 1)
-    yield wait(2)
+    yield kaa.delay(2)
     print 'scroll right'
     grid = container.get_element('items')
     grid.scroll_by((2, 0), 4)
-    yield wait(2)
+    yield kaa.delay(2)
     print 'scroll up very fast, more than possible'
     grid.scroll_by((0,-15), 0.5)
-    yield wait(2)
+    yield kaa.delay(2)
     print 'and down again'
     grid.scroll_by((1,1), 0.8)
-    yield wait(0.7)
+    yield kaa.delay(0.7)
     print 'and left again while the animation is still running'
     grid.scroll_by((-1, 0), 0.8)
-    yield wait(2)
+    yield kaa.delay(2)
     print 'go home (0,0)'
     grid.scroll_to((0, 0), 0.8)
-    yield wait(2)
+    yield kaa.delay(2)
     print 'load more'
 
     # create new context and replace it

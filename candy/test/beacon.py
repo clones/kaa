@@ -34,12 +34,6 @@ xml = '''
 stage = kaa.candy.Stage((800,600))
 candy = stage.candyxml(xml)[1]
 
-def wait(secs):
-    # maybe move that into kaa.notifier
-    wait = kaa.InProgressCallback()
-    kaa.OneShotTimer(wait).start(secs)
-    return wait
-
 @kaa.coroutine()
 def main():
     query = (yield kaa.beacon.get(sys.argv[1])).list()
@@ -59,38 +53,38 @@ def main():
         # add effects and hide selection rectangle
         grid.behave('scale', (1, 1), (1.5, 1.5))
 
-    yield wait(0.5)
+    yield kaa.delay(0.5)
 
     # now we move the selection
     print 'move selection to the right'
     grid.select((2, 0), 1)
-    yield wait(1.5)
+    yield kaa.delay(1.5)
 
     print 'move selection down'
     grid.select((2, 2), 1)
-    yield wait(1.5)
+    yield kaa.delay(1.5)
 
     print 'move selection down and scroll at the same time to make it look'
     print 'like the selection is standing still.'
     grid.select((2, 4), 1)
     grid.scroll_by((0, 2), 1)
-    yield wait(1.5)
+    yield kaa.delay(1.5)
     print 'move selection down fast'
     grid.select((2, 5), 0.3)
-    yield wait(1.5)
+    yield kaa.delay(1.5)
     print 'move selection and start scrolling with a different speed'
     grid.select((5, 5), 1)
-    yield wait(0.3)
+    yield kaa.delay(0.3)
     grid.scroll_by((4, 0), 4)
-    yield wait(2)
+    yield kaa.delay(2)
     grid.select((5, 3), 1)
-    yield wait(2)
+    yield kaa.delay(2)
     print 'move selection very slowly'
     grid.select((7, 3), 3)
-    yield wait(3.5)
+    yield kaa.delay(3.5)
     print 'scroll to get selection to the left side'
     grid.scroll_by((3, 0), 1)
-    yield wait(2)
+    yield kaa.delay(2)
     print 'move selection fast to the right'
     grid.select((12, 3), 0.8)
     yield wait(1)
