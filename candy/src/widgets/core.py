@@ -34,12 +34,6 @@ __all__ = [ 'Widget', 'Group', 'Texture', 'CairoTexture']
 # python imports
 import logging
 import _weakref
-import time
-from copy import deepcopy
-
-# clutter imports
-import pango
-import cairo
 
 # kaa imports
 import kaa.imlib2
@@ -51,13 +45,14 @@ from .. import candyxml, animation, Modifier, backend
 # get logging object
 log = logging.getLogger('kaa.candy')
 
-class XMLDict(dict):
+class _dict(dict):
     """
     XML parser dict helper class.
     """
     def update(self, **kwargs):
-        super(XMLDict, self).update(**kwargs)
+        super(_dict, self).update(**kwargs)
         return self
+
 
 class Template(object):
     """
@@ -71,6 +66,7 @@ class Template(object):
     def __init__(self, cls, **kwargs):
         """
         Create a template for the given class
+
         @param cls: widget class
         @param kwargs: keyword arguments for cls.__init__
         """
@@ -83,16 +79,13 @@ class Template(object):
         """
         Create the widget with the given context and override some
         constructor arguments.
+
         @param context: context to create the widget in
         @returns: widget object
         """
         if self._cls.context_sensitive:
             self._kwargs['context'] = context
-        try:
-            widget = self._cls(**self._kwargs)
-        except TypeError, e:
-            log.exception('error creating %s%s', self._cls, self._kwargs.keys())
-            return None
+        widget = self._cls(**self._kwargs)
         for modifier in self._modifier:
             widget = modifier.modify(widget)
         return widget
@@ -109,6 +102,7 @@ class Template(object):
     def candyxml_create(cls, element):
         """
         Parse the candyxml element for parameter and create a Template.
+
         @param element: kaa.candy.candyxml.Element with widget information
         @returns: Template object
         """
@@ -131,8 +125,8 @@ class Template(object):
 class Widget(object):
     """
     Basic widget. All widgets from the backend must inherit from it.
+
     @group Context Management: set_context, get_context, try_context, eval_context
-    @group Animations: animate, stop_animations, set_animation
     @cvar context_sensitive: class variable for inherting class if the class
         depends on the context.
     """
@@ -165,6 +159,7 @@ class Widget(object):
     def __init__(self, pos=None, size=None, context=None):
         """
         Basic widget constructor.
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget or None.
         @param context: the context the widget is created in
@@ -178,14 +173,11 @@ class Widget(object):
         self.__depends = {}
         self.__context = context or {}
         self.userdata = {}
-        # DEPRECATED ANIMATION SUPPORT
-        # # animations running created by self.animate()
-        # self._running_animations = {}
-        # self.__animations = {}
 
     def get_context(self, key=None):
         """
         Get the context the widget is in.
+
         @param key: if key is not None return only the value for key
             from the context
         @returns: context dict or value for the key
@@ -197,6 +189,7 @@ class Widget(object):
     def set_context(self, context):
         """
         Set a new context.
+
         @param context: dict of context key,value pairs
         """
         self.__context = context
@@ -205,6 +198,7 @@ class Widget(object):
         """
         Check if the widget is capable of the given context based on its
         dependencies. If it is possible set the context.
+
         @param context: context dict
         @returns: False if the widget can not handle the context or True
         """
@@ -212,6 +206,7 @@ class Widget(object):
             try:
                 for var, value in self.__depends.items():
                     if value != repr(eval(var, context)):
+                        # FIXME: maybe the widget can handle this
                         return False
             except AttributeError:
                 return False
@@ -223,6 +218,7 @@ class Widget(object):
         Evaluate the context for the given variable. This function is used by
         widgets to evaluate the context and set their dependencies. It should
         not be called from outside the widget.
+
         @param var: variable name to eval
         @param default: default return value if var is not found
         @param context: context to search, default is the context set on init
@@ -259,11 +255,15 @@ class Widget(object):
 
     def animate(self, secs, alpha='inc', unparent=False):
         """
-        Animate the object with the given animation. The animations are defined
-        by C{set_animation}, the candyxml definition or the basic animation
-        classes in kaa.candy.animation. Calling this function is thread-safe.
-        @param name: name of the animation used by C{set_animation} or
-            kaa.candy.animations
+        Animate the object with the given animation. This returns an
+        Animation object to add the behaviours. The animation is already
+        started when this function returns.
+
+        @param secs: number of seconds to run
+        @param alpha: alpha function for this animation
+        @param unparent: if set to True the widget will be unparented after the
+            animation is finished.
+        @note: in future version the alpha parameter will move to the behaviours
         """
         a = animation.Animation(secs, alpha)
         a.apply(self)
@@ -273,12 +273,18 @@ class Widget(object):
         return a
 
     def raise_top(self):
+        """
+        Raise widget to the top of its group.
+        """
         if self.parent:
-            self.parent._restack_child(self, 'top')
+            self.parent._child_restack(self, 'top')
 
     def lower_bottom(self):
+        """
+        Lower widget to the bottom of its group.
+        """
         if self.parent:
-            self.parent._restack_child(self, 'bottom')
+            self.parent._child_restack(self, 'bottom')
 
     # rendering
 
@@ -286,6 +292,9 @@ class Widget(object):
         """
         Trigger rendering or layout functions to be called from the
         clutter mainloop.
+
+        @param rendering: child requires calling _candy_render
+        @param layout: child requires calling _candy_layout
         """
         if rendering:
             self.__need_rendering = True
@@ -332,17 +341,31 @@ class Widget(object):
             self._obj.set_position(self.__x, self.__y)
 
     def _candy_properties(self):
+        """
+        Set some simple properties of the clutter.Actor
+        """
         if 'scale' in self._sync_properties:
             self._obj.set_scale(*self.__scale)
         if 'depth' in self._sync_properties:
             self._obj.set_depth(self.__depth)
         if 'opacity' in self._sync_properties:
             self._obj.set_opacity(self.__opacity)
-        
-    def _candy_unparent(self):
+
+    def _candy_set_parent(self, parent):
+        """
+        Callback to set the parent of the clutter actor
+        """
+        if self._obj.get_parent():
+            self._obj.get_parent().remove(self._obj)
+        else:
+            self._obj.show()
+        parent.add(self._obj)
+
+    def _candy_unparent(self, parent):
         """
         Callback when the widget has no parent anymore
         """
+        parent.remove(self._obj)
         self._obj = None
 
     # properties
@@ -440,18 +463,14 @@ class Widget(object):
 
     @parent.setter
     def parent(self, parent):
-        """
-        Set the parent widget.
-        @param parent: kaa.candy Group or Stage object
-        """
         if self.__parent is not None:
             curent = self.__parent()
             if curent is not None:
-                curent._remove_child(self)
+                curent._child_remove(self)
         self.__parent = None
         if parent:
             self.__parent = _weakref.ref(parent)
-            parent._add_child(self)
+            parent._child_add(self)
 
 
     # candyxml stuff
@@ -460,6 +479,7 @@ class Widget(object):
     def create_template(cls, **kwargs):
         """
         Create a template for this class.
+
         @param kwargs: keyword arguments based on the class __init__ function
         """
         return cls.__template__(cls, **kwargs)
@@ -472,7 +492,7 @@ class Widget(object):
         only parses pos and size::
           <widget x='10' y='20' width='100' height='50'/>
         """
-        return XMLDict(pos=element.pos, size=(element.width, element.height))
+        return _dict(pos=element.pos, size=(element.width, element.height))
 
     @classmethod
     def candyxml_register(cls, style=None):
@@ -492,6 +512,7 @@ class Group(Widget):
     def __init__(self, pos=None, size=None, context=None):
         """
         Simple clutter.Group widget
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget or None. A clutter.Group
             does not respect the given geometry. If set, the geometry can be
@@ -500,9 +521,9 @@ class Group(Widget):
         """
         super(Group, self).__init__(pos, size, context)
         self.children = []
-        self._new_children = []
-        self._del_children = []
-        self._restack_children = []
+        self.__children_added = []
+        self.__children_removed = []
+        self.__children_restack = []
 
     def _candy_update(self):
         """
@@ -510,21 +531,16 @@ class Group(Widget):
         """
         if not super(Group, self)._candy_update():
             return False
-        while self._del_children:
-            child = self._del_children.pop(0)
-            # FIXME: do not access _obj of a different widget
-            self._obj.remove(child._obj)
+        while self.__children_removed:
+            child = self.__children_removed.pop(0)
             if child.parent is None:
-                child._candy_unparent()
+                child._candy_unparent(self._obj)
         for child in self.children:
             child._candy_update()
-        while self._new_children:
-            # FIXME: do not access _obj of a different widget
-            actor = self._new_children.pop(0)._obj
-            actor.show()
-            self._obj.add(actor)
-        while self._restack_children:
-            child, direction = self._restack_children.pop(0)
+        while self.__children_added:
+            self.__children_added.pop(0)._candy_set_parent(self._obj)
+        while self.__children_restack:
+            child, direction = self.__children_restack.pop(0)
             if direction == 'top':
                 child._obj.raise_top()
             if direction == 'bottom':
@@ -538,30 +554,45 @@ class Group(Widget):
         if self._obj is None:
             self._obj = backend.Group()
 
-    def _candy_unparent(self):
+    def _candy_unparent(self, parent):
         """
         Callback when the widget has no parent anymore
-        """
-        super(Group, self)._candy_unparent()
-        for child in self.children:
-            child._candy_unparent()
 
-    def _add_child(self, child):
+        @param parent: current clutter.Actor parent
+        """
+        for child in self.children:
+            child._candy_unparent(self._obj)
+        super(Group, self)._candy_unparent(parent)
+
+    def _child_add(self, child):
         """
         Add a child and set it visible.
-        @param child: kaa.candy.Widget, NOT a Template
+
+        @param child: child widget
         """
         self._require_update()
-        self._new_children.append(child)
+        self.__children_added.append(child)
         self.children.append(child)
 
-    def _remove_child(self, child):
+    def _child_remove(self, child):
+        """
+        Remove a child widget
+
+        @param child: child widget
+        """
         self._require_update()
         self.children.remove(child)
-        self._del_children.append(child)
+        self.__children_removed.append(child)
 
-    def _restack_child(self, child, direction):
-        self._restack_children.append((child, direction))
+    def _child_restack(self, child, direction):
+        """
+        Restack a child
+
+        @param child: child widget
+        @param direction: top or bottom
+        """
+        self.__children_restack.append((child, direction))
+
 
 class Texture(Widget):
     """
@@ -570,6 +601,7 @@ class Texture(Widget):
     def __init__(self, pos=None, size=None, context=None):
         """
         Simple clutter.Texture widget
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget or None.
         @param context: the context the widget is created in
@@ -578,6 +610,12 @@ class Texture(Widget):
         self._imagedata = None
 
     def set_image(self, image):
+        """
+        Set kaa.imlib2.Image. The image will be set to the clutter.Texture
+        when _candy_render is called next.
+
+        @param image: kaa.imlib2.Image or path name
+        """
         if image and not isinstance(image, kaa.imlib2.Image):
             image = kaa.imlib2.Image(image)
         self._imagedata = image
@@ -601,7 +639,6 @@ class CairoTexture(Widget):
     """
     Cairo based Texture widget.
     """
-
     def _candy_render(self):
         """
         Render the widget

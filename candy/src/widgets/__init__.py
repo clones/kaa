@@ -31,14 +31,6 @@
 
 """
 High level widgets for kaa.candy
-
-Each widget MUST inherit from a clutter actor and the kaa.candy.Widget base
-class. After calling kaa.candy.init() all the widgets are in the kaa.candy
-namespace directly, e.g. kaa.candy.Container
-
-For basic functions read the Widget class documentation and the clutter
-U{Actor API <http://www.clutter-project.org/docs/clutter/0.6/ClutterActor.html>}.
-In case a function is defined in both classes Widget overrides Actor.
 """
 
 from ..core import Modifier

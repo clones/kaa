@@ -54,6 +54,7 @@ class Container(core.Group):
     def __init__(self, pos, size, widgets, dependency=None, context=None):
         """
         Create a container
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget or None.
         @param widgets: list of widgets or widget templates to put into the container
@@ -78,6 +79,7 @@ class Container(core.Group):
     def set_context(self, context):
         """
         Set a new context for the container and redraw it.
+
         @param context: context dict
         """
         super(Container, self).set_context(context)
@@ -104,6 +106,7 @@ class Container(core.Group):
         """
         Get child element with the given name. For container as child elements this
         function will search recursive.
+
         @param name: name of the child
         @returns: widget or None
         """

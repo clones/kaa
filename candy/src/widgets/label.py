@@ -53,6 +53,7 @@ class Label(core.CairoTexture):
                  context=None):
         """
         Create a new label widget
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget. The height
             parameter is ignored, the widget will always be as height as one line

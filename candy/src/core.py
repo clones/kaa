@@ -88,6 +88,7 @@ class Color(list):
     def to_cairo(self):
         """
         Convert to list used by cairo.
+
         @returns: list with float values from 0 to 1.0
         """
         return [ x / 255.0 for x in self ]
@@ -96,6 +97,7 @@ class Color(list):
 class Font(object):
     """
     Font object containing font name and font size
+
     @ivar name: font name
     @ivar size: font size
     """
@@ -154,6 +156,7 @@ class Modifier(object):
     def candyxml_create(cls, element):
         """
         Create the modifier for the given element.
+
         @note: do not call this function from inheriting functions. The name
             is the same but the logic is different. This functions calls the
             implementation variant, not the other way around.
@@ -185,6 +188,7 @@ class Properties(dict, Modifier):
     def modify(self, widget):
         """
         Apply to the given widget.
+
         @param widget: a kaa.candy.Widget
         """
         for key, value in self.items():

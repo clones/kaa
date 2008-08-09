@@ -42,6 +42,7 @@ class Rectangle(core.CairoTexture):
                  border_color=None, radius=0):
         """
         Create a Rectange widget
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget or None.
         @param color: kaa.candy.Color to fill the rectangle

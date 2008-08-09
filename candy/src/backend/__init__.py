@@ -81,6 +81,7 @@ class Mainloop(object):
         import clutter
         clutter.main_quit()
 
-# set generic notifier and start the clutter thread
-kaa.main.select_notifier('generic')
-kaa.gobject_set_threaded(Mainloop())
+if not 'epydoc' in sys.modules:
+    # set generic notifier and start the clutter thread
+    kaa.main.select_notifier('generic')
+    kaa.gobject_set_threaded(Mainloop())

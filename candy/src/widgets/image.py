@@ -57,8 +57,10 @@ class Image(core.Texture):
 
     def __init__(self, pos, size, url, context=None):
         """
+        Create the Image
+
         @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None.
+        @param size: (width,height) geometry of the widget
         @param url: filename or url of the image. If the image is not found
             config.imagepath will be searched for the image. If the url
             starts with C{$} the url will be searched in the context.
@@ -89,7 +91,8 @@ class Image(core.Texture):
                 #  image loading faster
                 if not cachefile in self._downloads:
                     tmpfile = kaa.tempfile('candy-images/.' + base)
-                    self._downloads[cachefile] = kaa.net.url.fetch(url, cachefile, tmpfile)
+                    c = kaa.net.url.fetch(url, cachefile, tmpfile)
+                    self._downloads[cachefile] = c
                 self._downloads[cachefile].connect_weak_once(self._fetched, cachefile)
                 return
             # use cachefile as image
@@ -138,8 +141,10 @@ class Thumbnail(Image):
 
     def __init__(self, pos, size, thumbnail, context=None):
         """
+        Create the Thumbnail widget
+
         @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None.
+        @param size: (width,height) geometry of the widget
         @param thumbnail: kaa.beacon.Thumbnail object or a string which points
             to the Thumbnail object in the context.
         @param context: the context the widget is created in

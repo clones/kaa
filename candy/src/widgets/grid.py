@@ -57,12 +57,18 @@ from ..behaviour import MAX_ALPHA, Behaviour, create_behaviour
 log = logging.getLogger('kaa.candy')
 
 class ScrollBehaviour(Behaviour):
+    """
+    Behaviour for setting the scrolling steps
+    """
     def __init__(self, start, end, callback):
         super(ScrollBehaviour, self).__init__(start, end)
         self._current = start
         self._callback = callback
 
     def apply(self, alpha_value, widgets):
+        """
+        Apply behaviour based on alpha value to the widgets
+        """
         current = [ int(v) for v in self.get_current(alpha_value) ]
         x = self._current[0] - current[0]
         y = self._current[1] - current[1]
@@ -83,6 +89,7 @@ class Grid(core.Group):
                  orientation, context=None):
         """
         Simple grid widget to show the items based on the template.
+
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget.
         @param cell_size: (width,height) of each cell
@@ -128,11 +135,11 @@ class Grid(core.Group):
         # render visisble items
         self._check_items()
 
-    def _candy_unparent(self):
+    def _candy_unparent(self, parent):
         """
-        Destroy the widget by stopping running animations.
+        Callback when the widget has no parent anymore
         """
-        super(Grid, self)._candy_unparent()
+        super(Grid, self)._candy_unparent(parent)
         if self._row_animation and self._row_animation.is_playing():
             self._row_animation.stop()
         self._row_animation = None
@@ -143,6 +150,9 @@ class Grid(core.Group):
     def scroll_by(self, (rows, cols), secs):
         """
         Scroll by rows and cols cells
+
+        @param rows, cols: rows and cols to scroll
+        @param secs: runtime of the animation
         """
         while True:
             # check if it possible to go there
@@ -164,6 +174,9 @@ class Grid(core.Group):
     def scroll_to(self, (row, col), secs):
         """
         Scroll to row / cell position
+
+        @param row, col: end row and col
+        @param secs: runtime of the animation
         """
         if self._cell0[0] != row:
             # need to scroll rows
@@ -175,8 +188,9 @@ class Grid(core.Group):
             if secs == 0:
                 self._scroll(start - stop, 0)
             else:
+                b = ScrollBehaviour((start, 0), (stop, 0), self._scroll)
                 self._row_animation = self.animate(secs)
-                self._row_animation.behave(ScrollBehaviour((start, 0), (stop, 0), self._scroll))
+                self._row_animation.behave(b)
         if self._cell0[1] != col:
             # need to scroll cols
             if self._col_animation and self._col_animation.is_playing():
@@ -187,8 +201,9 @@ class Grid(core.Group):
             if secs == 0:
                 self._scroll(0, start - stop)
             else:
+                b = ScrollBehaviour((0, start), (0, stop), self._scroll)
                 self._col_animation = self.animate(secs)
-                self._col_animation.behave(ScrollBehaviour((0, start), (0, stop), self._scroll))
+                self._col_animation.behave(b)
 
     def _create_item(self, item_num, pos_x, pos_y):
         """
@@ -214,6 +229,9 @@ class Grid(core.Group):
         return child
 
     def _check_items(self):
+        """
+        Check for items to add because they are visible now
+        """
         # This function is highly optimized for fast rendering when there is nothing
         # to change. Some code is duplicated for HORIZONTAL and VERTICAL but creating
         # smaller code size increases the running time.
@@ -310,6 +328,10 @@ class Grid(core.Group):
 
 
 class SelectionGrid(Grid):
+    """
+    Grid with selection widget.
+    @note: see C{test/flickr.py} for an example
+    """
 
     candyxml_style = 'selection'
 
@@ -327,6 +349,7 @@ class SelectionGrid(Grid):
         @param selection: widget for the selection
         @param orientation: how to arange the grid: Grid.HORIZONTAL or Grid.VERTICAL
         @param context: the context the widget is created in
+
         """
         self.behaviour = []
         super(SelectionGrid, self).__init__(pos, size, cell_size, cell_item, items,
@@ -343,6 +366,13 @@ class SelectionGrid(Grid):
         self.select((0, 0), 0)
 
     def behave(self, behaviour, *args, **kwargs):
+        """
+        Add behaviour to be used for widgets covered by the selection
+
+        @param behaviour: Behaviour object or name registered to the behaviour
+           submodule. If a new is given, the Behaviour will be created with
+           the given arguments.
+        """
         if isinstance(behaviour, str):
             behaviour = create_behaviour(behaviour, *args, **kwargs)
         self.behaviour.append(behaviour)
@@ -354,17 +384,28 @@ class SelectionGrid(Grid):
         return self
 
     def select(self, (col, row), secs):
+        """
+        Select a cell.
+
+        @param col, row: cell position to select
+        @param secs: runtime of the animation
+        """
         dest_x = self._sel_x + col * self._col_size + self._cx0 - self._x0
         dest_y = self._sel_y + row * self._row_size + self._cy0 - self._y0
         if self._sel_animation and self._sel_animation.is_playing():
             self._sel_animation.stop()
         if secs:
+            b = ScrollBehaviour((self.selection.x, self.selection.y), (dest_x, dest_y),
+                                self._scroll_listing)
             self._sel_animation = self.animate(secs)
-            self._sel_animation.behave(ScrollBehaviour((self.selection.x, self.selection.y), (dest_x, dest_y), self._scroll_listing))
+            self._sel_animation.behave(b)
         else:
             self._scroll_listing(self.selection.x - dest_x, self.selection.y - dest_y)
 
     def _create_item(self, item_num, pos_x, pos_y):
+        """
+        Render one child
+        """
         child = super(SelectionGrid, self)._create_item(item_num, pos_x, pos_y)
         if child:
             for behaviour in self.behaviour:
@@ -372,6 +413,9 @@ class SelectionGrid(Grid):
         return child
 
     def _scroll_listing(self, x, y):
+        """
+        Scroll the listing
+        """
         self.selection.x -= x
         self.selection.y -= y
         if not self.behaviour:
@@ -413,6 +457,15 @@ class SelectionGrid(Grid):
         # reset children covered before and not anymore
         for behaviour in self.behaviour:
             behaviour.apply(0, modified)
+
+    def _candy_unparent(self, parent):
+        """
+        Callback when the widget has no parent anymore
+        """
+        super(SelectionGrid, self)._candy_unparent(parent)
+        if self._sel_animation and self._sel_animation.is_playing():
+            self._sel_animation.stop()
+        self._sel_animation = None
 
     @classmethod
     def candyxml_parse(cls, element):

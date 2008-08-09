@@ -54,19 +54,42 @@ Timeline and Behaviour. The four main features are:
     template how to create a widget. The candyxml module uses templates for faster
     object instantiation. See L{candyxml} for details.
 
-@group Submodules with classes in the kaa.candy namespace: widgets, stage
-@group Submodules in the kaa.candy namespace: animation, candyxml, config
-@group Additional submodules: version, libcandy, backend
+
+Each widget has a clutter actor and functions starting with C{_candy_} to
+create and modify the clutter actors. These functions will always be
+executed in the clutter mainloop. Do not access the internal object from
+any other function.
+
+For basic functions read the Widget class documentation and the clutter
+U{Actor API <http://www.clutter-project.org/docs/clutter/0.6/ClutterActor.html>}.
 """
 
-__all__ = [ 'Font', 'Color', 'Modifier', 'Properties', 'is_template' ]
+__all__ = [ 'Font', 'Color', 'Modifier', 'Properties', 'Stage', 'is_template',
+            'Animation' ]
 
-import kaa
-
+import sys
 import candyxml
 import config
-import animation
 
 from core import clutter_sync, Font, Color, Modifier, Properties, is_template
+from animation import Animation
 from widgets import *
 from stage import Stage
+
+import widgets
+
+for key in widgets.__all__:
+    __all__.append(key)
+
+if 'epydoc' in sys.modules:
+    # epydoc magic, update our docstring
+    _w = [ w for w in widgets.__all__ if issubclass(getattr(widgets, w), Widget) ]
+    __doc__ += '@group Widgets: ' + ', '.join(_w) + '\n'
+    _m = []
+    for key, value in globals().items():
+        try:
+            if issubclass(value, Modifier):
+                _m.append(key)
+        except TypeError:
+            pass
+    __doc__ += '@group Modifier: ' + ', '.join(_m) + '\n'

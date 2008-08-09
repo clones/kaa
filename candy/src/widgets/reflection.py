@@ -47,6 +47,7 @@ class Reflection(core.Group):
     def __init__(self, widget, opacity):
         """
         Create new group of widget and reflection.
+
         @param widget: source widget (will be added to the group)
         @param opacity: opacity of the reflection.
         """
@@ -100,6 +101,7 @@ class ReflectionModifier(Modifier):
     def __init__(self, opacity=50):
         """
         Create modifier
+
         @param opacity: opacity of the reflection
         """
         self._opacity = opacity
@@ -107,6 +109,7 @@ class ReflectionModifier(Modifier):
     def modify(self, widget):
         """
         Modify the given widget.
+
         @param widget: widget to modify
         @returns: Group widget with src and reflection textures
         """

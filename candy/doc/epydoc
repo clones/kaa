@@ -36,7 +36,7 @@ introspect: yes
 
 # Don't examine in any way the modules whose dotted name match this
 # regular expression pattern.
-exclude: widgets.core widgets.container widgets.image widgets.label widgets.progressbar widgets.rectangle widgets.text widgets.grid widgets.reflection animation.core core
+exclude: widgets core stage animation
 
 # Don't perform introspection on the modules whose dotted name match this
 # regular expression pattern.
