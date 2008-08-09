@@ -29,12 +29,13 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Animation' ]
+__all__ = [ 'Animation', 'thread_enter', 'thread_leave', 'thread_locked' ]
 
 # python imports
 import time
 import logging
 import gobject
+import threading
 
 # kaa imports
 import kaa
@@ -50,6 +51,39 @@ log = logging.getLogger('kaa.candy')
 signals = {
     'candy-update': kaa.Signal()
 }
+
+_lock_lock  = threading.RLock()
+_lock_count = 0
+
+def thread_enter():
+    """
+    Lock the clutter thread from updating the gui from animations. This should
+    be used when the mainthread does major changes to the stage and a running
+    animations could redraw the gui while the changes are not complete.
+    """
+    global _lock_count
+    if _lock_count == 0:
+        _lock_lock.acquire()
+    _lock_count += 1
+
+def thread_leave(force=False):
+    """
+    Release the clutter thread. This function will be called automaticly on
+    each mainloop iteration when the thread is locked.
+    """
+    global _lock_count
+    if force:
+        _lock_count = 1
+    _lock_count -= 1
+    if _lock_count == 0:
+        _lock_lock.release()
+
+def thread_locked():
+    """
+    Return if the thread is locked
+    """
+    return _lock_count
+
 
 class Animation(object):
     """
@@ -103,16 +137,20 @@ class Animation(object):
 
     @classmethod
     def __step(cls):
+        _lock_lock.acquire()
         # TIME DEBUG
         # t1 = time.time()
-        for a in cls.__animations[:]:
-            a.current_frame_num += 1
-            a._candy_animate(a.alpha_func(a.current_frame_num, a.n_frames))
-            if a.current_frame_num == a.n_frames:
-                a.stop()
-        signals['candy-update'].emit()
-        # TIME DEBUG
-        # print 'animation took %2.3f' % (time.time() - t1)
+        try:
+            for a in cls.__animations[:]:
+                a.current_frame_num += 1
+                a._candy_animate(a.alpha_func(a.current_frame_num, a.n_frames))
+                if a.current_frame_num == a.n_frames:
+                    a.stop()
+                signals['candy-update'].emit()
+                # TIME DEBUG
+                # print 'animation took %2.3f' % (time.time() - t1)
+        finally:
+            _lock_lock.release()
         if cls.__animations:
             return True
         Animation.__active = False
