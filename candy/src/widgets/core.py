@@ -580,9 +580,12 @@ class Group(Widget):
 
         @param child: child widget
         """
+        if child in self.__children_added:
+            self.__children_added.remove(child)
+        else:
+            self.__children_removed.append(child)
         self._require_update()
         self.children.remove(child)
-        self.__children_removed.append(child)
 
     def _child_restack(self, child, direction):
         """
