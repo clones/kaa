@@ -29,17 +29,11 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'is_template', 'Color', 'Font', 'Modifier', 'Properties', 'clutter_sync' ]
+__all__ = [ 'is_template', 'Color', 'Font', 'Modifier', 'Properties' ]
 
 # python imports
 import logging
-import sys
-import threading
-import gobject
 import cairo
-
-# kaa imports
-import kaa
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -221,63 +215,3 @@ class Properties(dict, Modifier):
 
 # register Properties modifier
 Properties.candyxml_register()
-
-#: thread the clutter mainloop is running in
-gobject_thread = None
-
-def gobject_execute(callback):
-    """
-    Execute the callback in the gobject thread.
-    """
-    try:
-        callback.exception = None
-        callback.result = callback()
-    except Exception, e:
-        callback.exception = sys.exc_info()
-        log.exception('threaded')
-    finally:
-        callback.event.set()
-
-
-def set_gobject_thread(dummy):
-    """
-    Set the current thread as gobject_thread.
-    """
-    global gobject_thread
-    gobject_thread = threading.currentThread()
-
-
-def clutter_sync():
-    """
-    Decorator to force the execution of the function in the clutter mainloop
-    and blocking the mainloop during that time. This decorator should be
-    used for function that create or manipulate kaa.candy widgets. Since the
-    kaa mainloop will be blocked during execution to avoid race conditions
-    decorated functions should be very small and can not wait for additional
-    input from the mainloop.
-    """
-
-    def decorator(func):
-        """
-        Decorator function.
-        """
-        def newfunc(*args, **kwargs):
-            if gobject_thread == threading.currentThread():
-                return func(*args, **kwargs)
-            if gobject_thread is None:
-                gobject.idle_add(set_gobject_thread, None)
-            callback = kaa.Callback(func, *args, **kwargs)
-            callback.event = threading.Event()
-            gobject.idle_add(gobject_execute, callback)
-            callback.event.wait()
-            if callback.exception:
-                exc_type, exc_value, exc_tb_or_stack = callback.exception
-                raise exc_type, exc_value, exc_tb_or_stack
-            return callback.result
-
-        if 'epydoc' in sys.modules:
-            return func
-        newfunc.func_name = func.func_name
-        return newfunc
-
-    return decorator

@@ -65,14 +65,14 @@ U{Actor API <http://www.clutter-project.org/docs/clutter/0.6/ClutterActor.html>}
 """
 
 __all__ = [ 'Font', 'Color', 'Modifier', 'Properties', 'Stage', 'is_template',
-            'Animation' ]
+            'Animation', 'thread_enter', 'thread_leave' ]
 
 import sys
 import candyxml
 import config
 
-from core import clutter_sync, Font, Color, Modifier, Properties, is_template
-from animation import Animation
+from core import Font, Color, Modifier, Properties, is_template
+from animation import Animation, thread_enter, thread_leave
 from widgets import *
 from stage import Stage
 

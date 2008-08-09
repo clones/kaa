@@ -29,25 +29,31 @@
 #
 # -----------------------------------------------------------------------------
 
-"""
-kaa.candy window for widgets
-"""
-
 __all__ = [ 'Stage' ]
+
+# python imports
+import threading
+import gobject
+import logging
 
 # kaa imports
 import kaa
 
 # kaa.candy imports
-from core import clutter_sync, is_template
+from core import is_template
 from widgets import Group
 
 import backend
 import animation
 import candyxml
 
+# get logging object
+log = logging.getLogger('kaa.candy')
+
 class Stage(Group):
     """
+    kaa.candy window
+
     @ivar signals: kaa.Signal dictionary for the object
       - key-press: sends a key pressed in the window. The signal is emited in
            the kaa mainloop.
@@ -64,7 +70,7 @@ class Stage(Group):
         # add more logic and maybe add and remove the callback when needed.
         kaa.signals['step'].connect(self.sync)
         animation.signals['candy-update'].connect(self._candy_update)
-        
+
     def add(self, child, context=None):
         """
         """
@@ -72,14 +78,14 @@ class Stage(Group):
             child = child(context=context)
         child.parent = self
         return child
-        
+
     def remove(self, child):
         """
         Remove the child from the screen.
         @param child: child connected to the window
         """
         child.parent = None
-        
+
     def candyxml(self, data):
         """
         Load a candyxml file based on the given screen resolution.
@@ -97,12 +103,27 @@ class Stage(Group):
         if key is not None:
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
-    @clutter_sync()
     def sync(self):
         """
         Called from the mainloop to update all widgets in the clutter thread.
         """
-        self._candy_update()
+        if animation.thread_locked():
+            animation.thread_leave(force=True)
+        event = threading.Event()
+        gobject.idle_add(self._candy_update, event)
+        event.wait()
+
+    def _candy_update(self, event=None):
+        """
+        Execute update inside safe try/except environment
+        """
+        try:
+            super(Stage, self)._candy_update()
+        except Exception, e:
+            log.exception('threaded')
+        if event:
+            event.set()
+        return False
 
     def _candy_render(self):
         if self._obj:
