@@ -174,6 +174,7 @@ class Widget(object):
             self.__height = size[1] or 0
         if pos is not None:
             self.__x, self.__y = pos
+        self._sync_properties = {}
         self.__depends = {}
         self.__context = context or {}
         self.userdata = {}
@@ -308,6 +309,9 @@ class Widget(object):
         if self.__need_layout:
             self.__need_layout = False
             self._candy_layout()
+        if self._sync_properties:
+            self._candy_properties()
+            self._sync_properties = {}
         return True
 
     def _candy_render(self):
@@ -326,11 +330,15 @@ class Widget(object):
                 self.__x + self.__anchor[0], self.__y + self.__anchor[1])
         else:
             self._obj.set_position(self.__x, self.__y)
-        if self.__scale:
-            self._obj.set_scale(*self.__scale)
-        self._obj.set_depth(self.__depth)
-        self._obj.set_opacity(self.__opacity)
 
+    def _candy_properties(self):
+        if 'scale' in self._sync_properties:
+            self._obj.set_scale(*self.__scale)
+        if 'depth' in self._sync_properties:
+            self._obj.set_depth(self.__depth)
+        if 'opacity' in self._sync_properties:
+            self._obj.set_opacity(self.__opacity)
+        
     def _candy_unparent(self):
         """
         Callback when the widget has no parent anymore
@@ -401,7 +409,8 @@ class Widget(object):
     @scale.setter
     def scale(self, (x, y)):
         self.__scale = x, y
-        self._require_update(layout=True)
+        self._sync_properties['scale'] = True
+        self._require_update()
 
     @property
     def depth(self):
@@ -410,7 +419,8 @@ class Widget(object):
     @depth.setter
     def depth(self, depth):
         self.__depth = depth
-        self._require_update(layout=True)
+        self._sync_properties['depth'] = True
+        self._require_update()
 
     @property
     def opacity(self):
@@ -419,6 +429,7 @@ class Widget(object):
     @opacity.setter
     def opacity(self, opacity):
         self.__opacity = opacity
+        self._sync_properties['opacity'] = True
         self._require_update(layout=True)
 
     @property

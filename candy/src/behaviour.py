@@ -29,11 +29,14 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Behaviour', 'BehaviourOpacity', 'BehaviourScale', 'BehaviourColor' ]
+__all__ = [ 'Behaviour', 'BehaviourOpacity', 'BehaviourScale', 'BehaviourColor',
+            'create', 'register' ]
 
 # kaa.candy imports
-from ..core import Color
-from alpha import MAX_ALPHA
+from core import Color
+from alpha_func import MAX_ALPHA
+
+_behaviour = {}
 
 class Behaviour(object):
     """
@@ -131,3 +134,15 @@ class BehaviourColor(Behaviour):
         color = Color(*color)
         for widget in widgets:
             widget.color = color
+
+# register behaviours
+_behaviour['opacity'] = BehaviourOpacity
+_behaviour['scale'] = BehaviourScale
+_behaviour['move'] = BehaviourMove
+_behaviour['color'] = BehaviourColor
+
+def create(name, *args, **kwargs):
+    return _behaviour.get(name)(*args, **kwargs)
+
+def register(name, cls):
+    _behaviour[name] = cls

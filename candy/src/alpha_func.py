@@ -35,5 +35,16 @@ import sys
 
 MAX_ALPHA = sys.maxint
 
+_alpha = {}
+
 def alpha_inc_func(current_frame_num, n_frames):
     return (current_frame_num * MAX_ALPHA) / n_frames;
+
+# register alpha functions
+_alpha['inc'] = alpha_inc_func
+
+def create(name, *args, **kwargs):
+    return _alpha.get(name)
+
+def register(name, func):
+    _alpha[name] = func

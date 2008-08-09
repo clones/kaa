@@ -51,11 +51,12 @@ from kaa.utils import property
 # kaa.candy imports imports
 import core
 from .. import candyxml, animation, is_template, config
+from ..behaviour import MAX_ALPHA, Behaviour, create as create_behaviour
 
 # get logging object
 log = logging.getLogger('kaa.candy')
 
-class ScrollBehaviour(animation.Behaviour):
+class ScrollBehaviour(Behaviour):
     def __init__(self, start, end, callback):
         super(ScrollBehaviour, self).__init__(start, end)
         self._current = start
@@ -175,7 +176,7 @@ class Grid(core.Group):
                 self._scroll(start - stop, 0)
             else:
                 self._row_animation = self.animate(secs)
-                self._row_animation.behave(ScrollBehaviour, (start, 0), (stop, 0), self._scroll)
+                self._row_animation.behave(ScrollBehaviour((start, 0), (stop, 0), self._scroll))
         if self._cell0[1] != col:
             # need to scroll cols
             if self._col_animation and self._col_animation.is_playing():
@@ -187,7 +188,7 @@ class Grid(core.Group):
                 self._scroll(0, start - stop)
             else:
                 self._col_animation = self.animate(secs)
-                self._col_animation.behave(ScrollBehaviour, (0, start), (0, stop), self._scroll)
+                self._col_animation.behave(ScrollBehaviour((0, start), (0, stop), self._scroll))
 
     def _create_item(self, item_num, pos_x, pos_y):
         """
@@ -334,6 +335,7 @@ class SelectionGrid(Grid):
             selection = selection()
         self.selection = selection
         self.selection.parent = self
+        self.selection.lower_bottom()
         self._sel_x = (self.cell_size[0] - self.selection.width) / 2 - self._cx0
         self._sel_y = (self.cell_size[1] - self.selection.height) / 2 - self._cy0
         self._sel_animation = None
@@ -342,7 +344,7 @@ class SelectionGrid(Grid):
 
     def behave(self, behaviour, *args, **kwargs):
         if isinstance(behaviour, str):
-            behaviour = getattr(animation, 'Behaviour%s' % behaviour.capitalize())(*args, **kwargs)
+            behaviour = create_behaviour(behaviour, *args, **kwargs)
         self.behaviour.append(behaviour)
         for child in self.children:
             if child != self.selection:
@@ -358,8 +360,7 @@ class SelectionGrid(Grid):
             self._sel_animation.stop()
         if secs:
             self._sel_animation = self.animate(secs)
-            self._sel_animation.behave(ScrollBehaviour,
-                 (self.selection.x, self.selection.y), (dest_x, dest_y), self._scroll_listing)
+            self._sel_animation.behave(ScrollBehaviour((self.selection.x, self.selection.y), (dest_x, dest_y), self._scroll_listing))
         else:
             self._scroll_listing(self.selection.x - dest_x, self.selection.y - dest_y)
 
@@ -405,7 +406,7 @@ class SelectionGrid(Grid):
         for coverage, child in in_area:
             child.raise_top()
             for behaviour in self.behaviour:
-                behaviour.apply(float(coverage) / 10000 * animation.MAX_ALPHA, [child])
+                behaviour.apply(float(coverage) / 10000 * MAX_ALPHA, [child])
             if child in modified:
                 modified.remove(child)
             self._sel_modified.append(child)

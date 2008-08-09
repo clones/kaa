@@ -32,6 +32,7 @@
 __all__ = [ 'Animation' ]
 
 # python imports
+import time
 import logging
 import gobject
 
@@ -39,15 +40,17 @@ import gobject
 import kaa
 
 # kaa.candy imports
-from .. import config
-import alpha as mod_alpha
-import behaviour as mod_behaviour
+import config
+from alpha_func import create as create_alpha
+from behaviour import create as create_behaviour
 
 # get logging object
 log = logging.getLogger('kaa.candy')
 
 # signal to trigger redraw
-candy_update = kaa.Signal()
+signals = {
+    'candy-update': kaa.Signal()
+}
 
 class Animation(object):
     """
@@ -61,7 +64,7 @@ class Animation(object):
         self.current_frame_num = 0
         self.n_frames = int(float(secs) * config.fps)
         if isinstance(alpha_func, str):
-            alpha_func = getattr(mod_alpha, 'alpha_%s_func' % alpha_func)
+            alpha_func = create_alpha(alpha_func)
         self.alpha_func = alpha_func
         self.behaviour = []
         self.widgets = []
@@ -88,8 +91,8 @@ class Animation(object):
 
     def behave(self, behaviour, *args, **kwargs):
         if isinstance(behaviour, str):
-            behaviour = getattr(mod_behaviour, 'Behaviour%s' % behaviour.capitalize())
-        self.behaviour.append(behaviour(*args, **kwargs))
+            behaviour = create_behaviour(behaviour, *args, **kwargs)
+        self.behaviour.append(behaviour)
         return self
 
     def apply(self, widget):
@@ -101,12 +104,16 @@ class Animation(object):
 
     @classmethod
     def __step(cls):
+        # TIME DEBUG
+        # t1 = time.time()
         for a in cls.__animations[:]:
             a.current_frame_num += 1
             a._candy_animate(a.alpha_func(a.current_frame_num, a.n_frames))
             if a.current_frame_num == a.n_frames:
                 a.stop()
-        candy_update.emit()
+        signals['candy-update'].emit()
+        # TIME DEBUG
+        # print 'animation took %2.3f' % (time.time() - t1)
         if cls.__animations:
             return True
         Animation.__active = False
