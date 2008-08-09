@@ -93,6 +93,23 @@ def main():
     yield wait(2)
     print 'move selection fast to the right'
     grid.select((12, 3), 0.8)
+    yield wait(1)
+    print 'and back'
+    grid.select((7, 3), 1)
+    yield wait(0.3)
+    print 'and revert while moving'
+    grid.select((12, 3), 1)
+    yield wait(1)
+    print 'and back again very fast'
+    grid.select((7, 3), 0.3)
+    yield wait(0.5)
+    print 'left again and start scrolling'
+    grid.select((16, 3), 0.8)
+    yield wait(0.3)
+    grid.scroll_by((4, 0), 0.5)
+    yield wait(1.0)
+    print 'change col and row'
+    grid.select((11, 6), 1)
 
 main()
 
