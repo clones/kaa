@@ -135,18 +135,6 @@ class Grid(core.Group):
         # render visisble items
         self._check_items()
 
-    def _candy_unparent(self, parent):
-        """
-        Callback when the widget has no parent anymore
-        """
-        super(Grid, self)._candy_unparent(parent)
-        if self._row_animation and self._row_animation.is_playing():
-            self._row_animation.stop()
-        self._row_animation = None
-        if self._col_animation and self._col_animation.is_playing():
-            self._col_animation.stop()
-        self._col_animation = None
-
     def scroll_by(self, (rows, cols), secs):
         """
         Scroll by rows and cols cells
@@ -459,15 +447,6 @@ class SelectionGrid(Grid):
         # reset children covered before and not anymore
         for behaviour in self.behaviour:
             behaviour.apply(0, modified)
-
-    def _candy_unparent(self, parent):
-        """
-        Callback when the widget has no parent anymore
-        """
-        super(SelectionGrid, self)._candy_unparent(parent)
-        if self._sel_animation and self._sel_animation.is_playing():
-            self._sel_animation.stop()
-        self._sel_animation = None
 
     @classmethod
     def candyxml_parse(cls, element):
