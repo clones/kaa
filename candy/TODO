@@ -9,10 +9,7 @@
    it based on height. If both are given, add additional valign parameter
    (top, center, bottom)
 
-4. Rework the clutter parent setting in Core.candy_* and Group. Support
-   moving one widget to a different group.
-
-5. Modify set_context to allow widgets to react on a changed context without
+4. Modify set_context to allow widgets to react on a changed context without
    replacing the widget
 
 X. All FIXME, TODO and @todo messages in the code should be fixed. And add

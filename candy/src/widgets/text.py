@@ -116,6 +116,7 @@ class Text(core.Widget):
         """
         if not self._obj:
             self._obj = backend.Label()
+            self._obj.show()
             self._obj.set_size(self.width, self.height)
         if 'size' in self._sync_properties:
             self._obj.set_size(self.width, self.height)

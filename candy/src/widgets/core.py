@@ -355,30 +355,20 @@ class Widget(object):
         """
         Set some simple properties of the clutter.Actor
         """
+        if 'parent' in self._sync_properties:
+            clutter_parent = self._sync_properties.pop('parent')
+            if self._obj.get_parent():
+                self._obj.get_parent().remove(self._obj)
+            if not clutter_parent:
+                # no need to do more
+                return False
+            clutter_parent.add(self._obj)
         if 'scale' in self._sync_properties:
             self._obj.set_scale(*self.__scale)
         if 'depth' in self._sync_properties:
             self._obj.set_depth(self.__depth)
         if 'opacity' in self._sync_properties:
             self._obj.set_opacity(self.__opacity)
-
-    def _candy_set_parent(self, parent):
-        """
-        Callback to set the parent of the clutter actor
-        @todo: replace this function
-        """
-        if self._obj.get_parent():
-            self._obj.get_parent().remove(self._obj)
-        else:
-            self._obj.show()
-        parent.add(self._obj)
-
-    def _candy_unparent(self, parent):
-        """
-        Callback when the widget has no parent anymore
-        """
-        parent.remove(self._obj)
-        self._obj = None
 
     # properties
 
@@ -512,6 +502,7 @@ class Widget(object):
 #     def __del__(self):
 #         print '__del__', self
 
+
 class Group(Widget):
     """
     Group widget.
@@ -541,12 +532,13 @@ class Group(Widget):
         while self.__children_removed:
             child = self.__children_removed.pop(0)
             if child.parent is None:
-                child._candy_unparent(self._obj)
+                child._sync_properties['parent'] = None
+                child._candy_sync_properties()
+        while self.__children_added:
+            self.__children_added.pop(0)._sync_properties['parent'] = self._obj
         for child in self.children:
             if child._sync_required:
                 child._candy_sync()
-        while self.__children_added:
-            self.__children_added.pop(0)._candy_set_parent(self._obj)
         while self.__children_restack:
             child, direction = self.__children_restack.pop(0)
             if direction == 'top':
@@ -561,16 +553,7 @@ class Group(Widget):
         """
         if self._obj is None:
             self._obj = backend.Group()
-
-    def _candy_unparent(self, parent):
-        """
-        Callback when the widget has no parent anymore
-
-        @param parent: current clutter.Actor parent
-        """
-        for child in self.children:
-            child._candy_unparent(self._obj)
-        super(Group, self)._candy_unparent(parent)
+            self._obj.show()
 
     def _child_add(self, child):
         """
@@ -638,6 +621,7 @@ class Texture(Widget):
         """
         if self._obj is None:
             self._obj = backend.Texture()
+            self._obj.show()
             self._obj.set_size(self.width, self.height)
         if 'size' in self._sync_properties:
             self._obj.set_size(self.width, self.height)
@@ -658,6 +642,7 @@ class CairoTexture(Widget):
         """
         if self._obj is None:
             self._obj = backend.CairoTexture(self.width, self.height)
+            self._obj.show()
             return
         if 'size' in self._sync_properties:
             self._obj.set_size(self.width, self.height)
