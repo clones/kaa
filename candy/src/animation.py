@@ -36,6 +36,7 @@ import time
 import logging
 import gobject
 import threading
+import _weakref
 
 # kaa imports
 import kaa
@@ -100,7 +101,7 @@ class Animation(object):
             alpha_func = create_alpha(alpha_func)
         self.alpha_func = alpha_func
         self.behaviour = []
-        self.widgets = []
+        self._refs = []
 
     def start(self):
         if self.running is not None:
@@ -129,11 +130,20 @@ class Animation(object):
         return self
 
     def apply(self, widget):
-        self.widgets.append(widget)
+        self._refs.append(_weakref.ref(widget))
 
     def _candy_animate(self, alpha_value):
+        widgets = []
+        for ref in self._refs[:]:
+            widget = ref()
+            if widget is None:
+                self._refs.remove(ref)
+            else:
+                widgets.append(widget)
+        if not self._refs:
+            self.stop()
         for behaviour in self.behaviour:
-            behaviour.apply(alpha_value, self.widgets)
+            behaviour.apply(alpha_value, widgets)
 
     @classmethod
     def __step(cls):
