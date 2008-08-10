@@ -169,7 +169,7 @@ class Grid(core.Group):
         """
         if self._cell0[0] != row:
             # need to scroll rows
-            if self._row_animation and self._row_animation.is_playing():
+            if self._row_animation and self._row_animation.is_playing:
                 self._row_animation.stop()
             start = self._x0 - self._cx0
             self._cell0[0] = row
@@ -182,7 +182,7 @@ class Grid(core.Group):
                 self._row_animation.behave(b)
         if self._cell0[1] != col:
             # need to scroll cols
-            if self._col_animation and self._col_animation.is_playing():
+            if self._col_animation and self._col_animation.is_playing:
                 self._col_animation.stop()
             start = self._y0 - self._cy0
             self._cell0[1] = col
@@ -383,7 +383,7 @@ class SelectionGrid(Grid):
         """
         dest_x = self._sel_x + col * self._col_size + self._cx0 - self._x0
         dest_y = self._sel_y + row * self._row_size + self._cy0 - self._y0
-        if self._sel_animation and self._sel_animation.is_playing():
+        if self._sel_animation and self._sel_animation.is_playing:
             self._sel_animation.stop()
         if secs:
             src = (self.selection.x, self.selection.y)
