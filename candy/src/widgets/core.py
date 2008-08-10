@@ -36,6 +36,7 @@ import logging
 import _weakref
 
 # kaa imports
+import kaa
 import kaa.imlib2
 from kaa.utils import property
 
@@ -270,7 +271,7 @@ class Widget(object):
         a.apply(self)
         a.start()
         if unparent:
-            a.running.connect(setattr, self, 'parent', None).set_ignore_caller_args()
+            kaa.inprogress(a).connect(setattr, self, 'parent', None).set_ignore_caller_args()
         return a
 
     def raise_top(self):
