@@ -18,7 +18,7 @@ def scan(device, tuning_data):
         while not 'channels' in device.streaminfo or \
                   not 'tuning-data' in device.streaminfo:
             try:
-                yield kaa.InProgressSignals(device.signals, 'streaminfo').timeout(5)
+                yield device.signals.subset('streaminfo').any().timeout(5)
             except kaa.TimeoutException:
                 break
         if not device.streaminfo.get('channels'):
