@@ -60,9 +60,9 @@ class ScrollBehaviour(Behaviour):
     """
     Behaviour for setting the scrolling steps
     """
-    def __init__(self, start, end, func_name):
-        super(ScrollBehaviour, self).__init__(start, end)
-        self._current = start
+    def __init__(self, (x, y), func_name):
+        super(ScrollBehaviour, self).__init__((0,0), (x,y))
+        self._current = (0,0)
         self._func_name = func_name
 
     def apply(self, alpha_value, widgets):
@@ -70,11 +70,20 @@ class ScrollBehaviour(Behaviour):
         Apply behaviour based on alpha value to the widgets
         """
         current = [ int(v) for v in self.get_current(alpha_value) ]
-        x = self._current[0] - current[0]
-        y = self._current[1] - current[1]
+        x = current[0] - self._current[0]
+        y = current[1] - self._current[1]
         self._current = current
         for widget in widgets:
             getattr(widget, self._func_name)(x, y)
+
+class ItemGroup(core.Group):
+    def __init__(self, pos):
+        super(ItemGroup, self).__init__(pos)
+        # x,y coordinates of the items group in the grid. These will never
+        # change will will be kep as reference
+        self.x0, self.y0 = pos
+        # cell number of the upper left corner if all animations are done
+        self.cell0 = [ 0, 0 ]
 
 class Grid(core.Group):
     """
@@ -115,13 +124,11 @@ class Grid(core.Group):
         # do some calculations
         self.num_cols = size[0] / cell_size[0]
         self.num_rows = size[1] / cell_size[1]
-        # cell number of the upper left corner if all animations are done
-        self._cell0 = [ 0, 0 ]
         # list of rendered items
         self._rendered = {}
-        # animations for row and col animation
-        self._row_animation = None
-        self._col_animation = None
+        # animations for row and col scrolling
+        self.__row_animation = None
+        self.__col_animation = None
         # padding between cells
         # FIXME: maybe the users wants to set this manually
         padding_x = size[0] /self.num_cols - cell_size[0]
@@ -129,11 +136,9 @@ class Grid(core.Group):
         # size of cells
         self._col_size = self.cell_size[0] + padding_x
         self._row_size = self.cell_size[1] + padding_y
-        # x0/y0 coordinates for the upper left corner
-        # the c* variables will not be changed surung runtime
-        self._x0 = self._cx0 = - padding_x / 2
-        self._y0 = self._cy0 = - padding_y / 2
         # render visisble items
+        self.items = ItemGroup((padding_x / 2, padding_y / 2))
+        self.items.parent = self
         self._check_items()
 
     def scroll_by(self, (rows, cols), secs):
@@ -146,9 +151,11 @@ class Grid(core.Group):
         while True:
             # check if it possible to go there
             if self._orientation == Grid.HORIZONTAL:
-                num = (self._cell0[0] + rows) * self.num_rows + (self._cell0[1] + cols)
+                num = (self.items.cell0[0] + rows) * self.num_rows + \
+                      (self.items.cell0[1] + cols)
             if self._orientation == Grid.VERTICAL:
-                num = (self._cell0[1] + cols) * self.num_cols + (self._cell0[0] + rows)
+                num = (self.items.cell0[1] + cols) * self.num_cols + \
+                      (self.items.cell0[0] + rows)
             if num >= 0 and num < len(self._items):
                 # there is an item in the upper left corner
                 break
@@ -158,7 +165,7 @@ class Grid(core.Group):
                 rows -= (rows / abs(rows))
             else:
                 cols -= (cols / abs(cols))
-        self.scroll_to((self._cell0[0] + rows, self._cell0[1] + cols), secs)
+        self.scroll_to((self.items.cell0[0] + rows, self.items.cell0[1] + cols), secs)
 
     def scroll_to(self, (row, col), secs):
         """
@@ -167,32 +174,28 @@ class Grid(core.Group):
         @param row, col: end row and col
         @param secs: runtime of the animation
         """
-        if self._cell0[0] != row:
+        if self.items.cell0[0] != row:
             # need to scroll rows
-            if self._row_animation and self._row_animation.is_playing:
-                self._row_animation.stop()
-            start = self._x0 - self._cx0
-            self._cell0[0] = row
-            stop = self._cell0[0] * self._col_size
+            if self.__row_animation and self.__row_animation.is_playing:
+                self.__row_animation.stop()
+            self.items.cell0[0] = row
+            x = self.items.cell0[0] * self._col_size + self.items.x - self.items.x0
             if secs == 0:
-                self._scroll(start - stop, 0)
+                self._scroll(x, 0)
             else:
-                b = ScrollBehaviour((start, 0), (stop, 0), '_scroll')
-                self._row_animation = self.animate(secs)
-                self._row_animation.behave(b)
-        if self._cell0[1] != col:
+                self.__row_animation = self.animate(secs)
+                self.__row_animation.behave(ScrollBehaviour((x, 0), '_scroll'))
+        if self.items.cell0[1] != col:
             # need to scroll cols
-            if self._col_animation and self._col_animation.is_playing:
-                self._col_animation.stop()
-            start = self._y0 - self._cy0
-            self._cell0[1] = col
-            stop = self._cell0[1] * self._row_size
+            if self.__col_animation and self.__col_animation.is_playing:
+                self.__col_animation.stop()
+            self.items.cell0[1] = col
+            y = self.items.cell0[1] * self._row_size + self.items.y - self.items.y0
             if secs == 0:
-                self._scroll(0, start - stop)
+                self._scroll(0, y)
             else:
-                b = ScrollBehaviour((0, start), (0, stop), '_scroll')
-                self._col_animation = self.animate(secs)
-                self._col_animation.behave(b)
+                self.__col_animation = self.animate(secs)
+                self.__col_animation.behave(ScrollBehaviour((0, y), '_scroll'))
 
     def _create_item(self, item_num, pos_x, pos_y):
         """
@@ -201,19 +204,14 @@ class Grid(core.Group):
         if item_num < 0 or item_num >= len(self._items):
             self._rendered[(pos_x, pos_y)] = None
             return
-        x = pos_x * self._col_size -self._x0
-        y = pos_y * self._row_size -self._y0
-        if x >= self.width or y >= self.height:
-            # refuse to draw invisible items
-            return
         context = copy.copy(self.get_context())
         context[self._cell_item] = self._items[item_num]
         child = self._child_template(context=context)
-        child.x = x
-        child.y = y
+        child.x = pos_x * self._col_size
+        child.y = pos_y * self._row_size
         child.width, child.height = self.cell_size
         child.anchor_point = self.cell_size[0] / 2, self.cell_size[1] / 2
-        child.parent = self
+        child.parent = self.items
         self._rendered[(pos_x, pos_y)] = child
         return child
 
@@ -226,8 +224,8 @@ class Grid(core.Group):
         # smaller code size increases the running time.
 
         # current item left/top position in the grid
-        base_x = self._x0 / self._col_size
-        base_y = self._y0 / self._row_size
+        base_x = -self.items.x / self._col_size
+        base_y = -self.items.y / self._row_size
         pos_x = base_x
         pos_y = base_y
         if self._orientation == Grid.HORIZONTAL:
@@ -275,16 +273,9 @@ class Grid(core.Group):
         """
         Callback from the animation
         """
-        if x:
-            self._x0 -= x
-            for child in self.children:
-                child.x += x
-        if y:
-            self._y0 -= y
-            for child in self.children:
-                child.y += y
+        self.items.x -= x
+        self.items.y -= y
         self._check_items()
-        self._queue_sync(rendering=True)
 
     @classmethod
     def candyxml_parse(cls, element):
@@ -350,10 +341,8 @@ class SelectionGrid(Grid):
         self.selection = selection
         self.selection.parent = self
         self.selection.lower_bottom()
-        self._sel_x = (self.cell_size[0] - self.selection.width) / 2 - self._cx0
-        self._sel_y = (self.cell_size[1] - self.selection.height) / 2 - self._cy0
-        self._sel_animation = None
-        self._sel_modified = []
+        self.__animation = None
+        self.items.modified = []
         self.select((0, 0), 0)
 
     def behave(self, behaviour, *args, **kwargs):
@@ -367,9 +356,7 @@ class SelectionGrid(Grid):
         if isinstance(behaviour, str):
             behaviour = create_behaviour(behaviour, *args, **kwargs)
         self.behaviour.append(behaviour)
-        for child in self.children:
-            if child != self.selection:
-                behaviour.apply(0, [child])
+        behaviour.apply(0, self.items.children)
         # scroll by 0,0 to update covered items
         self._scroll_listing(0,0)
         return self
@@ -381,17 +368,21 @@ class SelectionGrid(Grid):
         @param col, row: cell position to select
         @param secs: runtime of the animation
         """
-        dest_x = self._sel_x + col * self._col_size + self._cx0 - self._x0
-        dest_y = self._sel_y + row * self._row_size + self._cy0 - self._y0
-        if self._sel_animation and self._sel_animation.is_playing:
-            self._sel_animation.stop()
+        # calculate x,y coordinates to move based on the current position
+        # This is the selection x0 if it would be on 0,0 + the row or col
+        # we want to select - our current position. After that add how items
+        # has scrolled. Sounds complicated but is correct.
+        x = (self.cell_size[0] - self.selection.width) / 2 + \
+            col * self._col_size - self.selection.x + self.items.x
+        y = (self.cell_size[1] - self.selection.height) / 2 + \
+            row * self._row_size - self.selection.y + self.items.y
+        if self.__animation and self.__animation.is_playing:
+            self.__animation.stop()
         if secs:
-            src = (self.selection.x, self.selection.y)
-            b = ScrollBehaviour(src, (dest_x, dest_y), '_scroll_listing')
-            self._sel_animation = self.animate(secs)
-            self._sel_animation.behave(b)
+            self.__animation = self.animate(secs)
+            self.__animation.behave(ScrollBehaviour((x, y), '_scroll_listing'))
         else:
-            self._scroll_listing(self.selection.x - dest_x, self.selection.y - dest_y)
+            self._scroll_listing(x, y)
 
     def _create_item(self, item_num, pos_x, pos_y):
         """
@@ -403,12 +394,20 @@ class SelectionGrid(Grid):
                 behaviour.apply(0, [child])
         return child
 
+    def _scroll(self, x, y):
+        """
+        Callback from the animation
+        """
+        super(SelectionGrid, self)._scroll(x, y)
+        self.selection.x -= x
+        self.selection.y -= y
+
     def _scroll_listing(self, x, y):
         """
         Scroll the listing
         """
-        self.selection.x -= x
-        self.selection.y -= y
+        self.selection.x += x
+        self.selection.y += y
         if not self.behaviour:
             # no behaviour means no items to change
             return
@@ -416,8 +415,8 @@ class SelectionGrid(Grid):
         # current cell position of the selection bar
         # get the items that could be affected by a behaviour and check
         # if they are covered by the selection widget
-        base_x = (x + self._x0) / self._col_size
-        base_y = (y + self._y0) / self._row_size
+        base_x = (self.selection.x - self.items.x) / self._col_size
+        base_y = (self.selection.y - self.items.y) / self._row_size
         in_area = []
         for x0 in range(-1, 2):
             for y0 in range(-1, 2):
@@ -425,26 +424,26 @@ class SelectionGrid(Grid):
                 if child is None:
                     # not rendered
                     continue
-                px = abs(child.x - x)
-                py = abs(child.y - y)
+                px = abs(child.x + self.items.x - x)
+                py = abs(child.y + self.items.y - y)
                 if px > width or py > height:
                     # not covered
                     continue
                 coverage = (100 - 100 * px / width) * (100 - 100 * py / height)
                 if coverage:
-                    # x and y percent coverage
+                    # x percent * y percent coverage
                     in_area.append((coverage, child))
         # sort by coverage and draw from the lowest
         in_area.sort(lambda x,y: cmp(x[0], y[0]))
-        modified = self._sel_modified
-        self._sel_modified = []
+        modified = self.items.modified
+        self.items.modified = []
         for coverage, child in in_area:
             child.raise_top()
             for behaviour in self.behaviour:
                 behaviour.apply(float(coverage) / 10000 * MAX_ALPHA, [child])
             if child in modified:
                 modified.remove(child)
-            self._sel_modified.append(child)
+            self.items.modified.append(child)
         # reset children covered before and not anymore
         for behaviour in self.behaviour:
             behaviour.apply(0, modified)
