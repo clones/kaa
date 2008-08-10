@@ -60,10 +60,10 @@ class ScrollBehaviour(Behaviour):
     """
     Behaviour for setting the scrolling steps
     """
-    def __init__(self, start, end, callback):
+    def __init__(self, start, end, func_name):
         super(ScrollBehaviour, self).__init__(start, end)
         self._current = start
-        self._callback = callback
+        self._func_name = func_name
 
     def apply(self, alpha_value, widgets):
         """
@@ -73,7 +73,8 @@ class ScrollBehaviour(Behaviour):
         x = self._current[0] - current[0]
         y = self._current[1] - current[1]
         self._current = current
-        self._callback(x, y)
+        for widget in widgets:
+            getattr(widget, self._func_name)(x, y)
 
 class Grid(core.Group):
     """
@@ -176,7 +177,7 @@ class Grid(core.Group):
             if secs == 0:
                 self._scroll(start - stop, 0)
             else:
-                b = ScrollBehaviour((start, 0), (stop, 0), self._scroll)
+                b = ScrollBehaviour((start, 0), (stop, 0), '_scroll')
                 self._row_animation = self.animate(secs)
                 self._row_animation.behave(b)
         if self._cell0[1] != col:
@@ -189,7 +190,7 @@ class Grid(core.Group):
             if secs == 0:
                 self._scroll(0, start - stop)
             else:
-                b = ScrollBehaviour((0, start), (0, stop), self._scroll)
+                b = ScrollBehaviour((0, start), (0, stop), '_scroll')
                 self._col_animation = self.animate(secs)
                 self._col_animation.behave(b)
 
@@ -385,8 +386,8 @@ class SelectionGrid(Grid):
         if self._sel_animation and self._sel_animation.is_playing():
             self._sel_animation.stop()
         if secs:
-            b = ScrollBehaviour((self.selection.x, self.selection.y), (dest_x, dest_y),
-                                self._scroll_listing)
+            src = (self.selection.x, self.selection.y)
+            b = ScrollBehaviour(src, (dest_x, dest_y), '_scroll_listing')
             self._sel_animation = self.animate(secs)
             self._sel_animation.behave(b)
         else:
