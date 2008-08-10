@@ -117,10 +117,10 @@ class Grid(core.Group):
         # store arguments for later public use
         self.cell_size = cell_size
         # store arguments for later private use
-        self._orientation = orientation
-        self._items = items
-        self._cell_item = cell_item
-        self._child_template = template
+        self.__orientation = orientation
+        self.__child_listing = items
+        self.__child_context = cell_item
+        self.__child_template = template
         # do some calculations
         self.num_cols = size[0] / cell_size[0]
         self.num_rows = size[1] / cell_size[1]
@@ -150,13 +150,13 @@ class Grid(core.Group):
         """
         while True:
             # check if it possible to go there
-            if self._orientation == Grid.HORIZONTAL:
+            if self.__orientation == Grid.HORIZONTAL:
                 num = (self.items.cell0[0] + rows) * self.num_rows + \
                       (self.items.cell0[1] + cols)
-            if self._orientation == Grid.VERTICAL:
+            if self.__orientation == Grid.VERTICAL:
                 num = (self.items.cell0[1] + cols) * self.num_cols + \
                       (self.items.cell0[0] + rows)
-            if num >= 0 and num < len(self._items):
+            if num >= 0 and num < len(self.__child_listing):
                 # there is an item in the upper left corner
                 break
             # remove one cell in scroll, start with rows and use cols if
@@ -181,10 +181,10 @@ class Grid(core.Group):
             self.items.cell0[0] = row
             x = self.items.cell0[0] * self._col_size + self.items.x - self.items.x0
             if secs == 0:
-                self._scroll(x, 0)
+                self._scroll_grid(x, 0)
             else:
                 self.__row_animation = self.animate(secs)
-                self.__row_animation.behave(ScrollBehaviour((x, 0), '_scroll'))
+                self.__row_animation.behave(ScrollBehaviour((x, 0), '_scroll_grid'))
         if self.items.cell0[1] != col:
             # need to scroll cols
             if self.__col_animation and self.__col_animation.is_playing:
@@ -192,21 +192,21 @@ class Grid(core.Group):
             self.items.cell0[1] = col
             y = self.items.cell0[1] * self._row_size + self.items.y - self.items.y0
             if secs == 0:
-                self._scroll(0, y)
+                self._scroll_grid(0, y)
             else:
                 self.__col_animation = self.animate(secs)
-                self.__col_animation.behave(ScrollBehaviour((0, y), '_scroll'))
+                self.__col_animation.behave(ScrollBehaviour((0, y), '_scroll_grid'))
 
     def _create_item(self, item_num, pos_x, pos_y):
         """
         Render one child
         """
-        if item_num < 0 or item_num >= len(self._items):
+        if item_num < 0 or item_num >= len(self.__child_listing):
             self._rendered[(pos_x, pos_y)] = None
             return
         context = copy.copy(self.get_context())
-        context[self._cell_item] = self._items[item_num]
-        child = self._child_template(context=context)
+        context[self.__child_context] = self.__child_listing[item_num]
+        child = self.__child_template(context=context)
         child.x = pos_x * self._col_size
         child.y = pos_y * self._row_size
         child.width, child.height = self.cell_size
@@ -228,7 +228,7 @@ class Grid(core.Group):
         base_y = -self.items.y / self._row_size
         pos_x = base_x
         pos_y = base_y
-        if self._orientation == Grid.HORIZONTAL:
+        if self.__orientation == Grid.HORIZONTAL:
             item_num = base_x * self.num_rows + base_y
             while True:
                 if not (pos_x, pos_y) in self._rendered:
@@ -243,7 +243,7 @@ class Grid(core.Group):
                     if pos_x - base_x > self.num_cols:
                         return
 
-        # self._orientation == Grid.VERTICAL
+        # self.__orientation == Grid.VERTICAL
         item_num = base_y * self.num_cols + base_x
         while True:
             if not (pos_x, pos_y) in self._rendered:
@@ -269,7 +269,7 @@ class Grid(core.Group):
         super(Grid, self)._candy_render()
         self._obj.set_clip(0, 0, self.width, self.height)
 
-    def _scroll(self, x, y):
+    def _scroll_grid(self, x, y):
         """
         Callback from the animation
         """
@@ -394,17 +394,17 @@ class SelectionGrid(Grid):
                 behaviour.apply(0, [child])
         return child
 
-    def _scroll(self, x, y):
+    def _scroll_grid(self, x, y):
         """
-        Callback from the animation
+        Callback from the animation to scroll the grid
         """
-        super(SelectionGrid, self)._scroll(x, y)
+        super(SelectionGrid, self)._scroll_grid(x, y)
         self.selection.x -= x
         self.selection.y -= y
 
     def _scroll_listing(self, x, y):
         """
-        Scroll the listing
+        Callback from the animation to scroll the listing
         """
         self.selection.x += x
         self.selection.y += y
