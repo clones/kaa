@@ -138,7 +138,10 @@ class Font(object):
         c = cairo.Context(self.__cairo_surface)
         c.select_font_face(self.name, cairo.FONT_SLANT_NORMAL)
         c.set_font_size(self.size)
-        return int(c.text_extents(text)[2]) + 1
+        # add x_bearing to width (maybe use x_advance later)
+        # http://cairographics.org/manual/cairo-Scaled-Fonts.html#cairo-text-extents-t
+        ext = c.text_extents(text)
+        return int(ext[0] + ext[2]) + 1
 
 class Modifier(object):
     """

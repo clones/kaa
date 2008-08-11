@@ -12,11 +12,13 @@ import feedparser
 # because we render in software. Remove that line for a better result.
 xml = '''
 <candyxml geometry="800x600">
-    <label name="wait" y="100" font="Vera:24" color="0xcccccc" align="center">
+    <label name="wait" y="100" font="Vera:24" color="0xcccccc">
+        <properties align="center,top"/>
         Loading feed, please wait
     </label>
     <container name="flickr" x="10" y="10" width="780" height="580">
-        <label font="Vera:24" color="0xcccccc" align="center">
+        <label font="Vera:24" color="0xcccccc">
+            <properties align="center,top"/>
             $title
         </label>
         <grid y="50" height="530" cell-width="160" cell-height="140"
@@ -27,7 +29,8 @@ xml = '''
                     <properties align="center,center" keep-aspect="true"/>
                     <reflection opacity="80"/>
                 </image>
-                <label y="110" font="Vera:10" color="0xcccccc" align="center">
+                <label y="110" font="Vera:10" color="0xcccccc">
+                    <properties align="center,top"/>
                     $item.title
                 </label>
             </container>

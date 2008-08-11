@@ -62,8 +62,7 @@ class Label(Widget):
 
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget. The height
-            parameter is ignored, the widget will always be as height as one line
-            of text with the given font.
+            parameter is used for vertical alignment and can be None.
         @param font: kaa.candy.Font object
         @param text: Text to render. This can also be a context based string like
             C{$text} with the context containing C{text='My String'}. This will
@@ -120,13 +119,15 @@ class Label(Widget):
 
     @font.setter
     def font(self, font):
-        if self._obj is not None:
-            log.error('FIXME: kaa.candy.Label does not support changing font')
-            return
         if not isinstance(font, Font):
             font = Font(font)
         self.__font = font
         self._queue_sync(rendering=True)
+        if self._obj is not None:
+            height = font.get_height(font.MAX_HEIGHT)
+            if self.height < height:
+                log.warning('adjusting Label.height because of font change')
+                self.height = height
 
     def _candy_render(self):
         """
@@ -143,7 +144,6 @@ class Label(Widget):
             self._obj.show()
         else:
             if width != self._obj.get_width() or height != self._obj.get_height():
-                print width, height, self.__text_eval
                 self._obj.set_size(width, height)
                 self._obj.surface_resize(width, height)
             self._obj.clear()

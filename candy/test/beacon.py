@@ -15,7 +15,8 @@ import kaa.beacon
 xml = '''
 <candyxml geometry="800x600">
     <container name="thumbnails" x="10" y="10" width="780" height="580">
-        <label font="Vera:24" color="0xcccccc" align="center">
+        <label font="Vera:24" color="0xcccccc">
+            <properties align="center,top"/>
             $title
         </label>
         <grid style="selection" y="50" height="530" cell-width="120" cell-height="80"
