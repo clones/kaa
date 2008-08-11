@@ -40,13 +40,13 @@ from kaa.utils import property
 
 # kaa.candy imports
 from ..core import Color, Font
-import core
+from image import CairoTexture
 
 # get logging object
 log = logging.getLogger('kaa.candy')
 
 
-class Label(core.CairoTexture):
+class Label(CairoTexture):
     """
     Text label widget based on cairo.
     """

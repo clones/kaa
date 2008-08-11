@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Widget', 'Group', 'Texture', 'CairoTexture']
+__all__ = [ 'Widget' ]
 
 # python imports
 import logging
@@ -524,85 +524,3 @@ class Widget(object):
 
 #     def __del__(self):
 #         print '__del__', self
-
-
-class Texture(Widget):
-    """
-    Clutter Texture widget.
-    """
-
-    __keep_aspect = False
-
-    def __init__(self, pos=None, size=None, context=None):
-        """
-        Simple clutter.Texture widget
-
-        @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None.
-        @param context: the context the widget is created in
-        """
-        super(Texture, self).__init__(pos, size, context)
-        self._imagedata = None
-
-    @property
-    def keep_aspect(self):
-        return self.__keep_aspect
-
-    @keep_aspect.setter
-    def keep_aspect(self, keep_aspect):
-        self.__keep_aspect = keep_aspect
-        self._queue_sync_properties('size')
-        self._queue_sync(rendering=True, layout=True)
-
-    def set_image(self, image):
-        """
-        Set kaa.imlib2.Image. The image will be set to the clutter.Texture
-        when _candy_render is called next.
-
-        @param image: kaa.imlib2.Image or path name
-        """
-        if image and not isinstance(image, kaa.imlib2.Image):
-            image = kaa.imlib2.Image(image)
-        self._imagedata = image
-        self._queue_sync(rendering=True, layout=self.__keep_aspect)
-
-    def _candy_render(self):
-        """
-        Render the widget
-        """
-        if self._obj is None:
-            self._obj = backend.Texture()
-            self._obj.show()
-            self._obj.set_size(self.width, self.height)
-        if 'size' in self._sync_properties or self.__keep_aspect:
-            width, height = self.width, self.height
-            if self.__keep_aspect and self._imagedata:
-                aspect = float(self._imagedata.width) / self._imagedata.height
-                if int(height * aspect) > width:
-                    height = int(width / aspect)
-                else:
-                    width = int(height * aspect)
-            self._obj.set_size(width, height)
-        if not self._imagedata:
-            return
-        self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
-            self._imagedata.width, self._imagedata.height, 1, 4,
-            backend.TEXTURE_RGB_FLAG_BGR)
-
-
-class CairoTexture(Widget):
-    """
-    Cairo based Texture widget.
-    """
-    def _candy_render(self):
-        """
-        Render the widget
-        """
-        if self._obj is None:
-            self._obj = backend.CairoTexture(self.width, self.height)
-            self._obj.show()
-            return
-        if 'size' in self._sync_properties:
-            self._obj.set_size(self.width, self.height)
-            self._obj.surface_resize(*self._obj.get_size())
-        self._obj.clear()

@@ -30,9 +30,9 @@
 # -----------------------------------------------------------------------------
 
 # kaa.candy imports
-import core
+from image import CairoTexture
 
-class Rectangle(core.CairoTexture):
+class Rectangle(CairoTexture):
     """
     Rectange with border and round corners based on cairo.
     """
