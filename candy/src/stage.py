@@ -133,9 +133,6 @@ class Stage(Group):
             self._obj.show()
         if 'size' in self._sync_properties:
             # object already created but user changed the size
-            # FIXME: this information has to be passed on to children in a later
-            # version when kaa.candy supports sizes and positions based on
-            # percentage of container.
             self._obj.set_size(self.width, self.height)
             self.signals['resize'].emit()
         super(Stage, self)._candy_render()

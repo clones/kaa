@@ -148,7 +148,6 @@ class Image(Imlib2Texture):
             config.imagepath will be searched for the image. If the url
             starts with C{$} the url will be searched in the context.
         @param context: the context the widget is created in
-        @todo: add keep aspect; aspect ratio is a property on clutter 0.7 so we wait.
         @todo: add default image if not found or still fetched
         @todo: better url handling (see FIXME in the code)
         """

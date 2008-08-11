@@ -215,7 +215,6 @@ class Widget(object):
             try:
                 for var, value in self.__depends.items():
                     if value != repr(eval(var, context)):
-                        # FIXME: maybe the widget can handle this
                         return False
             except AttributeError:
                 return False
