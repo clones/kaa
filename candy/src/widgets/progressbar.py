@@ -34,9 +34,9 @@ from kaa.utils import property
 
 # kaa.candy imports
 from ..core import is_template
-import core
+from container import Group
 
-class Progressbar(core.Group):
+class Progressbar(Group):
     """
     Widget showing a progressbar. Only the bar is drawn, the border has
     to be created ouside this widget.

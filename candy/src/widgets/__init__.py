@@ -34,8 +34,8 @@ High level widgets for kaa.candy
 """
 
 from ..core import Modifier
-from core import Widget, Group, Texture, CairoTexture
-from container import Container
+from core import Widget, Texture, CairoTexture
+from container import Group, LayoutGroup, Container
 from label import Label
 from rectangle import Rectangle
 from progressbar import Progressbar

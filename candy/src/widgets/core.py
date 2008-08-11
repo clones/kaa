@@ -333,7 +333,6 @@ class Widget(object):
             self._sync_rendering = False
             self._candy_render()
         if self._sync_layout:
-            self._sync_layout = False
             self._candy_sync_layout()
         if self._sync_properties:
             self._candy_sync_properties()
@@ -349,6 +348,7 @@ class Widget(object):
         """
         Layout the widget
         """
+        self._sync_layout = False
         x, y = self.__x, self.__y
         if self.__anchor:
             self._obj.set_anchor_point(*self.__anchor)
@@ -524,89 +524,6 @@ class Widget(object):
 
 #     def __del__(self):
 #         print '__del__', self
-
-
-class Group(Widget):
-    """
-    Group widget.
-    """
-    def __init__(self, pos=None, size=None, context=None):
-        """
-        Simple clutter.Group widget
-
-        @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None. A clutter.Group
-            does not respect the given geometry. If set, the geometry can be
-            read with the get_max memeber functions.
-        @param context: the context the widget is created in
-        """
-        super(Group, self).__init__(pos, size, context)
-        self.children = []
-        self.__children_added = []
-        self.__children_removed = []
-        self.__children_restack = []
-
-    def _candy_render(self):
-        """
-        Render the widget
-        """
-        if self._obj is None:
-            self._obj = backend.Group()
-            self._obj.show()
-        # sync removed children
-        while self.__children_removed:
-            child = self.__children_removed.pop(0)
-            if child.parent is None:
-                child._sync_properties['parent'] = None
-                child._candy_sync_properties()
-        # prepare new children
-        while self.__children_added:
-            self.__children_added.pop(0)._sync_properties['parent'] = self._obj
-        # sync all children
-        for child in self.children:
-            if child._sync_required:
-                # require layout when a child changes layout
-                self._sync_layout = self._sync_layout or child._sync_layout
-                child._candy_sync()
-        # restack children
-        while self.__children_restack:
-            child, direction = self.__children_restack.pop(0)
-            if direction == 'top':
-                child._obj.raise_top()
-            if direction == 'bottom':
-                child._obj.lower_bottom()
-
-    def _child_add(self, child):
-        """
-        Add a child and set it visible.
-
-        @param child: child widget
-        """
-        self._queue_sync(rendering=True)
-        self.__children_added.append(child)
-        self.children.append(child)
-
-    def _child_remove(self, child):
-        """
-        Remove a child widget
-
-        @param child: child widget
-        """
-        if child in self.__children_added:
-            self.__children_added.remove(child)
-        else:
-            self.__children_removed.append(child)
-        self._queue_sync(rendering=True)
-        self.children.remove(child)
-
-    def _child_restack(self, child, direction):
-        """
-        Restack a child
-
-        @param child: child widget
-        @param direction: top or bottom
-        """
-        self.__children_restack.append((child, direction))
 
 
 class Texture(Widget):

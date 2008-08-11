@@ -49,7 +49,7 @@ import time
 from kaa.utils import property
 
 # kaa.candy imports imports
-import core
+from container import Group
 from .. import candyxml, animation, is_template, config
 from ..behaviour import MAX_ALPHA, Behaviour, create_behaviour
 
@@ -76,7 +76,7 @@ class ScrollBehaviour(Behaviour):
         for widget in widgets:
             getattr(widget, self._func_name)(x, y)
 
-class ItemGroup(core.Group):
+class ItemGroup(Group):
     def __init__(self, pos):
         super(ItemGroup, self).__init__(pos)
         # x,y coordinates of the items group in the grid. These will never
@@ -85,7 +85,7 @@ class ItemGroup(core.Group):
         # cell number of the upper left corner if all animations are done
         self.cell0 = [ 0, 0 ]
 
-class Grid(core.Group):
+class Grid(Group):
     """
     Grid Widget
     @note: see C{test/flickr.py} for an example

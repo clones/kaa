@@ -82,11 +82,10 @@ def main():
     print 'take a look'
     yield kaa.delay(1)
     print 'scroll down'
-    grid = container.get_element('items')
+    grid = container.get_widget('items')
     grid.scroll_by((0, 2), 1)
     yield kaa.delay(2)
     print 'scroll right'
-    grid = container.get_element('items')
     grid.scroll_by((2, 0), 4)
     yield kaa.delay(2)
     print 'scroll up very fast, more than possible'

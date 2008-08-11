@@ -39,13 +39,13 @@ import cairo
 # kaa.candy imports
 from .. import Modifier
 from .. import backend
-import core
+from container import Group
 
 # get logging object
 log = logging.getLogger('kaa.candy')
 
 
-class Reflection(core.Group):
+class Reflection(Group):
     """
     Widget containing a widget and its reflection actor.
     """

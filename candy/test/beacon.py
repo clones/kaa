@@ -45,7 +45,7 @@ def main():
     context = dict(title=os.path.basename(sys.argv[1]), items=query)
     container = candy.container.thumbnails(context=context)
     container.parent = stage
-    grid = container.get_element('items')
+    grid = container.get_widget('items')
 
     if 1:
         # add effects and hide selection rectangle
