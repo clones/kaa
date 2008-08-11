@@ -66,6 +66,16 @@ class Text(Widget):
         self.text = text
         self.color = color
 
+    def set_context(self, context):
+        """
+        Set a new context.
+
+        @param context: dict of context key,value pairs
+        """
+        super(Text, self).set_context(context)
+        # trigger new context evaluation
+        self.text = self.__text
+
     @property
     def text(self):
         return self.__text
@@ -74,20 +84,22 @@ class Text(Widget):
     def text(self, text):
         self.__text = text
         def eval_expression(matchobj):
-            if self.eval_context(matchobj.groups()[0]):
+            if self.eval_context(matchobj.groups()[0], depends=False):
                 return matchobj.groups()[1]
             return ''
         def replace_context(matchobj):
             # FIXME: maybe the string has markup to use
-            return self.eval_context(matchobj.groups()[0]).replace('&', '&amp;').\
-                   replace('<', '&lt;').replace('>', '&gt;')
+            return self.eval_context(matchobj.groups()[0], depends=False).\
+                   replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         if self.get_context():
             # we have a context, use it
             text = self._regexp_space.sub(' ', text)
             text = self._regexp_if.sub(eval_expression, text)
             text = self._regexp_eval.sub(replace_context, text).strip()
-        self.__text_eval = self._regexp_br.sub('\n', text)
-        self._queue_sync(rendering=True)
+        text = self._regexp_br.sub('\n', text)
+        if self.__text_eval != text:
+            self.__text_eval = text
+            self._queue_sync(rendering=True)
 
     @property
     def color(self):
