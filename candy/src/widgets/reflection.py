@@ -73,8 +73,8 @@ class Reflection(Group):
             self.source.width = self.width
             self.source.height = self.height
         if not self._reflection_obj:
-            # self._reflection_obj = backend.ReflectTexture(self.source._obj, h/2)
-            self._reflection_obj = backend.CairoReflectTexture(self.source._obj)
+            self._reflection_obj = backend.ReflectTexture(self.source._obj, 0)
+            # self._reflection_obj = backend.CairoReflectTexture(self.source._obj)
             self._reflection_obj.show()
             self._reflection_obj.set_opacity(self._reflection_opacity)
             self._obj.add(self._reflection_obj)
@@ -85,6 +85,7 @@ class Reflection(Group):
         """
         super(Reflection, self)._candy_sync_layout()
         x, y, width, height = self.source._obj.get_geometry()
+        self._reflection_obj.set_property('reflection-height', height / 2)
         self._reflection_obj.set_position(x, y + height)
         self._reflection_obj.set_size(width, height)
         self.anchor_point = width/2, height
