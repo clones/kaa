@@ -53,7 +53,6 @@ class Image(object):
 
 @kaa.threaded()
 def load_feed(tag):
-    feed = feedparser.parse('rss')
     feed = feedparser.parse('http://api.flickr.com/services/feeds/photos_public.gne?' +
                             'tags=%s&lang=en-us&format=atom' % tag)
 
