@@ -150,6 +150,7 @@ class Widget(object):
     __y = 0
     __width = 0
     __height = 0
+    __align = None
     __scale = None
     __depth = 0
     __opacity = 255
@@ -157,6 +158,12 @@ class Widget(object):
     # misc
     name = None
     _obj = None
+
+    ALIGN_LEFT = 'left'
+    ALIGN_RIGHT = 'right'
+    ALIGN_TOP = 'top'
+    ALIGN_BOTTOM = 'bottom'
+    ALIGN_CENTER = 'center'
 
     def __init__(self, pos=None, size=None, context=None):
         """
@@ -303,8 +310,8 @@ class Widget(object):
             self._sync_layout = True
         self._sync_required = True
         parent = self.parent
-        if parent and not parent._sync_required:
-            parent._queue_sync()
+        if parent and not parent._sync_rendering:
+            parent._queue_sync(rendering=True)
 
     def _queue_sync_properties(self, *properties):
         """
@@ -314,15 +321,13 @@ class Widget(object):
             self._sync_properties[prop] = True
         self._sync_required = True
         parent = self.parent
-        if parent and not parent._sync_required:
-            parent._queue_sync()
+        if parent and not parent._sync_rendering:
+            parent._queue_sync(rendering=True)
 
     def _candy_sync(self):
         """
         Called from the clutter thread to update the widget.
         """
-        if not self._sync_required:
-            return False
         self._sync_required = False
         if self._sync_rendering:
             self._sync_rendering = False
@@ -333,7 +338,6 @@ class Widget(object):
         if self._sync_properties:
             self._candy_sync_properties()
             self._sync_properties = {}
-        return True
 
     def _candy_render(self):
         """
@@ -345,12 +349,21 @@ class Widget(object):
         """
         Layout the widget
         """
+        x, y = self.__x, self.__y
         if self.__anchor:
             self._obj.set_anchor_point(*self.__anchor)
-            self._obj.set_position(
-                self.__x + self.__anchor[0], self.__y + self.__anchor[1])
-        else:
-            self._obj.set_position(self.__x, self.__y)
+            x += self.__anchor[0]
+            y += self.__anchor[1]
+        if self.__align:
+            if self.__align[0] == Widget.ALIGN_CENTER:
+                x += (self.__width - self._obj.get_width()) / 2
+            if self.__align[0] == Widget.ALIGN_RIGHT:
+                x += self.__width - self._obj.get_width()
+            if self.__align[1] == Widget.ALIGN_CENTER:
+                y += (self.__height - self._obj.get_height()) / 2
+            if self.__align[1] == Widget.ALIGN_BOTTOM:
+                y += self.__height - self._obj.get_height()
+        self._obj.set_position(x, y)
 
     def _candy_sync_properties(self):
         """
@@ -424,6 +437,15 @@ class Widget(object):
     @anchor_point.setter
     def anchor_point(self, (x, y)):
         self.__anchor = x, y
+        self._queue_sync(layout=True)
+
+    @property
+    def align(self):
+        return self.__align or Widget.ALIGN_LEFT, Widget.ALIGN_TOP
+
+    @align.setter
+    def align(self, (x, y)):
+        self.__align = x, y
         self._queue_sync(layout=True)
 
     @property
@@ -524,30 +546,6 @@ class Group(Widget):
         self.__children_removed = []
         self.__children_restack = []
 
-    def _candy_sync(self):
-        """
-        Called from the clutter thread to update the widget.
-        """
-        if not super(Group, self)._candy_sync():
-            return False
-        while self.__children_removed:
-            child = self.__children_removed.pop(0)
-            if child.parent is None:
-                child._sync_properties['parent'] = None
-                child._candy_sync_properties()
-        while self.__children_added:
-            self.__children_added.pop(0)._sync_properties['parent'] = self._obj
-        for child in self.children:
-            if child._sync_required:
-                child._candy_sync()
-        while self.__children_restack:
-            child, direction = self.__children_restack.pop(0)
-            if direction == 'top':
-                child._obj.raise_top()
-            if direction == 'bottom':
-                child._obj.lower_bottom()
-        return True
-
     def _candy_render(self):
         """
         Render the widget
@@ -555,6 +553,28 @@ class Group(Widget):
         if self._obj is None:
             self._obj = backend.Group()
             self._obj.show()
+        # sync removed children
+        while self.__children_removed:
+            child = self.__children_removed.pop(0)
+            if child.parent is None:
+                child._sync_properties['parent'] = None
+                child._candy_sync_properties()
+        # prepare new children
+        while self.__children_added:
+            self.__children_added.pop(0)._sync_properties['parent'] = self._obj
+        # sync all children
+        for child in self.children:
+            if child._sync_required:
+                # require layout when a child changes layout
+                self._sync_layout = self._sync_layout or child._sync_layout
+                child._candy_sync()
+        # restack children
+        while self.__children_restack:
+            child, direction = self.__children_restack.pop(0)
+            if direction == 'top':
+                child._obj.raise_top()
+            if direction == 'bottom':
+                child._obj.lower_bottom()
 
     def _child_add(self, child):
         """
@@ -562,7 +582,7 @@ class Group(Widget):
 
         @param child: child widget
         """
-        self._queue_sync()
+        self._queue_sync(rendering=True)
         self.__children_added.append(child)
         self.children.append(child)
 
@@ -576,7 +596,7 @@ class Group(Widget):
             self.__children_added.remove(child)
         else:
             self.__children_removed.append(child)
-        self._queue_sync()
+        self._queue_sync(rendering=True)
         self.children.remove(child)
 
     def _child_restack(self, child, direction):
@@ -593,6 +613,9 @@ class Texture(Widget):
     """
     Clutter Texture widget.
     """
+
+    __keep_aspect = False
+
     def __init__(self, pos=None, size=None, context=None):
         """
         Simple clutter.Texture widget
@@ -604,6 +627,16 @@ class Texture(Widget):
         super(Texture, self).__init__(pos, size, context)
         self._imagedata = None
 
+    @property
+    def keep_aspect(self):
+        return self.__keep_aspect
+
+    @keep_aspect.setter
+    def keep_aspect(self, keep_aspect):
+        self.__keep_aspect = keep_aspect
+        self._queue_sync_properties('size')
+        self._queue_sync(rendering=True, layout=True)
+
     def set_image(self, image):
         """
         Set kaa.imlib2.Image. The image will be set to the clutter.Texture
@@ -614,7 +647,7 @@ class Texture(Widget):
         if image and not isinstance(image, kaa.imlib2.Image):
             image = kaa.imlib2.Image(image)
         self._imagedata = image
-        self._queue_sync(rendering=True)
+        self._queue_sync(rendering=True, layout=self.__keep_aspect)
 
     def _candy_render(self):
         """
@@ -624,8 +657,15 @@ class Texture(Widget):
             self._obj = backend.Texture()
             self._obj.show()
             self._obj.set_size(self.width, self.height)
-        if 'size' in self._sync_properties:
-            self._obj.set_size(self.width, self.height)
+        if 'size' in self._sync_properties or self.__keep_aspect:
+            width, height = self.width, self.height
+            if self.__keep_aspect and self._imagedata:
+                aspect = float(self._imagedata.width) / self._imagedata.height
+                if int(height * aspect) > width:
+                    height = int(width / aspect)
+                else:
+                    width = int(height * aspect)
+            self._obj.set_size(width, height)
         if not self._imagedata:
             return
         self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,

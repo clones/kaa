@@ -205,11 +205,14 @@ class Properties(dict, Modifier):
         for key, value in element.attributes():
             if key in ('opacity', 'depth'):
                 value = int(value)
+            elif key in ('align',):
+                value = value.split(',')
+            elif key in ('keep_aspect',):
+                value = value.lower() in ('yes', 'true')
             elif key in ('scale','anchor_point'):
                 value = [ float(x) for x in value.split(',') ]
-                if key in ('scale','anchor_point'):
-                    value = int(value[0] * element.get_scale_factor()[0]), \
-                            int(value[1] * element.get_scale_factor()[1])
+                value = int(value[0] * element.get_scale_factor()[0]), \
+                        int(value[1] * element.get_scale_factor()[1])
             properties[key] = value
         return properties
 

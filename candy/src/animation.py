@@ -216,8 +216,9 @@ class Animation(object):
                 signals['candy-update'].emit()
             # TIME DEBUG
             # print 'animations took %2.3f' % (time.time() - t1)
-        finally:
-            _lock_lock.release()
+        except Exception, e:
+            log.exception('animation')
+        _lock_lock.release()
         if cls.__animations:
             return True
         Animation.__active = False

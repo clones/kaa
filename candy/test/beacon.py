@@ -21,7 +21,9 @@ xml = '''
         <grid style="selection" y="50" height="530" cell-width="120" cell-height="80"
             items="items" cell-item="item" orientation="vertical">
             <properties name="items"/>
-            <thumbnail thumbnail="item"/>
+            <thumbnail thumbnail="item">
+                <properties align="center,center"/>
+            </thumbnail>
             <selection>
                 <rectangle color="0x6666cc" width="126" height="86"/>
             </selection>

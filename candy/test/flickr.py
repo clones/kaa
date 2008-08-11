@@ -24,6 +24,7 @@ xml = '''
             <properties name="items"/>
             <container>
                 <image url="$item.thumbnail" height="100">
+                    <properties align="center,center" keep-aspect="true"/>
                     <reflection opacity="80"/>
                 </image>
                 <label y="110" font="Vera:10" color="0xcccccc" align="center">
@@ -52,6 +53,7 @@ class Image(object):
 
 @kaa.threaded()
 def load_feed(tag):
+    feed = feedparser.parse('rss')
     feed = feedparser.parse('http://api.flickr.com/services/feeds/photos_public.gne?' +
                             'tags=%s&lang=en-us&format=atom' % tag)
 

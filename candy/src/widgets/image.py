@@ -151,6 +151,7 @@ class Thumbnail(Image):
         @todo: add default image
         """
         super(Thumbnail, self).__init__(pos, size, None, context)
+        self.keep_aspect = True
         if isinstance(thumbnail, (str, unicode)):
             # get thumbnail from context
             thumbnail = self.eval_context(thumbnail)

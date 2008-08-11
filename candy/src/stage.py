@@ -118,6 +118,19 @@ class Stage(Group):
         """
         Render the widget. This will only be called on stage creation
         """
+        if not self._obj:
+            self._obj = backend.Stage()
+            self._obj.set_size(self.width, self.height)
+            self._obj.connect('key-press-event', self._candy_handle_key)
+            self._obj.set_color(backend.Color(0, 0, 0, 0xff))
+            self._keysyms = {}
+            # get list of clutter key code. We must access the module
+            # first before it is working, therefor we access Left.
+            backend.keysyms.Left
+            for name in dir(backend.keysyms):
+                if not name.startswith('_'):
+                    self._keysyms[getattr(backend.keysyms, name)] = name
+            self._obj.show()
         if 'size' in self._sync_properties:
             # object already created but user changed the size
             # FIXME: this information has to be passed on to children in a later
@@ -125,16 +138,4 @@ class Stage(Group):
             # percentage of container.
             self._obj.set_size(self.width, self.height)
             self.signals['resize'].emit()
-            return
-        self._obj = backend.Stage()
-        self._obj.set_size(self.width, self.height)
-        self._obj.connect('key-press-event', self._candy_handle_key)
-        self._obj.set_color(backend.Color(0, 0, 0, 0xff))
-        self._keysyms = {}
-        # get list of clutter key code. We must access the module
-        # first before it is working, therefor we access Left.
-        backend.keysyms.Left
-        for name in dir(backend.keysyms):
-            if not name.startswith('_'):
-                self._keysyms[getattr(backend.keysyms, name)] = name
-        self._obj.show()
+        super(Stage, self)._candy_render()

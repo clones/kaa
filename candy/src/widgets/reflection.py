@@ -60,31 +60,34 @@ class Reflection(core.Group):
         self.context_sensitive = widget.context_sensitive
         self.source = widget
         self.source.parent = self
+        self.source.x = self.source.y = 0
         self._reflection_opacity = opacity
+        self._reflection_obj = None
 
     def _candy_render(self):
         """
         Render the widget
         """
+        super(Reflection, self)._candy_render()
         if 'size' in self._sync_properties:
-            log.error('FIXME: kaa.candy.Reflection does not support resize')
-            return
-        self._obj = backend.Group()
-        self._obj.show()
-        self.source._sync_properties['parent'] = self._obj
-        self.source._candy_sync()
-        # FIXME: do not access _obj of a different widget
-        actor = self.source._obj
-        w, h = actor.get_size()
-        self.anchor_point = w/2, h
-        actor.set_position(0,0)
-        reflection = backend.ReflectTexture(actor, h/2)
-        # reflection = backend.CairoReflectTexture(actor)
-        reflection.set_size(w, h)
-        reflection.set_position(0, h)
-        reflection.show()
-        self._obj.add(reflection)
-        reflection.set_opacity(self._reflection_opacity)
+            self.source.width = self.width
+            self.source.height = self.height
+        if not self._reflection_obj:
+            # self._reflection_obj = backend.ReflectTexture(self.source._obj, h/2)
+            self._reflection_obj = backend.CairoReflectTexture(self.source._obj)
+            self._reflection_obj.show()
+            self._reflection_obj.set_opacity(self._reflection_opacity)
+            self._obj.add(self._reflection_obj)
+
+    def _candy_sync_layout(self):
+        """
+        Layout the widget
+        """
+        super(Reflection, self)._candy_sync_layout()
+        x, y, width, height = self.source._obj.get_geometry()
+        self._reflection_obj.set_position(x, y + height)
+        self._reflection_obj.set_size(width, height)
+        self.anchor_point = width/2, height
 
     def try_context(self, context):
         """
