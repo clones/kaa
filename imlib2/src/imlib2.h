@@ -41,10 +41,10 @@ typedef int Py_ssize_t;
 extern pthread_mutex_t imlib2_mutex;
 
 #define PyImlib2_BEGIN_CRITICAL_SECTION \
-    pthread_mutex_lock(&imlib2_mutex); \
-    Py_BEGIN_ALLOW_THREADS
+    Py_BEGIN_ALLOW_THREADS \
+    pthread_mutex_lock(&imlib2_mutex);
 
 #define PyImlib2_END_CRITICAL_SECTION \
-    Py_END_ALLOW_THREADS \
-    pthread_mutex_unlock(&imlib2_mutex);
+    pthread_mutex_unlock(&imlib2_mutex); \
+    Py_END_ALLOW_THREADS
 
