@@ -40,21 +40,23 @@ from kaa.utils import property
 
 # kaa.candy imports
 from ..core import Color, Font
-from image import CairoTexture
+from .. import backend
+from widget import Widget
 
 # get logging object
 log = logging.getLogger('kaa.candy')
 
 
-class Label(CairoTexture):
+class Label(Widget):
     """
     Text label widget based on cairo.
     """
     candyxml_name = 'label'
     context_sensitive = True
 
-    def __init__(self, pos, size, font, color, text, align='left',
-                 context=None):
+    __text_eval = ''
+
+    def __init__(self, pos, size, font, color, text, context=None):
         """
         Create a new label widget
 
@@ -66,7 +68,6 @@ class Label(CairoTexture):
         @param text: Text to render. This can also be a context based string like
             C{$text} with the context containing C{text='My String'}. This will
             make the widget context sensitive.
-        @param align: Text alignment. One of 'left' (default), 'center' or 'right'
         @param context: the context the widget is created in
         """
         if size[1] is None:
@@ -74,8 +75,17 @@ class Label(CairoTexture):
         super(Label, self).__init__(pos, size, context)
         self.font = font
         self.text = text
-        self.__align = align
         self.color = color
+
+    def set_context(self, context):
+        """
+        Set a new context.
+
+        @param context: dict of context key,value pairs
+        """
+        super(Label, self).set_context(context)
+        # trigger new context evaluation
+        self.text = self.__text
 
     @property
     def text(self):
@@ -85,12 +95,13 @@ class Label(CairoTexture):
     def text(self, text):
         self.__text = text
         def replace_context(matchobj):
-            return self.eval_context(matchobj.groups()[0])
+            return self.eval_context(matchobj.groups()[0], depends=False)
         if self.get_context():
             # we have a context, use it
             text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
-        self.__text_eval = text
-        self._queue_sync(rendering=True)
+        if self.__text_eval != text:
+            self.__text_eval = text
+            self._queue_sync(rendering=True)
 
     @property
     def color(self):
@@ -121,51 +132,51 @@ class Label(CairoTexture):
         """
         Render the widget
         """
-        if 'size' in self._sync_properties:
-            log.error('FIXME: kaa.candy.Label does not support resize')
-            return
-        super(Label, self)._candy_render()
+        fade = False
+        width = self.__font.get_width(self.__text_eval)
+        height = self.__font.get_height(Font.MAX_HEIGHT)
+        if width > self.width:
+            fade = True
+            width = self.width
+        if self._obj is None:
+            self._obj = backend.CairoTexture(width, height)
+            self._obj.show()
+        else:
+            if width != self._obj.get_width() or height != self._obj.get_height():
+                print width, height, self.__text_eval
+                self._obj.set_size(width, height)
+                self._obj.surface_resize(width, height)
+            self._obj.clear()
         # draw new text string
         context = self._obj.cairo_create()
         context.set_operator(cairo.OPERATOR_SOURCE)
         context.set_source_rgba(*self.__color.to_cairo())
         context.select_font_face(self.__font.name, cairo.FONT_SLANT_NORMAL)
         context.set_font_size(self.__font.size)
-        x, y, w, h = context.text_extents(self.__text_eval)[:4]
-        # http://www.tortall.net/mu/wiki/CairoTutorial
-        if self.__align == 'left':
-            x = -x
-        if self.__align == 'center':
-            x = (self.width - w) / 2 - x
-        if self.__align == 'right':
-            x = self.width - w - x
-        if x < 0:
-            x = 0
-            w = self.width
-            s = cairo.LinearGradient(0, 0, w, 0)
+        if fade:
+            s = cairo.LinearGradient(0, 0, width, 0)
             c = self.__color.to_cairo()
             s.add_color_stop_rgba(0, *c)
             # 50 pixel fading
-            s.add_color_stop_rgba(1 - (50.0 / w), *c)
+            s.add_color_stop_rgba(1 - (50.0 / width), *c)
             s.add_color_stop_rgba(1, c[0], c[1], c[2], 0)
             context.set_source(s)
-        context.move_to(x, context.font_extents()[0])
+        context.move_to(0, context.font_extents()[0])
         context.show_text(self.__text_eval)
-        #del context
 
     @classmethod
     def candyxml_parse(cls, element):
         """
         Parse the candyxml element for parameter to create the widget. Example::
-          <label x='10' y='50' width='100' font='Vera:24' color='0xffffffff'
-              text='my string' align='left'/>
-
+          <label y='50' width='100' font='Vera:24' color='0xffffffff'>
+              <properties align='center,top'/>
+              text to show
+          </label>
         The text can also be a context based variable like C{$text}. This
         will make the widget context sensitive.
         """
         return super(Label, cls).candyxml_parse(element).update(
-            font=element.font, color=element.color,
-            text=element.content, align=element.align)
+            font=element.font, color=element.color, text=element.content)
 
 
 # register widget to candyxml

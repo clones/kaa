@@ -129,6 +129,16 @@ class Font(object):
             return info
         return info[field]
 
+    def get_width(self, text):
+        """
+        Get width of the given string
+        """
+        if self.__cairo_surface is None:
+            self.__cairo_surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 10, 10)
+        c = cairo.Context(self.__cairo_surface)
+        c.select_font_face(self.name, cairo.FONT_SLANT_NORMAL)
+        c.set_font_size(self.size)
+        return int(c.text_extents(text)[2]) + 1
 
 class Modifier(object):
     """
