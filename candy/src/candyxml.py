@@ -319,9 +319,13 @@ class CandyXML(xml.sax.ContentHandler):
         """
         if self._root is None:
             self._root = name, attrs
-            g = attrs['geometry'].split('x')
-            self._scale = float(self._geometry[0]) / int(g[0]), \
-                          float(self._geometry[1]) / int(g[1])
+            w, h = [ int(v) for v in attrs['geometry'].split('x') ]
+            if not self._geometry:
+                self._scale = 1.0, 1.0
+                self.width, self.height = w, h
+            else:
+                self._scale = float(self._geometry[0]) / w, \
+                              float(self._geometry[1]) / h
             return
         element = Element(name, self._current or self, attrs, self._scale)
         if self._current is not None:
@@ -352,13 +356,12 @@ class CandyXML(xml.sax.ContentHandler):
             self._current.content += c
 
 
-def parse(data, size):
+def parse(data, size=None):
     """
     Load a candyxml file based on the given screen resolution.
     @param data: filename of the XML file to parse or XML data
     @param size: width and height of the window to adjust values in the XML file
     @returns: root element attributes and dict of parsed elements
-    @todo: support size=None
     """
     return CandyXML(data, size).get_elemets()
 
