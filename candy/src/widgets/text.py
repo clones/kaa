@@ -39,10 +39,10 @@ from kaa.utils import property
 # kaa.candy imports
 from ..core import Color, Font
 from .. import backend
-import core
+from widget import Widget
 
 
-class Text(core.Widget):
+class Text(Widget):
     """
     Complex text widget.
     """

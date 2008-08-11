@@ -34,7 +34,7 @@ High level widgets for kaa.candy
 """
 
 from ..core import Modifier
-from core import Widget
+from widget import Widget
 from container import Group, LayoutGroup, Container
 from label import Label
 from rectangle import Rectangle

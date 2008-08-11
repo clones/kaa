@@ -138,5 +138,5 @@ class ReflectionModifier(Modifier):
         """
         return cls(opacity = int(element.opacity or 50))
 
-# register widget to the core
+# register widget to candyxml
 ReflectionModifier.candyxml_register()

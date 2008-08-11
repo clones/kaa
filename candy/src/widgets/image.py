@@ -42,7 +42,7 @@ from kaa.utils import property
 
 # kaa.candy imports imports
 from .. import config, backend
-from core import Widget
+from widget import Widget
 
 # get logging object
 log = logging.getLogger('kaa.candy')

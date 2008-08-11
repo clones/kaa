@@ -41,7 +41,7 @@ from kaa.utils import property
 # kaa.candy imports
 from ..core import is_template
 from .. import backend
-from core import Widget
+from widget import Widget
 
 # get logging object
 log = logging.getLogger('kaa.candy')
