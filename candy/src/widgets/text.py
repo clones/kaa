@@ -121,6 +121,7 @@ class Text(Widget):
         if not isinstance(color, Color):
             color = Color(color)
         self.__color = color
+        self._queue_sync(rendering=True)
 
     @property
     def font(self):

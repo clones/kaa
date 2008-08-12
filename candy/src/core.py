@@ -64,15 +64,17 @@ class Color(list):
         """
         if len(col) > 1:
             return super(Color, self).__init__(col)
-        # Convert a 32-bit (A)RGB color
+        col = col[0]
         if col == None:
             return super(Color, self).__init__((0,0,0,255))
-        if hasattr(col[0], 'red'):
+        if hasattr(col, 'red'):
             # clutter.Color object
-            return super(Color, self).__init__((
-                col[0].red, col[0].green, col[0].blue, col[0].alpha))
-        # convert 0x???????? string
-        col = long(col[0], 16)
+            return super(Color, self).__init__((col.red, col.green, col.blue, col.alpha))
+        if isinstance(col, (list, tuple)):
+            # tuple as one argument
+            return super(Color, self).__init__(col)
+        # Convert a 32-bit ARGB string 0xaarrggbb
+        col = long(col, 16)
         a = 255 - ((col >> 24) & 0xff)
         r = (col >> 16) & 0xff
         g = (col >> 8) & 0xff
