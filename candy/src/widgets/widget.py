@@ -150,7 +150,8 @@ class Widget(object):
     __y = 0
     __width = 0
     __height = 0
-    __align = None
+    __xalign = None
+    __yalign = None
     __scale = None
     __depth = 0
     __opacity = 255
@@ -353,14 +354,15 @@ class Widget(object):
             self._obj.set_anchor_point(*self.__anchor)
             x += self.__anchor[0]
             y += self.__anchor[1]
-        if self.__align:
-            if self.__align[0] == Widget.ALIGN_CENTER:
+        if self.__xalign:
+            if self.__xalign == Widget.ALIGN_CENTER:
                 x += (self.__width - self._obj.get_width()) / 2
-            if self.__align[0] == Widget.ALIGN_RIGHT:
+            if self.__xalign == Widget.ALIGN_RIGHT:
                 x += self.__width - self._obj.get_width()
-            if self.__align[1] == Widget.ALIGN_CENTER:
+        if self.__yalign:
+            if self.__yalign == Widget.ALIGN_CENTER:
                 y += (self.__height - self._obj.get_height()) / 2
-            if self.__align[1] == Widget.ALIGN_BOTTOM:
+            if self.__yalign == Widget.ALIGN_BOTTOM:
                 y += self.__height - self._obj.get_height()
         self._obj.set_position(x, y)
 
@@ -439,12 +441,21 @@ class Widget(object):
         self._queue_sync(layout=True)
 
     @property
-    def align(self):
-        return self.__align or Widget.ALIGN_LEFT, Widget.ALIGN_TOP
+    def xalign(self):
+        return self.__xalign or Widget.ALIGN_LEFT
 
-    @align.setter
-    def align(self, (x, y)):
-        self.__align = x, y
+    @xalign.setter
+    def xalign(self, align):
+        self.__xalign = align
+        self._queue_sync(layout=True)
+
+    @property
+    def yalign(self):
+        return self.__yalign or Widget.ALIGN_TOP
+
+    @yalign.setter
+    def yalign(self, align):
+        self.__yalign = align
         self._queue_sync(layout=True)
 
     @property

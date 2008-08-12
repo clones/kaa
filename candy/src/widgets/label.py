@@ -169,7 +169,7 @@ class Label(Widget):
         """
         Parse the candyxml element for parameter to create the widget. Example::
           <label y='50' width='100' font='Vera:24' color='0xffffffff'>
-              <properties align='center,top'/>
+              <properties xalign='center'/>
               text to show
           </label>
         The text can also be a context based variable like C{$text}. This

@@ -218,8 +218,8 @@ class Properties(dict, Modifier):
         for key, value in element.attributes():
             if key in ('opacity', 'depth'):
                 value = int(value)
-            elif key in ('align',):
-                value = value.split(',')
+            elif key in ('xalign', 'yalign'):
+                value = value.lower()
             elif key in ('keep_aspect',):
                 value = value.lower() in ('yes', 'true')
             elif key in ('scale','anchor_point'):

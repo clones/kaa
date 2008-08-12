@@ -16,14 +16,14 @@ xml = '''
 <candyxml geometry="800x600">
     <container name="thumbnails" x="10" y="10" width="780" height="580">
         <label font="Vera:24" color="0xcccccc">
-            <properties align="center,top"/>
+            <properties xalign="center"/>
             $title
         </label>
         <grid style="selection" y="50" height="530" cell-width="120" cell-height="80"
             items="items" cell-item="item" orientation="vertical">
             <properties name="items"/>
             <thumbnail thumbnail="item">
-                <properties align="center,center"/>
+                <properties xalign="center" yalign="center"/>
             </thumbnail>
             <selection>
                 <rectangle color="0x6666cc" width="126" height="86"/>
