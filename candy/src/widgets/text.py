@@ -49,8 +49,6 @@ class Text(Widget):
     candyxml_name = 'text'
     context_sensitive = True
 
-    ALIGN_CENTER = pango.ALIGN_CENTER
-
     _regexp_space = re.compile('[\n\t \r][\n\t \r]+')
     _regexp_if = re.compile('#if(.*?):(.*?)#fi ?')
     _regexp_eval = re.compile('\$([a-zA-Z_\.\[\]]*)')
@@ -59,9 +57,22 @@ class Text(Widget):
     __text = __text_eval = ''
     __color = None
 
-    def __init__(self, pos, size, text, font, color, align, context=None):
+    def __init__(self, pos, size, text, font, color, align=None, context=None):
+        """
+        Create Text widget. Unlike a Label a Text widget supports multi-line
+        text and markup. See the pango markup documentation.
+
+        @note: setting yalign on a Text widget as no effect
+
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget
+        @param text: text to show
+        @param color: kaa.candy.Color to fill the text
+        @param align: xalign value, convenience to set Text.xalign
+        @param context: the context the widget is created in
+        """
         super(Text, self).__init__(pos, size, context)
-        self.__align = align
+        self.xalign = align
         self.font = font
         self.text = text
         self.color = color
@@ -130,19 +141,36 @@ class Text(Widget):
             self._obj = backend.Label()
             self._obj.show()
             self._obj.set_size(self.width, self.height)
+            # FIXME: bad style, see if clutter 0.8 makes it possible to cut the
+            # text. PangoLayout seems to have a set_height function but I can
+            # not find it using clutter/pygtk
+            # http://library.gnome.org/devel/pango/1.20
+            # layout = self._obj.get_layout()
+            # layout.set_height(self.height)
+            # Setting yalign also has no effect because there seems to be no
+            # way to get the height used to draw the text.
+            self._obj.set_clip(0, 0, self.width, self.height)
         if 'size' in self._sync_properties:
             self._obj.set_size(self.width, self.height)
-        layout = self._obj.get_layout()
+            self._obj.set_clip(0, 0, self.width, self.height)
         self._obj.set_line_wrap(True)
         self._obj.set_line_wrap_mode(pango.WRAP_WORD_CHAR)
         self._obj.set_use_markup(True)
-        # requires pango 1.20
-        # layout.set_height(70)
-        if self.__align == 'center':
-            self._obj.set_alignment(Text.ALIGN_CENTER)
         self._obj.set_font_name("%s %spx" % (self.__font.name, self.__font.size))
         self._obj.set_color(backend.Color(*self.__color))
         self._obj.set_text(self.__text_eval)
+
+    def _candy_sync_layout(self):
+        """
+        Layout the widget
+        """
+        super(Text, self)._candy_sync_layout()
+        if self.xalign == Widget.ALIGN_LEFT:
+            self._obj.set_alignment(Text.ALIGN_LEFT)
+        if self.xalign == Widget.ALIGN_CENTER:
+            self._obj.set_alignment(Text.ALIGN_CENTER)
+        if self.xalign == Widget.ALIGN_RIGHT:
+            self._obj.set_alignment(Text.ALIGN_RIGHT)
 
     @classmethod
     def candyxml_parse(cls, element):
