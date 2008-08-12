@@ -29,7 +29,10 @@
 #
 # -----------------------------------------------------------------------------
 
+from kaa.utils import property
+
 # kaa.candy imports
+from ..core import Color
 from image import CairoTexture
 
 class Rectangle(CairoTexture):
@@ -44,18 +47,62 @@ class Rectangle(CairoTexture):
         Create a Rectange widget
 
         @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None.
+        @param size: (width,height) geometry of the widget.
         @param color: kaa.candy.Color to fill the rectangle
         @param border_size: size of the rectangle border
         @param border_color: kaa.candy.Color of the border. This argument is
             not needed when border_size is 0.
-        @param radius: radius for rectnagles with round edges.
+        @param radius: radius for a rectangle with round edges.
         """
         super(Rectangle, self).__init__(pos, size)
-        self._radius = radius
-        self._color = color
-        self._border_size = border_size
-        self._border_color = border_color
+        if color and not isinstance(color, Color):
+            color = Color(color)
+        if border_color and not isinstance(border_color, Color):
+            border_color = Color(border_color)
+        self.__color = color
+        self.__radius = radius
+        self.__border_size = border_size
+        self.__border_color = border_color
+
+    @property
+    def color(self):
+        return self.__color
+
+    @color.setter
+    def color(self, color):
+        if color and not isinstance(color, Color):
+            color = Color(color)
+        self.__color = color
+        self._queue_sync(rendering=True)
+
+    @property
+    def border_size(self):
+        return self.__border_size
+
+    @border_size.setter
+    def border_size(self, size):
+        self.__border_size = size
+        self._queue_sync(rendering=True)
+
+    @property
+    def border_color(self):
+        return self.__border_color
+
+    @border_color.setter
+    def border_color(self, color):
+        if color and not isinstance(color, Color):
+            color = Color(color)
+        self.__border_color = color
+        self._queue_sync(rendering=True)
+
+    @property
+    def radius(self):
+        return self.__radius
+
+    @radius.setter
+    def radius(self, radius):
+        self.__radius = radius
+        self._queue_sync(rendering=True)
 
     def _candy_render(self):
         """
@@ -64,27 +111,27 @@ class Rectangle(CairoTexture):
         super(Rectangle, self)._candy_render()
         context = self._obj.cairo_create()
 
-        if not self._border_size and not self._radius:
+        if not self.__border_size and not self.__radius:
             # A simple fill on the surface. Using clutter.Rectangle
             # would be faster here but we do not need that much normal
-            # rectangles and it would make things more complicated with two
-            # widgets having the same name.
-            context.set_source_rgba(*self._color.to_cairo())
+            # rectangles and it would make things more complicated
+            context.set_source_rgba(*self.__color.to_cairo())
             context.paint()
             return
 
-        stroke = self._border_size or 1
+        stroke = self.__border_size or 1
         width  = self.width - 2 * stroke
         height = self.height - 2 * stroke
-        radius = min(self._radius, width, height)
+        radius = min(self.__radius, width, height)
 
         x0 = stroke
         y0 = stroke
         x1 = x0 + width
         y1 = y0 + height
 
-        if self._color:
-            context.set_source_rgba(*self._color.to_cairo())
+        if self.__color:
+            print self.__color
+            context.set_source_rgba(*self.__color.to_cairo())
             context.set_line_width(stroke)
             context.move_to  (x0, y0 + radius)
             context.curve_to (x0, y0, x0 , y0, x0 + radius, y0)
@@ -97,8 +144,9 @@ class Rectangle(CairoTexture):
             context.close_path()
             context.fill()
 
-        if self._border_size and self._border_color:
-            context.set_source_rgba(*self._border_color.to_cairo())
+        if self.__border_size and self.__border_color:
+            print self.__border_color
+            context.set_source_rgba(*self.__border_color.to_cairo())
             context.set_line_width(stroke)
             context.move_to  (x0, y0 + radius)
             context.curve_to (x0 , y0, x0 , y0, x0 + radius, y0)
