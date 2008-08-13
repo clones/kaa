@@ -104,8 +104,7 @@ class Client(object):
         if not os.path.exists(filename):
             raise OSError('no such file or directory %s' % filename)
         q = Query(self, filename=filename)
-        if not q.valid:
-            yield q.wait()
+        yield kaa.inprogress(q)
         yield q.get()
 
 

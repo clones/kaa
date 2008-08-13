@@ -188,12 +188,12 @@ class Feed(object):
         # get directory information
         query = kaa.beacon.query(filename=self.dirname)
         if not query.valid:
-            yield query.wait()
+            yield kaa.inprogress(query)
         beacondir = query.get()
         
         listing = beacondir.list()
         if not listing.valid:
-            yield listing.wait()
+            yield kaa.inprogress(listing)
             
         allurls = [ f.url for f in listing ]
 
@@ -288,7 +288,7 @@ class Feed(object):
         # get directory information
         query = kaa.beacon.query(filename=self.dirname)
         if not query.valid:
-            yield query.wait()
+            yield kaa.inprogress(query)
         beacondir = query.get()
         allurls = [ e[0] for e in self._entries ]
         listing = beacondir.list()

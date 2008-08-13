@@ -90,9 +90,9 @@ class Query(object):
     # -------------------------------------------------------------------------
 
 
-    def wait(self):
+    def __inprogress__(self):
         """
-        Return InProgress object or NotFinished when the object is valid.
+        Return InProgress object to wait for the query
         """
         return self._async
 
@@ -220,9 +220,8 @@ class Query(object):
 
         self.valid = True
         self.signals['changed'].emit()
-        if isinstance(self._async, kaa.InProgress):
+        if not self._async.finished:
             self._async.finish(self)
-            self._async = kaa.NotFinished
 
 
     def __repr__(self):
