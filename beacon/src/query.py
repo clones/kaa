@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -62,6 +62,9 @@ class Query(object):
     NEXT_ID = 1
 
     def __init__(self, client, **query):
+
+        # FIXME: add a complete signal on first scan
+        # FIXME: progress and up-to-date seems not used
         self.signals = {
             'changed'   : kaa.Signal(),
             'progress'  : kaa.Signal(),
@@ -132,6 +135,7 @@ class Query(object):
         kaa.main.step() if self.valid is False.
         """
         while not self.valid:
+            # FIXME: do not use kaa.main.step here
             kaa.main.step()
         return self.result.__iter__()
 
@@ -143,6 +147,7 @@ class Query(object):
         list.
         """
         while not self.valid:
+            # FIXME: do not use kaa.main.step here
             kaa.main.step()
         return self.result[key]
 
@@ -162,6 +167,7 @@ class Query(object):
         kaa.main.step() if self.valid is False.
         """
         while not self.valid:
+            # FIXME: do not use kaa.main.step here
             kaa.main.step()
         return len(self.result)
 
@@ -172,6 +178,7 @@ class Query(object):
         self.valid is False.
         """
         while not self.valid:
+            # FIXME: do not use kaa.main.step here
             kaa.main.step()
         if filter == None:
             # no spcial filter
@@ -192,6 +199,7 @@ class Query(object):
         """
         if not self._client.is_connected():
             # wait until the client is connected
+            # FIXME: maybe the server is not connected
             yield kaa.inprogress(self._client.signals['connect'])
 
         if 'parent' in query and isinstance(query['parent'], Item) and \
@@ -233,8 +241,10 @@ class Query(object):
 
     def __del__(self):
         """
-        Delete monitor on obejct delete.
+        Delete monitor on object delete.
         """
+        # FIXME: replace the __del__ with a weakref monitoring all
+        # queries. There is already a weakref in client.py
         if self.monitoring:
             self.monitor(False)
 
