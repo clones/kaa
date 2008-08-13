@@ -130,7 +130,6 @@ class Rectangle(CairoTexture):
         y1 = y0 + height
 
         if self.__color:
-            print self.__color
             context.set_source_rgba(*self.__color.to_cairo())
             context.set_line_width(stroke)
             context.move_to  (x0, y0 + radius)
@@ -145,7 +144,6 @@ class Rectangle(CairoTexture):
             context.fill()
 
         if self.__border_size and self.__border_color:
-            print self.__border_color
             context.set_source_rgba(*self.__border_color.to_cairo())
             context.set_line_width(stroke)
             context.move_to  (x0, y0 + radius)
