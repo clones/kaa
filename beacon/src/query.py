@@ -192,7 +192,7 @@ class Query(object):
         """
         if not self._client.is_connected():
             # wait until the client is connected
-            yield kaa.InProgressCallback(self._client.signals['connect'])
+            yield kaa.inprogress(self._client.signals['connect'])
 
         if 'parent' in query and isinstance(query['parent'], Item) and \
                not query['parent']._beacon_id:

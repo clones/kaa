@@ -139,7 +139,7 @@ class Client(object):
         self._device_add(dev)
 
 
-    @kaa.coroutine(synchronize = True)
+    @kaa.coroutine(policy=kaa.POLICY_SYNCHRONIZED)
     def _device_scanned(self, metadata, dev):
 
         # FIXME: ACTIVE WAITING:

@@ -99,7 +99,7 @@ class ReadLock(object):
         Return InProgress object to wait until the db is
         not used by any reader.
         """
-        return kaa.InProgressCallback(self.signals['unlock'])
+        return kaa.inprogress(self.signals['unlock'])
 
 
 

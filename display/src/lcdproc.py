@@ -232,7 +232,7 @@ class LCD(object):
             kaa.OneShotTimer(self._connect, server, port).start(10)
             yield False
         self._send('hello')
-        wait = kaa.InProgressCallback(self.socket.signals['read'])
+        wait = kaa.inprogress(self.socket.signals['read'])
         yield wait
         line = wait.get_result().strip().split()
         self._send('client_set name kaa')
