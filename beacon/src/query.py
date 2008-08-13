@@ -221,7 +221,7 @@ class Query(object):
         self.valid = True
         self.signals['changed'].emit()
         if not self._async.finished:
-            self._async.finish(self)
+            self._async.finish(True)
 
 
     def __repr__(self):
