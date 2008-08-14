@@ -76,6 +76,13 @@ class Progressbar(Group):
         self.__progress = value
         self._queue_sync(rendering=True)
 
+    def inc(self):
+        """
+        Increase progress by one
+        """
+        self.__progress += 1
+        self._queue_sync(rendering=True)
+        
     def _candy_render(self):
         """
         Render the widget
