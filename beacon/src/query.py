@@ -75,14 +75,13 @@ class Query(object):
 
         # public variables
         self.monitoring = False
-        self.valid = False
         self.result = []
         # internal variables
         self._query = query
         self._client = client
         # some shortcuts from the client
         self._rpc = self._client.rpc
-        # InProgress object or NotFinished
+        # InProgress object
         self._async = kaa.InProgress()
         # start inititial query
         self._beacon_start_query(query)
@@ -131,24 +130,16 @@ class Query(object):
 
     def __iter__(self):
         """
-        Iterate through theresults. This function will block using
-        kaa.main.step() if self.valid is False.
+        Iterate through the results.
         """
-        while not self.valid:
-            # FIXME: do not use kaa.main.step here
-            kaa.main.step()
         return self.result.__iter__()
 
 
     def __getitem__(self, key):
         """
-        Get a specific item in the results. This function will raise an
-        exception if the object is still invalid or if the result is not a
+        Get a specific item in the results.
         list.
         """
-        while not self.valid:
-            # FIXME: do not use kaa.main.step here
-            kaa.main.step()
         return self.result[key]
 
 
@@ -163,23 +154,15 @@ class Query(object):
 
     def __len__(self):
         """
-        Get length of results. This function will block using
-        kaa.main.step() if self.valid is False.
+        Get length of results.
         """
-        while not self.valid:
-            # FIXME: do not use kaa.main.step here
-            kaa.main.step()
         return len(self.result)
 
 
     def get(self, filter=None):
         """
-        Get the result. This function will block using kaa.main.step() if
-        self.valid is False.
+        Get the result.
         """
-        while not self.valid:
-            # FIXME: do not use kaa.main.step here
-            kaa.main.step()
         if filter == None:
             # no spcial filter
             return self.result
@@ -225,8 +208,6 @@ class Query(object):
                 self.result = yield self.result
         finally:
             self._rpc('db.unlock')
-
-        self.valid = True
         self.signals['changed'].emit()
         if not self._async.finished:
             self._async.finish(True)

@@ -108,18 +108,15 @@ class Client(object):
         yield q.get()
 
 
+    @kaa.coroutine()
     def query(self, **query):
         """
         Query the database.
         """
-        if not kaa.is_mainthread():
-            # sqlite db was opened in the mainthread, so we must perform
-            # all our queries there as well.
-            return kaa.MainThreadCallback(self.query)(**query).wait()
-
         result = Query(self, **query)
         self._queries.append(weakref(result))
-        return result
+        yield kaa.inprogress(result)
+        yield result
 
 
     def add_item(self, url, type, parent, **kwargs):

@@ -119,9 +119,9 @@ class BeaconSearch:
             self.liststore.append(e)
         
 
-
+    @kaa.coroutine()
     def enter_callback(self, widget, data=None):
-        self.search = kaa.beacon.query(keywords=data.get_text(), type='audio')
+        self.search = yield kaa.beacon.query(keywords=data.get_text(), type='audio')
         self.search.signals['changed'].connect(self._update_list)
         self.search.monitor()
         self._update_list()

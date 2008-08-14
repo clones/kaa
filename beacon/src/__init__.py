@@ -129,6 +129,8 @@ def query(**args):
     """
     Query the database. This function will raise an exception if the
     client is not connected and the server is not running for a connect.
+
+    @returns InProgress object with a kaa.beacon.Query
     """
     if not _client:
         connect()

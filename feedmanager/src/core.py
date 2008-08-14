@@ -186,14 +186,8 @@ class Feed(object):
         log.info('update feed %s', self.url)
 
         # get directory information
-        query = kaa.beacon.query(filename=self.dirname)
-        if not query.valid:
-            yield kaa.inprogress(query)
-        beacondir = query.get()
-        
-        listing = beacondir.list()
-        if not listing.valid:
-            yield kaa.inprogress(listing)
+        beacondir = yield kaa.beacon.get(self.dirname)
+        listing = yield beacondir.list()
             
         allurls = [ f.url for f in listing ]
 
@@ -264,7 +258,7 @@ class Feed(object):
                 continue
             if not filename:
                 # delete old entries from beacon
-                for f in beacondir.list():
+                for f in (yield beacondir.list()):
                     if f.url == url:
                         f.delete()
             elif os.path.isfile(filename):
@@ -286,17 +280,9 @@ class Feed(object):
             return
 
         # get directory information
-        query = kaa.beacon.query(filename=self.dirname)
-        if not query.valid:
-            yield kaa.inprogress(query)
-        beacondir = query.get()
+        beacondir = yield kaa.beacon.get(self.dirname)
         allurls = [ e[0] for e in self._entries ]
-        listing = beacondir.list()
-        if isinstance(listing, kaa.InProgress):
-            # FIXME: can this happen? Shouldn't list always return a Query
-            # object and that may or may not be finished?
-            listing = yield listing
-        for entry in listing:
+        for entry in (yield beacondir.list()):
             if entry.url in allurls:
                 log.info('delete %s', entry.url)
                 entry.delete()

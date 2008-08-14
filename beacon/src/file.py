@@ -115,12 +115,12 @@ class File(Item):
 
     def list(self, recursive=False):
         """
-        Interface to kaa.beacon: List all files in the directory.
+        List all files in a directory or show subitems of a file.
+
+        @returns: InProgress object of a kaa.beacon.Query
         """
-        # This function is only used by the client
-        if recursive:
-            return self._beacon_controller().query(parent=self, recursive=True)
-        return self._beacon_controller().query(parent=self)
+        # This function is not used internally
+        return self._beacon_controller().query(parent=self, recursive=recursive)
 
 
     def scan(self):
@@ -128,7 +128,7 @@ class File(Item):
         Request the item to be scanned.
         Returns either False if not connected or an InProgress object.
         """
-        # This function is only used by the client
+        # This function is only used by client.py used internally
         result = self._beacon_controller()._beacon_parse(self)
         if isinstance(result, kaa.InProgress):
             result.connect_once(self._beacon_database_update)

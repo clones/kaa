@@ -12,5 +12,7 @@ for k in keys:
     regexp += '[' + phone_keymap[int(k)-1] + phone_keymap[int(k)-1].upper() + ']'
 regexp = kaa.beacon.QExpr('regexp', u'^%s.*' % regexp)
 
-for m in kaa.beacon.query(type='audio', title=regexp).get():
+ip = kaa.beacon.query(type='audio', title=regexp)
+ip.wait()
+for m in op.get_result().get():
     print m

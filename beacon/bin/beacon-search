@@ -220,7 +220,7 @@ def main():
 
 
     if mode == 'list-media':
-        for m in kaa.beacon.query(type='media', media='ignore').get():
+        for m in (yield kaa.beacon.query(type='media', media='ignore')):
             print '%4d %s' % (m['id'], m['name'])
         sys.exit(0)
      
@@ -267,28 +267,19 @@ def main():
             yield async
             directory = async.get_result()
         if 'recursive' in query:
-            result = directory.list(recursive=True)
+            result = yield directory.list(recursive=True)
         else:
-            result = directory.list()
+            result = yield directory.list()
     else:
-        result = kaa.beacon.query(**query)
-
-    if not result.valid:
-        yield result.wait()
+        result = yield kaa.beacon.query(**query)
         
     if not monitor:
-        def print_results_and_exit(result):
-            t2 = time.time()
-            print_results(result, details)
-            if not isinstance(result.get(), (list, tuple)):
-                result = [ result.get() ]
-            print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
-            sys.exit(0)
-        if not result.valid:
-            # Query is pending, connect to changed signal to display results.
-            result.signals['changed'].connect_once(print_results_and_exit, result)
-        else:
-            print_results_and_exit(result)
+        t2 = time.time()
+        print_results(result, details)
+        if not isinstance(result.get(), (list, tuple)):
+            result = [ result.get() ]
+        print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
+        sys.exit(0)
     else:
         result.signals['changed'].connect(changed, result)
         result.signals['progress'].connect(progress)

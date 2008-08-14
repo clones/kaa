@@ -131,11 +131,11 @@ def main():
     t1 = time.time()
     if 'dirname' in query:
         if 'recursive' in query:
-            result = (yield kaa.beacon.get(query['dirname'])).list(recursive=True)
+            result = yield (yield kaa.beacon.get(query['dirname'])).list(recursive=True)
         else:
-            result = (yield kaa.beacon.get(query['dirname'])).list()
+            result = yield (yield kaa.beacon.get(query['dirname'])).list()
     else:
-        result = kaa.beacon.query(**query)
+        result = yield kaa.beacon.query(**query)
 
     fs = BeaconFS(mountpt, result)
     try:

@@ -184,11 +184,16 @@ class Item(object):
 
     def list(self):
         """
-        Return all subitems to his item. The return is either an empty list,
-        an InProgress object (server) or a Query object (client).
+        Return all subitems to his item.
+
+        @returns: InProgress object with list or kaa.beacon.Query
         """
+        # This function is not used internally
         if not self._beacon_id:
-            return []
+            result = kaa.InProgress()
+            result.finish([])
+            # FIXME: return empty Query object
+            return result
         return self._beacon_controller().query(parent=self)
 
 

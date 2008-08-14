@@ -52,9 +52,10 @@ class Baloo(object):
             self.timer.stop()
         return True
     
+    @kaa.coroutine()
     def on_search_activate(self, data=None):
         string = self.xml.get_widget("search").get_text()
-        self.search = kaa.beacon.query(type='audio', keywords=string)
+        self.search = yield kaa.beacon.query(type='audio', keywords=string)
         self.search.signals['changed'].connect(self.update_playlist)
         self.search.monitor()
         self.update_playlist()

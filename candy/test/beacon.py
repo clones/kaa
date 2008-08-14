@@ -39,8 +39,7 @@ candy = stage.candyxml(xml)[1]
 
 @kaa.coroutine()
 def main():
-    query = (yield kaa.beacon.get(sys.argv[1])).list()
-    yield kaa.inprogress(query)
+    query = yield (yield kaa.beacon.get(sys.argv[1])).list()
 
     # this is the context for the images widget
     context = dict(title=os.path.basename(sys.argv[1]), items=query)
