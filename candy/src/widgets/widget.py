@@ -34,6 +34,7 @@ __all__ = [ 'Widget' ]
 # python imports
 import logging
 import _weakref
+import re
 
 # kaa imports
 import kaa
@@ -166,6 +167,8 @@ class Widget(object):
     ALIGN_BOTTOM = 'bottom'
     ALIGN_CENTER = 'center'
 
+    __re_eval = re.compile('\.[a-zA-Z][a-zA-Z0-9_]*')
+
     def __init__(self, pos=None, size=None, context=None):
         """
         Basic widget constructor.
@@ -245,17 +248,16 @@ class Widget(object):
         except AttributeError:
             # not found. Maybe it is an object with a get method.
             # foo.bar.buz could be foo.bar.get('buz')
-            pos = var.rfind('.')
-            if pos == -1:
-                # no dot found, too bad
-                log.error('unable to evaluate %s', var)
-                return default
-            try:
-                var = '%s.get("%s")' % (var[:pos], var[pos+1:])
-                value = eval(var, context)
-                if value is None:
-                    value = default
-            except AttributeError:
+            for subvar in self.__re_eval.findall(var):
+                try:
+                    newvar = var.replace(subvar, '.get("%s")' % subvar[1:])
+                    value = eval(newvar, context)
+                    if value is None:
+                        value = default
+                except Exception, e:
+                    continue
+                break
+            else:
                 log.error('unable to evaluate %s', var)
                 return default
         if depends:

@@ -55,6 +55,7 @@ class Label(Widget):
     context_sensitive = True
 
     __text_eval = ''
+    _regexp_eval = re.compile('\$([a-zA-Z][a-zA-Z0-9_\.]*)|\${([^}]*)}')
 
     def __init__(self, pos, size, font, color, text, context=None):
         """
@@ -94,10 +95,14 @@ class Label(Widget):
     def text(self, text):
         self.__text = text
         def replace_context(matchobj):
-            return self.eval_context(matchobj.groups()[0], depends=False)
+            match = matchobj.groups()[0] or matchobj.groups()[1]
+            s = self.eval_context(match, default='', depends=False)
+            if s is not None:
+                return unicode(s)
+            return ''
         if self.get_context():
             # we have a context, use it
-            text = re.sub('\$([a-zA-Z_\.]*)', replace_context, text)
+            text = re.sub(self._regexp_eval, replace_context, text)
         if self.__text_eval != text:
             self.__text_eval = text
             self._queue_sync(rendering=True)

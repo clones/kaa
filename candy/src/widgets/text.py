@@ -51,7 +51,7 @@ class Text(Widget):
 
     _regexp_space = re.compile('[\n\t \r][\n\t \r]+')
     _regexp_if = re.compile('#if(.*?):(.*?)#fi ?')
-    _regexp_eval = re.compile('\$([a-zA-Z_\.\[\]]*)')
+    _regexp_eval = re.compile('\$([a-zA-Z][a-zA-Z0-9_\.]*)|\${([^}]*)}')
     _regexp_br = re.compile(' *<br/> *')
 
     __text = __text_eval = ''
@@ -95,13 +95,17 @@ class Text(Widget):
     def text(self, text):
         self.__text = text
         def eval_expression(matchobj):
-            if self.eval_context(matchobj.groups()[0], depends=False):
-                return matchobj.groups()[1]
+            if self.eval_context(matchobj.groups()[0], default='', depends=False):
+                return unicode(matchobj.groups()[1])
             return ''
         def replace_context(matchobj):
             # FIXME: maybe the string has markup to use
-            return self.eval_context(matchobj.groups()[0], depends=False).\
-                   replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            match = matchobj.groups()[0] or matchobj.groups()[1]
+            s = self.eval_context(match, default='', depends=False)
+            if s is None:
+                return ''
+            return unicode(s).replace('&', '&amp;').replace('<', '&lt;').\
+                   replace('>', '&gt;')
         if self.get_context():
             # we have a context, use it
             text = self._regexp_space.sub(' ', text)
