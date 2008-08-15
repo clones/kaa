@@ -46,6 +46,8 @@ import logging
 import copy
 import time
 
+# kaa imports
+import kaa
 from kaa.utils import property
 
 # kaa.candy imports imports
@@ -141,6 +143,7 @@ class Grid(Group):
         self.items.parent = self
         self._check_items()
 
+    @kaa.synchronized()
     def scroll_by(self, (rows, cols), secs):
         """
         Scroll by rows and cols cells
@@ -167,6 +170,7 @@ class Grid(Group):
                 cols -= (cols / abs(cols))
         self.scroll_to((self.items.cell0[0] + rows, self.items.cell0[1] + cols), secs)
 
+    @kaa.synchronized()
     def scroll_to(self, (row, col), secs):
         """
         Scroll to row / cell position
@@ -274,6 +278,7 @@ class Grid(Group):
         super(Grid, self)._candy_render()
         self._obj.set_clip(0, 0, self.inner_width, self.inner_height)
 
+    @kaa.synchronized()
     def _scroll_grid(self, x, y):
         """
         Callback from the animation
