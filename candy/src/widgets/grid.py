@@ -207,9 +207,14 @@ class Grid(Group):
         context = copy.copy(self.get_context())
         context[self.__child_context] = self.__child_listing[item_num]
         child = self.__child_template(context=context)
-        child.x = pos_x * self._col_size
-        child.y = pos_y * self._row_size
-        child.width, child.height = self.cell_size
+        child.x += pos_x * self._col_size
+        child.y += pos_y * self._row_size
+        if child.width == 0:
+            # set to cell width if not width is given in the template
+            child.width = self.cell_size[0]
+        if child.height == 0:
+            # set to cell height if not width is given in the template
+            child.height = self.cell_size[1]
         child.anchor_point = self.cell_size[0] / 2, self.cell_size[1] / 2
         child.parent = self.items
         self._rendered[(pos_x, pos_y)] = child
