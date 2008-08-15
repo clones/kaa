@@ -177,9 +177,9 @@ def scale_attributes(attrs, scale):
     calc_attrs = {}
     for key, value in attrs.items():
         # FIXME: make sure a value > 0 is always > 0 even after scaling
-        if key == 'x':
+        if key in ('x', 'xpadding'):
             value = int(scale[0] * int(value))
-        elif key == 'y':
+        elif key in ('y', 'ypadding'):
             value = int(scale[1] * int(value))
         elif key == 'width':
             x1 = int(scale[0] * int(attrs.get('x', 0)))
@@ -189,7 +189,7 @@ def scale_attributes(attrs, scale):
             y1 = int(scale[1] * int(attrs.get('y', 0)))
             y2 = int(scale[1] * (int(attrs.get('y', 0)) + int(value)))
             value = y2 - y1
-        elif key in ('radius', 'size', 'xpadding', 'ypadding', 'spacing'):
+        elif key in ('radius', 'size', 'spacing'):
             value = int(scale[1] * int(value))
         elif key.find('color') != -1:
             value = core.Color(value)
@@ -241,6 +241,9 @@ class Element(object):
                 return child
         if attr in ('width', 'height'):
             # get width or height from parent
+            # FIXME: this is correct in most cases but now when the parent
+            # has a padding. It should be inner_attr but we do not know
+            # this at this point. It also can mess up labels
             return getattr(self._parent, attr)
         return None
 
