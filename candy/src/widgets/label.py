@@ -62,16 +62,13 @@ class Label(Widget):
         Create a new label widget
 
         @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget. The height
-            parameter is used for vertical alignment and can be None.
+        @param size: (width,height) geometry of the widget.
         @param font: kaa.candy.Font object
         @param text: Text to render. This can also be a context based string like
             C{$text} with the context containing C{text='My String'}. This will
             make the widget context sensitive.
         @param context: the context the widget is created in
         """
-        if size[1] is None:
-            size = size[0], font.get_height(font.MAX_HEIGHT)
         super(Label, self).__init__(pos, size, context)
         self.font = font
         self.text = text
@@ -139,8 +136,14 @@ class Label(Widget):
         Render the widget
         """
         fade = False
-        width = self.__font.get_width(self.__text_eval)
-        height = self.__font.get_height(Font.MAX_HEIGHT)
+        font = self.__font
+        if font.size == 0:
+            # get font based on widget height
+            font = font.get_font(self.inner_height)
+        
+        width = font.get_width(self.__text_eval)
+        height = font.get_height(Font.MAX_HEIGHT)
+
         if width > self.inner_width:
             fade = True
             width = self.inner_width
@@ -156,8 +159,8 @@ class Label(Widget):
         context = self._obj.cairo_create()
         context.set_operator(cairo.OPERATOR_SOURCE)
         context.set_source_rgba(*self.__color.to_cairo())
-        context.select_font_face(self.__font.name, cairo.FONT_SLANT_NORMAL)
-        context.set_font_size(self.__font.size)
+        context.select_font_face(font.name, cairo.FONT_SLANT_NORMAL)
+        context.set_font_size(font.size)
         if fade:
             s = cairo.LinearGradient(0, 0, width, 0)
             c = self.__color.to_cairo()

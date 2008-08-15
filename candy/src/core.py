@@ -108,25 +108,30 @@ class Font(object):
         Create a new font object
         @param name: name and size of the font, e.g. Vera:24
         """
-        self.name, size = name.split(':')
-        self.size = int(size)
-
-    def get_height(self, field=None):
+        self.name = name
+        self.size = 0
+        if name.find(':') > 0:
+            self.name, size = name.split(':')
+            self.size = int(size)
+            
+    def get_height(self, field=None, size=None):
         """
         Get height of a text with this font.
         @returns: ascent (typical height above the baseline), normal (typical height
             of a string without special characters) and ascent + descent
         """
-        info = self.__height_cache.get((self.name, self.size))
+        if size is None:
+            size = self.size
+        info = self.__height_cache.get((self.name, size))
         if info is None:
             if self.__cairo_surface is None:
                 self.__cairo_surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 10, 10)
             c = cairo.Context(self.__cairo_surface)
             c.select_font_face(self.name, cairo.FONT_SLANT_NORMAL)
-            c.set_font_size(self.size)
+            c.set_font_size(size)
             ascent, descent = c.font_extents()[:2]
             info = int(ascent), int(-c.text_extents(u'Ag')[1]), int(ascent + descent)
-            self.__height_cache[(self.name, self.size)] = info
+            self.__height_cache[(self.name, size)] = info
         if field is None:
             return info
         return info[field]
@@ -145,6 +150,22 @@ class Font(object):
         ext = c.text_extents(text)
         return int(ext[0] + ext[2]) + 1
 
+    def get_font(self, height):
+        """
+        Get font object with size set to fit the given height.
+        """
+        size = 1
+        last = None
+        while True:
+            if not self.__height_cache.get((self.name, size)):
+                self.get_height(size=size)
+            if self.__height_cache.get((self.name, size))[Font.MAX_HEIGHT] > height:
+                f = Font(self.name)
+                f.size = size
+                return f
+            last = size
+            size += 1
+            
 class Modifier(object):
     """
     Modifier base class for classes that change widgets on creation by
