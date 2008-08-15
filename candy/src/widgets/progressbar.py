@@ -53,7 +53,7 @@ class Progressbar(Group):
         self._bar = progress
         self._bar.x = 0
         self._bar.y = 0
-        self._bar.height = self.height
+        self._bar.height = self.inner_height
         self._bar.parent = self
 
     @property
@@ -88,10 +88,10 @@ class Progressbar(Group):
         Render the widget
         """
         if 'size' in self._sync_properties:
-            self._bar.height = self.height
+            self._bar.height = self.inner_height
         super(Progressbar, self)._candy_render()
         pos = float(self.__progress) / max(self.__max, self.__progress, 0.1)
-        self._bar.width = int(max(pos * self.width, 1))
+        self._bar.width = int(max(pos * self.inner_width, 1))
 
     @classmethod
     def candyxml_parse(cls, element):

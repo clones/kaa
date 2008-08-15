@@ -153,6 +153,8 @@ class Widget(object):
     __height = 0
     __xalign = None
     __yalign = None
+    __xpadding = 0
+    __ypadding = 0
     __scale = None
     __depth = 0
     __opacity = 255
@@ -186,7 +188,7 @@ class Widget(object):
         self.__depends = {}
         self.__context = context or {}
         self.userdata = {}
-
+        
     def get_context(self, key=None):
         """
         Get the context the widget is in.
@@ -354,6 +356,10 @@ class Widget(object):
                 y += (self.__height - self._obj.get_height()) / 2
             if self.__yalign == Widget.ALIGN_BOTTOM:
                 y += self.__height - self._obj.get_height()
+        if self.__xpadding:
+            x += self.__xpadding
+        if self.__ypadding:
+            y += self.__ypadding
         self._obj.set_position(x, y)
 
     def _candy_sync_properties(self):
@@ -407,6 +413,10 @@ class Widget(object):
         self._queue_sync(rendering=True, layout=True)
 
     @property
+    def inner_width(self):
+        return self.__width - 2 * self.__xpadding
+
+    @property
     def height(self):
         return self.__height
 
@@ -416,6 +426,10 @@ class Widget(object):
             self._queue_sync_properties('size')
         self.__height = height
         self._queue_sync(rendering=True, layout=True)
+
+    @property
+    def inner_height(self):
+        return self.__height - 2 * self.__ypadding
 
     @property
     def geometry(self):
@@ -447,6 +461,24 @@ class Widget(object):
     def yalign(self, align):
         self.__yalign = align
         self._queue_sync(layout=True)
+
+    @property
+    def xpadding(self):
+        return self.__xpadding
+
+    @xpadding.setter
+    def xpadding(self, padding):
+        self.__xpadding = padding
+        self._queue_sync(rendering=True)
+
+    @property
+    def ypadding(self):
+        return self.__ypadding
+
+    @ypadding.setter
+    def ypadding(self, padding):
+        self.__ypadding = padding
+        self._queue_sync(rendering=True)
 
     @property
     def scale(self):

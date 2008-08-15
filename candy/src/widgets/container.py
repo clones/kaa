@@ -160,7 +160,7 @@ class LayoutGroup(Group):
     resized. The layout functions are only allowed to set the x and y
     coordinates of a child.
     """
-    __padding = 0
+    __spacing = 0
     __layout = None
     possible_layouts = {}
 
@@ -170,12 +170,12 @@ class LayoutGroup(Group):
             self.layout = layout
 
     @property
-    def padding(self):
-        return self.__padding
+    def spacing(self):
+        return self.__spacing
 
-    @padding.setter
-    def padding(self, padding):
-        self.__padding = padding
+    @spacing.setter
+    def spacing(self, spacing):
+        self.__spacing = spacing
         self._queue_sync(layout=True)
 
     @property
@@ -208,7 +208,7 @@ class LayoutGroup(Group):
         """
         super(LayoutGroup, self)._candy_sync_layout()
         if self.__layout:
-            self.__layout(self.children, self.padding)
+            self.__layout(self.children, self.spacing)
             for child in self.children:
                 if child._sync_layout:
                     child._candy_sync_layout()
@@ -221,7 +221,7 @@ class LayoutGroup(Group):
         cls.possible_layouts[name] = func
 
 
-def layout_vertical(widgets, padding):
+def layout_vertical(widgets, spacing):
     """
     Simple layout function to sort the widgets vertical
     """
@@ -229,9 +229,9 @@ def layout_vertical(widgets, padding):
     for widget in widgets:
         widget.y = y
         # FIXME: handle widget.height == 0
-        y += widget.height + padding
+        y += widget.height + spacing
 
-def layout_horizontal(widgets, padding):
+def layout_horizontal(widgets, spacing):
     """
     Simple layout function to sort the widgets horizontal
     """
@@ -239,7 +239,7 @@ def layout_horizontal(widgets, padding):
     for widget in widgets:
         widget.x = x
         # FIXME: handle widget.width == 0
-        x += widget.width + padding
+        x += widget.width + spacing
 
 # Register the two layout functions
 LayoutGroup.register_layout('vertical', layout_vertical)

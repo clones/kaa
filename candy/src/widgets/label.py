@@ -141,9 +141,9 @@ class Label(Widget):
         fade = False
         width = self.__font.get_width(self.__text_eval)
         height = self.__font.get_height(Font.MAX_HEIGHT)
-        if width > self.width:
+        if width > self.inner_width:
             fade = True
-            width = self.width
+            width = self.inner_width
         if self._obj is None:
             self._obj = backend.CairoTexture(width, height)
             self._obj.show()

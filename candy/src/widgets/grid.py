@@ -129,15 +129,15 @@ class Grid(Group):
         # animations for row and col scrolling
         self.__row_animation = None
         self.__col_animation = None
-        # padding between cells
+        # space between cells
         # FIXME: maybe the users wants to set this manually
-        padding_x = size[0] /self.num_cols - cell_size[0]
-        padding_y = size[1] /self.num_rows - cell_size[1]
+        space_x = size[0] /self.num_cols - cell_size[0]
+        space_y = size[1] /self.num_rows - cell_size[1]
         # size of cells
-        self._col_size = self.cell_size[0] + padding_x
-        self._row_size = self.cell_size[1] + padding_y
+        self._col_size = self.cell_size[0] + space_x
+        self._row_size = self.cell_size[1] + space_y
         # render visisble items
-        self.items = ItemGroup((padding_x / 2, padding_y / 2))
+        self.items = ItemGroup((space_x / 2, space_y / 2))
         self.items.parent = self
         self._check_items()
 
@@ -272,7 +272,7 @@ class Grid(Group):
             log.error('FIXME: kaa.candy.Grid does not support resize')
             return
         super(Grid, self)._candy_render()
-        self._obj.set_clip(0, 0, self.width, self.height)
+        self._obj.set_clip(0, 0, self.inner_width, self.inner_height)
 
     def _scroll_grid(self, x, y):
         """

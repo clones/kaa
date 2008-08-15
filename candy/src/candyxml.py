@@ -189,7 +189,7 @@ def scale_attributes(attrs, scale):
             y1 = int(scale[1] * int(attrs.get('y', 0)))
             y2 = int(scale[1] * (int(attrs.get('y', 0)) + int(value)))
             value = y2 - y1
-        elif key in ('radius', 'size', 'padding'):
+        elif key in ('radius', 'size', 'xpadding', 'ypadding', 'spacing'):
             value = int(scale[1] * int(value))
         elif key.find('color') != -1:
             value = core.Color(value)

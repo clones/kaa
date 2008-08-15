@@ -120,8 +120,8 @@ class Rectangle(CairoTexture):
             return
 
         stroke = self.__border_size or 1
-        width  = self.width - 2 * stroke
-        height = self.height - 2 * stroke
+        width  = self.inner_width - 2 * stroke
+        height = self.inner_height - 2 * stroke
         radius = min(self.__radius, width, height)
 
         x0 = stroke

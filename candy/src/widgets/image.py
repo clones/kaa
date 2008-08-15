@@ -94,9 +94,9 @@ class Imlib2Texture(Widget):
         if self._obj is None:
             self._obj = backend.Texture()
             self._obj.show()
-            self._obj.set_size(self.width, self.height)
+            self._obj.set_size(self.inner_width, self.inner_height)
         if 'size' in self._sync_properties or self.__keep_aspect:
-            width, height = self.width, self.height
+            width, height = self.inner_width, self.inner_height
             if self.__keep_aspect and self._imagedata:
                 aspect = float(self._imagedata.width) / self._imagedata.height
                 if int(height * aspect) > width:
@@ -120,11 +120,11 @@ class CairoTexture(Widget):
         Render the widget
         """
         if self._obj is None:
-            self._obj = backend.CairoTexture(self.width, self.height)
+            self._obj = backend.CairoTexture(self.inner_width, self.inner_height)
             self._obj.show()
             return
         if 'size' in self._sync_properties:
-            self._obj.set_size(self.width, self.height)
+            self._obj.set_size(self.inner_width, self.inner_height)
             self._obj.surface_resize(*self._obj.get_size())
         self._obj.clear()
 
