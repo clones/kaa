@@ -98,7 +98,7 @@ class Grid(Group):
     HORIZONTAL, VERTICAL =  range(2)
 
     def __init__(self, pos, size, cell_size, cell_item, items, template,
-                 orientation, context=None):
+                 orientation, spacing=None, context=None):
         """
         Simple grid widget to show the items based on the template.
 
@@ -109,6 +109,8 @@ class Grid(Group):
         @param items: list of objects or object name in the context
         @param template: child template for each cell
         @param orientation: how to arange the grid: Grid.HORIZONTAL or Grid.VERTICAL
+        @param spacing: x,y values of space between two items. If set to None
+            the spacing will be calculated based on cell size and widget size
         @param context: the context the widget is created in
         """
         super(Grid, self).__init__(pos, size, context)
@@ -124,22 +126,36 @@ class Grid(Group):
         self.__child_context = cell_item
         self.__child_template = template
         # do some calculations
-        self.num_cols = size[0] / cell_size[0]
-        self.num_rows = size[1] / cell_size[1]
+        if spacing is None:
+            # no spacing is given. Get the number of rows and cols
+            # and device the remaining space as speacing and border
+            self.num_cols = size[0] / cell_size[0]
+            self.num_rows = size[1] / cell_size[1]
+            space_x = size[0] / self.num_cols - cell_size[0]
+            space_y = size[1] / self.num_rows - cell_size[1]
+            # size of cells
+            self._col_size = self.cell_size[0] + space_x
+            self._row_size = self.cell_size[1] + space_y
+        else:
+            # spacing is given, let's see how much we can fit into here
+            space_x, space_y = spacing
+            # size of cells
+            self._col_size = self.cell_size[0] + space_x
+            self._row_size = self.cell_size[1] + space_y
+            # now that we know the sizes check how much items fit
+            self.num_cols = size[0] / self._col_size
+            self.num_rows = size[1] / self._row_size
+            
+        # we now center the grid by default
+        x0 = (size[0] - self.num_cols * self._col_size + space_x) / 2
+        y0 = (size[1] - self.num_rows * self._row_size + space_y) / 2
         # list of rendered items
         self._rendered = {}
         # animations for row and col scrolling
         self.__row_animation = None
         self.__col_animation = None
-        # space between cells
-        # FIXME: maybe the users wants to set this manually
-        space_x = size[0] /self.num_cols - cell_size[0]
-        space_y = size[1] /self.num_rows - cell_size[1]
-        # size of cells
-        self._col_size = self.cell_size[0] + space_x
-        self._row_size = self.cell_size[1] + space_y
         # render visisble items
-        self.items = ItemGroup((space_x / 2, space_y / 2))
+        self.items = ItemGroup((x0, y0))
         self.items.parent = self
         self._check_items()
 
@@ -211,14 +227,9 @@ class Grid(Group):
         context = copy.copy(self.get_context())
         context[self.__child_context] = self.__child_listing[item_num]
         child = self.__child_template(context=context)
-        child.x += pos_x * self._col_size
-        child.y += pos_y * self._row_size
-        if child.width == 0:
-            # set to cell width if not width is given in the template
-            child.width = self.cell_size[0]
-        if child.height == 0:
-            # set to cell height if not width is given in the template
-            child.height = self.cell_size[1]
+        child.x = pos_x * self._col_size
+        child.y = pos_y * self._row_size
+        child.width, child.height = self.cell_size
         child.anchor_point = self.cell_size[0] / 2, self.cell_size[1] / 2
         child.parent = self.items
         self._rendered[(pos_x, pos_y)] = child
@@ -328,7 +339,7 @@ class SelectionGrid(Grid):
     candyxml_style = 'selection'
 
     def __init__(self, pos, size, cell_size, cell_item, items, template,
-                 selection, orientation, context=None):
+                 selection, orientation, spacing=None, context=None):
         """
         Simple grid widget to show the items based on the template.
 
@@ -340,12 +351,14 @@ class SelectionGrid(Grid):
         @param template: child template for each cell
         @param selection: widget for the selection
         @param orientation: how to arange the grid: Grid.HORIZONTAL or Grid.VERTICAL
+        @param spacing: x,y values of space between two items. If set to None
+            the spacing will be calculated based on cell size and widget size
         @param context: the context the widget is created in
 
         """
         self.behaviour = []
         super(SelectionGrid, self).__init__(pos, size, cell_size, cell_item, items,
-            template, orientation, context)
+            template, orientation, spacing, context)
         if is_template(selection):
             selection = selection()
         self.selection = selection
