@@ -153,12 +153,17 @@ the whole GUI will redraw on its own.
 __all__ = [ 'parse', 'register', 'get_class', 'STYLE_HANDLER' ]
 
 # python imports
+import os
+import logging
 import xml.sax
 
 # kaa.candy imports
 import core
 
 STYLE_HANDLER = 'STYLE_HANDLER'
+
+# get logging object
+log = logging.getLogger('kaa.candy')
 
 class ElementDict(dict):
 
@@ -184,7 +189,7 @@ def scale_attributes(attrs, scale):
             y1 = int(scale[1] * int(attrs.get('y', 0)))
             y2 = int(scale[1] * (int(attrs.get('y', 0)) + int(value)))
             value = y2 - y1
-        elif key in ('radius', 'size'):
+        elif key in ('radius', 'size', 'padding'):
             value = int(scale[1] * int(value))
         elif key.find('color') != -1:
             value = core.Color(value)
@@ -287,9 +292,9 @@ class CandyXML(xml.sax.ContentHandler):
     """
     candyxml parser.
     """
-    def __init__(self, data, geometry):
+    def __init__(self, data, geometry, elements=None):
         xml.sax.ContentHandler.__init__(self)
-        self._elements = ElementDict()
+        self._elements = elements or ElementDict()
         self.width = geometry[0]
         self.height = geometry[1]
         # Internal stuff
@@ -307,11 +312,11 @@ class CandyXML(xml.sax.ContentHandler):
             # data is filename
             self._parser.parse(data)
 
-    def get_elemets(self):
+    def get_elements(self):
         """
         Return root attributes and parsed elements
         """
-        return self._root[1], self._elements
+        return dict(self._root[1]), self._elements
 
     def startElement(self, name, attrs):
         """
@@ -356,15 +361,26 @@ class CandyXML(xml.sax.ContentHandler):
             self._current.content += c
 
 
-def parse(data, size=None):
+def parse(data, size=None, elements=None):
     """
     Load a candyxml file based on the given screen resolution.
     @param data: filename of the XML file to parse or XML data
     @param size: width and height of the window to adjust values in the XML file
     @returns: root element attributes and dict of parsed elements
     """
-    return CandyXML(data, size).get_elemets()
-
+    if not os.path.isdir(data):
+        return CandyXML(data, size, elements).get_elements()
+    attributes = {}
+    for f in os.listdir(data):
+        if not f.endswith('.xml'):
+            continue
+        f = os.path.join(data, f)
+        try:
+            a, elements = CandyXML(f, size, elements).get_elements()
+            attributes.update(a)
+        except Exception, e:
+            log.exception('parse error in %s', f)
+    return attributes, elements
 
 class Styles(dict):
     """
