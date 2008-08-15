@@ -245,21 +245,9 @@ class Widget(object):
         try:
             # try the variable as it is
             value = eval(var, context)
-        except AttributeError:
-            # not found. Maybe it is an object with a get method.
-            # foo.bar.buz could be foo.bar.get('buz')
-            for subvar in self.__re_eval.findall(var):
-                try:
-                    newvar = var.replace(subvar, '.get("%s")' % subvar[1:])
-                    value = eval(newvar, context)
-                    if value is None:
-                        value = default
-                except Exception, e:
-                    continue
-                break
-            else:
-                log.error('unable to evaluate %s', var)
-                return default
+        except Exception, e:
+            log.error('unable to evaluate %s', var)
+            return default
         if depends:
             self.__depends[var] = repr(value)
         return value
