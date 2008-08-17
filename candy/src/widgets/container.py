@@ -78,7 +78,7 @@ class Group(Widget):
             if child.name == name:
                 return child
             if isinstance(child, Group):
-                result = child.get_element(name)
+                result = child.get_widget(name)
                 if result is not None:
                     return result
         return None
