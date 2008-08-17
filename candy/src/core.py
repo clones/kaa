@@ -74,7 +74,8 @@ class Color(list):
             # tuple as one argument
             return super(Color, self).__init__(col)
         # Convert a 32-bit ARGB string 0xaarrggbb
-        col = long(col, 16)
+        if not isinstance(col, (int, long)):
+            col = long(col, 16)
         a = 255 - ((col >> 24) & 0xff)
         r = (col >> 16) & 0xff
         g = (col >> 8) & 0xff
