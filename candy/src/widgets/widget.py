@@ -180,15 +180,14 @@ class Widget(object):
         @param context: the context the widget is created in
         """
         if size is not None:
-            self.__width  = size[0] or 0
-            self.__height = size[1] or 0
+            self.__width, self.__height = size
         if pos is not None:
             self.__x, self.__y = pos
         self._sync_properties = {}
         self.__depends = {}
         self.__context = context or {}
         self.userdata = {}
-        
+
     def get_context(self, key=None):
         """
         Get the context the widget is in.
@@ -287,6 +286,25 @@ class Widget(object):
         if self.parent:
             self.parent._child_restack(self, 'bottom')
 
+    def _calculate_size(self):
+        """
+        Calculate width and height based on parent
+        """
+        # FIXME: this must be updated once the dependencies change. When width
+        # or height is none a special variable sync_with_parent must be set and
+        # the parent must reset __width and __height to None once it's inner
+        # size values change. This must also trigger the resize property. This
+        # values must also be updated when __x or __y of the widget change.
+        # This code should also be used when width and height are based on
+        # percentage of the parent width and height.
+        if self.__width == None:
+            # get width based on parent and x
+            self.__width = self.parent.inner_width - self.x
+        if self.__height == None:
+            # get height based on parent and x
+            # FIXME: this must be updated once the dependencies change
+            self.__height = self.parent.inner_height - self.y
+
     # rendering
 
     def _queue_sync(self, rendering=False, layout=False):
@@ -320,6 +338,8 @@ class Widget(object):
         """
         Called from the clutter thread to update the widget.
         """
+        if self.__width == None or self.__height == None:
+            self._calculate_size()
         self._sync_required = False
         if self._sync_rendering:
             self._sync_rendering = False
@@ -403,6 +423,8 @@ class Widget(object):
 
     @property
     def width(self):
+        if self.__width == None:
+            self._calculate_size()
         return self.__width
 
     @width.setter
@@ -414,10 +436,14 @@ class Widget(object):
 
     @property
     def inner_width(self):
+        if self.__width == None:
+            self._calculate_size()
         return self.__width - 2 * self.__xpadding
 
     @property
     def height(self):
+        if self.__height == None:
+            self._calculate_size()
         return self.__height
 
     @height.setter
@@ -429,10 +455,14 @@ class Widget(object):
 
     @property
     def inner_height(self):
+        if self.__height == None:
+            self._calculate_size()
         return self.__height - 2 * self.__ypadding
 
     @property
     def geometry(self):
+        if self.__width == None or self.__height == None:
+            self._calculate_size()
         return self.__x, self.__y, self.__width, self.__height
 
     @property

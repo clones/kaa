@@ -240,11 +240,10 @@ class Element(object):
             if child.node == attr:
                 return child
         if attr in ('width', 'height'):
-            # get width or height from parent
-            # FIXME: this is correct in most cases but now when the parent
-            # has a padding. It should be inner_attr but we do not know
-            # this at this point. It also can mess up labels
-            return getattr(self._parent, attr)
+            # Set width or height to None. All widgets except the grid will
+            # accept such values. The real value will be inserted later
+            # based on the parent settings
+            return None
         return None
 
     def xmlcreate(element):
@@ -298,8 +297,6 @@ class CandyXML(xml.sax.ContentHandler):
     def __init__(self, data, geometry, elements=None):
         xml.sax.ContentHandler.__init__(self)
         self._elements = elements or ElementDict()
-        self.width = geometry[0]
-        self.height = geometry[1]
         # Internal stuff
         self._scale = None
         self._geometry = geometry
