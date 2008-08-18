@@ -106,9 +106,9 @@ class Imlib2Texture(Widget):
             self._obj.set_size(width, height)
         if not self._imagedata:
             return
+        width, height = self._imagedata.size
         self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
-            self._imagedata.width, self._imagedata.height, 1, 4,
-            backend.TEXTURE_RGB_FLAG_BGR)
+            width, height, width*4, 4, backend.TEXTURE_RGB_FLAG_BGR)
 
 
 class CairoTexture(Widget):
