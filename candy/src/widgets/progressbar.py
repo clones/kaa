@@ -82,14 +82,14 @@ class Progressbar(Group):
         """
         self.__progress += 1
         self._queue_sync(rendering=True)
-        
-    def _candy_render(self):
+
+    def _candy_prepare_render(self):
         """
         Render the widget
         """
+        super(Progressbar, self)._candy_prepare_render()
         if 'size' in self._sync_properties:
             self._bar.height = self.inner_height
-        super(Progressbar, self)._candy_render()
         pos = float(self.__progress) / max(self.__max, self.__progress, 0.1)
         self._bar.width = int(max(pos * self.inner_width, 1))
 

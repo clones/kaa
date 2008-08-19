@@ -83,6 +83,16 @@ class Group(Widget):
                     return result
         return None
 
+    def _candy_prepare_render(self):
+        """
+        Prepare rendering
+        """
+        super(Group, self)._candy_prepare_render()
+        # sync children
+        for child in self.children:
+            if child._sync_rendering:
+                child._candy_prepare_render()
+
     def _candy_render(self):
         """
         Render the widget
@@ -102,10 +112,33 @@ class Group(Widget):
             self.__children_added.pop(0)._sync_properties['parent'] = self._obj
         # sync all children
         for child in self.children:
-            if child._sync_required:
-                # require layout when a child changes layout
-                self._sync_layout = self._sync_layout or child._sync_layout
-                child._candy_sync()
+            if child._sync_rendering:
+                child._sync_rendering = False
+                child._candy_render()
+            # require layout when a child changes layout
+            self._sync_layout = self._sync_layout or child._sync_layout
+
+    def _candy_sync_layout(self):
+        """
+        Layout the widget
+        """
+        super(Group,self)._candy_sync_layout()
+        # sync children
+        for child in self.children:
+            if child._sync_layout:
+                child._sync_layout = False
+                child._candy_sync_layout()
+
+    def _candy_sync_properties(self):
+        """
+        Set some properties
+        """
+        super(Group, self)._candy_sync_properties()
+        # sync children
+        for child in self.children:
+            if child._sync_properties:
+                child._candy_sync_properties()
+                child._sync_properties = {}
         # restack children
         while self.__children_restack:
             child, direction = self.__children_restack.pop(0)
@@ -121,6 +154,7 @@ class Group(Widget):
         @param child: child widget
         """
         self._queue_sync(rendering=True)
+        self._queue_sync_properties('children')
         self.__children_added.append(child)
         self.children.append(child)
 
@@ -135,6 +169,7 @@ class Group(Widget):
         else:
             self.__children_removed.append(child)
         self._queue_sync(rendering=True)
+        self._queue_sync_properties('children')
         self.children.remove(child)
 
     def _child_restack(self, child, direction):
@@ -145,6 +180,7 @@ class Group(Widget):
         @param direction: top or bottom
         """
         self.__children_restack.append((child, direction))
+        self._queue_sync_properties('children')
 
 
 class LayoutGroup(Group):

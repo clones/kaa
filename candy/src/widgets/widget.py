@@ -332,31 +332,15 @@ class Widget(object):
             self._sync_properties[prop] = True
         self._sync_required = True
         parent = self.parent
-        if parent and not parent._sync_rendering:
-            parent._queue_sync(rendering=True)
-
-    def _candy_sync(self):
-        """
-        Called from the clutter thread to update the widget.
-        """
-        if self.__width == None or self.__height == None:
-            self._calculate_size()
-        self._sync_required = False
-        if self._sync_rendering:
-            self._candy_prepare_render()
-            self._sync_rendering = False
-            self._candy_render()
-        if self._sync_layout:
-            self._candy_sync_layout()
-        if self._sync_properties:
-            self._candy_sync_properties()
-            self._sync_properties = {}
+        if parent and not parent._sync_properties:
+            parent._queue_sync_properties('children')
 
     def _candy_prepare_render(self):
         """
         Prepare rendering
         """
-        pass
+        if self.__width == None or self.__height == None:
+            self._calculate_size()
 
     def _candy_render(self):
         """

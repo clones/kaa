@@ -83,7 +83,7 @@ class Stage(Group):
         """
         Called from the mainloop to update all widgets in the clutter thread.
         """
-        if not self._sync_required:
+        if not (self._sync_rendering or self._sync_layout or self._sync_properties):
             # No update needed, no need to jump into the clutter thread
             # and return without doing anything usefull.
             return
@@ -107,7 +107,16 @@ class Stage(Group):
         Execute update inside safe try/except environment
         """
         try:
-            super(Stage, self)._candy_sync()
+            if self._sync_rendering:
+                self._candy_prepare_render()
+                self._sync_rendering = False
+                self._candy_render()
+            if self._sync_layout:
+                self._sync_layout = False
+                self._candy_sync_layout()
+            if self._sync_properties:
+                self._candy_sync_properties()
+                self._sync_properties = {}
         except Exception, e:
             log.exception('kaa.candy.sync')
         if event:
