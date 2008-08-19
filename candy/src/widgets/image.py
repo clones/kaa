@@ -159,6 +159,9 @@ class Image(Imlib2Texture):
             url = self.eval_context(url[1:])
             if not url:
                 return
+        if isinstance(url, kaa.imlib2.Image):
+            self.set_image(url)
+            return
         if url.startswith('http://'):
             # remote image, create local cachefile
             # FIXME: how to handle updates on the remote side?
