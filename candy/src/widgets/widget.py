@@ -158,6 +158,7 @@ class Widget(object):
     __scale = None
     __depth = 0
     __opacity = 255
+    __rotation = 0
 
     # misc
     name = None
@@ -342,6 +343,7 @@ class Widget(object):
             self._calculate_size()
         self._sync_required = False
         if self._sync_rendering:
+            self._candy_prepare_render()
             self._sync_rendering = False
             self._candy_render()
         if self._sync_layout:
@@ -349,6 +351,12 @@ class Widget(object):
         if self._sync_properties:
             self._candy_sync_properties()
             self._sync_properties = {}
+
+    def _candy_prepare_render(self):
+        """
+        Prepare rendering
+        """
+        pass
 
     def _candy_render(self):
         """
@@ -362,20 +370,27 @@ class Widget(object):
         """
         self._sync_layout = False
         x, y = self.__x, self.__y
-        if self.__anchor:
-            self._obj.set_anchor_point(*self.__anchor)
-            x += self.__anchor[0]
-            y += self.__anchor[1]
+        anchor_x = anchor_y = 0
         if self.__xalign:
             if self.__xalign == Widget.ALIGN_CENTER:
                 x += (self.__width - self._obj.get_width()) / 2
+                anchor_x = self._obj.get_width() / 2
             if self.__xalign == Widget.ALIGN_RIGHT:
                 x += self.__width - self._obj.get_width()
+                anchor_x = self._obj.get_width()
         if self.__yalign:
             if self.__yalign == Widget.ALIGN_CENTER:
                 y += (self.__height - self._obj.get_height()) / 2
+                anchor_y = self._obj.get_height() / 2
             if self.__yalign == Widget.ALIGN_BOTTOM:
                 y += self.__height - self._obj.get_height()
+                anchor_y = self._obj.get_height()
+        if self.__anchor:
+            anchor_x, anchor_y = self.__anchor
+        if anchor_x or anchor_y:
+            self._obj.set_anchor_point(anchor_x, anchor_y)
+            x += anchor_x
+            y += anchor_y
         if self.__xpadding:
             x += self.__xpadding
         if self.__ypadding:
@@ -394,12 +409,19 @@ class Widget(object):
                 # no need to do more
                 return False
             clutter_parent.add(self._obj)
+        if 'size' in self._sync_properties:
+            if self.__rotation:
+                self._sync_properties['rotation'] = True
         if 'scale' in self._sync_properties:
             self._obj.set_scale(*self.__scale)
         if 'depth' in self._sync_properties:
             self._obj.set_depth(self.__depth)
         if 'opacity' in self._sync_properties:
             self._obj.set_opacity(self.__opacity)
+        if 'rotation' in self._sync_properties:
+            # basic rotation, inherit from this class to not rotate
+            # based on anchor_point or align
+            self._obj.set_rotation(backend.Z_AXIS, self.__rotation, 0, 0, 0)
 
     # properties
 
@@ -536,6 +558,15 @@ class Widget(object):
     def opacity(self, opacity):
         self.__opacity = opacity
         self._queue_sync_properties('opacity')
+
+    @property
+    def rotation(self):
+        return self.__rotation
+
+    @rotation.setter
+    def rotation(self, rotation):
+        self.__rotation = rotation
+        self._queue_sync_properties('rotation')
 
     @property
     def parent(self):
