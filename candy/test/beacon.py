@@ -19,8 +19,9 @@ xml = '''
             <properties xalign="center"/>
             $title
         </label>
-        <grid style="selection" y="50" height="530" cell-width="120" cell-height="80"
-            items="items" cell-item="item" orientation="vertical">
+        <grid style="selection" y="50" width="780" height="530"
+            cell-width="120" cell-height="80" items="items" cell-item="item"
+            orientation="vertical">
             <properties name="items"/>
             <thumbnail thumbnail="item">
                 <properties xalign="center" yalign="center"/>
