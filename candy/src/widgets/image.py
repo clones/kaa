@@ -86,6 +86,7 @@ class Imlib2Texture(Widget):
             image = kaa.imlib2.Image(image)
         self._imagedata = image
         self._queue_sync(rendering=True, layout=self.__keep_aspect)
+        self._queue_sync_properties('imagedata')
 
     def _candy_render(self):
         """
@@ -104,11 +105,10 @@ class Imlib2Texture(Widget):
                 else:
                     width = int(height * aspect)
             self._obj.set_size(width, height)
-        if not self._imagedata:
-            return
-        width, height = self._imagedata.size
-        self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
-            width, height, width*4, 4, backend.TEXTURE_RGB_FLAG_BGR)
+        if 'imagedata' in self._sync_properties and self._imagedata:
+            width, height = self._imagedata.size
+            self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
+                 width, height, width*4, 4, backend.TEXTURE_RGB_FLAG_BGR)
 
 
 class CairoTexture(Widget):
