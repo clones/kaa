@@ -418,6 +418,7 @@ class SelectionGrid(Grid):
         behaviour.apply(0, self.items.children)
         self._queue_sync(rendering=True)
         self._queue_sync_properties('selection')
+        return self
 
     def select(self, (col, row), secs):
         """
