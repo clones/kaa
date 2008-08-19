@@ -128,6 +128,8 @@ class Stage(Group):
             # first before it is working, therefor we access Left.
             backend.keysyms.Left
             for name in dir(backend.keysyms):
+                if len(name) == 2 and name.startswith('_'):
+                    self._keysyms[getattr(backend.keysyms, name)] = name[1]
                 if not name.startswith('_'):
                     self._keysyms[getattr(backend.keysyms, name)] = name
             self._obj.show()
