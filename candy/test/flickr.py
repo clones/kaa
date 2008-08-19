@@ -21,7 +21,7 @@ xml = '''
             <properties xalign="center"/>
             $title
         </label>
-        <grid y="50" width="780" height="530" cell-width="160" cell-height="140"
+        <grid y="50" height="530" cell-width="160" cell-height="140"
             items="items" cell-item="item" orientation="vertical">
             <properties name="items"/>
             <container>

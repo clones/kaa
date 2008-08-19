@@ -125,39 +125,59 @@ class Grid(Group):
         self.__child_listing = items
         self.__child_context = cell_item
         self.__child_template = template
+        self.spacing = spacing
+
+    def _create_grid(self):
+        """
+        Setup the grid. After this function has has been called no modifications
+        to the grid are possible.
+
+        @todo: make it possible to change the layout during runtime
+        """
         # do some calculations
-        if spacing is None:
+        if self.spacing is None:
             # no spacing is given. Get the number of rows and cols
             # and device the remaining space as speacing and border
-            self.num_cols = size[0] / cell_size[0]
-            self.num_rows = size[1] / cell_size[1]
-            space_x = size[0] / self.num_cols - cell_size[0]
-            space_y = size[1] / self.num_rows - cell_size[1]
+            self.num_cols = self.width / self.cell_size[0]
+            self.num_rows = self.height / self.cell_size[1]
+            space_x = self.width / self.num_cols - self.cell_size[0]
+            space_y = self.height / self.num_rows - self.cell_size[1]
             # size of cells
             self._col_size = self.cell_size[0] + space_x
             self._row_size = self.cell_size[1] + space_y
         else:
             # spacing is given, let's see how much we can fit into here
-            space_x, space_y = spacing
+            space_x, space_y = self.spacing
             # size of cells
             self._col_size = self.cell_size[0] + space_x
             self._row_size = self.cell_size[1] + space_y
             # now that we know the sizes check how much items fit
-            self.num_cols = size[0] / self._col_size
-            self.num_rows = size[1] / self._row_size
-            
+            self.num_cols = self.width / self._col_size
+            self.num_rows = self.height / self._row_size
         # we now center the grid by default
-        x0 = (size[0] - self.num_cols * self._col_size + space_x) / 2
-        y0 = (size[1] - self.num_rows * self._row_size + space_y) / 2
+        x0 = (self.width - self.num_cols * self._col_size + space_x) / 2
+        y0 = (self.height - self.num_rows * self._row_size + space_y) / 2
         # list of rendered items
         self._rendered = {}
         # animations for row and col scrolling
         self.__row_animation = None
         self.__col_animation = None
-        # render visisble items
+        # group of items
         self.items = ItemGroup((x0, y0))
         self.items.parent = self
-        self._check_items()
+
+    def __getattr__(self, attr):
+        """
+        Generic getattr function called when variables created by grid
+        creation are needed.
+        """
+        if self._create_grid is not None:
+            self._create_grid()
+            self._create_grid = None
+            # call again, now the attribute should be there
+            return getattr(self, attr)
+        # we do not know that attribute
+        raise AttributeError("'Grid' object has no attribute '%s'" % attr)
 
     @kaa.synchronized()
     def scroll_by(self, (rows, cols), secs):
@@ -167,6 +187,7 @@ class Grid(Group):
         @param rows, cols: rows and cols to scroll
         @param secs: runtime of the animation
         """
+        # This function will force grid creation
         while True:
             # check if it possible to go there
             if self.__orientation == Grid.HORIZONTAL:
@@ -194,6 +215,7 @@ class Grid(Group):
         @param row, col: end row and col
         @param secs: runtime of the animation
         """
+        # This function will force grid creation
         if self.items.cell0[0] != row:
             # need to scroll rows
             if self.__row_animation and self.__row_animation.is_playing:
@@ -217,7 +239,17 @@ class Grid(Group):
                 self.__col_animation = self.animate(secs)
                 self.__col_animation.behave(ScrollBehaviour((0, y), '_scroll_grid'))
 
-    def _create_item(self, item_num, pos_x, pos_y):
+    @kaa.synchronized()
+    def _scroll_grid(self, x, y):
+        """
+        Callback from the animation
+        """
+        self.items.x -= x
+        self.items.y -= y
+        self._queue_sync(rendering=True)
+        self._queue_sync_properties('grid')
+
+    def _candy_create_item(self, item_num, pos_x, pos_y):
         """
         Render one child
         """
@@ -235,10 +267,13 @@ class Grid(Group):
         self._rendered[(pos_x, pos_y)] = child
         return child
 
-    def _check_items(self):
+    def _candy_prepare_render(self):
         """
         Check for items to add because they are visible now
         """
+        if self._obj and not 'grid' in self._sync_properties:
+            return
+
         # This function is highly optimized for fast rendering when there is nothing
         # to change. Some code is duplicated for HORIZONTAL and VERTICAL but creating
         # smaller code size increases the running time.
@@ -252,12 +287,12 @@ class Grid(Group):
             item_num = base_x * self.num_rows + base_y
             while True:
                 if not (pos_x, pos_y) in self._rendered:
-                    self._create_item(item_num, pos_x, pos_y)
+                    self._candy_create_item(item_num, pos_x, pos_y)
                 item_num += 1
                 pos_y += 1
                 if pos_y - base_y >= self.num_rows:
                     if not (pos_x, pos_y) in self._rendered:
-                        self._create_item(item_num, pos_x, pos_y)
+                        self._candy_create_item(item_num, pos_x, pos_y)
                     pos_y = base_y
                     pos_x += 1
                     if pos_x - base_x > self.num_cols:
@@ -267,12 +302,12 @@ class Grid(Group):
         item_num = base_y * self.num_cols + base_x
         while True:
             if not (pos_x, pos_y) in self._rendered:
-                self._create_item(item_num, pos_x, pos_y)
+                self._candy_create_item(item_num, pos_x, pos_y)
             item_num += 1
             pos_x += 1
             if pos_x - base_x >= self.num_cols:
                 if not (pos_x, pos_y) in self._rendered:
-                    self._create_item(item_num, pos_x, pos_y)
+                    self._candy_create_item(item_num, pos_x, pos_y)
                 pos_x = base_x
                 pos_y += 1
                 if pos_y - base_y > self.num_rows:
@@ -288,15 +323,6 @@ class Grid(Group):
             return
         super(Grid, self)._candy_render()
         self._obj.set_clip(0, 0, self.inner_width, self.inner_height)
-
-    @kaa.synchronized()
-    def _scroll_grid(self, x, y):
-        """
-        Callback from the animation
-        """
-        self.items.x -= x
-        self.items.y -= y
-        self._check_items()
 
     @classmethod
     def candyxml_parse(cls, element):
@@ -365,6 +391,15 @@ class SelectionGrid(Grid):
         self.selection.parent = self
         self.selection.lower_bottom()
         self.__animation = None
+
+    def _create_grid(self):
+        """
+        Setup the grid. After this function has has been called no modifications
+        to the grid are possible.
+
+        @todo: make it possible to change the layout during runtime
+        """
+        super(SelectionGrid, self)._create_grid()
         self.items.modified = []
         self.select((0, 0), 0)
 
@@ -376,13 +411,13 @@ class SelectionGrid(Grid):
            submodule. If a new is given, the Behaviour will be created with
            the given arguments.
         """
+        # This function will force grid creation
         if isinstance(behaviour, str):
             behaviour = create_behaviour(behaviour, *args, **kwargs)
         self.behaviour.append(behaviour)
         behaviour.apply(0, self.items.children)
-        # scroll by 0,0 to update covered items
-        self._scroll_listing(0,0)
-        return self
+        self._queue_sync(rendering=True)
+        self._queue_sync_properties('selection')
 
     def select(self, (col, row), secs):
         """
@@ -391,6 +426,8 @@ class SelectionGrid(Grid):
         @param col, row: cell position to select
         @param secs: runtime of the animation
         """
+        # This function will force grid creation
+
         # calculate x,y coordinates to move based on the current position
         # This is the selection x0 if it would be on 0,0 + the row or col
         # we want to select - our current position. After that add how items
@@ -407,16 +444,6 @@ class SelectionGrid(Grid):
         else:
             self._scroll_listing(x, y)
 
-    def _create_item(self, item_num, pos_x, pos_y):
-        """
-        Render one child
-        """
-        child = super(SelectionGrid, self)._create_item(item_num, pos_x, pos_y)
-        if child:
-            for behaviour in self.behaviour:
-                behaviour.apply(0, [child])
-        return child
-
     def _scroll_grid(self, x, y):
         """
         Callback from the animation to scroll the grid
@@ -431,8 +458,25 @@ class SelectionGrid(Grid):
         """
         self.selection.x += x
         self.selection.y += y
-        if not self.behaviour:
-            # no behaviour means no items to change
+        self._queue_sync(rendering=True)
+        self._queue_sync_properties('selection')
+
+    def _candy_create_item(self, item_num, pos_x, pos_y):
+        """
+        Render one child
+        """
+        child = super(SelectionGrid, self)._candy_create_item(item_num, pos_x, pos_y)
+        if child:
+            for behaviour in self.behaviour:
+                behaviour.apply(0, [child])
+        return child
+
+    def _candy_prepare_render(self):
+        """
+        Check for items to be updated based on the behaviours
+        """
+        super(SelectionGrid, self)._candy_prepare_render()
+        if (self._obj and not 'selection' in self._sync_properties) or not self.behaviour:
             return
         x, y, width, height = self.selection.geometry
         # current cell position of the selection bar
