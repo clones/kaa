@@ -359,26 +359,31 @@ class Widget(object):
             if self.__xalign == Widget.ALIGN_CENTER:
                 x += (self.__width - self._obj.get_width()) / 2
                 anchor_x = self._obj.get_width() / 2
-            if self.__xalign == Widget.ALIGN_RIGHT:
-                x += self.__width - self._obj.get_width()
+            elif self.__xalign == Widget.ALIGN_RIGHT:
+                x += self.__width - self._obj.get_width() - self.__xpadding
                 anchor_x = self._obj.get_width()
+            else:
+                x += self.__xpadding
+        else:
+            x += self.__xpadding
         if self.__yalign:
             if self.__yalign == Widget.ALIGN_CENTER:
                 y += (self.__height - self._obj.get_height()) / 2
                 anchor_y = self._obj.get_height() / 2
-            if self.__yalign == Widget.ALIGN_BOTTOM:
-                y += self.__height - self._obj.get_height()
+            elif self.__yalign == Widget.ALIGN_BOTTOM:
+                y += self.__height - self._obj.get_height() - self.__ypadding
                 anchor_y = self._obj.get_height()
+            else:
+                y += self.__ypadding
+        else:
+            y += self.__ypadding
+
         if self.__anchor:
             anchor_x, anchor_y = self.__anchor
         if anchor_x or anchor_y:
             self._obj.set_anchor_point(anchor_x, anchor_y)
             x += anchor_x
             y += anchor_y
-        if self.__xpadding:
-            x += self.__xpadding
-        if self.__ypadding:
-            y += self.__ypadding
         self._obj.set_position(x, y)
 
     def _candy_sync_properties(self):
