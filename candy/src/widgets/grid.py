@@ -180,7 +180,7 @@ class Grid(Group):
         raise AttributeError("'Grid' object has no attribute '%s'" % attr)
 
     @kaa.synchronized()
-    def scroll_by(self, (rows, cols), secs):
+    def scroll_by(self, (rows, cols), secs, force=False):
         """
         Scroll by rows and cols cells
 
@@ -188,7 +188,7 @@ class Grid(Group):
         @param secs: runtime of the animation
         """
         # This function will force grid creation
-        while True:
+        while not force:
             # check if it possible to go there
             if self.__orientation == Grid.HORIZONTAL:
                 num = (self.items.cell0[0] + rows) * self.num_rows + \
