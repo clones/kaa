@@ -41,3 +41,6 @@ fps = 30
 
 #; path to search for image files
 imagepath = []
+
+#; debug variable to find performance problems
+performance_debug = False

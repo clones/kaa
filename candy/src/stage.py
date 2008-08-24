@@ -33,8 +33,9 @@ __all__ = [ 'Stage' ]
 
 # python imports
 import threading
-import gobject
+import time
 import logging
+import gobject
 
 # kaa imports
 import kaa
@@ -46,6 +47,7 @@ from widgets import Group
 import backend
 import animation
 import candyxml
+import config
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -107,6 +109,8 @@ class Stage(Group):
         Execute update inside safe try/except environment
         """
         try:
+            if config.performance_debug:
+                t1 = time.time()
             if self._sync_rendering:
                 self._candy_prepare_render()
                 self._sync_rendering = False
@@ -117,6 +121,10 @@ class Stage(Group):
             if self._sync_properties:
                 self._candy_sync_properties()
                 self._sync_properties = {}
+            if config.performance_debug:
+                diff = time.time() - t1
+                if diff > 0.05:
+                    log.warning('candy_sync() took %2.3f secs' % diff)
         except Exception, e:
             log.exception('kaa.candy.sync')
         if event:

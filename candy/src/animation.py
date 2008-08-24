@@ -205,8 +205,8 @@ class Animation(object):
         Class method to call all running animations
         """
         _lock_lock.acquire()
-        # TIME DEBUG
-        # t1 = time.time()
+        if config.performance_debug:
+            t1 = time.time()
         try:
             for a in cls.__animations[:]:
                 a.current_frame_num += 1
@@ -214,8 +214,10 @@ class Animation(object):
                 if a.current_frame_num == a.n_frames:
                     a.stop()
                 signals['candy-update'].emit()
-            # TIME DEBUG
-            # print 'animations took %2.3f' % (time.time() - t1)
+            if config.performance_debug:
+                diff = time.time() - t1
+                if diff > 0.05:
+                    log.warning('animations.step() took %2.3f secs' % diff)
         except Exception, e:
             log.exception('animation')
         _lock_lock.release()
