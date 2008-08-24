@@ -296,22 +296,28 @@ class Grid(Group):
                     pos_y = base_y
                     pos_x += 1
                     if pos_x - base_x > self.num_cols:
-                        return
+                        break
 
-        # self.__orientation == Grid.VERTICAL
-        item_num = base_y * self.num_cols + base_x
-        while True:
-            if not (pos_x, pos_y) in self._rendered:
-                self._candy_create_item(item_num, pos_x, pos_y)
-            item_num += 1
-            pos_x += 1
-            if pos_x - base_x >= self.num_cols:
+        if self.__orientation == Grid.VERTICAL:
+            item_num = base_y * self.num_cols + base_x
+            while True:
                 if not (pos_x, pos_y) in self._rendered:
                     self._candy_create_item(item_num, pos_x, pos_y)
-                pos_x = base_x
-                pos_y += 1
-                if pos_y - base_y > self.num_rows:
-                    return
+                item_num += 1
+                pos_x += 1
+                if pos_x - base_x >= self.num_cols:
+                    if not (pos_x, pos_y) in self._rendered:
+                        self._candy_create_item(item_num, pos_x, pos_y)
+                    pos_x = base_x
+                    pos_y += 1
+                    if pos_y - base_y > self.num_rows:
+                        break
+        for x, y in self._rendered.keys()[:]:
+            if x < base_x - self.num_cols or y < base_y - self.num_rows or \
+               x > base_x + 2 * self.num_cols or y > base_y + 2 * self.num_rows:
+                child = self._rendered.pop((x,y))
+                if child:
+                    child.parent = None
         return
 
     def _candy_render(self):
