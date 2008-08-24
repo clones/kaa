@@ -114,7 +114,7 @@ class Text(Widget):
         text = self._regexp_br.sub('\n', text)
         if self.__text_eval != text:
             self.__text_eval = text
-            self._queue_sync(rendering=True)
+            self._queue_rendering()
 
     @property
     def color(self):
@@ -125,7 +125,7 @@ class Text(Widget):
         if not isinstance(color, Color):
             color = Color(color)
         self.__color = color
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     @property
     def font(self):
@@ -136,7 +136,7 @@ class Text(Widget):
         if not isinstance(font, Font):
             font = Font(font)
         self.__font = font
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     def _candy_render(self):
         """

@@ -102,7 +102,7 @@ class Label(Widget):
             text = re.sub(self._regexp_eval, replace_context, text)
         if self.__text_eval != text:
             self.__text_eval = text
-            self._queue_sync(rendering=True)
+            self._queue_rendering()
 
     @property
     def color(self):
@@ -113,7 +113,7 @@ class Label(Widget):
         if not isinstance(color, Color):
             color = Color(color)
         self.__color = color
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     @property
     def font(self):
@@ -124,7 +124,7 @@ class Label(Widget):
         if not isinstance(font, Font):
             font = Font(font)
         self.__font = font
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
         if self._obj is not None:
             height = font.get_height(font.MAX_HEIGHT)
             if self.height < height:

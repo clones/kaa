@@ -246,7 +246,7 @@ class Grid(Group):
         """
         self.items.x -= x
         self.items.y -= y
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
         self._queue_sync_properties('grid')
 
     def _candy_create_item(self, item_num, pos_x, pos_y):
@@ -422,7 +422,7 @@ class SelectionGrid(Grid):
             behaviour = create_behaviour(behaviour, *args, **kwargs)
         self.behaviour.append(behaviour)
         behaviour.apply(0, self.items.children)
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
         self._queue_sync_properties('selection')
         return self
 
@@ -465,7 +465,7 @@ class SelectionGrid(Grid):
         """
         self.selection.x += x
         self.selection.y += y
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
         self._queue_sync_properties('selection')
 
     def _candy_create_item(self, item_num, pos_x, pos_y):

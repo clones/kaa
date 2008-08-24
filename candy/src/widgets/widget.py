@@ -140,7 +140,6 @@ class Widget(object):
     __template__ = Template
 
     # sync indications
-    _sync_required = True
     _sync_rendering = True
     _sync_layout = True
 
@@ -308,21 +307,23 @@ class Widget(object):
 
     # rendering
 
-    def _queue_sync(self, rendering=False, layout=False):
+    def _queue_rendering(self):
         """
-        Queue rendering or re-layout to be called on the next sync.
-
-        @param rendering: child requires calling _candy_render
-        @param layout: child requires calling _candy_sync_layout
+        Queue rendering on the next sync.
         """
-        if rendering:
-            self._sync_rendering = True
-        if layout:
-            self._sync_layout = True
-        self._sync_required = True
+        self._sync_rendering = True
         parent = self.parent
         if parent and not parent._sync_rendering:
-            parent._queue_sync(rendering=True)
+            parent._queue_rendering()
+
+    def _queue_sync_layout(self):
+        """
+        Queue re-layout to be called on the next sync.
+        """
+        self._sync_layout = True
+        parent = self.parent
+        if parent and not parent._sync_rendering and not parent._sync_layout:
+            parent._queue_sync_layout()
 
     def _queue_sync_properties(self, *properties):
         """
@@ -330,7 +331,6 @@ class Widget(object):
         """
         for prop in properties:
             self._sync_properties[prop] = True
-        self._sync_required = True
         parent = self.parent
         if parent and not parent._sync_properties:
             parent._queue_sync_properties('children')
@@ -420,8 +420,10 @@ class Widget(object):
 
     @x.setter
     def x(self, x):
+        if self.__x == x:
+            return
         self.__x = x
-        self._queue_sync(layout=True)
+        self._queue_sync_layout()
 
     @property
     def y(self):
@@ -429,8 +431,10 @@ class Widget(object):
 
     @y.setter
     def y(self, y):
+        if self.__y == y:
+            return
         self.__y = y
-        self._queue_sync(layout=True)
+        self._queue_sync_layout()
 
     @property
     def width(self):
@@ -440,10 +444,13 @@ class Widget(object):
 
     @width.setter
     def width(self, width):
+        if self.__width == width:
+            return
         if self._obj is not None:
             self._queue_sync_properties('size')
         self.__width = width
-        self._queue_sync(rendering=True, layout=True)
+        self._queue_rendering()
+        self._queue_sync_layout()
 
     @property
     def inner_width(self):
@@ -459,10 +466,13 @@ class Widget(object):
 
     @height.setter
     def height(self, height):
+        if self.__height == height:
+            return
         if self._obj is not None:
             self._queue_sync_properties('size')
         self.__height = height
-        self._queue_sync(rendering=True, layout=True)
+        self._queue_rendering()
+        self._queue_sync_layout()
 
     @property
     def inner_height(self):
@@ -483,7 +493,7 @@ class Widget(object):
     @anchor_point.setter
     def anchor_point(self, (x, y)):
         self.__anchor = x, y
-        self._queue_sync(layout=True)
+        self._queue_sync_layout()
 
     @property
     def xalign(self):
@@ -492,7 +502,7 @@ class Widget(object):
     @xalign.setter
     def xalign(self, align):
         self.__xalign = align
-        self._queue_sync(layout=True)
+        self._queue_sync_layout()
 
     @property
     def yalign(self):
@@ -501,7 +511,7 @@ class Widget(object):
     @yalign.setter
     def yalign(self, align):
         self.__yalign = align
-        self._queue_sync(layout=True)
+        self._queue_sync_layout()
 
     @property
     def xpadding(self):
@@ -510,7 +520,7 @@ class Widget(object):
     @xpadding.setter
     def xpadding(self, padding):
         self.__xpadding = padding
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     @property
     def ypadding(self):
@@ -519,7 +529,7 @@ class Widget(object):
     @ypadding.setter
     def ypadding(self, padding):
         self.__ypadding = padding
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     @property
     def scale(self):

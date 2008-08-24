@@ -153,7 +153,7 @@ class Group(Widget):
 
         @param child: child widget
         """
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
         self._queue_sync_properties('children')
         self.__children_added.append(child)
         self.children.append(child)
@@ -168,7 +168,7 @@ class Group(Widget):
             self.__children_added.remove(child)
         else:
             self.__children_removed.append(child)
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
         self._queue_sync_properties('children')
         self.children.remove(child)
 
@@ -212,7 +212,7 @@ class LayoutGroup(Group):
     @spacing.setter
     def spacing(self, spacing):
         self.__spacing = spacing
-        self._queue_sync(layout=True)
+        self._queue_sync_layout()
 
     @property
     def layout(self):
@@ -236,7 +236,7 @@ class LayoutGroup(Group):
         """
         self.children.remove(child)
         self.children.insert(pos, child)
-        self._queue_sync(layout=True)
+        self._queue_sync_layout()
 
     def _candy_sync_layout(self):
         """

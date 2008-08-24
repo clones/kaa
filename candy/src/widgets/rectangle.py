@@ -73,7 +73,7 @@ class Rectangle(CairoTexture):
         if color and not isinstance(color, Color):
             color = Color(color)
         self.__color = color
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     @property
     def border_size(self):
@@ -82,7 +82,7 @@ class Rectangle(CairoTexture):
     @border_size.setter
     def border_size(self, size):
         self.__border_size = size
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     @property
     def border_color(self):
@@ -93,7 +93,7 @@ class Rectangle(CairoTexture):
         if color and not isinstance(color, Color):
             color = Color(color)
         self.__border_color = color
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     @property
     def radius(self):
@@ -102,7 +102,7 @@ class Rectangle(CairoTexture):
     @radius.setter
     def radius(self, radius):
         self.__radius = radius
-        self._queue_sync(rendering=True)
+        self._queue_rendering()
 
     def _candy_render(self):
         """

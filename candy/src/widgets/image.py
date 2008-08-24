@@ -75,8 +75,9 @@ class Imlib2Texture(Widget):
     @keep_aspect.setter
     def keep_aspect(self, keep_aspect):
         self.__keep_aspect = keep_aspect
+        self._queue_rendering()
+        self._queue_sync_layout()
         self._queue_sync_properties('size')
-        self._queue_sync(rendering=True, layout=True)
 
     def set_image(self, image):
         """
@@ -90,7 +91,9 @@ class Imlib2Texture(Widget):
                 return self._imageloader(image).connect(self.set_image)
             image = kaa.imlib2.Image(image)
         self._imagedata = image
-        self._queue_sync(rendering=True, layout=self.__keep_aspect)
+        self._queue_rendering()
+        if self.__keep_aspect:
+            self._queue_sync_layout()
         self._queue_sync_properties('imagedata')
 
     def _candy_render(self):
