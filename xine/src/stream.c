@@ -134,7 +134,9 @@ Xine_Stream_PyObject_open(Xine_Stream_PyObject *self, PyObject *args, PyObject *
     if (!PyArg_ParseTuple(args, "s", &mrl))
         return NULL;
 
+    Py_BEGIN_ALLOW_THREADS
     result = xine_open(self->stream, mrl);
+    Py_END_ALLOW_THREADS
     if (!result) {
         PyErr_Format(xine_error, "Failed to open stream '%s' (FIXME: add useful error).", mrl);
         return NULL;

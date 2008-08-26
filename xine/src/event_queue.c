@@ -9,7 +9,6 @@ typedef struct _xine_event_queue_listener_data {
     Xine_Event_Queue_PyObject *queue;
 } xine_event_queue_listener_data;
 
-#if 0 // unstable, figure out why.
 void _xine_event_queue_listener_callback(void *_data, const xine_event_t *event)
 {
     xine_event_queue_listener_data *data = (xine_event_queue_listener_data *)_data;
@@ -20,7 +19,13 @@ void _xine_event_queue_listener_callback(void *_data, const xine_event_t *event)
     gstate = PyGILState_Ensure();
 
     if (PyCallable_Check(*data->callback)) {
-        pyevent = pyxine_new_event_pyobject(data->queue->xine, data->queue, (xine_event_t *)event, 1);
+        /* Create new python object for this xine event.  The last argument, 0,
+         * is do_dispose, which indicates whether or not the xine_event_t
+         * object should be freed in the pyobject's deallocator.  Xine
+         * allocated this event and it will free it after this function is
+         * finished, so we mustn't free it ourselves.
+         */
+        pyevent = pyxine_new_event_pyobject(data->queue->xine, data->queue->queue, (xine_event_t *)event, 0);
         args = Py_BuildValue("(O)", pyevent);
         result = PyEval_CallObject(*data->callback, args);
         if (!result)
@@ -32,7 +37,6 @@ void _xine_event_queue_listener_callback(void *_data, const xine_event_t *event)
     }
     PyGILState_Release(gstate);
 }
-#endif
 
 // Owner must be a Stream object
 Xine_Event_Queue_PyObject *
@@ -64,8 +68,7 @@ pyxine_new_event_queue_pyobject(Xine_PyObject *xine, void *owner, xine_event_que
     o->owner = owner;
     Py_INCREF(o->xine);
 
-    //xine_event_create_listener_thread(queue, _xine_event_queue_listener_callback, o->event_callback_data);
-
+    xine_event_create_listener_thread(queue, _xine_event_queue_listener_callback, o->event_callback_data);
     xine_object_to_pyobject_register(queue, (PyObject *)o);
     return o;
 }
@@ -131,6 +134,7 @@ Xine_Event_Queue_PyObject__dealloc(Xine_Event_Queue_PyObject *self)
     }
     Py_DECREF(self->wrapper);
     Py_DECREF(self->xine);
+    Py_DECREF(self->event_callback);
     free(self->event_callback_data);
     //Xine_Event_Queue_PyObject__clear(self);
 

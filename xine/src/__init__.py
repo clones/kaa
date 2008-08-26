@@ -454,17 +454,14 @@ class Stream(Wrapper):
     def __init__(self, obj):
         super(Stream, self).__init__(obj)
         self.signals = {
-            "event": kaa.Signal()
+            # Emitted upon stream events.  NOTE: callbacks connected to this 
+            # signal will be invoked outside the main thread.  It's not a good
+            # idea to force the callback to the main thread (via MainThreadCallback)
+            # because the main thread may be blocked on open() or play(), but
+            # there may be progress events that should be handled realtime.
+            'event': kaa.Signal()
         }
         self.event_queue = self.new_event_queue()
-        kaa.main.signals["step"].connect_weak(self.flush_events)
-        #self.event_queue._obj.event_callback = kaa.WeakCallback(self._obj_callback)
-
-    def flush_events(self):
-        event = self.event_queue.get_event()
-        while event:
-            self.signals["event"].emit(event)
-            event = self.event_queue.get_event()
 
     def get_event(self):
         return self.event_queue.get_event()
@@ -574,12 +571,17 @@ class Stream(Wrapper):
         t = max(0, t)
         return self._seek(t)
 
-    def new_event_queue(self):
-        return _wrap_xine_object(self._obj.new_event_queue())
+    def _new_event_callback(self, event):
+        self.signals["event"].emit(_wrap_xine_object(event))
 
+    def new_event_queue(self):
+        o = _wrap_xine_object(self._obj.new_event_queue())
+        o._obj.event_callback = kaa.WeakCallback(self._new_event_callback)
+        return o
 
     def send_event(self, type, **kwargs):
         return self._obj.send_event(type, **kwargs)
+
 
 class Post(Wrapper):
     def __init__(self, obj):
@@ -762,6 +764,7 @@ class EventQueue(Wrapper):
 
     def get_event(self):
         return _wrap_xine_object(self._obj.get_event())
+
 
 class Event(Wrapper):
     def __init__(self, obj):

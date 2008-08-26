@@ -101,6 +101,13 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
             break;
         }
 
+        case XINE_EVENT_PROGRESS: {
+            xine_progress_data_t *d = (xine_progress_data_t *)event->data;
+            PyDict_SetItemString_STEAL(o->data, "description", PyString_FromString(d->description));
+            PyDict_SetItemString_STEAL(o->data, "percent", PyInt_FromLong(d->percent));
+            break;
+        }
+
         default:
             PyDict_SetItemString_STEAL(o->data, "data", 
                                        PyString_FromStringAndSize(event->data, event->data_length));
