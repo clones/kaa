@@ -34,7 +34,6 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
     o->do_dispose = do_dispose;
     o->owner = owner;
     Py_INCREF(o->xine);
-    PyDict_SetItemString_STEAL(o->data, "data", PyString_FromStringAndSize(event->data, event->data_length));
     if (event->data_length == sizeof(int)) {
         // Assume that data is an integer and include that value in the data dict.
         PyDict_SetItemString_STEAL(o->data, "int", PyInt_FromLong(*(int *)event->data));
@@ -93,6 +92,18 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
             break;
         }
 
+        case XINE_EVENT_MRL_REFERENCE_EXT: {
+            xine_mrl_reference_data_ext_t *d = (xine_mrl_reference_data_ext_t*)event->data;
+            PyDict_SetItemString_STEAL(o->data, "alternative", PyInt_FromLong(d->alternative));
+            PyDict_SetItemString_STEAL(o->data, "start_time", PyInt_FromLong(d->start_time));
+            PyDict_SetItemString_STEAL(o->data, "duration", PyInt_FromLong(d->duration));
+            PyDict_SetItemString_STEAL(o->data, "mrl", PyString_FromString(d->mrl));
+            break;
+        }
+
+        default:
+            PyDict_SetItemString_STEAL(o->data, "data", 
+                                       PyString_FromStringAndSize(event->data, event->data_length));
 
     }
 
