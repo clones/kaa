@@ -96,6 +96,12 @@ class Imlib2Texture(Widget):
             self._queue_sync_layout()
         self._queue_sync_properties('imagedata')
 
+    def has_image(self):
+        """
+        Returns if the widget has an image set
+        """
+        return self._imagedata is not None
+
     def _candy_render(self):
         """
         Render the widget
@@ -146,7 +152,7 @@ class Image(Imlib2Texture):
 
     _downloads = {}
 
-    def __init__(self, pos, size, url, context=None):
+    def __init__(self, pos, size, url=None, context=None):
         """
         Create the Image
 
@@ -232,7 +238,7 @@ class Thumbnail(Image):
     """
     candyxml_name = 'thumbnail'
 
-    def __init__(self, pos, size, thumbnail, context=None):
+    def __init__(self, pos, size, thumbnail=None, default=None, context=None):
         """
         Create the Thumbnail widget
 
@@ -241,10 +247,12 @@ class Thumbnail(Image):
         @param thumbnail: kaa.beacon.Thumbnail object or a string which points
             to the Thumbnail object in the context.
         @param context: the context the widget is created in
-        @todo: add default image
         """
-        super(Thumbnail, self).__init__(pos, size, None, context)
+        super(Thumbnail, self).__init__(pos, size, context=context)
         self.keep_aspect = True
+        self.set_thumbnail(thumbnail, default)
+
+    def set_thumbnail(self, thumbnail, default=None):
         if isinstance(thumbnail, (str, unicode)):
             # get thumbnail from context
             thumbnail = self.eval_context(thumbnail)
@@ -257,11 +265,15 @@ class Thumbnail(Image):
         if self._thumbnail is not None:
             # show thumbnail
             self._show_thumbnail(force=True)
-        else:
-            if item is not None and not item.scanned():
-                scanning = item.scan()
-                if scanning:
-                    scanning.connect_weak_once(self._beacon_update, item)
+            return
+        if default and not default.startswith('/'):
+            default = self._get_image_by_url(default)
+        if default:
+            self.set_image(default)
+        if item is not None and not item.scanned():
+            scanning = item.scan()
+            if scanning:
+                scanning.connect_weak_once(self._beacon_update, item)
 
     def _beacon_update(self, changes, item):
         self._thumbnail = item.get('thumbnail')
@@ -301,7 +313,7 @@ class Thumbnail(Image):
         on the given context.
         """
         return Imlib2Texture.candyxml_parse(element).update(
-            thumbnail=element.thumbnail)
+            thumbnail=element.thumbnail, default=element.default)
 
 
 # register widgets to candyxml
