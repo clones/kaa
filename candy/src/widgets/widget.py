@@ -225,7 +225,7 @@ class Widget(object):
                 return False
         return True
 
-    def eval_context(self, var, default=None, context=None, depends=True):
+    def eval_context(self, var, default=None, context=None, depends=False):
         """
         Evaluate the context for the given variable. This function is used by
         widgets to evaluate the context and set their dependencies. It should

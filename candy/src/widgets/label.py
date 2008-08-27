@@ -93,7 +93,7 @@ class Label(Widget):
         self.__text = text
         def replace_context(matchobj):
             match = matchobj.groups()[0] or matchobj.groups()[1]
-            s = self.eval_context(match, default='', depends=False)
+            s = self.eval_context(match, default='')
             if s is not None:
                 return unicode(s)
             return ''

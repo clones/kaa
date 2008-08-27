@@ -316,7 +316,7 @@ class Container(LayoutGroup):
                 log.exception('render')
         if dependency:
             for var in dependency:
-                self.eval_context(var)
+                self.eval_context(var, depends=True)
 
     def get_widget(self, name):
         """

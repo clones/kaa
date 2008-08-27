@@ -119,7 +119,7 @@ class Grid(Group):
         # clip the grid to hide cells moved outside the visible area
         if isinstance(items, (str, unicode)):
             # items is a string, get it from the context
-            items = self.eval_context(items)
+            items = self.eval_context(items, depends=True)
         # store arguments for later public use
         self.cell_size = cell_size
         # store arguments for later private use

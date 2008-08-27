@@ -95,13 +95,13 @@ class Text(Widget):
     def text(self, text):
         self.__text = text
         def eval_expression(matchobj):
-            if self.eval_context(matchobj.groups()[0], default='', depends=False):
+            if self.eval_context(matchobj.groups()[0], default=''):
                 return unicode(matchobj.groups()[1])
             return ''
         def replace_context(matchobj):
             # FIXME: maybe the string has markup to use
             match = matchobj.groups()[0] or matchobj.groups()[1]
-            s = self.eval_context(match, default='', depends=False)
+            s = self.eval_context(match, default='')
             if s is None:
                 return ''
             return unicode(s).replace('&', '&amp;').replace('<', '&lt;').\
