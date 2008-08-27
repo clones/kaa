@@ -109,7 +109,7 @@ def main():
     feed, items = yield load_feed('sunset')
     context = dict(title=feed.feed.title, items=items)
     # set context
-    container.set_context(context=context)
+    container.context = context
 
 main()
 

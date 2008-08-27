@@ -42,7 +42,7 @@ import kaa.imlib2
 from kaa.utils import property
 
 # kaa.candy imports
-from .. import candyxml, animation, Modifier, backend
+from .. import candyxml, animation, Modifier, backend, thread_enter, thread_leave, Context
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -85,6 +85,8 @@ class Template(object):
         @param context: context to create the widget in
         @returns: widget object
         """
+        if context is not None:
+            context = Context(context)
         if self._cls.context_sensitive:
             self._kwargs['context'] = context
         widget = self._cls(**self._kwargs)
@@ -128,12 +130,11 @@ class Widget(object):
     """
     Basic widget. All widgets from the backend must inherit from it.
 
-    @group Context Management: set_context, get_context, try_context, eval_context
     @cvar context_sensitive: class variable for inherting class if the class
         depends on the context.
     """
 
-    #: set if the object reacts on set_context
+    #: set if the object reacts on context
     context_sensitive = False
 
     #: template for object creation
@@ -188,30 +189,11 @@ class Widget(object):
         self.__context = context or {}
         self.userdata = {}
 
-    def get_context(self, key=None):
-        """
-        Get the context the widget is in.
-
-        @param key: if key is not None return only the value for key
-            from the context
-        @returns: context dict or value for the key
-        """
-        if key is None:
-            return self.__context
-        return self.__context.get(key)
-
-    def set_context(self, context):
-        """
-        Set a new context.
-
-        @param context: dict of context key,value pairs
-        """
-        self.__context = context
-
-    def try_context(self, context):
+    def _set_context_prepare(self, context):
         """
         Check if the widget is capable of the given context based on its
-        dependencies.
+        dependencies. This function is not thread-safe and should only
+        modify children not connected to any parent.
 
         @param context: context dict
         @returns: False if the widget can not handle the context or True
@@ -219,38 +201,27 @@ class Widget(object):
         if self.__depends:
             try:
                 for var, value in self.__depends.items():
-                    if value != repr(eval(var, context)):
+                    if value != repr(context.get(var)):
                         return False
             except AttributeError:
                 return False
         return True
 
-    def eval_context(self, var, default=None, context=None, depends=False):
+    def _set_context_execute(self, context):
         """
-        Evaluate the context for the given variable. This function is used by
-        widgets to evaluate the context and set their dependencies. It should
-        not be called from outside the widget.
+        Set a new context.
+
+        @param context: dict of context key,value pairs
+        """
+        self.__context = context
+
+    def add_dependency(self, var):
+        """
+        Evaluate the context for the given variable and depend on the result
 
         @param var: variable name to eval
-        @param default: default return value if var is not found
-        @param context: context to search, default is the context set on init
-            or by set_context.
-        @param depends: if set the true the variable and the value will be stored
-            as dependency and try_context will return False if the value changes.
         """
-        if var.startswith('$'):
-            # strip prefix for variables if set
-            var = var[1:]
-        context = context or self.__context
-        try:
-            # try the variable as it is
-            value = eval(var, context)
-        except Exception, e:
-            log.error('unable to evaluate %s', var)
-            return default
-        if depends:
-            self.__depends[var] = repr(value)
-        return value
+        self.__depends[var] = repr(self.__context.get(var))
 
     def animate(self, secs, alpha='inc', unparent=False):
         """
@@ -594,6 +565,19 @@ class Widget(object):
             self.__parent = _weakref.ref(parent)
             parent._child_add(self)
 
+    @property
+    def context(self):
+        return self.__context
+
+    @context.setter
+    def context(self, context):
+        context = Context(context)
+        self._set_context_prepare(context)
+        thread_enter()
+        try:
+            self._set_context_execute(context)
+        finally:
+            thread_leave()
 
     # candyxml stuff
 

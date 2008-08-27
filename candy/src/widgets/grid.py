@@ -43,7 +43,6 @@ __all__ = [ 'Grid', 'SelectionGrid' ]
 
 # python imports
 import logging
-import copy
 import time
 
 # kaa imports
@@ -119,7 +118,8 @@ class Grid(Group):
         # clip the grid to hide cells moved outside the visible area
         if isinstance(items, (str, unicode)):
             # items is a string, get it from the context
-            items = self.eval_context(items, depends=True)
+            self.add_dependency(items)
+            items = self.context.get(items)
         # store arguments for later public use
         self.cell_size = cell_size
         # store arguments for later private use
@@ -258,7 +258,7 @@ class Grid(Group):
         if item_num < 0 or item_num >= len(self.__child_listing):
             self._rendered[(pos_x, pos_y)] = None
             return
-        context = copy.copy(self.get_context())
+        context = self.context.copy()
         context[self.__child_context] = self.__child_listing[item_num]
         child = self.__child_template(context=context)
         child.x = pos_x * self._col_size

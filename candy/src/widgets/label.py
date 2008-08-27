@@ -74,13 +74,13 @@ class Label(Widget):
         self.text = text
         self.color = color
 
-    def set_context(self, context):
+    def _set_context_execute(self, context):
         """
         Set a new context.
 
         @param context: dict of context key,value pairs
         """
-        super(Label, self).set_context(context)
+        super(Label, self)._set_context_execute(context)
         # trigger new context evaluation
         self.text = self.__text
 
@@ -93,11 +93,11 @@ class Label(Widget):
         self.__text = text
         def replace_context(matchobj):
             match = matchobj.groups()[0] or matchobj.groups()[1]
-            s = self.eval_context(match, default='')
+            s = self.context.get(match, default='')
             if s is not None:
                 return unicode(s)
             return ''
-        if self.get_context():
+        if self.context:
             # we have a context, use it
             text = re.sub(self._regexp_eval, replace_context, text)
         if self.__text_eval != text:

@@ -40,7 +40,7 @@ from kaa.utils import property
 
 # kaa.candy imports
 from ..core import is_template
-from .. import backend, thread_enter, thread_leave
+from .. import backend
 from widget import Widget
 
 # get logging object
@@ -291,8 +291,6 @@ class Container(LayoutGroup):
     candyxml_name = 'container'
     context_sensitive = True
 
-    __context_lock = False
-
     def __init__(self, pos=None, size=None, widgets=[], dependency=None, context=None):
         """
         Create a container
@@ -300,7 +298,7 @@ class Container(LayoutGroup):
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget or None.
         @param widgets: list of widgets or widget templates to put into the container
-        @param dependency: list of context dependencies for set_context
+        @param dependency: list of context dependencies
         @param context: the context the widget is created in
         """
         super(Container, self).__init__(pos, size, None, context)
@@ -316,7 +314,7 @@ class Container(LayoutGroup):
                 log.exception('render')
         if dependency:
             for var in dependency:
-                self.eval_context(var, depends=True)
+                self.add_dependency(var)
 
     def get_widget(self, name):
         """
@@ -337,17 +335,17 @@ class Container(LayoutGroup):
                     return result
         return None
 
-    def try_context(self, context):
+    def _set_context_prepare(self, context):
         """
         Try if the widget is capable of handling the context. This does not
         modify any internal variables and is thread safe.
 
         @param context: context dict
         """
-        if not super(Container, self).try_context(context):
+        if not super(Container, self)._set_context_prepare(context):
             return False
         for child in self.children[:]:
-            if not child.context_sensitive or child.try_context(context) or \
+            if not child.context_sensitive or child._set_context_prepare(context) or \
                    child.userdata.get('context:replace'):
                 continue
             try:
@@ -364,17 +362,13 @@ class Container(LayoutGroup):
                 log.exception('render')
         return True
 
-    def set_context(self, context):
+    def _set_context_execute(self, context):
         """
         Set a new context for the container and redraw it.
 
         @param context: context dict
         """
-        if not Container.__context_lock:
-            Container.__context_lock = self
-            self.try_context(context)
-            thread_enter()
-        super(Container, self).set_context(context)
+        super(Container, self)._set_context_execute(context)
         for child in self.children[:]:
             replace = child.userdata.get('context:replace')
             if replace:
@@ -383,15 +377,12 @@ class Container(LayoutGroup):
                     child.userdata['context:replace'] = True
                 continue
             if child.context_sensitive:
-                child.set_context(context)
-        if Container.__context_lock == self:
-            Container.__context_lock = None
-            thread_leave()
+                child._set_context_execute(context)
 
     def replace_child(self, child, replace):
         """
         Replace child with a new one. This function is a callback from
-        set_context in case the container wants to add some animations.
+        _set_context_execute in case the container wants to add some animations.
         """
         child.parent = None
         replace.parent = self

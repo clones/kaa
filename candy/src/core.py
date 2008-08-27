@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'is_template', 'Color', 'Font', 'Modifier', 'Properties' ]
+__all__ = [ 'is_template', 'Context', 'Color', 'Font', 'Modifier', 'Properties' ]
 
 # python imports
 import logging
@@ -46,6 +46,26 @@ def is_template(obj):
     """
     return getattr(obj, '__is_template__', False)
 
+
+class Context(dict):
+
+    def __init__(self, ctx):
+        super(Context, self).__init__(ctx.copy())
+
+    def get(self, attr, default=None):
+        if attr.startswith('$'):
+            # strip prefix for variables if set
+            attr = attr[1:]
+        try:
+            # try the variable as it is
+            value = eval(attr, self)
+            return value
+        except Exception, e:
+            log.error('unable to evaluate %s', attr)
+            return default
+
+    def __getattr__(self, attr):
+        return self.get(attr)
 
 class Color(list):
     """
@@ -114,7 +134,7 @@ class Font(object):
         if name.find(':') > 0:
             self.name, size = name.split(':')
             self.size = int(size)
-            
+
     def get_height(self, field=None, size=None):
         """
         Get height of a text with this font.
@@ -166,7 +186,7 @@ class Font(object):
                 return f
             last = size
             size += 1
-            
+
 class Modifier(object):
     """
     Modifier base class for classes that change widgets on creation by

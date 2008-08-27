@@ -170,7 +170,8 @@ class Image(Imlib2Texture):
             return
         if url.startswith('$'):
             # variable from the context, e.g. $varname
-            url = self.eval_context(url[1:], depends=True)
+            self.add_dependency(url)
+            url = self.context.get(url)
             if not url:
                 return
         if isinstance(url, kaa.imlib2.Image):
@@ -255,7 +256,9 @@ class Thumbnail(Image):
     def set_thumbnail(self, thumbnail, default=None):
         if isinstance(thumbnail, (str, unicode)):
             # get thumbnail from context
-            thumbnail = self.eval_context(thumbnail, depends=True)
+            # FIXME: make this dynamic
+            self.add_dependency(thumbnail)
+            thumbnail = self.context.get(thumbnail)
         item = None
         if hasattr(thumbnail, 'scan'):
             # FIXME: bad detection

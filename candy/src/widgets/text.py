@@ -77,13 +77,13 @@ class Text(Widget):
         self.text = text
         self.color = color
 
-    def set_context(self, context):
+    def _set_context_execute(self, context):
         """
         Set a new context.
 
         @param context: dict of context key,value pairs
         """
-        super(Text, self).set_context(context)
+        super(Text, self)._set_context_execute(context)
         # trigger new context evaluation
         self.text = self.__text
 
@@ -95,18 +95,18 @@ class Text(Widget):
     def text(self, text):
         self.__text = text
         def eval_expression(matchobj):
-            if self.eval_context(matchobj.groups()[0], default=''):
+            if self.context.get(matchobj.groups()[0], default=''):
                 return unicode(matchobj.groups()[1])
             return ''
         def replace_context(matchobj):
             # FIXME: maybe the string has markup to use
             match = matchobj.groups()[0] or matchobj.groups()[1]
-            s = self.eval_context(match, default='')
+            s = self.context.get(match, default='')
             if s is None:
                 return ''
             return unicode(s).replace('&', '&amp;').replace('<', '&lt;').\
                    replace('>', '&gt;')
-        if self.get_context():
+        if self.context:
             # we have a context, use it
             text = self._regexp_space.sub(' ', text)
             text = self._regexp_if.sub(eval_expression, text)

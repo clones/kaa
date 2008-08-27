@@ -90,7 +90,7 @@ class Reflection(Group):
         self._reflection_obj.set_size(width, height)
         self.anchor_point = width/2, height
 
-    def try_context(self, context):
+    def _set_context_prepare(self, context):
         """
         Check if the widget is capable of the given context based on its
         dependencies.
@@ -99,18 +99,19 @@ class Reflection(Group):
         """
         # This widget does only depend indirect on a context. The real widget
         # inside may depend on a context and the reflection depends on the
-        # widget. So we just use the widget try_context function here.
-        return self.source.try_context(context)
+        # widget. So we just use the widget _set_context_prepare function here.
+        return self.source._set_context_prepare(context)
 
-    def set_context(self, context):
+    def _set_context_execute(self, context):
         """
         Set a new context.
+
         @param context: context dict
         """
         # This widget does only depend indirect on a context. The real widget
         # inside may depend on a context and the reflection depends on the
-        # widget. So we just use the widget set_context function here.
-        return self.source.set_context(context)
+        # widget. So we just use the widget _set_context_execute function here.
+        return self.source._set_context_execute(context)
 
 
 class ReflectionModifier(Modifier):
