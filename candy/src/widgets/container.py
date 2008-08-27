@@ -304,7 +304,6 @@ class Container(LayoutGroup):
         @param context: the context the widget is created in
         """
         super(Container, self).__init__(pos, size, None, context)
-        self.__replace_children = []
         for widget in widgets:
             try:
                 if is_template(widget):
@@ -319,13 +318,6 @@ class Container(LayoutGroup):
             for var in dependency:
                 self.eval_context(var)
 
-    def _queue_replace_children(self, old, new):
-        """
-        Queue child old to be replaced by new before rendering
-        """
-        self.__replace_children.append((old, new))
-        self._queue_rendering()
-
     def try_context(self, context):
         """
         Try if the widget is capable of handling the context. This does not
@@ -337,19 +329,18 @@ class Container(LayoutGroup):
             return False
         for child in self.children[:]:
             if not child.context_sensitive or child.try_context(context) or \
-                   child.userdata.get('container:removing'):
+                   child.userdata.get('context:replace'):
                 continue
             try:
-                child.userdata['container:removing'] = True
                 template = child.userdata.get('container:template')
                 if not template:
                     # this only works for items based on templates
                     log.warning('unable to replace child %s', child)
                     continue
-                new = template(context)
-                new.userdata['container:template'] = template
-                new.prepare(self)
-                self._queue_replace_children(child, new)
+                replace = template(context)
+                replace.prepare(self)
+                replace.userdata['container:template'] = template
+                child.userdata['context:replace'] = replace
             except:
                 log.exception('render')
         return True
@@ -366,29 +357,25 @@ class Container(LayoutGroup):
             thread_enter()
         super(Container, self).set_context(context)
         for child in self.children[:]:
-            if child.userdata.get('container:removing'):
+            replace = child.userdata.get('context:replace')
+            if replace:
+                if replace is not True:
+                    self.replace_child(child, replace)
+                    child.userdata['context:replace'] = True
                 continue
-            if not child.context_sensitive or not child in self.__replace_children:
+            if child.context_sensitive:
                 child.set_context(context)
         if Container.__context_lock == self:
             Container.__context_lock = None
             thread_leave()
 
-    def _child_replace(self, old, new):
+    def replace_child(self, child, replace):
         """
         Replace child with a new one. This function is a callback from
         set_context in case the container wants to add some animations.
         """
-        old.parent = None
-        new.parent = self
-
-    def _prepare_sync(self):
-        """
-        Prepare rendering
-        """
-        while self.__replace_children:
-            self._child_replace(*self.__replace_children.pop(0))
-        super(Container, self)._prepare_sync()
+        child.parent = None
+        replace.parent = self
 
     @classmethod
     def candyxml_parse(cls, element):
