@@ -387,8 +387,8 @@ class Container(LayoutGroup):
         """
         Prepare rendering
         """
-        for child, new in self.__replace_children:
-            self._child_replace(child, new)
+        while self.__replace_children:
+            self._child_replace(*self.__replace_children.pop(0))
         super(Container, self)._prepare_sync()
 
     @classmethod
