@@ -341,13 +341,15 @@ class Widget(object):
         if self.__width == None or self.__height == None:
             self._calculate_size()
 
-    def _prepare_sync_with_parent(self, parent):
+    def prepare(self, parent=None):
         """
         Prepare sync, set parent while calling the prepare function
         """
-        self.__parent = _weakref.ref(parent)
+        if parent:
+            self.__parent = _weakref.ref(parent)
         self._prepare_sync()
-        self.__parent = None
+        if parent:
+            self.__parent = None
 
     def _candy_render(self):
         """

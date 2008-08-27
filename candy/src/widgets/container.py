@@ -325,7 +325,6 @@ class Container(LayoutGroup):
         """
         self.__replace_children.append((old, new))
         self._queue_rendering()
-        self._queue_sync_properties('children')
 
     def try_context(self, context):
         """
@@ -349,7 +348,7 @@ class Container(LayoutGroup):
                     continue
                 new = template(context)
                 new.userdata['container:template'] = template
-                new._prepare_sync_with_parent(self)
+                new.prepare(self)
                 self._queue_replace_children(child, new)
             except:
                 log.exception('render')
