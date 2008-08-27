@@ -269,7 +269,7 @@ class Grid(Group):
         self._rendered[(pos_x, pos_y)] = child
         return child
 
-    def _prepare_sync(self):
+    def _candy_prepare(self):
         """
         Check for items to add because they are visible now
         """
@@ -322,14 +322,14 @@ class Grid(Group):
                     child.parent = None
         return
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """
         if 'size' in self._sync_properties:
             log.error('FIXME: kaa.candy.Grid does not support resize')
             return
-        super(Grid, self)._candy_render()
+        super(Grid, self)._clutter_render()
         self._obj.set_clip(0, 0, self.inner_width, self.inner_height)
 
     @classmethod
@@ -480,11 +480,11 @@ class SelectionGrid(Grid):
                 behaviour.apply(0, [child])
         return child
 
-    def _prepare_sync(self):
+    def _candy_prepare(self):
         """
         Check for items to be updated based on the behaviours
         """
-        super(SelectionGrid, self)._prepare_sync()
+        super(SelectionGrid, self)._candy_prepare()
         if (self._obj and not 'selection' in self._sync_properties) or not self.behaviour:
             return
         x, y, width, height = self.selection.geometry

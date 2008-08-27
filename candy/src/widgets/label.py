@@ -74,13 +74,13 @@ class Label(Widget):
         self.text = text
         self.color = color
 
-    def _set_context_execute(self, context):
+    def _candy_context_sync(self, context):
         """
         Set a new context.
 
         @param context: dict of context key,value pairs
         """
-        super(Label, self)._set_context_execute(context)
+        super(Label, self)._candy_context_sync(context)
         # trigger new context evaluation
         self.text = self.__text
 
@@ -131,7 +131,7 @@ class Label(Widget):
                 log.warning('adjusting Label.height because of font change')
                 self.height = height
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """

@@ -104,11 +104,11 @@ class Rectangle(CairoTexture):
         self.__radius = radius
         self._queue_rendering()
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """
-        super(Rectangle, self)._candy_render()
+        super(Rectangle, self)._clutter_render()
         context = self._obj.cairo_create()
 
         if not self.__border_size and not self.__radius:

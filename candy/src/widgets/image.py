@@ -82,7 +82,7 @@ class Imlib2Texture(Widget):
     def set_image(self, image):
         """
         Set kaa.imlib2.Image. The image will be set to the clutter.Texture
-        when _candy_render is called next.
+        when _clutter_render is called next.
 
         @param image: kaa.imlib2.Image or path name
         """
@@ -102,7 +102,7 @@ class Imlib2Texture(Widget):
         """
         return self._imagedata is not None
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """
@@ -129,7 +129,7 @@ class CairoTexture(Widget):
     """
     Cairo based Texture widget.
     """
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """

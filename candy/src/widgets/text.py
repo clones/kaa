@@ -77,13 +77,13 @@ class Text(Widget):
         self.text = text
         self.color = color
 
-    def _set_context_execute(self, context):
+    def _candy_context_sync(self, context):
         """
         Set a new context.
 
         @param context: dict of context key,value pairs
         """
-        super(Text, self)._set_context_execute(context)
+        super(Text, self)._candy_context_sync(context)
         # trigger new context evaluation
         self.text = self.__text
 
@@ -138,7 +138,7 @@ class Text(Widget):
         self.__font = font
         self._queue_rendering()
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """
@@ -165,11 +165,11 @@ class Text(Widget):
         self._obj.set_color(backend.Color(*self.__color))
         self._obj.set_text(self.__text_eval)
 
-    def _candy_sync_layout(self):
+    def _clutter_sync_layout(self):
         """
         Layout the widget
         """
-        super(Text, self)._candy_sync_layout()
+        super(Text, self)._clutter_sync_layout()
         if self.xalign == Widget.ALIGN_LEFT:
             self._obj.set_alignment(Text.ALIGN_LEFT)
         if self.xalign == Widget.ALIGN_CENTER:

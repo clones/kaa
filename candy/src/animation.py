@@ -189,7 +189,7 @@ class Animation(object):
                 widgets.append(widget)
         return widgets
 
-    def _candy_animate(self, alpha_value):
+    def _clutter_animate(self, alpha_value):
         """
         Animate one step
         """
@@ -210,7 +210,7 @@ class Animation(object):
         try:
             for a in cls.__animations[:]:
                 a.current_frame_num += 1
-                a._candy_animate(a.alpha_func(a.current_frame_num, a.n_frames))
+                a._clutter_animate(a.alpha_func(a.current_frame_num, a.n_frames))
                 if a.current_frame_num == a.n_frames:
                     a.stop()
                 signals['candy-update'].emit()

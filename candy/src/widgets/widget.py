@@ -189,32 +189,6 @@ class Widget(object):
         self.__context = context or {}
         self.userdata = {}
 
-    def _set_context_prepare(self, context):
-        """
-        Check if the widget is capable of the given context based on its
-        dependencies. This function is not thread-safe and should only
-        modify children not connected to any parent.
-
-        @param context: context dict
-        @returns: False if the widget can not handle the context or True
-        """
-        if self.__depends:
-            try:
-                for var, value in self.__depends.items():
-                    if value != repr(context.get(var)):
-                        return False
-            except AttributeError:
-                return False
-        return True
-
-    def _set_context_execute(self, context):
-        """
-        Set a new context.
-
-        @param context: dict of context key,value pairs
-        """
-        self.__context = context
-
     def add_dependency(self, var):
         """
         Evaluate the context for the given variable and depend on the result
@@ -247,16 +221,16 @@ class Widget(object):
         Raise widget to the top of its group.
         """
         if self.parent:
-            self.parent._child_restack(self, 'top')
+            self.parent._candy_child_restack(self, 'top')
 
     def lower_bottom(self):
         """
         Lower widget to the bottom of its group.
         """
         if self.parent:
-            self.parent._child_restack(self, 'bottom')
+            self.parent._candy_child_restack(self, 'bottom')
 
-    def _calculate_size(self):
+    def __calculate_size(self):
         """
         Calculate width and height based on parent
         """
@@ -275,7 +249,7 @@ class Widget(object):
             # FIXME: this must be updated once the dependencies change
             self.__height = self.parent.inner_height - self.y
 
-    # rendering
+    # rendering sync
 
     def _queue_rendering(self):
         """
@@ -305,12 +279,38 @@ class Widget(object):
         if parent and not parent._sync_properties:
             parent._queue_sync_properties('children')
 
-    def _prepare_sync(self):
+    def _candy_context_prepare(self, context):
+        """
+        Check if the widget is capable of the given context based on its
+        dependencies. This function is not thread-safe and should only
+        modify children not connected to any parent.
+
+        @param context: context dict
+        @returns: False if the widget can not handle the context or True
+        """
+        if self.__depends:
+            try:
+                for var, value in self.__depends.items():
+                    if value != repr(context.get(var)):
+                        return False
+            except AttributeError:
+                return False
+        return True
+
+    def _candy_context_sync(self, context):
+        """
+        Set a new context.
+
+        @param context: dict of context key,value pairs
+        """
+        self.__context = context
+
+    def _candy_prepare(self):
         """
         Prepare sync. This function may be called from the mainloop.
         """
         if self.__width == None or self.__height == None:
-            self._calculate_size()
+            self.__calculate_size()
 
     def prepare(self, parent=None):
         """
@@ -318,17 +318,19 @@ class Widget(object):
         """
         if parent:
             self.__parent = _weakref.ref(parent)
-        self._prepare_sync()
+        self._candy_prepare()
         if parent:
             self.__parent = None
 
-    def _candy_render(self):
+    # clutter rendering
+
+    def _clutter_render(self):
         """
         Render the widget
         """
         raise NotImplemented
 
-    def _candy_sync_layout(self):
+    def _clutter_sync_layout(self):
         """
         Layout the widget
         """
@@ -357,7 +359,6 @@ class Widget(object):
                 y += self.__ypadding
         else:
             y += self.__ypadding
-
         if self.__anchor:
             anchor_x, anchor_y = self.__anchor
         if anchor_x or anchor_y:
@@ -366,7 +367,7 @@ class Widget(object):
             y += anchor_y
         self._obj.set_position(x, y)
 
-    def _candy_sync_properties(self):
+    def _clutter_sync_properties(self):
         """
         Set some simple properties of the clutter.Actor
         """
@@ -420,7 +421,7 @@ class Widget(object):
     @property
     def width(self):
         if self.__width == None:
-            self._calculate_size()
+            self.__calculate_size()
         return self.__width
 
     @width.setter
@@ -436,13 +437,13 @@ class Widget(object):
     @property
     def inner_width(self):
         if self.__width == None:
-            self._calculate_size()
+            self.__calculate_size()
         return self.__width - 2 * self.__xpadding
 
     @property
     def height(self):
         if self.__height == None:
-            self._calculate_size()
+            self.__calculate_size()
         return self.__height
 
     @height.setter
@@ -458,13 +459,13 @@ class Widget(object):
     @property
     def inner_height(self):
         if self.__height == None:
-            self._calculate_size()
+            self.__calculate_size()
         return self.__height - 2 * self.__ypadding
 
     @property
     def geometry(self):
         if self.__width == None or self.__height == None:
-            self._calculate_size()
+            self.__calculate_size()
         return self.__x, self.__y, self.__width, self.__height
 
     @property
@@ -559,11 +560,11 @@ class Widget(object):
         if self.__parent is not None:
             curent = self.__parent()
             if curent is not None:
-                curent._child_remove(self)
+                curent._candy_child_remove(self)
         self.__parent = None
         if parent:
             self.__parent = _weakref.ref(parent)
-            parent._child_add(self)
+            parent._candy_child_add(self)
 
     @property
     def context(self):
@@ -572,10 +573,10 @@ class Widget(object):
     @context.setter
     def context(self, context):
         context = Context(context)
-        self._set_context_prepare(context)
+        self._candy_context_prepare(context)
         thread_enter()
         try:
-            self._set_context_execute(context)
+            self._candy_context_sync(context)
         finally:
             thread_leave()
 

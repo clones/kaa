@@ -64,11 +64,11 @@ class Reflection(Group):
         self._reflection_opacity = opacity
         self._reflection_obj = None
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """
-        super(Reflection, self)._candy_render()
+        super(Reflection, self)._clutter_render()
         if 'size' in self._sync_properties:
             self.source.width = self.width
             self.source.height = self.height
@@ -79,18 +79,18 @@ class Reflection(Group):
             self._reflection_obj.set_opacity(self._reflection_opacity)
             self._obj.add(self._reflection_obj)
 
-    def _candy_sync_layout(self):
+    def _clutter_sync_layout(self):
         """
         Layout the widget
         """
-        super(Reflection, self)._candy_sync_layout()
+        super(Reflection, self)._clutter_sync_layout()
         x, y, width, height = self.source._obj.get_geometry()
         self._reflection_obj.set_property('reflection-height', height / 2)
         self._reflection_obj.set_position(x, y + height)
         self._reflection_obj.set_size(width, height)
         self.anchor_point = width/2, height
 
-    def _set_context_prepare(self, context):
+    def _candy_context_prepare(self, context):
         """
         Check if the widget is capable of the given context based on its
         dependencies.
@@ -99,10 +99,10 @@ class Reflection(Group):
         """
         # This widget does only depend indirect on a context. The real widget
         # inside may depend on a context and the reflection depends on the
-        # widget. So we just use the widget _set_context_prepare function here.
-        return self.source._set_context_prepare(context)
+        # widget. So we just use the widget _candy_context_prepare function here.
+        return self.source._candy_context_prepare(context)
 
-    def _set_context_execute(self, context):
+    def _candy_context_sync(self, context):
         """
         Set a new context.
 
@@ -110,8 +110,8 @@ class Reflection(Group):
         """
         # This widget does only depend indirect on a context. The real widget
         # inside may depend on a context and the reflection depends on the
-        # widget. So we just use the widget _set_context_execute function here.
-        return self.source._set_context_execute(context)
+        # widget. So we just use the widget _candy_context_sync function here.
+        return self.source._candy_context_sync(context)
 
 
 class ReflectionModifier(Modifier):

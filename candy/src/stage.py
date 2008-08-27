@@ -70,7 +70,7 @@ class Stage(Group):
         super(Stage, self).__init__(None, (width, height))
         self.signals = kaa.Signals('key-press', 'resize')
         kaa.signals['step'].connect(self.sync)
-        animation.signals['candy-update'].connect(self._candy_sync)
+        animation.signals['candy-update'].connect(self._clutter_sync)
 
     def candyxml(self, data):
         """
@@ -92,10 +92,10 @@ class Stage(Group):
         if animation.thread_locked():
             animation.thread_leave(force=True)
         event = threading.Event()
-        gobject.idle_add(self._candy_sync, event)
+        gobject.idle_add(self._clutter_sync, event)
         event.wait()
 
-    def _candy_handle_key(self, stage, event):
+    def _clutter_handle_key(self, stage, event):
         """
         Translate clutter keycode to name and emit signal in main loop. This
         function is a callback from clutter.
@@ -104,7 +104,7 @@ class Stage(Group):
         if key is not None:
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
-    def _candy_sync(self, event=None):
+    def _clutter_sync(self, event=None):
         """
         Execute update inside safe try/except environment
         """
@@ -112,14 +112,14 @@ class Stage(Group):
             if config.performance_debug:
                 t1 = time.time()
             if self._sync_rendering:
-                self._prepare_sync()
+                self._candy_prepare()
                 self._sync_rendering = False
-                self._candy_render()
+                self._clutter_render()
             if self._sync_layout:
                 self._sync_layout = False
-                self._candy_sync_layout()
+                self._clutter_sync_layout()
             if self._sync_properties:
-                self._candy_sync_properties()
+                self._clutter_sync_properties()
                 self._sync_properties = {}
             if config.performance_debug:
                 diff = time.time() - t1
@@ -131,14 +131,14 @@ class Stage(Group):
             event.set()
         return False
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget. This will only be called on stage creation
         """
         if not self._obj:
             self._obj = backend.Stage()
             self._obj.set_size(self.width, self.height)
-            self._obj.connect('key-press-event', self._candy_handle_key)
+            self._obj.connect('key-press-event', self._clutter_handle_key)
             self._obj.set_color(backend.Color(0, 0, 0, 0xff))
             self._keysyms = {}
             # get list of clutter key code. We must access the module
@@ -154,4 +154,4 @@ class Stage(Group):
             # object already created but user changed the size
             self._obj.set_size(self.width, self.height)
             self.signals['resize'].emit()
-        super(Stage, self)._candy_render()
+        super(Stage, self)._clutter_render()

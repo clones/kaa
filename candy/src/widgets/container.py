@@ -83,17 +83,17 @@ class Group(Widget):
                     return result
         return None
 
-    def _prepare_sync(self):
+    def _candy_prepare(self):
         """
         Prepare rendering
         """
-        super(Group, self)._prepare_sync()
+        super(Group, self)._candy_prepare()
         # sync children
         for child in self.children:
             if child._sync_rendering:
-                child._prepare_sync()
+                child._candy_prepare()
 
-    def _candy_render(self):
+    def _clutter_render(self):
         """
         Render the widget
         """
@@ -106,7 +106,7 @@ class Group(Widget):
             child = self.__children_removed.pop(0)
             if child.parent is None:
                 child._sync_properties['parent'] = None
-                child._candy_sync_properties()
+                child._clutter_sync_properties()
         # prepare new children
         while self.__children_added:
             self.__children_added.pop(0)._sync_properties['parent'] = self._obj
@@ -114,31 +114,31 @@ class Group(Widget):
         for child in self.children:
             if child._sync_rendering:
                 child._sync_rendering = False
-                child._candy_render()
+                child._clutter_render()
             # require layout when a child changes layout
             self._sync_layout = self._sync_layout or child._sync_layout
 
-    def _candy_sync_layout(self):
+    def _clutter_sync_layout(self):
         """
         Layout the widget
         """
-        super(Group,self)._candy_sync_layout()
+        super(Group,self)._clutter_sync_layout()
         # sync children
         for child in self.children:
             if child._sync_layout:
                 child._sync_layout = False
-                child._candy_sync_layout()
+                child._clutter_sync_layout()
 
-    def _candy_sync_properties(self):
+    def _clutter_sync_properties(self):
         """
         Set some properties
         """
-        if not super(Group, self)._candy_sync_properties():
+        if not super(Group, self)._clutter_sync_properties():
             return False
         # sync children
         for child in self.children:
             if child._sync_properties:
-                child._candy_sync_properties()
+                child._clutter_sync_properties()
                 child._sync_properties = {}
         # restack children
         while self.__children_restack:
@@ -149,7 +149,7 @@ class Group(Widget):
                 child._obj.lower_bottom()
         return True
 
-    def _child_add(self, child):
+    def _candy_child_add(self, child):
         """
         Add a child and set it visible.
 
@@ -160,7 +160,7 @@ class Group(Widget):
         self.__children_added.append(child)
         self.children.append(child)
 
-    def _child_remove(self, child):
+    def _candy_child_remove(self, child):
         """
         Remove a child widget
 
@@ -174,7 +174,7 @@ class Group(Widget):
         self._queue_sync_properties('children')
         self.children.remove(child)
 
-    def _child_restack(self, child, direction):
+    def _candy_child_restack(self, child, direction):
         """
         Restack a child
 
@@ -240,16 +240,16 @@ class LayoutGroup(Group):
         self.children.insert(pos, child)
         self._queue_sync_layout()
 
-    def _candy_sync_layout(self):
+    def _clutter_sync_layout(self):
         """
         Layout the widget
         """
-        super(LayoutGroup, self)._candy_sync_layout()
+        super(LayoutGroup, self)._clutter_sync_layout()
         if self.__layout:
             self.__layout(self.children, self.spacing)
             for child in self.children:
                 if child._sync_layout:
-                    child._candy_sync_layout()
+                    child._clutter_sync_layout()
 
     @classmethod
     def register_layout(cls, name, func):
@@ -335,17 +335,17 @@ class Container(LayoutGroup):
                     return result
         return None
 
-    def _set_context_prepare(self, context):
+    def _candy_context_prepare(self, context):
         """
         Try if the widget is capable of handling the context. This does not
         modify any internal variables and is thread safe.
 
         @param context: context dict
         """
-        if not super(Container, self)._set_context_prepare(context):
+        if not super(Container, self)._candy_context_prepare(context):
             return False
         for child in self.children[:]:
-            if not child.context_sensitive or child._set_context_prepare(context) or \
+            if not child.context_sensitive or child._candy_context_prepare(context) or \
                    child.userdata.get('context:replace'):
                 continue
             try:
@@ -362,27 +362,27 @@ class Container(LayoutGroup):
                 log.exception('render')
         return True
 
-    def _set_context_execute(self, context):
+    def _candy_context_sync(self, context):
         """
         Set a new context for the container and redraw it.
 
         @param context: context dict
         """
-        super(Container, self)._set_context_execute(context)
+        super(Container, self)._candy_context_sync(context)
         for child in self.children[:]:
             replace = child.userdata.get('context:replace')
             if replace:
                 if replace is not True:
-                    self.replace_child(child, replace)
+                    self._candy_replace_child(child, replace)
                     child.userdata['context:replace'] = True
                 continue
             if child.context_sensitive:
-                child._set_context_execute(context)
+                child._candy_context_sync(context)
 
-    def replace_child(self, child, replace):
+    def _candy_replace_child(self, child, replace):
         """
         Replace child with a new one. This function is a callback from
-        _set_context_execute in case the container wants to add some animations.
+        _candy_context_sync in case the container wants to add some animations.
         """
         child.parent = None
         replace.parent = self
