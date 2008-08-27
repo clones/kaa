@@ -211,7 +211,7 @@ class Widget(object):
     def try_context(self, context):
         """
         Check if the widget is capable of the given context based on its
-        dependencies. If it is possible set the context.
+        dependencies.
 
         @param context: context dict
         @returns: False if the widget can not handle the context or True
@@ -223,7 +223,6 @@ class Widget(object):
                         return False
             except AttributeError:
                 return False
-        self.set_context(context)
         return True
 
     def eval_context(self, var, default=None, context=None, depends=True):
@@ -335,12 +334,20 @@ class Widget(object):
         if parent and not parent._sync_properties:
             parent._queue_sync_properties('children')
 
-    def _candy_prepare_render(self):
+    def _prepare_sync(self):
         """
-        Prepare rendering
+        Prepare sync. This function may be called from the mainloop.
         """
         if self.__width == None or self.__height == None:
             self._calculate_size()
+
+    def _prepare_sync_with_parent(self, parent):
+        """
+        Prepare sync, set parent while calling the prepare function
+        """
+        self.__parent = _weakref.ref(parent)
+        self._prepare_sync()
+        self.__parent = None
 
     def _candy_render(self):
         """
@@ -411,6 +418,7 @@ class Widget(object):
             # basic rotation, inherit from this class to not rotate
             # based on anchor_point or align
             self._obj.set_rotation(backend.Z_AXIS, self.__rotation, 0, 0, 0)
+        return True
 
     # properties
 

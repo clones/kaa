@@ -40,7 +40,7 @@ from kaa.utils import property
 
 # kaa.candy imports
 from ..core import is_template
-from .. import backend
+from .. import backend, thread_enter, thread_leave
 from widget import Widget
 
 # get logging object
@@ -83,15 +83,15 @@ class Group(Widget):
                     return result
         return None
 
-    def _candy_prepare_render(self):
+    def _prepare_sync(self):
         """
         Prepare rendering
         """
-        super(Group, self)._candy_prepare_render()
+        super(Group, self)._prepare_sync()
         # sync children
         for child in self.children:
             if child._sync_rendering:
-                child._candy_prepare_render()
+                child._prepare_sync()
 
     def _candy_render(self):
         """
@@ -133,7 +133,8 @@ class Group(Widget):
         """
         Set some properties
         """
-        super(Group, self)._candy_sync_properties()
+        if not super(Group, self)._candy_sync_properties():
+            return False
         # sync children
         for child in self.children:
             if child._sync_properties:
@@ -146,6 +147,7 @@ class Group(Widget):
                 child._obj.raise_top()
             if direction == 'bottom':
                 child._obj.lower_bottom()
+        return True
 
     def _child_add(self, child):
         """
@@ -289,6 +291,8 @@ class Container(LayoutGroup):
     candyxml_name = 'container'
     context_sensitive = True
 
+    __context_lock = False
+
     def __init__(self, pos=None, size=None, widgets=[], dependency=None, context=None):
         """
         Create a container
@@ -300,6 +304,7 @@ class Container(LayoutGroup):
         @param context: the context the widget is created in
         """
         super(Container, self).__init__(pos, size, None, context)
+        self.__replace_children = []
         for widget in widgets:
             try:
                 if is_template(widget):
@@ -314,13 +319,23 @@ class Container(LayoutGroup):
             for var in dependency:
                 self.eval_context(var)
 
-    def set_context(self, context):
+    def _queue_replace_children(self, old, new):
         """
-        Set a new context for the container and redraw it.
+        Queue child old to be replaced by new before rendering
+        """
+        self.__replace_children.append((old, new))
+        self._queue_rendering()
+        self._queue_sync_properties('children')
+
+    def try_context(self, context):
+        """
+        Try if the widget is capable of handling the context. This does not
+        modify any internal variables and is thread safe.
 
         @param context: context dict
         """
-        super(Container, self).set_context(context)
+        if not super(Container, self).try_context(context):
+            return False
         for child in self.children[:]:
             if not child.context_sensitive or child.try_context(context) or \
                    child.userdata.get('container:removing'):
@@ -334,9 +349,31 @@ class Container(LayoutGroup):
                     continue
                 new = template(context)
                 new.userdata['container:template'] = template
-                self._child_replace(child, new)
+                new._prepare_sync_with_parent(self)
+                self._queue_replace_children(child, new)
             except:
                 log.exception('render')
+        return True
+
+    def set_context(self, context):
+        """
+        Set a new context for the container and redraw it.
+
+        @param context: context dict
+        """
+        if not Container.__context_lock:
+            Container.__context_lock = self
+            self.try_context(context)
+            thread_enter()
+        super(Container, self).set_context(context)
+        for child in self.children[:]:
+            if child.userdata.get('container:removing'):
+                continue
+            if not child.context_sensitive or not child in self.__replace_children:
+                child.set_context(context)
+        if Container.__context_lock == self:
+            Container.__context_lock = None
+            thread_leave()
 
     def _child_replace(self, old, new):
         """
@@ -345,6 +382,14 @@ class Container(LayoutGroup):
         """
         old.parent = None
         new.parent = self
+
+    def _prepare_sync(self):
+        """
+        Prepare rendering
+        """
+        for child, new in self.__replace_children:
+            self._child_replace(child, new)
+        super(Container, self)._prepare_sync()
 
     @classmethod
     def candyxml_parse(cls, element):

@@ -78,6 +78,7 @@ class ScrollBehaviour(Behaviour):
         for widget in widgets:
             getattr(widget, self._func_name)(x, y)
 
+
 class ItemGroup(Group):
     def __init__(self, pos):
         super(ItemGroup, self).__init__(pos)
@@ -86,6 +87,7 @@ class ItemGroup(Group):
         self.x0, self.y0 = pos
         # cell number of the upper left corner if all animations are done
         self.cell0 = [ 0, 0 ]
+
 
 class Grid(Group):
     """
@@ -267,7 +269,7 @@ class Grid(Group):
         self._rendered[(pos_x, pos_y)] = child
         return child
 
-    def _candy_prepare_render(self):
+    def _prepare_sync(self):
         """
         Check for items to add because they are visible now
         """
@@ -478,11 +480,11 @@ class SelectionGrid(Grid):
                 behaviour.apply(0, [child])
         return child
 
-    def _candy_prepare_render(self):
+    def _prepare_sync(self):
         """
         Check for items to be updated based on the behaviours
         """
-        super(SelectionGrid, self)._candy_prepare_render()
+        super(SelectionGrid, self)._prepare_sync()
         if (self._obj and not 'selection' in self._sync_properties) or not self.behaviour:
             return
         x, y, width, height = self.selection.geometry

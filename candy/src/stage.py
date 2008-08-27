@@ -112,7 +112,7 @@ class Stage(Group):
             if config.performance_debug:
                 t1 = time.time()
             if self._sync_rendering:
-                self._candy_prepare_render()
+                self._prepare_sync()
                 self._sync_rendering = False
                 self._candy_render()
             if self._sync_layout:

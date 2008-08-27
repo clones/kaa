@@ -93,7 +93,7 @@ class Reflection(Group):
     def try_context(self, context):
         """
         Check if the widget is capable of the given context based on its
-        dependencies. If it is possible set the context.
+        dependencies.
         @param context: context dict
         @returns: False if the widget can not handle the context or True
         """
@@ -101,6 +101,16 @@ class Reflection(Group):
         # inside may depend on a context and the reflection depends on the
         # widget. So we just use the widget try_context function here.
         return self.source.try_context(context)
+
+    def set_context(self, context):
+        """
+        Set a new context.
+        @param context: context dict
+        """
+        # This widget does only depend indirect on a context. The real widget
+        # inside may depend on a context and the reflection depends on the
+        # widget. So we just use the widget set_context function here.
+        return self.source.set_context(context)
 
 
 class ReflectionModifier(Modifier):
