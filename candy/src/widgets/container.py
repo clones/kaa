@@ -318,6 +318,25 @@ class Container(LayoutGroup):
             for var in dependency:
                 self.eval_context(var)
 
+    def get_widget(self, name):
+        """
+        Get child element with the given name. For group children this
+        function will search recursive.
+
+        @param name: name of the child
+        @returns: widget or None
+        """
+        for child in self.children:
+            if child.userdata.get('context:replace'):
+                continue
+            if child.name == name:
+                return child
+            if isinstance(child, Group):
+                result = child.get_widget(name)
+                if result is not None:
+                    return result
+        return None
+
     def try_context(self, context):
         """
         Try if the widget is capable of handling the context. This does not
