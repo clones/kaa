@@ -294,16 +294,16 @@ PyMethodDef Imlib2_methods[] = {
     { NULL }
 };
 
-
-void init_Imlib2(void)
+DL_EXPORT (void)
+init_Imlib2(void)
 {
     PyObject *m, *c_api;
     static void *api_ptrs[2];
 
     m = Py_InitModule("_Imlib2", Imlib2_methods);
-    Image_PyObject_Type.tp_new = PyType_GenericNew;
     if (PyType_Ready(&Image_PyObject_Type) < 0)
         return;
+    Py_INCREF(&Image_PyObject_Type);
     PyModule_AddObject(m, "Image", (PyObject *)&Image_PyObject_Type);
     pthread_mutex_init(&imlib2_mutex, NULL);
 
