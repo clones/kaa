@@ -370,6 +370,8 @@ PyObject *Image_PyObject__blend(PyObject *self, PyObject *args)
                      src_x, src_y, src_w, src_h,
                      dst_x, dst_y, dst_w, dst_h);
     imlib_context_set_blend(1);
+    if (src_alpha < 255)
+        imlib_free_color_modifier();
     imlib_context_set_color_modifier(NULL);
     PyImlib2_END_CRITICAL_SECTION
 
@@ -666,7 +668,7 @@ PyObject *Image_PyObject__get_pixel(PyObject *self, PyObject *args)
     imlib_image_query_pixel(x, y, &col);
     PyImlib2_END_CRITICAL_SECTION
 
-    return Py_BuildValue("(iiii)", col.blue, col.green, col.red, col.alpha);
+    return Py_BuildValue("(iiii)", col.red, col.green, col.blue, col.alpha);
 }
 
 // This function returns a buffer object that contains the requested

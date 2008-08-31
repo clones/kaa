@@ -74,12 +74,11 @@ class Image(object):
         elif type(image_or_filename) == _Imlib2.Image:
             self._image = image_or_filename
         else:
-            raise ValueError, "Unsupported image type %s" % \
-		  type(image_or_filename)
+            raise ValueError, 'Unsupported image type %s' % type(image_or_filename)
 
         self.font = None
         self.signals = {
-            "changed": Signal()
+            'changed': Signal()
         }
 
 
@@ -95,12 +94,11 @@ class Image(object):
          - B{has_alpha}: True if the image has an alpha channel, False otherwise
          - B{filename}: filename if loaded from file
         """
-        if attr in ("width", "height", "format", "mode", "filename",
-                "rowstride"):
+        if attr in ('width', 'height', 'format', 'mode', 'filename', 'rowstride'):
             return getattr(self._image, attr)
-        elif attr == "size":
+        elif attr == 'size':
             return (self._image.width, self._image.height)
-        elif attr == "has_alpha":
+        elif attr == 'has_alpha':
             if self._image.has_alpha: return True
             return False
 
@@ -118,9 +116,9 @@ class Image(object):
 
 
     def _changed(self):
-        self.signals["changed"].emit()
+        self.signals['changed'].emit()
 
-    def get_raw_data(self, format = "BGRA", write = False):
+    def get_raw_data(self, format = 'BGRA', write = False):
         """
         Returns raw image data for read only access.
 
@@ -134,8 +132,8 @@ class Image(object):
             'format' was BGRA and 'write' was True, you'll need to call
             put_back_raw_data() when you're done writing to the buffer.
         """
-        if False in map(lambda x: x in "RGBA", list(format)):
-            raise ValueError, "Converting from unsupported format: " + format
+        if False in map(lambda x: x in 'RGBA', list(format)):
+            raise ValueError, 'Converting from unsupported format: ' + format
         return self._image.get_raw_data(format, write)
 
 
@@ -161,16 +159,18 @@ class Image(object):
         x, y = src_pos
 
         if 0 in src_size:
-            raise ValueError, "Invalid scale size specified %s" % \
-		  repr(src_size)
+            raise ValueError, 'Invalid scale size specified %s' % repr(src_size)
 
         aspect = float(self.width) / float(self.height)
-        if w == -1:      w = round(h * aspect)
-        elif h == -1:    h = round(w / aspect)
-        if src_w == -1:  src_w = self.width
-        if src_h == -1:  src_h = self.height
-        return Image(self._image.scale(int(x), int(y), int(src_w), int(src_h),
-				       int(w), int(h)))
+        if w == -1:
+            w = round(h * aspect)
+        elif h == -1:
+            h = round(w / aspect)
+        if src_w == -1:
+            src_w = self.width
+        if src_h == -1:
+            src_h = self.height
+        return Image(self._image.scale(int(x), int(y), int(src_w), int(src_h), int(w), int(h)))
 
 
     def crop(self, (x, y), (w, h)):
@@ -276,7 +276,7 @@ class Image(object):
         Returns: a new Image instance represented the scaled image.
         """
         if 0 in (w, h):
-            raise ValueError, "Invalid scale size specified %s" % repr((w,h))
+            raise ValueError, 'Invalid scale size specified %s' % repr((w,h))
 
         dst_w, dst_h = get_max_rectangle_size(self.size, (w, h))
 
@@ -318,8 +318,8 @@ class Image(object):
 
 
     def blend(self, src, src_pos = (0, 0), src_size = (-1, -1),
-          dst_pos = (0, 0), dst_size = (-1, -1),
-          alpha = 255, merge_alpha = True):
+              dst_pos = (0, 0), dst_size = (-1, -1),
+              alpha = 255, merge_alpha = True):
         """
         Blends one image onto another.
 
@@ -345,12 +345,15 @@ class Image(object):
         @return: None.
         """
 
-        if src_size[0] == -1: src_size = src.width, src_size[1]
-        if src_size[1] == -1: src_size = src_size[0], src.height
-        if dst_size[0] == -1: dst_size = src_size[0], dst_size[1]
-        if dst_size[1] == -1: dst_size = dst_size[0], src_size[1]
-        self._image.blend(src._image, src_pos, src_size,
-                     dst_pos, dst_size, int(alpha), merge_alpha)
+        if src_size[0] == -1:
+            src_size = src.width, src_size[1]
+        if src_size[1] == -1:
+            src_size = src_size[0], src.height
+        if dst_size[0] == -1:
+            dst_size = src_size[0], dst_size[1]
+        if dst_size[1] == -1:
+            dst_size = dst_size[0], src_size[1]
+        self._image.blend(src._image, src_pos, src_size, dst_pos, dst_size, int(alpha), merge_alpha)
         self._changed()
 
 
@@ -369,8 +372,10 @@ class Image(object):
         """
         x = max(0, min(self.width, x))
         y = max(0, min(self.height, y))
-        if w == -1: w = self.width - x
-        if h == -1: h = self.height - y
+        if w == -1:
+            w = self.width - x
+        if h == -1:
+            h = self.height - y
         w = min(w, self.width-x)
         h = min(h, self.height-y)
         self._image.clear(x, y, w, h)
@@ -473,10 +478,8 @@ class Image(object):
         elif len(color) == 3:
             color = tuple(color) + (255,)
 
-        if style == TEXT_STYLE_PLAIN or \
-               (style == None and font.style == TEXT_STYLE_PLAIN):
-            metrics = self._image.draw_text(font._font, int(x), int(y),
-                                            utf8(text), color)
+        if style == TEXT_STYLE_PLAIN or (style == None and font.style == TEXT_STYLE_PLAIN):
+            metrics = self._image.draw_text(font._font, int(x), int(y), utf8(text), color)
         else:
             if not style:
                 style = font.style
@@ -521,8 +524,7 @@ class Image(object):
         """
         if len(color) == 3:
             color = tuple(color) + (255,)
-        self._image.draw_rectangle(int(x), int(y), int(w), int(h),
-                                   color, fill)
+        self._image.draw_rectangle(int(x), int(y), int(w), int(h), color, fill)
         self._changed()
 
     def draw_ellipse(self, (xc, yc), (a, b), color, fill = True):
@@ -541,8 +543,7 @@ class Image(object):
         """
         if len(color) == 3:
             color = tuple(color) + (255,)
-        self._image.draw_ellipse(int(xc), int(yc), int(a), int(b),
-					             color, fill)
+        self._image.draw_ellipse(int(xc), int(yc), int(a), int(b), color, fill)
         self._changed()
 
 
@@ -552,7 +553,7 @@ class Image(object):
 
         @param x, y: Coordinates of the pixel for which to return the color.
         @return: a 4-tuple representing the color of the pixel.  The tuple is
-            in BGRA format, or (blue, green, red, alpha).
+            in RGBA format, or (red, green, blue, alpha).
         """
         return self._image.get_pixel((x,y))
 

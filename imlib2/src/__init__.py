@@ -49,10 +49,10 @@ from font import *
 # the raw image data, since this ends up being faster.
 
 _image_cache = {
-    "images": {},
-    "order": [],
-    "size": 0,
-    "max-size": 16*1024   # 16 MB
+    'images': {},
+    'order': [],
+    'size': 0,
+    'max-size': 16*1024   # 16 MB
 }
 
 def open_without_cache(file):
@@ -67,19 +67,19 @@ def open(file):
     """
     Create a new image object from the file 'file'.
     """
-    if file in _image_cache["images"]:
-        return _image_cache["images"][file].copy()
+    if file in _image_cache['images']:
+        return _image_cache['images'][file].copy()
 
     image = Image(file)
-    _image_cache["images"][file] = image
-    _image_cache["order"].insert(0, file)
-    _image_cache["size"] += image.width * image.height * 4 / 1024
+    _image_cache['images'][file] = image
+    _image_cache['order'].insert(0, file)
+    _image_cache['size'] += image.width * image.height * 4 / 1024
 
-    while _image_cache["size"] > _image_cache["max-size"]:
-        file = _image_cache["order"].pop()
-        expired = _image_cache["images"][file]
-        del _image_cache["images"][file]
-        _image_cache["size"] -= expired.width * expired.height * 4 / 1024
+    while _image_cache['size'] > _image_cache['max-size']:
+        file = _image_cache['order'].pop()
+        expired = _image_cache['images'][file]
+        del _image_cache['images'][file]
+        _image_cache['size'] -= expired.width * expired.height * 4 / 1024
 
     return image
 
@@ -94,7 +94,7 @@ def open_from_memory(buf):
     return Image(img)
 
 
-def new(size, bytes = None, from_format = "BGRA", copy = True):
+def new(size, bytes = None, from_format = 'BGRA', copy = True):
     """
     Generates a new Image of size 'size', which is a tuple holding the width
     and height.  If 'bytes' is specified, the image is initialized from the
@@ -103,15 +103,15 @@ def new(size, bytes = None, from_format = "BGRA", copy = True):
     the image.  (In this caes, from_format must be BGRA.)
     """
     if 0 in size:
-        raise ValueError, "Invalid image size %s" % repr(size)
+        raise ValueError, 'Invalid image size %s' % repr(size)
     for val in size:
         if not isinstance(val, int):
-            raise ValueError, "Invalid image size %s" % repr(size)
+            raise ValueError, 'Invalid image size %s' % repr(size)
     if bytes:
-        if False in map(lambda x: x in "RGBA", list(from_format)):
-            raise ValueError, "Converting from unsupported format: " +  from_format
+        if False in map(lambda x: x in 'RGBA', list(from_format)):
+            raise ValueError, 'Converting from unsupported format: ' +  from_format
         if type(bytes) != int and len(bytes) < size[0]*size[1]*len(from_format):
-            raise ValueError, "Not enough bytes for converted format: expected %d, got %d" % \
+            raise ValueError, 'Not enough bytes for converted format: expected %d, got %d' % \
                               (size[0]*size[1]*len(from_format), len(bytes))
         return Image(_Imlib2.create(size, bytes, from_format, copy))
     else:
@@ -130,7 +130,7 @@ def load_font(font, size):
     Return a Font object from the given font specified in the form
     'FontName/Size', such as 'Arial/16'
     """
-    return Font(font + "/" + str(size))
+    return Font(font + '/' + str(size))
 
 
 def get_font_style_geometry(style):
