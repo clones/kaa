@@ -85,7 +85,7 @@ if get_library('X11'):
     x11 = Extension('kaa.display._X11module',
                     [ 'src/x11.c', 'src/x11display.c', 'src/x11window.c',
                       'src/common.c' ],
-                    libraries = ['png', 'rt'])
+                    libraries = ['rt'])
 
     config.define('HAVE_X11')
 

@@ -35,6 +35,8 @@
 #include "x11display.h"
 #include "structmember.h"
 
+static XErrorEvent *last_error = NULL;
+
 void _make_invisible_cursor(X11Window_PyObject *win);
 
 int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
@@ -60,6 +62,12 @@ int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
     XUnlockDisplay(o->display);
 
     return res;
+}
+
+static int x11_intercept_error(Display *display, XErrorEvent *event)
+{
+    last_error = event;
+    return 0;
 }
 
 static int
@@ -89,6 +97,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     X11Display_PyObject *display;
     Window parent;
     int w, h, screen;
+    long evmask;
     char *window_title = NULL;
     XSetWindowAttributes attr;
 
@@ -113,17 +122,39 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     else
         parent = DefaultRootWindow(self->display);
 
+
+    evmask = ExposureMask | ButtonPressMask | ButtonReleaseMask | 
+             StructureNotifyMask | PointerMotionMask | KeyPressMask | FocusChangeMask;
+
     XLockDisplay(self->display);
 
     if (PyMapping_HasKeyString(kwargs, "window")) {
+        XErrorHandler old_handler = XSetErrorHandler(x11_intercept_error);
+
         self->window = (Window)PyLong_AsUnsignedLong(PyDict_GetItemString(kwargs, "window"));
+        XSelectInput(self->display, self->window, evmask);
+        XSync(self->display, False);
+
+        if (last_error && last_error->error_code == BadAccess) {
+            // Input select failed, retry without button masks.
+            evmask &= ~(ButtonPressMask | ButtonReleaseMask);
+            last_error = NULL;
+            XSelectInput(self->display, self->window, evmask);
+            XSync(self->display, False);
+            fprintf(stderr, "kaa.display warning: Couldn't select %s events for "
+                            "external window; %s signals will not work.\n",
+                    last_error ? "any" : "button", last_error ? "window" : "button");
+        } else if (last_error)
+            old_handler(self->display, last_error);
+
+        last_error = NULL;
+        XSetErrorHandler(old_handler);
     } else {
         screen = DefaultScreen(self->display);
         attr.backing_store = NotUseful;
         attr.border_pixel = 0;
         attr.background_pixmap = None;
-        attr.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-            StructureNotifyMask | PointerMotionMask | KeyPressMask | FocusChangeMask;
+        attr.event_mask = evmask;
         attr.bit_gravity = StaticGravity;
         attr.win_gravity = StaticGravity;
         attr.override_redirect = False;
