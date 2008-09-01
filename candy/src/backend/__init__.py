@@ -42,7 +42,10 @@ module and imported into the backend namespace when the gobject mainloop starts.
 """
 
 import sys
+import logging
 import kaa
+
+log = logging.getLogger('candy')
 
 def import_modules():
     """
@@ -53,12 +56,20 @@ def import_modules():
     for key in dir(clutter):
         if key[0].isalpha():
             globals()[key] = getattr(clutter, key)
-    import cairotexture
+    try:
+        import cairotexture
+    except ImportError:
+        log.exception('unable to import clutter.cairo')
+        sys.exit(0)
     global CairoTexture, CairoReflectTexture
     CairoTexture = cairotexture.CairoTexture
     CairoReflectTexture = cairotexture.CairoReflectTexture
     global ReflectTexture
-    import libcandy
+    try:
+        import libcandy
+    except ImportError:
+        log.exception('unable to import libcandy')
+        sys.exit(0)
     ReflectTexture = libcandy.ReflectTexture
 
 class Mainloop(object):
@@ -71,7 +82,11 @@ class Mainloop(object):
         # This function will be the running mainloop
         if 'clutter' in sys.modules:
             print 'kaa.candy thread failure, kaa.candy may segfault'
-        import clutter
+        try:
+            import clutter
+        except Exception, e:
+            log.exception('unable to import clutter')
+            return
         clutter.threads_init()
         import_modules()
         clutter.init()
