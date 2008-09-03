@@ -53,3 +53,5 @@ F. A Query object is never finished when returned. So make the whole query
 G. Add config variable or db key to skip the crawler for some directories inside
    a monitored directory. E.g. I have a photos directory where a new directoty may
    come up but the existing directories will never change.
+
+E. Parse image tags into the database and add query on tags
