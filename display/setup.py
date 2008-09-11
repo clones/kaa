@@ -68,10 +68,6 @@ try:
 except ImportError:
     print 'not installed'
     pygame = False
-except AttributeError:
-    print 'installed, but failed to import'
-    pygame = False
-
 
 # extention modules
 modules = []
