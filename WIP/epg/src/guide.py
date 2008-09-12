@@ -86,9 +86,9 @@ class Guide(object):
             # A critical rating for the show/film.  Should be out of 4.0.
             score = (float, ATTR_SEARCHABLE)
         )
-        self.sync()
+        self._sync()
 
-    def sync(self):
+    def _sync(self):
         """
         Sync database. The guide may changed. Load some basic settings from the db.
         """

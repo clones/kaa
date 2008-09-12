@@ -54,6 +54,21 @@ def load(database):
     global guide
     guide = Guide(database)
 
+def connect(address='epg', secret=''):
+    """
+    Connect to a remote database
+    """
+    global guide
+    from rpc import Client
+    guide = Client(address, secret)
+
+def listen(address='epg', secret=''):
+    """
+    Listen for remote clients
+    """
+    from rpc import Server
+    Server(guide, address, secret)
+
 def get_channels(sort=False):
     """
     Return a list of all channels

@@ -1,6 +1,29 @@
 import time
 import kaa.epg
 
-kaa.epg.load('test.db')
-print kaa.epg.get_channels()
-print kaa.epg.search(time=time.time())
+def local():
+    kaa.epg.load('test.db')
+    print kaa.epg.get_channels()
+    t1 = time.time()
+    result = kaa.epg.search(time=time.time())
+    t2 = time.time()
+    print result
+    print t2 - t1
+
+@kaa.coroutine()
+def rpc():
+    kaa.epg.connect()
+    yield kaa.epg.guide.signals.subset('connected').any()
+    print kaa.epg.get_channels()
+    t1 = time.time()
+    result = yield kaa.epg.search(time=time.time())
+    t2 = time.time()
+    print result
+    print t2 - t1
+
+if 1:
+    rpc()
+    kaa.main.run()
+if 0:
+    local()
+    
