@@ -27,8 +27,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'connect', 'Channel', 'Program', 'Client', 'Server', 'QExpr',
-            'get_channels', 'get_channel', 'search', 'sources' ]
+__all__ = [ 'Channel', 'Program', 'QExpr', 'get_channels', 'get_channel', 'search', 'update' ]
 
 # python imports
 import logging
@@ -39,66 +38,57 @@ from kaa.db import QExpr
 
 # kaa.epg imports
 from version import VERSION
-from config import config
 from channel import Channel
 from program import Program
-from client import Client, DISCONNECTED, CONNECTING, CONNECTED
-from server import Server
-from sources import *
+from guide import Guide
 
 # get logging object
 log = logging.getLogger('epg')
 
-# connected client object
-guide = Client()
+guide = None
 
-def connect(address = 'epg', auth_secret = ''):
+def load(database):
     """
-    Connect to the epg server with the given address and auth secret.
+    Load a database
     """
-    if guide.status != DISCONNECTED:
-        log.warning('connecting to a new epg database')
-    guide.connect(address, auth_secret)
-    return guide
-
+    global guide
+    guide = Guide(database)
 
 def get_channels(sort=False):
     """
-    Return a list of all channels as InProgress obejct
+    Return a list of all channels
     """
-    if guide.status == DISCONNECTED:
-        connect()
     return guide.get_channels(sort)
-
 
 def get_channel(name):
     """
-    Return the channel with the given name as InProgress obejct
+    Return the channel with the given name
     """
-    if guide.status == DISCONNECTED:
-        connect()
     return guide.get_channel(name)
 
-
-def search(channel=None, time=None, block=False, **kwargs):
+def search(channel=None, time=None, **kwargs):
     """
-    Search the db. This will call the search function on server side using
-    kaa.ipc. This function will return an InProgress object. If block is
-    True the function to block using kaa.main.step() until the result
-    arrived from the server.
+    Search the db.
     """
-    if guide.status == DISCONNECTED:
-        connect()
-        while block and guide.status == CONNECTING:
-            kaa.main.step()
-
-    if block:
-        wait = guide.search(channel, time, **kwargs)
-        while not wait.is_finished():
-            kaa.main.step()
-        return wait()
     return guide.search(channel, time, **kwargs)
 
+class _SourcesWrapper(object):
+    """
+    Wrap kaa.epg.sources import to avoid importing
+    stuff that is not needed.
+    """
+    def __call__(self):
+        """
+        Call guide update
+        """
+        return guide.update()
 
-def is_connected():
-    return guide.status == CONNECTED
+    @property
+    def config(self):
+        """
+        import sources and get config
+        """
+        import sources
+        return sources.config
+
+update = _SourcesWrapper()

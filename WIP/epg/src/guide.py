@@ -27,15 +27,14 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = ['Client']
+__all__ = [ 'Guide' ]
 
 # python imports
 import logging
 
 # kaa imports
 import kaa
-import kaa.db
-import kaa.rpc
+from kaa.db import *
 from kaa.utils import property
 
 # kaa.epg imports
@@ -46,83 +45,68 @@ from util import cmp_channel, EPGError
 # get logging object
 log = logging.getLogger('epg')
 
-DISCONNECTED, CONNECTING, CONNECTED = range(3)
-
-def require_connected():
-    """
-    Decorator that raises an exception if the client is not connected, or
-    the return value of the decorated function in the case that the client
-    is connected.
-    """
-    def decorator(func):
-        def newfunc(client, *args, **kwargs):
-            if client._status != CONNECTED:
-                raise EPGError('Client is not connected')
-
-            return func(client, *args, **kwargs)
-
-        newfunc.func_name = func.func_name
-        return newfunc
-
-    return decorator
-
-
-class Client(object):
+class Guide(object):
     """
     EPG client class to access the epg on server side.
     """
-    def __init__(self):
-        self._status = DISCONNECTED
-        self.server = None
+    def __init__(self, database):
+        self._db = Database(database)
+        # create the db and register objects
+        self._db.register_inverted_index('keywords', min = 2, max = 30)
+        self._db.register_inverted_index('genres', min = 3, max = 30)
+        self._db.register_object_type_attrs("channel",
+            tuner_id = (list, ATTR_SIMPLE),
+            name = (unicode, ATTR_SEARCHABLE),
+            long_name = (unicode, ATTR_SEARCHABLE),
+        )
+        self._db.register_object_type_attrs("program",
+            [ ("start", "stop") ],
+            title = (unicode, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords'),
+            desc = (unicode, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords'),
+            # Program start time as a unix timestamp in UTC
+            start = (int, ATTR_SEARCHABLE),
+            # Program end time as a unix timestamp in UTC
+            stop = (int, ATTR_SEARCHABLE),
+            # Optional episode number or identifier (freeform string)
+            episode = (unicode, ATTR_SIMPLE),
+            # Optional program subtitle
+            subtitle = (unicode, ATTR_SIMPLE | ATTR_INVERTED_INDEX, 'keywords'),
+            # List of genres
+            genres = (list, ATTR_SIMPLE | ATTR_INVERTED_INDEX, 'genres'),
+            # FIXME: no idea what this is, it's used by epgdata backend.
+            category = (unicode, ATTR_SEARCHABLE),
+            # Original air date of the program.
+            date = (int, ATTR_SEARCHABLE),
+            # For movies, the year.
+            year = (int, ATTR_SEARCHABLE),
+            # Rating (could be TV, MPAA, etc.).  Freeform string.
+            rating = (unicode, ATTR_SIMPLE),
+            # List of unicode strings indicating any program advisors (violence, etc)
+            advisories = (list, ATTR_SIMPLE),
+            # A critical rating for the show/film.  Should be out of 4.0.
+            score = (float, ATTR_SEARCHABLE)
+        )
+        self.sync()
 
-        self.signals = {
-            "updated": kaa.Signal(),
-            "connected": kaa.Signal(),
-            "disconnected": kaa.Signal()
-        }
-
+    def sync(self):
+        """
+        Sync database. The guide may changed. Load some basic settings from the db.
+        """
+        # Load some basic information from the db.
+        self._max_program_length = self._num_programs = 0
+        q = 'SELECT stop-start AS length FROM objects_program ' + \
+            'ORDER BY length DESC LIMIT 1'
+        res = self._db._db_query(q)
+        if len(res):
+            self._max_program_length = res[0][0]
+        res = self._db._db_query("SELECT count(*) FROM objects_program")
+        if len(res):
+            self._num_programs = res[0][0]
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
         self._channels = []
-
-
-    @property
-    def status(self):
-        return self._status
-
-
-    def connect(self, server_or_socket = 'epg', auth_secret = ''):
-        """
-        Connect to EPG server.
-        """
-        self._status = CONNECTING
-        self.server = kaa.rpc.Client(server_or_socket, auth_secret = auth_secret)
-        self.server.connect(self)
-        self.server.signals['closed'].connect_weak(self._handle_disconnected)
-
-        
-    def _handle_disconnected(self):
-        """
-        Signal callback when server disconnects.
-        """
-        log.debug('kaa.epg client disconnected')
-        self._status = DISCONNECTED
-        self.signals["disconnected"].emit()
-        self.server = None
-
-
-    @kaa.rpc.expose('guide.update')
-    def _handle_guide_update(self, (channels, max_program_length, num_programs)):
-        """
-        (re)load some static information
-        """
-        self._channels_by_name = {}
-        self._channels_by_db_id = {}
-        self._channels_by_tuner_id = {}
-        self._channels = []
-
-        for objrow in channels:
+        for objrow in self._db.query(type = "channel"):
             chan = Channel(objrow)
             self._channels_by_name[chan.name] = chan
             self._channels_by_db_id[chan.db_id] = chan
@@ -134,22 +118,9 @@ class Client(object):
                     self._channels_by_tuner_id[t] = chan
             self._channels.append(chan)
 
-        # get attributes from server and store local
-        self._max_program_length = max_program_length
-        self._num_programs = num_programs
-
-        if self._status == CONNECTING:
-            self._status = CONNECTED
-            self.signals["connected"].emit()
-        self.signals["updated"].emit()
-
-
-    @kaa.coroutine()
     def search(self, channel=None, time=None, **kwargs):
         """
-        Search the db. This will call the search function on server side using
-        kaa.rpc. This function will always return an InProgress object or raise
-        an exception if the client is disconnected.
+        Search the db
 
         The time kwarg is a unix timestamp or 2-tuple of timestamps.  In the
         former case, all programs playing at the given time are returned.  In
@@ -157,18 +128,11 @@ class Client(object):
         programs playing within the range are returned.  If stop is 0, then it
         is treated as infinity.
         """
-        if self._status == DISCONNECTED:
-            raise EPGError('Client is disconnected')
-
-        while self._status == CONNECTING:
-            yield kaa.NotFinished
-
         if channel is not None:
             if isinstance(channel, Channel):
-                kwargs["channel"] = channel.db_id
+                kwargs["parent"] = "channel", channel.db_id
             if isinstance(channel, (tuple, list)):
-                kwargs["channel"] = [ c.db_id for c in channel ]
-
+                kwargs["parent"] = [ ("channel", c.db_id) for c in channel ]
         if time is not None:
             if isinstance(time, (int, float, long)):
                 # Find all programs currently playing at the given time.  We
@@ -177,26 +141,18 @@ class Client(object):
                 start, stop = time + 1, time + 1
             else:
                 start, stop = time
-
-            max = self._max_program_length
             if stop > 0:
-                kwargs["start"] = kaa.db.QExpr("range", (int(start) - max, int(stop)))
-                kwargs["stop"]  = kaa.db.QExpr(">=", int(start))
+                kwargs["start"] = QExpr("range", (int(start) - self._max_program_length, int(stop)))
+                kwargs["stop"]  = QExpr(">=", int(start))
             else:
-                kwargs["start"] = kaa.db.QExpr(">=", (int(start) - max))
-                
-        query_data = self.server.rpc('guide.query', type='program', **kwargs)
-        # wait for the rpc to finish and get result
-        yield query_data
-        query_data = query_data.get_result()
-
+                kwargs["start"] = QExpr(">=", (int(start) - self._max_program_length))
+        query_data = self._db.query(type='program', **kwargs)
         # Convert raw search result data
         if kwargs.get('attrs'):
             attrs = kwargs.get('attrs')
             def combine_attrs(row):
                 return [ row.get(a) for a in attrs ]
-            yield [ combine_attrs(row) for row in query_data ]
-        
+            [ combine_attrs(row) for row in query_data ]
         # Convert raw search result data from the server into python objects.
         results = []
         channel = None
@@ -206,8 +162,7 @@ class Client(object):
                     continue
                 channel = self._channels_by_db_id[row['parent_id']]
             results.append(Program(channel, row))
-        yield results
-
+        return results
 
     def new_channel(self, tuner_id=None, name=None, long_name=None):
         """
@@ -215,60 +170,42 @@ class Client(object):
         This is useful for clients that have channels that do not appear
         in the EPG but wish to handle them anyway.
         """
-
         # require at least one field
         if not tuner_id and not name and not long_name:
             log.error('need at least one field to create a channel')
             return None
-
         if not name:
             # then there must be one of the others
             if tuner_id:
                 name = tuner_id[0]
             else:
                 name = long_name
-
         if not long_name:
             # then there must be one of the others
             if name:
                 long_name = name
             elif tuner_id:
                 long_name = tuner_id[0]
-
         return Channel(tuner_id, name, long_name)
 
-
-    @require_connected()
     def get_channel(self, name):
         """
         Get channel by name.
         """
-        if name not in self._channels_by_name:
-            return None
-        return self._channels_by_name[name]
+        return self._channels_by_name.get(name)
 
-
-    @require_connected()
     def get_channel_by_db_id(self, db_id):
         """
         Get channel by database id.
         """
-        if db_id not in self._channels_by_db_id:
-            return None
-        return self._channels_by_db_id[db_id]
+        return self._channels_by_db_id,get(db_id)
 
-
-    @require_connected()
     def get_channel_by_tuner_id(self, tuner_id):
         """
         Get channel by tuner id.
         """
-        if tuner_id not in self._channels_by_tuner_id:
-            return None
-        return self._channels_by_tuner_id[tuner_id]
+        return self._channels_by_tuner_id.get(tuner_id)
 
-
-    @require_connected()
     def get_channels(self, sort=False):
         """
         Get all channels
@@ -280,12 +217,9 @@ class Client(object):
             return channels
         return self._channels
 
-
-    def update(self, *args, **kwargs):
+    def update(self):
         """
-        Update the database. This will call the update function in the server
-        and the server needs to be configured for that.
+        Update the database
         """
-        if self._status == DISCONNECTED:
-            return False
-        return self.server.rpc('guide.update', *args, **kwargs)
+        import sources
+        return sources.update(self._db)

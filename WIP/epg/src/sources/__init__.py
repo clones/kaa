@@ -28,17 +28,7 @@
 #
 # -----------------------------------------------------------------------------
 
-import os
+__all__ = ['sources', 'update']
 
-__all__ = ['sources']
-
-sources = {}
-
-for f in os.listdir(os.path.dirname(__file__)):
-    if f.startswith('_') or f.startswith('config_') or not f.endswith('.py'):
-        continue
-    try:
-        exec('import %s as s' % f[:-3])
-    except ImportError:
-        continue
-    sources[f[:-3]] = s
+from update import update, sources
+from config import config

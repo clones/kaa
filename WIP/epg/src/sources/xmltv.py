@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2007 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2008 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -42,17 +42,15 @@ import xml.sax.saxutils
 import kaa
 
 # config file
-from config_xmltv import config
+from config import config
 
 # get logging object
 log = logging.getLogger('xmltv')
-
 
 class XmltvParser(object):
     """
     Parser class for xmltv files
     """
-
     mapping = {
             'title':'title',
             'sub-title':'subtitle',
@@ -61,39 +59,36 @@ class XmltvParser(object):
             'desc':'desc',
             'date':'date'
             }
-
     channels = {}
-
 
     def parse(self, filename):
         """
         Create a sax parser and parse the file
         """
-
+        self.shutdown = False
+        kaa.signals['shutdown'].connect(setattr, self, 'shutdown', True)
         # Create a parser
         parser = xml.sax.make_parser()
         # ignore external dtd file
         parser.setFeature(xml.sax.handler.feature_external_ges, False)
-
         # create a handler
         dh = xml.sax.ContentHandler()
         dh.startElement = self.startElement
         dh.endElement = self.endElement
         dh.characters = self.characters
-
         # Tell the parser to use our handler
         parser.setContentHandler(dh)
-
         self._dict = None
         self._current = None
         self._characters = ''
         # parse the input
         parser.parse('file://' + filename)
 
-
     def error(self, exception):
+        """
+        Parse error callback
+        """
         log.exception(exception)
-
 
     def startElement(self, name, attrs):
         """
@@ -102,6 +97,8 @@ class XmltvParser(object):
         This will be called whenever we enter an element during parsing.
         Then the attributes will be extracted.
         """
+        if self.shutdown:
+            raise SystemExit
         if name == 'channel':
             # extract attribute "id"
             self._dict = {}
@@ -127,7 +124,6 @@ class XmltvParser(object):
             # and store the name of the current element
             self._current = name
 
-
     def characters(self, ch):
         """
         characters function for SAX
@@ -138,7 +134,6 @@ class XmltvParser(object):
                 self._dict['display-name'][-1] +=ch
             else:
                 self._dict[self._current] += ch
-
 
     def endElement(self, name):
         """
@@ -155,7 +150,6 @@ class XmltvParser(object):
         # in any case:
         self._current = None
 
-
     def timestr2secs_utc(self, timestr):
         """
         Convert a timestring to UTC (=GMT) seconds.
@@ -170,7 +164,6 @@ class XmltvParser(object):
         except ValueError:
             tval = timestr
             tz   = str(-time.timezone/3600)
-
         # Is it the '+1' format?
         if tz and tz[0] in ('+', '-'):
             tmTuple = ( int(tval[0:4]), int(tval[4:6]), int(tval[6:8]),
@@ -184,7 +177,6 @@ class XmltvParser(object):
                 # sometimes the mins are missing :-(
                 min = 0
             adj_secs = int(tz[1:3])*3600+ min*60
-
             if adj_neg:
                 secs -= adj_secs
             else:
@@ -197,14 +189,12 @@ class XmltvParser(object):
                 secs = time.mktime(time.strptime(tval,'%Y%m%d%H%M%S'))
         return float(secs)
 
-
     def handle_channel(self, attr):
         """
         put the channel info to the database
         """
         channel = station = name = display = None
         channel_id = attr['channel_id']
-
         while len(attr['display-name'])>0:
             # This logic expects that the first display-name that appears
             # after an all-numeric and an all-alpha display-name is going
@@ -221,19 +211,13 @@ class XmltvParser(object):
                 # something else, just remember it in case we
                 # don't have a name later
                 display = content
-
         if not name:
             # set name to something. XXX: this is needed for the german xmltv
             # stuff, maybe others work different. Maybe check the <tv> tag
             # for the used grabber somehow.
             name = display or station
-
-
-            db_id = self.add_channel(tuner_id=channel,
-                                     name=station,
-                                     long_name=name)
+            db_id = self.add_channel(tuner_id=channel, name=station, long_name=name).wait()
             self.channels[attr['channel_id']] = [db_id, None]
-
 
     def handle_programme(self, attr):
         """
@@ -244,10 +228,8 @@ class XmltvParser(object):
         if channel_id not in self.channels:
             log.warning("Program exists for unknown channel '%s'" % channel_id)
             return
-
         # then there should of course be a title
         title = attr.pop('title')
-
         # determine format of date element
         try:
             date = attr.pop('date')
@@ -258,10 +240,8 @@ class XmltvParser(object):
                 attr['date'] = int(time.mktime(time.strptime(date, '%Y-%m-%d')))
         except KeyError:
             pass
-
         # then the start time
         start = self.timestr2secs_utc(attr.pop('start'))
-
         # stop time is more complicated, as it is not always given
         db_id, last_prog = self.channels[channel_id]
         if last_prog:
@@ -287,27 +267,24 @@ def update(epg):
     """
     Interface to source_xmltv.
     """
-    from kaa.epg.config import config as epg_config
-    if config.grabber:
-        log.info('grabbing listings using %s', config.grabber)
+    if config.xmltv.grabber:
+        log.info('grabbing listings using %s', config.xmltv.grabber)
         xmltv_file = kaa.tempfile('TV.xml')
-        if config.data_file:
-            xmltv_file = config.data_file
+        if config.xmltv.data_file:
+            xmltv_file = config.xmltv.data_file
         log_file = kaa.tempfile('TV.xml.log')
-        # TODO: using os.system is ugly because it blocks ... but we can make this
-        # nicer using kaa.Process later. We are inside a thread so it
+        # using os.system is ugly because it blocks ... but we are inside a thread so it
         # seems to be ok.
         ec = os.system('%s --output %s --days %s >%s 2>%s' % \
-                       (config.grabber, xmltv_file, epg_config.days, log_file, log_file))
+                       (config.xmltv.grabber, xmltv_file, config.days, log_file, log_file))
         if not os.path.exists(xmltv_file) or ec:
             log.error('grabber failed, see %s', log_file)
             return
-
-        if config.sort:
+        if config.xmltv.sort:
             log.info('sorting listings')
             shutil.move(xmltv_file, xmltv_file + '.tmp')
             os.system('%s --output %s %s.tmp >>%s 2>>%s' % \
-                      (config.sort, xmltv_file, xmltv_file, log_file, log_file))
+                      (config.xmltv.sort, xmltv_file, xmltv_file, log_file, log_file))
             os.unlink(xmltv_file + '.tmp')
             if not os.path.exists(xmltv_file):
                 log.error('sorting failed, see %s', log_file)
@@ -315,14 +292,11 @@ def update(epg):
         else:
             log.info('not configured to use tv_sort, skipping')
     else:
-        xmltv_file = config.data_file
-
+        xmltv_file = config.xmltv.data_file
     # Now we have a xmltv file and need to parse it
     log.info('parse xmltv file %s' % xmltv_file)
     parser = XmltvParser()
     parser.add_channel = epg.add_channel
     parser.add_program = epg.add_program
     parser.parse(xmltv_file)
-
-    epg.add_program_wait()
     return True

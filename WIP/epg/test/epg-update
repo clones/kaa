@@ -1,0 +1,15 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-1 -*-
+
+import sys
+import logging
+
+logging.getLogger('epg').setLevel(logging.INFO)
+import kaa
+import kaa.epg
+
+kaa.epg.load('test.db')
+kaa.epg.update.config.load('test.cfg')
+kaa.epg.update.config.save('test.cfg')
+kaa.epg.update().connect(sys.exit, 0).set_ignore_caller_args()
+kaa.main.run()

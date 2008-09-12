@@ -29,6 +29,8 @@
 
 __all__ = [ 'Channel' ]
 
+from kaa import unicode_to_str
+
 class Channel(object):
     """
     kaa.epg.Channel class.
@@ -50,4 +52,4 @@ class Channel(object):
         return self.__getattribute__(attr)
 
     def __repr__(self):
-        return '<kaa.epg.Channel %s>' % self.name
+        return '<kaa.epg.Channel %s>' % unicode_to_str(self.name)

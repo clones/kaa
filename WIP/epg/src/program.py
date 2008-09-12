@@ -29,6 +29,8 @@
 
 __all__ = [ 'Program' ]
 
+from kaa import unicode_to_str
+
 class Program(object):
     """
     kaa.epg.Program class.
@@ -42,7 +44,7 @@ class Program(object):
         Defer accessing the ObjectRow (dbdata) until referenced, as this will
         defer any ObjectRow unpickling.
         """
-        if attr != '_dbdata' and hasattr(self, '_dbdata'):
+        if attr != '_dbdata':
             self.start = self._dbdata.get('start', 0)
             self.stop = self._dbdata.get('stop', 0)
             self.title = self._dbdata.get('title', u'')
@@ -57,4 +59,4 @@ class Program(object):
         return self.__getattribute__(attr)
 
     def __repr__(self):
-        return '<kaa.epg.Program %s>' % self.title
+        return '<kaa.epg.Program %s>' % unicode_to_str(self.title)
