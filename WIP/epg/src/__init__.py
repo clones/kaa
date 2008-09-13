@@ -46,6 +46,7 @@ from guide import Guide
 log = logging.getLogger('epg')
 
 guide = None
+server = []
 
 def load(database):
     """
@@ -67,7 +68,7 @@ def listen(address='epg', secret=''):
     Listen for remote clients
     """
     from rpc import Server
-    Server(guide, address, secret)
+    server.append(Server(guide, address, secret))
 
 def get_channels(sort=False):
     """
