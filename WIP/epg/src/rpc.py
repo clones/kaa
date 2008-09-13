@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# client.py - client part of the epg
+# rpc.py - Client/Server for kaa.epg over kaa.rpc
 # -----------------------------------------------------------------------------
-# $Id: guide.py 3543 2008-09-12 20:05:37Z dmeyer $
+# $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2008 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -38,6 +38,7 @@ import kaa.rpc
 
 # kaa.epg imports
 from channel import Channel
+from program import Program
 from guide import Guide
 from util import EPGError
 
@@ -58,7 +59,6 @@ class Client(Guide):
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
-        self._channels = []
         self.rpc = None
         self.signals = kaa.Signals('connected', 'disconnected')
         self._server_address = address
@@ -89,45 +89,34 @@ class Client(Guide):
         self.connect()
 
     @kaa.rpc.expose('sync')
-    def _sync(self, channels, max_program_length, num_programs):
+    def _sync(self, channels):
         """
-        (re)load some static information
+        Connect from server
         """
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
-        self._channels = []
-        for objrow in channels:
-            chan = Channel(objrow)
+        for chan in channels:
             self._channels_by_name[chan.name] = chan
             self._channels_by_db_id[chan.db_id] = chan
             for t in chan.tuner_id:
-                if self._channels_by_tuner_id.has_key(t):
-                    log.warning('loading channel %s with tuner_id %s already claimed by channel %s',
-                                chan.name, t, self._channels_by_tuner_id[t].name)
-                else:
-                    self._channels_by_tuner_id[t] = chan
-            self._channels.append(chan)
-        # get attributes from server and store local
-        self._max_program_length = max_program_length
-        self._num_programs = num_programs
+                self._channels_by_tuner_id[t] = chan
         if self._status == Client.CONNECTING:
             self._status = Client.CONNECTED
             self.signals["connected"].emit()
 
-    def search(self, channel=None, time=None, **kwargs):
+    def search(self, channel=None, time=None, cls=Program, **kwargs):
         """
         Search the db
 
-        The time kwarg is a unix timestamp or 2-tuple of timestamps.  In the
-        former case, all programs playing at the given time are returned.  In
-        the latter case, the 2-tuple represents a start and end range, and all
-        programs playing within the range are returned.  If stop is 0, then it
-        is treated as infinity.
+        @param channel: kaa.epg.Channel or list of Channels or None for all
+        @param time: int/float or list of start,stop or None for all, stop=0
+            means until the end of the guide data.
+        @param cls: class to use to create programs or None to return raw data
         """
         if self._status != Client.CONNECTED:
             raise EPGError('Client is not connected')
-        return self.rpc('search', channel, time, **kwargs)
+        return self.rpc('search', channel, time, cls, **kwargs)
 
     def update(self):
         """
@@ -151,16 +140,16 @@ class Server(object):
         self._rpc.connect(self)
 
     @kaa.rpc.expose('search')
-    def query(self, channel, time, **kwargs):
+    def query(self, channel, time, cls, **kwargs):
         """
         Remote search
         """
-        return self.guide.search(channel, time, **kwargs)
+        return self.guide.search(channel, time, cls, **kwargs)
 
     @kaa.rpc.expose('update')
     def update(self, channel, time, **kwargs):
         """
-        Remote search
+        Remote update
         """
         return self.guide.update()
 
@@ -168,8 +157,7 @@ class Server(object):
         """
         Connect a new client to the server.
         """
-        client.rpc('sync', self.guide._db.query(type = "channel"),
-            self.guide._max_program_length, self.guide._num_programs)
+        client.rpc('sync', self.guide._channels_by_name.values())
         client.signals['closed'].connect(self.client_closed, client)
         self._clients.append(client)
 

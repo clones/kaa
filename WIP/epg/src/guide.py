@@ -1,11 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# client.py - client part of the epg
+# guide.py - EPG Guide
 # -----------------------------------------------------------------------------
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2004-2006 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2008 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -47,7 +47,7 @@ log = logging.getLogger('epg')
 
 class Guide(object):
     """
-    EPG client class to access the epg on server side.
+    EPG guide with db access.
     """
     def __init__(self, database):
         self._db = Database(database)
@@ -105,7 +105,6 @@ class Guide(object):
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
-        self._channels = []
         for objrow in self._db.query(type = "channel"):
             chan = Channel(objrow)
             self._channels_by_name[chan.name] = chan
@@ -116,17 +115,15 @@ class Guide(object):
                                 chan.name, t, self._channels_by_tuner_id[t].name)
                 else:
                     self._channels_by_tuner_id[t] = chan
-            self._channels.append(chan)
 
-    def search(self, channel=None, time=None, **kwargs):
+    def search(self, channel=None, time=None, cls=Program, **kwargs):
         """
         Search the db
 
-        The time kwarg is a unix timestamp or 2-tuple of timestamps.  In the
-        former case, all programs playing at the given time are returned.  In
-        the latter case, the 2-tuple represents a start and end range, and all
-        programs playing within the range are returned.  If stop is 0, then it
-        is treated as infinity.
+        @param channel: kaa.epg.Channel or list of Channels or None for all
+        @param time: int/float or list of start,stop or None for all, stop=0
+            means until the end of the guide data.
+        @param cls: class to use to create programs or None to return raw data
         """
         if channel is not None:
             if isinstance(channel, Channel):
@@ -153,6 +150,9 @@ class Guide(object):
             def combine_attrs(row):
                 return [ row.get(a) for a in attrs ]
             [ combine_attrs(row) for row in query_data ]
+        if cls is None:
+            # return raw data:
+            return query_data
         # Convert raw search result data from the server into python objects.
         results = []
         channel = None
@@ -161,7 +161,7 @@ class Guide(object):
                 if row['parent_id'] not in self._channels_by_db_id:
                     continue
                 channel = self._channels_by_db_id[row['parent_id']]
-            results.append(Program(channel, row))
+            results.append(cls(channel, row))
         return results
 
     def new_channel(self, tuner_id=None, name=None, long_name=None):
@@ -211,11 +211,11 @@ class Guide(object):
         Get all channels
         """
         if sort:
-            channels = self._channels[:]
+            channels = self._channels_by_name.values()[:]
             channels.sort(lambda a, b: cmp(a.name, b.name))
             channels.sort(lambda a, b: cmp_channel(a, b))
             return channels
-        return self._channels
+        return self._channels_by_name.values()
 
     def update(self):
         """
