@@ -5,7 +5,7 @@
 # $Id$
 # -----------------------------------------------------------------------------
 # kaa.epg - EPG Database
-# Copyright (C) 2008 Jason Tackaberry, Dirk Meyer, Rob Shortt
+# Copyright (C) 2004-2008 Jason Tackaberry, Dirk Meyer, Rob Shortt
 #
 # First Edition: Jason Tackaberry <tack@sault.org>
 #
@@ -86,7 +86,7 @@ class Client(Guide):
         self._status = Client.DISCONNECTED
         self.signals["disconnected"].emit()
         self.rpc = None
-        self.connect()
+        kaa.OneShotTimer(self.connect).start(1)
 
     @kaa.rpc.expose('sync')
     def _sync(self, channels):
@@ -114,7 +114,7 @@ class Client(Guide):
             means until the end of the guide data.
         @param cls: class to use to create programs or None to return raw data
         """
-        if self._status != Client.CONNECTED:
+        if self._status == Client.DISCONNECTED:
             raise EPGError('Client is not connected')
         return self.rpc('search', channel, time, cls, **kwargs)
 
@@ -122,7 +122,7 @@ class Client(Guide):
         """
         Update the database
         """
-        if self._status != Client.CONNECTED:
+        if self._status == Client.DISCONNECTED:
             raise EPGError('Client is not connected')
         return self.rpc('update')
 
