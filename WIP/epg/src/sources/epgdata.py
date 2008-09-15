@@ -212,7 +212,7 @@ def update(epg):
     """
     Interface to source_epgdata.
     """
-    from kaa.epg.config import config as epg_config
+    from config import config as epg_config
     if not config.pin:
         log.error('PIN for epgdata.com is missing in tvserver.conf')
         return False

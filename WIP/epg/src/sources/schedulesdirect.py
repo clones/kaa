@@ -327,8 +327,7 @@ class Handler(xml.sax.handler.ContentHandler):
 @kaa.threaded('epg')
 def update(epg, start = None, stop = None):
     from gzip import GzipFile
-    import kaa.epg
-    epg_config = kaa.epg.update.config
+    from config import config as epg_config
 
     if not start:
         # If start isn't specified, choose current time (rounded down to the
