@@ -346,7 +346,6 @@ def update(epg, start = None, stop = None):
     parser = xml.sax.make_parser()
     handler = Handler(epg)
     parser.setContentHandler(handler)
-    t0=time.time()
 
     # Pass 1: map genres to program ids
     handler.handle_elements('programGenre', 'genre')
@@ -357,6 +356,4 @@ def update(epg, start = None, stop = None):
     parser.parse(GzipFile(filename))
 
     os.unlink(filename)
-    epg.add_program_wait()
-    log.info('schedulesdirect XML parsing took %.03f seconds' % (time.time() - t0))
     return True

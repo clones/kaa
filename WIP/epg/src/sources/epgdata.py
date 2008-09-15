@@ -127,7 +127,7 @@ class ChannelParser(BaseParser, dict):
         db_id = self.add_channel(
             tuner_id=attr['tvchannel_dvb'],
             name=attr['tvchannel_short'],
-            long_name=attr['tvchannel_name'])
+            long_name=attr['tvchannel_name']).wait()
         self[attr['tvchannel_id']] = db_id
 
 
@@ -323,7 +323,4 @@ def update(epg):
     for xmlfile in progfiles:
         log.info('process %s' % xmlfile)
         prgparser.parse(xmlfile)
-
-    # wait until all programs are in the db
-    epg.add_program_wait()
     return True
