@@ -27,8 +27,28 @@
 #
 # -----------------------------------------------------------------------------
 
+import time
+
 class EPGError(Exception):
     pass
+
+def utc2localtime(t):
+    if not t:
+        # no time value given
+        return 0
+    if time.daylight:
+        return t - time.altzone
+    else:
+        return t - time.timezone
+
+def localtime2utc(t):
+    if not t:
+        # no time value given
+        return 0
+    if time.daylight:
+        return t + time.altzone
+    else:
+        return t + time.timezone
 
 def cmp_channel(c1, c2):
     """

@@ -105,7 +105,7 @@ class Client(Guide):
             self._status = Client.CONNECTED
             self.signals["connected"].emit()
 
-    def search(self, channel=None, time=None, cls=Program, **kwargs):
+    def search(self, channel=None, time=None, utc=False, cls=Program, **kwargs):
         """
         Search the db
 
@@ -140,11 +140,11 @@ class Server(object):
         self._rpc.connect(self)
 
     @kaa.rpc.expose('search')
-    def query(self, channel, time, cls, **kwargs):
+    def query(self, channel, time, utc, cls, **kwargs):
         """
         Remote search
         """
-        return self.guide.search(channel, time, cls, **kwargs)
+        return self.guide.search(channel, time, utc, cls, **kwargs)
 
     @kaa.rpc.expose('update')
     def update(self, channel, time, **kwargs):

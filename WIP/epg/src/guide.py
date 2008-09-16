@@ -40,7 +40,7 @@ from kaa.utils import property
 # kaa.epg imports
 from channel import Channel
 from program import Program
-from util import cmp_channel, EPGError
+from util import cmp_channel, EPGError, localtime2utc
 
 # get logging object
 log = logging.getLogger('epg')
@@ -116,7 +116,7 @@ class Guide(object):
                 else:
                     self._channels_by_tuner_id[t] = chan
 
-    def search(self, channel=None, time=None, cls=Program, **kwargs):
+    def search(self, channel=None, time=None, utc=False, cls=Program, **kwargs):
         """
         Search the db
 
@@ -138,6 +138,9 @@ class Guide(object):
                 start, stop = time + 1, time + 1
             else:
                 start, stop = time
+            if not utc:
+                start = localtime2utc(start)
+                stop = localtime2utc(stop)
             if stop > 0:
                 kwargs["start"] = QExpr("range", (int(start) - self._max_program_length, int(stop)))
                 kwargs["stop"]  = QExpr(">=", int(start))
@@ -161,7 +164,7 @@ class Guide(object):
                 if row['parent_id'] not in self._channels_by_db_id:
                     continue
                 channel = self._channels_by_db_id[row['parent_id']]
-            results.append(cls(channel, row))
+            results.append(cls(channel, row, utc))
         return results
 
     def new_channel(self, tuner_id=None, name=None, long_name=None):

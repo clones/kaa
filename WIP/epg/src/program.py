@@ -30,14 +30,16 @@
 __all__ = [ 'Program' ]
 
 from kaa import unicode_to_str
+from util import utc2localtime
 
 class Program(object):
     """
     kaa.epg.Program class.
     """
-    def __init__(self, channel, dbdata):
+    def __init__(self, channel, dbdata, utc):
         self.channel = channel
         self._dbdata = dbdata
+        self._utc = utc
 
     def __getattr__(self, attr):
         """
@@ -47,6 +49,9 @@ class Program(object):
         if attr != '_dbdata':
             self.start = self._dbdata.get('start', 0)
             self.stop = self._dbdata.get('stop', 0)
+            if not self._utc:
+                self.start = utc2localtime(self.start)
+                self.stop = utc2localtime(self.stop)
             self.title = self._dbdata.get('title', u'')
             self.description = self._dbdata.get('desc', u'')
             self.subtitle = self._dbdata.get('subtitle',  u'')
