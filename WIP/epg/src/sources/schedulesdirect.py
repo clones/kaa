@@ -40,7 +40,7 @@ import urlparse
 
 # kaa imports
 import kaa
-from config_schedulesdirect import config
+import config
 
 # get logging object
 log = logging.getLogger('epg')
@@ -327,7 +327,6 @@ class Handler(xml.sax.handler.ContentHandler):
 @kaa.threaded('epg')
 def update(epg, start = None, stop = None):
     from gzip import GzipFile
-    from config import config as epg_config
 
     if not start:
         # If start isn't specified, choose current time (rounded down to the
@@ -335,10 +334,10 @@ def update(epg, start = None, stop = None):
         start = int(time.time()) / 3600 * 3600
     if not stop:
         # If stop isn't specified, use config default.
-        stop = start + (24 * 60 * 60 * epg_config.days)
+        stop = start + (24 * 60 * 60 * config.days)
 
-    urlparts = urlparse.urlparse(config.url)
-    filename = request(str(config.username), str(config.password), urlparts[1], urlparts[2], start, stop)
+    urlparts = urlparse.urlparse(config.schedulesdirect.url)
+    filename = request(str(config.schedulesdirect.username), str(config.schedulesdirect.password), urlparts[1], urlparts[2], start, stop)
     #filename = '/tmp/schedulesdirect.xml.gz'
     if not filename:
         return

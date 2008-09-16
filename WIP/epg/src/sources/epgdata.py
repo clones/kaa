@@ -42,7 +42,7 @@ import xml.sax.saxutils
 import kaa
 
 # config file
-from config_epgdata import config
+import config
 
 # get logging object
 log = logging.getLogger('epgdata')
@@ -212,8 +212,7 @@ def update(epg):
     """
     Interface to source_epgdata.
     """
-    from config import config as epg_config
-    if not config.pin:
+    if not config.epgdata.pin:
         log.error('PIN for epgdata.com is missing in tvserver.conf')
         return False
 
@@ -239,7 +238,7 @@ def update(epg):
     # create download adresse for meta data
     address = 'http://www.epgdata.com/index.php'
     address+= '?action=sendInclude&iLang=de&iOEM=xml&iCountry=de'
-    address+= '&pin=%s' % config.pin
+    address+= '&pin=%s' % config.epgdata.pin
     address+= '&dataType=xml'
 
     # remove old file if needed
@@ -284,11 +283,11 @@ def update(epg):
     # create download adresse for programm files
     address = 'http://www.epgdata.com/index.php'
     address+= '?action=sendPackage&iLang=de&iOEM=xml&iCountry=de'
-    address+= '&pin=%s' % config.pin
+    address+= '&pin=%s' % config.epgdata.pin
     address+= '&dayOffset=%s&dataType=xml'
 
     # get the file for each day
-    for i in range(0, int(epg_config.days)):
+    for i in range(0, int(config.days)):
             # remove old file if needed
             try:
                 os.remove(tmpfile)
