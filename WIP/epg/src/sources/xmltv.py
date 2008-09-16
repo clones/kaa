@@ -181,14 +181,15 @@ class XmltvParser(object):
                 secs -= adj_secs
             else:
                 secs += adj_secs
-            return int(secs)
+            # adjust secs to UTC and return
+            return int(secs) + time.timezone
         try:
             secs = time.mktime(time.strptime(timestr,'%Y%m%d%H%M%S %Z'))
         except ValueError:
             #try without the timezone
             secs = time.mktime(time.strptime(tval,'%Y%m%d%H%M%S'))
         # adjust secs to UTC and return
-        return int(secs) - time.timezone
+        return int(secs) + time.timezone
 
     def handle_channel(self, attr):
         """

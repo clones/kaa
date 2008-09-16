@@ -5,9 +5,13 @@ def local():
     kaa.epg.load('test.db')
     print kaa.epg.get_channels()
     t1 = time.time()
-    result = kaa.epg.search(time=time.time())
+    # UTC/GMT conversion because kaa.epg uses UTC
+    print int(time.mktime(time.gmtime()))
+    print int(time.time() + time.timezone)
+    result = kaa.epg.search(time=time.mktime(time.gmtime()))
     t2 = time.time()
-    print result
+    for r in result:
+        print r.title, r.channel
     print t2 - t1
 
 @kaa.coroutine()
@@ -16,14 +20,14 @@ def rpc():
     yield kaa.epg.guide.signals.subset('connected').any()
     print kaa.epg.get_channels()
     t1 = time.time()
-    result = yield kaa.epg.search(time=time.time())
+    result = yield kaa.epg.search(time=time.mktime(time.gmtime()))
     t2 = time.time()
     print result
     print t2 - t1
 
-if 1:
+if 0:
     rpc()
     kaa.main.run()
-if 0:
+if 1:
     local()
-    
+
