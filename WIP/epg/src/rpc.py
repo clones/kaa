@@ -147,7 +147,7 @@ class Server(object):
         return self.guide.search(channel, time, utc, cls, **kwargs)
 
     @kaa.rpc.expose('update')
-    def update(self, channel, time, **kwargs):
+    def update(self):
         """
         Remote update
         """
