@@ -47,6 +47,42 @@ from config import config
 # get logging object
 log = logging.getLogger('xmltv')
 
+def timestr2secs_utc(timestr):
+    """
+    Convert a timestring to UTC (=GMT) seconds.
+
+    The format is either one of these two:
+    '20020702100000 CDT'
+    '200209080000 +0100'
+    """
+    # This is either something like 'EDT', or '+1'
+    try:
+        tval, tz = timestr.split()
+    except ValueError, e:
+        tval = timestr
+        # ugly, but assume current timezone
+        tz   = time.tzname[time.daylight]
+    # now we convert the timestring using the current timezone
+    secs = int(time.mktime(time.strptime(tval,'%Y%m%d%H%M%S')))
+    # The timezone is still missing. The %Z handling of Python
+    # seems to be broken, at least for me CEST and UTC return the
+    # same value with time.strptime. This means we handle it now
+    # ourself.
+    if tz in time.tzname:
+        # the timezone is something we know
+        if list(time.tzname).index(tz):
+            # summer time
+            return secs + time.altzone
+        # winter (normal) time
+        return secs + time.timezone
+    if tz in ('UTC', 'GMT'):
+        # already UTC
+        return secs
+    # timeval [+-][hh]00
+    # FIXME: my xmltv file uses +0000 so I can not test here.
+    # It should be secs - tz and maybe it is +
+    return secs - int(tz) * 36
+
 class XmltvParser(object):
     """
     Parser class for xmltv files
@@ -150,47 +186,6 @@ class XmltvParser(object):
         # in any case:
         self._current = None
 
-    def timestr2secs_utc(self, timestr):
-        """
-        Convert a timestring to UTC (=GMT) seconds.
-
-        The format is either one of these two:
-        '20020702100000 CDT'
-        '200209080000 +0100'
-        """
-        # This is either something like 'EDT', or '+1'
-        try:
-            tval, tz = timestr.split()
-        except ValueError:
-            tval = timestr
-            tz   = str(-time.timezone/3600)
-        # Is it the '+1' format?
-        if tz and tz[0] in ('+', '-'):
-            tmTuple = ( int(tval[0:4]), int(tval[4:6]), int(tval[6:8]),
-                        int(tval[8:10]), int(tval[10:12]), 0, -1, -1, -1 )
-            secs = calendar.timegm( tmTuple )
-
-            adj_neg = int(tz) >= 0
-            try:
-                min = int(tz[3:5])
-            except ValueError:
-                # sometimes the mins are missing :-(
-                min = 0
-            adj_secs = int(tz[1:3])*3600+ min*60
-            if adj_neg:
-                secs -= adj_secs
-            else:
-                secs += adj_secs
-            # adjust secs to UTC and return
-            return int(secs) + time.timezone
-        try:
-            secs = time.mktime(time.strptime(timestr,'%Y%m%d%H%M%S %Z'))
-        except ValueError:
-            #try without the timezone
-            secs = time.mktime(time.strptime(tval,'%Y%m%d%H%M%S'))
-        # adjust secs to UTC and return
-        return int(secs) + time.timezone
-
     def handle_channel(self, attr):
         """
         put the channel info to the database
@@ -243,7 +238,7 @@ class XmltvParser(object):
         except KeyError:
             pass
         # then the start time
-        start = self.timestr2secs_utc(attr.pop('start'))
+        start = timestr2secs_utc(attr.pop('start'))
         # stop time is more complicated, as it is not always given
         db_id, last_prog = self.channels[channel_id]
         if last_prog:
@@ -256,7 +251,7 @@ class XmltvParser(object):
             self.add_program(db_id, last_start, start, last_title, **last_attr)
             self.channels[channel_id][1] = None
         try:
-            stop = self.timestr2secs_utc(attr.pop('stop'))
+            stop = timestr2secs_utc(attr.pop('stop'))
             # we have all info, let's fill it to the database
             self.add_program(db_id, start, stop, title, **attr)
         except:
