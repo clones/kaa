@@ -47,11 +47,14 @@ class Program(object):
         defer any ObjectRow unpickling.
         """
         if attr != '_dbdata':
-            self.start = self._dbdata.get('start', 0)
-            self.stop = self._dbdata.get('stop', 0)
-            if not self._utc:
-                self.start = utc2localtime(self.start)
-                self.stop = utc2localtime(self.stop)
+            self.start_utc = self._dbdata.get('start', 0)
+            self.start_local = utc2localtime(self.start_utc)
+            self.stop_utc = self._dbdata.get('stop', 0)
+            self.stop_local = utc2localtime(self.stop_utc)
+            if self._utc:
+                self.start, self.stop = self.start_utc, self.stop_utc
+            else:
+                self.start, self.stop = self.start_local, self.stop_local
             self.title = self._dbdata.get('title', u'')
             self.description = self._dbdata.get('desc', u'')
             self.subtitle = self._dbdata.get('subtitle',  u'')
