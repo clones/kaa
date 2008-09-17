@@ -116,7 +116,7 @@ class Client(Guide):
         """
         if self._status == Client.DISCONNECTED:
             raise EPGError('Client is not connected')
-        return self.rpc('search', channel, time, cls, **kwargs)
+        return self.rpc('search', channel, time, utc, cls, **kwargs)
 
     def update(self):
         """
