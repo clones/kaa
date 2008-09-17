@@ -88,7 +88,7 @@ class Client(Guide):
         self.rpc = None
         kaa.OneShotTimer(self.connect).start(1)
 
-    @kaa.rpc.expose('sync')
+    @kaa.rpc.expose()
     def _sync(self, channels):
         """
         Connect from server
@@ -139,14 +139,14 @@ class Server(object):
         self._rpc.signals['client_connected'].connect(self.client_connected)
         self._rpc.connect(self)
 
-    @kaa.rpc.expose('search')
-    def query(self, channel, time, utc, cls, **kwargs):
+    @kaa.rpc.expose()
+    def search(self, channel, time, utc, cls, **kwargs):
         """
         Remote search
         """
         return self.guide.search(channel, time, utc, cls, **kwargs)
 
-    @kaa.rpc.expose('update')
+    @kaa.rpc.expose()
     def update(self):
         """
         Remote update
@@ -157,7 +157,7 @@ class Server(object):
         """
         Connect a new client to the server.
         """
-        client.rpc('sync', self.guide._channels_by_name.values())
+        client.rpc('_sync', self.guide._channels_by_name.values())
         client.signals['closed'].connect(self.client_closed, client)
         self._clients.append(client)
 
