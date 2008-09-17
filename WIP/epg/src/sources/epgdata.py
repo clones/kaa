@@ -45,7 +45,7 @@ import kaa
 import config
 
 # get logging object
-log = logging.getLogger('epgdata')
+log = logging.getLogger('epg.epgdata')
 
 
 class BaseParser(object):

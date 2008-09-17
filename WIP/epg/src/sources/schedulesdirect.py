@@ -43,7 +43,7 @@ import kaa
 import config
 
 # get logging object
-log = logging.getLogger('epg')
+log = logging.getLogger('epg.schedulesdirect')
 
 def H(m):
     return md5.md5(m).hexdigest()

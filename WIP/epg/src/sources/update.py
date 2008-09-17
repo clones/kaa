@@ -45,7 +45,7 @@ from kaa.db import *
 from config import config
 
 # get logging object
-log = logging.getLogger('epg')
+log = logging.getLogger('epg.update')
 
 sources = {}
 

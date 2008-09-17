@@ -45,7 +45,7 @@ import kaa
 from config import config
 
 # get logging object
-log = logging.getLogger('xmltv')
+log = logging.getLogger('epg.xmltv')
 
 def timestr2secs_utc(timestr):
     """
