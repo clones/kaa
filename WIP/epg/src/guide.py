@@ -35,12 +35,12 @@ import logging
 # kaa imports
 import kaa
 from kaa.db import *
-from kaa.utils import property
+from kaa.utils import property, localtime2utc
 
 # kaa.epg imports
 from channel import Channel
 from program import Program
-from util import cmp_channel, EPGError, localtime2utc
+from util import cmp_channel, EPGError
 
 # get logging object
 log = logging.getLogger('epg')

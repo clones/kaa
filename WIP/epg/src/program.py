@@ -30,7 +30,7 @@
 __all__ = [ 'Program' ]
 
 from kaa import unicode_to_str
-from util import utc2localtime
+from kaa.utils import utc2localtime
 
 class Program(object):
     """
