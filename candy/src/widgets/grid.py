@@ -264,7 +264,6 @@ class Grid(Group):
         child.x = pos_x * self._col_size
         child.y = pos_y * self._row_size
         child.width, child.height = self.cell_size
-        child.anchor_point = self.cell_size[0] / 2, self.cell_size[1] / 2
         child.parent = self.items
         self._rendered[(pos_x, pos_y)] = child
         return child
