@@ -1,4 +1,0 @@
-recursive-include src *.py
-recursive-include test *.py
-
-include ChangeLog MANIFEST README COPYING TODO AUTHORS
