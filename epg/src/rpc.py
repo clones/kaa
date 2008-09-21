@@ -128,7 +128,7 @@ class Client(Guide):
             # local timezone set.
             if isinstance(time, (int, float, long)):
                 time = localtime2utc(time)
-            else:
+            if isinstance(time, (list, tuple)):
                 time = [ localtime2utc(t) for t in time ]
         query_data = yield self.rpc('search', channel, time, True, None, **kwargs)
         # Convert raw search result data from the server into python objects.
