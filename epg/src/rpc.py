@@ -107,7 +107,7 @@ class Client(Guide):
             self.signals["connected"].emit()
 
     @kaa.coroutine()
-    def search(self, channel=None, time=None, utc=False, cls=None, **kwargs):
+    def search(self, channel=None, time=None, utc=False, cls=Program, **kwargs):
         """
         Search the db
 
@@ -116,11 +116,6 @@ class Client(Guide):
             means until the end of the guide data.
         @param cls: class to use to create programs or None to return raw data
         """
-        # FIXME: this function has a different default value. It uses cls=None
-        # while all the other classes use cls=Program. The effect is the same
-        # because search in __init__ sets cls=Program. The reason is that the
-        # wrap function in kaa.utils using for kaa.coroutine does not work with
-        # classes as default argument.
         if self._status == Client.DISCONNECTED:
             raise EPGError('Client is not connected')
         if not utc:
