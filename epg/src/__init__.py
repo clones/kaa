@@ -82,11 +82,11 @@ def get_channel(name):
     """
     return guide.get_channel(name)
 
-def search(channel=None, time=None, **kwargs):
+def search(channel=None, time=None, utc=False, cls=Program, **kwargs):
     """
     Search the db.
     """
-    return guide.search(channel, time, **kwargs)
+    return guide.search(channel, time, utc, cls, **kwargs)
 
 class _SourcesWrapper(object):
     """

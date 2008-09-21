@@ -19,7 +19,7 @@ def rpc():
     yield kaa.epg.guide.signals.subset('connected').any()
     print kaa.epg.get_channels()
     t1 = time.time()
-    result = yield kaa.epg.search(time=time.mktime(time.gmtime()))
+    result = yield kaa.epg.search(time=time.time())
     t2 = time.time()
     print result
     print t2 - t1

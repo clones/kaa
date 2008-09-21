@@ -35,6 +35,7 @@ import logging
 # kaa imports
 import kaa
 import kaa.rpc
+from kaa.utils import localtime2utc
 
 # kaa.epg imports
 from channel import Channel
@@ -105,7 +106,8 @@ class Client(Guide):
             self._status = Client.CONNECTED
             self.signals["connected"].emit()
 
-    def search(self, channel=None, time=None, utc=False, cls=Program, **kwargs):
+    @kaa.coroutine()
+    def search(self, channel=None, time=None, utc=False, cls=None, **kwargs):
         """
         Search the db
 
@@ -114,9 +116,31 @@ class Client(Guide):
             means until the end of the guide data.
         @param cls: class to use to create programs or None to return raw data
         """
+        # FIXME: this function has a different default value. It uses cls=None
+        # while all the other classes use cls=Program. The effect is the same
+        # because search in __init__ sets cls=Program. The reason is that the
+        # wrap function in kaa.utils using for kaa.coroutine does not work with
+        # classes as default argument.
         if self._status == Client.DISCONNECTED:
             raise EPGError('Client is not connected')
-        return self.rpc('search', channel, time, utc, cls, **kwargs)
+        if not utc:
+            # convert to utc because the server may have a different
+            # local timezone set.
+            if isinstance(time, (int, float, long)):
+                time = localtime2utc(time)
+            else:
+                time = [ localtime2utc(t) for t in time ]
+        query_data = yield self.rpc('search', channel, time, True, None, **kwargs)
+        # Convert raw search result data from the server into python objects.
+        results = []
+        channel = None
+        for row in query_data:
+            if not channel or row['parent_id'] != channel.db_id:
+                if row['parent_id'] not in self._channels_by_db_id:
+                    continue
+                channel = self._channels_by_db_id[row['parent_id']]
+            results.append(cls(channel, row, utc))
+        yield results
 
     def update(self):
         """
