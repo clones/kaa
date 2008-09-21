@@ -42,7 +42,7 @@ import xml.sax.saxutils
 import kaa
 
 # config file
-import config
+from config import config
 
 # get logging object
 log = logging.getLogger('epg.epgdata')

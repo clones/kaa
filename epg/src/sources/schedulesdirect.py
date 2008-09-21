@@ -40,7 +40,7 @@ import urlparse
 
 # kaa imports
 import kaa
-import config
+from config import config
 
 # get logging object
 log = logging.getLogger('epg.schedulesdirect')
