@@ -118,7 +118,10 @@ class XmltvParser(object):
         self._current = None
         self._characters = ''
         # parse the input
-        parser.parse('file://' + filename)
+        if filename.startswith('<?xml'):
+            parser.parseString(filename)
+        else:
+            parser.parse('file://' + filename)
 
     def error(self, exception):
         """
@@ -260,11 +263,11 @@ class XmltvParser(object):
 
 
 @kaa.threaded('epg')
-def update(epg):
+def update(epg, xmltv_file=None):
     """
     Interface to source_xmltv.
     """
-    if config.xmltv.grabber:
+    if not xmltv_file and config.xmltv.grabber:
         log.info('grabbing listings using %s', config.xmltv.grabber)
         xmltv_file = kaa.tempfile('TV.xml')
         if config.xmltv.data_file:
@@ -288,7 +291,7 @@ def update(epg):
                 return
         else:
             log.info('not configured to use tv_sort, skipping')
-    else:
+    elif not xmltv_file:
         xmltv_file = config.xmltv.data_file
     # Now we have a xmltv file and need to parse it
     log.info('parse xmltv file %s' % xmltv_file)
