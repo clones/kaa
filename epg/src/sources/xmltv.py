@@ -119,8 +119,10 @@ class XmltvParser(object):
         self._characters = ''
         # parse the input
         if filename.startswith('<?xml'):
-            parser.parseString(filename)
+            log.info('parse provided xmltv string')
+            parser.feed(filename)
         else:
+            log.info('parse xmltv file %s' % xmltv_file)
             parser.parse('file://' + filename)
 
     def error(self, exception):
@@ -294,7 +296,6 @@ def update(epg, xmltv_file=None):
     elif not xmltv_file:
         xmltv_file = config.xmltv.data_file
     # Now we have a xmltv file and need to parse it
-    log.info('parse xmltv file %s' % xmltv_file)
     parser = XmltvParser()
     parser.add_channel = epg.add_channel
     parser.add_program = epg.add_program
