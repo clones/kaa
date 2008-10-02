@@ -220,9 +220,9 @@ class Guide(object):
             return channels
         return self._channels_by_name.values()
 
-    def update(self):
+    def update(self, backend = None, *args, **kwargs):
         """
         Update the database
         """
         import sources
-        return sources.update(self._db)
+        return sources.update(self._db, backend, *args, **kwargs)

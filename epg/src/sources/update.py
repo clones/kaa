@@ -248,5 +248,5 @@ class Updater(object):
             self.sync().wait()
 
 
-def update(db):
-    return Updater(db).update()
+def update(db, backend = None, *args, **kwargs):
+    return Updater(db).update(backend, *args, **kwargs)

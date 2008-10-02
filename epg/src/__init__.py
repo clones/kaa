@@ -93,11 +93,11 @@ class _SourcesWrapper(object):
     Wrap kaa.epg.sources import to avoid importing
     stuff that is not needed.
     """
-    def __call__(self):
+    def __call__(self, backend = None, *args, **kwargs):
         """
         Call guide update
         """
-        return guide.update()
+        return guide.update(backend, *args, **kwargs)
 
     @property
     def config(self):
