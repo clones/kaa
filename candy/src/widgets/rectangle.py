@@ -108,6 +108,10 @@ class Rectangle(CairoTexture):
         """
         Render the widget
         """
+        if not self.__border_size and not self.__radius:
+            # FIXME: update this variable when border_size or radius
+            # change. This makes drawing MUCH faster.
+            self._clutter_resize_surface = False
         super(Rectangle, self)._clutter_render()
         context = self._obj.cairo_create()
 

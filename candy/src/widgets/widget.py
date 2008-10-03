@@ -113,7 +113,7 @@ class Template(object):
         modifier = []
         for subelement in element.get_children():
             mod = Modifier.candyxml_create(subelement)
-            if mod:
+            if mod is not None:
                 modifier.append(mod)
                 element.remove(subelement)
         widget = cls.candyxml_get_class(element)
@@ -149,8 +149,8 @@ class Widget(object):
     __anchor = None
     __x = 0
     __y = 0
-    __width = 0
-    __height = 0
+    __width = None
+    __height = None
     __xalign = None
     __yalign = None
     __xpadding = 0
@@ -187,6 +187,7 @@ class Widget(object):
         self._sync_properties = {}
         self.__depends = {}
         self.__context = context or {}
+        self.eventhandler = {}
         self.userdata = {}
 
     def add_dependency(self, var):
@@ -197,7 +198,7 @@ class Widget(object):
         """
         self.__depends[var] = repr(self.__context.get(var))
 
-    def animate(self, secs, alpha='inc', unparent=False):
+    def animate(self, secs, alpha='inc', delay=0, unparent=False):
         """
         Animate the object with the given animation. This returns an
         Animation object to add the behaviours. The animation is already
@@ -211,7 +212,7 @@ class Widget(object):
         """
         a = animation.Animation(secs, alpha)
         a.apply(self)
-        a.start()
+        a.start(delay)
         if unparent:
             kaa.inprogress(a).connect(setattr, self, 'parent', None).set_ignore_caller_args()
         return a
@@ -373,11 +374,17 @@ class Widget(object):
         """
         if 'parent' in self._sync_properties:
             clutter_parent = self._sync_properties.pop('parent')
+            if not clutter_parent:
+                # destroy object and return
+                import time
+                t1 = time.time()
+                self._obj.destroy()
+                self._obj = None
+                if time.time() - t1 > 0.002:
+                    print 'delete', self, time.time() - t1
+                return False
             if self._obj.get_parent():
                 self._obj.get_parent().remove(self._obj)
-            if not clutter_parent:
-                # no need to do more
-                return False
             clutter_parent.add(self._obj)
         if 'size' in self._sync_properties:
             if self.__rotation:
@@ -392,6 +399,8 @@ class Widget(object):
             # basic rotation, inherit from this class to not rotate
             # based on anchor_point or align
             self._obj.set_rotation(backend.Z_AXIS, self.__rotation, 0, 0, 0)
+        if 'stack-position' in self._sync_properties:
+            self._obj.lower_actor(self._sync_properties['stack-position']._obj)
         return True
 
     # properties

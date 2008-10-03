@@ -100,13 +100,6 @@ class Group(Widget):
         if self._obj is None:
             self._obj = backend.Group()
             self._obj.show()
-        # sync removed children
-        while self.__children_removed:
-            self._sync_layout = True
-            child = self.__children_removed.pop(0)
-            if child.parent is None:
-                child._sync_properties['parent'] = None
-                child._clutter_sync_properties()
         # prepare new children
         while self.__children_added:
             self.__children_added.pop(0)._sync_properties['parent'] = self._obj
@@ -134,12 +127,20 @@ class Group(Widget):
         Set some properties
         """
         if not super(Group, self)._clutter_sync_properties():
+            # object destroyed
             return False
         # sync children
         for child in self.children:
             if child._sync_properties:
                 child._clutter_sync_properties()
                 child._sync_properties = {}
+        # sync removed children
+        while self.__children_removed:
+            self._sync_layout = True
+            child = self.__children_removed.pop(0)
+            if child.parent is None:
+                child._sync_properties['parent'] = None
+                child._clutter_sync_properties()
         # restack children
         while self.__children_restack:
             child, direction = self.__children_restack.pop(0)
@@ -384,8 +385,23 @@ class Container(LayoutGroup):
         Replace child with a new one. This function is a callback from
         _candy_context_sync in case the container wants to add some animations.
         """
-        child.parent = None
+        async = []
+        eventhandler = child.eventhandler.get('hide')
+        if eventhandler is not None:
+            async.append(eventhandler(child))
         replace.parent = self
+        eventhandler = replace.eventhandler.get('show')
+        if eventhandler is not None:
+            async.append(eventhandler(replace))
+        if async:
+            i = kaa.InProgressAll(*async)
+            i.connect(self.__unparent_child, child, i)
+        else:
+            child.parent = None
+        replace._sync_properties['stack-position'] = child
+
+    def __unparent_child(self, x, child, y):
+        child.parent = None
 
     @classmethod
     def candyxml_parse(cls, element):

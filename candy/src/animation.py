@@ -122,13 +122,15 @@ class Animation(object):
         self.alpha_func = alpha_func
         self.behaviour = []
         self.__refs = []
+        self.delay = 0
 
-    def start(self):
+    def start(self, delay=0):
         """
         Start the animation
         """
         if self.__inprogress is not None:
             raise RuntimeError('animation already playing')
+        self.delay = int(float(delay) * config.fps)
         self.__inprogress = kaa.InProgress()
         self.current_frame_num = 0
         if not Animation.__active:
@@ -145,7 +147,7 @@ class Animation(object):
         if self.__inprogress is None:
             return
         Animation.__animations.remove(self)
-        self.__inprogress.finish(None)
+        kaa.MainThreadCallback(self.__inprogress.finish)(None)
         self.__inprogress = None
 
     def behave(self, behaviour, *args, **kwargs):
@@ -156,7 +158,7 @@ class Animation(object):
             string, an object registered to that name will be created
             with the given arguments.
         """
-        if isinstance(behaviour, str):
+        if isinstance(behaviour, (str, unicode)):
             behaviour = create_behaviour(behaviour, *args, **kwargs)
         self.behaviour.append(behaviour)
         return self
@@ -194,7 +196,7 @@ class Animation(object):
         Animate one step
         """
         widgets = self.widgets
-        if not self.__refs:
+        if not widgets:
             self.stop()
         for behaviour in self.behaviour:
             behaviour.apply(alpha_value, widgets)
@@ -209,14 +211,17 @@ class Animation(object):
             t1 = time.time()
         try:
             for a in cls.__animations[:]:
+                if a.delay:
+                    a.delay -= 1
+                    continue
                 a.current_frame_num += 1
                 a._clutter_animate(a.alpha_func(a.current_frame_num, a.n_frames))
                 if a.current_frame_num == a.n_frames:
                     a.stop()
-                signals['candy-update'].emit()
+            signals['candy-update'].emit()
             if config.performance_debug:
                 diff = time.time() - t1
-                if diff > 0.05:
+                if diff > 0.02:
                     log.warning('animations.step() took %2.3f secs' % diff)
         except Exception, e:
             log.exception('animation')

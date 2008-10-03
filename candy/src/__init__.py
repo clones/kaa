@@ -72,6 +72,7 @@ import candyxml
 import config
 
 from core import Context, Font, Color, Modifier, Properties, is_template
+from eventhandler import Eventhandler
 from animation import Animation, thread_enter, thread_leave
 from widgets import *
 from stage import Stage

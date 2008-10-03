@@ -129,17 +129,25 @@ class CairoTexture(Widget):
     """
     Cairo based Texture widget.
     """
+
+    _clutter_resize_surface = True
+
     def _clutter_render(self):
         """
         Render the widget
         """
         if self._obj is None:
-            self._obj = backend.CairoTexture(self.inner_width, self.inner_height)
+            if self._clutter_resize_surface:
+                self._obj = backend.CairoTexture(self.inner_width, self.inner_height)
+            else:
+                self._obj = backend.CairoTexture(10, 10)
+                self._obj.set_size(self.inner_width, self.inner_height)
             self._obj.show()
             return
         if 'size' in self._sync_properties:
             self._obj.set_size(self.inner_width, self.inner_height)
-            self._obj.surface_resize(*self._obj.get_size())
+            if self._clutter_resize_surface:
+                self._obj.surface_resize(*self._obj.get_size())
         self._obj.clear()
 
 
