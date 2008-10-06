@@ -290,6 +290,6 @@ def main():
     sys.exit(0)
 
 if __name__ == '__main__':
-    main()
-    kaa.main.run()
+    if not main().finished:
+        kaa.main.run()
     
