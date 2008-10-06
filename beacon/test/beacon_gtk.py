@@ -114,8 +114,7 @@ class BeaconSearch:
     def _update_list(self):
         self.liststore.clear()
         for item in self.search:
-            e = [ True, item.getattr('title'), item.getattr('album'),
-                  item.getattr('artist')]
+            e = [ True, item['title'], item['album'], item['artist'] ]
             self.liststore.append(e)
         
 
