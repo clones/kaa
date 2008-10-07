@@ -24,7 +24,7 @@ def hal_failure(reason):
     if cdrom:
         for sig in cdrom.signals:
             cdrom.signals[sig].connect(hal.signals[sig].emit)
-        print 'start plain cdrom module'
+        print 'falling back to plain cdrom module'
         cdrom.start()
 
 if hal and cdrom:

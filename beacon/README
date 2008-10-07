@@ -9,11 +9,11 @@ should not be able to do.
 
 Fill the database
 
-You can use the monitor stuff (I will explain later) or you can use
+You can use the monitor stuff (which I will explain later) or you can use
 the cache test app to fill the database. Open cache.py in the test dir
-and change the db path to the localtion of your database
+and change the db path to the location of your database
 (e.g. /var/lib/freevo/beacondb). After that call python cache.py with a
-directory as argument. The test app will recursive add the files to
+directory as argument. The test app will recursively add the files to
 the database.
 
 
