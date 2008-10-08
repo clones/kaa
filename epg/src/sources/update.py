@@ -110,11 +110,17 @@ class Updater(object):
             log.warning('No valid backends specified for update.')
             return
         log.info('update complete')
+
         # Prune obsolete programs from database.
         expired_time = time.time() - config.expired_days * 60 * 60 * 24
         count = self._db.delete_by_query(type = "program", stop = QExpr('<', expired_time))
         if count:
             log.info('Deleted %d expired programs from database' % count)
+
+        # Vacuum database, which removes keywords with count=0
+        log.info('Vacuuming database')
+        self._db.vacuum()
+
         self._db.commit()
         # Load some statistics
         res = self._db._db_query("SELECT count(*) FROM objects_program")
