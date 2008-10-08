@@ -130,8 +130,9 @@ class Database(object):
         self.changes = []
 
         # create db
-        if not os.path.isdir(self._db_directory):
-            os.makedirs(self._db_directory)
+        overlay = os.path.join(self._db_directory, 'overlays')
+        if not os.path.isdir(overlay):
+            os.makedirs(overlay)
         self._db = db.Database(self._db_directory + '/db')
 
         self.signals = {
@@ -211,7 +212,7 @@ class Database(object):
             return result
         # TODO: it's a bit ugly to set url here, but we have no other choice
         media.url = result['content'] + '://' + media.mountpoint
-        media.overlay = os.path.join(self._db_directory, id)
+        media.overlay = os.path.join(self._db_directory, 'overlays', id)
         dbid = ('media', result['id'])
         media._beacon_id = dbid
         root = self._db.query(parent=dbid)[0]
