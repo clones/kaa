@@ -303,6 +303,7 @@ class CandyXML(xml.sax.ContentHandler):
         self._root = None
         self._current = None
         self._stack = []
+        self._names = []
         self._parser = xml.sax.make_parser()
         self._parser.setContentHandler(self)
         if data.find('<') >= 0:
@@ -332,10 +333,15 @@ class CandyXML(xml.sax.ContentHandler):
                 self._scale = float(self._geometry[0]) / w, \
                               float(self._geometry[1]) / h
             return
+        if name == 'alias' and len(self._stack) == 0:
+            self._names.append(attrs['name'])
+            return
         element = Element(name, self._current or self, attrs, self._scale)
         if self._current is not None:
             self._stack.append(self._current)
             self._current._children.append(element)
+        else:
+            self._names.append(attrs.get('name'))
         self._current = element
 
     def endElement(self, name):
@@ -346,12 +352,17 @@ class CandyXML(xml.sax.ContentHandler):
             self._current.content = self._current.content.strip()
         if len(self._stack):
             self._current = self._stack.pop()
+        elif name == 'alias':
+            # alias for high level element, skip
+            return
         elif name != self._root[0]:
             screen = self._current.xmlcreate()
             if not self._elements.get(name):
                 self._elements[name] = ElementDict()
-            self._elements[name][self._current.name] = screen
+            for subname in self._names:
+                self._elements[name][subname] = screen
             self._current = None
+            self._names = []
 
     def characters(self, c):
         """
