@@ -31,7 +31,7 @@ import os
 import sys
 import distutils.core
 
-submodules = [ 'base', 'imlib2', 'display', 'mevas', 'epg', 'record',
+submodules = [ 'base', 'imlib2', 'display', 'mevas', 'epg',
                'metadata', 'xine', 'cherrypy', 'beacon', 'popcorn',
                'feedmanager' ]
 
