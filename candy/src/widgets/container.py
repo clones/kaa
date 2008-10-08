@@ -374,25 +374,25 @@ class Container(LayoutGroup):
             replace = child.userdata.get('context:replace')
             if replace:
                 if replace is not True:
-                    self._candy_replace_child(child, replace)
+                    self._candy_replace_child(child, replace, context)
                     child.userdata['context:replace'] = True
                 continue
             if child.context_sensitive:
                 child._candy_context_sync(context)
 
-    def _candy_replace_child(self, child, replace):
+    def _candy_replace_child(self, child, replace, context):
         """
         Replace child with a new one. This function is a callback from
         _candy_context_sync in case the container wants to add some animations.
         """
         async = []
         eventhandler = child.eventhandler.get('hide')
-        if eventhandler is not None:
-            async.append(eventhandler(child))
+        if eventhandler:
+            async.extend([ x(child, context) for x in eventhandler])
         replace.parent = self
         eventhandler = replace.eventhandler.get('show')
         if eventhandler is not None:
-            async.append(eventhandler(replace))
+            async.extend([ x(replace, context) for x in eventhandler])
         if async:
             i = kaa.InProgressAll(*async)
             i.connect(self.__unparent_child, child, i)
