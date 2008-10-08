@@ -226,3 +226,17 @@ class Guide(object):
         """
         import sources
         return sources.update(self._db, backend, *args, **kwargs)
+
+
+    def get_keywords(self, associated=None, prefix=None):
+        """
+        Retrieves a list of keywords in the database.
+        """
+        return self._db.get_inverted_index_terms('keywords', associated, prefix)
+
+
+    def get_genres(self, associated=None, prefix=None):
+        """
+        Retrieves a list of genres in the database.
+        """
+        return self._db.get_inverted_index_terms('genres', associated, prefix)

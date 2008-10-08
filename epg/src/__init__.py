@@ -88,6 +88,18 @@ def search(channel=None, time=None, utc=False, cls=Program, **kwargs):
     """
     return guide.search(channel, time, utc, cls, **kwargs)
 
+def get_keywords(associated=None, prefix=None):
+    """
+    Retrieves a list of keywords in the database.
+    """
+    return guide.get_keywords(associated, prefix)
+
+def get_genres(associated=None, prefix=None):
+    """
+    Retrieves a list of genres in the database.
+    """
+    return guide.get_genres(associated, prefix)
+
 class _SourcesWrapper(object):
     """
     Wrap kaa.epg.sources import to avoid importing

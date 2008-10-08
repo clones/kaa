@@ -166,6 +166,14 @@ class Server(object):
         return self.guide.search(channel, time, utc, cls, **kwargs)
 
     @kaa.rpc.expose()
+    def get_keywords(self, associated=None, prefix=None):
+        return self.guide.get_keywords(associated, prefix)
+
+    @kaa.rpc.expose()
+    def get_genres(self, associated=None, prefix=None):
+        return self.guide.get_genres(associated, prefix)
+
+    @kaa.rpc.expose()
     def update(self):
         """
         Remote update
