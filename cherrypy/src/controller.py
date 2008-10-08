@@ -123,6 +123,7 @@ def expose(template=None, engine=None, mainloop=False, content_type='text/html',
                   therefore be required to strip this prefix before parsing.
                   Requires python-json to be installed.
     """
+
     if template:
         if not template.startswith('/'):
             # Template path is relative; convert to absolute path, which is
@@ -130,12 +131,23 @@ def expose(template=None, engine=None, mainloop=False, content_type='text/html',
             # decorator.
             caller_dir = os.path.dirname(os.path.realpath(traceback.extract_stack()[-2][0]))
             template = os.path.join(caller_dir, template)
-        engine = _get_engine(template, engine)
+        if engine != 'raw':
+            engine = _get_engine(template, engine)
 
     def decorator(func):
 
         def newfunc(self, *args, **kwargs):
-            _function = func
+            # FIXME: should get supported charsets from request
+            charset = cherrypy.config.get('charset', 'utf-8')
+
+            # Set content-type before calling handler to give handler a chance
+            # to override it.
+            if not json:
+                cherrypy.serving.response.headers['Content-Type'] = '%s; charset=%s' % (content_type, charset)
+
+            if engine == 'raw' and template:
+                from cherrypy.lib.static import serve_file
+                return serve_file(template, content_type=content_type)
 
             # We pass this context as the first arg to each handler.  The
             # reason is that in cherrypy, the request and response objects are
@@ -153,9 +165,6 @@ def expose(template=None, engine=None, mainloop=False, content_type='text/html',
             else:
                 result = func(self, ctx, *args, **kwargs)
 
-            # FIXME: should get supported charsets from request
-            charset = cherrypy.config.get('charset', 'utf-8')
-
             if cache is not None:
                 seconds = int(cache * 60 * 60)
                 if seconds != 0:
@@ -170,9 +179,7 @@ def expose(template=None, engine=None, mainloop=False, content_type='text/html',
                 import json as pyjson
                 # Do not set charset here, it breaks IE.  Yes, seriously.
                 ctx.response.headers['Content-Type'] = 'text/plain'
-                return u'{}&& ' + pyjson.write(result).encode(charset)
-            else:
-                ctx.response.headers['Content-Type'] = '%s; charset=%s' % (content_type, charset)
+                return '{}&& ' + pyjson.write(result).encode(charset)
 
             if not template:
                 return strutils.to_unicode(result).encode(charset)
