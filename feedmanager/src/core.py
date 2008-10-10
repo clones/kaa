@@ -236,7 +236,7 @@ class Feed(object):
 
                 if os.path.isfile(filename):
                     item = yield kaa.beacon.get(filename)
-                    if not item.scanned():
+                    if not item.scanned:
                         yield item.scan()
                     if 'date' in entry:
                         item['timestamp'] = entry['date']
