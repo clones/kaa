@@ -38,29 +38,15 @@ from client import Client as _Client
 
 _client = None
 
-def connect():
+def create(handler, db, rootfs):
     """
     Connect to hardware monitor process. This function will block
     if connection is not possible (timeout 3 sec).
     """
     global _client
-    if _client:
-        return _client
-    start = time.time()
-    while True:
-        try:
-            _client = _Client()
-            return _client
-        except socket.error, e:
-            if start + 3 < time.time():
-                # start time is up, something is wrong here
-                raise RuntimeError('unable to connect to hardware monitor')
-            time.sleep(0.01)
-
-
-def set_database(handler, db, rootfs=None):
-    _client.set_database(handler, db, rootfs)
-
+    if not _client:
+        _client = _Client(handler, db, rootfs)
+    return _client
 
 def get_client():
     return _client

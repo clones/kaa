@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -34,16 +34,6 @@ from config import config
 def BeaconServer(database):
     import server
     return server.Server(database)
-
-
-def HardwareMonitorServer(config):
-    import hwmon.server
-    return hwmon.server.Server(config)
-
-
-def HardwareMonitorClient():
-    import hwmon
-    return hwmon
 
 
 def Thumbnailer():

@@ -47,9 +47,8 @@ class Controller(object):
     def __init__(self, handler, db, rootfs=None):
         self._db = db
         self._changed = []
-        hwmon.connect()
         db.medialist.connect(self)
-        hwmon.set_database(handler, db, rootfs)
+        hwmon.create(handler, db, rootfs)
 
     # Item callbacks
 

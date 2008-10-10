@@ -187,13 +187,9 @@ plugin_config = kaa.beacon.server.plugins.get_config()
 if plugin_config is not None:
     kaa.beacon.server.config.add_variable('plugins', plugin_config)
 
-# fork thumbnailer / hwmon
+# fork thumbnailer
 pid = os.fork()
 if not pid:
-    # hwmon part (import this first because of hal/gtk)
-    hwmon = kaa.beacon.server.HardwareMonitorServer(os.path.join(database, "config"))
-
-    # thumbnailer part
     thumb = kaa.beacon.server.Thumbnailer()
 
     # set nice level
@@ -205,7 +201,7 @@ if not pid:
         
     # loop
     kaa.main.run()
-    log.info('stop thumbnail/hwmon')
+    log.info('stop thumbnail')
     sys.exit(0)
 
     
@@ -228,11 +224,6 @@ try:
     log.info('connect to thumbnailer ...')
     kaa.beacon.thumbnail.connect()
     log.info('connection to thumbnailer established')
-
-    # connect hwmon
-    log.info('connect to hwmon ...')
-    kaa.beacon.server.HardwareMonitorClient().connect()
-    log.info('connection to hwmon established')
 
     server = kaa.beacon.server.BeaconServer(database)
     if os.environ.get('BEACON_MONITOR'):

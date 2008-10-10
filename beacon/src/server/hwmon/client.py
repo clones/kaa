@@ -9,7 +9,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -39,7 +39,7 @@ import stat
 
 # kaa imports
 import kaa
-import kaa.rpc
+import kaa.metadata
 
 # kaa.beacon imports
 from kaa.beacon.utils import get_title
@@ -47,44 +47,91 @@ from kaa.beacon.utils import get_title
 # get logging object
 log = logging.getLogger('beacon.hwmon')
 
+# import the different hardware monitor modules
+try:
+    import hal
+except ImportError:
+    log.error('hal support disabled')
+    hal = None
+    try:
+        import cdrom
+    except ImportError:
+        log.error('cdrom support disabled')
+        cdrom = None
 
 class Client(object):
 
-    def __init__(self):
-        server = kaa.rpc.Client('hwmon')
-        server.connect(self)
-        self.rpc = server.rpc
-
-
-    def set_database(self, handler, db, rootfs):
+    def __init__(self, handler, db, rootfs):
+        log.info('start hardware monitor')
         self._db = db
-        # handler == beacon.Server
+        # handler == beacon.server.Controller
         self.handler = handler
-        self.rpc('connect')
-        self._device_add(rootfs)
+        self.devices = {}
+        self._update_device(rootfs)
+        if hal:
+            hal.signals['failed'].connect(self.__backend_hal_failure)
+            self.__backend_start(hal)
+        elif cdrom:
+            self.__backend_start(cdrom)
 
+    def __backend_start(self, service):
+        service.signals['add'].connect(self.__backend_device_new)
+        service.signals['remove'].connect(self.__backend_device_remove)
+        service.signals['changed'].connect(self.__backend_device_changed)
+        service.start()
 
-    def mount(self, dev):
+    def __backend_hal_failure(self, reason):
+        log.error(reason)
+        if cdrom:
+            self.__backend_start(cdrom)
+
+    def __backend_device_new(self, dev):
+        if dev.prop.get('volume.uuid'):
+            dev.prop['beacon.id'] = str(dev.prop.get('volume.uuid'))
+        else:
+            error = 'impossible to find unique string for beacon.id'
+            if dev.prop.get('block.device'):
+                error = 'unable to mount %s' % dev.prop.get('block.device')
+            log.error(error)
+            return True
+        self.devices[dev.get('beacon.id')] = dev
+        self._update_device(dev.prop)
+
+    def __backend_device_remove(self, dev):
+        try:
+            del self.devices[dev.get('beacon.id')]
+        except KeyError:
+            log.error('unable to find %s', dev.get('beacon.id'))
+        beacon_id = dev.prop.get('beacon.id')
+        log.info('remove device %s' % beacon_id)
+        self.handler.media_removed(self._db.medialist.get_by_media_id(beacon_id))
+        self._db.medialist.remove(beacon_id)
+
+    def __backend_device_changed(self, dev, prop):
+        prop['beacon.id'] = dev.prop.get('beacon.id')
+        beacon_id = dev.prop.get('beacon.id')
+        log.info('change device %s', beacon_id)
+        self._update_device(prop)
+
+    def get_backend_device(self, dev):
         if hasattr(dev, 'prop'):
             # media object
-            id = dev.prop.get('beacon.id')
-        else:
-            # raw device dict
-            id = dev.get('beacon.id')
-        return self.rpc('device.mount', id)
+            return self.devices.get(dev.prop.get('beacon.id'))
+        # raw device dict
+        return self.devices.get(dev.get('beacon.id'))
 
+    def mount(self, dev):
+        backend = self.get_backend_device(dev)
+        if backend:
+            return backend.mount()
 
     def eject(self, dev):
-        return self.rpc('device.eject', dev.prop.get('beacon.id'))
+        backend = self.get_backend_device(dev)
+        if backend:
+            backend.eject()
 
-
-    # rpc callbacks
-
-    @kaa.rpc.expose('device.add')
     @kaa.coroutine()
-    def _device_add(self, dev):
-        # FIXME: check if the device is still valid
-
+    def _update_device(self, dev):
         id = dev.get('beacon.id')
         if self._db.medialist.get_by_media_id(id):
             # already in db
@@ -92,24 +139,23 @@ class Client(object):
             media.update(dev)
             self.handler.media_changed(media)
             return
-
         media = self._db.query_media(id)
         if not media:
             if not dev.get('volume.is_disc') == True:
                 # fake scanning for other media than rom drives
-                yield self._device_scanned(None, dev)
-            # scan the disc in background
-            self.rpc('device.scan', id).connect(self._device_scanned, dev)
-            return
-
+                metadata = None
+            else:
+                backend = self.get_backend_device(dev)
+                parse = kaa.ThreadCallback(kaa.metadata.parse)
+                metadata = yield parse(dev.get('block.device'))
+            yield self._add_device_to_db(metadata, dev)
+        media = self._db.query_media(id)
         if media['content'] == 'file' and not dev.get('volume.mount_point'):
             # FIXME: mount only on request
             log.info('mount %s', dev.get('block.device'))
             self.mount(dev)
             return
-
         m = yield self._db.medialist.add(id, dev)
-
         # create overlay directory structure
         if not os.path.isdir(m.overlay):
             os.makedirs(m.overlay, 0700)
@@ -117,7 +163,6 @@ class Client(object):
             dirname = os.path.join(m.thumbnails, d)
             if not os.path.isdir(dirname):
                 os.makedirs(dirname, 0700)
-
         # FIXME: Yes, a disc is read only, but other media may also
         # be read only and the flag is not set.
         if dev.get('volume.is_disc'):
@@ -125,27 +170,10 @@ class Client(object):
         self.handler.media_changed(m)
         return
 
-
-    @kaa.rpc.expose('device.remove')
-    def _device_remove(self, id):
-        log.info('remove device %s' % id)
-        self.handler.media_removed(self._db.medialist.get_by_media_id(id))
-        self._db.medialist.remove(id)
-
-
-    @kaa.rpc.expose('device.changed')
-    def _device_change(self, id, dev):
-        log.info('change device %s', id)
-        self._device_add(dev)
-
-
     @kaa.coroutine(policy=kaa.POLICY_SYNCHRONIZED)
-    def _device_scanned(self, metadata, dev):
-
-        # FIXME: ACTIVE WAITING:
+    def _add_device_to_db(self, metadata, dev):
         while self._db.read_lock.is_locked():
             yield self._db.read_lock.yield_unlock()
-
         # FIXME: check if the device is still valid
         # FIXME: handle failed dvd detection
         id = dev.get('beacon.id')
@@ -158,8 +186,7 @@ class Client(object):
             # FIXME: better label
             vid = self._db.add_object(
                 "video", name="", parent=('media', mid),
-                title=unicode(get_title(metadata['label'])),
-                                     media = mid)['id']
+                title=unicode(get_title(metadata['label'])), media = mid)['id']
             for track in metadata.tracks:
                 self._db.add_object(
                     'track_%s' % type, name='%02d' % track.trackno,
@@ -190,4 +217,3 @@ class Client(object):
                 mtime = os.stat(dev.get('block.device'))[stat.ST_MTIME]
             dir = self._db.add_object(
                 "dir", name="", parent=('media', mid), media=mid, mtime=mtime)
-        yield self._device_add(dev)
