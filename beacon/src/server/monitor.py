@@ -39,7 +39,7 @@ from kaa.weakref import weakref
 from kaa import OneShotTimer, Timer, NotFinished
 
 # kaa.beacon imports
-from kaa.beacon.item import Item
+from ..item import Item
 from parser import parse
 
 # get logging object

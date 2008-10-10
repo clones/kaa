@@ -86,7 +86,7 @@ class BeaconFS(fuse.Fuse):
         self._filename_map = {}
         self._query_update_time = int(time.time())
         for item in self._query:
-            if not item.isfile() and not item.isdir:
+            if not item.isfile and not item.isdir:
                 # no file or dir, we can't link to it
                 continue
             name = item.get('name')

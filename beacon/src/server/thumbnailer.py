@@ -43,7 +43,7 @@ import kaa.imlib2
 import kaa.rpc
 
 # kaa.beacon imports
-from kaa.beacon._libthumb import epeg, png, failed
+from .._libthumb import epeg, png, failed
 from videothumb import VideoThumb
 import cpuinfo
 

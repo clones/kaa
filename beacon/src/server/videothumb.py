@@ -47,7 +47,7 @@ import kaa.metadata
 import kaa.imlib2
 
 # kaa.beacon imports
-from kaa.beacon._libthumb import epeg, png, failed
+from .._libthumb import epeg, png, failed
 import cpuinfo
 
 # get logging object

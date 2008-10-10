@@ -46,21 +46,14 @@ class Item(object):
     """
     A database item.
 
-    Attributes:
-    url:         unique url of the item
-    filename:    empty string
-    isdir:       False
-    isfile:      False
-    scanned:     True if the item is scanned
-
-    Functions:
-    get:         get an attribute, optional argument force
-    __getitem__: get an attribute
-    __setitem__: set an attribute
-    keys:        return all known attributes of the item
-    list:        return list of subitems
-
-    Do not access attributes starting with _beacon outside kaa.beacon
+    @ivar url:         unique url of the item
+    @ivar filename:    complete filename or file items
+    @ivar isdir:       True if it is a directory
+    @ivar isfile:      True if it is a regular file
+    @ivar scanned:     True if the item is scanned
+    @ivar thumbnail:   Thumbnail for the Item
+    @type thumbnail:   L{Thumbnail}
+    @note: do not access attributes starting with _beacon outside kaa.beacon
     """
 
     def __init__(self, _beacon_id, url, data, parent, media):
@@ -81,10 +74,22 @@ class Item(object):
 
     def get(self, key, default=None):
         """
-        Interface to kaa.beacon. Return the value of a given attribute. If
-        the attribute is not in the db, return None. If the key starts with
-        'tmp:', the data will be fetched from a dict that is not stored in
-        the db. Loosing the item object will remove that attribute.
+        Access attributes of the item.
+
+        Besides the keys in the database an item has the following attributes
+        accessable with this function:
+
+         - parent: parent L{Item} or L{Item}
+         - media: L{Media} object the item is on
+         - thumbnail: L{Thumbnail} object for the item or parent
+         - image: image path for the item or parent
+         - read_only: True if the item is on a read only media
+
+        @returns: the value of a given attribute. If the attribute is not in the db,
+            return None.
+        @note: If the key starts with C{'tmp:'}, the data will be fetched from the
+            temp directory and not from the db.
+            attribute.
         """
         if key.startswith('tmp:'):
             return self._beacon_tmpdata.get(key[4:], default)
@@ -118,7 +123,7 @@ class Item(object):
             if t:
                 return t
             # generate some title and save local it for future use
-            t = kaa.str_to_unicode(get_title(self._beacon_data['name'], self.isfile()))
+            t = kaa.str_to_unicode(get_title(self._beacon_data['name'], self.isfile))
             self._beacon_data['title'] = t
             return t
         result = self._beacon_data.get(key, default)
@@ -131,9 +136,10 @@ class Item(object):
 
     def __setitem__(self, key, value):
         """
-        Interface to kaa.beacon. Set the value of a given attribute. If the key
-        starts with 'tmp:', the data will only be valid in this item and not
-        stored in the db. Loosing the item object will remove that attribute.
+        Set the value of a given attribute. If the key starts with
+        C{'tmp:'}, the data will only be valid in this item and not
+        stored in the db. Loosing the item object will remove that
+        attribute.
         """
         if key.startswith('tmp:'):
             self._beacon_tmpdata[key[4:]] = value
@@ -145,13 +151,17 @@ class Item(object):
 
     def keys(self):
         """
-        Interface to kaa.beacon. Return all attributes of the item.
+        List item attributes
+
+        @returns: all attributes of the item.
         """
         return self._beacon_data.keys() + self._beacon_tmpdata.keys()
 
     def has_key(self, key):
         """
-        Returns True if the key is stored in the item.
+        Check if the item has a specific attributes set
+
+        @returns: True if the key is stored in the item.
         """
         return key in self._beacon_data.keys() or \
                key in self._beacon_tmpdata.keys()
@@ -176,6 +186,13 @@ class Item(object):
         True if the item is a regular file.
         """
         return not self._beacon_isdir and self.filename != ''
+
+    @property
+    def thumbnail(self):
+        """
+        Return Thumbnail for the Item
+        """
+        return self.get('thumbnail')
 
     def list(self):
         """

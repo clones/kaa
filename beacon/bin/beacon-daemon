@@ -269,6 +269,7 @@ except Exception, e:
 log.info('stop beacon')
 
 #wait for dead child
-os.waitpid(pid, 0)
-
-print 'Beacon done.'
+try:
+    os.waitpid(pid, 0)
+except OSError:
+    pass

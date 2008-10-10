@@ -411,7 +411,7 @@ class Client(object):
         if self._db.medialist.get_by_media_id(id):
             # Update can take a while but it should not matter here.
             # The InProgress object can be ignored
-            self._db.medialist.get_by_media_id(id).update(prop)
+            self._db.medialist.get_by_media_id(id)._beacon_update(prop)
             return
         # Adding a media always returns an InProgress object. Attach
         # sending the signal to the InProgress return.

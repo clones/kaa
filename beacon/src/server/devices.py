@@ -133,7 +133,7 @@ class HardwareMonitor(object):
         if self._db.medialist.get_by_media_id(id):
             # already in db
             media = self._db.medialist.get_by_media_id(id)
-            media.update(dev)
+            media._beacon_update(dev)
             self.handler.media_changed(media)
             return
         media = self._db.query_media(id)

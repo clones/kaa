@@ -42,8 +42,8 @@ from kaa import db
 from kaa.db import *
 
 # beacon imports
-from kaa.beacon.item import Item
-from kaa.beacon.db import Database as RO_Database
+from ..item import Item
+from ..db import Database as RO_Database
 
 # get logging object
 log = logging.getLogger('beacon.db')

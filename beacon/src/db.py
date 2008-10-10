@@ -301,7 +301,7 @@ class Database(object):
             while pos < len(items) and f > items[pos]._beacon_name:
                 # file deleted
                 i = items[pos]
-                if not i.isdir and not i.isfile():
+                if not i.isdir and not i.isfile:
                     # A remote URL in the directory
                     pos += 1
                     continue
@@ -323,7 +323,7 @@ class Database(object):
         if pos + 1 < len(items):
             # deleted files at the end
             for i in items[pos+1-len(items):]:
-                if not i.isdir and not i.isfile():
+                if not i.isdir and not i.isfile:
                     # A remote URL in the directory
                     continue
                 items.remove(i)

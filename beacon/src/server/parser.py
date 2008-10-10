@@ -44,8 +44,8 @@ import kaa.metadata
 import kaa.imlib2
 
 # kaa.beacon imports
-from kaa.beacon import thumbnail
-from kaa.beacon.utils import get_title
+from .. import thumbnail
+from ..utils import get_title
 import utils
 
 # get logging object
@@ -85,7 +85,7 @@ def parse(db, item, check_image=False):
 
     mtime = item._beacon_mtime
     if mtime == None:
-        if item.isdir or item.isfile():
+        if item.isdir or item.isfile:
             log.warning('no mtime, skip %s' % item)
             return 0
         # neither dir nor file, it can not have a mtime

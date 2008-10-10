@@ -29,8 +29,19 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'connect', 'get', 'query', 'register_filter', 'Item',
-            'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE' ]
+"""
+kaa.beacon
+
+@group Server: connect, launch
+@group Query: query, get, monitor, register_filter, wrap
+@group Media Handling: list_media, delete_media
+@group Database Manipulation: add_item, register_file_type_attrs, register_track_type_attrs, get_db_info
+"""
+
+__all__ = [ 'connect', 'launch', 'get', 'query', 'monitor', 'add_item', 'wrap',
+            'register_file_type_attrs', 'register_track_type_attrs', 'get_db_info',
+            'list_media', 'delete_media', 'register_filter', 'Item', 'Query', 'Media',
+            'File', 'VERSION', 'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE' ]
 
 # python imports
 import os
@@ -51,6 +62,9 @@ from thumbnail import LARGE as THUMBNAIL_LARGE
 from thumbnail import Thumbnail
 from query import register_filter, wrap, Query
 from item import Item
+from file import File
+from version import VERSION
+from media import Media
 from kaa.db import *
 
 # get logging object
@@ -97,7 +111,11 @@ def connect():
 
 def launch(autoshutdown=False, verbose='none'):
     """
-    Lauch a beacon server.
+    Lauch a beacon server and connect to it.
+
+    @param autoshutdown: if the server should shut down when no client is
+        connected anymore
+    @param verbose: verbose level for the server log
     """
     beacon = os.path.dirname(__file__), '../../../../../bin/beacon-daemon'
     beacon = os.path.realpath(os.path.join(*beacon))
@@ -118,7 +136,9 @@ def get(filename):
     """
     Get object for the given filename. This function will raise an exception if
     the client is not connected and the server is not running for a connect.
-    This function may return an InProgress object.
+
+    @returns: InProgress
+    @rtype: L{File}
     """
     if not _client:
         connect()
@@ -130,7 +150,8 @@ def query(**args):
     Query the database. This function will raise an exception if the
     client is not connected and the server is not running for a connect.
 
-    @returns InProgress object with a kaa.beacon.Query
+    @returns: InProgress
+    @rtype: L{Query}
     """
     if not _client:
         connect()
@@ -141,6 +162,8 @@ def monitor(directory):
     """
     Monitor a directory with subdirectories for changes. This is done in
     the server and will keep the database up to date.
+
+    @param directory: directory path name
     """
     if not _client:
         connect()
@@ -177,7 +200,8 @@ def register_track_type_attrs(name, **kwargs):
 def get_db_info():
     """
     Gets statistics about the database.
-    (Only usefull for debugging)
+
+    @return: basic database information
     """
     if not _client:
         connect()
@@ -187,6 +211,9 @@ def get_db_info():
 def list_media():
     """
     List all media objects.
+
+    @returns: list of the available media
+    @rtype: list of L{Media}
     """
     if not _client:
         connect()
@@ -198,6 +225,8 @@ def list_media():
 def delete_media(id):
     """
     Delete media with the given id.
+
+    @param id: Media object ID
     """
     if not _client:
         connect()

@@ -81,6 +81,7 @@ ext_modules = [ thumb_ext ]
 setup (module      = 'beacon',
        version     = '0.1.0',
        license     = 'LGPL',
+       epydoc      = [ 'doc/epydoc' ],
        summary     = "Media-oriented virtual filesystem",
        scripts     = [ 'bin/kaa-thumb', 'bin/beacon-daemon', 'bin/beacon-search',
                        'bin/beacon-mount' ],

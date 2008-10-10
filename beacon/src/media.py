@@ -50,12 +50,17 @@ class Media(object):
     Media object for a specific mount point.
     """
     def __init__(self, id, controller):
+        """
+        Create a media object
+
+        @note: Objects are created by the hardware monitor subsystem, do not create
+            Media objects from outside beacon.
+        """
         log.info('new media %s', id)
         self._beacon_controller = controller
         self.id = id
         # needed by server.
         self.crawler = None
-
 
     def eject(self):
         """
@@ -63,9 +68,40 @@ class Media(object):
         """
         self._beacon_controller.eject(self)
 
+    @property
+    def isdir(self):
+        """
+        Return False for items directly on the media without dir,
+        like a dvd video.
+        """
+        return False
+
+    def get(self, key, default=None):
+        """
+        Get value.
+        """
+        return self.prop.get(key, default)
+
+    def __getitem__(self, key):
+        """
+        Get value
+        """
+        return self.prop[key]
+
+    def __setitem__(self, key, value):
+        """
+        Set value
+        """
+        self.prop[key] = value
+
+    def __repr__(self):
+        """
+        For debugging only.
+        """
+        return '<kaa.beacon.Media %s>' % self.id
 
     @kaa.coroutine()
-    def update(self, prop):
+    def _beacon_update(self, prop):
         """
         Update media properties.
         """
@@ -106,43 +142,6 @@ class Media(object):
         else:
             self.label = self.id
 
-
-    def isdir(self):
-        """
-        Return False for items directly on the media without dir,
-        e.g. a dvd video.
-        """
-        return False
-
-
-    def get(self, key, default=None):
-        """
-        Get value.
-        """
-        return self.prop.get(key, default)
-
-
-    def __getitem__(self, key):
-        """
-        Get value
-        """
-        return self.prop[key]
-
-
-    def __setitem__(self, key, value):
-        """
-        Set value
-        """
-        self.prop[key] = value
-
-
-    def __repr__(self):
-        """
-        For debugging only.
-        """
-        return '<kaa.beacon.Media %s>' % self.id
-
-
     @property
     def _beacon_media(self):
         """
@@ -181,7 +180,7 @@ class MediaList(object):
         if id in self._dict:
             yield self._dict.get(id)
         media = Media(id, self._beacon_controller)
-        async = media.update(prop)
+        async = media._beacon_update(prop)
         if isinstance(async, kaa.InProgress):
             # This will happen for the client because update
             # needs to lock the db.

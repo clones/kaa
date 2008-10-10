@@ -48,21 +48,13 @@ class File(Item):
     """
     A file based database item.
 
-    Attributes:
-    url:         unique url of the item
-    filename:    complete filename
+    @ivar url:         unique url of the item
+    @ivar filename:    complete filename
+    @ivar isdir:       True if it is a directory
+    @ivar isfile:      True if it is a regular file
+    @ivar scanned:     True if the item is scanned
 
-    Functions:
-    get:         get an attribute, optional argument force
-    __getitem__: get an attribute
-    __setitem__: set an attribute
-    keys:        return all known attributes of the item
-    scanned:     return True if the item is scanned
-    list:        return list of subitems or directory content
-    isdir:       return True if it is a directory
-    isfile:      return True if it is a regular file
-
-    Do not access attributes starting with _beacon outside kaa.beacon
+    @note: do not access attributes starting with _beacon outside kaa.beacon
     """
 
     def __init__(self, id, filename, data, parent, media, overlay=False, isdir=False):
