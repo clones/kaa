@@ -398,7 +398,7 @@ class Server(object):
             yield self._db.read_lock.yield_unlock()
         yield self._db.add_object(type, parent=parent, **kwargs)
 
-    
+
     @kaa.rpc.expose('item.delete')
     @kaa.coroutine()
     def item_delete(self, id):
@@ -409,7 +409,7 @@ class Server(object):
             yield self._db.read_lock.yield_unlock()
         self._db.delete_object(id)
 
-    
+
     @kaa.rpc.expose('beacon.shutdown')
     def shutdown(self):
         """

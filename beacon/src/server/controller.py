@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2007 Dirk Meyer
+# Copyright (C) 2007-2008 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -35,7 +35,7 @@ __all__ = [ 'Controller' ]
 import kaa
 
 # kaa.beacon imports
-import hwmon
+import devices
 from parser import parse
 
 
@@ -48,7 +48,7 @@ class Controller(object):
         self._db = db
         self._changed = []
         db.medialist.connect(self)
-        hwmon.create(handler, db, rootfs)
+        self.hwmon = devices.HardwareMonitor(handler, db, rootfs)
 
     # Item callbacks
 
@@ -107,7 +107,7 @@ class Controller(object):
         """
         Eject media
         """
-        hwmon.get_client().eject(media)
+        self.hwmon.eject(media)
 
 
     def _beacon_media_information(self, media):

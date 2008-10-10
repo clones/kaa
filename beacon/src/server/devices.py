@@ -1,11 +1,8 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# client.py - client part of the hardware monitor
+# devices.py - HardwareMonitor
 # -----------------------------------------------------------------------------
 # $Id$
-#
-# This module is used inside the beacon server to communicate with the
-# hardware monitor process.
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
@@ -42,7 +39,7 @@ import kaa
 import kaa.metadata
 
 # kaa.beacon imports
-from kaa.beacon.utils import get_title
+from ..utils import get_title
 
 # get logging object
 log = logging.getLogger('beacon.hwmon')
@@ -59,7 +56,7 @@ except ImportError:
         log.error('cdrom support disabled')
         cdrom = None
 
-class Client(object):
+class HardwareMonitor(object):
 
     def __init__(self, handler, db, rootfs):
         log.info('start hardware monitor')

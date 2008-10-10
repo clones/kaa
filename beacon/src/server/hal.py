@@ -55,13 +55,17 @@ DBusGMainLoop(set_as_default=True)
 kaa.gobject_set_threaded()
 
 # kaa.beacon imports
-from kaa.beacon.server.config import config
+from config import config
 
 # get logging object
 log = logging.getLogger('beacon.hal')
 
-# HAL signals
+# hal signals
 signals = kaa.Signals('add', 'remove', 'changed', 'failed')
+
+# hal object and interface names
+HAL = 'org.freedesktop.Hal'
+HAL_DEVICE = 'org.freedesktop.Hal.Device'
 
 @kaa.threaded(kaa.MAINTHREAD)
 def emit_signal(signal, *args):
@@ -81,6 +85,10 @@ class Device(object):
         self.prop = prop
         self._bus = bus
 
+    def get_interface(self, name):
+        obj = self._bus.get_object(HAL, self.udi)
+        return dbus.Interface(obj, name)
+
     # -------------------------------------------------------------------------
     # Public API
     # -------------------------------------------------------------------------
@@ -95,8 +103,7 @@ class Device(object):
             return False
         if not self.prop.get('volume.fstype'):
             log.error('unknown filesystem type for %s', self.udi)
-        obj = self._bus.get_object('org.freedesktop.Hal', self.udi)
-        vol = dbus.Interface(obj, 'org.freedesktop.Hal.Device.Volume')
+        vol = self.get_interface(HAL_DEVICE + '.Volume')
         vol.Mount('', self.prop.get('volume.fstype'), [])
         return True
 
@@ -108,8 +115,7 @@ class Device(object):
         umounted and removed from the list.
         """
         _device_remove(self.udi)
-        obj = self._bus.get_object('org.freedesktop.Hal', self.udi)
-        vol = dbus.Interface(obj, 'org.freedesktop.Hal.Device.Volume')
+        vol = self.get_interface(HAL_DEVICE + '.Volume')
         if self.prop.get('volume.mount_point'):
             vol.Unmount([])
         if self.prop.get('volume.is_disc'):
@@ -133,11 +139,9 @@ class Device(object):
         """
         for c in change_list:
             if c[0] == 'volume.mount_point':
-                obj = self._bus.get_object('org.freedesktop.Hal', self.udi)
-                obj = dbus.Interface(obj, 'org.freedesktop.Hal.Device')
+                obj = self.get_interface(HAL_DEVICE)
                 obj.GetAllProperties(reply_handler=self._property_update,
                                      error_handler=log.error)
-
 
     def _property_update(self, prop):
         """
@@ -148,7 +152,6 @@ class Device(object):
         prop['info.parent'] = self.prop.get('info.parent')
         emit_signal('changed', self, prop).wait()
         self.prop = prop
-
 
 
 # -----------------------------------------------------------------------------
@@ -165,7 +168,7 @@ _connection_timeout = 5
 @kaa.threaded(kaa.GOBJECT)
 def start():
     """
-    Connect to DBUS and start to connect to HAL.
+    Connect to DBUS and start to connect to hal.
     """
     global _bus
     global _connection_timeout
@@ -182,12 +185,12 @@ def start():
         kaa.OneShotTimer(start).start(2)
         return False
     try:
-        obj = _bus.get_object('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
+        obj = _bus.get_object(HAL, '/org/freedesktop/Hal/Manager')
     except Exception, e:
         # unable to connect to hal
         emit_signal('failed', 'hal not found on dbus')
         return False
-    hal = dbus.Interface(obj, 'org.freedesktop.Hal.Manager')
+    hal = dbus.Interface(obj, HAL + '.Manager')
     hal.GetAllDevices(reply_handler=_device_all, error_handler=log.error)
     hal.connect_to_signal('DeviceAdded', _device_new)
     hal.connect_to_signal('DeviceRemoved', _device_remove)
@@ -203,30 +206,28 @@ _blockdevices = {}
 
 def _device_all(device_names):
     """
-    HAL callback with the list of all known devices.
+    Hal callback with the list of all known devices.
     Called by dbus in GOBJECT thread.
     """
     for name in device_names:
-        obj = _bus.get_object("org.freedesktop.Hal", str(name))
-        obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
+        obj = _bus.get_object(HAL, str(name))
+        obj.GetAllProperties(dbus_interface=HAL_DEVICE,
                              reply_handler=kaa.Callback(_device_add, name),
                              error_handler=log.error)
 
-
 def _device_new(udi):
     """
-    HAL callback for a new device.
+    Hal callback for a new device.
     Called by dbus in GOBJECT thread.
     """
-    obj = _bus.get_object("org.freedesktop.Hal", udi)
-    obj.GetAllProperties(dbus_interface="org.freedesktop.Hal.Device",
+    obj = _bus.get_object(HAL, udi)
+    obj.GetAllProperties(dbus_interface=HAL_DEVICE,
                          reply_handler=kaa.Callback(_device_add, udi, True),
                          error_handler=log.error)
 
-
 def _device_remove(udi):
     """
-    HAL callback when a device is removed.
+    Hal callback when a device is removed.
     Called by dbus in GOBJECT thread or by eject
     """
     if udi in _blockdevices:
@@ -240,17 +241,16 @@ def _device_remove(udi):
     # this causes an error later (no such id). Well, there is no disc with
     # that id, but we need to unreg, right? FIXME by reading hal doc.
     sig = _bus.remove_signal_receiver
-    sig(dev._modified, "PropertyModified", 'org.freedesktop.Hal.Device',
-        "org.freedesktop.Hal", udi)
+    sig(dev._modified, "PropertyModified", HAL_DEVICE,
+        HAL, udi)
     _devices.remove(dev)
     # signal changes
     if isinstance(dev.prop.get('info.parent'), dict):
         emit_signal('remove', dev)
 
-
 def _device_add(prop, udi, removable=False):
     """
-    HAL callback for property list of a new device. If removable is set to
+    Hal callback for property list of a new device. If removable is set to
     False this functions tries to detect if it is removable or not.
     Called by dbus in GOBJECT thread.
     """
@@ -263,18 +263,15 @@ def _device_add(prop, udi, removable=False):
                     dev.prop['info.parent'] = prop
                     emit_signal('add', dev)
         return
-
     if prop.get('block.device').startswith('/dev/mapper') or \
            (prop.get('block.device') and config.discs and \
             (prop.get('block.device')[:-1] in config.discs.split(' ') or \
              prop.get('block.device')[:-2] in config.discs.split(' '))):
         # fixed device set in config
         return
-
     if config.discs:
         # fixed drives are set so this is a removable
         removable = True
-
     if not prop.get('volume.is_disc') and not removable:
         # No disc and not already marked as removable.
         # Check if the device is removable
@@ -296,13 +293,10 @@ def _device_add(prop, udi, removable=False):
         except Exception, e:
             log.exception('device checking')
             return
-
     dev = Device(prop, _bus)
     _devices.append(dev)
-    sig = _bus.add_signal_receiver
-    sig(dev._modified, "PropertyModified", 'org.freedesktop.Hal.Device',
-        "org.freedesktop.Hal", prop['info.udi'])
-
+    _bus.add_signal_receiver(dev._modified, "PropertyModified", HAL_DEVICE, HAL,
+                             prop['info.udi'])
     parent = _blockdevices.get(prop.get('info.parent'))
     if parent:
         prop['info.parent'] = parent
@@ -310,7 +304,7 @@ def _device_add(prop, udi, removable=False):
         emit_signal('add', dev)
 
 
-if __name__ == '__main__':      
+if __name__ == '__main__':
     def changed(dev, prop):
         print 'changed', dev.get('info.parent')
         print prop.get('volume.mount_point')
