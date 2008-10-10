@@ -110,7 +110,8 @@ class Device(object):
         _device_remove(self.udi)
         obj = self._bus.get_object('org.freedesktop.Hal', self.udi)
         vol = dbus.Interface(obj, 'org.freedesktop.Hal.Device.Volume')
-        vol.Unmount([])
+        if self.prop.get('volume.mount_point'):
+            vol.Unmount([])
         if self.prop.get('volume.is_disc'):
             vol.Eject([])
 
