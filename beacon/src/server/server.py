@@ -301,7 +301,7 @@ class Server(object):
         directory = os.path.realpath(directory)
         data = yield self._db.query(filename = directory)
         items = []
-        for i in data.get_ancestors():
+        for i in data.ancestors:
             if i._beacon_id:
                 break
             items.append(i)
@@ -376,7 +376,7 @@ class Server(object):
         """
         data = yield self._db.query(filename=filename)
         items = []
-        for i in data.get_ancestors():
+        for i in data.ancestors:
             if i._beacon_id:
                 break
             items.append(i)

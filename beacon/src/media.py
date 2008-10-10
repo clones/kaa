@@ -51,24 +51,17 @@ class Media(object):
     """
     def __init__(self, id, controller):
         log.info('new media %s', id)
-        self._controller = controller
+        self._beacon_controller = controller
         self.id = id
         # needed by server.
         self.crawler = None
-
-
-    def get_controller(self):
-        """
-        Get the controller (the client or the server)
-        """
-        return self._controller
 
 
     def eject(self):
         """
         Eject the media.
         """
-        self._controller.eject(self)
+        self._beacon_controller.eject(self)
 
 
     @kaa.coroutine()
@@ -84,7 +77,7 @@ class Media(object):
         if not self.mountpoint.endswith('/'):
             self.mountpoint += '/'
         # get basic information from database
-        media = self._controller._beacon_media_information(self)
+        media = self._beacon_controller._beacon_media_information(self)
         if isinstance(media, kaa.InProgress):
             # This will happen for the client because in the client
             # _beacon_media_information needs to lock the db.
@@ -150,15 +143,13 @@ class Media(object):
         return '<kaa.beacon.Media %s>' % self.id
 
 
-    def _get_beacon_media(self):
+    @property
+    def _beacon_media(self):
         """
         Get _beacon_media which is this object itself. To avoid circular
         references, use a property here.
         """
         return self
-
-    _beacon_media  = property(_get_beacon_media, None, None, "media reference")
-
 
 
 class MediaList(object):
@@ -168,7 +159,7 @@ class MediaList(object):
     def __init__(self):
         self._dict = dict()
         self._idlist = []
-        self._controller = None
+        self._beacon_controller = None
 
 
     def connect(self, controller):
@@ -177,7 +168,7 @@ class MediaList(object):
         """
         for media in self._dict.keys()[:]:
             self.remove(media)
-        self._controller = controller
+        self._beacon_controller = controller
 
 
     @kaa.coroutine()
@@ -185,11 +176,11 @@ class MediaList(object):
         """
         Add a media.
         """
-        if not self._controller:
+        if not self._beacon_controller:
             raise RuntimeError('not connected to database')
         if id in self._dict:
             yield self._dict.get(id)
-        media = Media(id, self._controller)
+        media = Media(id, self._beacon_controller)
         async = media.update(prop)
         if isinstance(async, kaa.InProgress):
             # This will happen for the client because update

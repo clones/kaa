@@ -70,7 +70,6 @@ def create_item(data, parent):
     if '://' in data['name']:
         # url is stored in the name (remote items in directory)
         return Item(dbid, data['name'], data, parent, parent._beacon_media)
-
     # generate url based on name and parent url
     url = parent.url
     if data['name']:
@@ -87,7 +86,32 @@ def create_file(data, parent, overlay=False, isdir=False):
     """
     Create a file or directory
     """
-    return File(data, parent, overlay, isdir)
+    if isinstance(data, str):
+        # fake item, there is no database entry
+        id = None
+        filename = parent.filename + data
+        data = { 'name': data }
+        if parent and parent._beacon_id:
+            data['parent_type'], data['parent_id'] = parent._beacon_id
+        media = parent._beacon_media
+        if isdir:
+            filename += '/'
+    elif isinstance(parent, File):
+        # db data
+        id = (data['type'], data['id'])
+        media = parent._beacon_media
+        filename = parent.filename + data['name']
+        if isdir:
+            filename += '/'
+    elif not data['name']:
+        # root directory
+        id = (data['type'], data['id'])
+        media = parent
+        parent = None
+        filename = media.mountpoint
+    else:
+        raise ValueError('unable to create File item from %s', data)
+    return File(id, filename, data, parent, media, overlay, isdir)
 
 
 def create_directory(data, parent):
@@ -103,7 +127,7 @@ def create_by_type(data, parent, overlay=False, isdir=False):
     If the data indicates it is not a file or the parent is not
     a directory, make it an Item, not a File.
     """
-    if (data.get('name').find('://') > 0) or (parent and not parent.isdir()):
+    if (data.get('name').find('://') > 0) or (parent and not parent.isdir):
         return create_item(data, parent)
     return create_file(data, parent, overlay, isdir)
 
@@ -277,7 +301,7 @@ class Database(object):
             while pos < len(items) and f > items[pos]._beacon_name:
                 # file deleted
                 i = items[pos]
-                if not i.isdir() and not i.isfile():
+                if not i.isdir and not i.isfile():
                     # A remote URL in the directory
                     pos += 1
                     continue
@@ -299,7 +323,7 @@ class Database(object):
         if pos + 1 < len(items):
             # deleted files at the end
             for i in items[pos+1-len(items):]:
-                if not i.isdir() and not i.isfile():
+                if not i.isdir and not i.isfile():
                     # A remote URL in the directory
                     continue
                 items.remove(i)

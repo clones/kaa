@@ -65,38 +65,11 @@ class File(Item):
     Do not access attributes starting with _beacon outside kaa.beacon
     """
 
-    def __init__(self, data, parent, overlay=False, isdir=False):
-        if isinstance(data, str):
-            # fake item, there is no database entry
-            id = None
-            filename = parent.filename + data
-            data = { 'name': data }
-            if parent and parent._beacon_id:
-                data['parent_type'], data['parent_id'] = parent._beacon_id
-            media = parent._beacon_media
-            if isdir:
-                filename += '/'
-        elif isinstance(parent, File):
-            # db data
-            id = (data['type'], data['id'])
-            media = parent._beacon_media
-            filename = parent.filename + data['name']
-            if isdir:
-                filename += '/'
-        elif not data['name']:
-            # root directory
-            id = (data['type'], data['id'])
-            media = parent
-            parent = None
-            filename = media.mountpoint
-        else:
-            raise ValueError('unable to create File item from %s', data)
-
+    def __init__(self, id, filename, data, parent, media, overlay=False, isdir=False):
         Item.__init__(self, id, 'file://' + filename, data, parent, media)
         if self._beacon_data.get('scheme'):
             # file uses a special scheme like dvd
             self.url = self._beacon_data.get('scheme') + '://' + filename
-
         self._beacon_overlay = overlay
         self._beacon_isdir = isdir
         self._beacon_islink = False
@@ -108,50 +81,26 @@ class File(Item):
             if os.path.islink(filename[:-1]):
                 self._beacon_islink = True
 
-
-    # -------------------------------------------------------------------------
-    # Public API
-    # -------------------------------------------------------------------------
-
     def list(self, recursive=False):
         """
         List all files in a directory or show subitems of a file.
 
         @returns: InProgress object of a kaa.beacon.Query
         """
-        # This function is not used internally
-        return self._beacon_controller().query(parent=self, recursive=recursive)
-
+        # Note: this function is not used internally
+        return self._beacon_controller.query(parent=self, recursive=recursive)
 
     def scan(self):
         """
         Request the item to be scanned.
-        Returns either False if not connected or an InProgress object.
+
+        @returns: False if not connected or an InProgress object.
         """
-        # This function is only used by client.py used internally
-        result = self._beacon_controller()._beacon_parse(self)
+        # Note: this function is not used by the server
+        result = self._beacon_controller._beacon_parse(self)
         if isinstance(result, kaa.InProgress):
             result.connect_once(self._beacon_database_update)
         return result
-
-
-    def __repr__(self):
-        """
-        Convert object to string (usefull for debugging)
-        """
-        s = '<beacon.File %s' % self.filename
-        if not self.url.startswith('file://'):
-            s = '<beacon.File %s' % self.url
-        if self._beacon_data.get('mtime') == None:
-            s += ' (new)'
-        else:
-            s += ' (type=%s)' % str(self._beacon_data.get('type'))
-        return s + '>'
-
-
-    # -------------------------------------------------------------------------
-    # Internal API
-    # -------------------------------------------------------------------------
 
     def _beacon_listdir(self, cache=False):
         """
@@ -164,7 +113,6 @@ class File(Item):
             # use cached result if we have and caching time is less than
             # three seconds ago
             return self._beacon_listdir_cache[1:]
-
         # FIXME: this could block for everything except media 1. So this
         # should be done in the hwmon process. But the server doesn't like
         # an InProgress return in the function.
@@ -174,7 +122,6 @@ class File(Item):
         except OSError:
             # No overlay
             overlay_results = []
-
         try:
             # Try to list the directory. If that fails for some reason,
             # return an empty list
@@ -183,10 +130,8 @@ class File(Item):
             log.warning(e)
             self._beacon_listdir_cache = time.time(), [], {}
             return [], {}
-
         results_file_map = {}
         timer = time.time()
-
         for is_overlay, prefix, results in \
                 ((False, self.filename, fs_results),
                  (True, self._beacon_ovdir, overlay_results)):
@@ -206,7 +151,6 @@ class File(Item):
                     log.error(e)
                     continue
                 results_file_map[r] = (r, fullpath, is_overlay, statinfo)
-
         # We want to avoid lambda on large data sets, so we sort the keys,
         # which is just a list of files.  This is the common case that sort()
         # is optimized for.
@@ -217,7 +161,7 @@ class File(Item):
         self._beacon_listdir_cache = time.time(), result, results_file_map
         return result, results_file_map
 
-
+    @property
     def _beacon_mtime(self):
         """
         Return modification time of the item itself. This function is only
@@ -240,7 +184,6 @@ class File(Item):
                 return max(os.stat(self._beacon_ovdir)[stat.ST_MTIME], mtime)
             except (OSError, IOError):
                 return mtime
-
         # Normal file
         fullname = self._beacon_data['name']
         basename, ext = fullname, ''
@@ -248,7 +191,6 @@ class File(Item):
         if pos > 0:
             ext = basename[pos:]
             basename = basename[:pos]
-
         # FIXME: move this logic to kaa.metadata. The best way would be to
         # use the info modules for that kind of information, but we may not
         # know the type here. This code here is only for testing.
@@ -262,7 +204,6 @@ class File(Item):
         else:
             # cover
             special_exts = ( '.png', '.jpg' )
-
         listdir_file_map = self._beacon_parent._beacon_listdir(cache=True)[1]
         # calculate the new modification time
         try:
@@ -277,3 +218,16 @@ class File(Item):
             if fname:
                 mtime += fname[3][stat.ST_MTIME]
         return mtime
+
+    def __repr__(self):
+        """
+        Convert object to string (usefull for debugging)
+        """
+        s = '<beacon.File %s' % self.filename
+        if not self.url.startswith('file://'):
+            s = '<beacon.File %s' % self.url
+        if self._beacon_data.get('mtime') == None:
+            s += ' (new)'
+        else:
+            s += ' (type=%s)' % str(self._beacon_data.get('type'))
+        return s + '>'

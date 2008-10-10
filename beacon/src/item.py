@@ -49,16 +49,16 @@ class Item(object):
     Attributes:
     url:         unique url of the item
     filename:    empty string
+    isdir:       False
+    isfile:      False
+    scanned:     True if the item is scanned
 
     Functions:
     get:         get an attribute, optional argument force
     __getitem__: get an attribute
     __setitem__: set an attribute
     keys:        return all known attributes of the item
-    scanned:     return True if the item is scanned
     list:        return list of subitems
-    isdir:       return False
-    isfile:      return False
 
     Do not access attributes starting with _beacon outside kaa.beacon
     """
@@ -67,7 +67,6 @@ class Item(object):
         # url of the item
         self.url = url
         self.filename = ''
-
         # internal data
         self._beacon_id = _beacon_id
         # FIXME: ugly, maybe use the ObjectRow stuff from kaa.db
@@ -80,11 +79,6 @@ class Item(object):
         self._beacon_changes = {}
         self._beacon_name = data['name']
 
-
-    # -------------------------------------------------------------------------
-    # Public API
-    # -------------------------------------------------------------------------
-
     def get(self, key, default=None):
         """
         Interface to kaa.beacon. Return the value of a given attribute. If
@@ -94,18 +88,14 @@ class Item(object):
         """
         if key.startswith('tmp:'):
             return self._beacon_tmpdata.get(key[4:], default)
-
         if key == 'parent':
             return self._beacon_parent
-
         if key == 'media':
             return self._beacon_media
-
         if key == 'read_only':
             # FIXME: this is not correct, a directory can also be
             # read only on a rw filesystem.
             return self._beacon_media.get('volume.read_only', default)
-
         if key in ('image', 'thumbnail'):
             image = self._beacon_data.get('image')
             if not image:
@@ -121,11 +111,8 @@ class Item(object):
                     return default
             if key == 'image':
                 return image
-
             if key == 'thumbnail':
                 return Thumbnail(image, self._beacon_media)
-
-
         if key == 'title':
             t = self._beacon_data.get('title')
             if t:
@@ -134,16 +121,13 @@ class Item(object):
             t = kaa.str_to_unicode(get_title(self._beacon_data['name'], self.isfile()))
             self._beacon_data['title'] = t
             return t
-
         result = self._beacon_data.get(key, default)
         if result is None:
             return default
         return result
 
-
     def __getitem__(self, key):
         return self.get(key)
-
 
     def __setitem__(self, key, value):
         """
@@ -156,16 +140,14 @@ class Item(object):
             return
         self._beacon_data[key] = value
         if not self._beacon_changes:
-            self._beacon_controller()._beacon_update(self)
+            self._beacon_controller._beacon_update(self)
         self._beacon_changes[key] = value
-
 
     def keys(self):
         """
         Interface to kaa.beacon. Return all attributes of the item.
         """
         return self._beacon_data.keys() + self._beacon_tmpdata.keys()
-
 
     def has_key(self, key):
         """
@@ -174,13 +156,26 @@ class Item(object):
         return key in self._beacon_data.keys() or \
                key in self._beacon_tmpdata.keys()
 
-
+    @property
     def scanned(self):
         """
-        Return True if the item is in the database and fully scanned.
+        True if the item is in the database and fully scanned.
         """
         return self._beacon_id is not None
 
+    @property
+    def isdir(self):
+        """
+        True if the item is a directory.
+        """
+        return self._beacon_isdir
+
+    @property
+    def isfile(self):
+        """
+        True if the item is a regular file.
+        """
+        return not self._beacon_isdir and self.filename != ''
 
     def list(self):
         """
@@ -194,29 +189,13 @@ class Item(object):
             result.finish([])
             # FIXME: return empty Query object
             return result
-        return self._beacon_controller().query(parent=self)
-
-
-    def isdir(self):
-        """
-        Return if the item is a directory.
-        """
-        return self._beacon_isdir
-
-
-    def isfile(self):
-        """
-        Return if the item is a regular file.
-        """
-        return not self._beacon_isdir and self.filename != ''
-
+        return self._beacon_controller.query(parent=self)
 
     def delete(self):
         """
         Delete item from the database (does not work on files)
         """
-        return self._beacon_controller().delete_item(self)
-
+        return self._beacon_controller.delete_item(self)
 
     def scan(self):
         """
@@ -224,17 +203,12 @@ class Item(object):
         """
         return False
 
-
-    def get_ancestors(self):
+    @property
+    def ancestors(self):
         """
         Return an iterator to walk through the parents.
         """
         return ParentIterator(self)
-
-
-    # -------------------------------------------------------------------------
-    # Internal API
-    # -------------------------------------------------------------------------
 
     def _beacon_database_update(self, data):
         """
@@ -246,27 +220,25 @@ class Item(object):
         for key, value in self._beacon_changes.items():
             self._beacon_data[key] = value
 
-
+    @property
     def _beacon_controller(self):
         """
         Get the controller (the client or the server)
         """
-        return self._beacon_media.get_controller()
+        return self._beacon_media._beacon_controller
 
-
+    @property
     def _beacon_mtime(self):
         """
         Return modification time of the item itself.
         """
         return None
 
-
     def __repr__(self):
         """
         Convert object to string (usefull for debugging)
         """
         return '<beacon.Item %s>' % self.url
-
 
 
 class ParentIterator(object):

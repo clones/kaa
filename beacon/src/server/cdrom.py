@@ -33,6 +33,7 @@ __all__ = [ 'signals', 'Device', 'start', 'eject' ]
 
 import os
 import sys
+import re
 import array
 import struct
 import fcntl
@@ -69,8 +70,6 @@ from kaa import Timer, MainThreadCallback, Signal
 from kaa.ioctl import ioctl
 import kaa.metadata
 
-from ..utils import fstab
-
 # get logging object
 log = logging.getLogger('beacon.hal')
 
@@ -81,6 +80,30 @@ signals = { 'add': Signal(),
           }
 
 _rom_drives = []
+
+def fstab():
+    """
+    Read /etc/fstab into a list of (device, mountpoint, type, options)
+    """
+    if not os.path.isfile('/etc/fstab'):
+        return []
+    result = []
+    regexp = re.compile('([^ \t]*)[ \t]*([^ \t]*)[ \t]*([^ \t]*)[ \t]*([^ \t]*)')
+    fd = open('/etc/fstab')
+    for line in fd.readlines():
+        if line.find('#') >= 0:
+            line = line[:line.find('#')]
+        line = line.strip()
+        if not line:
+            continue
+        if not regexp.match(line):
+            continue
+        device, mountpoint, type, options = regexp.match(line).groups()
+        device = os.path.realpath(device)
+        result.append((device, mountpoint, type, options))
+    fd.close()
+    return result
+
 
 @kaa.threaded('beacon.cdrom')
 def eject(device):

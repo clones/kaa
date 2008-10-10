@@ -50,19 +50,18 @@ class Controller(object):
         db.medialist.connect(self)
         self.hwmon = devices.HardwareMonitor(handler, db, rootfs)
 
-    # Item callbacks
-
     def _beacon_parse(self, item):
         """
         Parse an item
+        Called by Item objects
         """
         return parse(self._db, item)
-
 
     @kaa.coroutine()
     def _beacon_update_all(self):
         """
         Timed callback to write all changes to the db.
+        Called by Item objects
         """
         while self._db.read_lock.is_locked():
             yield self._db.read_lock.yield_unlock()
@@ -74,44 +73,43 @@ class Controller(object):
         # commit to update monitors
         self._db.commit()
 
-
     def _beacon_update(self, item):
         """
         Mark item as changed to be updated in the db.
+        Called by Item objects
         """
         if not self._changed:
             # register timer to do the changes
             kaa.OneShotTimer(self._beacon_update_all).start(0.1)
         self._changed.append(item)
 
-
     def query(self, **query):
         """
         Database query.
+        Called by Item objects
         """
         return self._db.query(**query)
-
 
     @kaa.coroutine()
     def delete_item(self, item):
         """
         Delete an item.
+        Called by Item objects
         """
         while self._db.read_lock.is_locked():
             yield self._db.read_lock.yield_unlock()
         self._db.delete_object(item._beacon_id)
 
-    # Media callbacks
-
     def eject(self, media):
         """
         Eject media
+        Called by Media objects
         """
         self.hwmon.eject(media)
 
-
     def _beacon_media_information(self, media):
         """
-        Get media information from te database.
+        Get media information from the database.
+        Called by Media objects
         """
         return self._db.query_media(media)

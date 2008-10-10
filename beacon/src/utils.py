@@ -35,30 +35,6 @@ import re
 
 FILENAME_REGEXP = re.compile("^(.*?)_(.)(.*)$")
 
-def fstab():
-    """
-    Read /etc/fstab into a list of (device, mountpoint, type, options)
-    """
-    if not os.path.isfile('/etc/fstab'):
-        return []
-    result = []
-    regexp = re.compile('([^ \t]*)[ \t]*([^ \t]*)[ \t]*([^ \t]*)[ \t]*([^ \t]*)')
-    fd = open('/etc/fstab')
-    for line in fd.readlines():
-        if line.find('#') >= 0:
-            line = line[:line.find('#')]
-        line = line.strip()
-        if not line:
-            continue
-        if not regexp.match(line):
-            continue
-        device, mountpoint, type, options = regexp.match(line).groups()
-        device = os.path.realpath(device)
-        result.append((device, mountpoint, type, options))
-    fd.close()
-    return result
-
-
 def get_title(name, strip=True):
     """
     Convert name into a nice title

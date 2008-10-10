@@ -83,9 +83,9 @@ def parse(db, item, check_image=False):
     2 == thumbnail storage (as InProgress object)
     """
 
-    mtime = item._beacon_mtime()
+    mtime = item._beacon_mtime
     if mtime == None:
-        if item.isdir() or item.isfile():
+        if item.isdir or item.isfile():
             log.warning('no mtime, skip %s' % item)
             return 0
         # neither dir nor file, it can not have a mtime
