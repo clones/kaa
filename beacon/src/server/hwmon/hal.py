@@ -53,12 +53,9 @@ DBusGMainLoop(set_as_default=True)
 
 # hal needs dbus
 kaa.gobject_set_threaded()
-# kaa.main.select_notifier('gtk', x11=False)
 
 # kaa.beacon imports
 from kaa.beacon.server.config import config
-from kaa.beacon.utils import fstab
-from cdrom import eject
 
 # get logging object
 log = logging.getLogger('beacon.hal')
@@ -92,21 +89,16 @@ class Device(object):
     def mount(self):
         """
         Mount the device.
-        FIXME: use HAL API
         """
         if self.prop.get('volume.mount_point'):
             # already mounted
             return False
-        for device, mountpoint, type, options in fstab():
-            if device == self.prop['block.device'] and \
-                   (options.find('users') >= 0 or os.getuid() == 0):
-                cmd = ('mount', self.prop['block.device'])
-                break
-        else:
-            cmd = ("pmount-hal", self.udi)
-        os.system(' '.join(cmd))
+        if not self.prop.get('volume.fstype'):
+            log.error('unknown filesystem type for %s', self.udi)
+        obj = self._bus.get_object('org.freedesktop.Hal', self.udi)
+        vol = dbus.Interface(obj, 'org.freedesktop.Hal.Device.Volume')
+        vol.Mount('', self.prop.get('volume.fstype'), [])
         return True
-
 
     @kaa.threaded(kaa.GOBJECT)
     def eject(self):
@@ -114,23 +106,13 @@ class Device(object):
         Eject the device. This includes umounting and removing from
         the list. Devices that can't be ejected (USB sticks) are only
         umounted and removed from the list.
-        FIXME: use HAL API
         """
-        # remove from list
         _device_remove(self.udi)
-        if self.prop.get('volume.mount_point'):
-            # umount before eject
-            for device, mountpoint, type, options in fstab():
-                if device == self.prop['block.device'] and \
-                       (options.find('users') >= 0 or os.getuid() == 0):
-                    cmd = ('umount', self.prop['block.device'])
-                    break
-            else:
-                cmd = ("pumount", self.prop.get('volume.mount_point'))
-            os.system(' '.join(cmd))
+        obj = self._bus.get_object('org.freedesktop.Hal', self.udi)
+        vol = dbus.Interface(obj, 'org.freedesktop.Hal.Device.Volume')
+        vol.Unmount([])
         if self.prop.get('volume.is_disc'):
-            eject(self.prop['block.device'])
-            
+            vol.Eject([])
 
     def __getattr__(self, attr):
         """
@@ -241,7 +223,6 @@ def _device_new(udi):
                          error_handler=log.error)
 
 
-@kaa.threaded(kaa.GOBJECT)
 def _device_remove(udi):
     """
     HAL callback when a device is removed.
@@ -331,6 +312,7 @@ def _device_add(prop, udi, removable=False):
 if __name__ == '__main__':      
     def changed(dev, prop):
         print 'changed', dev.get('info.parent')
+        print prop.get('volume.mount_point')
         print
     def remove(dev):
         print 'lost', dev
