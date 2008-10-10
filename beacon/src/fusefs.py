@@ -151,22 +151,22 @@ class BeaconFS(fuse.Fuse):
         # never called. No idea why. If it works one day, we should
         # also add sexattr (remeber to check the type of the value to
         # convert it) and removexattr.
-        
+
         # file = path[1:] # assume prefixed with single /
         # if file not in self._filename_map:
         #     return -errno.ENOENT
-        # 
+        #
         # val = self._filename_map[file].get(name)
         # if isinstance(val, unicode):
         #     val = kaa.unicode_to_str(val)
         # val = str(val)
-        
+
         if size == 0:
             # We are asked for size of the value.
             return len(val)
         return val
 
-    
+
     def listxattr(self, path, size):
         log.info('listxattr(%s, %s)', path, size)
         file = path[1:] # assume prefixed with single /
@@ -247,7 +247,7 @@ class BeaconFS(fuse.Fuse):
             handler.setFormatter(f)
             log.addHandler(handler)
             log.setLevel(logging.INFO)
-            
+
         self.check()
         fuse.Fuse.main(self)
         kaa.MainThreadCallback(kaa.main.stop)()

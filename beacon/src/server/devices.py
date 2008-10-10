@@ -204,7 +204,7 @@ class HardwareMonitor(object):
                 self._db.add_object(
                     'track_cdda', name=str(track.trackno),
                     title=track.get('title'), artist=track.get('artist'),
-		    parent=('audio', aid),
+                    parent=('audio', aid),
                     media=mid)
         else:
             log.info('detect %s as normal filesystem' % id)

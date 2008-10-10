@@ -74,7 +74,7 @@ try:
 except ImportError:
     print 'pysqlite2 is not installed'
     sys.exit(1)
-    
+
 ext_modules = [ thumb_ext ]
 
 
