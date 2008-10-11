@@ -120,9 +120,8 @@ def launch(autoshutdown=False, verbose='none'):
     """
     Lauch a beacon server and connect to it.
 
-    @param autoshutdown: if the server should shut down when no client is
-        connected anymore
-    @param verbose: verbose level for the server log
+    :param autoshutdown: shutdown server when no client is connected anymore
+    :param verbose: verbose level for the server log
     """
     beacon = os.path.dirname(__file__), '../../../../../bin/beacon-daemon'
     beacon = os.path.realpath(os.path.join(*beacon))
@@ -141,10 +140,9 @@ def launch(autoshutdown=False, verbose='none'):
 def query(**args):
     """
     Query the database. This function will raise an exception if the
-    client is not connected and the server is not running for a connect.
-
-    @returns: InProgress
-    @rtype: L{Query}
+    client is not connected and the server is not running for a
+    connect.  The function returns an InProgress object with a Query
+    object as result.
     """
     if not _client:
         connect()
@@ -152,11 +150,10 @@ def query(**args):
 
 def get(filename):
     """
-    Get object for the given filename. This function will raise an exception if
-    the client is not connected and the server is not running for a connect.
-
-    @returns: InProgress
-    @rtype: L{File}
+    Get object for the given filename. This function will raise an
+    exception if the client is not connected and the server is not
+    running for a connect. The function returns an InProgress object
+    with a File object as result.
     """
     if not _client:
         connect()
@@ -235,33 +232,6 @@ def register_file_type_attrs(type_name, indexes=[], **attrs):
     either by creating the object's tables (in the case of a new
     object type) or by altering the object's tables to add new columns
     or indexes.
-
-    Previously registered attributes may be updated in limited ways
-    (e.g.  by adding an index to the attribute).  If the attributes
-    and indexes specified have not changed from previous invocations,
-    no changes will be made to the database. Therefore an application
-    should always call this function on startup if it needs attributes
-    not defined by beacon already.
-
-    @param type_name: is the name of the type the attributes and
-        indexes apply to (e.g. 'dir' or 'image').
-    @param indexes: a list of tuples, where each tuple contains 2 or
-        more strings, where each string references a registered
-        attribute.  This is used for creating a multi-column index on
-        these attributes, which is useful for speeding up queries
-        involving these attributes.
-    @param attrs: where each keyword value is a tuple of 2 to 4 items
-        in length and in the form (name, flags, ivtidx, split):
-         - name: The name of the attribute; cannot conflict with any of the
-             values in RESERVED_ATTRIBUTES.
-         - flags: A bitmask of ATTR_* flags.
-         - ivtidx: Name of the previously registered inverted index used for
-             this attribute, only if flags contains ATTR_INVERTED_INDEX.
-         - split: Function or regular expression used to split string-based
-             values for this attributes into separate terms for indexing.
-    @note: currently indexes and attributes can only be added, not
-        removed. That is, once an attribute or indexes is added, it
-        lives forever.
     """
     if not _client:
         connect()
@@ -271,7 +241,7 @@ def register_track_type_attrs(type_name, indexes=[], **attrs):
     """
     Register new attrs and types for tracks. See L{register_file_type_attrs}
     for details. The only difference between this two functions is that this
-    adds C{track_} to the type name.
+    adds track\_ to the type name.
     """
     if not _client:
         connect()

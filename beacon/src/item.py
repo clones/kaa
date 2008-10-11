@@ -44,89 +44,15 @@ log = logging.getLogger('beacon')
 
 class Item(object):
     """
-    A Database Item
-    ===============
-
-    The following attributes are available. If more are needed please call
-    L{register_file_type_attrs} or L{register_track_type_attrs}.
-
-    Directories (type = C{dir})
-     - C{name} (str, searchable, inverted_index: 'keywords')
-     - C{overlay} (bool, simple)
-     - C{media} (int, searchable, indexed)
-     - C{image} (int, simple)
-     - C{mtime} (int, simple)
-     - C{title} (unicode, simple)
-     - C{artist} (unicode, simple)
-     - C{album} (unicode, simple)
-     - C{length} (float, simple), length in seconds of all items in that directory
-
-    Items and Files (type = C{file} and all media types)
-     - C{name} (str, searchable, inverted_index: 'keywords')
-     - C{overlay} (bool, simple)
-     - C{media} (int, searchable, indexed)
-     - C{image} (int, simple)
-     - C{mtime} (int, simple)
-
-    Video Items (type = C{video})
-     - C{title} (unicode, searchable, ignore_case, inverted_index: 'keywords'),
-     - C{width} (int, simple)
-     - C{height} (int, simple)
-     - C{length} (float, simple)
-     - C{scheme} (str, simple)
-     - C{description} (unicode, simple)
-     - C{timestamp} (int, searchable)
-
-    Audio Items (type = C{audio})
-     - C{title} (unicode, searchable, ignore_case, inverted_index: 'keywords')
-     - C{artist} (unicode, searchable, indexed, ignore_case, inverted_index: 'keywords')
-     - C{album} (unicode, searchable, ignore_case, inverted_index: 'keywords')
-     - C{genre} (unicode, searchable, indexed, ignore_case)
-     - C{samplerate} (int, simple)
-     - C{length} (float, simple)
-     - C{bitrate} (int, simple)
-     - C{trackno} (int, simple)
-     - C{userdate} (unicode, simple)
-     - C{description} (unicode, simple)
-     - C{timestamp} (int, searchable)
-
-    Image Items (type = C{image})
-     - C{width} (int, searchable)
-     - C{height} (int, searchable)
-     - C{comment} (unicode, searchable, ignore_case, inverted_index: 'keywords')
-     - C{rotation} (int, simple)
-     - C{author} (unicode, simple)
-     - C{timestamp} (int, searchable)
-
-    DVD Track Items (type = C{dvd})
-     - C{length} (float, simple)
-     - C{audio} (list, simple)
-     - C{chapters} (int, simple)
-     - C{subtitles} (list, simple)
-
-    VCD Track Items (type = C{vcd})
-     - C{audio} (list, simple)
-
-    Audio CD Track Items (type = C{cdda})
-     - C{title} (unicode, searchable, inverted_index: 'keywords')
-     - C{artist} (unicode, searchable, indexed, inverted_index: 'keywords')
-
-    @ivar url:         unique url of the item
-    @ivar filename:    complete filename or file items
-    @ivar isdir:       True if it is a directory
-    @ivar isfile:      True if it is a regular file
-    @ivar scanned:     True if the item is scanned
-    @ivar thumbnail:   Thumbnail for the Item
-    @type thumbnail:   L{Thumbnail}
-    @note: do not access attributes starting with _beacon outside kaa.beacon
+    A generic database item
     """
 
-    def __init__(self, _beacon_id, url, data, parent, media):
+    def __init__(self, beacon_id, url, data, parent, media):
         # url of the item
         self.url = url
         self.filename = ''
         # internal data
-        self._beacon_id = _beacon_id
+        self._beacon_id = beacon_id
         # FIXME: ugly, maybe use the ObjectRow stuff from kaa.db
         # with extra write support. Or copy on write.
         self._beacon_data = dict(data)
@@ -141,20 +67,8 @@ class Item(object):
         """
         Access attributes of the item.
 
-        Besides the keys in the database an item has the following attributes
-        accessable with this function:
-
-         - parent: parent L{Item} or L{Item}
-         - media: L{Media} object the item is on
-         - thumbnail: L{Thumbnail} object for the item or parent
-         - image: image path for the item or parent
-         - read_only: True if the item is on a read only media
-
-        @returns: the value of a given attribute. If the attribute is not in the db,
-            return None.
-        @note: If the key starts with C{'tmp:'}, the data will be fetched from the
-            temp directory and not from the db.
-            attribute.
+        :param key: Attribute name
+        :param default: Default return when the attribute is not set
         """
         if key.startswith('tmp:'):
             return self._beacon_tmpdata.get(key[4:], default)
@@ -197,12 +111,15 @@ class Item(object):
         return result
 
     def __getitem__(self, key):
+        """
+        Access attributes of the item
+        """
         return self.get(key)
 
     def __setitem__(self, key, value):
         """
         Set the value of a given attribute. If the key starts with
-        C{'tmp:'}, the data will only be valid in this item and not
+        'tmp:', the data will only be valid in this item and not
         stored in the db. Loosing the item object will remove that
         attribute.
         """
@@ -217,16 +134,12 @@ class Item(object):
     def keys(self):
         """
         List item attributes
-
-        @returns: all attributes of the item.
         """
         return self._beacon_data.keys() + self._beacon_tmpdata.keys()
 
     def has_key(self, key):
         """
         Check if the item has a specific attributes set
-
-        @returns: True if the key is stored in the item.
         """
         return key in self._beacon_data.keys() or \
                key in self._beacon_tmpdata.keys()
@@ -263,7 +176,7 @@ class Item(object):
         """
         Return all subitems to his item.
 
-        @returns: InProgress object with list or kaa.beacon.Query
+        :returns: InProgress object with empty list or :class:`beacon.Query`
         """
         # This function is not used internally
         if not self._beacon_id:

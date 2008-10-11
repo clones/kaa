@@ -70,14 +70,6 @@ def wrap(items, filter):
 class Query(object):
     """
     Query object for the client. Created by Client.query()
-
-    This object feels like a list, you can iterate over the results,
-    access items based on position and get the length of the
-    results.
-
-    @group Internal API: __init__, __del__, __repr__, __inprogress__
-    @note: A Query is created by Client.query(), do not create Query objects
-        from outside beacon.
     """
     NEXT_ID = 1
 
@@ -186,10 +178,9 @@ class Query(object):
         """
         Get the result.
 
-        @param filter: filter function set by L{register_filter} to use on the
+        :param filter: filter function set by L{register_filter} to use on the
             result. If a filter is used the result type may be different.
-        @returns: (filtered) query result
-        @rtype: list of L{Item} or L{File}
+        :returns: (filtered) list of Items
         """
         if filter == None:
             # no spcial filter

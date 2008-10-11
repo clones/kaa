@@ -46,17 +46,7 @@ log = logging.getLogger('beacon')
 
 class File(Item):
     """
-    A File-based Database Item.
-
-    see L{Item} for a list of available attributes.
-
-    @ivar url:         unique url of the item
-    @ivar filename:    complete filename
-    @ivar isdir:       True if it is a directory
-    @ivar isfile:      True if it is a regular file
-    @ivar scanned:     True if the item is scanned
-
-    @note: do not access attributes starting with _beacon outside kaa.beacon
+    A file-based database item
     """
 
     def __init__(self, id, filename, data, parent, media, overlay=False, isdir=False):

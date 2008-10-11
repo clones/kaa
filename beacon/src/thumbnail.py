@@ -78,9 +78,6 @@ _client = None
 class Thumbnail(object):
     """
     Thumbnail handling. This objects is a wrapper for full size image path names.
-
-    @note: A Thumbnail object is created by an L{Item}, do not create Thumbnail objects
-        from outside beacon.
     """
     # priority for creating
     PRIORITY_HIGH   = 0
