@@ -31,17 +31,26 @@
 
 """
 kaa.beacon
+==========
 
+@group Internal Classes: Thumbnail, Item, File, Query, Media
 @group Server: connect, launch
 @group Query: query, get, monitor, register_filter, wrap
 @group Media Handling: list_media, delete_media
-@group Database Manipulation: add_item, register_file_type_attrs, register_track_type_attrs, get_db_info
+@group Database Manipulation: add_item, register_inverted_index,
+    register_file_type_attrs, register_track_type_attrs, get_db_info
+@group Thumbnailing: THUMBNAIL_NORMAL, THUMBNAIL_LARGE
+@group kaa.db Variables: ATTR_SIMPLE, ATTR_SEARCHABLE, ATTR_IGNORE_CASE, ATTR_INDEXED,
+    ATTR_INDEXED_IGNORE_CASE, ATTR_INVERTED_INDEX
 """
 
 __all__ = [ 'connect', 'launch', 'get', 'query', 'monitor', 'add_item', 'wrap',
-            'register_file_type_attrs', 'register_track_type_attrs', 'get_db_info',
-            'list_media', 'delete_media', 'register_filter', 'Item', 'Query', 'Media',
-            'File', 'VERSION', 'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE' ]
+            'register_file_type_attrs', 'register_track_type_attrs',
+            'register_inverted_index', 'get_db_info', 'list_media', 'delete_media',
+            'register_filter', 'Item', 'Query', 'Media', 'File', 'Thumbnail',
+            'VERSION', 'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE', 'QExpr', 'ATTR_SIMPLE',
+            'ATTR_SEARCHABLE', 'ATTR_IGNORE_CASE', 'ATTR_INDEXED',
+            'ATTR_INDEXED_IGNORE_CASE', 'ATTR_INVERTED_INDEX' ]
 
 # python imports
 import os
@@ -60,7 +69,6 @@ import thumbnail
 from thumbnail import NORMAL as THUMBNAIL_NORMAL
 from thumbnail import LARGE as THUMBNAIL_LARGE
 from thumbnail import Thumbnail
-from query import register_filter, wrap, Query
 from item import Item
 from file import File
 from version import VERSION
@@ -108,7 +116,6 @@ def connect():
     log.info('beacon connected')
     return _client
 
-
 def launch(autoshutdown=False, verbose='none'):
     """
     Lauch a beacon server and connect to it.
@@ -131,6 +138,17 @@ def launch(autoshutdown=False, verbose='none'):
         raise ConnectError('Unable to connect to beacon-daemon')
     return connect()
 
+def query(**args):
+    """
+    Query the database. This function will raise an exception if the
+    client is not connected and the server is not running for a connect.
+
+    @returns: InProgress
+    @rtype: L{Query}
+    """
+    if not _client:
+        connect()
+    return _client.query(**args)
 
 def get(filename):
     """
@@ -144,20 +162,6 @@ def get(filename):
         connect()
     return _client.get(filename)
 
-
-def query(**args):
-    """
-    Query the database. This function will raise an exception if the
-    client is not connected and the server is not running for a connect.
-
-    @returns: InProgress
-    @rtype: L{Query}
-    """
-    if not _client:
-        connect()
-    return _client.query(**args)
-
-
 def monitor(directory):
     """
     Monitor a directory with subdirectories for changes. This is done in
@@ -168,45 +172,6 @@ def monitor(directory):
     if not _client:
         connect()
     return _client.monitor(directory)
-
-
-def add_item(url, type, parent, **kwargs):
-    """
-    Add an item to the database (not to be used for files).
-    """
-    if not _client:
-        connect()
-    return _client.add_item(url, type, parent, **kwargs)
-
-
-def register_file_type_attrs(name, **kwargs):
-    """
-    Register new attrs and types for files.
-    """
-    if not _client:
-        connect()
-    return _client.register_file_type_attrs(name, **kwargs)
-
-
-def register_track_type_attrs(name, **kwargs):
-    """
-    Register new attrs and types for files.
-    """
-    if not _client:
-        connect()
-    return _client.register_track_type_attrs(name, **kwargs)
-
-
-def get_db_info():
-    """
-    Gets statistics about the database.
-
-    @return: basic database information
-    """
-    if not _client:
-        connect()
-    return _client.get_db_info()
-
 
 def list_media():
     """
@@ -221,7 +186,6 @@ def list_media():
         kaa.main.step()
     return _client._db.medialist
 
-
 def delete_media(id):
     """
     Delete media with the given id.
@@ -233,3 +197,97 @@ def delete_media(id):
     while not _client.is_connected():
         kaa.main.step()
     return _client.delete_media(id)
+
+def add_item(url, type, parent, **kwargs):
+    """
+    Add an item to the database. This function can be used to add an Item
+    as subitem to another. You can not add files that do not exist to a
+    directory, but it is possible to add an Item with a http url to a directory
+    or a meta item with http items as children.
+
+    @param url: url of the Item, can not be file:
+    @param type: item type
+    @param parent: parent item
+    @param kwargs: addition keyword/value arguments for the db
+    @returns: new created item
+    @rtype: L{Item}
+    """
+    if not _client:
+        connect()
+    return _client.add_item(url, type, parent, **kwargs)
+
+def register_inverted_index(name, min=None, max=None, split=None, ignore=None):
+    """
+    Registers a new inverted index with the database.  An inverted index
+    maps arbitrary terms to objects and allows you to query based on one
+    or more terms.  If the inverted index already exists with the given
+    parameters, no action is performed.  See kaa.db for details.
+    """
+    if not _client:
+        connect()
+    return _client.register_inverted_index(name, min, max, split, ignore)
+
+def register_file_type_attrs(type_name, indexes=[], **attrs):
+    """
+    Registers one or more object attributes and/or multi-column
+    indexes for the given type name.  This function modifies the
+    database as needed to accommodate new indexes and attributes,
+    either by creating the object's tables (in the case of a new
+    object type) or by altering the object's tables to add new columns
+    or indexes.
+
+    Previously registered attributes may be updated in limited ways
+    (e.g.  by adding an index to the attribute).  If the attributes
+    and indexes specified have not changed from previous invocations,
+    no changes will be made to the database. Therefore an application
+    should always call this function on startup if it needs attributes
+    not defined by beacon already.
+
+    @param type_name: is the name of the type the attributes and
+        indexes apply to (e.g. 'dir' or 'image').
+    @param indexes: a list of tuples, where each tuple contains 2 or
+        more strings, where each string references a registered
+        attribute.  This is used for creating a multi-column index on
+        these attributes, which is useful for speeding up queries
+        involving these attributes.
+    @param attrs: where each keyword value is a tuple of 2 to 4 items
+        in length and in the form (name, flags, ivtidx, split):
+         - name: The name of the attribute; cannot conflict with any of the
+             values in RESERVED_ATTRIBUTES.
+         - flags: A bitmask of ATTR_* flags.
+         - ivtidx: Name of the previously registered inverted index used for
+             this attribute, only if flags contains ATTR_INVERTED_INDEX.
+         - split: Function or regular expression used to split string-based
+             values for this attributes into separate terms for indexing.
+    @note: currently indexes and attributes can only be added, not
+        removed. That is, once an attribute or indexes is added, it
+        lives forever.
+    """
+    if not _client:
+        connect()
+    return _client.register_file_type_attrs(type_name, indexes, **attrs)
+
+def register_track_type_attrs(type_name, indexes=[], **attrs):
+    """
+    Register new attrs and types for tracks. See L{register_file_type_attrs}
+    for details. The only difference between this two functions is that this
+    adds C{track_} to the type name.
+    """
+    if not _client:
+        connect()
+    return _client.register_track_type_attrs(type_name, indexes, **attrs)
+
+def get_db_info():
+    """
+    Gets statistics about the database.
+
+    @return: basic database information
+    """
+    if not _client:
+        connect()
+    return _client.get_db_info()
+
+# import some more functions and classes we expose to the API
+# It is done at the end of this file to force a better order of the
+# functions for epydoc
+from query import register_filter, wrap, Query

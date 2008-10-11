@@ -46,10 +46,22 @@ log = logging.getLogger('beacon')
 _query_filter = {}
 
 def register_filter(name, function):
+    """
+    Register a filter for L{Query} or L{wrap} to process a list of items.
+
+    @param name: unique name for the filter
+    @param function: filter function
+    """
     _query_filter[name] = function
 
 
 def wrap(items, filter):
+    """
+    Wrap the given list of items with the given filter function
+
+    @param items: list of items
+    @param filter: name of the filter, see L{register_filter}
+    """
     if not filter in _query_filter:
         raise AttributeError('unknown filter')
     return _query_filter[filter](items)
@@ -58,21 +70,25 @@ def wrap(items, filter):
 class Query(object):
     """
     Query object for the client. Created by Client.query()
+
+    This object feels like a list, you can iterate over the results,
+    access items based on position and get the length of the
+    results.
+
+    @group Internal API: __init__, __del__, __repr__, __inprogress__
+    @note: A Query is created by Client.query(), do not create Query objects
+        from outside beacon.
     """
     NEXT_ID = 1
 
     def __init__(self, client, **query):
-
-        # FIXME: add a complete signal on first scan
+        """
+        Create a Query object and start the query on the client
+        """
         # FIXME: progress and up-to-date seems not used
-        self.signals = {
-            'changed'   : kaa.Signal(),
-            'progress'  : kaa.Signal(),
-            'up-to-date': kaa.Signal(),
-        }
+        self.signals = kaa.Signals('changed', 'progress', 'up-to-date')
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
-
         # public variables
         self.monitoring = False
         self.result = []
@@ -102,6 +118,8 @@ class Query(object):
     def monitor(self, status=True):
         """
         Turn on/off query monitoring
+
+        @param status: True to turn on monitoring, False to turn it off.
         """
         if self.monitoring == status:
             # Nothing to do
@@ -131,23 +149,28 @@ class Query(object):
     def __iter__(self):
         """
         Iterate through the results.
+
+        @returns: Iterator
+        @rtype: L{Item} or L{File}
         """
         return self.result.__iter__()
 
 
-    def __getitem__(self, key):
+    def __getitem__(self, pos):
         """
-        Get a specific item in the results.
-        list.
+        Get a specific item in the results list.
+
+        @returns: Item on that position in the list
+        @rtype: L{Item} or L{File}
+        @raises IndexError: result list is shorten than pos
         """
-        return self.result[key]
+        return self.result[pos]
 
 
     def index(self, item):
         """
         Get index of an item in the results. This function will raise an
-        exception if the item is not in the results or if the query object is
-        still invalid.
+        exception if the item is not in the results.
         """
         return self.result.index(item)
 
@@ -162,6 +185,11 @@ class Query(object):
     def get(self, filter=None):
         """
         Get the result.
+
+        @param filter: filter function set by L{register_filter} to use on the
+            result. If a filter is used the result type may be different.
+        @returns: (filtered) query result
+        @rtype: list of L{Item} or L{File}
         """
         if filter == None:
             # no spcial filter

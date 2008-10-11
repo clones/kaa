@@ -170,28 +170,28 @@ class Client(object):
         yield self._db.get_db_info()
 
 
-    def register_inverted_index(self, name, *args, **kwargs):
+    def register_inverted_index(self, name, min=None, max=None, split=None, ignore=None):
         """
         Register new inverted index.
         """
         if self.status != DISCONNECTED:
-            self.rpc('db.register_inverted_index', name, *args, **kwargs)
+            self.rpc('db.register_inverted_index', name, min, max, split, ignore)
 
 
-    def register_file_type_attrs(self, name, **kwargs):
+    def register_file_type_attrs(self, type_name, indexes=[], **attrs):
         """
         Register new attrs and types for files.
         """
         if self.status != DISCONNECTED:
-            self.rpc('db.register_file_type_attrs', name, **kwargs)
+            self.rpc('db.register_file_type_attrs', type_name, indexes, **attrs)
 
 
-    def register_track_type_attrs(self, name, **kwargs):
+    def register_track_type_attrs(self, type_name, indexes=[], **attrs):
         """
-        Register new attrs and types for files.
+        Register new attrs and types for tracks.
         """
         if self.status != DISCONNECTED:
-            self.rpc('db.register_track_type_attrs', name, **kwargs)
+            self.rpc('db.register_track_type_attrs', type_name, indexes, **attrs)
 
 
     def delete_media(self, id):

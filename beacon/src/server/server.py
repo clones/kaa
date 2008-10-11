@@ -236,30 +236,31 @@ class Server(object):
     # -------------------------------------------------------------
 
     @kaa.rpc.expose('db.register_inverted_index')
-    def register_inverted_index(self, name, *args, **kwargs):
+    def register_inverted_index(self, name, min=None, max=None, split=None, ignore=None):
         """
         Register new inverted index. The basics are already in the db by the
         __init__ function of this class.
         """
-        return self._db.register_inverted_index(name, *args, **kwargs)
+        return self._db.register_inverted_index(name, min, max, split, ignore)
 
 
     @kaa.rpc.expose('db.register_file_type_attrs')
-    def register_file_type_attrs(self, name, **kwargs):
+    def register_file_type_attrs(self, type_name, indexes=[], **attrs):
         """
         Register new attrs and types for files. The basics are already
         in the db by the __init__ function of this class.
         """
-        return self._db.register_object_type_attrs(name, **kwargs)
+        return self._db.register_object_type_attrs(type_name, indexes, **attrs)
 
 
     @kaa.rpc.expose('db.register_track_type_attrs')
-    def register_track_type_attrs(self, name, **kwargs):
+    def register_track_type_attrs(self, type_name, indexes=[], **attrs):
         """
-        Register new attrs and types for files. The basics are already
+        Register new attrs and types for tracks. The basics are already
         in the db by the __init__ function of this class.
         """
-        return self._db.register_object_type_attrs('track_%s' % name, **kwargs)
+        type_name = 'track_%s' % type_name
+        return self._db.register_object_type_attrs(type_name, indexes, **attrs)
 
 
     @kaa.rpc.expose('db.media.delete')

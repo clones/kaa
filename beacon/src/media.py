@@ -48,13 +48,18 @@ log = logging.getLogger('beacon')
 class Media(object):
     """
     Media object for a specific mount point.
+
+    The following attributes are available.
+
+     - C{name} (str, searchable | inverted_index: 'keywords')
+     - C{content} (str, simple)
+
+    @note: Objects are created by the hardware monitor subsystem, do not create
+        Media objects from outside beacon.
     """
     def __init__(self, id, controller):
         """
         Create a media object
-
-        @note: Objects are created by the hardware monitor subsystem, do not create
-            Media objects from outside beacon.
         """
         log.info('new media %s', id)
         self._beacon_controller = controller

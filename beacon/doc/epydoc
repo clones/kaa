@@ -36,7 +36,7 @@ introspect: yes
 
 # Don't examine in any way the modules whose dotted name match this
 # regular expression pattern.
-exclude: server, query, media, db, file, item, _libthumb, client, utils
+exclude: server, query, media, db, file, item, _libthumb, client, utils, thumbnail
 
 # Don't perform introspection on the modules whose dotted name match this
 # regular expression pattern.

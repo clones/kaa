@@ -44,7 +44,72 @@ log = logging.getLogger('beacon')
 
 class Item(object):
     """
-    A database item.
+    A Database Item
+    ===============
+
+    The following attributes are available. If more are needed please call
+    L{register_file_type_attrs} or L{register_track_type_attrs}.
+
+    Directories (type = C{dir})
+     - C{name} (str, searchable, inverted_index: 'keywords')
+     - C{overlay} (bool, simple)
+     - C{media} (int, searchable, indexed)
+     - C{image} (int, simple)
+     - C{mtime} (int, simple)
+     - C{title} (unicode, simple)
+     - C{artist} (unicode, simple)
+     - C{album} (unicode, simple)
+     - C{length} (float, simple), length in seconds of all items in that directory
+
+    Items and Files (type = C{file} and all media types)
+     - C{name} (str, searchable, inverted_index: 'keywords')
+     - C{overlay} (bool, simple)
+     - C{media} (int, searchable, indexed)
+     - C{image} (int, simple)
+     - C{mtime} (int, simple)
+
+    Video Items (type = C{video})
+     - C{title} (unicode, searchable, ignore_case, inverted_index: 'keywords'),
+     - C{width} (int, simple)
+     - C{height} (int, simple)
+     - C{length} (float, simple)
+     - C{scheme} (str, simple)
+     - C{description} (unicode, simple)
+     - C{timestamp} (int, searchable)
+
+    Audio Items (type = C{audio})
+     - C{title} (unicode, searchable, ignore_case, inverted_index: 'keywords')
+     - C{artist} (unicode, searchable, indexed, ignore_case, inverted_index: 'keywords')
+     - C{album} (unicode, searchable, ignore_case, inverted_index: 'keywords')
+     - C{genre} (unicode, searchable, indexed, ignore_case)
+     - C{samplerate} (int, simple)
+     - C{length} (float, simple)
+     - C{bitrate} (int, simple)
+     - C{trackno} (int, simple)
+     - C{userdate} (unicode, simple)
+     - C{description} (unicode, simple)
+     - C{timestamp} (int, searchable)
+
+    Image Items (type = C{image})
+     - C{width} (int, searchable)
+     - C{height} (int, searchable)
+     - C{comment} (unicode, searchable, ignore_case, inverted_index: 'keywords')
+     - C{rotation} (int, simple)
+     - C{author} (unicode, simple)
+     - C{timestamp} (int, searchable)
+
+    DVD Track Items (type = C{dvd})
+     - C{length} (float, simple)
+     - C{audio} (list, simple)
+     - C{chapters} (int, simple)
+     - C{subtitles} (list, simple)
+
+    VCD Track Items (type = C{vcd})
+     - C{audio} (list, simple)
+
+    Audio CD Track Items (type = C{cdda})
+     - C{title} (unicode, searchable, inverted_index: 'keywords')
+     - C{artist} (unicode, searchable, indexed, inverted_index: 'keywords')
 
     @ivar url:         unique url of the item
     @ivar filename:    complete filename or file items

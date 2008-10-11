@@ -46,7 +46,9 @@ log = logging.getLogger('beacon')
 
 class File(Item):
     """
-    A file based database item.
+    A File-based Database Item.
+
+    see L{Item} for a list of available attributes.
 
     @ivar url:         unique url of the item
     @ivar filename:    complete filename
