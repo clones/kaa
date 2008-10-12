@@ -47,14 +47,15 @@ log = logging.getLogger('beacon.hwmon')
 # import the different hardware monitor modules
 try:
     import hal
-except ImportError:
-    log.error('hal support disabled')
+except ImportError, e:
+    log.error(e)
+    log.error('HAL support disabled')
     hal = None
-    try:
-        import cdrom
-    except ImportError:
-        log.error('cdrom support disabled')
-        cdrom = None
+try:
+    import cdrom
+except ImportError:
+    log.error('Cdrom support disabled')
+    cdrom = None
 
 class HardwareMonitor(object):
 

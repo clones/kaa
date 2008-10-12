@@ -163,32 +163,25 @@ class Device(object):
 # -----------------------------------------------------------------------------
 
 _bus = None
-_connection_timeout = 5
 
 @kaa.threaded(kaa.GOBJECT)
 def start():
     """
-    Connect to DBUS and start to connect to hal.
+    Connect to D-Bus and start to connect to hal.
     """
     global _bus
-    global _connection_timeout
-    _connection_timeout -= 1
     try:
         if not _bus:
             _bus = dbus.SystemBus()
     except Exception, e:
         # unable to connect to dbus
-        if not _connection_timeout:
-            # give up
-            emit_signal('failed', 'unable to connect to dbus')
-            return False
-        kaa.OneShotTimer(start).start(2)
+        emit_signal('failed', 'Unable to connect to D-Bus')
         return False
     try:
         obj = _bus.get_object(HAL, '/org/freedesktop/Hal/Manager')
     except Exception, e:
         # unable to connect to hal
-        emit_signal('failed', 'hal not found on dbus')
+        emit_signal('failed', 'HAL not found on D-Bus')
         return False
     hal = dbus.Interface(obj, HAL + '.Manager')
     hal.GetAllDevices(reply_handler=_device_all, error_handler=log.error)
