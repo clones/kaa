@@ -279,7 +279,7 @@ class Database(RO_Database):
         return self._db.register_inverted_index(name, *args, **kwargs)
 
 
-    def register_object_type_attrs(self, type, *args, **kwargs):
+    def register_object_type_attrs(self, type, indexes=[], *args, **kwargs):
         """
         Register a new object with attributes. Special keywords like name and
         mtime are added by default.
@@ -291,9 +291,9 @@ class Database(RO_Database):
         if not type.startswith('track_'):
             kwargs['mtime'] = (int, ATTR_SIMPLE)
             kwargs['image'] = (str, ATTR_SIMPLE)
-        indices = [("name", "parent_type", "parent_id")]
-        return self._db.register_object_type_attrs(
-            type, indices, *args, **kwargs)
+        if not indexes:
+            indexes = [("name", "parent_type", "parent_id")]
+        return self._db.register_object_type_attrs(type, indexes, *args, **kwargs)
 
 
     def _delete_object_recursive(self, entry):
