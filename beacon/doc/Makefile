@@ -23,13 +23,13 @@ help:
 	@echo "  linkcheck to check all external links for integrity"
 
 clean:
-	-rm -rf .build/*
+	-rm -rf .build/* html/*
 
 html:
-	mkdir -p .build/html .build/doctrees
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) .build/html
+	mkdir -p html .build/doctrees
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) html
 	@echo
-	@echo "Build finished. The HTML pages are in .build/html."
+	@echo "Build finished. The HTML pages are in doc/html."
 
 pickle:
 	mkdir -p .build/pickle .build/doctrees
