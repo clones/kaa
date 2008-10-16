@@ -179,9 +179,7 @@ def list_media():
     """
     if not _client:
         connect()
-    while not _client.is_connected():
-        kaa.main.step()
-    return _client._db.medialist
+    return _client.list_media()
 
 def delete_media(id):
     """
@@ -191,8 +189,6 @@ def delete_media(id):
     """
     if not _client:
         connect()
-    while not _client.is_connected():
-        kaa.main.step()
     return _client.delete_media(id)
 
 def add_item(url, type, parent, **kwargs):

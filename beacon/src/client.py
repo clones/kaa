@@ -193,13 +193,24 @@ class Client(object):
         if self.status != DISCONNECTED:
             self.rpc('db.register_track_type_attrs', type_name, indexes, **attrs)
 
+    @kaa.coroutine()
+    def list_media(self):
+        if self.status == DISCONNECTED:
+            yield None
+        result = []
+        media = yield self.query(type='media', media='ignore')
+        for pos, m in enumerate(media):
+            m = dict(m)
+            m['object'] = self._db.medialist.get_by_beacon_id(('media', m['id']))
+            result.append(m)
+        yield result
 
     def delete_media(self, id):
         """
         Delete media with the given id.
         """
         if self.status != DISCONNECTED:
-            self.rpc('db.media.delete', id)
+            return self.rpc('db.media.delete', id)
 
 
     # -------------------------------------------------------------------------
