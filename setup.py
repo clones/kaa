@@ -63,6 +63,24 @@ if len(sys.argv) == 2 and sys.argv[1] == 'clean':
                 print 'removing %s' % file
                 os.unlink(file)
             
+elif len(sys.argv) == 2 and sys.argv[1] == 'doc':
+    if not os.path.isdir('doc/html'):
+        os.makedirs('doc/html')
+    for m in submodules:
+        if os.path.isfile('%s/doc/Makefile' % m):
+            print '[setup] Entering kaa submodule', m
+            os.chdir(m)
+            try:
+                # execfile('setup.py')
+                pass
+            except SystemExit:
+                print 'failed to create doc for', m
+            os.chdir('..')
+            if not os.path.exists('doc/html/%s' % m):
+                os.symlink('../../%s/doc/html' % m, 'doc/html/%s' % m)
+            print '[setup] Leaving kaa submodule', m
+    os.chdir('doc')
+    os.system('make html')
 else:
     failed = []
     build = []
