@@ -117,11 +117,11 @@ class Thumbnail(object):
         """
         Get the filename to the thumbnail.
 
-        @param type: THUMBNAIL_NORMAL, THUMBNAIL_LARGE or 'any'
-        @param check_mtime: Check the file modification time against the information
+        :param type: THUMBNAIL_NORMAL, THUMBNAIL_LARGE or 'any'
+        :param check_mtime: Check the file modification time against the information
             stored in the thumbnail. If the file has changed, the thumbnail will not be
             returned.
-        @returns: full path to thumbnail file or None
+        :returns: full path to thumbnail file or None
         """
         if check_mtime:
             image = self.get(type)
@@ -150,9 +150,9 @@ class Thumbnail(object):
         """
         Set the thumbnail
 
-        @param image: Image containing the thumbnail
-        @type image: kaa.Imlib2 image object
-        @param type: THUMBNAIL_NORMAL, THUMBNAIL_LARGE or 'both'
+        :param image: Image containing the thumbnail
+        :type image: kaa.Imlib2 image object
+        :param type: THUMBNAIL_NORMAL, THUMBNAIL_LARGE or 'both'
         """
         if type == 'both':
             self.set(image, NORMAL)
@@ -168,7 +168,7 @@ class Thumbnail(object):
         thumbnails as well as the fail directory for previous attempts to create
         a thumbnail for this file.
 
-        @param check_mtime: check the file and thumbnail modification time if a
+        :param check_mtime: check the file and thumbnail modification time if a
             thumbnail is valid.
         """
         return self.get(NORMAL, check_mtime) or self.get(LARGE, check_mtime) \
@@ -185,8 +185,8 @@ class Thumbnail(object):
         """
         Create a thumbnail.
 
-        @param type: one of THUMBNAIL_NORMAL and THUMBNAIL_LARGE
-        @param priority: priority how important the thumbnail is. The thumbnail
+        :param type: one of THUMBNAIL_NORMAL and THUMBNAIL_LARGE
+        :param priority: priority how important the thumbnail is. The thumbnail
             process will handle the thumbnail generation based on this priority.
             If you loose all references to this thumbnail object, the priority will
             automatically set to the lowest value (2).

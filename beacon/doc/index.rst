@@ -5,10 +5,14 @@
 Welcome to kaa.beacon's documentation!
 ======================================
 
+Note: This documentation is far for being complete. If you need more
+information about a specific topic please send a mail to the Freevo
+devel mailing list. Patches to this doc are welcome.
+
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    vision
    install
@@ -17,6 +21,12 @@ Contents:
    query
    item
    media
+   thumbnail
+   manipulation
+   internals
+
+.. FIXME: missing:
+.. get_db_info
 
 Indices and tables
 ==================

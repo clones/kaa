@@ -50,8 +50,8 @@ def register_filter(name, function):
     """
     Register a filter for L{Query} or L{wrap} to process a list of items.
 
-    @param name: unique name for the filter
-    @param function: filter function
+    :param name: unique name for the filter
+    :param function: filter function
     """
     _query_filter[name] = function
 
@@ -60,8 +60,8 @@ def wrap(items, filter):
     """
     Wrap the given list of items with the given filter function
 
-    @param items: list of items
-    @param filter: name of the filter, see L{register_filter}
+    :param items: list of items
+    :param filter: name of the filter, see L{register_filter}
     """
     if not filter in _query_filter:
         raise AttributeError('unknown filter')
@@ -153,8 +153,7 @@ class Query(object):
         """
         Iterate through the results.
 
-        @returns: Iterator
-        @rtype: L{Item} or L{File}
+        :returns: Iterator over Items
         """
         return self.result.__iter__()
 
@@ -163,9 +162,8 @@ class Query(object):
         """
         Get a specific item in the results list.
 
-        @returns: Item on that position in the list
-        @rtype: L{Item} or L{File}
-        @raises IndexError: result list is shorten than pos
+        :returns: Item on that position in the list, raises an
+            IndexError if the list is shorter than pos
         """
         return self.result[pos]
 

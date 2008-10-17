@@ -65,10 +65,8 @@ class Item(object):
 
     def get(self, key, default=None):
         """
-        Access attributes of the item.
-
-        :param key: Attribute name
-        :param default: Default return when the attribute is not set
+        Access attributes of the item. If the attribute is not found
+        the default value (None) will be returned.
         """
         if key.startswith('tmp:'):
             return self._beacon_tmpdata.get(key[4:], default)
@@ -112,7 +110,9 @@ class Item(object):
 
     def __getitem__(self, key):
         """
-        Access attributes of the item
+        Access attributes of the item. This function will never raise
+        an exception. If the attribute is not found, None will be
+        returned.
         """
         return self.get(key)
 
@@ -120,8 +120,7 @@ class Item(object):
         """
         Set the value of a given attribute. If the key starts with
         'tmp:', the data will only be valid in this item and not
-        stored in the db. Loosing the item object will remove that
-        attribute.
+        stored in the db.
         """
         if key.startswith('tmp:'):
             self._beacon_tmpdata[key[4:]] = value
@@ -139,7 +138,7 @@ class Item(object):
 
     def has_key(self, key):
         """
-        Check if the item has a specific attributes set
+        Check if the item has a specific attribute set
         """
         return key in self._beacon_data.keys() or \
                key in self._beacon_tmpdata.keys()
@@ -168,15 +167,16 @@ class Item(object):
     @property
     def thumbnail(self):
         """
-        Return Thumbnail for the Item
+        Return a Thumbnail for the Item. See :ref:`thumbnail` for
+        details about thumbnailing works in beacon.
         """
         return self.get('thumbnail')
 
     def list(self):
         """
-        Return all subitems to his item.
-
-        :returns: InProgress object with empty list or :class:`beacon.Query`
+        Return a Query object with all subitems of this item. If the
+        client is not connected to the server an empty list will be
+        returned instead.
         """
         # This function is not used internally
         if not self._beacon_id:

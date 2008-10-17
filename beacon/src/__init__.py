@@ -29,23 +29,8 @@
 #
 # -----------------------------------------------------------------------------
 
-"""
-kaa.beacon
-==========
-
-@group Internal Classes: Thumbnail, Item, File, Query, Media
-@group Server: connect, launch
-@group Query: query, get, monitor, register_filter, wrap
-@group Media Handling: list_media, delete_media
-@group Database Manipulation: add_item, register_inverted_index,
-    register_file_type_attrs, register_track_type_attrs, get_db_info
-@group Thumbnailing: THUMBNAIL_NORMAL, THUMBNAIL_LARGE
-@group kaa.db Variables: ATTR_SIMPLE, ATTR_SEARCHABLE, ATTR_IGNORE_CASE, ATTR_INDEXED,
-    ATTR_INDEXED_IGNORE_CASE, ATTR_INVERTED_INDEX
-"""
-
 __all__ = [ 'connect', 'launch', 'get', 'query', 'monitor', 'add_item', 'wrap',
-            'register_file_type_attrs', 'register_track_type_attrs',
+            'register_file_type_attrs', 'register_track_type_attrs', 'ConnectError',
             'register_inverted_index', 'get_db_info', 'list_media', 'delete_media',
             'register_filter', 'Item', 'Query', 'Media', 'File', 'Thumbnail',
             'VERSION', 'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE', 'QExpr', 'ATTR_SIMPLE',
@@ -71,7 +56,6 @@ from thumbnail import LARGE as THUMBNAIL_LARGE
 from thumbnail import Thumbnail
 from item import Item
 from file import File
-from version import VERSION
 from media import Media
 from kaa.db import *
 
@@ -164,7 +148,7 @@ def monitor(directory):
     Monitor a directory with subdirectories for changes. This is done in
     the server and will keep the database up to date.
 
-    @param directory: directory path name
+    :param directory: directory path name
     """
     if not _client:
         connect()
@@ -174,8 +158,7 @@ def list_media():
     """
     List all media objects.
 
-    @returns: list of the available media
-    @rtype: list of L{Media}
+    :returns: list of the available media
     """
     if not _client:
         connect()
@@ -185,7 +168,7 @@ def delete_media(id):
     """
     Delete media with the given id.
 
-    @param id: Media object ID
+    :param id: Media object ID
     """
     if not _client:
         connect()
@@ -198,12 +181,11 @@ def add_item(url, type, parent, **kwargs):
     directory, but it is possible to add an Item with a http url to a directory
     or a meta item with http items as children.
 
-    @param url: url of the Item, can not be file:
-    @param type: item type
-    @param parent: parent item
-    @param kwargs: addition keyword/value arguments for the db
-    @returns: new created item
-    @rtype: L{Item}
+    :param url: url of the Item, can not be file:
+    :param type: item type
+    :param parent: parent item
+    :param kwargs: addition keyword/value arguments for the db
+    :returns: new created Item
     """
     if not _client:
         connect()
@@ -247,7 +229,7 @@ def get_db_info():
     """
     Gets statistics about the database.
 
-    @return: basic database information
+    :returns: basic database information
     """
     if not _client:
         connect()

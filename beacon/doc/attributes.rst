@@ -1,11 +1,14 @@
+.. _attributes:
+
 Database Attributes
 ===================
 
 Pre-Defined Item Attributes
 ---------------------------
 
-The following attributes are available. If more are needed please call
-`register_file_type_attrs` or `register_track_type_attrs`.
+The following attributes are available. An application can define
+application specific attributes. See :ref:`define-attributes` for
+details.
 
 Directories (type = `dir`:)
  - `name`: str, searchable, inverted index: 'keywords'
@@ -73,33 +76,15 @@ Additional Item Attributes
 --------------------------
 
 Besides the keys in the database an item has the following attributes
-accessable with this function:
+accessible with this function:
 
- - parent: parent or Item
- - media: Media object the item is on
- - thumbnail: Thumbnail object for the item or parent
- - image: image path for the item or parent
- - read_only: True if the item is on a read only media
+ - parent: parent or Item media: Media object the item is on
+ - thumbnail: Thumbnail object for the item or parent. See
+   :ref:`thumbnail` for details about thumbnailing works in beacon.
+ - image: image path for the item or parent read_only: True if the
+ - item is on a read only media
 
 If you access or store an attribute that starts with 'tmp:', the data
 will only be stored inside the Item and not in the database. An Item
 for the same file in the database will not have that attribute and it
 will be lost when the application shuts down.
-
-
-Thumbnails
-----------
-
-.. autoclass:: beacon.Thumbnail
-
-
-Adding Application specific Attributes
---------------------------------------
-
-Describe the basic usage how the db works here.
-
-.. autofunction:: beacon.register_inverted_index
-.. autofunction:: beacon.register_file_type_attrs
-.. autofunction:: beacon.register_track_type_attrs
-
-

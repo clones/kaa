@@ -67,9 +67,11 @@ class File(Item):
 
     def list(self, recursive=False):
         """
-        List all files in a directory or show subitems of a file.
-
-        @returns: InProgress object of a kaa.beacon.Query
+        Return a Query object for a query with all files in the
+        directory. If the Item is no directory all subitems will
+        returned similar to the Item list function. This can happen
+        for DVD iso files on hard-disc. If the client is not connected
+        to the server an empty list will be returned instead.
         """
         # Note: this function is not used internally
         return self._beacon_controller.query(parent=self, recursive=recursive)
@@ -77,8 +79,6 @@ class File(Item):
     def scan(self):
         """
         Request the item to be scanned.
-
-        @returns: False if not connected or an InProgress object.
         """
         # Note: this function is not used by the server
         result = self._beacon_controller._beacon_parse(self)
