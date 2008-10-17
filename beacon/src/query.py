@@ -36,6 +36,7 @@ import logging
 
 # kaa imports
 import kaa
+from kaa.utils import property
 
 # kaa.beacon imports
 from item import Item
@@ -82,7 +83,7 @@ class Query(object):
         self.id = Query.NEXT_ID
         Query.NEXT_ID += 1
         # public variables
-        self.monitoring = False
+        self._beacon_monitoring = False
         self.result = []
         # internal variables
         self._query = query
@@ -108,18 +109,28 @@ class Query(object):
 
 
     def monitor(self, status=True):
+        log.warning('query.monitor is deprectated')
+        self.monitoring = status
+
+    @property
+    def monitoring(self):
         """
         Turn on/off query monitoring
-
-        @param status: True to turn on monitoring, False to turn it off.
         """
-        if self.monitoring == status:
+        return self._beacon_monitoring
+
+    @monitoring.setter
+    def monitoring(self, status)
+        """
+        Turn on/off query monitoring
+        """
+        if self._beacon_monitoring == status:
             # Nothing to do
             return
         if not self._client.is_connected():
             # If the client is not connected yet, it will do this later.
             # Rememeber that we wanted to connect
-            self.monitoring = status
+            self._beacon_monitoring = status
             return
         if status:
             query = copy.copy(self._query)
@@ -135,7 +146,7 @@ class Query(object):
         else:
             self._rpc('monitor.remove', self._client.id, self.id)
         # Store current status
-        self.monitoring = status
+        self._beacon_monitoring = status
 
 
     def __iter__(self):
@@ -245,7 +256,7 @@ class Query(object):
         """
         # FIXME: replace the __del__ with a weakref monitoring all
         # queries. There is already a weakref in client.py
-        if self.monitoring:
+        if self._beacon_monitoring:
             self.monitor(False)
 
 

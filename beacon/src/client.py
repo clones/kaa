@@ -259,8 +259,8 @@ class Client(object):
 
         # Reset monitors to queries
         for query in self._queries:
-            if query != None and query.monitoring:
-                query.monitoring = False
+            if query != None and query._beacon_monitoring:
+                query._beacon_monitoring = False
                 query.monitor(True)
 
         return False
@@ -273,7 +273,7 @@ class Client(object):
         self.status = SHUTDOWN
         for q in self._queries:
             if q != None:
-                q.monitoring = False
+                q._beacon_monitoring = False
         self._queries = []
         self.rpc = None
         self._db = None
@@ -381,8 +381,8 @@ class Client(object):
             if query == None:
                 self._queries.remove(query)
                 continue
-            if query.monitoring:
-                query.monitoring = False
+            if query._beacon_monitoring:
+                query._beacon_monitoring = False
                 query.monitor(True)
         for m in new_media:
             if not m.mountpoint == '/':
