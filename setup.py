@@ -71,8 +71,7 @@ elif len(sys.argv) == 2 and sys.argv[1] == 'doc':
             print '[setup] Entering kaa submodule', m
             os.chdir(m)
             try:
-                # execfile('setup.py')
-                pass
+                execfile('setup.py')
             except SystemExit:
                 print 'failed to create doc for', m
             os.chdir('..')
