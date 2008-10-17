@@ -369,12 +369,9 @@ class Database(object):
         while directories:
             parent = directories.pop(0)
             for i in (yield self._db_query_dir(parent)):
-                if i['type'] == 'dir':
-                    child = create_directory(i, parent)
-                    if not child._beacon_islink:
-                        directories.append(child)
-                else:
-                    items.append(create_by_type(i, parent))
+                if i.isdir and not i._beacon_islink:
+                    directories.append(child)
+                items.append(i)
             if time.time() > timer + 0.1:
                 # we used too much time. Call yield NotFinished at
                 # this point to continue later.
