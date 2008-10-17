@@ -232,12 +232,6 @@ class Monitor(object):
             self._checking = False
             yield False
 
-        if not changed:
-            # no changes but send the 'changed' ipc to the client
-            self.notify_client('changed', False)
-            self._checking = False
-            yield False
-
         for pos, item in enumerate(changed):
             self.notify_client('progress', pos+1, len(changed), item.url)
             async = parse(self._db, item)
@@ -260,6 +254,7 @@ class Monitor(object):
             # case :)
             OneShotTimer(self.check, []).start(0.5)
         self.notify_client('checked')
+        self.notify_client('changed', True)
         self._checking = False
         yield False
 

@@ -142,7 +142,7 @@ def progress(cur, total, item):
     if cur == total:
         print
 
-def changed(result):
+def changed(result, details):
     print '\nBeacon query update:'
     print_results(result, details)
 
@@ -272,21 +272,17 @@ def main():
     else:
         result = yield kaa.beacon.query(**query)
         
+    t2 = time.time()
+    print_results(result, details)
+    if not isinstance(result.get(), (list, tuple)):
+        result = [ result.get() ]
+    print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
     if not monitor:
-        t2 = time.time()
-        print_results(result, details)
-        if not isinstance(result.get(), (list, tuple)):
-            result = [ result.get() ]
-        print 'Query took %s seconds; %d results' % ((t2-t1), len(result))
         sys.exit(0)
-    else:
-        result.signals['changed'].connect(changed, result)
-        result.signals['progress'].connect(progress)
-        result.signals['up-to-date'].connect(uptodate)
-        result.monitor()
-
-    kaa.main.run()
-    sys.exit(0)
+    result.signals['changed'].connect(changed, result, details)
+    result.signals['progress'].connect(progress)
+    result.signals['up-to-date'].connect(uptodate)
+    result.monitor()
 
 if __name__ == '__main__':
     if not main().finished:
