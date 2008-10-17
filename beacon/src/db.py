@@ -45,7 +45,7 @@ from kaa.db import *
 
 # beacon imports
 from item import Item
-from media import MediaList
+from media import MediaList, FakeMedia
 
 # get logging object
 log = logging.getLogger('beacon.db')
@@ -394,7 +394,11 @@ class Database(object):
             # root node found, find correct mountpoint
             m = self.medialist.get_by_beacon_id(i['parent'])
             if not m:
-                raise AttributeError('bad media %s' % str(i['parent']))
+                # media not mounted, make it an Item, not a File
+                result = self._db.query(type="media", id=i['parent'][1])
+                if not result:
+                    raise AttributeError('bad media %s' % str(i['parent']))
+                return create_item(i, FakeMedia(result[0]['name']))
             return create_directory(i, m)
 
         # query for parent

@@ -45,6 +45,21 @@ import utils
 log = logging.getLogger('beacon')
 
 
+class FakeMedia(object):
+    """
+    Media object for a media that is not available
+    """
+    def __init__(self, name):
+        self.url = 'media://%s' % name
+
+    @property
+    def _beacon_media(self):
+        """
+        Get _beacon_media which is this object itself. To avoid circular
+        references, use a property here.
+        """
+        return self
+
 class Media(object):
     """
     Media object for a specific mount point.
