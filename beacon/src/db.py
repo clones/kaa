@@ -201,6 +201,9 @@ class Database(object):
             return kaa.InProgress().execute(self.query_filename, fname)
         if 'id' in query and qlen == 1:
             return kaa.InProgress().execute(self._db_query_id, query['id'])
+        if 'recursive' in query and not query.get('recursive'):
+            del query['recursive']
+            qlen -= 1
         if 'parent' in query and 'recursive' in query and qlen == 2:
             if not query['parent']._beacon_isdir:
                 raise AttributeError('parent is no directory')
@@ -365,9 +368,7 @@ class Database(object):
         directories = [ parent ]
         while directories:
             parent = directories.pop(0)
-            if not parent._beacon_id:
-                continue
-            for i in self._db.query(parent = parent._beacon_id):
+            for i in (yield self._db_query_dir(parent)):
                 if i['type'] == 'dir':
                     child = create_directory(i, parent)
                     if not child._beacon_islink:

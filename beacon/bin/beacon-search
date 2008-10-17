@@ -264,10 +264,7 @@ def main():
 
     t1 = time.time()
     if 'dirname' in query:
-        async = kaa.beacon.get(query['dirname'])
-        if isinstance(async, kaa.InProgress):
-            yield async
-            directory = async.get_result()
+        directory = yield kaa.beacon.get(query['dirname'])
         if 'recursive' in query:
             result = yield directory.list(recursive=True)
         else:
