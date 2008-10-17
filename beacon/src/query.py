@@ -120,7 +120,7 @@ class Query(object):
         return self._beacon_monitoring
 
     @monitoring.setter
-    def monitoring(self, status)
+    def monitoring(self, status):
         """
         Turn on/off query monitoring
         """
