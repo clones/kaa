@@ -28,7 +28,7 @@ Monitoring
 
 FIXME: Describe monitoring here
 
-.. autoattribute:: beacon.Query.monitoring
+.. autoattribute:: beacon.Query.monitor
 .. autofunction:: beacon.monitor
 
 

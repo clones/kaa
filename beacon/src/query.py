@@ -107,20 +107,15 @@ class Query(object):
         """
         return self._async
 
-
-    def monitor(self, status=True):
-        log.warning('query.monitor is deprectated')
-        self.monitoring = status
-
     @property
-    def monitoring(self):
+    def monitor(self):
         """
         Turn on/off query monitoring
         """
         return self._beacon_monitoring
 
-    @monitoring.setter
-    def monitoring(self, status):
+    @monitor.setter
+    def monitor(self, status):
         """
         Turn on/off query monitoring
         """
