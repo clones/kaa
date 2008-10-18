@@ -58,6 +58,10 @@ The following kaa modules provide an API documentation:
   INotify support), inter-process communication, as well as a rich,
   practically magical API for asynchronous programming
 
+  Download the latest `release of kaa.base
+  <http://sourceforge.net/project/showfiles.php?group_id=46652&package_id=213183>`_
+  from Sourceforge. License is LGPL.
+
 * `kaa.metadata <metadata/index.html>`_
 
   A powerful media metadata parser. It can extract metadata (such as
@@ -65,10 +69,10 @@ The following kaa modules provide an API documentation:
   like codec, length, resolution, audio/video/subtitle tracks, and
   chapters are also returned.
 
-  The module is working and `released
-  <http://sourceforge.net/project/showfiles.php?group_id=46652&package_id=213173>`_;
-  new parsers or enhancements to existing parsers are always
-  needed. License is GPL.
+  Download the latest `release of kaa.metadata
+  <http://sourceforge.net/project/showfiles.php?group_id=46652&package_id=213173>`_
+  from Sourceforge. The module is fully funtional; new parsers or
+  enhancements to existing parsers are always needed. License is GPL.
 
 * `kaa.beacon <beacon/index.html>`_
 
