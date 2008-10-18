@@ -49,6 +49,15 @@ information about the module and how to use it.
 
 The following kaa modules provide an API documentation:
 
+* `kaa.base <base/index.html>`_
+
+  This module provides the base Kaa framework and is an implicit
+  dependency for all kaa modules. The kaa framework includes a
+  mainloop facility with an API for signals and callbacks, timers,
+  process and thread management, file descriptor monitoring (with
+  INotify support), inter-process communication, as well as a rich,
+  practically magical API for asynchronous programming
+
 * `kaa.metadata <metadata/index.html>`_
 
   A powerful media metadata parser. It can extract metadata (such as
