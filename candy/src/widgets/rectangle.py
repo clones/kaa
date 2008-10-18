@@ -33,6 +33,7 @@ from kaa.utils import property
 
 # kaa.candy imports
 from ..core import Color
+from .. import backend
 from image import CairoTexture
 
 class Rectangle(CairoTexture):
@@ -108,31 +109,30 @@ class Rectangle(CairoTexture):
         """
         Render the widget
         """
-        if not self.__border_size and not self.__radius:
-            # FIXME: update this variable when border_size or radius
-            # change. This makes drawing MUCH faster.
-            self._clutter_resize_surface = False
+        if not self.__radius:
+            # Use a clutter Rectangle here to make it faster
+            # FIXME: change _obj radius changes
+            if self._obj is None:
+                self._obj = backend.Rectangle()
+                self._obj.show()
+            self._obj.set_size(self.inner_width, self.inner_height)
+            self._obj.set_color(backend.Color(*self.__color))
+            if self.__border_color and self.__border_size:
+                self._obj.set_border_width(self.__border_size)
+                self._obj.set_border_color(backend.Color(*self.__border_color))
+            else:
+                self._obj.set_border_width(0)
+            return
         super(Rectangle, self)._clutter_render()
         context = self._obj.cairo_create()
-
-        if not self.__border_size and not self.__radius:
-            # A simple fill on the surface. Using clutter.Rectangle
-            # would be faster here but we do not need that much normal
-            # rectangles and it would make things more complicated
-            context.set_source_rgba(*self.__color.to_cairo())
-            context.paint()
-            return
-
         stroke = self.__border_size or 1
         width  = self.inner_width - 2 * stroke
         height = self.inner_height - 2 * stroke
         radius = min(self.__radius, width, height)
-
         x0 = stroke
         y0 = stroke
         x1 = x0 + width
         y1 = y0 + height
-
         if self.__color:
             context.set_source_rgba(*self.__color.to_cairo())
             context.set_line_width(stroke)
@@ -146,7 +146,6 @@ class Rectangle(CairoTexture):
             context.curve_to (x0, y1, x0, y1, x0, y1- radius)
             context.close_path()
             context.fill()
-
         if self.__border_size and self.__border_color:
             context.set_source_rgba(*self.__border_color.to_cairo())
             context.set_line_width(stroke)
@@ -160,7 +159,6 @@ class Rectangle(CairoTexture):
             context.curve_to (x0, y1, x0, y1, x0, y1- radius)
             context.close_path()
             context.stroke()
-
         del context
 
     @classmethod
