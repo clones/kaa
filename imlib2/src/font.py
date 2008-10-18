@@ -82,26 +82,20 @@ class Font(object):
     def get_text_size(self, text):
         """
         Get the font metrics for the specified text as rendered by the
-        current font.
-
-        Arguments:
-          text: the text for which to retrieve the metric.
-
-        Returns: a 4-tuple containing the width, height, horizontal advance,
-                 and vertical advance of the text when rendered.
+        current font. The given text is used to retrieve the
+        metric. The functions returns a 4-tuple containing the width,
+        height, horizontal advance, and vertical advance of the text
+        when rendered.
         """
         return self._font.get_text_size(utf8(text))
 
 
     def set_color(self, color):
         """
-        Sets the default color for text rendered with this font.
-
-        Arguments:
-            color: a 3- or 4-tuple holding the red, green, blue, and alpha
-                   values of the color in which to render text with this
-                   font context.  If color is a 3-tuple, the implied alpha
-                   is 255.
+        Sets the default color for text rendered with this font. Color
+        is a 3- or 4-tuple holding the red, green, blue, and alpha
+        values of the color in which to render text with this font
+        context.  If color is a 3-tuple, the implied alpha is 255.
         """
         if len(color) == 3:
             self.color = tuple(color) + (255,)
@@ -122,17 +116,19 @@ class Font(object):
                   glow=(0,0,0,0), glow2=(0,0,0,0)):
         """
         Set a text style. Based on the style different color parameter
-        need to be set.
+        need to be set. Depending on the style additional parameter
+        must be set:
 
-        Arguments:
-            style:   the style to use (disable with TEXT_STYLE_PLAIN)
-            shadow:  shadow color for TEXT_STYLE_SHADOW, TEXT_STYLE_OUTLINE_SHADOW,
-                     TEXT_STYLE_FAR_SHADOW, TEXT_STYLE_OUTLINE_SOFT_SHADOW,
-                     TEXT_STYLE_SOFT_SHADOW and TEXT_STYLE_FAR_SOFT_SHADOW
-            outline: outline color for TEXT_STYLE_OUTLINE, TEXT_STYLE_SOFT_OUTLINE,
-                     TEXT_STYLE_OUTLINE_SHADOW and TEXT_STYLE_OUTLINE_SOFT_SHADOW
-            glow:    glow color 1 for TEXT_STYLE_GLOW
-            glow2:   glow color 2 for TEXT_STYLE_GLOW
+        * TEXT_STYLE_PLAIN
+        * TEXT_STYLE_SHADOW, requires shadow
+        * TEXT_STYLE_OUTLINE, requires outline
+        * TEXT_STYLE_SOFT_OUTLINE, requires outline
+        * TEXT_STYLE_GLOW, requires glow, glow2
+        * TEXT_STYLE_OUTLINE_SHADOW, requires shadow, outline
+        * TEXT_STYLE_FAR_SHADOW, requires shadow
+        * TEXT_STYLE_OUTLINE_SOFT_SHADOW, requires shadow, outline
+        * TEXT_STYLE_SOFT_SHADOW, requires shadow
+        * TEXT_STYLE_FAR_SOFT_SHADOW, requires shadow
         """
         self.style = style
         if len(shadow) == 3:

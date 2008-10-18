@@ -134,9 +134,10 @@ This module has no description yet
 kaa.imlib2
 ^^^^^^^^^^
 
-This module has no description yet
+kaa.imlib2 is a simple Python wrapper around imlib2 for fast image
+processing.
 
-* Detailed documentation is unavailable.
+* See `kaa.imlib2 documentation <imlib2/index.html>`_ for details.
 * Download the latest `release of kaa.imlib2
   <http://sourceforge.net/project/showfiles.php?group_id=46652&package_id=216046>`_
   from Sourceforge.
