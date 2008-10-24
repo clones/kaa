@@ -131,7 +131,7 @@ for o, a in opts:
 
 if mode == 'stop':
     # stop a running beacon
-    
+
     def shutdown(client):
         client.rpc('beacon.shutdown')
         kaa.main.step()
@@ -198,13 +198,13 @@ if not pid:
     if detach:
         # close fifo from daemonize
         daemonize_lock.ignore()
-        
+
     # loop
     kaa.main.run()
     log.info('stop thumbnail')
     sys.exit(0)
 
-    
+
 # beacon server
 import kaa.beacon.thumbnail
 
@@ -231,7 +231,7 @@ try:
     for dirname in monitor:
         log.info('monitor %s', dirname)
         server.monitor_dir(dirname)
-            
+
     # start garbage collector
     kaa.Timer(garbage_collect).start(10)
     if shutdown:
@@ -247,7 +247,7 @@ try:
                 log.info('beacon timeout')
                 sys.exit(0)
             return True
-            
+
         log.info('set autoshutdown timer')
         kaa.Timer(autoshutdown_poll).start(1)
 

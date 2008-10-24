@@ -34,7 +34,6 @@
 # python imports
 import os
 import stat
-import threading
 import logging
 import time
 

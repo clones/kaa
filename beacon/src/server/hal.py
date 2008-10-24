@@ -32,10 +32,7 @@
 
 __all__ = [ 'signals', 'Device', 'start' ]
 
-import sys
 import os
-import time
-import signal
 import logging
 
 import kaa

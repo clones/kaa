@@ -40,10 +40,6 @@ __all__ = [ 'connect', 'launch', 'get', 'query', 'monitor', 'add_item', 'wrap',
 # python imports
 import os
 import logging
-import time
-
-# kaa imports
-import kaa
 
 # kaa.beacon imports
 from version import VERSION

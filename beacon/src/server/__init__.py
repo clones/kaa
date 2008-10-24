@@ -29,6 +29,8 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'config', 'BeaconServer', 'Thumbnailer' ]
+
 from config import config
 
 def BeaconServer(database):

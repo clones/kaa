@@ -28,7 +28,7 @@ if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
     print '  -h    show this help'
     print
     sys.exit(0)
-    
+
 
 size = kaa.vfs.NORMAL
 if sys.argv[1] == '-l':

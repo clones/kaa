@@ -40,7 +40,6 @@ import md5
 import time
 import logging
 import stat
-import socket
 
 # kaa imports
 import kaa

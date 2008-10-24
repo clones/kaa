@@ -32,11 +32,9 @@
 __all__ = [ 'signals', 'Device', 'start', 'eject' ]
 
 import os
-import sys
 import re
 import array
 import struct
-import fcntl
 import copy
 
 import logging

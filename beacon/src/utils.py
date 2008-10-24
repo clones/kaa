@@ -30,7 +30,6 @@
 # -----------------------------------------------------------------------------
 
 # python imports
-import os
 import re
 
 FILENAME_REGEXP = re.compile("^(.*?)_(.)(.*)$")

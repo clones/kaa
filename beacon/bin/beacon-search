@@ -38,13 +38,11 @@ import time
 import fcntl
 import termios
 import struct
-
 import logging
-from logging.handlers import RotatingFileHandler
 
 # FIXME: most of this list should probably be kept in kaa.db
 IGNORE_KEYS = [ 'name', 'parent', 'parent_id', 'parent_type', 'media', 'mtime',
-                'computed_id', 'type', 'id' ] 
+                'computed_id', 'type', 'id' ]
 
 # insert kaa path information
 __site__ = '../lib/python%s.%s/site-packages' % sys.version_info[:2]
@@ -95,7 +93,7 @@ def print_results(results, detailed = False):
 
     if not isinstance(results.get(), (list, tuple)):
         results = [ results.get() ]
-        
+
     if len(results) == 0:
         print 'No results.'
         return
@@ -201,7 +199,7 @@ def main():
         except kaa.beacon.ConnectError:
             print 'beacon-daemon not running.'
             sys.exit(1)
-        
+
 
     if mode == 'info':
         info = kaa.beacon.get_db_info()
@@ -226,7 +224,7 @@ def main():
                 available = '(available)'
             print '%4d %s %s' % (m['id'], m['name'], available)
         sys.exit(0)
-     
+
 
     if mode == 'del-media':
         try:
@@ -238,7 +236,7 @@ def main():
             print 'media 0 can\'t be deleted'
             sys.exit(1)
         yield kaa.beacon.delete_media(media)
-        sys.exit(0)      
+        sys.exit(0)
 
     query   = {}
     if qtype:
@@ -271,7 +269,7 @@ def main():
             result = yield directory.list()
     else:
         result = yield kaa.beacon.query(**query)
-        
+
     t2 = time.time()
     print_results(result, details)
     if not isinstance(result.get(), (list, tuple)):
@@ -287,4 +285,3 @@ def main():
 if __name__ == '__main__':
     if not main().finished:
         kaa.main.run()
-    
