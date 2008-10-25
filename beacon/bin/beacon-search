@@ -280,7 +280,7 @@ def main():
     result.signals['changed'].connect(changed, result, details)
     result.signals['progress'].connect(progress)
     result.signals['up-to-date'].connect(uptodate)
-    result.monitor()
+    result.monitor = True
 
 if __name__ == '__main__':
     if not main().finished:

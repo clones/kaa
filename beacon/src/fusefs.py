@@ -69,7 +69,7 @@ class BeaconFS(fuse.Fuse):
         self._filename_map = {}
         self._query_update_time = 0
         query.signals["changed"].connect_weak(self._query_changed)
-        query.monitor()
+        query.monitor = True
 
         fuse.Fuse.__init__(self, *args, **kw)
 
