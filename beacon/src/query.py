@@ -250,7 +250,7 @@ class Query(object):
         # FIXME: replace the __del__ with a weakref monitoring all
         # queries. There is already a weakref in client.py
         if self._beacon_monitoring:
-            self.monitor(False)
+            self.monitor = False
 
 
     # -------------------------------------------------------------------------
