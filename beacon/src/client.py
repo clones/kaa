@@ -261,7 +261,7 @@ class Client(object):
         for query in self._queries:
             if query != None and query._beacon_monitoring:
                 query._beacon_monitoring = False
-                query.monitor = True
+                query.monitor()
 
         return False
 
@@ -383,7 +383,7 @@ class Client(object):
                 continue
             if query._beacon_monitoring:
                 query._beacon_monitoring = False
-                query.monitor = True
+                query.monitor()
         for m in new_media:
             if not m.mountpoint == '/':
                 self.signals['media.add'].emit(m)

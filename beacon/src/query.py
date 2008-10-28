@@ -36,7 +36,6 @@ import logging
 
 # kaa imports
 import kaa
-from kaa.utils import property
 
 # kaa.beacon imports
 from item import Item
@@ -107,41 +106,33 @@ class Query(object):
         """
         return self._async
 
-    @property
-    def monitor(self):
+    def monitor(self, enable=True):
         """
         Turn on/off query monitoring
         """
-        return self._beacon_monitoring
-
-    @monitor.setter
-    def monitor(self, status):
-        """
-        Turn on/off query monitoring
-        """
-        if self._beacon_monitoring == status:
+        if self._beacon_monitoring == enable:
             # Nothing to do
             return
         if not self._client.is_connected():
             # If the client is not connected yet, it will do this later.
             # Rememeber that we wanted to connect
-            self._beacon_monitoring = status
+            self._beacon_monitoring = enable
             return
-        if status:
+        if enable:
             query = copy.copy(self._query)
             if 'parent' in query:
                 parent = query['parent']
                 if not parent._beacon_id:
                     # We need the get the id first. Call the function again
                     # when there is an id.
-                    parent.scan().connect(self.monitor, status)
+                    parent.scan().connect(self.monitor, enable)
                     return
                 query['parent'] = parent._beacon_id
             self._rpc('monitor.add', self._client.id, self.id, query)
         else:
             self._rpc('monitor.remove', self._client.id, self.id)
         # Store current status
-        self._beacon_monitoring = status
+        self._beacon_monitoring = enable
 
 
     def __iter__(self):
@@ -250,7 +241,7 @@ class Query(object):
         # FIXME: replace the __del__ with a weakref monitoring all
         # queries. There is already a weakref in client.py
         if self._beacon_monitoring:
-            self.monitor = False
+            self.monitor(False)
 
 
     # -------------------------------------------------------------------------

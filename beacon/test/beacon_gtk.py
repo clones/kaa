@@ -122,7 +122,7 @@ class BeaconSearch:
     def enter_callback(self, widget, data=None):
         self.search = yield kaa.beacon.query(keywords=data.get_text(), type='audio')
         self.search.signals['changed'].connect(self._update_list)
-        self.search.monitor = True
+        self.search.monitor()
         self._update_list()
 
 
