@@ -47,6 +47,12 @@ def discover(node):
         print 'c1: found node:', node.jid
         yield node.disco.query()
         print 'c1: supported extensions:', ' '.join(node.extensions)
+        if not node.stream.properties.get('e2e-stream'):
+            if 'jingle-streams' in node.extensions:
+                print 'open secure connection'
+                yield node.get_extension('jingle-streams').connect()
+            else:
+                print 'secure connection not supported'
         print 'c1: send foo iq'
         answer = yield node.iqset('foo', xmlns='test')
         print 'c1: answer is', answer
@@ -81,6 +87,7 @@ def main():
     if link_local:
         c.activate_extension('link-local', announce=True)
     else:
+        c.activate_extension('jingle-streams')
         yield c.connect(password)
         # FIXME: update roster to hook into c.signals['presence'] and to
         # register automaticly
@@ -93,6 +100,7 @@ def main():
     if link_local:
         c.activate_extension('link-local').announce()
     else:
+        c.activate_extension('jingle-streams')
         yield c.connect(password)
         # FIXME: update roster to hook into c.signals['presence'] and to
         # register automaticly
