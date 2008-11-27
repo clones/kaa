@@ -1,0 +1,10 @@
+1. This XMPP implementation is designed for bot-to-bot communication
+   and includes some features that are not defined in any XEP yet.
+
+2. The plugin structure needs more doc how to implement a XEP in a
+   plugin. But the plugin system should be power full enough for most
+   existing XEPs.
+
+3. This implementation is only tested against ejabberd 2.0 as server
+   and itself as client. Please report any bugs to the freevo-devel
+   mailing list.

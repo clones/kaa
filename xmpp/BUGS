@@ -1,0 +1,8 @@
+* Plugins do not cover all parts of the XEP defining it. In most
+  cases error handling is not implemented yet.
+  Files src/plugins/*.py
+
+* Entities and CDATA are not supported yet.
+  Files src/xmlnode.py
+
+* Add connect timeout

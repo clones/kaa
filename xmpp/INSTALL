@@ -1,0 +1,22 @@
+Requirements:
+-------------
+
+- Python 2.5 or higher. Python 3 will not work
+
+- kaa.base from SVN
+
+- tlslite for e2e security (optional)
+  (jingle-streams / link-local)
+
+  I do not like tlslite as dependency, but while both OpenSSL and
+  GnuTLS support SRP and OpenGPG, the Python bindings for those libs
+  do not. Tlslite is the only Python library I could find that
+  supports TLS-SRP.
+
+- Avahi
+- Dbus Daemon
+- Dbus-Python
+
+  If you do not have these libs/apps installed, link local
+  communication will not work. Support for other mDNS libs should be
+  done in kaa.base (kaa.net.mdns)

@@ -1,0 +1,14 @@
+* SOCKS5
+
+* Store information on local filesystem
+  a. capabilities
+  b. public keys
+
+* Support service nodes
+  a. Public key generation
+  b. Resource binding
+  c. Media network management
+
+* Notify Peer object when connection is closed or exception during connect
+
+* iq-register feature
