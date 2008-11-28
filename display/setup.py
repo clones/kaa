@@ -42,6 +42,13 @@ except ImportError:
     print 'kaa.base not installed'
     sys.exit(1)
 
+# check disable parameter
+disable = []
+for arg in sys.argv[:]:
+    if arg.startswith('--disable-'):
+        disable.append(arg[10:])
+        sys.argv.remove(arg)
+
 # config file
 config = ConfigFile('src/config.h')
 
@@ -90,16 +97,29 @@ if get_library('X11'):
     if check_library('XComposite', ['<X11/extensions/Xcomposite.h>'], libraries = ['Xcomposite']):
         config.define('HAVE_X11_COMPOSITE')
         x11.add_library('XComposite')
-        
+
     features = { 'with': [], 'without': [] }
     imlib2 = get_library('imlib2')
-    if imlib2 and imlib2.compile(['<Imlib2.h>'], 'imlib_context_set_display(NULL);'):
+    if 'imlib2-x11' in disable or 'imlib2' in disable:
+        features['without'].append('imlib2')
+    elif imlib2 and imlib2.compile(['<Imlib2.h>'], 'imlib_context_set_display(NULL);'):
         config.define('USE_IMLIB2_X11')
         x11.add_library('imlib2')
         features['with'].append('imlib2')
+    elif imlib2:
+        print
+        print 'Imlib2 was compiled without X11 support. Therefore Imlib2 for the'
+        print 'kaa.display.X11 module is disabled. Please re-compile imlib2 with X11'
+        print 'support or add --disable-imlib2-x11 to the setup.py parameter'
+        print
+        sys.exit(1)
     else:
-        features['without'].append('imlib2')
-
+        print
+        print 'Imlib2 not found. Therefore Imlib2 for the kaa.display.X11 module is'
+        print 'disabled. Please install imlib2 or add --disable-imlib2 to the setup.py'
+        print 'parameter.'
+        print
+        sys.exit(1)
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_Software_X11.h>']):
         features['with'].append('evas')
         x11.add_library('evas')
@@ -122,11 +142,9 @@ else:
     print '- X11'
 
 
-if get_library('imlib2'):
-
+if get_library('imlib2') and not 'imlib2' in disable:
     # the framebuffer so module
-    fb = Extension('kaa.display._FBmodule', 
-                   [ 'src/fb.c', 'src/common.c'])
+    fb = Extension('kaa.display._FBmodule', [ 'src/fb.c', 'src/common.c'])
     fb.add_library('imlib2')
     if evas and evas.compile(['<Evas.h>', '<Evas_Engine_FB.h>']):
         fb.add_library('evas')
@@ -155,7 +173,7 @@ else:
     print "- DirectFB"
 
 
-if pygame and get_library('sdl') and get_library('imlib2'):
+if pygame and get_library('sdl') and get_library('imlib2') and not 'imlib2' in disable:
 
     # pygame module
     sdl = Extension('kaa.display._SDLmodule', ['src/sdl.c', 'src/common.c'])
