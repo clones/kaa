@@ -321,8 +321,3 @@ class Thumbnail(Image):
         """
         return Imlib2Texture.candyxml_parse(element).update(
             thumbnail=element.thumbnail, default=element.default)
-
-
-# register widgets to candyxml
-Image.candyxml_register()
-Thumbnail.candyxml_register()

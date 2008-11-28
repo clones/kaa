@@ -532,8 +532,3 @@ class SelectionGrid(Grid):
                 element.remove(child)
         return super(SelectionGrid, cls).candyxml_parse(element).update(
             selection=selection)
-
-
-# register widgets to candyxml
-Grid.candyxml_register()
-SelectionGrid.candyxml_register()

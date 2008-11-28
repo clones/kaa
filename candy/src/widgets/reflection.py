@@ -148,6 +148,3 @@ class ReflectionModifier(Modifier):
           </image>
         """
         return cls(opacity = int(element.opacity or 50))
-
-# register widget to candyxml
-ReflectionModifier.candyxml_register()

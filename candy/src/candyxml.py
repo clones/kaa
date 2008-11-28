@@ -68,11 +68,6 @@ Example::
       def candyxml_parse(cls, element):
           ...
 
-  # register
-  Foo.candyxml_register()
-  SimpleBar.candyxml_register()
-  ComplexBar.candyxml_register()
-
 XML example::
   <foo .../>                   --> Foo()
   <bar style='simple' .../>    --> SimpleBar()
@@ -150,7 +145,7 @@ cover, title, etc and every time a new track starts you can set a new context an
 the whole GUI will redraw on its own.
 """
 
-__all__ = [ 'parse', 'register', 'get_class', 'STYLE_HANDLER' ]
+__all__ = [ 'parse', 'register', 'get_class' ]
 
 # python imports
 import os
@@ -159,8 +154,6 @@ import xml.sax
 
 # kaa.candy imports
 import core
-
-STYLE_HANDLER = 'STYLE_HANDLER'
 
 # get logging object
 log = logging.getLogger('kaa.candy')
@@ -403,31 +396,22 @@ class Styles(dict):
 #: list of candyxml parser
 _parser = {}
 
-def register(cls, style=None):
+def register(cls):
     """
-    Register a class with the given style.
-    @param cls: class with candyxml variables and functions
-    @param style: optional style if there is more than one parser for the node
+    Register a class
     """
     name = cls.candyxml_name
-    style = style or getattr(cls, 'candyxml_style', None)
     parser = _parser
-    if style != STYLE_HANDLER:
+    if not isinstance(cls, Styles):
         if not name in parser:
             parser[name] = Styles()
-        parser, name = parser[name], style
+        parser, name = parser[name], getattr(cls, 'candyxml_style', None)
     if name in parser:
         raise RuntimeError('%s already registered' % name)
     parser[name] = cls
 
-def get_class(name, style=None):
+def get_class(name, style):
     """
-    Get the class registered to the given name.
-    @param name: parser name
-    @param style: style of the parser if there is more than one for the name
-    @returns: class of the parser (e.g. Widget)
+    Get the class registered to the given name and style
     """
-    result = _parser.get(name)
-    if isinstance(result, dict):
-        return result.get(style)
-    return result
+    return _parser.get(name).get(style)

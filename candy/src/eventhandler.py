@@ -119,6 +119,3 @@ class Eventhandler(core.Modifier):
                 eventhandler.process_children = True
         eventhandler.condition = element.condition
         return eventhandler
-
-# register Properties modifier
-Eventhandler.candyxml_register()

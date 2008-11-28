@@ -187,13 +187,24 @@ class Font(object):
             last = size
             size += 1
 
+
 class Modifier(object):
     """
     Modifier base class for classes that change widgets on creation by
     templates. In the XML file they are added as subnode to the widget
     to change. Examples are Properties and ReflectionModifier.
     """
-    __modifier = {}
+
+    class __metaclass__(type):
+        def __new__(meta, name, bases, attrs):
+            cls = type.__new__(meta, name, bases, attrs)
+            if 'candyxml_name' in attrs.keys():
+                if cls.candyxml_name in Modifier._candyxml_modifier:
+                    raise RuntimeError('%s already defined' % cls.candyxml_name)
+                Modifier._candyxml_modifier[cls.candyxml_name] = cls
+            return cls
+    
+    _candyxml_modifier = {}
 
     def modify(self, widget):
         """
@@ -212,18 +223,10 @@ class Modifier(object):
             is the same but the logic is different. This functions calls the
             implementation variant, not the other way around.
         """
-        cls = Modifier.__modifier.get(element.node)
+        cls = Modifier._candyxml_modifier.get(element.node)
         if cls is None:
             return cls
         return cls.candyxml_create(element)
-
-    @classmethod
-    def candyxml_register(cls):
-        """
-        Register class to candyxml. This function can only be called
-        once when the class is loaded.
-        """
-        Modifier.__modifier[cls.candyxml_name] = cls
 
 
 class Properties(dict, Modifier):
@@ -272,6 +275,3 @@ class Properties(dict, Modifier):
                         int(value[1] * element.get_scale_factor()[1])
             properties[key] = value
         return properties
-
-# register Properties modifier
-Properties.candyxml_register()

@@ -424,7 +424,3 @@ class Container(LayoutGroup):
             dependency.remove('')
         return super(Container, cls).candyxml_parse(element).update(
             dependency=dependency, widgets=widgets)
-
-
-# register widget to candyxml
-Container.candyxml_register()

@@ -171,7 +171,3 @@ class Rectangle(CairoTexture):
         return super(Rectangle, cls).candyxml_parse(element).update(
             radius=int(element.radius or 0), border_size=float(element.border_size or 0),
             color=element.color, border_color=element.border_color)
-
-
-# register widget to candyxml
-Rectangle.candyxml_register()

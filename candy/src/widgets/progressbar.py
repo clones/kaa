@@ -100,7 +100,3 @@ class Progressbar(Group):
         """
         return super(Progressbar, cls).candyxml_parse(element).update(
             progress=element[0].xmlcreate())
-
-
-# register widget to candyxml
-Progressbar.candyxml_register()

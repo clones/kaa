@@ -185,7 +185,3 @@ class Text(Widget):
         return super(Text, cls).candyxml_parse(element).update(
             text=element.content, align=element.align, color=element.color,
             font=element.font)
-
-
-# register widget to candyxml
-Text.candyxml_register()

@@ -106,9 +106,6 @@ class Template(object):
     def candyxml_create(cls, element):
         """
         Parse the candyxml element for parameter and create a Template.
-
-        @param element: kaa.candy.candyxml.Element with widget information
-        @returns: Template object
         """
         modifier = []
         for subelement in element.get_children():
@@ -133,6 +130,13 @@ class Widget(object):
     @cvar context_sensitive: class variable for inherting class if the class
         depends on the context.
     """
+
+    class __metaclass__(type):
+        def __new__(meta, name, bases, attrs):
+            cls = type.__new__(meta, name, bases, attrs)
+            if 'candyxml_name' in attrs.keys() or 'candyxml_style' in attrs.keys():
+                candyxml.register(cls)
+            return cls
 
     #: set if the object reacts on context
     context_sensitive = False
@@ -609,14 +613,6 @@ class Widget(object):
           <widget x='10' y='20' width='100' height='50'/>
         """
         return _dict(pos=element.pos, size=(element.width, element.height))
-
-    @classmethod
-    def candyxml_register(cls, style=None):
-        """
-        Register class to candyxml. This function can only be called
-        once when the class is loaded.
-        """
-        candyxml.register(cls, style)
 
 #     def __del__(self):
 #         print '__del__', self

@@ -185,7 +185,3 @@ class Label(Widget):
         """
         return super(Label, cls).candyxml_parse(element).update(
             font=element.font, color=element.color, text=element.content)
-
-
-# register widget to candyxml
-Label.candyxml_register()
