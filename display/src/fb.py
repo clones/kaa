@@ -30,7 +30,7 @@
 # -----------------------------------------------------------------------------
 
 __all__ = [ 'PAL_768x576', 'PAL_800x600', 'NTSC_640x480', 'NTSC_768x576',
-            'NTSC_800x600', 'Framebuffer', 'EvasFramebuffer' ]
+            'NTSC_800x600', 'Framebuffer' ]
 
 import _FBmodule as fb
 
@@ -137,24 +137,3 @@ class Framebuffer(_Framebuffer):
         Update the framebuffer.
         """
         fb.update(self.image._image)
-
-
-class EvasFramebuffer(_Framebuffer):
-    """
-    Frambuffer using evas for drawing
-    The 'mode' argument can either be a size (width, height) matching one of
-    the specified framebuffer resolutions, a list for fbset or None. If set to
-    None, the current framebuffer size will be used.
-    """
-    def __init__(self, mode=None):
-        _Framebuffer.__init__(self, mode)
-        import kaa.evas
-        self._evas = kaa.evas.Evas()
-        fb.new_evas_fb(self._evas._evas)
-
-
-    def get_evas(self):
-        """
-        Return evas object.
-        """
-        return self._evas

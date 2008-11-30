@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.display - Display module
-# Copyright (C) 2005, 2006 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2005, 2006, 2008 Dirk Meyer, Jason Tackaberry
 #
 # First Edition: Dirk Meyer <dmeyer@tzi.de>
 # Maintainer:    Dirk Meyer <dmeyer@tzi.de>
@@ -54,8 +54,6 @@ config = ConfigFile('src/config.h')
 
 check_library('X11', ['<X11/Xlib.h>'], '')
 check_library('imlib2', '1.1.1')
-evas = check_library('evas', '0.9.9.010')
-check_library('directfb', '0.9.20')
 
 print 'checking for pygame', '...',
 sys.__stdout__.flush()
@@ -68,7 +66,6 @@ try:
                  pygame.__path__[0]).replace("site-packages/", "")
     if not os.path.isdir(inc):
         raise ImportError
-
     print 'ok'
     check_library('sdl', '1.2.5')
     pygame = inc
@@ -81,8 +78,6 @@ modules = []
 
 if get_library('imlib2'):
     config.define('USE_IMLIB2')
-if get_library('evas'):
-    config.define('USE_EVAS')
 
 if get_library('X11'):
 
@@ -98,14 +93,13 @@ if get_library('X11'):
         config.define('HAVE_X11_COMPOSITE')
         x11.add_library('XComposite')
 
-    features = { 'with': [], 'without': [] }
     imlib2 = get_library('imlib2')
     if 'imlib2-x11' in disable or 'imlib2' in disable:
-        features['without'].append('imlib2')
+        print '+ X11 (no imlib2)'
     elif imlib2 and imlib2.compile(['<Imlib2.h>'], 'imlib_context_set_display(NULL);'):
         config.define('USE_IMLIB2_X11')
         x11.add_library('imlib2')
-        features['with'].append('imlib2')
+        print '+ X11 (imlib2)'
     elif imlib2:
         print
         print 'Imlib2 was compiled without X11 support. Therefore Imlib2 for the'
@@ -120,23 +114,6 @@ if get_library('X11'):
         print 'parameter.'
         print
         sys.exit(1)
-    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_Software_X11.h>']):
-        features['with'].append('evas')
-        x11.add_library('evas')
-        config.define('ENABLE_ENGINE_SOFTWARE_X11')
-    else:
-        features['without'].append('evas')
-
-    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_GL_X11.h>']):
-        features['with'].append('evasGL')
-        x11.add_library('evas')
-        x11.libraries.append("GL")
-        config.define('ENABLE_ENGINE_GL_X11')
-    else:
-        features['without'].append('evasGL')
-
-    features = ', '.join(features['with'] + [ 'no %s' % x for x in features['without'] ])
-    print '+ X11 (%s)' % features
     modules.append(x11)
 else:
     print '- X11'
@@ -146,31 +123,10 @@ if get_library('imlib2') and not 'imlib2' in disable:
     # the framebuffer so module
     fb = Extension('kaa.display._FBmodule', [ 'src/fb.c', 'src/common.c'])
     fb.add_library('imlib2')
-    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_FB.h>']):
-        fb.add_library('evas')
-        config.define('ENABLE_ENGINE_FB')
-        print "+ Framebuffer (imlib2, evas)"
-    else:
-        print "+ Framebuffer (imlib2, no evas)"
+    print "+ Framebuffer (imlib2)"
     modules.append(fb)
 else:
     print "- Framebuffer"
-
-
-if get_library('directfb'):
-
-    # the dfb so module
-    dfb = Extension('kaa.display._DFBmodule', [ 'src/dfb.c', 'src/common.c'] )
-    dfb.add_library('directfb')
-    if evas and evas.compile(['<Evas.h>', '<Evas_Engine_DirectFB.h>'], extra_libraries = ['directfb']):
-        print "+ DirectFB (evas)"
-        dfb.add_library('evas')
-        config.define('ENABLE_ENGINE_DIRECTFB')
-    else:
-        print "+ DirectFB"
-    modules.append(dfb)
-else:
-    print "- DirectFB"
 
 
 if pygame and get_library('sdl') and get_library('imlib2') and not 'imlib2' in disable:
@@ -187,9 +143,9 @@ else:
 
 
 requires_common       = 'python-kaa-base >= 0.1.2, pygame >= 1.6.0, python-kaa-imlib2 >= 0.2.0,' \
-                        'imlib2 >= 1.2.1, python-kaa-evas >= 0.1.0, evas >= 0.9.9.032'
+                        'imlib2 >= 1.2.1'
 build_requires_common = 'python-kaa-base >= 0.1.2, pygame-devel >= 1.6.0, python-kaa-imlib2 >= 0.2.0,' \
-                        'imlib2-devel >= 1.2.1, python-kaa-evas >= 0.1.0, evas-devel >= 0.9.9.032'
+                        'imlib2-devel >= 1.2.1'
 
 setup(module  = 'display',
       version     = '0.1.0',

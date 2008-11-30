@@ -31,13 +31,6 @@
 
 void **get_module_api(char *module);
 
-#define CHECK_EVAS_PYOBJECT \
-    if (!Evas_PyObject_Type) { \
-        PyErr_Format(PyExc_SystemError, "kaa.evas is required but is not available."); \
-        return NULL; \
-    }
-
-
 #define CHECK_IMAGE_PYOBJECT \
     if (!Image_PyObject_Type) { \
         PyErr_Format(PyExc_SystemError, "kaa.imlib2 is required but is not available."); \

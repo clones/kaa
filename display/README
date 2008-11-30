@@ -1,7 +1,6 @@
 Low level support for various displays, such as X11 or
 framebuffer. Provides X11Display and X11Window classes for managing
 X11 windows, with optional support for Imlib2 (render Imlib2 images to
-X11 windows), Evas (both software and OpenGL canvases), and pygame
-(render Imlib2 images to pygame surfaces).
+X11 windows), and pygame (render Imlib2 images to pygame surfaces).
 
 See http://www.freevo.org/kaa for more information

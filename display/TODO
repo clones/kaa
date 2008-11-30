@@ -2,19 +2,7 @@ Move the classes from src/__init__.py into an extra file. The init
 file should only import some other stuff without too much defining
 inside.
 
-Better opengl check. If EvasGL is used but the device is broken or the
-user has no permission, the code will use the GL software renderer
-which is _much_ slower than the evas x11 software render.
-
 Maybe remove that bad pygame hack
-
-Add more (evas based) displays like streaming the display as mpeg
-stream. This could be done by using a buffer output and convert it to
-mpeg2. This display can also be used to make it work with a DXR3 or
-other mpeg decoder based cards.
-
-Fix DirectFB Evas display. Please check if there is still a bug in
-evas and help fixing it.
 
 Create a REAME
 

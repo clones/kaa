@@ -42,10 +42,10 @@ class ImportErrorWrapper(object):
     
 # import X11 support
 try:
-    from x11 import X11Display, X11Window, EvasX11Window
+    from x11 import X11Display, X11Window
     displays.append('x11')
 except ImportError, e:
-    X11Display = X11Window = EvasX11Window = ImportErrorWrapper('X11')
+    X11Display = X11Window = ImportErrorWrapper('X11')
 
 # import GTK support
 try:
@@ -56,18 +56,11 @@ except ImportError, e:
 
 # import Framebuffer support
 try:
-    from fb import Framebuffer, EvasFramebuffer, PAL_768x576, PAL_800x600, \
+    from fb import Framebuffer, PAL_768x576, PAL_800x600, \
          NTSC_640x480, NTSC_768x576, NTSC_800x600
     displays.append('framebuffer')
 except ImportError, e:
-    Framebuffer = EvasFramebuffer = ImportErrorWrapper('framebuffer')
-
-# import DirectFB support
-try:
-    from dfb import DirectFB, EvasDirectFB
-    displays.append('directfb')
-except ImportError, e:
-    DirectFB = EvasDirectFB = ImportErrorWrapper('directfb')
+    Framebuffer = ImportErrorWrapper('framebuffer')
 
 # import SDL support
 try:

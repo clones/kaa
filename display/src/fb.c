@@ -53,13 +53,6 @@ Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
 PyTypeObject *Image_PyObject_Type = NULL;
 
 
-#ifdef ENABLE_ENGINE_FB
-#include <Evas.h>
-#include <Evas_Engine_FB.h>
-PyTypeObject *Evas_PyObject_Type = NULL;
-Evas *(*evas_object_from_pyobject)(PyObject *pyevas);
-#endif
-
 int fb_fd = 0;
 int *fb_mem = 0;
 
@@ -245,42 +238,6 @@ static void tty_enable (void)
 
 }
 
-#ifdef ENABLE_ENGINE_FB
-PyObject *
-new_evas_fb(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    Evas_Engine_Info_FB *einfo;
-    PyObject *evas_pyobject;
-    Evas *evas;
-
-    CHECK_EVAS_PYOBJECT
-
-    if (!PyArg_ParseTuple(args, "O!", Evas_PyObject_Type, &evas_pyobject))
-        return NULL;
-
-    evas = evas_object_from_pyobject(evas_pyobject);
-
-    evas_output_method_set(evas, evas_render_method_lookup("fb"));
-    einfo = (Evas_Engine_Info_FB *)evas_engine_info_get(evas);
-    if (!einfo) {
-        PyErr_Format(PyExc_SystemError, "Evas is not built with FB support.");
-        return NULL;
-    }
-
-    /* the following is specific to the engine */
-    einfo->info.virtual_terminal = 0;
-    einfo->info.device_number = 0;
-    einfo->info.refresh = 0;
-    einfo->info.rotation = 0;
-
-    evas_output_size_set(evas, fb_var.xres, fb_var.yres);
-    evas_output_viewport_set(evas, 0, 0, fb_var.xres, fb_var.yres);
-
-    evas_engine_info_set(evas, (Evas_Engine_Info *) einfo);
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-#endif  // ENABLE_ENGINE_FB
 
 PyMethodDef fb_methods[] = {
     { "open", (PyCFunction) fb_open, METH_VARARGS },
@@ -289,9 +246,6 @@ PyMethodDef fb_methods[] = {
     { "size", (PyCFunction) fb_size, METH_VARARGS },
     { "depth", (PyCFunction) fb_depth, METH_VARARGS },
     { "info", (PyCFunction) fb_info, METH_VARARGS },
-#ifdef ENABLE_ENGINE_FB
-    { "new_evas_fb", (PyCFunction) new_evas_fb, METH_VARARGS | METH_KEYWORDS },
-#endif
     { NULL }
 };
 
@@ -307,18 +261,4 @@ void init_FBmodule(void) {
         Image_PyObject_Type = imlib2_api_ptrs[1];
     } else 
         PyErr_Clear();
-
-#ifdef ENABLE_ENGINE_FB
-{
-    // Import kaa-evas's C api
-    void **evas_api_ptrs = get_module_api("kaa.evas._evas");
-    if (evas_api_ptrs != NULL) {
-        evas_object_from_pyobject = evas_api_ptrs[0];
-        Evas_PyObject_Type = evas_api_ptrs[1];
-    } else
-        PyErr_Clear();
-}
-
-#endif
-
 }
