@@ -59,18 +59,18 @@ def _poll(pid):
     """
     global _stat, _proc, _cache
     _stat = file('/proc/stat').readline(), _stat[0]
-    _proc = file('/proc/%s/stat' % pid).readline(), _proc[0], _timer.get_interval()
+    _proc = file('/proc/%s/stat' % pid).readline(), _proc[0], _timer.interval
     _cache = None
     if not _last_request_time:
         return True
 
     delta = time.time() - _last_request_time
-    if _timer.get_interval() < 1 and delta > 3:
+    if _timer.interval < 1 and delta > 3:
         # CPU time hasn't been requested in the past 3 seconds, so slow
         # timer down.
         _timer.stop()
         _timer.start(1)
-    elif _timer.get_interval() == 1 and delta > 10:
+    elif _timer.interval == 1 and delta > 10:
         # CPU time hasn't been requested in the past 10 seconds.  Disable
         # polling.
         return False
@@ -122,7 +122,7 @@ def cpuinfo():
     # wrong. So a C wrapper is needed here I guess.
     res.append(int((info - last) / _proc[2]))
 
-    if time.time() - _last_request_time < 2 and _timer.get_interval() != 0.2:
+    if time.time() - _last_request_time < 2 and _timer.interval != 0.2:
         # CPU time is being requested a lot, so increase poll timer frequency
         # to get a more accurate reading.
         _timer.stop()

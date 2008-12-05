@@ -383,7 +383,7 @@ class Image(Object):
             return
 
         delay /= 1000.0
-        cur_interval = self._update_frame_timer.get_interval()
+        cur_interval = self._update_frame_timer.interval
         if cur_interval and abs(delay - cur_interval) > 0.02 or \
            not self._update_frame_timer.active():
             self._update_frame_timer.start(delay)
