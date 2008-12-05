@@ -11,5 +11,5 @@ import kaa.epg
 kaa.epg.load('test.db')
 kaa.epg.update.config.load('test.cfg')
 kaa.epg.update.config.save('test.cfg')
-kaa.epg.update().connect(sys.exit, 0).set_ignore_caller_args()
+kaa.epg.update().connect(sys.exit, 0).ignore_caller_args = True
 kaa.main.run()

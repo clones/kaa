@@ -105,7 +105,7 @@ class Crawler(object):
         # set up inotify
         self._inotify = None
         cb = kaa.WeakCallback(self._inotify_event, INotify.MODIFY)
-        cb.set_user_args_first(True)
+        cb.user_args_first = True
         self._bursthandler = utils.BurstHandler(config.crawler.growscan, cb)
         if use_inotify:
             try:

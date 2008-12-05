@@ -218,7 +218,7 @@ class Widget(object):
         a.apply(self)
         a.start(delay)
         if unparent:
-            kaa.inprogress(a).connect(setattr, self, 'parent', None).set_ignore_caller_args()
+            kaa.inprogress(a).connect(setattr, self, 'parent', None).ignore_caller_args = True
         return a
 
     def raise_top(self):

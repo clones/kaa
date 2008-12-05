@@ -302,7 +302,7 @@ class Client(object):
         if not item._beacon_id:
             # Item has no beacon id, request the data before
             # schedule the update.
-            item.scan().connect(self._beacon_update, item).set_ignore_caller_args(True)
+            item.scan().connect(self._beacon_update, item).ignore_caller_args = True
             return
         if not self._changed:
             # register timer to do the changes
