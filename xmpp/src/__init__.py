@@ -36,3 +36,11 @@ from error import *
 # load all extensions
 import extensions
 import config
+
+def enable_xml_debug():
+    """
+    Enable special XML stream debugging.
+    """
+    import stream
+    stream.DEBUG_XML = True
+
