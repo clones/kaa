@@ -151,8 +151,8 @@ class Widget(object):
     # properties
     __parent = None
     __anchor = None
-    __x = 0
-    __y = 0
+    __x = 0.0
+    __y = 0.0
     __width = None
     __height = None
     __xalign = None
@@ -370,7 +370,7 @@ class Widget(object):
             self._obj.set_anchor_point(anchor_x, anchor_y)
             x += anchor_x
             y += anchor_y
-        self._obj.set_position(x, y)
+        self._obj.set_positionu(x, y)
 
     def _clutter_sync_properties(self):
         """

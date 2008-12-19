@@ -115,7 +115,7 @@ class Rectangle(CairoTexture):
             if self._obj is None:
                 self._obj = backend.Rectangle()
                 self._obj.show()
-            self._obj.set_size(self.inner_width, self.inner_height)
+            self._obj.set_sizeu(self.inner_width, self.inner_height)
             self._obj.set_color(backend.Color(*self.__color))
             if self.__border_color and self.__border_size:
                 self._obj.set_border_width(self.__border_size)
@@ -131,8 +131,8 @@ class Rectangle(CairoTexture):
         radius = min(self.__radius, width, height)
         x0 = stroke
         y0 = stroke
-        x1 = x0 + width
-        y1 = y0 + height
+        x1 = int(x0 + width)
+        y1 = int(y0 + height)
         if self.__color:
             context.set_source_rgba(*self.__color.to_cairo())
             context.set_line_width(stroke)

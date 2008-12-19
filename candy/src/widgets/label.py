@@ -152,8 +152,8 @@ class Label(Widget):
             self._obj.show()
         else:
             if width != self._obj.get_width() or height != self._obj.get_height():
-                self._obj.set_size(width, height)
-                self._obj.surface_resize(width, height)
+                self._obj.set_sizeu(width, height)
+                self._obj.surface_resize(int(width), int(height))
             self._obj.clear()
         # draw new text string
         context = self._obj.cairo_create()

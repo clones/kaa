@@ -117,8 +117,8 @@ class BehaviourMove(Behaviour):
         """
         x, y = self.get_current(alpha_value)
         for widget in widgets:
-            widget.x = int(x)
-            widget.y = int(y)
+            widget.x = x
+            widget.y = y
 
 class BehaviourColor(Behaviour):
     """

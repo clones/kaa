@@ -109,7 +109,7 @@ class Imlib2Texture(Widget):
         if self._obj is None:
             self._obj = backend.Texture()
             self._obj.show()
-            self._obj.set_size(self.inner_width, self.inner_height)
+            self._obj.set_sizeu(self.inner_width, self.inner_height)
         if 'size' in self._sync_properties or self.__keep_aspect:
             width, height = self.inner_width, self.inner_height
             if self.__keep_aspect and self._imagedata:
@@ -118,7 +118,7 @@ class Imlib2Texture(Widget):
                     height = int(width / aspect)
                 else:
                     width = int(height * aspect)
-            self._obj.set_size(width, height)
+            self._obj.set_sizeu(width, height)
         if 'imagedata' in self._sync_properties and self._imagedata:
             width, height = self._imagedata.size
             self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
@@ -136,14 +136,15 @@ class CairoTexture(Widget):
         Render the widget
         """
         if self._obj is None:
-            self._obj = backend.CairoTexture(self.inner_width, self.inner_height)
-            self._obj.set_size(self.inner_width, self.inner_height)
+            self._obj = backend.CairoTexture(int(self.inner_width), int(self.inner_height))
+            self._obj.set_sizeu(self.inner_width, self.inner_height)
             self._obj.show()
             return
         if 'size' in self._sync_properties:
-            self._obj.set_size(self.inner_width, self.inner_height)
+            self._obj.set_sizeu(self.inner_width, self.inner_height)
             if self._clutter_resize_surface:
-                self._obj.surface_resize(*self._obj.get_size())
+                w, h = self._obj.get_size()
+                self._obj.surface_resize(int(w), int(h))
         self._obj.clear()
 
 

@@ -70,7 +70,7 @@ class ScrollBehaviour(Behaviour):
         """
         Apply behaviour based on alpha value to the widgets
         """
-        current = [ int(v) for v in self.get_current(alpha_value) ]
+        current = self.get_current(alpha_value)
         x = current[0] - self._current[0]
         y = current[1] - self._current[1]
         self._current = current
@@ -140,8 +140,8 @@ class Grid(Group):
         if self.spacing is None:
             # no spacing is given. Get the number of rows and cols
             # and device the remaining space as speacing and border
-            self.num_cols = self.width / self.cell_size[0]
-            self.num_rows = self.height / self.cell_size[1]
+            self.num_cols = int(self.width / self.cell_size[0])
+            self.num_rows = int(self.height / self.cell_size[1])
             space_x = self.width / self.num_cols - self.cell_size[0]
             space_y = self.height / self.num_rows - self.cell_size[1]
             # size of cells
@@ -154,8 +154,8 @@ class Grid(Group):
             self._col_size = self.cell_size[0] + space_x
             self._row_size = self.cell_size[1] + space_y
             # now that we know the sizes check how much items fit
-            self.num_cols = self.width / self._col_size
-            self.num_rows = self.height / self._row_size
+            self.num_cols = int(self.width / self._col_size)
+            self.num_rows = int(self.height / self._row_size)
         # we now center the grid by default
         x0 = (self.width - self.num_cols * self._col_size + space_x) / 2
         y0 = (self.height - self.num_rows * self._row_size + space_y) / 2
@@ -280,8 +280,8 @@ class Grid(Group):
         # smaller code size increases the running time.
 
         # current item left/top position in the grid
-        base_x = -self.items.x / self._col_size
-        base_y = -self.items.y / self._row_size
+        base_x = -int(self.items.x) / self._col_size
+        base_y = -int(self.items.y) / self._row_size
         pos_x = base_x
         pos_y = base_y
         if self.__orientation == Grid.HORIZONTAL:
@@ -329,7 +329,7 @@ class Grid(Group):
             log.error('FIXME: kaa.candy.Grid does not support resize')
             return
         super(Grid, self)._clutter_render()
-        self._obj.set_clip(0, 0, self.inner_width, self.inner_height)
+        self._obj.set_clipu(0, 0, self.inner_width, self.inner_height)
 
     @classmethod
     def candyxml_parse(cls, element):
@@ -490,8 +490,8 @@ class SelectionGrid(Grid):
         # current cell position of the selection bar
         # get the items that could be affected by a behaviour and check
         # if they are covered by the selection widget
-        base_x = (self.selection.x - self.items.x) / self._col_size
-        base_y = (self.selection.y - self.items.y) / self._row_size
+        base_x = int(x - self.items.x) / self._col_size
+        base_y = int(y - self.items.y) / self._row_size
         in_area = []
         for x0 in range(-1, 2):
             for y0 in range(-1, 2):

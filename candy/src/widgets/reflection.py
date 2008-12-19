@@ -86,8 +86,8 @@ class Reflection(Group):
         super(Reflection, self)._clutter_sync_layout()
         x, y, width, height = self.source._obj.get_geometry()
         self._reflection_obj.set_property('reflection-height', height / 2)
-        self._reflection_obj.set_position(x, y + height)
-        self._reflection_obj.set_size(width, height)
+        self._reflection_obj.set_positionu(x, y + height)
+        self._reflection_obj.set_sizeu(width, height)
         self.anchor_point = width/2, height
 
     def _candy_context_prepare(self, context):
