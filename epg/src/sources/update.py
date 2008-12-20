@@ -33,7 +33,6 @@ __all__ = [ 'update', 'sources' ]
 import logging
 import time
 from types import ListType
-import threading
 import os
 import kaa.utils
 
@@ -132,7 +131,6 @@ class Updater(object):
     # functions called by source_* modules
     # -------------------------------------------------------------------------
 
-    @kaa.threaded(kaa.MAINTHREAD)
     def add_channel(self, tuner_id, name, long_name):
         """
         This method requires at least one of tuner_id, name,
@@ -196,7 +194,6 @@ class Updater(object):
         log.debug('Adding channel %s %s %s', tuner_id, name, long_name)
         return self._db.add_object("channel", tuner_id = tuner_id, name = name, long_name = long_name)["id"]
 
-    @kaa.threaded(kaa.MAINTHREAD)
     def sync(self):
         """
         Handle waiting add_program jobs.
@@ -251,7 +248,7 @@ class Updater(object):
         """
         self._jobs.append((channel_db_id, int(start), int(stop), title, attributes))
         if len(self._jobs) > 20:
-            self.sync().wait()
+            self.sync()
 
 
 def update(db, backend = None, *args, **kwargs):

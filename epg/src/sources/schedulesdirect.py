@@ -247,7 +247,7 @@ class Handler(xml.sax.handler.ContentHandler):
 
             db_id = self._epg.add_channel(tuner_id = channel,
                                          name = self._stations_by_id[station]['callSign'],
-                                         long_name = self._stations_by_id[station]['name']).wait()
+                                         long_name = self._stations_by_id[station]['name'])
             self._stations_by_id[station]['db_id'] = db_id
             
 

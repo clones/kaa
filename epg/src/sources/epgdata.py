@@ -127,7 +127,7 @@ class ChannelParser(BaseParser, dict):
         db_id = self.add_channel(
             tuner_id=attr['tvchannel_dvb'],
             name=attr['tvchannel_short'],
-            long_name=attr['tvchannel_name']).wait()
+            long_name=attr['tvchannel_name'])
         self[attr['tvchannel_id']] = db_id
 
 

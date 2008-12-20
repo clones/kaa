@@ -101,8 +101,6 @@ class XmltvParser(object):
         """
         Create a sax parser and parse the file
         """
-        self.shutdown = False
-        kaa.signals['shutdown'].connect(setattr, self, 'shutdown', True)
         # Create a parser
         parser = xml.sax.make_parser()
         # ignore external dtd file
@@ -138,7 +136,7 @@ class XmltvParser(object):
         This will be called whenever we enter an element during parsing.
         Then the attributes will be extracted.
         """
-        if self.shutdown:
+        if kaa.main.is_stopped():
             raise SystemExit
         if name == 'channel':
             # extract attribute "id"
@@ -218,7 +216,7 @@ class XmltvParser(object):
             # stuff, maybe others work different. Maybe check the <tv> tag
             # for the used grabber somehow.
             name = display or station
-            db_id = self.add_channel(tuner_id=channel, name=station, long_name=name).wait()
+            db_id = self.add_channel(tuner_id=channel, name=station, long_name=name)
             self.channels[attr['channel_id']] = [db_id, None]
 
     def handle_programme(self, attr):
