@@ -85,6 +85,7 @@ class Reflection(Group):
         """
         super(Reflection, self)._clutter_sync_layout()
         x, y, width, height = self.source._obj.get_geometry()
+        self._reflection_obj.set_anchor_point(*self.source._obj.get_anchor_point())
         self._reflection_obj.set_property('reflection-height', height / 2)
         self._reflection_obj.set_positionu(x, y + height)
         self._reflection_obj.set_sizeu(width, height)
