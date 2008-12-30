@@ -144,6 +144,10 @@ class Widget(object):
     #: template for object creation
     __template__ = Template
 
+    # passive widgets with dynamic size depend on the size of the
+    # other widgets in a container
+    passive = False
+
     # sync indications
     _sync_rendering = True
     _sync_layout = True
@@ -164,6 +168,11 @@ class Widget(object):
     __opacity = 255
     __rotation = 0
 
+    # dynamic size calculation (percent)
+    __dynamic_width = None
+    __dynamic_height = None
+    __dynamic_parent_size = None
+
     # misc
     name = None
     _obj = None
@@ -178,14 +187,34 @@ class Widget(object):
 
     def __init__(self, pos=None, size=None, context=None):
         """
-        Basic widget constructor.
-
-        @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget or None.
-        @param context: the context the widget is created in
+        Basic widget constructor. If size is None, the width and
+        height will be treaded as None, None. If one value is None it
+        will be calculated based on x or y to fit in the parent. If it
+        is a string with percent values it will be the perecent of the
+        parent's width and height. Fot passive widgets it will be the
+        width or height of the non-passive content.
         """
         if size is not None:
             self.__width, self.__height = size
+            if isinstance(self.__width, str):
+                # use perecent values provided by the string
+                self.__dynamic_width = int(self.__width[:-1])
+                self.__width = None
+            elif self.__width is None:
+                # None means fit (-1)
+                self.__dynamic_width = -1
+            if isinstance(self.__height, str):
+                # use perecent values provided by the string
+                self.__dynamic_height = int(self.__height[:-1])
+                self.__height = None
+            elif self.__height is None:
+                # None means fit (-1)
+                self.__dynamic_height = 100
+        else:
+            # fit both width and height
+            self.__dynamic_width = self.__dynamic_height = -1
+        # store if this widget depends on the parent size
+        self._dynamic_size = self.__dynamic_width or self.__dynamic_height
         if pos is not None:
             self.__x, self.__y = pos
         self._sync_properties = {}
@@ -239,20 +268,57 @@ class Widget(object):
         """
         Calculate width and height based on parent
         """
-        # FIXME: this must be updated once the dependencies change. When width
-        # or height is none a special variable sync_with_parent must be set and
-        # the parent must reset __width and __height to None once it's inner
-        # size values change. This must also trigger the resize property. This
-        # values must also be updated when __x or __y of the widget change.
-        # This code should also be used when width and height are based on
-        # percentage of the parent width and height.
+        if self.passive and self.__dynamic_parent_size:
+            # dynamic size for passive children
+            if self.__width == None:
+                # get width based on parent content
+                if self.__dynamic_width == -1:
+                    # handle None in the passive case
+                    self.__width = self.__dynamic_parent_size[0]
+                else:
+                    self.__width = self.__dynamic_parent_size[0] * self.__dynamic_width / 100
+            if self.__height == None:
+                # get height based on parent content
+                if self.__dynamic_height == -1:
+                    # handle None in the passive case
+                    self.__height = self.__dynamic_parent_size[1]
+                else:
+                    self.__height = self.__dynamic_parent_size[1] * self.__dynamic_height / 100
+            return
+        # non passive children
         if self.__width == None:
-            # get width based on parent and x
-            self.__width = self.parent.inner_width - self.x
+            if self.__dynamic_width == -1:
+                # fit into the parent
+                self.__width = self.parent.inner_width - self.x
+            else:
+                # use percentage of parent
+                self.__width = self.parent.inner_width * self.__dynamic_width / 100
         if self.__height == None:
-            # get height based on parent and x
-            # FIXME: this must be updated once the dependencies change
-            self.__height = self.parent.inner_height - self.y
+            if self.__dynamic_height == -1:
+                # fit into the parent
+                self.__height = self.parent.inner_height - self.y
+            else:
+                # use percentage of parent
+                self.__height = self.parent.inner_height * self.__dynamic_height / 100
+
+    def _candy_calculate_dynamic_size(self, size=None):
+        """
+        Adjust dynamic change to parent size changes. This function
+        returns True if the size changed. If size is given, this will
+        be used as parent size (needed for passive widgets).
+        """
+        current = self.__width, self.__height
+        if self.__dynamic_width is not None:
+            self.__width = None
+        if self.__dynamic_height is not None:
+            self.__height = None
+        self.__dynamic_parent_size = size
+        self.__calculate_size()
+        if current != (self.__width, self.__height):
+            self._queue_rendering()
+            self._queue_sync_layout()
+            return True
+        return False
 
     # rendering sync
 
@@ -441,11 +507,22 @@ class Widget(object):
     def width(self, width):
         if self.__width == width:
             return
+        if isinstance(width, str):
+            # width is percent of the parent
+            self.__dynamic_width = int(width[:-1])
+            self.__width = None
+        elif width is None:
+            # fill the whole parent based on the widget's position
+            self.__dynamic_width = -1
+            self.__width = None
+        else:
+            self.__dynamic_width = None
+            self.__width = width
+        self._dynamic_size = self.__dynamic_width or self.__dynamic_height
         if self._obj is not None:
             self._queue_sync_properties('size')
-        self.__width = width
-        self._queue_rendering()
-        self._queue_sync_layout()
+            self._queue_rendering()
+            self._queue_sync_layout()
 
     @property
     def inner_width(self):
@@ -463,11 +540,22 @@ class Widget(object):
     def height(self, height):
         if self.__height == height:
             return
+        if isinstance(height, str):
+            # height is percent of the parent
+            self.__dynamic_height = int(height[:-1])
+            self.__height = None
+        elif height is None:
+            # fill the whole parent based on the widget's position
+            self.__dynamic_height = -1
+            self.__height = None
+        else:
+            self.__dynamic_height = None
+            self.__height = height
+        self._dynamic_size = self.__dynamic_width or self.__dynamic_height
         if self._obj is not None:
             self._queue_sync_properties('size')
-        self.__height = height
-        self._queue_rendering()
-        self._queue_sync_layout()
+            self._queue_rendering()
+            self._queue_sync_layout()
 
     @property
     def inner_height(self):

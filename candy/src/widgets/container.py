@@ -83,6 +83,23 @@ class Group(Widget):
                     return result
         return None
 
+    def _candy_calculate_dynamic_size(self, size=None):
+        """
+        Adjust dynamic change to parent size changes. This function
+        returns True if the size changed. If size is given, this will
+        be used as parent size (needed for passive widgets).
+        """
+        if not super(Group, self)._candy_calculate_dynamic_size(size):
+            # the size of the widget did not change, no need to update
+            # the children of this group
+            return False
+        # update all non-passive children. The passive ones will be calculated
+        # after all others are rendered
+        for child in self.children:
+            if not child.passive and child._dynamic_size:
+                child._candy_calculate_dynamic_size()
+        return True
+
     def _candy_prepare(self):
         """
         Prepare rendering
@@ -100,14 +117,24 @@ class Group(Widget):
         if self._obj is None:
             self._obj = backend.Group()
             self._obj.show()
+        calculate_dynamic_size = 'size' in self._sync_properties
         # prepare new children
         while self.__children_added:
             self.__children_added.pop(0)._sync_properties['parent'] = self._obj
         # sync all children
         for child in self.children:
-            if child._sync_rendering:
-                child._sync_rendering = False
-                child._clutter_render()
+            if child.passive:
+                # require layout when a passive child needs rendering because the
+                # child is not rendered here.
+                self._sync_layout = self._sync_layout or child._sync_rendering
+            else:
+                # calculate_dynamic_size and render non passive child
+                if calculate_dynamic_size and child._dynamic_size:
+                    child._candy_calculate_dynamic_size()
+                # render non-passive child
+                if child._sync_rendering:
+                    child._sync_rendering = False
+                    child._clutter_render()
             # require layout when a child changes layout
             self._sync_layout = self._sync_layout or child._sync_layout
 
@@ -115,9 +142,31 @@ class Group(Widget):
         """
         Layout the widget
         """
-        super(Group,self)._clutter_sync_layout()
-        # sync children
+        # sync non-passive children and remember the passive ones for later
+        passive = []
         for child in self.children:
+            if child.passive:
+                passive.append(child)
+            elif child._sync_layout:
+                child._sync_layout = False
+                child._clutter_sync_layout()
+        # sync group object
+        super(Group,self)._clutter_sync_layout()
+        if not passive:
+            # no passive children, we are done here
+            return
+        # get the current width and height of the group to sync
+        width = height = 0
+        for child in self.children:
+            if not child.passive:
+                width = max(width, child.x + child.width)
+                height = max(height, child.y + child.height)
+        # render and sync the layout of all passive children
+        for child in passive:
+            child._candy_calculate_dynamic_size((width, height))
+            if child._sync_rendering:
+                child._sync_rendering = False
+                child._clutter_render()
             if child._sync_layout:
                 child._sync_layout = False
                 child._clutter_sync_layout()
