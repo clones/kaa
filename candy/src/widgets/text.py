@@ -154,10 +154,10 @@ class Text(Widget):
             # layout.set_height(self.inner_height)
             # Setting yalign also has no effect because there seems to be no
             # way to get the height used to draw the text.
-            self._obj.set_clip(0, 0, self.inner_width, self.inner_height)
+            self._obj.set_clipu(0, 0, self.inner_width, self.inner_height)
         if 'size' in self._sync_properties:
             self._obj.set_sizeu(self.inner_width, self.inner_height)
-            self._obj.set_clip(0, 0, self.inner_width, self.inner_height)
+            self._obj.set_clipu(0, 0, self.inner_width, self.inner_height)
         self._obj.set_line_wrap(True)
         self._obj.set_line_wrap_mode(pango.WRAP_WORD_CHAR)
         self._obj.set_use_markup(True)
