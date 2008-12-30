@@ -278,7 +278,7 @@ class Thumbnail(Image):
             default = self._get_image_by_url(default)
         if default:
             self.set_image(default)
-        if item is not None and not item.scanned():
+        if item is not None and not item.scanned:
             scanning = item.scan()
             if scanning:
                 scanning.connect_weak_once(self._beacon_update, item)
