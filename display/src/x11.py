@@ -116,7 +116,12 @@ class X11Display(object):
             wid = 0
             if event in X11Display.XEVENT_WINDOW_EVENTS:
                 wid = data["window"]
-            if wid:
+
+            # Create event dict for windows we know about.  It's possible we
+            # may receive events for windows we don't know about (i.e. not
+            # in self._windows); these are children of managed windows and
+            # these events can be ignored.
+            if wid and wid in self._windows:
                 if wid not in window_events:
                     window_events[wid] = []
                 if event == X11Display.XEVENT_CONFIGURE_NOTIFY:
@@ -127,7 +132,6 @@ class X11Display(object):
                 window_events[wid].append((event, data))
 
         for wid, events in window_events.items():
-            assert(wid in self._windows)
             window = self._windows[wid]()
             if not window:
                 # Window no longer exists.
