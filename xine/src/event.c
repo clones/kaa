@@ -118,22 +118,6 @@ pyxine_new_event_pyobject(Xine_PyObject *xine, void *owner, xine_event_t *event,
     return o;
 }
 
-/*
-static int
-Xine_Event_PyObject__clear(Xine_Event_PyObject *self)
-{
-    PyObject **list[] = {NULL};
-    return pyxine_gc_helper_clear(list);
-}
-
-static int
-Xine_Event_PyObject__traverse(Xine_Event_PyObject *self, visitproc visit, void *arg)
-{
-    PyObject **list[] = {&self->owner_pyobject, NULL};
-    return pyxine_gc_helper_traverse(list, visit, arg);
-}
-*/
-
 PyObject *
 Xine_Event_PyObject__new(PyTypeObject *type, PyObject *args, PyObject * kwargs)
 {
@@ -220,10 +204,10 @@ PyTypeObject Xine_Event_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
-    "Xine Event Object",               /* tp_doc */
-    0, //(traverseproc)Xine_Event_PyObject__traverse,   /* tp_traverse */
-    0, //(inquiry)Xine_Event_PyObject__clear,           /* tp_clear */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
+    "Xine Event Object",       /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

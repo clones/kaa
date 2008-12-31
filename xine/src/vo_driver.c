@@ -43,25 +43,6 @@ pyxine_new_vo_driver_pyobject(Xine_PyObject *xine, void *owner, vo_driver_t *dri
 }
 
 
-/*
-static int
-Xine_VO_Driver_PyObject__clear(Xine_VO_Driver_PyObject * self)
-{
-    PyObject **list[] = {&self->owner_pyobject, NULL};
-    printf("DRIVER: clear\n");
-    return pyxine_gc_helper_clear(list);
-}
-
-static int
-Xine_VO_Driver_PyObject__traverse(Xine_VO_Driver_PyObject * self,
-                                   visitproc visit, void *arg)
-{
-    PyObject **list[] = {&self->owner_pyobject,  NULL};
-    printf("DRIVER: traverse\n");
-    return pyxine_gc_helper_traverse(list, visit, arg);
-}
-*/
-
 PyObject *
 Xine_VO_Driver_PyObject__new(PyTypeObject * type, PyObject * args,
                               PyObject * kwargs)
@@ -177,10 +158,10 @@ PyTypeObject Xine_VO_Driver_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
-    "Xine VO Driver Object",               /* tp_doc */
-    0, //(traverseproc)Xine_VO_Driver_PyObject__traverse,   /* tp_traverse */
-    0, //(inquiry)Xine_VO_Driver_PyObject__clear,           /* tp_clear */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
+    "Xine VO Driver Object",   /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */
