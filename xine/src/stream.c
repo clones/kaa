@@ -35,28 +35,6 @@ pyxine_new_stream_pyobject(Xine_PyObject *xine, xine_stream_t *stream, int do_di
 }
 
 
-
-/*
-static int
-Xine_Stream_PyObject__clear(Xine_Stream_PyObject *self)
-{
-    PyObject **list[] = { &self->video_source, &self->audio_source, //&self->vo,
-                          &self->owner_pyobject, &self->master, NULL};
-
-    printf("STREAM: clear\n");
-    return pyxine_gc_helper_clear(list);
-}
-
-static int
-Xine_Stream_PyObject__traverse(Xine_Stream_PyObject *self, visitproc visit, void *arg)
-{
-    PyObject **list[] = { &self->video_source, &self->audio_source, &self->vo, &self->ao,
-                          &self->owner_pyobject, &self->master, NULL};
-    printf("STREAM: traverse\n");
-    return pyxine_gc_helper_traverse(list, visit, arg);
-}
-*/
-
 PyObject *
 Xine_Stream_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
 {
@@ -95,15 +73,14 @@ static PyMemberDef Xine_Stream_PyObject_members[] = {
 void
 Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
 {
-    printf("DEalloc Stream: %p\n", self->stream);
+    printf("DEalloc Stream: %p (video_postout=%p, audio_postout=%p\n", 
+           self->stream, self->video_source, self->audio_source);
     if (self->stream && self->do_dispose) {
-        printf("DISPOSE STREAM\n");
         self->do_dispose = 0;
         Py_BEGIN_ALLOW_THREADS
         xine_dispose(self->stream);
         Py_END_ALLOW_THREADS
     }
-    printf("STREAM: DISPOSED: video source=%p audio_source=%p\n", self->video_source, self->audio_source);
 
     Py_DECREF(self->wrapper);
     Py_DECREF(self->video_source);
@@ -111,11 +88,8 @@ Xine_Stream_PyObject__dealloc(Xine_Stream_PyObject *self)
     Py_DECREF(self->master);
     Py_DECREF(self->xine);
 
-    //Xine_Stream_PyObject__clear(self);
-    
     xine_object_to_pyobject_unregister(self->stream);
     self->ob_type->tp_free((PyObject*)self);
-    printf("STREAM FREED\n");
 }
 
 PyObject *
@@ -414,10 +388,10 @@ PyTypeObject Xine_Stream_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // | Py_TPFLAGS_HAVE_GC, /* tp_flags */
-    "Xine Stream Object",               /* tp_doc */
-    0, //(traverseproc)Xine_Stream_PyObject__traverse,   /* tp_traverse */
-    0, //(inquiry)Xine_Stream_PyObject__clear,           /* tp_clear */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
+    "Xine Stream Object",      /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */

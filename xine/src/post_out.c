@@ -35,6 +35,7 @@ pyxine_new_post_out_pyobject(Xine_PyObject *xine, void *owner, xine_post_out_t *
     if (!o)
         return NULL;
      
+    //printf("Alloc Post Out: py=%p owner=%p\n", o, owner_pyobject);
     o->post_out = post_out;
     o->do_dispose = do_dispose;
     o->owner = owner;
@@ -47,6 +48,7 @@ pyxine_new_post_out_pyobject(Xine_PyObject *xine, void *owner, xine_post_out_t *
 
     return o;
 }
+
 
 PyObject *
 _get_wire_list_from_port(PyObject *port)
@@ -65,8 +67,9 @@ _post_out_port_unlink(Xine_Post_Out_PyObject *self)
 
     objid = PyLong_FromLong((long)self->post_out);
     wire_list = _get_wire_list_from_port(self->port);
-    if (wire_list && PySequence_Contains(wire_list, objid))
+    if (wire_list && PySequence_Contains(wire_list, objid)) {
         PySequence_DelItem(wire_list, PySequence_Index(wire_list, objid));
+    }
     Py_DECREF(objid);
     Py_DECREF(self->port);
 }
@@ -106,7 +109,6 @@ _post_out_set_port(Xine_Post_Out_PyObject *self)
         port = Py_None;
         Py_INCREF(port);
     }
-
     if (self->port == port) {
         Py_DECREF(port);
         return;
@@ -124,21 +126,6 @@ _post_out_set_port(Xine_Post_Out_PyObject *self)
 
 }
 
-/*
-static int
-Xine_Post_Out_PyObject__clear(Xine_Post_Out_PyObject *self)
-{
-    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, NULL};
-    return pyxine_gc_helper_clear(list);
-}
-
-static int
-Xine_Post_Out_PyObject__traverse(Xine_Post_Out_PyObject *self, visitproc visit, void *arg)
-{
-    PyObject **list[] = {&self->owner_pyobject, &self->wrapper, NULL};
-    return pyxine_gc_helper_traverse(list, visit, arg);
-}
-*/
 PyObject *
 Xine_Post_Out_PyObject__new(PyTypeObject *type, PyObject * args, PyObject * kwargs)
 {
@@ -179,13 +166,18 @@ Xine_Post_Out_PyObject__dealloc(Xine_Post_Out_PyObject *self)
     printf("DEalloc Post Out: py=%p xine=%p\n", self, self->post_out);
     if (self->post_out && self->do_dispose) {
     }
-    //Xine_Post_Out_PyObject__clear(self);
-    _post_out_port_unlink(self);
-    //Py_DECREF(self->port);
+    _post_out_port_unlink(self); // DECREFs port
     Py_DECREF(self->wrapper);
     Py_DECREF(self->xine);
     xine_object_to_pyobject_unregister(self->post_out);
     self->ob_type->tp_free((PyObject*)self);
+
+    /* We've just detached from the Audio/VideoPort we were wired to.  That
+     * Audio/VideoPort may now be orphaned, but because of a ref cycle to a
+     * PostIn object may not get destroyed, so we run the garbage collector to
+     * pick up the cycle.
+     */
+    PyGC_Collect();
 }
 
 PyObject *
@@ -299,10 +291,10 @@ PyTypeObject Xine_Post_Out_PyObject_Type = {
     PyObject_GenericGetAttr,    /* tp_getattro */
     PyObject_GenericSetAttr,    /* tp_setattro */
     0,                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,// | Py_TPFLAGS_HAVE_GC, /* tp_flags */
-    "Xine Post Output Object",               /* tp_doc */
-    0, //(traverseproc)Xine_Post_Out_PyObject__traverse,   /* tp_traverse */
-    0, //(inquiry)Xine_Post_Out_PyObject__clear,           /* tp_clear */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
+    "Xine Post Output Object",  /* tp_doc */
+    0,                          /* tp_traverse */
+    0,                         /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */
@@ -319,5 +311,3 @@ PyTypeObject Xine_Post_Out_PyObject_Type = {
     0,                         /* tp_alloc */
     Xine_Post_Out_PyObject__new,        /* tp_new */
 };
-
-

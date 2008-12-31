@@ -105,11 +105,9 @@ Xine_Audio_Port_PyObject__dealloc(Xine_Audio_Port_PyObject *self)
         Py_END_ALLOW_THREADS
     }
     Py_DECREF(self->wrapper);
-    //Py_DECREF(self->owner);
     Py_DECREF(self->wire_list);
     Py_DECREF(self->xine);
-    Xine_Audio_Port_PyObject__clear(self);
-    //Py_DECREF(self->owner_pyobject);
+    Xine_Audio_Port_PyObject__clear(self); // DECREFs owner
     xine_object_to_pyobject_unregister(self->ao);
     self->ob_type->tp_free((PyObject*)self);
 }

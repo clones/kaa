@@ -27,6 +27,8 @@ pyxine_new_post_in_pyobject(Xine_PyObject *xine, void *owner, xine_post_in_t *po
     if (!o)
         return NULL;
 
+    //printf("Alloc Post In: py=%p owner=%p\n", o, owner_pyobject);
+
     o->post_in = post_in;
     o->do_dispose = do_dispose;
     o->xine = xine;
@@ -115,10 +117,8 @@ Xine_Post_In_PyObject__dealloc(Xine_Post_In_PyObject *self)
     printf("DEalloc Post In: %p\n", self->post_in);
     if (self->post_in && self->do_dispose) {
     }
-    Xine_Post_In_PyObject__clear(self);
-    //Py_DECREF(self->port);
+    Xine_Post_In_PyObject__clear(self); // DECREFs post, port.
     Py_DECREF(self->wrapper);
-    //Py_DECREF(self->post);
     Py_DECREF(self->xine);
     xine_object_to_pyobject_unregister(self->post_in);
     self->ob_type->tp_free((PyObject*)self);

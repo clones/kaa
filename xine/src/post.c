@@ -23,6 +23,8 @@ pyxine_new_post_pyobject(Xine_PyObject *xine, xine_post_t *post, char *id, int d
     if (!o)
         return NULL;
 
+    //printf("Alloc Post: py=%p xine=%p\n", o, post);
+
     o->do_dispose = do_dispose;
     o->post = post;
     o->xine = xine;
@@ -60,7 +62,7 @@ Xine_Post_PyObject__clear(Xine_Post_PyObject *self)
 static int
 Xine_Post_PyObject__traverse(Xine_Post_PyObject *self, visitproc visit, void *arg)
 {
-    PyObject **list[] = {&self->inputs, NULL };
+    PyObject **list[] = {&self->inputs,  NULL };
     return pyxine_gc_helper_traverse(list, visit, arg);
 }
 
@@ -107,9 +109,8 @@ Xine_Post_PyObject__dealloc(Xine_Post_PyObject *self)
         // bug in xine: http://sourceforge.net/mailarchive/forum.php?thread_id=7753300&forum_id=7131
         xine_post_dispose(self->xine->xine, self->post);
     }
-    Xine_Post_PyObject__clear(self);
+    Xine_Post_PyObject__clear(self); // DECREFs inputs
     Py_DECREF(self->outputs);
-    //Py_DECREF(self->inputs);
     Py_DECREF(self->name);
     Py_DECREF(self->wrapper);
     Py_DECREF(self->xine);
@@ -412,7 +413,6 @@ Xine_Post_PyObject_post_output(Xine_Post_PyObject *self, PyObject *args, PyObjec
         return NULL;
     }
 
-    //printf("POST OUTPUT DATA %s %x\n", name, *(void **)output->data);
     return (PyObject *)pyxine_new_post_out_pyobject(self->xine, self->post, output, 1);
 }
 

@@ -30,10 +30,11 @@ pyxine_new_video_port_pyobject(Xine_PyObject *xine, void *owner, xine_video_port
             return NULL;
     }
 
-
     o = (Xine_Video_Port_PyObject *)Xine_Video_Port_PyObject__new(&Xine_Video_Port_PyObject_Type, NULL, NULL);
     if (!o)
         return NULL;
+
+    //printf("Alloc Video Port: py=%p, owner=%p\n", o, owner_pyobject);
 
     o->vo = vo;
     o->do_dispose = do_dispose;
@@ -116,7 +117,7 @@ Xine_Video_Port_PyObject__dealloc(Xine_Video_Port_PyObject * self)
     Py_DECREF(self->wrapper);
     Py_DECREF(self->wire_list);
     Py_DECREF(self->xine);
-    Xine_Video_Port_PyObject__clear(self);
+    Xine_Video_Port_PyObject__clear(self); // DECREFs owner
 
     xine_object_to_pyobject_unregister(self->vo);
 
