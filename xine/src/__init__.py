@@ -49,7 +49,7 @@ log = logging.getLogger('xine')
 #     VideoPort.owner: Owner of the port: if owner is a Xine object,
 #                      the port is a DEVICE; if owner is a PostIn object
 #                      then the port is an input of a Post object.
-#     VideoPort.wire_list: A list of PostOut objects that is wired to this 
+#     VideoPort.wire_list: A list of PostOut objects (weakrefs) that is wired to this 
 #                          VideoPort.
 # 
 #         - and same above for AudioPort

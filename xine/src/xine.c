@@ -12,6 +12,7 @@
 
 #include "drivers/video_out_kaa.h"
 #include "drivers/video_out_dummy.h"
+#include "drivers/video_out_shm.h"
 #include "drivers/kaa.h"
 #ifdef HAVE_X11
 #include "drivers/x11.h"
@@ -92,6 +93,7 @@ Xine_PyObject__init(Xine_PyObject *self, PyObject *args, PyObject *kwds)
     xine_init(xine);
     xine_register_plugins(xine, xine_vo_kaa_plugin_info);
     xine_register_plugins(xine, xine_vo_dummy_plugin_info);
+    xine_register_plugins(xine, xine_vo_shm_plugin_info);
     self->xine = xine;
     xine_object_to_pyobject_register(xine, (PyObject *)self);
 
