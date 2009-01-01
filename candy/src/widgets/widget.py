@@ -167,6 +167,8 @@ class Widget(object):
     __depth = 0
     __opacity = 255
     __rotation = 0
+    # real size of the object, should be set by the widget
+    _intrinsic_size = None
 
     # dynamic size calculation (percent)
     __dynamic_width = None
@@ -182,6 +184,7 @@ class Widget(object):
     ALIGN_TOP = 'top'
     ALIGN_BOTTOM = 'bottom'
     ALIGN_CENTER = 'center'
+    ALIGN_SHRINK = 'shrink'
 
     __re_eval = re.compile('\.[a-zA-Z][a-zA-Z0-9_]*')
 
@@ -408,32 +411,36 @@ class Widget(object):
         self._sync_layout = False
         x, y = self.__x, self.__y
         anchor_x = anchor_y = 0
-        if self.__xalign:
-            if self.__xalign == Widget.ALIGN_CENTER:
-                x += (self.__width - self._obj.get_width()) / 2
-                anchor_x = self._obj.get_width() / 2
-            elif self.__xalign == Widget.ALIGN_RIGHT:
-                x += self.__width - self._obj.get_width() - self.__xpadding
-                anchor_x = self._obj.get_width()
+        if self.__xalign in (Widget.ALIGN_CENTER, Widget.ALIGN_RIGHT):
+            if self.intrinsic_size:
+                obj_width = self.intrinsic_size[0]
             else:
-                x += self.__xpadding
+                obj_width = self._obj.get_width()
+            if self.__xalign == Widget.ALIGN_CENTER:
+                x += (self.__width - obj_width) / 2
+                anchor_x = obj_width / 2
+            elif self.__xalign == Widget.ALIGN_RIGHT:
+                x += self.__width - obj_width - self.__xpadding
+                anchor_x = obj_width
         else:
             x += self.__xpadding
-        if self.__yalign:
-            if self.__yalign == Widget.ALIGN_CENTER:
-                y += (self.__height - self._obj.get_height()) / 2
-                anchor_y = self._obj.get_height() / 2
-            elif self.__yalign == Widget.ALIGN_BOTTOM:
-                y += self.__height - self._obj.get_height() - self.__ypadding
-                anchor_y = self._obj.get_height()
+        if self.__xalign in (Widget.ALIGN_CENTER, Widget.ALIGN_BOTTOM):
+            if self.intrinsic_size:
+                obj_height = self.intrinsic_size[1]
             else:
-                y += self.__ypadding
+                obj_height = self._obj.get_height()
+            if self.__yalign == Widget.ALIGN_CENTER:
+                y += (self.__height - obj_height) / 2
+                anchor_y = obj_height / 2
+            elif self.__yalign == Widget.ALIGN_BOTTOM:
+                y += self.__height - obj_height - self.__ypadding
+                anchor_y = obj_height
         else:
             y += self.__ypadding
         if self.__anchor:
             anchor_x, anchor_y = self.__anchor
         if anchor_x or anchor_y:
-            self._obj.set_anchor_point(anchor_x, anchor_y)
+            self._obj.set_anchor_pointu(anchor_x, anchor_y)
             x += anchor_x
             y += anchor_y
         self._obj.set_positionu(x, y)
@@ -501,6 +508,8 @@ class Widget(object):
     def width(self):
         if self.__width == None:
             self.__calculate_size()
+        if self.xalign == self.ALIGN_SHRINK and self.intrinsic_size:
+            return self.intrinsic_size[0] + 2 * self.__xpadding
         return self.__width
 
     @width.setter
@@ -534,6 +543,8 @@ class Widget(object):
     def height(self):
         if self.__height == None:
             self.__calculate_size()
+        if self.yalign == self.ALIGN_SHRINK and self.intrinsic_size:
+            return self.intrinsic_size[1] + 2 * self.__ypadding
         return self.__height
 
     @height.setter
@@ -568,6 +579,14 @@ class Widget(object):
         if self.__width == None or self.__height == None:
             self.__calculate_size()
         return self.__x, self.__y, self.__width, self.__height
+
+    @property
+    def intrinsic_size(self):
+        if not self._intrinsic_size:
+            if self.__width is None or self.__height is None:
+                self.__calculate_size()
+            return self.__width - 2 * self.__xpadding, self.__height - 2 * self.__ypadding
+        return self._intrinsic_size
 
     @property
     def anchor_point(self):

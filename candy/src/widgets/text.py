@@ -164,6 +164,7 @@ class Text(Widget):
         self._obj.set_font_name("%s %spx" % (self.__font.name, self.__font.size))
         self._obj.set_color(backend.Color(*self.__color))
         self._obj.set_text(self.__text_eval)
+        self._intrinsic_size = self.inner_width, pango.units_to_double(self._obj.get_layout().get_size()[1])
 
     def _clutter_sync_layout(self):
         """

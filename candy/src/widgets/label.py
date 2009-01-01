@@ -140,7 +140,7 @@ class Label(Widget):
         if font.size == 0:
             # get font based on widget height
             font = font.get_font(self.inner_height)
-        
+
         width = font.get_width(self.__text_eval)
         height = font.get_height(Font.MAX_HEIGHT)
 
@@ -171,6 +171,7 @@ class Label(Widget):
             context.set_source(s)
         context.move_to(0, context.font_extents()[0])
         context.show_text(self.__text_eval)
+        self._intrinsic_size = width, height
 
     @classmethod
     def candyxml_parse(cls, element):

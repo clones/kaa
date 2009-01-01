@@ -114,6 +114,8 @@ class Group(Widget):
         """
         Render the widget
         """
+        # reset clutter_size information
+        self._intrinsic_size = None
         if self._obj is None:
             self._obj = backend.Group()
             self._obj.show()
@@ -121,31 +123,26 @@ class Group(Widget):
         # prepare new children
         while self.__children_added:
             self.__children_added.pop(0)._sync_properties['parent'] = self._obj
-        # sync all children
+        # get a list of passive and not-passive children
+        children = { True: [], False: [] }
         for child in self.children:
-            if child.passive:
-                # require layout when a passive child needs rendering because the
-                # child is not rendered here.
-                self._sync_layout = self._sync_layout or child._sync_rendering
-            else:
-                # calculate_dynamic_size and render non passive child
-                if calculate_dynamic_size and child._dynamic_size:
-                    child._candy_calculate_dynamic_size()
-                # render non-passive child
-                if child._sync_rendering:
-                    child._sync_rendering = False
-                    child._clutter_render()
+            children[child.passive].append(child)
+        # render all non-passive children
+        for child in children[False]:
+            # calculate_dynamic_size and render non passive child
+            if calculate_dynamic_size and child._dynamic_size:
+                child._candy_calculate_dynamic_size()
+            # render non-passive child
+            if child._sync_rendering:
+                child._sync_rendering = False
+                child._clutter_render()
             # require layout when a child changes layout
             self._sync_layout = self._sync_layout or child._sync_layout
-
-    def _clutter_layout_children(self, children):
-        """
-        Layout the children of the widget
-        """
-        for child in children:
-            if child._sync_layout:
-                child._sync_layout = False
-                child._clutter_sync_layout()
+        # check if we have passive children that require rendering or layout
+        while not self._sync_layout and children[True]:
+            child = children[True].pop()
+            self._sync_layout = child._sync_layout or child._sync_rendering
+        return children[False]
 
     def _clutter_sync_layout(self):
         """
@@ -155,18 +152,18 @@ class Group(Widget):
         children = { True: [], False: [] }
         for child in self.children:
             children[child.passive].append(child)
-        self._clutter_layout_children(children[False])
         # sync group object
         super(Group,self)._clutter_sync_layout()
+        # render and sync the layout of all passive children
+        for child in children[False]:
+            if child._sync_layout:
+                child._sync_layout = False
+                child._clutter_sync_layout()
         if not children[True]:
             # no passive children, we are done here
             return
-        # get the current width and height of the group to sync
-        width = height = 0
-        for child in children[False]:
-            width = max(width, child.x + child.width)
-            height = max(height, child.y + child.height)
         # render and sync the layout of all passive children
+        width, height = self.intrinsic_size
         for child in children[True]:
             child._candy_calculate_dynamic_size((width, height))
             if child._sync_rendering:
@@ -203,6 +200,17 @@ class Group(Widget):
             if direction == 'bottom':
                 child._obj.lower_bottom()
         return True
+
+    @property
+    def intrinsic_size(self):
+        if not self._intrinsic_size:
+            width = height = 0
+            for child in self.children:
+                if not child.passive:
+                    width = max(width, child.x + child.width)
+                    height = max(height, child.y + child.height)
+            self._intrinsic_size = width, height
+        return self._intrinsic_size
 
     def _candy_child_add(self, child):
         """
@@ -295,16 +303,13 @@ class LayoutGroup(Group):
         self.children.insert(pos, child)
         self._queue_sync_layout()
 
-    def _clutter_layout_children(self, children):
+    def _clutter_render(self):
         """
-        Layout the children of the widget
+        Render the widget
         """
+        children = super(LayoutGroup, self)._clutter_render()
         if self.__layout:
             self.__layout(children, self.spacing)
-        for child in children:
-            if child._sync_layout:
-                child._sync_layout = False
-                child._clutter_sync_layout()
 
     @classmethod
     def register_layout(cls, name, func):
