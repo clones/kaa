@@ -83,6 +83,14 @@ class Group(Widget):
                     return result
         return None
 
+    def add(self, *widgets):
+        """
+        Convenience function to add widgets to a group. It just sets
+        the parent to this group.
+        """
+        for widget in widgets:
+            widget.parent = self
+
     def _candy_calculate_dynamic_size(self, size=None):
         """
         Adjust dynamic change to parent size changes. This function

@@ -96,8 +96,9 @@ m.parent = stage
 # ############### button popup ############### #
 
 buttons = kaa.candy.LayoutGroup(layout='horizontal')
-Button('OK', font, '0xffffff', kaa.candy.Rectangle(color='0x888888')).parent = buttons
-Button('Cancel', font, '0xffffff', kaa.candy.Rectangle(color='0x888888')).parent = buttons
+buttons.add(
+    Button('OK', font, '0xffffff', kaa.candy.Rectangle(color='0x888888')),
+    Button('Cancel', font, '0xffffff', kaa.candy.Rectangle(color='0x888888')))
 buttons.yalign = buttons.ALIGN_SHRINK
 
 m = Message(txt, font, '0xffffff', box, buttons)
