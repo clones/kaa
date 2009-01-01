@@ -329,7 +329,7 @@ class Grid(Group):
             log.error('FIXME: kaa.candy.Grid does not support resize')
             return
         super(Grid, self)._clutter_render()
-        self._obj.set_clipu(0, 0, self.inner_width, self.inner_height)
+        self._obj.set_clip(0, 0, int(self.inner_width), int(self.inner_height))
 
     @classmethod
     def candyxml_parse(cls, element):

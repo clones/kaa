@@ -142,22 +142,12 @@ class Text(Widget):
         """
         Render the widget
         """
-        if not self._obj:
-            self._obj = backend.Label()
-            self._obj.show()
-            self._obj.set_sizeu(self.inner_width, self.inner_height)
-            # FIXME: bad style, see if clutter 0.8 makes it possible to cut the
-            # text. PangoLayout seems to have a set_height function but I can
-            # not find it using clutter/pygtk
-            # http://library.gnome.org/devel/pango/1.20
-            # layout = self._obj.get_layout()
-            # layout.set_height(self.inner_height)
-            # Setting yalign also has no effect because there seems to be no
-            # way to get the height used to draw the text.
-            self._obj.set_clipu(0, 0, self.inner_width, self.inner_height)
-        if 'size' in self._sync_properties:
-            self._obj.set_sizeu(self.inner_width, self.inner_height)
-            self._obj.set_clipu(0, 0, self.inner_width, self.inner_height)
+        # FIXME: handle text larger than text widget size
+        if not self._obj or 'size' in self._sync_properties:
+            if not self._obj:
+                self._obj = backend.Label()
+                self._obj.show()
+            self._clutter_set_obj_size()
         self._obj.set_line_wrap(True)
         self._obj.set_line_wrap_mode(pango.WRAP_WORD_CHAR)
         self._obj.set_use_markup(True)

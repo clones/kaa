@@ -148,6 +148,9 @@ class Widget(object):
     # other widgets in a container
     passive = False
 
+    # subpixel precision for geometry values
+    subpixel_precision = False
+
     # sync indications
     _sync_rendering = True
     _sync_layout = True
@@ -404,6 +407,19 @@ class Widget(object):
         """
         raise NotImplemented
 
+    def _clutter_set_obj_size(self, width=None, height=None):
+        """
+        Set clutter object size to inner or given width and height
+        """
+        if self.__width is None or self.__height is None:
+            self.__calculate_size()
+        width = width or self.__width - 2 * self.__xpadding
+        height = height or self.__height - 2 * self.__ypadding
+        if self.subpixel_precision:
+            self._obj.set_sizeu(width, height)
+        else:
+            self._obj.set_size(int(width), int(height))
+
     def _clutter_sync_layout(self):
         """
         Layout the widget
@@ -440,10 +456,18 @@ class Widget(object):
         if self.__anchor:
             anchor_x, anchor_y = self.__anchor
         if anchor_x or anchor_y:
-            self._obj.set_anchor_pointu(anchor_x, anchor_y)
+            if self.subpixel_precision:
+                self._obj.set_anchor_pointu(anchor_x, anchor_y)
+            else:
+                anchor_x = int(anchor_x)
+                anchor_y = int(anchor_y)
+                self._obj.set_anchor_point(anchor_x, anchor_y)
             x += anchor_x
             y += anchor_y
-        self._obj.set_positionu(x, y)
+        if self.subpixel_precision:
+            self._obj.set_positionu(x, y)
+        else:
+            self._obj.set_position(int(x), int(y))
 
     def _clutter_sync_properties(self):
         """

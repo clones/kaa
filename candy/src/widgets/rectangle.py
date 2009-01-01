@@ -115,7 +115,7 @@ class Rectangle(CairoTexture):
             if self._obj is None:
                 self._obj = backend.Rectangle()
                 self._obj.show()
-            self._obj.set_sizeu(self.inner_width, self.inner_height)
+            self._clutter_set_obj_size()
             self._obj.set_color(backend.Color(*self.__color))
             if self.__border_color and self.__border_size:
                 self._obj.set_border_width(self.__border_size)
