@@ -310,6 +310,9 @@ class CandyXML(xml.sax.ContentHandler):
         """
         Return root attributes and parsed elements
         """
+        if self._root[0] == '__candyxml_simple__':
+            # fake candyxml tree, only one element
+            return self._elements.values()[0].values()[0]
         return dict(self._root[1]), self._elements
 
     def startElement(self, name, attrs):
@@ -318,14 +321,25 @@ class CandyXML(xml.sax.ContentHandler):
         """
         if self._root is None:
             self._root = name, attrs
-            w, h = [ int(v) for v in attrs['geometry'].split('x') ]
-            if not self._geometry:
-                self._scale = 1.0, 1.0
+            self._scale = 1.0, 1.0
+            if attrs.get('geometry'):
+                # candyxml tag has geometry information for scaling
+                w, h = [ int(v) for v in attrs['geometry'].split('x') ]
                 self.width, self.height = w, h
+                if self._geometry:
+                    self._scale = float(self._geometry[0]) / w, float(self._geometry[1]) / h
             else:
-                self._scale = float(self._geometry[0]) / w, \
-                              float(self._geometry[1]) / h
-            return
+                # no geometry information. Let us hope we have something from the stage
+                if not self._geometry:
+                    raise RuntimeError('no geometry information')
+                self.width, self.height = self._geometry
+            if not name in _parser.keys():
+                # must be a parent tag like cnadyxml around
+                # everything. This means we may have more than one
+                # widget in this xml stream.
+                return
+            # create fake root
+            self._root = '__candyxml_simple__', {}
         if name == 'alias' and len(self._stack) == 0:
             self._names.append(attrs['name'])
             return
