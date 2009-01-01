@@ -53,7 +53,6 @@ class Progressbar(Group):
         self._bar = progress
         self._bar.x = 0
         self._bar.y = 0
-        self._bar.height = self.inner_height
         self._bar.parent = self
 
     @property
@@ -87,9 +86,9 @@ class Progressbar(Group):
         """
         Render the widget
         """
-        super(Progressbar, self)._candy_prepare()
-        if 'size' in self._sync_properties:
+        if 'size' in self._sync_properties or not self._obj:
             self._bar.height = self.inner_height
+        super(Progressbar, self)._candy_prepare()
         pos = float(self.__progress) / max(self.__max, self.__progress, 0.1)
         self._bar.width = int(max(pos * self.inner_width, 1))
 

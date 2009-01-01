@@ -319,7 +319,7 @@ class Widget(object):
         if self.__dynamic_height is not None:
             self.__height = None
         self.__dynamic_parent_size = size
-        self.__calculate_size()
+        self._candy_prepare()
         if current != (self.__width, self.__height):
             self._queue_rendering()
             self._queue_sync_layout()

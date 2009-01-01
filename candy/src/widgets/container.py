@@ -116,10 +116,11 @@ class Group(Widget):
         """
         # reset clutter_size information
         self._intrinsic_size = None
+        calculate_dynamic_size = 'size' in self._sync_properties
         if self._obj is None:
             self._obj = backend.Group()
             self._obj.show()
-        calculate_dynamic_size = 'size' in self._sync_properties
+            calculate_dynamic_size = True
         # prepare new children
         while self.__children_added:
             self.__children_added.pop(0)._sync_properties['parent'] = self._obj
