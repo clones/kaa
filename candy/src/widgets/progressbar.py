@@ -34,6 +34,7 @@ from kaa.utils import property
 
 # kaa.candy imports
 from ..core import is_template
+from rectangle import Rectangle
 from container import Group
 
 class Progressbar(Group):
@@ -46,10 +47,14 @@ class Progressbar(Group):
     __max = 0
     __progress = 0
 
-    def __init__(self, pos, size, progress):
+    def __init__(self, pos=None, size=None, progress=None):
         super(Progressbar, self).__init__(pos, size)
         if is_template(progress):
             progress = progress()
+        if progress is None:
+            # we have no progress bar, use a simple rectangle with its
+            # default values. In most cases this is wrong
+            progress = Rectangle()
         self._bar = progress
         self._bar.x = 0
         self._bar.y = 0

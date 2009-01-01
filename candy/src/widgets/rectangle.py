@@ -42,7 +42,7 @@ class Rectangle(CairoTexture):
     """
     candyxml_name = 'rectangle'
 
-    def __init__(self, pos, size, color=None, border_size=0,
+    def __init__(self, pos=None, size=None, color=None, border_size=0,
                  border_color=None, radius=0):
         """
         Create a Rectange widget
