@@ -138,31 +138,36 @@ class Group(Widget):
             # require layout when a child changes layout
             self._sync_layout = self._sync_layout or child._sync_layout
 
+    def _clutter_layout_children(self, children):
+        """
+        Layout the children of the widget
+        """
+        for child in children:
+            if child._sync_layout:
+                child._sync_layout = False
+                child._clutter_sync_layout()
+
     def _clutter_sync_layout(self):
         """
         Layout the widget
         """
         # sync non-passive children and remember the passive ones for later
-        passive = []
+        children = { True: [], False: [] }
         for child in self.children:
-            if child.passive:
-                passive.append(child)
-            elif child._sync_layout:
-                child._sync_layout = False
-                child._clutter_sync_layout()
+            children[child.passive].append(child)
+        self._clutter_layout_children(children[False])
         # sync group object
         super(Group,self)._clutter_sync_layout()
-        if not passive:
+        if not children[True]:
             # no passive children, we are done here
             return
         # get the current width and height of the group to sync
         width = height = 0
-        for child in self.children:
-            if not child.passive:
-                width = max(width, child.x + child.width)
-                height = max(height, child.y + child.height)
+        for child in children[False]:
+            width = max(width, child.x + child.width)
+            height = max(height, child.y + child.height)
         # render and sync the layout of all passive children
-        for child in passive:
+        for child in children[True]:
             child._candy_calculate_dynamic_size((width, height))
             if child._sync_rendering:
                 child._sync_rendering = False
@@ -290,16 +295,16 @@ class LayoutGroup(Group):
         self.children.insert(pos, child)
         self._queue_sync_layout()
 
-    def _clutter_sync_layout(self):
+    def _clutter_layout_children(self, children):
         """
-        Layout the widget
+        Layout the children of the widget
         """
-        super(LayoutGroup, self)._clutter_sync_layout()
         if self.__layout:
-            self.__layout(self.children, self.spacing)
-            for child in self.children:
-                if child._sync_layout:
-                    child._clutter_sync_layout()
+            self.__layout(children, self.spacing)
+        for child in children:
+            if child._sync_layout:
+                child._sync_layout = False
+                child._clutter_sync_layout()
 
     @classmethod
     def register_layout(cls, name, func):
