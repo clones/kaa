@@ -24,10 +24,11 @@ class Message(kaa.candy.LayoutGroup):
             self.content.xalign = self.content.ALIGN_CENTER
             self.content.parent = self
 
-    def _clutter_message_create(self):
+    def _candy_prepare(self):
         """
         Create the widgets in the message popup
         """
+        super(Message, self)._candy_prepare()
         # We need at least text_height * text_width space for the text, in
         # most cases more (because of line breaks. To make the text look
         # nice, we try 4:3 aspect of the box at first and than use the max
@@ -48,8 +49,6 @@ class Message(kaa.candy.LayoutGroup):
         """
         Render the widget
         """
-        if self._obj is None:
-            self._clutter_message_create()
         super(Message, self)._clutter_render()
         if self.x == 0:
             self.x = max((self.parent.width - self.width) / 2, 0)
