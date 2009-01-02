@@ -116,6 +116,5 @@ setup(
     version      = '0.0.9',
     license      = 'LGPL',
     summary      = 'Third generation Canvas System using Clutter as backend.',
-    epydoc       = [ 'doc/epydoc' ],
     ext_modules  = [ libcandy ]
 )

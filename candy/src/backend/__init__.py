@@ -4,9 +4,19 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
+# Access clutter functions and objects
+#
+# The clutter modules must be imported and used by the gobject mainloop. This
+# modules wraps access to all functions, modules and other extensions of clutter
+# into a single module. In the clutter mainloop you can clutter by replacing
+# clutter with backend.
+#
+# Special clases inheriting from clutter classes will also be defined in this
+# module and imported into the backend namespace when the gobject mainloop starts.
+#
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -28,18 +38,6 @@
 # 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
-
-"""
-Access clutter functions and objects
-
-The clutter modules must be imported and used by the gobject mainloop. This
-modules wraps access to all functions, modules and other extensions of clutter
-into a single module. In the clutter mainloop you can clutter by replacing
-clutter with backend.
-
-Special clases inheriting from clutter classes will also be defined in this
-module and imported into the backend namespace when the gobject mainloop starts.
-"""
 
 import sys
 import logging
@@ -96,7 +94,7 @@ class Mainloop(object):
         import clutter
         clutter.main_quit()
 
-if not 'epydoc' in sys.modules:
+if 'epydoc' not in sys.modules and 'sphinx.builder' not in sys.modules:
     # set generic notifier and start the clutter thread
     kaa.main.select_notifier('generic')
     kaa.gobject_set_threaded(Mainloop())

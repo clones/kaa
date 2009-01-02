@@ -4,9 +4,12 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
+# TODO: add function to loop an animation
+#       add pause function
+#
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -30,13 +33,6 @@
 # -----------------------------------------------------------------------------
 
 __all__ = [ 'Animation', 'thread_enter', 'thread_leave', 'thread_locked' ]
-
-"""
-Animation submodule
-
-@todo: add function to loop an animation
-@todo: add pause function
-"""
 
 # python imports
 import time
@@ -110,10 +106,8 @@ class Animation(object):
 
     def __init__(self, secs, alpha_func='inc'):
         """
-        Create an animation
-
-        @param secs: runtime of the animation
-        @param alpha_func: alpha_func to apply to the behaviours
+        Create an animation with a runtime in secs and use the
+        alpha_func for the behaviours.
         """
         self.current_frame_num = 0
         self.n_frames = int(float(secs) * config.fps)
@@ -152,11 +146,9 @@ class Animation(object):
 
     def behave(self, behaviour, *args, **kwargs):
         """
-        Add behaviour to the animation
-
-        @param behaviour: Behaviour object or string. If behaviour is a
-            string, an object registered to that name will be created
-            with the given arguments.
+        Add behaviour to the animation. If `behaviour` is a string, an
+        object registered to that name will be created with the given
+        arguments.
         """
         if isinstance(behaviour, (str, unicode)):
             behaviour = create_behaviour(behaviour, *args, **kwargs)
