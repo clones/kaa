@@ -417,8 +417,10 @@ class Widget(object):
         height = height or self.__height - 2 * self.__ypadding
         if self.subpixel_precision:
             self._obj.set_sizeu(width, height)
+            self._intrinsic_size = width, height
         else:
             self._obj.set_size(int(width), int(height))
+            self._intrinsic_size = int(width), int(height)
 
     def _clutter_sync_layout(self):
         """
@@ -428,10 +430,7 @@ class Widget(object):
         x, y = self.__x, self.__y
         anchor_x = anchor_y = 0
         if self.__xalign in (Widget.ALIGN_CENTER, Widget.ALIGN_RIGHT):
-            if self.intrinsic_size:
-                obj_width = self.intrinsic_size[0]
-            else:
-                obj_width = self._obj.get_width()
+            obj_width = self._obj.get_width()
             if self.__xalign == Widget.ALIGN_CENTER:
                 x += (self.__width - obj_width) / 2
                 anchor_x = obj_width / 2
@@ -440,11 +439,8 @@ class Widget(object):
                 anchor_x = obj_width
         else:
             x += self.__xpadding
-        if self.__xalign in (Widget.ALIGN_CENTER, Widget.ALIGN_BOTTOM):
-            if self.intrinsic_size:
-                obj_height = self.intrinsic_size[1]
-            else:
-                obj_height = self._obj.get_height()
+        if self.__yalign in (Widget.ALIGN_CENTER, Widget.ALIGN_BOTTOM):
+            obj_height = self.intrinsic_size[1]
             if self.__yalign == Widget.ALIGN_CENTER:
                 y += (self.__height - obj_height) / 2
                 anchor_y = obj_height / 2
@@ -532,7 +528,7 @@ class Widget(object):
     def width(self):
         if self.__width == None:
             self.__calculate_size()
-        if self.xalign == self.ALIGN_SHRINK and self.intrinsic_size:
+        if self.xalign == self.ALIGN_SHRINK:
             return self.intrinsic_size[0] + 2 * self.__xpadding
         return self.__width
 
@@ -567,7 +563,7 @@ class Widget(object):
     def height(self):
         if self.__height == None:
             self.__calculate_size()
-        if self.yalign == self.ALIGN_SHRINK and self.intrinsic_size:
+        if self.yalign == self.ALIGN_SHRINK:
             return self.intrinsic_size[1] + 2 * self.__ypadding
         return self.__height
 
