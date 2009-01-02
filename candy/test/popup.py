@@ -120,7 +120,5 @@ m.x = 50
 m.y = 350
 m.parent = stage
 
-# Bug: step MUST be called when we enter main
-stage.sync()
 # run the kaa mainloop, it takes some time to load all the images.
 kaa.main.run()

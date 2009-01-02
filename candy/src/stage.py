@@ -32,8 +32,10 @@
 __all__ = [ 'Stage' ]
 
 # python imports
+import os
 import threading
 import time
+import fcntl
 import logging
 import gobject
 
@@ -53,6 +55,10 @@ import config
 log = logging.getLogger('kaa.candy')
 
 class Stage(Group):
+
+    __wakeup = True
+    __clutter_thread = None
+
     """
     kaa.candy window
 
@@ -69,8 +75,15 @@ class Stage(Group):
         """
         super(Stage, self).__init__(None, (width, height))
         self.signals = kaa.Signals('key-press', 'resize')
-        kaa.signals['step'].connect(self.sync)
         animation.signals['candy-update'].connect(self._clutter_sync)
+        # We need the render pipe, the 'step' signal is not enough. It
+        # is not troggered between timer and select and a change done
+        # in a timer may get lost.
+        self._render_pipe = os.pipe()
+        fcntl.fcntl(self._render_pipe[0], fcntl.F_SETFL, os.O_NONBLOCK)
+        fcntl.fcntl(self._render_pipe[1], fcntl.F_SETFL, os.O_NONBLOCK)
+        kaa.IOMonitor(self.sync).register(self._render_pipe[0])
+        os.write(self._render_pipe[1], '1')
 
     def candyxml(self, data):
         """
@@ -85,9 +98,12 @@ class Stage(Group):
         """
         Called from the mainloop to update all widgets in the clutter thread.
         """
+        # read the socket to handle the sync
+        os.read(self._render_pipe[0], 1)
         if not (self._sync_rendering or self._sync_layout or self._sync_properties):
             # No update needed, no need to jump into the clutter thread
             # and return without doing anything usefull.
+            self.__wakeup = False
             return
         if animation.thread_locked():
             animation.thread_leave(force=True)
@@ -104,29 +120,79 @@ class Stage(Group):
         if key is not None:
             kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
 
+    def _schedule_sync(self):
+        """
+        Schedule sync
+        """
+        if not self.__wakeup:
+            # set wakeup flag
+            self.__wakeup = True
+            if self.__clutter_thread != threading.currentThread():
+                # we are in the clutter thread, either because of sync
+                # itself or because of animations. In both cases the
+                # sync will take care of the rendering without putting
+                # something in the pipe.
+                os.write(self._render_pipe[1], '1')
+
+    def _queue_rendering(self):
+        """
+        Queue rendering on the next sync.
+        """
+        super(Stage, self)._queue_rendering()
+        self._schedule_sync()
+
+    def _queue_sync_layout(self):
+        """
+        Queue re-layout to be called on the next sync.
+        """
+        super(Stage, self)._queue_sync_layout()
+        self._schedule_sync()
+
+    def _queue_sync_properties(self, *properties):
+        """
+        Queue clutter properties to be set on the next sync.
+        """
+        super(Stage, self)._queue_sync_properties(*properties)
+        self._schedule_sync()
+
     def _clutter_sync(self, event=None):
         """
         Execute update inside safe try/except environment
         """
-        try:
-            if config.performance_debug:
-                t1 = time.time()
-            if self._sync_rendering:
-                self._candy_prepare()
-                self._sync_rendering = False
-                self._clutter_render()
-            if self._sync_layout:
-                self._sync_layout = False
-                self._clutter_sync_layout()
-            if self._sync_properties:
-                self._clutter_sync_properties()
-                self._sync_properties = {}
-            if config.performance_debug:
-                diff = time.time() - t1
-                if diff > 0.05:
-                    log.warning('candy_sync() took %2.3f secs' % diff)
-        except Exception, e:
-            log.exception('kaa.candy.sync')
+        if not self.__clutter_thread:
+            self.__clutter_thread = threading.currentThread()
+        counter = 0
+        if config.performance_debug:
+            t1 = time.time()
+        while self.__wakeup:
+            # it may be possible that a render or layout call triggers
+            # rendering or layout again. We count this calls and
+            # respect them up to five times. If the counter is higher,
+            # there is an error in the programming logic and it could
+            # be possible that this while loop goes on forever. To
+            # prevent that, we stop with an error.
+            self.__wakeup = False
+            counter += 1
+            if counter == 5:
+                log.error('Syncing the stage triggers sync again for five times.')
+                break
+            try:
+                if self._sync_rendering:
+                    self._candy_prepare()
+                    self._sync_rendering = False
+                    self._clutter_render()
+                if self._sync_layout:
+                    self._clutter_sync_layout()
+                if self._sync_properties:
+                    self._clutter_sync_properties()
+                    self._sync_properties = {}
+            except Exception, e:
+                log.exception('kaa.candy.sync')
+                break
+        if config.performance_debug:
+            diff = time.time() - t1
+            if diff > 0.05:
+                log.warning('candy_sync() took %2.3f secs' % diff)
         if event:
             event.set()
         return False
