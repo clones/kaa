@@ -166,7 +166,7 @@ class Grid(Group):
         self.__col_animation = None
         # group of items
         self.items = ItemGroup((x0, y0))
-        self.items.parent = self
+        self.add(self.items)
 
     def __getattr__(self, attr):
         """
@@ -264,7 +264,7 @@ class Grid(Group):
         child.x = pos_x * self._col_size
         child.y = pos_y * self._row_size
         child.width, child.height = self.cell_size
-        child.parent = self.items
+        self.items.add(child)
         self._rendered[(pos_x, pos_y)] = child
         return child
 
@@ -318,7 +318,7 @@ class Grid(Group):
                x > base_x + 2 * self.num_cols or y > base_y + 2 * self.num_rows:
                 child = self._rendered.pop((x,y))
                 if child:
-                    child.parent = None
+                    child.unparent()
         return
 
     def _clutter_render(self):
@@ -395,8 +395,8 @@ class SelectionGrid(Grid):
         if is_template(selection):
             selection = selection()
         self.selection = selection
-        self.selection.parent = self
         self.selection.lower_bottom()
+        self.add(self.selection)
         self.__animation = None
 
     def _create_grid(self):

@@ -12,17 +12,16 @@ class Message(kaa.candy.LayoutGroup):
             border = content()
         self.border = border
         self.border.passive = True
-        self.border.parent = self
         self.spacing = 20
         self.text = kaa.candy.Text(None, None, text, font, color)
-        self.text.parent = self
         self.text.yalign = self.ALIGN_SHRINK
         self.text.xalign = self.ALIGN_CENTER
+        self.add(self.border, self.text)
         self.xalign = self.yalign = self.ALIGN_SHRINK
         self.content = content
         if content:
             self.content.xalign = self.content.ALIGN_CENTER
-            self.content.parent = self
+            self.add(self.content)
 
     def _candy_prepare(self):
         """
@@ -60,12 +59,11 @@ class Button(kaa.candy.Group):
     def __init__(self, text, font, color, box):
         super(Button, self).__init__(None, (200, 50))
         self.xpadding = 20
-        box.parent = self
         box.passive = True
         label = kaa.candy.Label(None, None, font, color, text)
-        label.parent = self
         label.xpadding = 20
         label.xalign = label.yalign = label.ALIGN_SHRINK
+        self.add(box, label)
         self.xalign = self.yalign = label.ALIGN_SHRINK
 
 # create a stage window
@@ -90,7 +88,7 @@ box = stage.candyxml('''
 m = Message(txt, font, '0xffffff', box)
 m.x = 50
 m.y = 50
-m.parent = stage
+stage.add(m)
 
 # ############### button popup ############### #
 
@@ -103,21 +101,21 @@ buttons.yalign = buttons.ALIGN_SHRINK
 m = Message(txt, font, '0xffffff', box, buttons)
 m.x = 450
 m.y = 50
-m.parent = stage
+stage.add(m)
 
 # ############### progressbar popup ############### #
 
 progressbar = kaa.candy.Group(size=(None, 20))
-kaa.candy.Rectangle(color='0xaaaaaa').parent = progressbar
+progressbar.add(kaa.candy.Rectangle(color='0xaaaaaa'))
 progress = kaa.candy.Progressbar(progress=kaa.candy.Rectangle(color='0xffffff'))
 progress.max = 100
 progress.progress = 30
-progress.parent = progressbar
+progressbar.add(progress)
 
 m = Message(txt, font, '0xffffff', box, progressbar)
 m.x = 50
 m.y = 350
-m.parent = stage
+stage.add(m)
 
 # run the kaa mainloop, it takes some time to load all the images.
 kaa.main.run()

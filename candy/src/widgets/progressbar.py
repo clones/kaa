@@ -58,7 +58,7 @@ class Progressbar(Group):
         self._bar = progress
         self._bar.x = 0
         self._bar.y = 0
-        self._bar.parent = self
+        self.add(self._bar)
 
     @property
     def max(self):

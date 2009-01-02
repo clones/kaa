@@ -59,8 +59,8 @@ class Reflection(Group):
         super(Reflection, self).__init__((widget.x, widget.y))
         self.context_sensitive = widget.context_sensitive
         self.source = widget
-        self.source.parent = self
         self.source.x = self.source.y = 0
+        self.add(self.source)
         self._reflection_opacity = opacity
         self._reflection_obj = None
 

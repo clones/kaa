@@ -33,6 +33,7 @@ __all__ = [ 'Group', 'LayoutGroup', 'Container' ]
 
 # python imports
 import logging
+import _weakref
 
 # kaa imports
 import kaa
@@ -85,12 +86,32 @@ class Group(Widget):
 
     def add(self, *widgets):
         """
-        Convenience function to add widgets to a group. It just sets
-        the parent to this group.
+        Add widgets to the group.
         """
         for widget in widgets:
-            widget.parent = self
+            if widget.parent:
+                widget.parent.remove(widget)
+            # wire widget to ourself
+            widget._candy__parent = _weakref.ref(self)
+            self.__children_added.append(widget)
+            self.children.append(widget)
+        self._queue_rendering()
+        self._queue_sync_properties('children')
 
+    def remove(self, *widgets):
+        """
+        Remove widgets from the group.
+        """
+        for widget in widgets:
+            if widget in self.__children_added:
+                self.__children_added.remove(widget)
+            else:
+                self.__children_removed.append(widget)
+            self.children.remove(widget)
+            widget._candy__parent = None
+        self._queue_rendering()
+        self._queue_sync_properties('children')
+        
     def _candy_calculate_dynamic_size(self, size=None):
         """
         Adjust dynamic change to parent size changes. This function
@@ -220,31 +241,6 @@ class Group(Widget):
                     height = max(height, child.y + child.height)
             self._intrinsic_size = width, height
         return self._intrinsic_size
-
-    def _candy_child_add(self, child):
-        """
-        Add a child and set it visible.
-
-        @param child: child widget
-        """
-        self._queue_rendering()
-        self._queue_sync_properties('children')
-        self.__children_added.append(child)
-        self.children.append(child)
-
-    def _candy_child_remove(self, child):
-        """
-        Remove a child widget
-
-        @param child: child widget
-        """
-        if child in self.__children_added:
-            self.__children_added.remove(child)
-        else:
-            self.__children_removed.append(child)
-        self._queue_rendering()
-        self._queue_sync_properties('children')
-        self.children.remove(child)
 
     def _candy_child_restack(self, child, direction):
         """
@@ -378,7 +374,7 @@ class Container(LayoutGroup):
                     widget = template(context)
                     if widget.context_sensitive:
                         widget.userdata['container:template'] = template
-                widget.parent = self
+                self.add(widget)
             except:
                 log.exception('render')
         if dependency:
@@ -457,7 +453,7 @@ class Container(LayoutGroup):
         eventhandler = child.eventhandler.get('hide')
         if eventhandler:
             async.extend([ x(child, context) for x in eventhandler])
-        replace.parent = self
+        self.add(replace)
         eventhandler = replace.eventhandler.get('show')
         if eventhandler is not None:
             async.extend([ x(replace, context) for x in eventhandler])
@@ -465,11 +461,11 @@ class Container(LayoutGroup):
             i = kaa.InProgressAll(*async)
             i.connect(self.__unparent_child, child, i)
         else:
-            child.parent = None
+            child.unparent()
         replace._sync_properties['stack-position'] = child
 
-    def __unparent_child(self, x, child, y):
-        child.parent = None
+    def __unparent_child(self, result, child, ref):
+        self.remove(child)
 
     @classmethod
     def candyxml_parse(cls, element):

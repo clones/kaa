@@ -13,17 +13,17 @@ def main():
     r4 = kaa.candy.Rectangle((200,200), (100,100), '0xffffff')
 
     c1.passive = True
-    c1.parent = stage
-    r1.parent = c1
-    r2.parent = c1
+    stage.add(c1)
+    c1.add(r1)
+    c1.add(r2)
     r2.passive = True
     
-    r3.parent = stage
-    r4.parent = stage
+    stage.add(r3)
+    stage.add(r4)
 
     yield kaa.delay(0.3)
     r5 = kaa.candy.Rectangle((300,300), (100,100), '0xffffff')
-    r5.parent = stage
+    stage.add(r5)
     yield kaa.delay(0.3)
     c1.width = 300
     yield kaa.delay(0.3)

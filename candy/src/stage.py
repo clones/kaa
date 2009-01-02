@@ -99,7 +99,10 @@ class Stage(Group):
         Called from the mainloop to update all widgets in the clutter thread.
         """
         # read the socket to handle the sync
-        os.read(self._render_pipe[0], 1)
+        try:
+            os.read(self._render_pipe[0], 1)
+        except OSError:
+            pass
         if not (self._sync_rendering or self._sync_layout or self._sync_properties):
             # No update needed, no need to jump into the clutter thread
             # and return without doing anything usefull.

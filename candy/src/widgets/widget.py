@@ -156,7 +156,7 @@ class Widget(object):
     _sync_layout = True
 
     # properties
-    __parent = None
+    _candy__parent = None
     __anchor = None
     __x = 0.0
     __y = 0.0
@@ -253,7 +253,7 @@ class Widget(object):
         a.apply(self)
         a.start(delay)
         if unparent:
-            kaa.inprogress(a).connect(setattr, self, 'parent', None).ignore_caller_args = True
+            kaa.inprogress(a).connect(self.unparent).ignore_caller_args = True
         return a
 
     def raise_top(self):
@@ -269,6 +269,13 @@ class Widget(object):
         """
         if self.parent:
             self.parent._candy_child_restack(self, 'bottom')
+
+    def unparent(self):
+        """
+        Remove the widget from its parent.
+        """
+        if self.parent:
+            self.parent.remove(self)
 
     def __calculate_size(self):
         """
@@ -394,10 +401,10 @@ class Widget(object):
         Prepare sync, set parent while calling the prepare function
         """
         if parent:
-            self.__parent = _weakref.ref(parent)
+            self._candy__parent = _weakref.ref(parent)
         self._candy_prepare()
         if parent:
-            self.__parent = None
+            self._candy__parent = None
 
     # clutter rendering
 
@@ -691,20 +698,9 @@ class Widget(object):
 
     @property
     def parent(self):
-        if self.__parent is None:
+        if self._candy__parent is None:
             return None
-        return self.__parent()
-
-    @parent.setter
-    def parent(self, parent):
-        if self.__parent is not None:
-            curent = self.__parent()
-            if curent is not None:
-                curent._candy_child_remove(self)
-        self.__parent = None
-        if parent:
-            self.__parent = _weakref.ref(parent)
-            parent._candy_child_add(self)
+        return self._candy__parent()
 
     @property
     def context(self):
