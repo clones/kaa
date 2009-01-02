@@ -57,16 +57,16 @@ class Label(Widget):
     __text_eval = ''
     _regexp_eval = re.compile('\$([a-zA-Z][a-zA-Z0-9_\.]*)|\${([^}]*)}')
 
-    def __init__(self, pos, size, font, color, text, context=None):
+    def __init__(self, pos, size, text, font, color, context=None):
         """
         Create a new label widget
 
         @param pos: (x,y) position of the widget or None
-        @param size: (width,height) geometry of the widget.
-        @param font: kaa.candy.Font object
         @param text: Text to render. This can also be a context based string like
             C{$text} with the context containing C{text='My String'}. This will
             make the widget context sensitive.
+        @param size: (width,height) geometry of the widget.
+        @param font: kaa.candy.Font object
         @param context: the context the widget is created in
         """
         super(Label, self).__init__(pos, size, context)

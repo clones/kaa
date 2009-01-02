@@ -60,7 +60,7 @@ class Button(kaa.candy.Group):
         super(Button, self).__init__(None, (200, 50))
         self.xpadding = 20
         box.passive = True
-        label = kaa.candy.Label(None, None, font, color, text)
+        label = kaa.candy.Label(None, None, text, font, color)
         label.xpadding = 20
         label.xalign = label.yalign = label.ALIGN_SHRINK
         self.add(box, label)
