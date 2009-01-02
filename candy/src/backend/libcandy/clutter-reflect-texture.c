@@ -105,7 +105,10 @@ clutter_reflect_texture_paint (ClutterActor *actor)
 
   priv = texture->priv;
 
-  clutter_actor_get_size (actor, &width, &height);
+  clutter_actor_get_size (parent, &width, &height);
+  if (!height)
+      // probably won't happen, but just in case, to avoid divide by zero.
+      return;
 
   r_height = priv->reflection_height;
   bottom = priv->reflect_bottom;
