@@ -83,8 +83,14 @@ class Reflection(Group):
         """
         Layout the widget
         """
+        # Get the source's size and set the anchor_point. We MUST do
+        # this before calling super's sync function to avoid
+        # triggering a re-layout when setting the anchor_point.
+        width, height = self.source._obj.get_size()
+        self.anchor_point = width/2, height
         super(Reflection, self)._clutter_sync_layout()
-        x, y, width, height = self.source._obj.get_geometry()
+        # get source's position to set the reflection
+        x, y = self.source._obj.get_position()
         self._reflection_obj.set_property('reflection-height', height / 2)
         if self.subpixel_precision:
             self._reflection_obj.set_anchor_pointu(*self.source._obj.get_anchor_pointu())
@@ -94,7 +100,6 @@ class Reflection(Group):
             self._reflection_obj.set_anchor_point(*self.source._obj.get_anchor_point())
             self._reflection_obj.set_position(int(x), int(y + height))
             self._reflection_obj.set_size(int(width), int(height))
-        self.anchor_point = width/2, height
 
     def _candy_context_prepare(self, context):
         """
