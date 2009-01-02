@@ -32,12 +32,17 @@
 # python imports
 import weakref
 import struct
+import logging
 
 # kaa for the socket callback
 import kaa
+from kaa.utils import property
 
 # the display module
 import _X11
+
+# get logging object
+log = logging.getLogger('display.x11')
 
 # default X11 display
 _default_x11_display = None
@@ -414,10 +419,15 @@ class X11Window(object):
     def set_transient_for(self, window=None, transient=True):
         win_id = 0
         if window:
-            win_id = window.get_id()
+            win_id = window.id
         return self._window.set_transient_for(win_id, transient)
 
     def get_id(self):
+        log.warning('Window.get_id() is deprecated in favor of Windows.id property')
+        return self._window.wid
+
+    @property
+    def id(self):
         return self._window.wid
 
     def focus(self):
