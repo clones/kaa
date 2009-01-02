@@ -430,7 +430,7 @@ class Widget(object):
         x, y = self.__x, self.__y
         anchor_x = anchor_y = 0
         if self.__xalign in (Widget.ALIGN_CENTER, Widget.ALIGN_RIGHT):
-            obj_width = self._obj.get_width()
+            obj_width = self.intrinsic_size[0]
             if self.__xalign == Widget.ALIGN_CENTER:
                 x += (self.__width - obj_width) / 2
                 anchor_x = obj_width / 2
