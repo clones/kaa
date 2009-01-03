@@ -16,7 +16,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -540,4 +540,130 @@ class SelectionGrid(Grid):
                 selection = child[0].xmlcreate()
                 element.remove(child)
         return super(SelectionGrid, cls).candyxml_parse(element).update(
+            selection=selection)
+
+
+class SelectionGrid2(Grid):
+    """
+    Grid with selection widget. Unlike SelectionGrid the selection
+    does not move but will fade in and out as highlight border around
+    the item.
+    """
+
+    candyxml_style = 'opacity'
+
+    def __init__(self, pos, size, cell_size, cell_item, items, template,
+                 selection, orientation, spacing=None, context=None):
+        """
+        Simple grid widget to show the items based on the template.
+
+        @param pos: (x,y) position of the widget or None
+        @param size: (width,height) geometry of the widget.
+        @param cell_size: (width,height) of each cell
+        @param cell_item: string how the cell item should be added to the context
+        @param items: list of objects or object name in the context
+        @param template: child template for each cell
+        @param selection: widget for the selection
+        @param orientation: how to arange the grid: Grid.HORIZONTAL or Grid.VERTICAL
+        @param spacing: x,y values of space between two items. If set to None
+            the spacing will be calculated based on cell size and widget size
+        @param context: the context the widget is created in
+
+        """
+        self.behaviour = []
+        super(SelectionGrid2, self).__init__(pos, size, cell_size, cell_item, items,
+            template, orientation, spacing, context)
+        if not is_template(selection):
+            raise RuntimeError('selection must be a template')
+        self._selection_template = selection
+        self._selections = []
+
+    def _create_grid(self):
+        """
+        Setup the grid. After this function has has been called no modifications
+        to the grid are possible.
+
+        @todo: make it possible to change the layout during runtime
+        """
+        super(SelectionGrid2, self)._create_grid()
+        self.select((0, 0), 0)
+
+    def behave(self, behaviour, *args, **kwargs):
+        """
+        Add behaviour to be used for widgets covered by the selection
+
+        @param behaviour: Behaviour object or name registered to the behaviour
+           submodule. If a new is given, the Behaviour will be created with
+           the given arguments.
+        """
+        # This function will force grid creation
+        if isinstance(behaviour, str):
+            behaviour = create_behaviour(behaviour, *args, **kwargs)
+        self.behaviour.append(behaviour)
+        behaviour.apply(0, [ c for c in self.items.children if not c in self._selections ])
+        self._queue_rendering()
+        return self
+
+    def _apply_behaviour(self, alpha_value, item_pos, start, stop):
+        obj = self._rendered.get(item_pos)
+        if not obj:
+            return
+        factor = float(alpha_value) / MAX_ALPHA
+        opacity = start + (stop - start) * factor
+        alpha_value = (MAX_ALPHA / 255) * opacity
+        for behaviour in self.behaviour:
+            behaviour.apply(alpha_value, [obj])
+
+    def select(self, (col, row), secs):
+        """
+        Select a cell.
+
+        @param col, row: cell position to select
+        @param secs: runtime of the animation
+        """
+        # This function will force grid creation
+        selection = self._selection_template()
+        selection.x = col * self._col_size
+        selection.y = row * self._row_size
+        selection.lower_bottom()
+        selection._grid_item = col, row
+        self.items.add(selection)
+        while self._selections and self._selections[0].opacity == 0:
+            # remove old selections
+            self._selections.pop(0).unparent()
+        if secs:
+            if self._selections and self._selections[-1].opacity:
+                callback = kaa.Callback(self._apply_behaviour, self._selections[-1]._grid_item, self._selections[-1].opacity, 0)
+                self._selections[-1].animate(secs, callback=callback).behave('opacity', self._selections[-1].opacity, 0)
+            selection.opacity = 0
+            callback = kaa.Callback(self._apply_behaviour, selection._grid_item, 0, 255)
+            selection.animate(secs, callback=callback).behave('opacity', 0, 255)
+        else:
+            for old_selection in self._selections:
+                old_selection.opacity = 0
+                self._apply_behaviour(MAX_ALPHA, old_selection._grid_item, 255, 0)
+            self._apply_behaviour(MAX_ALPHA, selection._grid_item, 0, 255)
+        self._selections.append(selection)
+
+    def _candy_create_item(self, item_num, pos_x, pos_y):
+        """
+        Render one child
+        """
+        child = super(SelectionGrid2, self)._candy_create_item(item_num, pos_x, pos_y)
+        if child:
+            for selection in self._selections:
+                if selection._grid_item == (pos_x, pos_y):
+                    alpha_value = (MAX_ALPHA / 255) * selection.opacity
+                    for behaviour in self.behaviour:
+                        behaviour.apply(alpha_value, [child])
+        return child
+
+    @classmethod
+    def candyxml_parse(cls, element):
+        selection = None
+        for child in element:
+            if child.node == 'selection':
+                selection = child[0].xmlcreate()
+                element.remove(child)
+        return super(SelectionGrid2, cls).candyxml_parse(element).update(
             selection=selection)
