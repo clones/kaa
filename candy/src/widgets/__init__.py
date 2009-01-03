@@ -41,7 +41,7 @@ from rectangle import Rectangle
 from progressbar import Progressbar
 from text import Text
 from image import Imlib2Texture, CairoTexture, Image, Thumbnail
-from grid import Grid, SelectionGrid
+from grid import Grid, SelectionGrid, SelectionGrid2
 from reflection import Reflection, ReflectionModifier
 
 __all__ = []

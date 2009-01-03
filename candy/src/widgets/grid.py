@@ -39,7 +39,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Grid', 'SelectionGrid' ]
+__all__ = [ 'Grid', 'SelectionGrid', 'SelectionGrid2' ]
 
 # python imports
 import logging
@@ -625,9 +625,9 @@ class SelectionGrid2(Grid):
         selection = self._selection_template()
         selection.x = col * self._col_size
         selection.y = row * self._row_size
-        selection.lower_bottom()
         selection._grid_item = col, row
         self.items.add(selection)
+        selection.lower_bottom()
         while self._selections and self._selections[0].opacity == 0:
             # remove old selections
             self._selections.pop(0).unparent()
@@ -656,6 +656,7 @@ class SelectionGrid2(Grid):
                     alpha_value = (MAX_ALPHA / 255) * selection.opacity
                     for behaviour in self.behaviour:
                         behaviour.apply(alpha_value, [child])
+                    selection.lower_bottom()
         return child
 
     @classmethod
