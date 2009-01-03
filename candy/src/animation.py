@@ -104,7 +104,7 @@ class Animation(object):
     # member variable set to an InProgress while the animation is playing
     __inprogress = None
 
-    def __init__(self, secs, alpha_func='inc'):
+    def __init__(self, secs, alpha_func='inc', callback=None):
         """
         Create an animation with a runtime in secs and use the
         alpha_func for the behaviours.
@@ -117,6 +117,7 @@ class Animation(object):
         self.behaviour = []
         self.__refs = []
         self.delay = 0
+        self.callback = callback
 
     def start(self, delay=0):
         """
@@ -143,6 +144,7 @@ class Animation(object):
         Animation.__animations.remove(self)
         kaa.MainThreadCallback(self.__inprogress.finish)(None)
         self.__inprogress = None
+        self.callback = None
 
     def behave(self, behaviour, *args, **kwargs):
         """
@@ -192,6 +194,8 @@ class Animation(object):
             self.stop()
         for behaviour in self.behaviour:
             behaviour.apply(alpha_value, widgets)
+        if self.callback:
+            self.callback(alpha_value)
 
     @classmethod
     def __step(cls):

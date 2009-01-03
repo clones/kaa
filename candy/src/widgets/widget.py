@@ -237,7 +237,7 @@ class Widget(object):
         """
         self.__depends[var] = repr(self.__context.get(var))
 
-    def animate(self, secs, alpha='inc', delay=0, unparent=False):
+    def animate(self, secs, alpha='inc', delay=0, callback=None, unparent=False):
         """
         Animate the object with the given animation. This returns an
         Animation object to add the behaviours. The animation is already
@@ -249,7 +249,7 @@ class Widget(object):
             animation is finished.
         @note: in future version the alpha parameter will move to the behaviours
         """
-        a = animation.Animation(secs, alpha)
+        a = animation.Animation(secs, alpha, callback)
         a.apply(self)
         a.start(delay)
         if unparent:
