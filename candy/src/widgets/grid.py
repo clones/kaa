@@ -258,11 +258,20 @@ class Grid(Group):
         if item_num < 0 or item_num >= len(self.__child_listing):
             self._rendered[(pos_x, pos_y)] = None
             return
+        # calculate the size where the child should be
+        child_x = pos_x * self._col_size
+        child_y = pos_y * self._row_size
+        if (child_x + self.cell_size[0] < -self.items.x) or \
+               (child_y + self.cell_size[1] < -self.items.y) or \
+               (child_x >= -self.items.x + self.width) or \
+               (child_y >= -self.items.y + self.height):
+            # refuse the create invisible child
+            return
         context = self.context.copy()
         context[self.__child_context] = self.__child_listing[item_num]
         child = self.__child_template(context=context)
-        child.x = pos_x * self._col_size
-        child.y = pos_y * self._row_size
+        child.x = child_x
+        child.y = child_y
         child.width, child.height = self.cell_size
         self.items.add(child)
         self._rendered[(pos_x, pos_y)] = child
@@ -298,7 +307,6 @@ class Grid(Group):
                     pos_x += 1
                     if pos_x - base_x > self.num_cols:
                         break
-
         if self.__orientation == Grid.VERTICAL:
             item_num = base_y * self.num_cols + base_x
             while True:
@@ -329,6 +337,7 @@ class Grid(Group):
             log.error('FIXME: kaa.candy.Grid does not support resize')
             return
         super(Grid, self)._clutter_render()
+        # FIXME: use the clip is a bad style, fading would be better
         self._obj.set_clip(0, 0, int(self.inner_width), int(self.inner_height))
 
     @classmethod
