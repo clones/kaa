@@ -148,6 +148,10 @@ class Reflection(Group):
     def height(self, height):
         self.source.height = height
         self._dynamic_size = self.source._dynamic_size
+
+    @property
+    def intrinsic_size(self):
+        return self.source.intrinsic_size
     
 class ReflectionModifier(Modifier):
     """
