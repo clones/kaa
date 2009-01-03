@@ -36,6 +36,9 @@ import logging
 import gtk
 import cairo
 
+# kaa imports
+from kaa.utils import property
+
 # kaa.candy imports
 from .. import Modifier
 from .. import backend
@@ -59,10 +62,12 @@ class Reflection(Group):
         super(Reflection, self).__init__((widget.x, widget.y))
         self.context_sensitive = widget.context_sensitive
         self.source = widget
+        self.x, self.y = self.source.x, self.source.y
         self.source.x = self.source.y = 0
         self.add(self.source)
         self._reflection_opacity = opacity
         self._reflection_obj = None
+        self._dynamic_size = self.source._dynamic_size
 
     def _clutter_render(self):
         """
@@ -126,7 +131,24 @@ class Reflection(Group):
         # widget. So we just use the widget _candy_context_sync function here.
         return self.source._candy_context_sync(context)
 
+    @property
+    def width(self):
+        return self.source.width
 
+    @width.setter
+    def width(self, width):
+        self.source.width = width
+        self._dynamic_size = self.source._dynamic_size
+        
+    @property
+    def height(self):
+        return self.source.height
+
+    @height.setter
+    def height(self, height):
+        self.source.height = height
+        self._dynamic_size = self.source._dynamic_size
+    
 class ReflectionModifier(Modifier):
     """
     Modifier to add a reflection.
