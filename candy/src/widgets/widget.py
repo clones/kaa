@@ -75,7 +75,14 @@ class Template(object):
         self._cls = cls
         self._modifier = kwargs.pop('modifier', [])
         self._kwargs = kwargs
+        self._properties = []
         self.userdata = {}
+
+    def set_property(self, key, value):
+        """
+        Add property to be set after widget creation
+        """
+        self._properties.append((key, value))
 
     def __call__(self, context=None):
         """
@@ -92,6 +99,8 @@ class Template(object):
         widget = self._cls(**self._kwargs)
         for modifier in self._modifier:
             widget = modifier.modify(widget)
+        for key, value in self._properties:
+            setattr(widget, key, value)
         return widget
 
     @classmethod
