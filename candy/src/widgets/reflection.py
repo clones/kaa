@@ -93,6 +93,8 @@ class Reflection(Group):
         x, y = self.source._obj.get_position()
         self._reflection_obj.set_property('reflection-height', height / 2)
         if self.subpixel_precision:
+            # FIXME: this code does not respect subpixel_precision because it
+            # uses the int values from the source
             self._reflection_obj.set_anchor_pointu(*self.source._obj.get_anchor_pointu())
             self._reflection_obj.set_positionu(x, y + height)
             self._reflection_obj.set_sizeu(width, height)

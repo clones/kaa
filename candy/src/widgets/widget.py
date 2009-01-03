@@ -424,10 +424,10 @@ class Widget(object):
         height = height or self.__height - 2 * self.__ypadding
         if self.subpixel_precision:
             self._obj.set_sizeu(width, height)
-            self._intrinsic_size = width, height
         else:
-            self._obj.set_size(int(width), int(height))
-            self._intrinsic_size = int(width), int(height)
+            width, height = int(round(width)), int(round(height))
+            self._obj.set_size(width, height)
+        self._intrinsic_size = width, height
 
     def _clutter_sync_layout(self):
         """
@@ -459,18 +459,13 @@ class Widget(object):
         if self.__anchor:
             anchor_x, anchor_y = self.__anchor
         if anchor_x or anchor_y:
-            if self.subpixel_precision:
-                self._obj.set_anchor_pointu(anchor_x, anchor_y)
-            else:
-                anchor_x = int(anchor_x)
-                anchor_y = int(anchor_y)
-                self._obj.set_anchor_point(anchor_x, anchor_y)
+            self._obj.set_anchor_point(anchor_x, anchor_y)
             x += anchor_x
             y += anchor_y
         if self.subpixel_precision:
             self._obj.set_positionu(x, y)
         else:
-            self._obj.set_position(int(x), int(y))
+            self._obj.set_position(int(round(x)), int(round(y)))
 
     def _clutter_sync_properties(self):
         """
