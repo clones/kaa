@@ -267,7 +267,7 @@ class Properties(dict, Modifier):
                 value = int(value)
             elif key in ('xalign', 'yalign'):
                 value = value.lower()
-            elif key in ('keep_aspect',):
+            elif key in ('keep_aspect', 'passive'):
                 value = value.lower() in ('yes', 'true')
             elif key in ('scale','anchor_point'):
                 value = [ float(x) for x in value.split(',') ]
