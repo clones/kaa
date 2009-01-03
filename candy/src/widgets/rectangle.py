@@ -169,5 +169,5 @@ class Rectangle(CairoTexture):
                 border_size='2' border_color='0x000000' radius='10'/>
         """
         return super(Rectangle, cls).candyxml_parse(element).update(
-            radius=int(element.radius or 0), border_size=float(element.border_size or 0),
+            radius=int(element.radius or 0), border_size=int(element.border_size or 0),
             color=element.color, border_color=element.border_color)
