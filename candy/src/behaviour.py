@@ -135,6 +135,10 @@ class BehaviourColor(Behaviour):
     """
     Behaviour to change the color
     """
+    def __init__(self, start, end, attribute='color', target=None):
+        super(BehaviourColor, self).__init__(start, end, target)
+        self.attribute = attribute
+
     def _apply(self, alpha_value, widgets):
         """
         Update widgets based on alpha value
@@ -149,7 +153,7 @@ class BehaviourColor(Behaviour):
             color.append(start + int(diff * alpha))
         color = Color(*color)
         for widget in widgets:
-            widget.color = color
+            setattr(widget, self.attribute, color)
 
 
 # register behaviours
