@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -45,11 +45,16 @@ _alpha = {}
 
 class Behaviour(object):
     """
-    Behaviour base class
+    Behaviour base class. If target is not None, the widgets MUST be a
+    Container and the behaviour will be applied to the child with the
+    given name of that container. There will be no checks if this
+    child exists and the behaviour will rause an exception if it does
+    not.
     """
-    def __init__(self, start, end):
+    def __init__(self, start, end, target=None):
         self.start_value = start
         self.end_value = end
+        self.target = target
         if isinstance(start, (int, long, float)):
             self.diff = end - start
         if isinstance(start, (list, tuple)):
@@ -75,13 +80,16 @@ class Behaviour(object):
         @param alpha_value: alpha value between 0 and MAX_ALPHA
         @param widgets: widgets to modify
         """
-        raise NotImplementedError
+        if self.target:
+            widgets = [ w.get_widget(self.target) for w in widgets ]
+        self._apply(alpha_value, widgets)
+
 
 class BehaviourOpacity(Behaviour):
     """
     Behaviour to change the alpha value
     """
-    def apply(self, alpha_value, widgets):
+    def _apply(self, alpha_value, widgets):
         """
         Update widgets based on alpha value
         @param alpha_value: alpha value between 0 and MAX_ALPHA
@@ -91,11 +99,12 @@ class BehaviourOpacity(Behaviour):
         for widget in widgets:
             widget.opacity = opacity
 
+
 class BehaviourScale(Behaviour):
     """
     Behaviour to scale widgets
     """
-    def apply(self, alpha_value, widgets):
+    def _apply(self, alpha_value, widgets):
         """
         Update widgets based on alpha value
         @param alpha_value: alpha value between 0 and MAX_ALPHA
@@ -105,11 +114,12 @@ class BehaviourScale(Behaviour):
         for widget in widgets:
             widget.scale = scale
 
+
 class BehaviourMove(Behaviour):
     """
     Behaviour to move widgets
     """
-    def apply(self, alpha_value, widgets):
+    def _apply(self, alpha_value, widgets):
         """
         Update widgets based on alpha value
         @param alpha_value: alpha value between 0 and MAX_ALPHA
@@ -120,11 +130,12 @@ class BehaviourMove(Behaviour):
             widget.x = x
             widget.y = y
 
+
 class BehaviourColor(Behaviour):
     """
     Behaviour to change the color
     """
-    def apply(self, alpha_value, widgets):
+    def _apply(self, alpha_value, widgets):
         """
         Update widgets based on alpha value
         @param alpha_value: alpha value between 0 and MAX_ALPHA
@@ -139,6 +150,7 @@ class BehaviourColor(Behaviour):
         color = Color(*color)
         for widget in widgets:
             widget.color = color
+
 
 # register behaviours
 _behaviour['opacity'] = BehaviourOpacity
