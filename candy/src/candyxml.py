@@ -58,11 +58,11 @@ def scale_attributes(attrs, scale):
             value = int(scale[0] * int(value))
         elif key in ('y', 'ypadding'):
             value = int(scale[1] * int(value))
-        elif key == 'width':
-            x1 = int(scale[0] * int(attrs.get('x', 0)))
-            x2 = int(scale[0] * (int(attrs.get('x', 0)) + int(value)))
-            value = x2 - x1
-        elif key == 'height':
+        elif key == 'width' and not value.endswith('%'):
+                x1 = int(scale[0] * int(attrs.get('x', 0)))
+                x2 = int(scale[0] * (int(attrs.get('x', 0)) + int(value)))
+                value = x2 - x1
+        elif key == 'height' and not value.endswith('%'):
             y1 = int(scale[1] * int(attrs.get('y', 0)))
             y2 = int(scale[1] * (int(attrs.get('y', 0)) + int(value)))
             value = y2 - y1
