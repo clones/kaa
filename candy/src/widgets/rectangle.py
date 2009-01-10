@@ -1,12 +1,12 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# rectangle.py - Rectange Widget
+# rectangle.py - Rectangle Widget
 # -----------------------------------------------------------------------------
 # $Id$
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -29,6 +29,8 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [ 'Rectangle' ]
+
 from kaa.utils import property
 
 # kaa.candy imports
@@ -38,14 +40,14 @@ from image import CairoTexture
 
 class Rectangle(CairoTexture):
     """
-    Rectange with border and round corners based on cairo.
+    Rectangle with border and round corners based on cairo.
     """
     candyxml_name = 'rectangle'
 
     def __init__(self, pos=None, size=None, color=None, border_size=0,
                  border_color=None, radius=0):
         """
-        Create a Rectange widget
+        Create a Rectangle widget
 
         @param pos: (x,y) position of the widget or None
         @param size: (width,height) geometry of the widget.

@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -33,8 +33,6 @@ __all__ = [ 'Reflection', 'ReflectionModifier' ]
 
 # python imports
 import logging
-import gtk
-import cairo
 
 # kaa imports
 from kaa.utils import property
@@ -79,7 +77,6 @@ class Reflection(Group):
             self.source.height = self.height
         if not self._reflection_obj:
             self._reflection_obj = backend.ReflectTexture(self.source._obj, 0)
-            # self._reflection_obj = backend.CairoReflectTexture(self.source._obj)
             self._reflection_obj.show()
             self._reflection_obj.set_opacity(self._reflection_opacity)
             self._obj.add(self._reflection_obj)
@@ -139,7 +136,7 @@ class Reflection(Group):
     def width(self, width):
         self.source.width = width
         self._dynamic_size = self.source._dynamic_size
-        
+
     @property
     def height(self):
         return self.source.height
@@ -152,7 +149,7 @@ class Reflection(Group):
     @property
     def intrinsic_size(self):
         return self.source.intrinsic_size
-    
+
 class ReflectionModifier(Modifier):
     """
     Modifier to add a reflection.

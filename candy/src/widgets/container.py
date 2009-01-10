@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -111,7 +111,7 @@ class Group(Widget):
             widget._candy__parent = None
         self._queue_rendering()
         self._queue_sync_properties('children')
-        
+
     def _candy_calculate_dynamic_size(self, size=None):
         """
         Adjust dynamic change to parent size changes. This function

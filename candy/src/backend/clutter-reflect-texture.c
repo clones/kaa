@@ -1,33 +1,34 @@
 /*
- * Clutter.
+ * ----------------------------------------------------------------------------
+ * Clutter Reflection Actor
+ * ----------------------------------------------------------------------------
+ * $Id$
  *
- * An OpenGL based 'interactive canvas' library.
+ * ----------------------------------------------------------------------------
+ * kaa-candy - Third generation Canvas System using Clutter as backend
+ * Copyright (C) 2006 OpenedHand / 2008-2009 Dirk Meyer, Jason Tackaberry
  *
- * Authored By Matthew Allum  <mallum@openedhand.com>
+ * First Edition: Dirk Meyer <dischi@freevo.org>
+ * Maintainer:    Dirk Meyer <dischi@freevo.org>
  *
- * Copyright (C) 2006 OpenedHand
+ * Based on a clutter-tidy actor from Matthew Allum <mallum@openedhand.com>
+ * Please see the file AUTHORS for a complete list of authors.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * **************************************************************
- * Note: replace reflect_texture_render_to_gl_quad and 
- * clutter_reflect_texture_paint by functions from tidy!
- * Changed in r3347.
- * **************************************************************
- *
+ * ----------------------------------------------------------------------------
  */
 
 #define CLUTTER_PARAM_READWRITE \
@@ -36,10 +37,10 @@
 
 /**
  * SECTION:clutter-reflect-texture
- * @short_description: Actor for cloning existing textures in an 
+ * @short_description: Actor for cloning existing textures in an
  * efficient way.
  *
- * #ClutterReflectTexture allows the cloning of existing #ClutterTexture with 
+ * #ClutterReflectTexture allows the cloning of existing #ClutterTexture with
  * a refelction like effect.
  */
 
@@ -123,23 +124,23 @@ clutter_reflect_texture_paint (ClutterActor *actor)
 
   /* clockise vertices and tex coords and colors! */
 
-  tvert[0].x = tvert[0].y = tvert[0].z = 0; 
+  tvert[0].x = tvert[0].y = tvert[0].z = 0;
   tvert[0].tx = 0; tvert[0].ty = bottom ? CFX_ONE : rty;
   tvert[0].color.red = tvert[0].color.green = tvert[0].color.blue = 0xff;
   tvert[0].color.alpha = bottom ? opacity : 0;
 
-  tvert[1].x = FX(width); tvert[1].y = tvert[1].z = 0; 
-  tvert[1].tx = CFX_ONE; tvert[1].ty = bottom ? CFX_ONE : rty;  
+  tvert[1].x = FX(width); tvert[1].y = tvert[1].z = 0;
+  tvert[1].tx = CFX_ONE; tvert[1].ty = bottom ? CFX_ONE : rty;
   tvert[1].color.red = tvert[1].color.green = tvert[1].color.blue = 0xff;
   tvert[1].color.alpha = bottom ? opacity : 0;
 
-  tvert[2].x = FX(width); tvert[2].y = FX(r_height); tvert[2].z = 0; 
-  tvert[2].tx = CFX_ONE; tvert[2].ty = bottom ? rty : 0;  
+  tvert[2].x = FX(width); tvert[2].y = FX(r_height); tvert[2].z = 0;
+  tvert[2].tx = CFX_ONE; tvert[2].ty = bottom ? rty : 0;
   tvert[2].color.red = tvert[2].color.green = tvert[2].color.blue = 0xff;
   tvert[2].color.alpha = bottom ? 0 : opacity;
 
-  tvert[3].x = 0; tvert[3].y = FX(r_height); tvert[3].z = 0; 
-  tvert[3].tx = 0; tvert[3].ty = bottom ? rty : 0;  
+  tvert[3].x = 0; tvert[3].y = FX(r_height); tvert[3].z = 0;
+  tvert[3].tx = 0; tvert[3].ty = bottom ? rty : 0;
   tvert[3].color.red = tvert[3].color.green = tvert[3].color.blue = 0xff;
   tvert[3].color.alpha = bottom ? 0 : opacity;
 
@@ -157,7 +158,7 @@ clutter_reflect_texture_set_property (GObject      *object,
 				    GParamSpec   *pspec)
 {
   ClutterReflectTexture         *ctexture = CLUTTER_REFLECT_TEXTURE (object);
-  ClutterReflectTexturePrivate  *priv = ctexture->priv;  
+  ClutterReflectTexturePrivate  *priv = ctexture->priv;
 
   switch (prop_id)
     {
@@ -180,7 +181,7 @@ clutter_reflect_texture_get_property (GObject    *object,
 				    GParamSpec *pspec)
 {
   ClutterReflectTexture *ctexture = CLUTTER_REFLECT_TEXTURE (object);
-  ClutterReflectTexturePrivate  *priv = ctexture->priv;  
+  ClutterReflectTexturePrivate  *priv = ctexture->priv;
 
   switch (prop_id)
     {
@@ -233,15 +234,15 @@ clutter_reflect_texture_init (ClutterReflectTexture *self)
   ClutterReflectTexturePrivate *priv;
 
   self->priv = priv = CLUTTER_REFLECT_TEXTURE_GET_PRIVATE (self);
-  priv->reflection_height = 100; 
-  priv->reflect_bottom = TRUE; 
+  priv->reflection_height = 100;
+  priv->reflect_bottom = TRUE;
 }
 
 /**
  * clutter_reflect_texture_new:
  * @texture: a #ClutterTexture or %NULL
  *
- * Creates an efficient 'reflect' of a pre-existing texture if which it 
+ * Creates an efficient 'reflect' of a pre-existing texture if which it
  * shares the underlying pixbuf data.
  *
  * You can use clutter_reflect_texture_set_parent_texture() to change the

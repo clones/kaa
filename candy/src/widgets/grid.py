@@ -43,15 +43,13 @@ __all__ = [ 'Grid', 'SelectionGrid', 'SelectionGrid2' ]
 
 # python imports
 import logging
-import time
 
 # kaa imports
 import kaa
-from kaa.utils import property
 
 # kaa.candy imports imports
 from container import Group
-from .. import candyxml, animation, is_template, config
+from .. import is_template
 from ..behaviour import MAX_ALPHA, Behaviour, create_behaviour
 
 # get logging object

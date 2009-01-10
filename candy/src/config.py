@@ -9,7 +9,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -32,15 +32,11 @@
 #
 # -----------------------------------------------------------------------------
 
-"""
-Basic configuration settings
-"""
-
-#; frames per second for animations
+# frames per second for animations
 fps = 30
 
-#; path to search for image files
+# path to search for image files
 imagepath = []
 
-#; debug variable to find performance problems
+# debug variable to find performance problems
 performance_debug = False

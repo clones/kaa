@@ -29,12 +29,12 @@
 #
 # -----------------------------------------------------------------------------
 
-import sys
 import candyxml
 import config
 
-from core import Context, Font, Color, Modifier, Properties, is_template
-from eventhandler import Eventhandler
-from animation import Animation, thread_enter, thread_leave
+# import everything important for the submodules
+from core import *
+from eventhandler import *
+from animation import *
 from widgets import *
-from stage import Stage
+from stage import *

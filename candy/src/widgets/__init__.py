@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -29,25 +29,12 @@
 #
 # -----------------------------------------------------------------------------
 
-"""
-High level widgets for kaa.candy
-"""
-
-from ..core import Modifier
-from widget import Widget
-from container import Group, LayoutGroup, Container
-from label import Label
-from rectangle import Rectangle
-from progressbar import Progressbar
-from text import Text
-from image import Imlib2Texture, CairoTexture, Image, Thumbnail
-from grid import Grid, SelectionGrid, SelectionGrid2
-from reflection import Reflection, ReflectionModifier
-
-__all__ = []
-for key, value in globals().items():
-    try:
-        if issubclass(value, (Widget, Modifier)) and not value == Modifier:
-            __all__.append(key)
-    except TypeError:
-        pass
+from widget import *
+from container import *
+from label import *
+from rectangle import *
+from progressbar import *
+from text import *
+from image import *
+from grid import *
+from reflection import *

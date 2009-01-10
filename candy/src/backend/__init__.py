@@ -59,9 +59,8 @@ def import_modules():
     except ImportError:
         log.exception('unable to import clutter.cairo')
         sys.exit(0)
-    global CairoTexture, CairoReflectTexture
+    global CairoTexture
     CairoTexture = cairotexture.CairoTexture
-    CairoReflectTexture = cairotexture.CairoReflectTexture
     global ReflectTexture
     try:
         import libcandy

@@ -1,26 +1,34 @@
 /*
- * Clutter.
+ * ----------------------------------------------------------------------------
+ * Clutter Reflection Actor
+ * ----------------------------------------------------------------------------
+ * $Id$
  *
- * An OpenGL based 'interactive canvas' library.
+ * ----------------------------------------------------------------------------
+ * kaa-candy - Third generation Canvas System using Clutter as backend
+ * Copyright (C) 2006 OpenedHand / 2008-2009 Dirk Meyer, Jason Tackaberry
  *
- * Authored By Matthew Allum  <mallum@openedhand.com>
+ * First Edition: Dirk Meyer <dischi@freevo.org>
+ * Maintainer:    Dirk Meyer <dischi@freevo.org>
  *
- * Copyright (C) 2006 OpenedHand
+ * Based on a clutter-tidy actor from Matthew Allum <mallum@openedhand.com>
+ * Please see the file AUTHORS for a complete list of authors.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version
+ * 2.1 as published by the Free Software Foundation.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
+ *
+ * ----------------------------------------------------------------------------
  */
 
 #ifndef _HAVE_CLUTTER_REFLECT_TEXTURE_H
@@ -59,12 +67,12 @@ typedef struct _ClutterReflectTextureClass   ClutterReflectTextureClass;
 struct _ClutterReflectTexture
 {
   ClutterCloneTexture              parent;
-  
+
   /*< priv >*/
   ClutterReflectTexturePrivate    *priv;
 };
 
-struct _ClutterReflectTextureClass 
+struct _ClutterReflectTextureClass
 {
   ClutterCloneTextureClass parent_class;
 
@@ -73,7 +81,7 @@ struct _ClutterReflectTextureClass
   void (*_clutter_reflect_2) (void);
   void (*_clutter_reflect_3) (void);
   void (*_clutter_reflect_4) (void);
-}; 
+};
 
 GType           clutter_reflect_texture_get_type           (void) G_GNUC_CONST;
 
