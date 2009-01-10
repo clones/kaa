@@ -209,7 +209,6 @@ class Widget(object):
         parent's width and height. Fot passive widgets it will be the
         width or height of the non-passive content.
         """
-        print pos, size
         if size is not None:
             self.__width, self.__height = size
             if isinstance(self.__width, (str, unicode)):
