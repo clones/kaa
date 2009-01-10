@@ -476,15 +476,15 @@ class Container(LayoutGroup):
                 <child_widget2/>
             </container>
         """
-        widgets = []
-        for child in element:
-            w = child.xmlcreate()
-            if not w:
-                log.error('unable to parse %s', child.node)
-            else:
-                widgets.append(w)
         dependency=(element.depends or '').split(' ')
         while '' in dependency:
             dependency.remove('')
-        return super(Container, cls).candyxml_parse(element).update(
-            dependency=dependency, widgets=widgets)
+        parameter = super(Container, cls).candyxml_parse(element).update(dependency=dependency)
+        widgets = []
+        for child in element:
+            widget = child.xmlcreate()
+            if not widget:
+                log.error('unable to parse %s', child.node)
+            else:
+                widgets.append(widget)
+        return parameter.update(widgets=widgets)

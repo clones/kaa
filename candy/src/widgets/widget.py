@@ -739,7 +739,16 @@ class Widget(object):
         only parses pos and size::
           <widget x='10' y='20' width='100' height='50'/>
         """
-        return _dict(pos=element.pos, size=(element.width, element.height))
+        parameter = _dict(pos=element.pos, size=(element.width, element.height))
+        for child in element:
+            if child.use_as:
+                widget = child.xmlcreate()
+                if not widget:
+                    log.error('unable to parse %s', child.node)
+                else:
+                    parameter[str(child.use_as)] = widget
+                element.remove(child)
+        return parameter
 
 #     def __del__(self):
 #         print '__del__', self
