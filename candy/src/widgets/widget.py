@@ -209,16 +209,17 @@ class Widget(object):
         parent's width and height. Fot passive widgets it will be the
         width or height of the non-passive content.
         """
+        print pos, size
         if size is not None:
             self.__width, self.__height = size
-            if isinstance(self.__width, str):
+            if isinstance(self.__width, (str, unicode)):
                 # use perecent values provided by the string
                 self.__dynamic_width = int(self.__width[:-1])
                 self.__width = None
             elif self.__width is None:
                 # None means fit (-1)
                 self.__dynamic_width = -1
-            if isinstance(self.__height, str):
+            if isinstance(self.__height, (str, unicode)):
                 # use perecent values provided by the string
                 self.__dynamic_height = int(self.__height[:-1])
                 self.__height = None
@@ -547,7 +548,7 @@ class Widget(object):
     def width(self, width):
         if self.__width == width:
             return
-        if isinstance(width, str):
+        if isinstance(width, (str, unicode)):
             # width is percent of the parent
             self.__dynamic_width = int(width[:-1])
             self.__width = None
@@ -582,7 +583,7 @@ class Widget(object):
     def height(self, height):
         if self.__height == height:
             return
-        if isinstance(height, str):
+        if isinstance(height, (str, unicode)):
             # height is percent of the parent
             self.__dynamic_height = int(height[:-1])
             self.__height = None
