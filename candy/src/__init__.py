@@ -32,6 +32,14 @@
 import candyxml
 import config
 
+# alignment (copied from kaa.candy.Widget)
+ALIGN_LEFT = 'left'
+ALIGN_RIGHT = 'right'
+ALIGN_TOP = 'top'
+ALIGN_BOTTOM = 'bottom'
+ALIGN_CENTER = 'center'
+ALIGN_SHRINK = 'shrink'
+
 # import everything important for the submodules
 from core import *
 from eventhandler import *
