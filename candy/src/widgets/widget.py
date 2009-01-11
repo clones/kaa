@@ -84,7 +84,7 @@ class Template(object):
         """
         self._properties.append((key, value))
 
-    def __call__(self, context=None):
+    def __call__(self, context=None, **kwargs):
         """
         Create the widget with the given context and override some
         constructor arguments.
@@ -94,9 +94,11 @@ class Template(object):
         """
         if context is not None:
             context = Context(context)
+        args = self._kwargs.copy()
+        args.update(kwargs)
         if self._cls.context_sensitive:
-            self._kwargs['context'] = context
-        widget = self._cls(**self._kwargs)
+            args['context'] = context
+        widget = self._cls(**args)
         for modifier in self._modifier:
             widget = modifier.modify(widget)
         for key, value in self._properties:
