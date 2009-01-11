@@ -120,8 +120,8 @@ class XmltvParser(object):
             log.info('parse provided xmltv string')
             parser.feed(filename)
         else:
-            log.info('parse xmltv file %s' % xmltv_file)
-            parser.parse('file://' + filename)
+            log.info('parse xmltv file %s' % filename)
+            parser.parse('file://' + os.path.abspath(filename))
 
     def error(self, exception):
         """
