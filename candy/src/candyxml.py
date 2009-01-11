@@ -94,7 +94,7 @@ class Element(object):
         """
         Iterate over the list of children.
         """
-        return self._children.__iter__()
+        return self._children[:].__iter__()
 
     def __getitem__(self, pos):
         """
