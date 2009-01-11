@@ -129,6 +129,17 @@ class Group(Widget):
                 child._candy_calculate_dynamic_size()
         return True
 
+    def _candy_context_sync(self, context, children=True):
+        """
+        Set a new context for the group and all children
+        """
+        super(Group, self)._candy_context_sync(context)
+        if not children:
+            return
+        for child in self.children:
+            if child.context_sensitive:
+                child._candy_context_sync(context)
+
     def _candy_prepare(self):
         """
         Prepare rendering
@@ -239,7 +250,7 @@ class Group(Widget):
                 if not child.passive:
                     width = max(width, child.x + child.width)
                     height = max(height, child.y + child.height)
-            self._intrinsic_size = width, height
+            self._intrinsic_size = int(round(width)), int(round(height))
         return self._intrinsic_size
 
     def _candy_child_restack(self, child, direction):
@@ -433,7 +444,7 @@ class Container(LayoutGroup):
 
         @param context: context dict
         """
-        super(Container, self)._candy_context_sync(context)
+        super(Container, self)._candy_context_sync(context, children=False)
         for child in self.children[:]:
             replace = child.userdata.get('context:replace')
             if replace:
