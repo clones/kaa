@@ -2,7 +2,6 @@ import os
 
 import kaa
 import kaa.cherrypy
-import kaa.notifier.thread
 import threading
 
 # cherrypy doc
@@ -46,7 +45,7 @@ class Root:
     
     @kaa.cherrypy.expose(template='test.kid', mainloop=False)
     def index(self, ctx):
-        main = kaa.notifier.thread._thread_notifier_mainthread
+        main = kaa.thread._thread_notifier_mainthread
         return dict(title = 'Test Kid Page',
                     lines = os.listdir('/tmp/'),
                     header = header.Template(text='index'),
@@ -55,7 +54,7 @@ class Root:
 
     @kaa.cherrypy.expose(template='test.kid')
     def main(self, ctx):
-        main = kaa.notifier.thread._thread_notifier_mainthread
+        main = kaa.thread._thread_notifier_mainthread
         return dict(title = 'Test Kid Page',
                     lines = ['qwe','asd','zxc'],
                     header = header.Template(text='index'),
