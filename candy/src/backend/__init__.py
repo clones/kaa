@@ -94,6 +94,6 @@ class Mainloop(object):
         clutter.main_quit()
 
 if 'epydoc' not in sys.modules and 'sphinx.builder' not in sys.modules:
-    # set generic notifier and start the clutter thread
+    # set generic mainloop and start the clutter thread
     kaa.main.select_notifier('generic')
     kaa.gobject_set_threaded(Mainloop())

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-# GTK import. It is important to import gtk before kaa so that
-# kaa can detect it and switch to the gtk notifier wrapper from
-# pynotifier
+# GTK import. It is important to import gtk before kaa so that kaa can
+# detect it and switch to the gtk wrapper from pynotifier
+
 import pygtk
 pygtk.require('2.0')
 import gtk

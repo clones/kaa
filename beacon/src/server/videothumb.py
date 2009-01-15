@@ -6,7 +6,7 @@
 #
 # This file provides a function to create video thumbnails in the
 # background.  It will start a mplayer to create the thumbnail. It
-# uses the notifier loop to do this without blocking.
+# uses the generic mainloop to do this without blocking.
 #
 # Loosly based on videothumb.py commited to the freevo wiki
 #

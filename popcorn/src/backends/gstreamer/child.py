@@ -38,7 +38,7 @@ import gst
 
 # import kaa and set mainloop to glib
 import kaa
-kaa.select_notifier('gtk', x11=False)
+kaa.main.select_notifier('gtk', x11=False)
 
 # kaa.popcorn imports
 from kaa.popcorn.utils import Player

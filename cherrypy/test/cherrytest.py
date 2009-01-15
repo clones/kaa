@@ -45,6 +45,7 @@ class Root:
     
     @kaa.cherrypy.expose(template='test.kid', mainloop=False)
     def index(self, ctx):
+        # FIXME: that looks wrong
         main = kaa.thread._thread_notifier_mainthread
         return dict(title = 'Test Kid Page',
                     lines = os.listdir('/tmp/'),
@@ -54,6 +55,7 @@ class Root:
 
     @kaa.cherrypy.expose(template='test.kid')
     def main(self, ctx):
+        # FIXME: that looks wrong
         main = kaa.thread._thread_notifier_mainthread
         return dict(title = 'Test Kid Page',
                     lines = ['qwe','asd','zxc'],
