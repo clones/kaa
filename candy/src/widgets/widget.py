@@ -69,8 +69,8 @@ class Template(object):
         """
         Create a template for the given class
 
-        @param cls: widget class
-        @param kwargs: keyword arguments for cls.__init__
+        :param cls: widget class
+        :param kwargs: keyword arguments for cls.__init__
         """
         self._cls = cls
         self._modifier = kwargs.pop('modifier', [])
@@ -89,8 +89,8 @@ class Template(object):
         Create the widget with the given context and override some
         constructor arguments.
 
-        @param context: context to create the widget in
-        @returns: widget object
+        :param context: context to create the widget in
+        :returns: widget object
         """
         if context is not None:
             context = Context(context)
@@ -138,8 +138,30 @@ class Widget(object):
     """
     Basic widget. All widgets from the backend must inherit from it.
 
-    @cvar context_sensitive: class variable for inherting class if the class
+    If size is None, the width and height will be treaded as None,
+    None. If one value is None it will be calculated based on x or y
+    to fit in the parent. If it is a string with percent values it
+    will be the perecent of the parent's width and height. Fot passive
+    widgets it will be the width or height of the non-passive content.
+
+    These are CONST
+    
+    :cvar ALIGN_LEFT: Used by xalign to align the widget on the left
+    :cvar ALIGN_RIGHT: Used by xalign to align the widget on the right
+    :cvar ALIGN_CENTER: Used by xalign and yalign to center the widget
+    :cvar ALIGN_TOP: Used by yalign to align the widget on the top
+    :cvar ALIGN_BOTTOM: Used by yalign to align the widget on the bottom
+    :cvar ALIGN_SHRINK: Used by xalign and yalign to shrink the width
+      or height to match the actual content of the underlying Clutter
+      actor.
+    :cvar context_sensitive: class variable for inherting class if the class
         depends on the context.
+
+    These are variables, similar to properties
+
+    :cvar passive:
+    :cvar subpixel_precision:
+    :cvar name: name of the widget to locate it again later in a group
     """
 
     class __metaclass__(type):
@@ -204,12 +226,7 @@ class Widget(object):
 
     def __init__(self, pos=None, size=None, context=None):
         """
-        Basic widget constructor. If size is None, the width and
-        height will be treaded as None, None. If one value is None it
-        will be calculated based on x or y to fit in the parent. If it
-        is a string with percent values it will be the perecent of the
-        parent's width and height. Fot passive widgets it will be the
-        width or height of the non-passive content.
+        Basic widget constructor.
         """
         if size is not None:
             self.__width, self.__height = size
@@ -244,7 +261,7 @@ class Widget(object):
         """
         Evaluate the context for the given variable and depend on the result
 
-        @param var: variable name to eval
+        :param var: variable name to eval
         """
         self.__depends[var] = repr(self.__context.get(var))
 
@@ -254,11 +271,10 @@ class Widget(object):
         Animation object to add the behaviours. The animation is already
         started when this function returns.
 
-        @param secs: number of seconds to run
-        @param alpha: alpha function for this animation
-        @param unparent: if set to True the widget will be unparented after the
+        :param secs: number of seconds to run
+        :param alpha: alpha function for this animation
+        :param unparent: if set to True the widget will be unparented after the
             animation is finished.
-        @note: in future version the alpha parameter will move to the behaviours
         """
         a = animation.Animation(secs, alpha, callback)
         a.apply(self)
@@ -380,8 +396,8 @@ class Widget(object):
         dependencies. This function is not thread-safe and should only
         modify children not connected to any parent.
 
-        @param context: context dict
-        @returns: False if the widget can not handle the context or True
+        :param context: context dict
+        :returns: False if the widget can not handle the context or True
         """
         if self.__depends:
             try:
@@ -396,7 +412,7 @@ class Widget(object):
         """
         Set a new context.
 
-        @param context: dict of context key,value pairs
+        :param context: dict of context key,value pairs
         """
         self.__context = context
 
@@ -623,6 +639,9 @@ class Widget(object):
 
     @property
     def anchor_point(self):
+        """
+        Anchor point inside the widget for rotation, scale, and alignment.
+        """
         return self.__anchor or (0, 0)
 
     @anchor_point.setter
@@ -727,9 +746,10 @@ class Widget(object):
     @classmethod
     def create_template(cls, **kwargs):
         """
-        Create a template for this class.
-
-        @param kwargs: keyword arguments based on the class __init__ function
+        Create a template for a widget and not the widget itself. The
+        parameter are only keyword arguments based on the constructor
+        of the actual widget. Whenn 'calling' the template, the widget
+        will be created.
         """
         return cls.__template__(cls, **kwargs)
 
@@ -738,8 +758,12 @@ class Widget(object):
         """
         Parse the candyxml element for parameter to create the widget. This function
         must be overwitten by a subclass for the correct parsing. This class
-        only parses pos and size::
-          <widget x='10' y='20' width='100' height='50'/>
+        only parses pos and size and children with a use-us attribute::
+          <widget x='10' y='20' width='100' height='50'>
+              <widget x='0' y='0' use-as='content'/>
+          </widget>
+          
+        This will return a dictionary with pos, size, and content.
         """
         parameter = _dict(pos=element.pos, size=(element.width, element.height))
         for child in element:

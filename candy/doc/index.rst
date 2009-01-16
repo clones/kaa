@@ -28,12 +28,14 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   widgets
+   architecture
+   widgets/index
+   stage
    modifier
    animation
    candyxml
 
-TODO: Describe config.py, thread_enter, and thread_leave somewhere
+
 
 Indices and tables
 ==================

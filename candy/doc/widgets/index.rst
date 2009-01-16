@@ -17,7 +17,6 @@ TODO: Describe Font, Color, and Context somewhere
    :maxdepth: 2
 
    base
-   stage
    group
    text
 
