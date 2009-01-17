@@ -143,25 +143,6 @@ class Widget(object):
     to fit in the parent. If it is a string with percent values it
     will be the perecent of the parent's width and height. Fot passive
     widgets it will be the width or height of the non-passive content.
-
-    These are CONST
-    
-    :cvar ALIGN_LEFT: Used by xalign to align the widget on the left
-    :cvar ALIGN_RIGHT: Used by xalign to align the widget on the right
-    :cvar ALIGN_CENTER: Used by xalign and yalign to center the widget
-    :cvar ALIGN_TOP: Used by yalign to align the widget on the top
-    :cvar ALIGN_BOTTOM: Used by yalign to align the widget on the bottom
-    :cvar ALIGN_SHRINK: Used by xalign and yalign to shrink the width
-      or height to match the actual content of the underlying Clutter
-      actor.
-    :cvar context_sensitive: class variable for inherting class if the class
-        depends on the context.
-
-    These are variables, similar to properties
-
-    :cvar passive:
-    :cvar subpixel_precision:
-    :cvar name: name of the widget to locate it again later in a group
     """
 
     class __metaclass__(type):
