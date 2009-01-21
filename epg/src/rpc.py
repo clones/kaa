@@ -34,7 +34,7 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.rpc
+import kaa.rpc, kaa.rpc2
 from kaa.utils import localtime2utc
 
 # kaa.epg imports
@@ -51,12 +51,8 @@ class Client(Guide):
     EPG client class to access the epg on server side.
     """
 
-    DISCONNECTED = 'DISCONNECTED'
-    CONNECTING = 'CONNECTING'
-    CONNECTED = 'CONNECTED'
-
     def __init__(self, address, secret):
-        self._status = Client.DISCONNECTED
+        self.connected = False
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
@@ -64,30 +60,17 @@ class Client(Guide):
         self.signals = kaa.Signals('connected', 'disconnected')
         self._server_address = address
         self._server_secret = secret
-        self.connect()
-
-    def connect(self):
-        """
-        Connect to EPG server.
-        """
-        try:
-            server = kaa.rpc.Client(self._server_address, auth_secret=self._server_secret)
-            server.connect(self)
-        except kaa.rpc.ConnectError:
-            return kaa.OneShotTimer(self.connect).start(1)
-        server.signals['closed'].connect_weak(self._disconnected)
-        self._status = Client.CONNECTING
-        self.rpc = server.rpc
+        self.channel = kaa.rpc2.connect(self._server_address, auth_secret=self._server_secret, retry=1)
+        self.channel.register(self)
+        self.channel.signals['closed'].connect_weak(self._disconnected)
 
     def _disconnected(self):
         """
         Signal callback when server disconnects.
         """
-        log.debug('kaa.epg client disconnected')
-        self._status = Client.DISCONNECTED
+        log.info('kaa.epg client disconnected')
+        self.connected = False
         self.signals["disconnected"].emit()
-        self.rpc = None
-        kaa.OneShotTimer(self.connect).start(1)
 
     @kaa.rpc.expose()
     def _sync(self, channels):
@@ -102,8 +85,9 @@ class Client(Guide):
             self._channels_by_db_id[chan.db_id] = chan
             for t in chan.tuner_id:
                 self._channels_by_tuner_id[t] = chan
-        if self._status == Client.CONNECTING:
-            self._status = Client.CONNECTED
+        if not self.connected:
+            log.info('kaa.epg client connected')
+            self.connected = True
             self.signals["connected"].emit()
 
     @kaa.coroutine()
@@ -116,7 +100,7 @@ class Client(Guide):
             means until the end of the guide data.
         @param cls: class to use to create programs or None to return raw data
         """
-        if self._status == Client.DISCONNECTED:
+        if self.channel.status == kaa.rpc2.DISCONNECTED:
             raise EPGError('Client is not connected')
         if not utc:
             # convert to utc because the server may have a different
@@ -125,7 +109,7 @@ class Client(Guide):
                 time = localtime2utc(time)
             if isinstance(time, (list, tuple)):
                 time = [ localtime2utc(t) for t in time ]
-        query_data = yield self.rpc('search', channel, time, True, None, **kwargs)
+        query_data = yield self.channel.rpc('search', channel, time, True, None, **kwargs)
         # Convert raw search result data from the server into python objects.
         results = []
         channel = None
@@ -141,9 +125,9 @@ class Client(Guide):
         """
         Update the database
         """
-        if self._status == Client.DISCONNECTED:
+        if self.channel.status == kaa.rpc2.DISCONNECTED:
             raise EPGError('Client is not connected')
-        return self.rpc('update')
+        return self.channel.rpc('update')
 
 
 class Server(object):
@@ -154,9 +138,9 @@ class Server(object):
         self._clients = []
         # initial sync
         self.guide = guide
-        self._rpc = kaa.rpc.Server(address, secret)
+        self._rpc = kaa.rpc2.Server(address, secret)
         self._rpc.signals['client_connected'].connect(self.client_connected)
-        self._rpc.connect(self)
+        self._rpc.register(self)
 
     @kaa.rpc.expose()
     def search(self, channel, time, utc, cls, **kwargs):

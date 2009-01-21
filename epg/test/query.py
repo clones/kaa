@@ -24,9 +24,9 @@ def rpc():
     print result
     print t2 - t1
 
-if 0:
+if 1:
     rpc()
     kaa.main.run()
-if 1:
+if 0:
     local()
 
