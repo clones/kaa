@@ -82,7 +82,7 @@ class Thumbnailer(object):
         self._delayed_jobs = {}
         self._timer = kaa.OneShotTimer(self.step)
         self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
-        self._ipc.signals['client_connected'].connect(self.client_connect)
+        self._ipc.signals['client-connected'].connect(self.client_connect)
         self._ipc.connect(self)
         # video module
         self.videothumb = VideoThumb(self)

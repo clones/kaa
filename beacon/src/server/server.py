@@ -66,7 +66,7 @@ class Server(object):
             time.sleep(0.1)
             sys.exit(0)
 
-        self.ipc.signals['client_connected'].connect(self.client_connect)
+        self.ipc.signals['client-connected'].connect(self.client_connect)
         self.ipc.connect(self)
 
         self._dbdir = dbdir
