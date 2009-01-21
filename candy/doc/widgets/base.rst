@@ -12,7 +12,7 @@ TODO: Add introduction
         .. attribute:: ALIGN_TOP
         .. attribute:: ALIGN_BOTTOM
         .. attribute:: ALIGN_CENTER
-	.. attribute:: ALIGN_SHRINK
+        .. attribute:: ALIGN_SHRINK
 
            Used by xalign and yalign to shrink the width or height to
            match the actual content of the underlying Clutter actor.
