@@ -139,7 +139,7 @@ class Server(object):
         # initial sync
         self.guide = guide
         self._rpc = kaa.rpc2.Server(address, secret)
-        self._rpc.signals['client_connected'].connect(self.client_connected)
+        self._rpc.signals['client-connected'].connect(self.client_connected)
         self._rpc.register(self)
 
     @kaa.rpc.expose()
