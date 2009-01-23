@@ -113,7 +113,7 @@ class Query(object):
         if self._beacon_monitoring == enable:
             # Nothing to do
             return
-        if not self._client.is_connected():
+        if not self._client.connected:
             # If the client is not connected yet, it will do this later.
             # Rememeber that we wanted to connect
             self._beacon_monitoring = enable
@@ -194,7 +194,7 @@ class Query(object):
         """
         Start the database query.
         """
-        if not self._client.is_connected():
+        if not self._client.connected:
             # wait until the client is connected
             # FIXME: maybe the server is not connected
             yield kaa.inprogress(self._client.signals['connect'])

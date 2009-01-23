@@ -8,7 +8,7 @@ def new_device(media):
 def lost_device(media):
     print 'lost', media
 
-kaa.beacon.connect()
+kaa.beacon.connect().wait()
 kaa.beacon.signals['media.add'].connect(new_device)
 kaa.beacon.signals['media.remove'].connect(lost_device)
 kaa.main.run()

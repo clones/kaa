@@ -36,7 +36,7 @@ import sys
 import logging
 
 # kaa imports
-import kaa.rpc
+import kaa.rpc, kaa.rpc2
 
 # kaa.beacon server imports
 import parser
@@ -59,7 +59,7 @@ class Server(object):
     def __init__(self, dbdir):
         log.info('start beacon')
         try:
-            self.ipc = kaa.rpc.Server('beacon')
+            self.ipc = kaa.rpc2.Server('beacon')
         except IOError, e:
             kaa.beacon.thumbnail.thumbnail.disconnect()
             log.error('beacon: %s' % e)
@@ -67,7 +67,7 @@ class Server(object):
             sys.exit(0)
 
         self.ipc.signals['client-connected'].connect(self.client_connect)
-        self.ipc.connect(self)
+        self.ipc.register(self)
 
         self._dbdir = dbdir
         self._db = Database(dbdir)

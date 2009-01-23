@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -29,22 +29,19 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'connect', 'launch', 'get', 'query', 'monitor', 'add_item', 'wrap',
-            'register_file_type_attrs', 'register_track_type_attrs', 'ConnectError',
-            'register_inverted_index', 'get_db_info', 'list_media', 'delete_media',
-            'register_filter', 'Item', 'Query', 'Media', 'File', 'Thumbnail',
-            'VERSION', 'THUMBNAIL_NORMAL', 'THUMBNAIL_LARGE', 'QExpr', 'ATTR_SIMPLE',
-            'ATTR_SEARCHABLE', 'ATTR_IGNORE_CASE', 'ATTR_INDEXED',
-            'ATTR_INDEXED_IGNORE_CASE', 'ATTR_INVERTED_INDEX' ]
-
 # python imports
 import os
 import logging
 
+# kaa imports
+import kaa
+import kaa.rpc2
+import kaa.utils
+
 # kaa.beacon imports
 from version import VERSION
-from client import Client, ConnectError
-import thumbnail
+from client import Client
+
 # FIXME: remove THUMBNAIL_NORMAL and THUMBNAIL_LARGE and replace code
 # using it with Thumbnail.LARGE and Thumbnail.NORMAL
 from thumbnail import NORMAL as THUMBNAIL_NORMAL
@@ -54,6 +51,7 @@ from item import Item
 from file import File
 from media import Media
 from kaa.db import *
+from query import register_filter, wrap, Query
 
 # get logging object
 log = logging.getLogger('beacon')
@@ -72,33 +70,55 @@ beacon-daemon --verbose all --fg
 ------------------------------------------------------------------------
 """
 
+class ConnectError(Exception):
+    pass
+
+def require_connect():
+    """
+    Make sure the client is connected to the server. If the server is
+    not running, ConnectError will be raised. A function decorated
+    with require_connect will always return an InProgress.
+    """
+    def decorator(func):
+        @kaa.utils.wraps(func)
+        @kaa.coroutine()
+        def newfunc(*args, **kwargs):
+            global _client
+            global signals
+            if not _client:
+                _client = Client()
+                signals = _client.signals
+            if not _client.connected:
+                try:
+                    # wait for next connect
+                    if _client.channel.status != kaa.rpc2.CONNECTED:
+                        # this may raise an exception
+                        yield kaa.inprogress(_client.channel)
+                    if not _client.connected:
+                        yield kaa.inprogress(signals['connect'])
+                    log.info('beacon connected')
+                except Exception, e:
+                    raise ConnectError(e)
+            result = func(*args, **kwargs)
+            if isinstance(result, kaa.InProgress):
+                result = yield result
+            yield result
+        newfunc.func_name = func.func_name
+        return newfunc
+    return decorator
+
+@require_connect()
 def connect():
     """
     Connect to the beacon. A beacon server must be running. This function will
     raise an exception if the client is not connected and the server is not
-    running for a connect.
+    running for a connect. Returns InProgress.
     """
-    global _client
-    global signals
-
-    if _client:
-        return _client
-
-    _client = Client()
-    try:
-        thumbnail.connect()
-    except RuntimeError:
-        # It was possible to connect to the beacon server but not
-        # to the thumbnailer. Something is very wrong.
-        log.error('unable to connect to beacon-daemon %s', debugging)
-        raise ConnectError('Unable to connect to beacon-daemon')
-    signals = _client.signals
-    log.info('beacon connected')
-    return _client
+    pass
 
 def launch(autoshutdown=False, verbose='none'):
     """
-    Lauch a beacon server and connect to it.
+    Lauch a beacon server and connect to it. Returns InProgress.
 
     :param autoshutdown: shutdown server when no client is connected anymore
     :param verbose: verbose level for the server log
@@ -108,7 +128,6 @@ def launch(autoshutdown=False, verbose='none'):
     if not os.path.isfile(beacon):
         # we hope it is in the PATH somewhere
         beacon = 'beacon-daemon'
-
     cmd = '%s --verbose=%s' % (beacon, verbose)
     if autoshutdown:
         cmd += ' --autoshutdown'
@@ -117,6 +136,7 @@ def launch(autoshutdown=False, verbose='none'):
         raise ConnectError('Unable to connect to beacon-daemon')
     return connect()
 
+@require_connect()
 def query(**args):
     """
     Query the database. This function will raise an exception if the
@@ -124,10 +144,9 @@ def query(**args):
     connect.  The function returns an InProgress object with a Query
     object as result.
     """
-    if not _client:
-        connect()
     return _client.query(**args)
 
+@require_connect()
 def get(filename):
     """
     Get object for the given filename. This function will raise an
@@ -135,10 +154,9 @@ def get(filename):
     running for a connect. The function returns an InProgress object
     with a File object as result.
     """
-    if not _client:
-        connect()
     return _client.get(filename)
 
+@require_connect()
 def monitor(directory):
     """
     Monitor a directory with subdirectories for changes. This is done in
@@ -146,47 +164,37 @@ def monitor(directory):
 
     :param directory: directory path name
     """
-    if not _client:
-        connect()
     return _client.monitor(directory)
 
+@require_connect()
 def list_media():
     """
     List all media objects.
 
     :returns: list of the available media
     """
-    if not _client:
-        connect()
     return _client.list_media()
 
+@require_connect()
 def delete_media(id):
     """
     Delete media with the given id.
 
     :param id: Media object ID
     """
-    if not _client:
-        connect()
     return _client.delete_media(id)
 
+@require_connect()
 def add_item(url, type, parent, **kwargs):
     """
     Add an item to the database. This function can be used to add an Item
     as subitem to another. You can not add files that do not exist to a
     directory, but it is possible to add an Item with a http url to a directory
     or a meta item with http items as children.
-
-    :param url: url of the Item, can not be file:
-    :param type: item type
-    :param parent: parent item
-    :param kwargs: addition keyword/value arguments for the db
-    :returns: new created Item
     """
-    if not _client:
-        connect()
     return _client.add_item(url, type, parent, **kwargs)
 
+@require_connect()
 def register_inverted_index(name, min=None, max=None, split=None, ignore=None):
     """
     Registers a new inverted index with the database.  An inverted index
@@ -194,10 +202,9 @@ def register_inverted_index(name, min=None, max=None, split=None, ignore=None):
     or more terms.  If the inverted index already exists with the given
     parameters, no action is performed.  See kaa.db for details.
     """
-    if not _client:
-        connect()
-    return _client.register_inverted_index(name, min, max, split, ignore)
+    _client.rpc('db.register_inverted_index', name, min, max, split, ignore)
 
+@require_connect()
 def register_file_type_attrs(type_name, indexes=[], **attrs):
     """
     Registers one or more object attributes and/or multi-column
@@ -207,31 +214,22 @@ def register_file_type_attrs(type_name, indexes=[], **attrs):
     object type) or by altering the object's tables to add new columns
     or indexes.
     """
-    if not _client:
-        connect()
-    return _client.register_file_type_attrs(type_name, indexes, **attrs)
+    _client.rpc('db.register_file_type_attrs', type_name, indexes, **attrs)
 
+@require_connect()
 def register_track_type_attrs(type_name, indexes=[], **attrs):
     """
     Register new attrs and types for tracks. See L{register_file_type_attrs}
     for details. The only difference between this two functions is that this
     adds track\_ to the type name.
     """
-    if not _client:
-        connect()
-    return _client.register_track_type_attrs(type_name, indexes, **attrs)
+    _client.rpc('db.register_track_type_attrs', type_name, indexes, **attrs)
 
+@require_connect()
 def get_db_info():
     """
     Gets statistics about the database.
 
     :returns: basic database information
     """
-    if not _client:
-        connect()
-    return _client.get_db_info()
-
-# import some more functions and classes we expose to the API
-# It is done at the end of this file to force a better order of the
-# functions for epydoc
-from query import register_filter, wrap, Query
+    return _client._db.get_db_info()

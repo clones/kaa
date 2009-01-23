@@ -43,7 +43,7 @@ import stat
 
 # kaa imports
 import kaa
-import kaa.rpc
+import kaa.rpc, kaa.rpc2
 from kaa.weakref import weakref
 import kaa.metadata
 
@@ -212,10 +212,23 @@ class Client(object):
 
     def __init__(self):
         self.id = None
-        server = kaa.rpc.Client('thumb/socket')
-        server.connect(self)
         self._schedules = []
-        self.rpc = server.rpc
+
+    @kaa.coroutine()
+    def connect(self):
+        start = time.time()
+        while True:
+            try:
+                channel = kaa.rpc2.connect('thumb/socket')
+                channel.register(self)
+                self.rpc = channel.rpc
+                yield kaa.inprogress(channel)
+                yield None
+            except kaa.rpc.ConnectError, e:
+                if start + 3 < time.time():
+                    # start time is up, something is wrong here
+                    raise RuntimeError('unable to connect to thumbnail server')
+                yield kaa.delay(0.01)
 
     def schedule(self, id, filename, imagename, type, priority):
         if not self.id:
@@ -252,18 +265,5 @@ class Client(object):
             if job.priority != Thumbnail.PRIORITY_LOW:
                 self.rpc('set_priority', (self.id, job.id), Thumbnail.PRIORITY_LOW)
 
-
-def connect():
-    global _client
-    if _client:
-        return _client
-    start = time.time()
-    while True:
-        try:
-            _client = Client()
-            return _client
-        except kaa.rpc.ConnectError, e:
-            if start + 3 < time.time():
-                # start time is up, something is wrong here
-                raise RuntimeError('unable to connect to thumbnail server')
-            time.sleep(0.01)
+_client = Client()
+connect = _client.connect

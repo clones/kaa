@@ -195,7 +195,7 @@ def main():
 
     if mode in ('search', 'info', 'list-media', 'del-media'):
         try:
-            kaa.beacon.connect()
+            kaa.beacon.connect().wait()
         except kaa.beacon.ConnectError:
             print 'beacon-daemon not running.'
             sys.exit(1)

@@ -10,7 +10,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006-2008 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -40,24 +40,22 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.rpc
+from kaa.utils import property
+import kaa.rpc, kaa.rpc2
 from kaa.weakref import weakref
 
 # kaa.beacon imports
 from db import Database
 from query import Query
 from item import Item
+import thumbnail
 
 # get logging object
 log = logging.getLogger('beacon')
 
 DISCONNECTED = 'disconnected'
-CONNECTING   = 'connecting'
 CONNECTED    = 'connected'
 SHUTDOWN     = 'shutdown'
-
-class ConnectError(Exception):
-    pass
 
 class Client(object):
     """
@@ -81,8 +79,10 @@ class Client(object):
         # add ourself to shutdown handler for correct disconnect
         kaa.main.signals['shutdown'].connect(self._shutdown)
         self.status = DISCONNECTED
-        self._connect()
-
+        self.channel = kaa.rpc2.connect('beacon', retry=1)
+        self.channel.signals["closed"].connect(self._disconnected)
+        self.channel.register(self)
+        self.rpc = self.channel.rpc
 
     def __repr__(self):
         """
@@ -124,7 +124,7 @@ class Client(object):
         Add non-file item item.
         """
         if self.status == DISCONNECTED:
-            return None
+            raise RuntimeError('client not connected')
         if isinstance(url, unicode):
             url = kaa.unicode_to_str(url)
         if url.find('://') > 0:
@@ -140,10 +140,13 @@ class Client(object):
         """
         Delete non-file item item.
         """
+        if self.status == DISCONNECTED:
+            raise RuntimeError('client not connected')
         self.rpc('item.delete', item._beacon_id)
 
 
-    def is_connected(self):
+    @property
+    def connected(self):
         """
         Return if the client is connected to a server
         """
@@ -155,48 +158,11 @@ class Client(object):
         Monitor a directory with subdirectories for changes. This is done in
         the server and will keep the database up to date.
         """
-        if self.status != DISCONNECTED:
-            self.rpc('monitor.directory', directory)
+        self.rpc('monitor.directory', directory)
 
-
-    @kaa.coroutine()
-    def get_db_info(self):
-        """
-        Returns information about the database.  Look at
-        kaa.db.Database.get_db_info() for more details.
-        """
-        if self.status != CONNECTED:
-            yield kaa.inprogress(self.signals['connect'])
-        yield self._db.get_db_info()
-
-
-    def register_inverted_index(self, name, min=None, max=None, split=None, ignore=None):
-        """
-        Register new inverted index.
-        """
-        if self.status != DISCONNECTED:
-            self.rpc('db.register_inverted_index', name, min, max, split, ignore)
-
-
-    def register_file_type_attrs(self, type_name, indexes=[], **attrs):
-        """
-        Register new attrs and types for files.
-        """
-        if self.status != DISCONNECTED:
-            self.rpc('db.register_file_type_attrs', type_name, indexes, **attrs)
-
-
-    def register_track_type_attrs(self, type_name, indexes=[], **attrs):
-        """
-        Register new attrs and types for tracks.
-        """
-        if self.status != DISCONNECTED:
-            self.rpc('db.register_track_type_attrs', type_name, indexes, **attrs)
 
     @kaa.coroutine()
     def list_media(self):
-        if self.status == DISCONNECTED:
-            yield None
         result = []
         media = yield self.query(type='media', media='ignore')
         for pos, m in enumerate(media):
@@ -209,61 +175,19 @@ class Client(object):
         """
         Delete media with the given id.
         """
-        if self.status != DISCONNECTED:
-            return self.rpc('db.media.delete', id)
+        self.rpc('db.media.delete', id)
 
 
     # -------------------------------------------------------------------------
     # Server connect / disconnect / reconnect handling
     # -------------------------------------------------------------------------
 
-    def _connect(self):
-        """
-        Establish connection to the beacon server and locally connect to the
-        database (if necessary).
-        """
-        if self.status != DISCONNECTED:
-            # no re-connect needed
-            return
-
-        # monitor function from the server to start a new monitor for a query
-        try:
-            server = kaa.rpc.Client('beacon')
-        except kaa.rpc.ConnectError, e:
-            raise ConnectError(e)
-        server.signals["closed"].connect_once(self._disconnected)
-        server.connect(self)
-        self.rpc = server.rpc
-        self.status = CONNECTING
-
-
     def _disconnected(self):
         if self.status != CONNECTED:
             return
         log.info('disconnected from beacon server')
-        kaa.WeakTimer(self._reconnect).start(2)
         self.status = DISCONNECTED
         self.signals['disconnect'].emit()
-
-
-    def _reconnect(self):
-        """
-        See if the socket with the server is still alive, otherwise reconnect.
-        """
-        # Got disconnected; reconnect.
-        try:
-            self._connect()
-        except ConnectError, e:
-            # still dead
-            return True
-
-        # Reset monitors to queries
-        for query in self._queries:
-            if query != None and query._beacon_monitoring:
-                query._beacon_monitoring = False
-                query.monitor()
-
-        return False
 
 
     def _shutdown(self):
@@ -284,9 +208,9 @@ class Client(object):
     # -------------------------------------------------------------------------
 
     def eject(self, dev):
-        if self.rpc:
-            return self.rpc('media.eject', dev.id)
-        return False
+        if not self.status == CONNECTED:
+            return False
+        return self.rpc('media.eject', dev.id)
 
 
     # -------------------------------------------------------------------------
@@ -347,7 +271,7 @@ class Client(object):
         """
         Parse the item, returns InProgress.
         """
-        if not self.is_connected():
+        if not self.connected:
             return False
         return self.rpc('item.request', item.filename)
 
@@ -387,6 +311,8 @@ class Client(object):
         for m in new_media:
             if not m.mountpoint == '/':
                 self.signals['media.add'].emit(m)
+        # FIXME: if this fails we will never notice
+        yield thumbnail.connect()
 
 
     @kaa.rpc.expose('notify')

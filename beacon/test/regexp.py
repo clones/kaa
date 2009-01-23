@@ -1,7 +1,7 @@
 import kaa
 import kaa.beacon
 
-kaa.beacon.connect()
+kaa.beacon.connect().wait()
 
 phone_keymap = ( '', 'abc', 'def', 'ghi', 'jkl', 'mno', 'pqrs', 'tuv', 'wxyz' )
 

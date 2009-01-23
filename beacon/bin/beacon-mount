@@ -96,7 +96,7 @@ def main():
         sys.exit(1)
 
     try:
-        kaa.beacon.connect()
+        kaa.beacon.connect().wait()
     except kaa.beacon.ConnectError:
         print 'beacon-daemon not running.'
         sys.exit(1)

@@ -222,7 +222,7 @@ def garbage_collect():
 try:
     # connect thumbnailer
     log.info('connect to thumbnailer ...')
-    kaa.beacon.thumbnail.connect()
+    kaa.beacon.thumbnail.connect().wait()
     log.info('connection to thumbnailer established')
 
     server = kaa.beacon.server.BeaconServer(database)
