@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -130,7 +130,7 @@ class Server(object):
             artist = (unicode, ATTR_SEARCHABLE | ATTR_INDEXED | ATTR_INVERTED_INDEX, 'keywords'))
 
         # list of current clients
-        self._clients = []
+        self.clients = []
 
         config.set_filename(os.path.join(dbdir, "config"))
         config.load()
@@ -161,7 +161,7 @@ class Server(object):
         plugins.load(self, self._db)
 
         for dir in config.monitors:
-            self.monitor_dir(os.path.expandvars(os.path.expanduser(dir)))
+            self.monitor_directory(os.path.expandvars(os.path.expanduser(dir)))
 
     # -------------------------------------------------------------
     # client handling
@@ -171,34 +171,25 @@ class Server(object):
         """
         Connect a new client to the server.
         """
-        client.signals['closed'].connect(self.client_disconnect, client)
+        client.signals['closed'].connect_once(self.client_disconnect, client)
         self._next_client += 1
-        self._clients.append((self._next_client, client, []))
+        self.clients.append((self._next_client, client, []))
         media = []
         for m in self._db.medialist:
             media.append((m.id, m.prop))
         client.rpc('connect', self._next_client, self._dbdir, media)
 
-
     def client_disconnect(self, client):
         """
         IPC callback when a client is lost.
         """
-        for client_info in self._clients[:]:
+        for client_info in self.clients[:]:
             if client == client_info[1]:
                 log.info('disconnect client')
                 for m in client_info[2]:
                     m.stop()
-                self._clients.remove(client_info)
+                self.clients.remove(client_info)
         self._db.read_lock.unlock(client_info[1], True)
-
-
-    def has_clients(self):
-        """
-        Return if clients are connected.
-        """
-        return len(self._clients) > 0
-
 
     # -------------------------------------------------------------
     # hardware monitor callbacks
@@ -208,7 +199,7 @@ class Server(object):
         """
         Media mountpoint changed or added.
         """
-        for id, client, monitors in self._clients:
+        for id, client, monitors in self.clients:
             client.rpc('device.changed', media.id, media.prop)
         if not media.crawler:
             if not media.get('block.device'):
@@ -216,24 +207,22 @@ class Server(object):
                 media.crawler = Crawler(self._db, use_inotify=True)
         self._db.signals['changed'].emit([media._beacon_id])
 
-
     def media_removed(self, media):
         """
         Media mountpoint removed.
         """
-        for id, client, monitors in self._clients:
+        for id, client, monitors in self.clients:
             client.rpc('device.removed', media.id)
         self._db.signals['changed'].emit([media._beacon_id])
         if media.crawler:
             media.crawler.stop()
             media.crawler = None
 
-
     # -------------------------------------------------------------
     # client RPC API
     # -------------------------------------------------------------
 
-    @kaa.rpc.expose('db.register_inverted_index')
+    @kaa.rpc.expose()
     def register_inverted_index(self, name, min=None, max=None, split=None, ignore=None):
         """
         Register new inverted index. The basics are already in the db by the
@@ -241,8 +230,7 @@ class Server(object):
         """
         return self._db.register_inverted_index(name, min, max, split, ignore)
 
-
-    @kaa.rpc.expose('db.register_file_type_attrs')
+    @kaa.rpc.expose()
     def register_file_type_attrs(self, type_name, indexes=[], **attrs):
         """
         Register new attrs and types for files. The basics are already
@@ -250,8 +238,7 @@ class Server(object):
         """
         return self._db.register_object_type_attrs(type_name, indexes, **attrs)
 
-
-    @kaa.rpc.expose('db.register_track_type_attrs')
+    @kaa.rpc.expose()
     def register_track_type_attrs(self, type_name, indexes=[], **attrs):
         """
         Register new attrs and types for tracks. The basics are already
@@ -260,43 +247,37 @@ class Server(object):
         type_name = 'track_%s' % type_name
         return self._db.register_object_type_attrs(type_name, indexes, **attrs)
 
-
-    @kaa.rpc.expose('db.media.delete')
+    @kaa.rpc.expose()
     def delete_media(self, id):
         """
         Delete media with the given id.
         """
         self._db.delete_media(id)
 
-
-    @kaa.rpc.expose('db.lock', add_client=True)
+    @kaa.rpc.expose(add_client=True)
     def db_lock(self, client_id):
         """
         Lock the database so clients can read
         """
         self._db.read_lock.lock(client_id)
 
-
-    @kaa.rpc.expose('db.unlock', add_client=True)
+    @kaa.rpc.expose(add_client=True)
     def db_unlock(self, client_id):
         """
         Unlock the database again
         """
         self._db.read_lock.unlock(client_id)
 
-
-    @kaa.rpc.expose('monitor.directory')
-    @kaa.coroutine()
-    def monitor_dir(self, directory):
+    @kaa.rpc.expose(coroutine=True)
+    def monitor_directory(self, directory):
         """
         Monitor a directory in the background. One directories with a monitor
         running will update running query monitors.
         """
         if not os.path.isdir(directory):
-            log.warning("monitor_dir: %s is not a directory." % directory)
+            log.warning("%s is not a directory." % directory)
             yield False
         # TODO: check if directory is already being monitored.
-
         directory = os.path.realpath(directory)
         data = yield self._db.query(filename = directory)
         items = []
@@ -311,9 +292,7 @@ class Server(object):
         log.info('monitor %s on %s', directory, data._beacon_media)
         data._beacon_media.crawler.append(data)
 
-
-    @kaa.rpc.expose('monitor.add')
-    @kaa.coroutine()
+    @kaa.rpc.expose(coroutine=True)
     def monitor_add(self, client_id, request_id, query):
         """
         Create a monitor object to monitor a query for a client.
@@ -324,7 +303,7 @@ class Server(object):
             result = yield self._db.query(type=type, id=id)
             query['parent'] = result[0]
 
-        for id, client, monitors in self._clients:
+        for id, client, monitors in self.clients:
             if id == client_id:
                 break
         else:
@@ -332,14 +311,13 @@ class Server(object):
         m = Monitor(client, self._db, self, request_id, query)
         monitors.append(m)
 
-
-    @kaa.rpc.expose('monitor.remove')
+    @kaa.rpc.expose()
     def monitor_remove(self, client_id, request_id):
         """
         Create a monitor object to monitor a query for a client.
         """
         log.info('remove monitor %s', client_id)
-        for id, client, monitors in self._clients:
+        for id, client, monitors in self.clients:
             if id == client_id:
                 break
         else:
@@ -352,10 +330,8 @@ class Server(object):
                 return None
         log.error('unable to find monitor %s:%s', client_id, request_id)
 
-
-    @kaa.rpc.expose('item.update')
-    @kaa.coroutine()
-    def update(self, items):
+    @kaa.rpc.expose(coroutine=True)
+    def item_update(self, items):
         """
         Update items from the client.
         """
@@ -366,10 +342,8 @@ class Server(object):
         # commit to update monitors
         self._db.commit()
 
-
-    @kaa.rpc.expose('item.request')
-    @kaa.coroutine()
-    def request(self, filename):
+    @kaa.rpc.expose(coroutine=True)
+    def item_request(self, filename):
         """
         Request item data.
         """
@@ -385,9 +359,7 @@ class Server(object):
                 yield async
         yield data._beacon_data
 
-
-    @kaa.rpc.expose('item.create')
-    @kaa.coroutine()
+    @kaa.rpc.expose(coroutine=True)
     def item_create(self, type, parent, **kwargs):
         """
         Create a new item.
@@ -397,9 +369,7 @@ class Server(object):
             yield self._db.read_lock.yield_unlock()
         yield self._db.add_object(type, parent=parent, **kwargs)
 
-
-    @kaa.rpc.expose('item.delete')
-    @kaa.coroutine()
+    @kaa.rpc.expose(coroutine=True)
     def item_delete(self, id):
         """
         Create a new item.
@@ -408,16 +378,14 @@ class Server(object):
             yield self._db.read_lock.yield_unlock()
         self._db.delete_object(id)
 
-
-    @kaa.rpc.expose('beacon.shutdown')
+    @kaa.rpc.expose()
     def shutdown(self):
         """
         Shutdown beacon.
         """
         sys.exit(0)
 
-
-    @kaa.rpc.expose('media.eject')
+    @kaa.rpc.expose()
     def eject(self, id):
         """
         Eject media with the given id

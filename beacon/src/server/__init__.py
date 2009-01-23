@@ -40,4 +40,4 @@ def BeaconServer(database):
 
 def Thumbnailer():
     import thumbnailer
-    return thumbnailer.init()
+    return thumbnailer.create()

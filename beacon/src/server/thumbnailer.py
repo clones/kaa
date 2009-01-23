@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -251,7 +251,7 @@ class Thumbnailer(object):
     # External RPC API
     # -------------------------------------------------------------------------
 
-    @kaa.rpc.expose('schedule')
+    @kaa.rpc.expose()
     def schedule(self, id, filename, imagefile, size, priority):
         # FIXME: check if job is already scheduled!!!!
         job = Job(id, filename, imagefile, size, priority)
@@ -260,7 +260,7 @@ class Thumbnailer(object):
         self.schedule_next()
 
 
-    @kaa.rpc.expose('set_priority')
+    @kaa.rpc.expose()
     def set_priority(self, id, priority):
         for schedule in self.jobs, self.videothumb.jobs:
             for job in schedule:
@@ -271,23 +271,18 @@ class Thumbnailer(object):
                 return
 
 
-thumbnailer = None
-
-def init():
-    global thumbnailer
-
+def create():
+    """
+    Create thumbnail Unix socket and object
+    """
     # create tmp dir and change directory to it
     tmpdir = kaa.tempfile('thumb')
     if not os.path.isdir(tmpdir):
         os.mkdir(tmpdir)
     os.chdir(tmpdir)
-
-    # create thumbnailer object
     try:
-        thumbnailer = Thumbnailer(tmpdir)
+        return Thumbnailer(tmpdir)
     except IOError, e:
         log.error('thumbnail: %s' % e)
         time.sleep(0.1)
         sys.exit(0)
-
-    return thumbnailer

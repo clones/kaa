@@ -131,7 +131,7 @@ class Client(object):
             kwargs['scheme'] = url[:url.find('://')]
         kwargs['name'] = url
         i = Item(None, url, kwargs, parent, parent._beacon_media)
-        rpc = self.rpc('item.create', type=type, parent=parent._beacon_id, **kwargs)
+        rpc = self.rpc('item_create', type=type, parent=parent._beacon_id, **kwargs)
         rpc.connect(i._beacon_database_update)
         return i
 
@@ -142,7 +142,7 @@ class Client(object):
         """
         if self.status == DISCONNECTED:
             raise RuntimeError('client not connected')
-        self.rpc('item.delete', item._beacon_id)
+        self.rpc('item_delete', item._beacon_id)
 
 
     @property
@@ -158,7 +158,7 @@ class Client(object):
         Monitor a directory with subdirectories for changes. This is done in
         the server and will keep the database up to date.
         """
-        self.rpc('monitor.directory', directory)
+        self.rpc('monitor_directory', directory)
 
 
     @kaa.coroutine()
@@ -175,7 +175,7 @@ class Client(object):
         """
         Delete media with the given id.
         """
-        self.rpc('db.media.delete', id)
+        self.rpc('delete_media', id)
 
 
     # -------------------------------------------------------------------------
@@ -210,7 +210,7 @@ class Client(object):
     def eject(self, dev):
         if not self.status == CONNECTED:
             return False
-        return self.rpc('media.eject', dev.id)
+        return self.rpc('eject', dev.id)
 
 
     # -------------------------------------------------------------------------
@@ -247,7 +247,7 @@ class Client(object):
             items.append((i._beacon_id, i._beacon_changes))
             i._beacon_changes = {}
         self._changed = []
-        self.rpc('item.update', items)
+        self.rpc('item_update', items)
 
 
     @kaa.coroutine()
@@ -260,11 +260,11 @@ class Client(object):
         # read access or the sqlite client will find a lock and waits
         # some time until it tries again. That time is too long, it
         # can take up to two seconds.
-        yield self.rpc('db.lock')
+        yield self.rpc('db_lock')
         try:
             yield self._db.query_media(media)
         finally:
-            self.rpc('db.unlock')
+            self.rpc('db_unlock')
 
 
     def _beacon_parse(self, item):
@@ -273,7 +273,7 @@ class Client(object):
         """
         if not self.connected:
             return False
-        return self.rpc('item.request', item.filename)
+        return self.rpc('item_request', item.filename)
 
 
     # -------------------------------------------------------------------------
@@ -294,7 +294,7 @@ class Client(object):
         self._db.medialist.connect(self)
         for id, prop in media:
             # in the client medialist.add has to lock the db
-            # and needs the db.lock rpc which will always result
+            # and needs the db_lock rpc which will always result
             # in returning an InProgress object.
             m = yield self._db.medialist.add(id, prop)
             new_media.append(m)

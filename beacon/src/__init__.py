@@ -202,7 +202,7 @@ def register_inverted_index(name, min=None, max=None, split=None, ignore=None):
     or more terms.  If the inverted index already exists with the given
     parameters, no action is performed.  See kaa.db for details.
     """
-    _client.rpc('db.register_inverted_index', name, min, max, split, ignore)
+    _client.rpc('register_inverted_index', name, min, max, split, ignore)
 
 @require_connect()
 def register_file_type_attrs(type_name, indexes=[], **attrs):
@@ -214,7 +214,7 @@ def register_file_type_attrs(type_name, indexes=[], **attrs):
     object type) or by altering the object's tables to add new columns
     or indexes.
     """
-    _client.rpc('db.register_file_type_attrs', type_name, indexes, **attrs)
+    _client.rpc('register_file_type_attrs', type_name, indexes, **attrs)
 
 @require_connect()
 def register_track_type_attrs(type_name, indexes=[], **attrs):
@@ -223,7 +223,7 @@ def register_track_type_attrs(type_name, indexes=[], **attrs):
     for details. The only difference between this two functions is that this
     adds track\_ to the type name.
     """
-    _client.rpc('db.register_track_type_attrs', type_name, indexes, **attrs)
+    _client.rpc('register_track_type_attrs', type_name, indexes, **attrs)
 
 @require_connect()
 def get_db_info():

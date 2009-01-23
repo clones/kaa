@@ -133,7 +133,7 @@ if mode == 'stop':
     # stop a running beacon
 
     def shutdown(client):
-        client.rpc('beacon.shutdown')
+        client.rpc('shutdown')
         kaa.main.step()
         print 'Shutdown command issued to beacon-daemon.'
         sys.exit(0)
@@ -230,7 +230,7 @@ try:
         monitor += os.environ.get('BEACON_MONITOR').split(':')
     for dirname in monitor:
         log.info('monitor %s', dirname)
-        server.monitor_dir(dirname)
+        server.monitor_directory(dirname)
 
     # start garbage collector
     kaa.Timer(garbage_collect).start(10)
@@ -239,7 +239,7 @@ try:
         shutdown_timer = 10
         def autoshutdown_poll():
             global shutdown_timer
-            if server.has_clients():
+            if server.clients:
                 shutdown_timer = 5
                 return True
             shutdown_timer -= 1

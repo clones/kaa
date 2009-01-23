@@ -128,9 +128,9 @@ class Query(object):
                     parent.scan().connect(self.monitor, enable)
                     return
                 query['parent'] = parent._beacon_id
-            self._rpc('monitor.add', self._client.id, self.id, query)
+            self._rpc('monitor_add', self._client.id, self.id, query)
         else:
-            self._rpc('monitor.remove', self._client.id, self.id)
+            self._rpc('monitor_remove', self._client.id, self.id)
         # Store current status
         self._beacon_monitoring = enable
 
@@ -215,13 +215,13 @@ class Query(object):
         # read access or the sqlite client will find a lock and waits
         # some time until it tries again. That time is too long, it
         # can take up to two seconds.
-        yield self._rpc('db.lock')
+        yield self._rpc('db_lock')
         try:
             self.result = self._client._db.query(**query)
             if isinstance(self.result, kaa.InProgress):
                 self.result = yield self.result
         finally:
-            self._rpc('db.unlock')
+            self._rpc('db_unlock')
         self.signals['changed'].emit()
         if not self._async.finished:
             self._async.finish(True)
@@ -257,11 +257,11 @@ class Query(object):
         # read access or the sqlite client will find a lock and waits
         # some time until it tries again. That time is too long, it
         # can take up to two seconds.
-        yield self._rpc('db.lock')
+        yield self._rpc('db_lock')
         result = self._client._db.query(**self._query)
         if isinstance(result, kaa.InProgress):
             result = yield result
-        self._rpc('db.unlock')
+        self._rpc('db_unlock')
         if send_signal or len(self.result) != len(result):
             # The query result length is different
             self.result = result

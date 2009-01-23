@@ -35,7 +35,7 @@ __all__ = [ 'Controller' ]
 import kaa
 
 # kaa.beacon imports
-import devices
+from hwmon import HardwareMonitor
 from parser import parse
 
 
@@ -48,7 +48,7 @@ class Controller(object):
         self._db = db
         self._changed = []
         db.medialist.connect(self)
-        self.hwmon = devices.HardwareMonitor(handler, db, rootfs)
+        self.hwmon = HardwareMonitor(handler, db, rootfs)
 
     def _beacon_parse(self, item):
         """
