@@ -213,7 +213,7 @@ class Feed(object):
             elif not self._download:
                 # use url as name
                 entry['name'] = kaa.unicode_to_str(entry.url)
-                i = kaa.beacon.add_item(parent=beacondir, **entry)
+                i = yield kaa.beacon.add_item(parent=beacondir, **entry)
             else:
                 # download
                 filename = os.path.join(self.dirname, entry.basename)

@@ -103,7 +103,7 @@ def plugin_init(server, db):
     # use ~/.beacon/feedmanager as base dir
     database = os.path.join(db.get_directory(), 'feedmanager')
     kaa.feedmanager.set_database(database)
-    server.ipc.connect(IPC())
+    server.ipc.register(IPC())
     # add password information
     for auth in kaa.feedmanager.config.authentication:
         kaa.net.url.add_password(None, auth.site, auth.username, auth.password)
