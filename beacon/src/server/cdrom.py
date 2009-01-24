@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -31,12 +31,12 @@
 
 __all__ = [ 'signals', 'Device', 'start', 'eject' ]
 
+# python imports
 import os
 import re
 import array
 import struct
 import copy
-
 import logging
 
 try:
@@ -63,21 +63,22 @@ except:
         CDS_NO_DISC = 1
         CDS_DISC_OK = 4
 
+# kaa imports
 import kaa
-from kaa import Timer, MainThreadCallback, Signal
+from kaa import Timer, MainThreadCallback
 from kaa.ioctl import ioctl
 import kaa.metadata
 
 # get logging object
 log = logging.getLogger('beacon.hal')
 
-# HAL signals
-signals = { 'add': Signal(),
-            'remove': Signal(),
-            'changed': Signal(),
-          }
+# signals
+signals = kaa.Signals('add', 'remove', 'changed')
 
+# list of detected drives
 _rom_drives = []
+
+CDROM_THREAD = 'beacon.cdrom'
 
 def fstab():
     """
@@ -103,7 +104,7 @@ def fstab():
     return result
 
 
-@kaa.threaded('beacon.cdrom')
+@kaa.threaded(CDROM_THREAD)
 def eject(device):
     # open fd to the drive
     try:
@@ -125,13 +126,18 @@ def eject(device):
 
 
 class Device(object):
+    """
+    ROM drive information
+    """
     def __init__(self, prop):
         self.prop = prop
         self.udi = prop['info.udi']
         self._eject = False
 
-
     def mount(self, umount=False):
+        """
+        Mount the disc
+        """
         if self.prop.get('volume.mount_point') and not umount:
             # already mounted
             return False
@@ -143,7 +149,6 @@ class Device(object):
         proc.signals['stderr'].connect(log.error)
         proc.start()
         return True
-
 
     def eject(self):
         """
@@ -157,8 +162,10 @@ class Device(object):
             return self.mount(umount=True)
         eject(self.prop['block.device'])
 
-
     def _set_mountpoint(self, mountpoint=None):
+        """
+        Set mountpoint
+        """
         prop = copy.copy(self.prop)
         if mountpoint:
             prop['volume.mount_point'] = mountpoint
@@ -170,12 +177,17 @@ class Device(object):
         if self._eject:
             eject(self.prop['block.device'])
 
-
     def __getattr__(self, attr):
+        """
+        Generic attribute getter
+        """
         return getattr(self.prop, attr)
 
 
 class RomDrive(object):
+    """
+    Monitor for ROM drives
+    """
     def __init__(self, device, mountpoint, type, options):
         self.device = device
         self.mountpoint = mountpoint
@@ -183,28 +195,27 @@ class RomDrive(object):
         self.options = options
         self.status = -1
         self.disc = None
-
         # call check every 2 seconds
         self.check_timer = Timer(self.check).start(1)
 
-
+    @kaa.threaded(kaa.MAINTHREAD)
     def remove_disc(self):
+        """
+        Remove disc from the internal list
+        """
         if not self.disc:
             return
-        MainThreadCallback(signals['remove'].emit)(self.disc)
+        signals['remove'].emit(self.disc)
         self.disc = None
 
-
-    @kaa.threaded('beacon.cdrom')
+    @kaa.threaded(CDROM_THREAD)
     def check(self):
         log.debug('check drive status %s', self.device)
-
         # Check drive status
         try:
             fd = os.open(self.device, os.O_RDONLY | os.O_NONBLOCK)
         except (OSError, IOError), e:
             return
-
         try:
             if os.uname()[0] == 'FreeBSD':
                 data = array.array('c', '\000'*4096)
@@ -219,10 +230,8 @@ class RomDrive(object):
         except (OSError, IOError), e:
             os.close(fd)
             return
-
         # close fd
         os.close(fd)
-
         if s == self.status and self.disc:
             # no change, check mountpoint status
             if self.disc and os.path.ismount(self.mountpoint) and not \
@@ -234,26 +243,18 @@ class RomDrive(object):
                 # disc is mounted
                 MainThreadCallback(self.disc._set_mountpoint)()
             return
-
-        # remeber status
+        # remember status
         self.status = s
-
         if s is not CDS_DISC_OK:
             # No disc in drive
             self.remove_disc()
             return
-
         type, id = kaa.metadata.cdrom.status(self.device)
         if not id:
             # bad disc, let us assume it is no disc
             self.remove_disc()
             return
-
-        prop = { 'info.udi': id,
-                 'volume.is_disc': True,
-                 'volume.uuid': id,
-                 'block.device': self.device
-               }
+        prop = { 'info.udi': id, 'volume.is_disc': True, 'volume.uuid': id, 'block.device': self.device }
         if os.path.ismount(self.mountpoint):
             prop['volume.mount_point'] = self.mountpoint
         # FIXME: make this vars in kaa.metadata
@@ -265,8 +266,10 @@ class RomDrive(object):
         MainThreadCallback(signals['add'].emit)(self.disc)
 
 
-
 def start():
+    """
+    Start CDROM monitor
+    """
     added = False
     for device, mountpoint, type, options in fstab():
         # fixme, add other stuff like supermount if people still use this
