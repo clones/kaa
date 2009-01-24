@@ -43,7 +43,7 @@ import kaa.imlib2
 import kaa.rpc, kaa.rpc2
 
 # kaa.beacon imports
-from .._libthumb import epeg, png, failed
+from .. import libthumb
 from videothumb import VideoThumb
 import cpuinfo
 
@@ -56,11 +56,11 @@ class Job(object):
     """
     A job with thumbnail information.
     """
-    def __init__(self, id, filename, imagefile, size, priority):
+    def __init__(self, id, filename, imagefile, priority):
         self.client, self.id = id
         self.filename = filename
+        # imagefile has %s for normal/large and not ext
         self.imagefile = imagefile
-        self.size = size
         self.priority = priority
         self._cmdid = imagefile
 
@@ -142,11 +142,10 @@ class Thumbnailer(object):
 
 
     def create_failed(self, job):
-        dirname = os.path.dirname(os.path.dirname(job.imagefile)) + '/fail/beacon/'
-        job.imagefile = dirname + os.path.basename(job.imagefile) + '.png'
-        if not os.path.isdir(dirname):
-            os.makedirs(dirname, 0700)
-        failed(job.filename, job.imagefile)
+        job.imagefile = job.imagefile % '/fail/beacon/' + '.png'
+        if not os.path.isdir(os.path.dirname(job.imagefile)):
+            os.makedirs(os.path.dirname(job.imagefile), 0700)
+        libthumb.failed(job.filename, job.imagefile)
         return
 
 
@@ -159,35 +158,32 @@ class Thumbnailer(object):
 
         job = self.jobs.pop(0)
 
-        imagefile = job.imagefile + '.png'
-        if os.path.isfile(imagefile):
-            metadata = kaa.metadata.parse(imagefile)
-            if not metadata:
-                log.error('unable to parse %s', imagefile)
-                metadata = {}
-            mtime = metadata.get('Thumb::MTime')
-            if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
-                # not changed, refuse the recreate thumbnail
+        for ext in ('.png', '.jpg'):
+            # iterate over possible extension in the thumbnail dir
+            for size in ('large', 'normal'):
+                # iterate over the sizes
+                imagefile = job.imagefile % size + ext
+                if not os.path.isfile(imagefile):
+                    break
+                metadata = kaa.metadata.parse(imagefile)
+                if not metadata:
+                    break
+                mtime = metadata.get('Thumb::MTime')
+                if not mtime or mtime != str(os.stat(job.filename)[stat.ST_MTIME]):
+                    # needs an update
+                    break
+            else:
+                # we did not break out of the loop, this means we have both thumbnails
+                # and the mtime is also correct. Refuse the recreate thumbnail
                 self.notify_client(job)
                 self.schedule_next(fast=True)
                 return True
 
         if job.filename.lower().endswith('jpg'):
-            imagefile = job.imagefile + '.jpg'
-            if os.path.isfile(imagefile):
-                metadata = kaa.metadata.parse(imagefile)
-                if not metadata:
-                    log.error('unable to parse %s', imagefile)
-                    metadata = {}
-                mtime = metadata.get('Thumb::MTime')
-                if mtime and mtime == str(os.stat(job.filename)[stat.ST_MTIME]):
-                    # not changed, refuse the recreate thumbnail
-                    self.notify_client(job)
-                    self.schedule_next(fast=True)
-                    return True
-
+            # try epeg for fast thumbnailing
             try:
-                epeg(job.filename, imagefile, job.size)
+                libthumb.epeg(job.filename, job.imagefile % 'large' + '.jpg', (256, 256))
+                libthumb.epeg(job.filename, job.imagefile % 'normal' + '.jpg', (128, 128))
                 job.imagefile += '.jpg'
                 self.notify_client(job)
                 self.schedule_next()
@@ -196,7 +192,9 @@ class Thumbnailer(object):
                 pass
 
         try:
-            png(job.filename, job.imagefile + '.png', job.size)
+            # try normal imlib2 thumbnailing
+            libthumb.png(job.filename, job.imagefile % 'large' + '.png', (256, 256))
+            libthumb.png(job.filename, job.imagefile % 'normal' + '.png', (128, 128))
             job.imagefile += '.png'
             self.notify_client(job)
             self.schedule_next()
@@ -252,9 +250,9 @@ class Thumbnailer(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose()
-    def schedule(self, id, filename, imagefile, size, priority):
+    def schedule(self, id, filename, imagefile, priority):
         # FIXME: check if job is already scheduled!!!!
-        job = Job(id, filename, imagefile, size, priority)
+        job = Job(id, filename, imagefile, priority)
         self.jobs.append(job)
         self.jobs.sort(lambda x,y: cmp(x.priority, y.priority))
         self.schedule_next()
@@ -269,7 +267,6 @@ class Thumbnailer(object):
                 job.priority = priority
                 schedule.sort(lambda x,y: cmp(x.priority, y.priority))
                 return
-
 
 def create():
     """

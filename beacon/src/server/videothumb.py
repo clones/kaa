@@ -12,7 +12,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -47,7 +47,7 @@ import kaa.metadata
 import kaa.imlib2
 
 # kaa.beacon imports
-from .._libthumb import png
+from .. import libthumb
 import cpuinfo
 
 # get logging object
@@ -61,41 +61,46 @@ class VideoThumb(object):
     def __init__(self, thumbnailer):
         self.jobs = []
         self._current = None
-
         self.notify_client = thumbnailer.notify_client
         self.create_failed = thumbnailer.create_failed
-
-        self.child = kaa.Process(['mplayer', '-nosound', '-vo', 'png:z=2',
-                                           '-frames', '10', '-osdlevel', '0', '-nocache',
-                                           '-zoom', '-ss' ])
-        self.child.signals['stdout'].connect(self._handle_std)
-        self.child.signals['stderr'].connect(self._handle_std)
-
+        self.mplayer = kaa.Process(['mplayer', '-nosound', '-vo', 'png:z=2',
+               '-frames', '10', '-osdlevel', '0', '-nocache', '-zoom', '-ss' ])
+        self.mplayer.signals['stdout'].connect(self._handle_mplayer_debug)
+        self.mplayer.signals['stderr'].connect(self._handle_mplayer_debug)
 
     def append(self, job):
+        """
+        Add a new video thumbnail job
+        """
         self.jobs.append(job)
-        self._run()
+        self.start_mplayer()
 
+    def _handle_mplayer_debug(self, line):
+        """
+        Handle stdout for debugging
+        """
+        pass
 
-    def _handle_std(self, line):
-        self._child_std.append(line)
-
-
-    def _run(self):
-        if self.child.is_alive() or not self.jobs or self._current or \
+    def start_mplayer(self):
+        """
+        Start mplayer for the next job
+        """
+        if self.mplayer.is_alive() or not self.jobs or self._current or \
                kaa.main.is_shutting_down():
             return True
         self._current = self.jobs.pop(0)
-
-        imagefile = self._current.imagefile + '.png'
-        if os.path.isfile(imagefile):
+        for size in ('large', 'normal'):
+            imagefile = self._current.imagefile % size + '.png'
+            if not os.path.isfile(imagefile):
+                break
             metadata = kaa.metadata.parse(imagefile)
             mtime = metadata.get('Thumb::MTime')
-            if mtime == str(os.stat(self._current.filename)[stat.ST_MTIME]):
-                # not changed, refuse the recreate thumbnail
-                self._current = None
-                return self._run()
-
+            if mtime != str(os.stat(self._current.filename)[stat.ST_MTIME]):
+                break
+        else:
+            # not changed, refuse the recreate thumbnail
+            self._current = None
+            return self.start_mplayer()
         try:
             mminfo = self._current.metadata
             pos = str(int(mminfo.video[0].length / 2.0))
@@ -103,8 +108,7 @@ class VideoThumb(object):
                 if mminfo.type in ('MPEG-TS', 'MPEG-PES'):
                     pos = str(int(mminfo.video[0].length / 20.0))
         except:
-            # else arbitrary consider that file is 1Mbps and grab position
-            # at 10%
+            # else arbitrary consider that file is 1Mbps and grab position at 10%
             try:
                 pos = os.stat(self._current.filename)[stat.ST_SIZE]/1024/1024/10.0
             except (OSError, IOError):
@@ -116,15 +120,14 @@ class VideoThumb(object):
                 pos = '10'
             else:
                 pos = str(int(pos))
+        self.mplayer.start([pos, self._current.filename]).connect(self.create_thumbnail)
 
-        self._child_std = []
-        self.child.start([pos, self._current.filename]).connect(self._completed)
-
-
-    def _completed(self, code):
+    def create_thumbnail(self, code):
+        """
+        Create thumbnail based on the captures
+        """
         job = self._current
         self._current = None
-
         # find thumbnails
         captures = glob.glob('000000??.png')
         if not captures:
@@ -135,48 +138,44 @@ class VideoThumb(object):
             if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
                 cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20):
                 # too much CPU load, slow down
-                return kaa.OneShotTimer(self._run).start(1)
-            self._run()
+                return kaa.OneShotTimer(self.start_mplayer).start(1)
+            self.start_mplayer()
             return
-
         # find the best image
         current_capture = captures[0], os.stat(captures[0])[stat.ST_SIZE]
         for c in captures[1:]:
             if os.stat(c)[stat.ST_SIZE] > current_capture[1]:
                 current_capture = c, os.stat(c)[stat.ST_SIZE]
         current_capture = current_capture[0]
-
         try:
             # scale thumbnail
-            width, height = job.size
-            image = kaa.imlib2.open_without_cache(current_capture)
-            if image.width > width or image.height > height:
-                image = image.scale_preserve_aspect((width,height))
-            if image.width * 3 > image.height * 4:
-                # fix image with blank bars to be 4:3
-                nh = (image.width*3)/4
-                ni = kaa.imlib2.new((image.width, nh))
-                ni.draw_rectangle((0,0), (image.width, nh), (0,0,0,255), True)
-                ni.blend(image, dst_pos=(0,(nh- image.height) / 2))
-                image = ni
-            elif image.width * 3 < image.height * 4:
-                # strange aspect, let's guess it's 4:3
-                new_size = (image.width, (image.width*3)/4)
-                image = image.scale((new_size))
-
-            try:
-                png(job.filename, job.imagefile + '.png', job.size,
-                    image._image)
+            for size, width, height in (('large',256,256), ('normal',128,128)):
+                image = kaa.imlib2.open_without_cache(current_capture)
+                if image.width > width or image.height > height:
+                    image = image.scale_preserve_aspect((width,height))
+                if image.width * 3 > image.height * 4:
+                    # fix image with blank bars to be 4:3
+                    nh = (image.width*3)/4
+                    ni = kaa.imlib2.new((image.width, nh))
+                    ni.draw_rectangle((0,0), (image.width, nh), (0,0,0,255), True)
+                    ni.blend(image, dst_pos=(0,(nh- image.height) / 2))
+                    image = ni
+                elif image.width * 3 < image.height * 4:
+                    # strange aspect, let's guess it's 4:3
+                    new_size = (image.width, (image.width*3)/4)
+                    image = image.scale((new_size))
+                try:
+                    libthumb.png(job.filename, job.imagefile % size + '.png', (width, height), image._image)
+                except (IOError, ValueError):
+                    self.create_failed(job)
+                    break
+            else:
                 job.imagefile += '.png'
-            except (IOError, ValueError):
-                self.create_failed(job)
-
             # remove old stuff
             for capture in captures:
                 os.remove(capture)
-
         except Exception, e:
             log.exception('video')
         # notify client and start next video
         self.notify_client(job)
-        kaa.OneShotTimer(self._run).start(1)
+        kaa.OneShotTimer(self.start_mplayer).start(1)

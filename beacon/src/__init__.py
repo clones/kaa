@@ -42,10 +42,6 @@ import kaa.utils
 from version import VERSION
 from client import Client
 
-# FIXME: remove THUMBNAIL_NORMAL and THUMBNAIL_LARGE and replace code
-# using it with Thumbnail.LARGE and Thumbnail.NORMAL
-from thumbnail import NORMAL as THUMBNAIL_NORMAL
-from thumbnail import LARGE as THUMBNAIL_LARGE
 from thumbnail import Thumbnail
 from item import Item
 from file import File

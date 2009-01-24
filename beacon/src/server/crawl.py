@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006-2008 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -136,7 +136,6 @@ class Crawler(object):
         self._coroutine = None
         self._scan_restart_timer = None
         self._crawl_start_time = None
-        self._startup = True
 
 
     def append(self, item):
@@ -145,7 +144,7 @@ class Crawler(object):
         """
         log.info('crawl %s', item)
         self._root_items.append(item)
-        self._scan_add(item, True)
+        self._scan_add(item, True, force_thumbnail_check=True)
 
 
     def stop(self):
@@ -159,7 +158,7 @@ class Crawler(object):
         if self._coroutine:
             self._coroutine.stop()
             self._coroutine = None
-            self._scan_handle_result([], False)
+            self._scan_handle_result([], False, False)
         # stop inotify
         self._inotify = None
         # stop restart timer
@@ -246,8 +245,11 @@ class Crawler(object):
                 self._db.update_object(item._beacon_id, **changes)
 
             # Now both directories need to be checked again
-            self._scan_add(item._beacon_parent, recursive=False)
-            self._scan_add(move._beacon_parent, recursive=False)
+            # FIXME: instead of creating new thumbnails here, we should rename the
+            # existing thumbnails from the files in the directory and adjust the
+            # metadata in it.
+            self._scan_add(item._beacon_parent, recursive=False, force_thumbnail_check=False)
+            self._scan_add(move._beacon_parent, recursive=True, force_thumbnail_check=False)
 
             if not mask & INotify.ISDIR:
                 # commit changes so that the client may get notified
@@ -259,7 +261,7 @@ class Crawler(object):
             # may be different or broken now.
             self.monitoring.remove(name + '/', recursive=True)
             # now make sure the directory is parsed recursive again
-            self._scan_add(move, recursive=True)
+            self._scan_add(move, recursive=True, force_thumbnail_check=False)
             # commit changes so that the client may get notified
             self._db.commit()
             return True
@@ -279,10 +281,10 @@ class Crawler(object):
             if item._beacon_isdir:
                 # It is a directory. Just do a full directory rescan.
                 recursive = not (mask & INotify.MODIFY)
-                self._scan_add(item, recursive=recursive)
+                self._scan_add(item, recursive=recursive, force_thumbnail_check=False)
                 if name.lower().endswith('/video_ts'):
                     # it could be a dvd on hd
-                    self._scan_add(item._beacon_parent, recursive=False)
+                    self._scan_add(item._beacon_parent, recursive=False, force_thumbnail_check=False)
                 return True
 
             # handle bursts of inotify events when a file is growing very
@@ -293,7 +295,7 @@ class Crawler(object):
             # parent directory changed, too. Even for a simple modify of an
             # item another item may be affected (xml metadata, images)
             # so scan the file by rechecking the parent dir
-            self._scan_add(item._beacon_parent, recursive=False)
+            self._scan_add(item._beacon_parent, recursive=False, force_thumbnail_check=False)
             return True
 
         # ---------------------------------------------------------------------
@@ -322,7 +324,7 @@ class Crawler(object):
             # directory to monitor is different.
             self.monitoring.remove(name + '/', recursive=True)
         # rescan parent directory
-        self._scan_add(item._beacon_parent, recursive=False)
+        self._scan_add(item._beacon_parent, recursive=False, force_thumbnail_check=False)
         # commit changes so that the client may get notified
         self._db.commit()
         return True
@@ -332,7 +334,7 @@ class Crawler(object):
     # Internal functions - Scanner
     # -------------------------------------------------------------------------
 
-    def _scan_add(self, directory, recursive):
+    def _scan_add(self, directory, recursive, force_thumbnail_check):
         """
         Add a directory to the list of directories to scan.
         """
@@ -347,7 +349,7 @@ class Crawler(object):
             # called from inotify. this means the file can not be in
             # the list as recursive only again from inotify. Add to the
             # beginning of the list, it is important and fast.
-            self._scan_list.insert(0, (directory, False))
+            self._scan_list.insert(0, (directory, False, force_thumbnail_check))
         else:
             # called from inside the crawler recursive or by massive changes
             # from inotify. In both cases, add to the end of the list because
@@ -357,7 +359,7 @@ class Crawler(object):
                 # TODO: softlink dirs are not handled correctly, they may be
                 # scanned twiece.
                 return False
-            self._scan_list.append((directory, recursive))
+            self._scan_list.append((directory, recursive, force_thumbnail_check))
         self._scan_dict[directory.filename] = directory
 
         # start scanning
@@ -387,36 +389,35 @@ class Crawler(object):
             # way too much CPU load, slow down even more
             interval *= 2
         # get next item to scan and start the scanning
-        directory, recursive = self._scan_list.pop(0)
+        directory, recursive, force_thumbnail_check = self._scan_list.pop(0)
         del self._scan_dict[directory.filename]
-        coroutine = self._scan(directory)
+        coroutine = self._scan(directory, force_thumbnail_check)
         # handle result
         if coroutine.is_finished():
             # already done, handle result in a OneShotTimer to throttle down
             # and to avoid too much recursive calls.
             self._coroutine = kaa.OneShotTimer(
-                self._scan_handle_result, coroutine.get_result(), recursive)
+                self._scan_handle_result, coroutine.get_result(), recursive, force_thumbnail_check)
             return self._coroutine.start(interval)
         self._coroutine = coroutine
         self._coroutine.set_interval(interval)
-        self._coroutine.connect(self._scan_handle_result, recursive)
+        self._coroutine.connect(self._scan_handle_result, recursive, force_thumbnail_check)
 
 
-    def _scan_handle_result(self, subdirs, recursive):
+    def _scan_handle_result(self, subdirs, recursive, force_thumbnail_check):
         """
         The scan function finished.
         """
         if recursive:
             # add results to the list of files to scan
             for d in subdirs:
-                self._scan_add(d, True)
+                self._scan_add(d, True, force_thumbnail_check=force_thumbnail_check)
         self._coroutine = None
         if self._scan_list:
             # start again
             self._scan_next_item()
             return
         # crawler finished
-        self._startup = False
         log.info('crawler %s finished; took %0.1f seconds.', \
                  self.num, time.time() - self._crawl_start_time)
         self._crawl_start_time = None
@@ -446,11 +447,11 @@ class Crawler(object):
         # this object with 'append' again.
         self.monitoring = MonitorList(self._inotify)
         for item in self._root_items:
-            self._scan_add(item, recursive=True)
+            self._scan_add(item, recursive=True, force_thumbnail_check=False)
 
 
     @kaa.coroutine()
-    def _scan(self, directory):
+    def _scan(self, directory, force_thumbnail_check):
         """
         Scan a directory and all files in it, return list of subdirs.
         """
@@ -469,7 +470,7 @@ class Crawler(object):
             yield []
 
         # parse directory
-        async = parse(self._db, directory, check_image=self._startup)
+        async = parse(self._db, directory, force_thumbnail_check=force_thumbnail_check)
         if isinstance(async, kaa.InProgress):
             yield async
 
@@ -487,7 +488,7 @@ class Crawler(object):
             self.monitoring.add(directory.filename, use_inotify=False)
             dirname = os.path.realpath(directory.filename)
             directory = self._db.query_filename(dirname)
-            async = parse(self._db, directory, check_image=self._startup)
+            async = parse(self._db, directory, force_thumbnail_check=force_thumbnail_check)
             if isinstance(async, kaa.InProgress):
                 yield async
 
@@ -505,7 +506,7 @@ class Crawler(object):
                 subdirs.append(child)
                 continue
             # check file
-            async = parse(self._db, child, check_image=self._startup)
+            async = parse(self._db, child, force_thumbnail_check=force_thumbnail_check)
             if isinstance(async, kaa.InProgress):
                 async = yield async
             # adjust load counter

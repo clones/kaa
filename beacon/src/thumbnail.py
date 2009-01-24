@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon - A virtual filesystem with metadata
-# Copyright (C) 2006-2008 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Thumbnail', 'NORMAL', 'LARGE', 'SUPPORT_VIDEO', 'connect' ]
+__all__ = [ 'Thumbnail', 'SUPPORT_VIDEO', 'connect' ]
 
 NORMAL  = 'normal'
 LARGE   = 'large'
@@ -45,10 +45,11 @@ import stat
 import kaa
 import kaa.rpc, kaa.rpc2
 from kaa.weakref import weakref
+from kaa.utils import property
 import kaa.metadata
 
 # kaa.thumb imports
-from _libthumb import png
+import libthumb
 
 # get logging object
 log = logging.getLogger('beacon.thumb')
@@ -84,7 +85,6 @@ class Thumbnail(object):
     PRIORITY_LOW    = 2
 
     # sizes
-    LARGE = 'large'
     NORMAL = 'normal'
 
     _next_id = 0
@@ -112,18 +112,18 @@ class Thumbnail(object):
         # create digest for filename (with %s for the size)
         self._thumbnail = media.thumbnails + '/%s/' + md5.md5(self.url).hexdigest()
 
-    def get(self, type='any', check_mtime=False):
+    def _get_thumbnail(self, type='any', check_mtime=False):
         """
-        Get the filename to the thumbnail.
+        Get the filename to the thumbnail. DO NOT USE OUTSIDE OF BEACON
 
-        :param type: THUMBNAIL_NORMAL, THUMBNAIL_LARGE or 'any'
+        :param type: 'normal', 'large' or 'any'
         :param check_mtime: Check the file modification time against the information
             stored in the thumbnail. If the file has changed, the thumbnail will not be
             returned.
         :returns: full path to thumbnail file or None
         """
         if check_mtime:
-            image = self.get(type)
+            image = self._get_thumbnail(type)
             if image:
                 metadata = kaa.metadata.parse(image)
                 if metadata:
@@ -133,7 +133,7 @@ class Thumbnail(object):
             # mtime check failed, return no image
             return None
         if type == 'any':
-            image = self.get(LARGE, check_mtime)
+            image = self._get_thumbnail(LARGE, check_mtime)
             if image:
                 return image
             type = NORMAL
@@ -142,70 +142,98 @@ class Thumbnail(object):
         if os.path.isfile(self._thumbnail % type + '.jpg'):
             return self._thumbnail % type + '.jpg'
         if not type == 'fail/beacon':
-            return self.get('fail/beacon', check_mtime)
+            return self._get_thumbnail('fail/beacon', check_mtime)
         return None
 
-    def set(self, image, type='both'):
+    def _set_thumbnail(self, image, type='both'):
         """
-        Set the thumbnail
+        Set the thumbnail. DO NOT USE OUTSIDE OF BEACON
 
         :param image: Image containing the thumbnail
         :type image: kaa.Imlib2 image object
-        :param type: THUMBNAIL_NORMAL, THUMBNAIL_LARGE or 'both'
+        :param type: 'normal', 'large', or 'both'
         """
         if type == 'both':
-            self.set(image, NORMAL)
-            return self.set(image, LARGE)
+            self._set_thumbnail(image, NORMAL)
+            return self._set_thumbnail(image, LARGE)
         dest = '%s/%s' % (self.destdir, type)
         i = self._thumbnail % type + '.png'
-        png(self.name, i, SIZE[type], image._image)
+        libthumb.png(self.name, i, SIZE[type], image._image)
         log.info('store %s', i)
 
-    def exists(self, check_mtime=False):
+    @property
+    def needs_update(self):
         """
-        Check if a thumbnail exists. This function checks normal and large sized
-        thumbnails as well as the fail directory for previous attempts to create
-        a thumbnail for this file.
-
-        :param check_mtime: check the file and thumbnail modification time if a
-            thumbnail is valid.
+        Check if the image needs an update
         """
-        return self.get(NORMAL, check_mtime) or self.get(LARGE, check_mtime) \
-               or self.get('fail/beacon', check_mtime)
+        return not self.failed and (not self._get_thumbnail(NORMAL, True) or not self._get_thumbnail(LARGE, True))
 
-    def is_failed(self):
+    @property
+    def normal(self):
+        """
+        The normal thumbnail
+        """
+        return self._get_thumbnail(NORMAL)
+
+    @normal.setter
+    def normal(self, image):
+        """
+        The normal thumbnail
+        """
+        return self._set_thumbnail(image, NORMAL)
+
+    @property
+    def large(self):
+        """
+        The large thumbnail
+        """
+        return self._get_thumbnail(LARGE)
+
+    @large.setter
+    def large(self, image):
+        """
+        The large thumbnail
+        """
+        return self._set_thumbnail(image. LARGE)
+
+    @property
+    def failed(self):
         """
         Check if thumbnailing failed before. Failed attempts are stored in the
         fail/beacon subdirectory.
         """
-        return self.get('fail/beacon')
+        return self._get_thumbnail('fail/beacon')
 
-    def create(self, type=NORMAL, priority=None):
+    @property
+    def image(self):
+        """
+        Get the image, no matter if large or normal
+        """
+        return self._get_thumbnail()
+
+    @image.setter
+    def image(self, image):
+        """
+        Get the image, no matter if large or normal
+        """
+        return self._set_thumbnail(image)
+
+    def create(self, priority=None):
         """
         Create a thumbnail.
 
-        :param type: one of THUMBNAIL_NORMAL and THUMBNAIL_LARGE
         :param priority: priority how important the thumbnail is. The thumbnail
             process will handle the thumbnail generation based on this priority.
             If you loose all references to this thumbnail object, the priority will
-            automatically set to the lowest value (2).
-
-            Maximum value is 0, default 1.
+            automatically set to the lowest value (2). Maximum value is 0, default 1.
         """
         if priority is None:
             priority = Thumbnail.PRIORITY_NORMAL
         Thumbnail._next_id += 1
-        dest = '%s/%s' % (self.destdir, type)
-        if not os.path.isdir(dest):
-            os.makedirs(dest, 0700)
         # schedule thumbnail creation
-        _client.schedule(Thumbnail._next_id, self.name,
-                         self._thumbnail % type, SIZE[type], priority)
+        _client.schedule(Thumbnail._next_id, self.name, self._thumbnail, priority)
         job = Job(self, Thumbnail._next_id, priority)
         return job.signal
-
-    image  = property(get, set, None, "thumbnail image")
-    failed = property(is_failed, None, None, "true if thumbnailing failed")
 
 
 class Client(object):
@@ -230,13 +258,13 @@ class Client(object):
                     raise RuntimeError('unable to connect to thumbnail server')
                 yield kaa.delay(0.01)
 
-    def schedule(self, id, filename, imagename, type, priority):
+    def schedule(self, id, filename, imagename, priority):
         if not self.id:
             # Not connected yet, schedule job later
-            self._schedules.append((id, filename, imagename, type, priority))
+            self._schedules.append((id, filename, imagename, priority))
             return
         # server rpc calls
-        self.rpc('schedule', (self.id, id), filename, imagename, type, priority)
+        self.rpc('schedule', (self.id, id), filename, imagename, priority)
 
     @kaa.rpc.expose('connect')
     def _server_callback_connected(self, id):

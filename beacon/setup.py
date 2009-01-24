@@ -46,9 +46,8 @@ except ImportError, e:
     print 'kaa.base not installed'
     sys.exit(1)
 
-thumb_ext = Extension("kaa.beacon._libthumb",
-                      ["src/libthumb.c", "src/libpng.c" ],
-                      config='src/config.h')
+thumb_ext = Extension("kaa.beacon.libthumb",
+    ["src/extensions/libthumb.c", "src/extensions/libpng.c" ], config='src/extensions/config.h')
 
 if not thumb_ext.check_library('imlib2', '1.1.1'):
     print 'Imlib2 >= 1.1.1 not found'

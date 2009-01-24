@@ -8,7 +8,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.beacon.server - A virtual filesystem with metadata
-# Copyright (C) 2006-2007 Dirk Meyer
+# Copyright (C) 2006-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -74,14 +74,13 @@ def register(ext, function):
     extention_plugins[ext].append(function)
 
 
-def parse(db, item, check_image=False):
+def parse(db, item, force_thumbnail_check=False):
     """
     Main beacon parse function. Return the load this function produced:
     0 == nothing done
     1 == normal parsing (as InProgress object)
     2 == thumbnail storage (as InProgress object)
     """
-
     mtime = item._beacon_mtime
     if mtime == None:
         if item.isdir or item.isfile:
@@ -91,9 +90,9 @@ def parse(db, item, check_image=False):
         image = item._beacon_data.get('image')
         if image and os.path.exists(image):
             t = thumbnail.Thumbnail(image, item._beacon_media)
-            if not t.get(thumbnail.LARGE, check_mtime=True):
+            if t.needs_update:
                 log.info('create missing image %s for %s', image, item)
-                t.create(thumbnail.LARGE, t.PRIORITY_LOW)
+                t.create(t.PRIORITY_LOW)
         return 0
 
     parent = item._beacon_parent
@@ -111,13 +110,13 @@ def parse(db, item, check_image=False):
         # The item already is in the database and the mtime is unchanged.
         # This means we don't need to scan again, but we check if the
         # thumbnail is valid or not.
-        if check_image and item._beacon_data.get('image'):
+        if force_thumbnail_check and item._beacon_data.get('image'):
             image = item._beacon_data.get('image')
             if os.path.exists(image):
                 t = thumbnail.Thumbnail(image, item._beacon_media)
-                if not t.get(thumbnail.LARGE, check_mtime=True):
+                if t.needs_update:
                     log.info('create missing image %s for %s', image, item)
-                    t.create(thumbnail.LARGE, t.PRIORITY_LOW)
+                    t.create(t.PRIORITY_LOW)
                 return 0
             else:
                 log.info('image "%s" for %s is gone, rescan', image, item)
@@ -201,10 +200,6 @@ def _parse(db, item, mtime):
     #
     # Thumbnail / Cover / Image stuff.
     #
-    # Note: when beacon is stopped after the parsing is saved and before the
-    # thumbnail generation is complete, the thumbnails won't be created
-    # before the user needs them. But he can request the thumbnails himself.
-    #
 
     produced_load = 1
 
@@ -223,35 +218,28 @@ def _parse(db, item, mtime):
 
     elif type == 'image':
         attributes['image'] = item.filename
-
         if metadata.get('thumbnail'):
             t = thumbnail.Thumbnail(item.filename, item._beacon_media)
-            if not t.exists(check_mtime=True):
+            if t.needs_update:
                 # only store the normal version
                 try:
                     produced_load = 2
-                    img = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
-                    t.set(img, thumbnail.NORMAL)
+                    t.normal = kaa.imlib2.open_from_memory(metadata.get('thumbnail'))
                 except (ValueError, IOError):
                     log.exception('image thumbnail')
-
     else:
         base = os.path.splitext(item.filename)[0]
         if type == 'video' and not attributes.get('image') and \
                thumbnail.SUPPORT_VIDEO:
             attributes['image'] = item.filename
-
-        if metadata.get('thumbnail') and not \
-               attributes.get('image'):
+        if metadata.get('thumbnail') and not attributes.get('image'):
             attributes['image'] = item.filename
             t = thumbnail.Thumbnail(item.filename, item._beacon_media)
-            if not t.exists(check_mtime=True):
-                try:
-                    produced_load = 2
-                    t.image = kaa.imlib2.open_from_memory(metadata['thumbnail'])
-                except (ValueError, IOError):
-                    log.exception('raw thumbnail')
-
+            try:
+                produced_load = 2
+                t.image = kaa.imlib2.open_from_memory(metadata['thumbnail'])
+            except (ValueError, IOError):
+                log.exception('raw thumbnail')
         for ext in ('.jpg', '.png'):
             if os.path.isfile(base + ext):
                 attributes['image'] = base + ext
@@ -263,10 +251,9 @@ def _parse(db, item, mtime):
     if attributes.get('image'):
         # create thumbnail
         t = thumbnail.Thumbnail(attributes.get('image'), item._beacon_media)
-        if not t.get(thumbnail.LARGE, check_mtime=True) and \
-               (not type == 'video' or not hasattr(item, 'filename') or \
+        if t.needs_update and (not type == 'video' or not hasattr(item, 'filename') or
                 utils.do_thumbnail(item.filename)):
-            t.create(thumbnail.LARGE, t.PRIORITY_LOW)
+            t.create(t.PRIORITY_LOW)
 
     if not metadata.get('title'):
         # try to set a good title
@@ -300,9 +287,8 @@ def _parse(db, item, mtime):
         item._beacon_data.update(attributes)
     else:
         # Create new entry
-        r = db.add_object(type, name=item._beacon_data['name'], parent=parent,
-                          overlay=item._beacon_overlay, **attributes)
-        item._beacon_database_update(r)
+        obj = db.add_object(type, name=item._beacon_data['name'], parent=parent, overlay=item._beacon_overlay, **attributes)
+        item._beacon_database_update(obj)
 
     #
     # Additional track handling
@@ -326,9 +312,7 @@ def _parse(db, item, mtime):
             yield produced_load
         type = 'track_%s' % metadata.get('type').lower()
         for track in metadata.tracks:
-            db.add_object(type, name=str(track.trackno), parent=item,
-                          mtime=0, metadata=track)
-
+            db.add_object(type, name=str(track.trackno), parent=item, mtime=0, metadata=track)
 
     # parsing done
     log.info('scan %s (%0.3f)' % (item, time.time() - t1))
