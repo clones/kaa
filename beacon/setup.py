@@ -58,11 +58,12 @@ if not thumb_ext.check_library('libpng', '1.2.0'):
     print 'libpng >= 1.2.0 not found'
     sys.exit(1)
 
-if thumb_ext.check_library('epeg', '0.9'):
-    print 'epeg extention enabled'
+if thumb_ext.check_cc([], '', '-ljpeg'):
+    thumb_ext.files.append('src/extensions/epeg.c')
+    thumb_ext.libraries.append('jpeg')
     thumb_ext.config('#define USE_EPEG')
 else:
-    print 'epeg extention disabled'
+    print 'libjpeg not installed, deactivating fast thumbnailer'
 
 try:
     from pysqlite2 import dbapi2 as sqlite

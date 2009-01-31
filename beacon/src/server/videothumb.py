@@ -90,7 +90,7 @@ class VideoThumb(object):
             return True
         self._current = self.jobs.pop(0)
         for size in ('large', 'normal'):
-            imagefile = self._current.imagefile % size + '.png'
+            imagefile = self._current.imagefile % size
             if not os.path.isfile(imagefile):
                 break
             metadata = kaa.metadata.parse(imagefile)
@@ -165,12 +165,10 @@ class VideoThumb(object):
                     new_size = (image.width, (image.width*3)/4)
                     image = image.scale((new_size))
                 try:
-                    libthumb.png(job.filename, job.imagefile % size + '.png', (width, height), image._image)
+                    libthumb.png(job.filename, job.imagefile % size, (width, height), image._image)
                 except (IOError, ValueError):
                     self.create_failed(job)
                     break
-            else:
-                job.imagefile += '.png'
             # remove old stuff
             for capture in captures:
                 os.remove(capture)

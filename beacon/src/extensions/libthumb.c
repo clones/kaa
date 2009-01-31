@@ -6,10 +6,10 @@
  *
  * ----------------------------------------------------------------------------
  * kaa.beacon - A virtual filesystem with metadata
- * Copyright (C) 2006 Dirk Meyer
+ * Copyright (C) 2006-2009 Dirk Meyer
  *
- * First Edition: Jason Tackaberry <tack@sault.org>
- * Maintainer:    Jason Tackaberry <tack@sault.org>
+ * First Edition: Dirk Meyer <dischi@freevo.org>
+ * Maintainer:    Dirk Meyer <dischi@freevo.org>
  *
  * Please see the file AUTHORS for a complete list of authors.
  *
@@ -37,13 +37,13 @@
 #define X_DISPLAY_MISSING
 #include <Imlib2.h>
 
-#ifdef USE_EPEG
-#include "Epeg.h"
-#endif
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#ifdef USE_EPEG
+#include "epeg.h"
+#endif
 
 /* kaa.imlib2 usage */
 Imlib_Image *(*imlib_image_from_pyobject)(PyObject *pyimg);
@@ -58,51 +58,57 @@ extern int _png_write (const char *file, DATA32 * ptr,
 PyObject *epeg_thumbnail(PyObject *self, PyObject *args)
 {
 #ifdef USE_EPEG
-    int iw, ih, tw, th, ret;
+    int iw, ih, tw, th;
+    struct stat filestatus;
     char *source;
     char *dest;
-
+    const void *data;
+    char uri[PATH_MAX];
     Epeg_Image *im;
 
     if (!PyArg_ParseTuple(args, "ss(ii)", &source, &dest, &tw, &th))
         return NULL;
 
+    if (stat (source, &filestatus) != 0) {
+        PyErr_SetString(PyExc_ValueError, "thumbnail: no such file");
+        return NULL;
+    }
+
     im = epeg_file_open(source);
-    if (im) {
-        epeg_size_get(im, &iw, &ih);
+    if (!im) {
+        PyErr_SetString(PyExc_IOError, "epeg load failed");
+	return NULL;
+    }
 
-        if (iw > tw || ih > th) {
-            if (iw / tw > ih / th)
-                th = (ih * tw) / iw;
-            else
-                tw = (iw * th) / ih;
-        } else {
-            tw = iw;
-            th = ih;
-        }
+    epeg_size_get(im, &iw, &ih);
 
-        epeg_decode_size_set(im, tw, th);
-        epeg_quality_set(im, 80);
-        epeg_thumbnail_comments_enable(im, 1);
+    if (iw > tw || ih > th) {
+	if (iw / tw > ih / th)
+	    th = (ih * tw) / iw;
+	else
+	    tw = (iw * th) / ih;
+    } else {
+	tw = iw;
+	th = ih;
+    }
 
-        epeg_file_output_set(im, dest);
-        ret = epeg_encode (im);
-
-        if (!ret) {
-            epeg_close(im);
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-
-        epeg_close(im);
-        PyErr_SetString(PyExc_IOError, "epeg failed");
-    } else
-        PyErr_SetString(PyExc_IOError, "epeg failed");
-
+    epeg_decode_size_set(im, tw, th);
+    data = epeg_pixels_get(im);
+    if (!data) {
+	epeg_close(im);
+        PyErr_SetString(PyExc_IOError, "epeg decode failed");
+	return NULL;
+    }
+    snprintf(uri, PATH_MAX, "file://%s", source);
+    _png_write (dest, data, tw, th, iw, ih, "image/jpeg", filestatus.st_mtime, uri);
+    epeg_pixels_free(im, data);
+    epeg_close(im);
+    Py_INCREF(Py_None);
+    return Py_None;
 #else
-    PyErr_SetString(PyExc_IOError, "epeg support missing");
-#endif
+    PyErr_SetString(PyExc_IOError, "kaa.beacon compiled without libjpg support");
     return NULL;
+#endif
 }
 
 PyObject *png_thumbnail(PyObject *self, PyObject *args)

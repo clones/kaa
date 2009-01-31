@@ -91,7 +91,7 @@ def parse(db, item, force_thumbnail_check=False):
         if image and os.path.exists(image):
             t = thumbnail.Thumbnail(image, item._beacon_media)
             if t.needs_update:
-                log.info('create missing image %s for %s', image, item)
+                log.debug('create missing image %s for %s', image, item)
                 t.create(t.PRIORITY_LOW)
         return 0
 
@@ -115,7 +115,7 @@ def parse(db, item, force_thumbnail_check=False):
             if os.path.exists(image):
                 t = thumbnail.Thumbnail(image, item._beacon_media)
                 if t.needs_update:
-                    log.info('create missing image %s for %s', image, item)
+                    log.debug('create missing image %s for %s', image, item)
                     t.create(t.PRIORITY_LOW)
                 return 0
             else:

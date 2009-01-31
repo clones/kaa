@@ -110,7 +110,7 @@ class Thumbnail(object):
         # FIXME: handle media.mountpoint
         self.url = url or 'file://' + name
         # create digest for filename (with %s for the size)
-        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(self.url).hexdigest()
+        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(self.url).hexdigest() + '.png'
 
     def _get_thumbnail(self, type='any', check_mtime=False):
         """
@@ -137,10 +137,8 @@ class Thumbnail(object):
             if image:
                 return image
             type = NORMAL
-        if os.path.isfile(self._thumbnail % type + '.png'):
-            return self._thumbnail % type + '.png'
-        if os.path.isfile(self._thumbnail % type + '.jpg'):
-            return self._thumbnail % type + '.jpg'
+        if os.path.isfile(self._thumbnail % type):
+            return self._thumbnail % type
         if not type == 'fail/beacon':
             return self._get_thumbnail('fail/beacon', check_mtime)
         return None
@@ -157,7 +155,7 @@ class Thumbnail(object):
             self._set_thumbnail(image, NORMAL)
             return self._set_thumbnail(image, LARGE)
         dest = '%s/%s' % (self.destdir, type)
-        i = self._thumbnail % type + '.png'
+        i = self._thumbnail % type
         libthumb.png(self.name, i, SIZE[type], image._image)
         log.info('store %s', i)
 

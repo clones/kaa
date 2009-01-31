@@ -142,7 +142,7 @@ class Thumbnailer(object):
 
 
     def create_failed(self, job):
-        job.imagefile = job.imagefile % '/fail/beacon/' + '.png'
+        job.imagefile = job.imagefile % '/fail/beacon/'
         if not os.path.isdir(os.path.dirname(job.imagefile)):
             os.makedirs(os.path.dirname(job.imagefile), 0700)
         libthumb.failed(job.filename, job.imagefile)
@@ -158,33 +158,30 @@ class Thumbnailer(object):
 
         job = self.jobs.pop(0)
 
-        for ext in ('.png', '.jpg'):
-            # iterate over possible extension in the thumbnail dir
-            for size in ('large', 'normal'):
-                # iterate over the sizes
-                imagefile = job.imagefile % size + ext
-                if not os.path.isfile(imagefile):
-                    break
-                metadata = kaa.metadata.parse(imagefile)
-                if not metadata:
-                    break
-                mtime = metadata.get('Thumb::MTime')
-                if not mtime or mtime != str(os.stat(job.filename)[stat.ST_MTIME]):
-                    # needs an update
-                    break
-            else:
-                # we did not break out of the loop, this means we have both thumbnails
-                # and the mtime is also correct. Refuse the recreate thumbnail
-                self.notify_client(job)
-                self.schedule_next(fast=True)
-                return True
+        for size in ('large', 'normal'):
+            # iterate over the sizes
+            imagefile = job.imagefile % size
+            if not os.path.isfile(imagefile):
+                break
+            metadata = kaa.metadata.parse(imagefile)
+            if not metadata:
+                break
+            mtime = metadata.get('Thumb::MTime')
+            if not mtime or mtime != str(os.stat(job.filename)[stat.ST_MTIME]):
+                # needs an update
+                break
+        else:
+            # we did not break out of the loop, this means we have both thumbnails
+            # and the mtime is also correct. Refuse the recreate thumbnail
+            self.notify_client(job)
+            self.schedule_next(fast=True)
+            return True
 
         if job.filename.lower().endswith('jpg'):
             # try epeg for fast thumbnailing
             try:
-                libthumb.epeg(job.filename, job.imagefile % 'large' + '.jpg', (256, 256))
-                libthumb.epeg(job.filename, job.imagefile % 'normal' + '.jpg', (128, 128))
-                job.imagefile += '.jpg'
+                libthumb.epeg(job.filename, job.imagefile % 'large', (256, 256))
+                libthumb.epeg(job.filename, job.imagefile % 'normal', (128, 128))
                 self.notify_client(job)
                 self.schedule_next()
                 return True
@@ -193,9 +190,8 @@ class Thumbnailer(object):
 
         try:
             # try normal imlib2 thumbnailing
-            libthumb.png(job.filename, job.imagefile % 'large' + '.png', (256, 256))
-            libthumb.png(job.filename, job.imagefile % 'normal' + '.png', (128, 128))
-            job.imagefile += '.png'
+            libthumb.png(job.filename, job.imagefile % 'large', (256, 256))
+            libthumb.png(job.filename, job.imagefile % 'normal', (128, 128))
             self.notify_client(job)
             self.schedule_next()
             return True
