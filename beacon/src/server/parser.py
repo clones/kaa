@@ -312,7 +312,7 @@ def _parse(db, item, mtime):
             yield produced_load
         type = 'track_%s' % metadata.get('type').lower()
         for track in metadata.tracks:
-            db.add_object(type, name=str(track.trackno), parent=item, mtime=0, metadata=track)
+            db.add_object(type, name=str(track.trackno), parent=item, metadata=track)
 
     # parsing done
     log.info('scan %s (%0.3f)' % (item, time.time() - t1))
