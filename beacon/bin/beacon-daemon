@@ -187,10 +187,15 @@ plugin_config = kaa.beacon.server.plugins.get_config()
 if plugin_config is not None:
     kaa.beacon.server.config.add_variable('plugins', plugin_config)
 
+thumb_lock = kaa.utils.Lock()
+
 # fork thumbnailer
 pid = os.fork()
 if not pid:
     thumb = kaa.beacon.server.Thumbnailer()
+
+    # signal readyness to main app
+    thumb_lock.release(1)
 
     # set nice level
     os.nice(19)
@@ -222,6 +227,7 @@ def garbage_collect():
 try:
     # connect thumbnailer
     log.info('connect to thumbnailer ...')
+    thumb_lock.wait()
     kaa.beacon.thumbnail.connect().wait()
     log.info('connection to thumbnailer established')
 
