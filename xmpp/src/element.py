@@ -32,10 +32,11 @@
 __all__ = [ 'Element', 'Message', 'IQ', 'Result', 'Error' ]
 
 import re
+import xml.sax.saxutils
 
 # kaa imports
 import kaa
-import kaa.saxutils
+from kaa.saxutils import Element
 
 class JID(str):
     """
@@ -72,59 +73,6 @@ class JID(str):
         """
         return not self.resource
 
-    def __xml__(self):
-        """
-        Convert JID into XML format using stringprep if required
-        """
-        return self.full
-
-
-class Element(kaa.saxutils.Element):
-    """
-    A basic XML element that supports __getitem__ and __setitem__ for attribute
-    access and has an iterator and helper functions for child nodes.
-    """
-
-    def _escape(self, str):
-        """
-        Escape some characters to entities.
-        """
-        return str.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').\
-               replace("\"", "&quot;")
-
-    def __xml__(self):
-        """
-        Convert the object into XML.
-        """
-        s = u'<%s' % self.tagname
-        if self.xmlns:
-            s += ' xmlns="%s"' % self.xmlns
-        for key, value in self._attr.items():
-            # FIXME: unicode handling for value
-            if value is not None:
-                s += ' %s="%s"' % (self._escape(key), self._escape(str(value)))
-        if not self._children and not self._content:
-            return s +'/>'
-        s += '>'
-        for c in self._children:
-            s += c.__xml__()
-        # FIXME: content may be CDATA
-        return s + self._escape(self._content.strip()) + '</%s>' % self.tagname
-
-    def __str__(self):
-        """
-        String output for debugging.
-        """
-        return self.__xml__().encode('latin-1')
-
-    def add_child(self, tagname, xmlns=None, content=None, **attr):
-        """
-        Append a node to the list of children.
-        """
-        child = Element(tagname, xmlns, content, **attr)
-        self.append(child)
-        return child
-
 
 class Message(Element):
     """
@@ -134,15 +82,15 @@ class Message(Element):
         Element.__init__(self, tagname, xmlns, content, **attr)
         self._routing = ''
         if xfrom:
-            self._routing += ' from="%s"' % self._escape(xfrom)
+            self._routing += ' from=%s' % xml.sax.saxutils.quoteattr(xfrom)
         if xto:
-            self._routing += ' to="%s"' % self._escape(xto)
+            self._routing += ' to=%s' % xml.sax.saxutils.quoteattr(xto)
 
-    def __xml__(self):
+    def __unicode__(self):
         """
-        Convert the object into XML.
+        Convert the element into an XML unicode string.
         """
-        return u'<message%s>%s</message>' % (self._routing, Element.__xml__(self))
+        return u'<message%s>%s</message>' % (self._routing, Element.__unicode__(self))
 
 
 class IQ(kaa.InProgress, Message):
@@ -161,11 +109,11 @@ class IQ(kaa.InProgress, Message):
         self.id = '%s_%s' % (tagname, IQ._next_id)
         self._attributes = ' type="%s" id="%s"' % (xtype, self.id)
 
-    def __xml__(self):
+    def __unicode__(self):
         """
-        Convert the object into XML.
+        Convert the element into an XML unicode string.
         """
-        return u'<iq%s%s>%s</iq>' % (self._routing, self._attributes, Element.__xml__(self))
+        return u'<iq%s%s>%s</iq>' % (self._routing, self._attributes, Element.__unicode__(self))
 
 
 class Result(Element):
@@ -182,11 +130,10 @@ class Result(Element):
         """
         self.request = iq
 
-    def __xml__(self):
+    def __unicode__(self):
         """
-        Convert the object into XML.
+        Convert the element into an XML unicode string.
         """
-        # FIXME: handle special chars (<>&) and CDATA elements
         args = 'type="result"'
         if self.request:
             args += ' id="%s"' % self.request.get('id')
@@ -196,7 +143,7 @@ class Result(Element):
                 args += ' to="%s"' % self.request.get('from')
         if self.tagname is None:
             return u'<iq %s/>' % args
-        return u'<iq %s>%s</iq>' % (args, Element.__xml__(self))
+        return u'<iq %s>%s</iq>' % (args, Element.__unicode__(self))
 
 
 class Error(Result):
@@ -211,9 +158,9 @@ class Error(Result):
             error = [ error ]
         Result.__init__(self, 'error', code=code, type=type, content=error)
 
-    def __xml__(self):
+    def __unicode__(self):
         """
-        Convert the object into XML.
+        Convert the element into an XML unicode string.
         """
         args = 'type="error"'
         request = ''
@@ -224,5 +171,5 @@ class Error(Result):
             if self.request.get('from') is not None:
                 args += ' to="%s"' % self.request.get('from')
             for child in self.request:
-                request = child.__xml__()
-        return u'<iq %s>%s%s</iq>' % (args, request, Element.__xml__(self))
+                request = unicode(child)
+        return u'<iq %s>%s%s</iq>' % (args, request, Element.__unicode__(self))

@@ -46,7 +46,7 @@ import kaa.net.tls
 
 # kaa.xmpp imports
 import parser as xmpp
-from element import IQ, Result, Error
+from element import Element, IQ, Result, Error
 from error import *
 
 # get logging object
@@ -158,8 +158,8 @@ class XMPPStream(object):
             return
         if isinstance(data, IQ):
             self._iqlist[data.id] = data
-        if hasattr(data, '__xml__'):
-            data = data.__xml__()
+        if isinstance(data, Element):
+            data = unicode(data)
         if isinstance(data, unicode):
             data = data.encode('utf-8')
         if DEBUG_XML:

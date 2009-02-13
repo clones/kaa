@@ -373,7 +373,7 @@ class Responder(xmpp.ClientPlugin):
             for f in self._featurelist:
                 if not f.finished:
                     features.append(f.xmlnode)
-            self._socket.write(features.__xml__())
+            self._socket.write(unicode(features))
             # FIXME: bad hack:
             if not features.get_children():
                 # remove feature callbacks

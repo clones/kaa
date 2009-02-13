@@ -118,7 +118,7 @@ class KeyInfo(object):
             s = e.add_child('signature')
             s.add_child('issuer', content=issuer)
             s.add_child('value', method='RSA-SHA1', content=signature)
-        return e.__xml__()
+        return e
 
     def __parsexml__(self, e):
         self.certificate.base64 = e.x509cert.content
