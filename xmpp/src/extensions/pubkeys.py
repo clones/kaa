@@ -112,17 +112,17 @@ class KeyInfo(object):
 
     def __xml__(self):
         e = xmpp.Element('keyinfo', 'urn:xmpp:tmp:pubkey')
-        e.add_child('name', xmlcontent=self.fingerprint)
-        e.add_child('x509cert', xmlcontent=self.certificate.base64)
+        e.add_child('name', content=self.fingerprint)
+        e.add_child('x509cert', content=self.certificate.base64)
         for issuer, signature in self.signatures:
             s = e.add_child('signature')
-            s.add_child('issuer', xmlcontent=issuer)
-            s.add_child('value', method='RSA-SHA1', xmlcontent=signature)
+            s.add_child('issuer', content=issuer)
+            s.add_child('value', method='RSA-SHA1', content=signature)
         return e.__xml__()
 
     def __parsexml__(self, e):
-        self.certificate.base64 = e.x509cert.text
-        if self.fingerprint != e.name.text:
+        self.certificate.base64 = e.x509cert.content
+        if self.fingerprint != e.name.content:
             raise AttributeError
         for s in e.get_children('signature'):
-            self.add_signature(s.issuer.text, s.value.text)
+            self.add_signature(s.issuer.content, s.value.content)

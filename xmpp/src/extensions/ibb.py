@@ -85,7 +85,7 @@ class IBBSocket(object):
             self.close()
             raise IOError('bad sequence')
         self._recv_seq += 1
-        self._socket.write(base64.b64decode(data.text))
+        self._socket.write(base64.b64decode(data.content))
 
     def close(self, arg=None):
         """
@@ -122,7 +122,7 @@ class IBBSocket(object):
         while data:
             block = data[:self._bs]
             data = data[self._bs:]
-            self._send(tagname='data', seq=self._send_seq, xmlcontent=block)
+            self._send(tagname='data', seq=self._send_seq, content=block)
             self._send_seq += 1
 
 

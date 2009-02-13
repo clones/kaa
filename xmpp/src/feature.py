@@ -148,9 +148,9 @@ class Bind(Feature):
         """
         iq = IQ('set', None, None, 'bind', NS_BIND)
         if self.resource:
-            iq.add_child('resource', xmlcontent=self.resource)
+            iq.add_child('resource', content=self.resource)
         result = yield self.send(iq)
-        self.jid = result.get_child('jid').text
+        self.jid = result.get_child('jid').content
         self.finish(True)
 
 

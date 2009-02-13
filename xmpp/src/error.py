@@ -48,7 +48,7 @@ class XMPPTracebackError(XMPPException):
     Exception raised on IQ error results.
     """
     def __init__(self, error):
-        trace = str(error.get_child('trace').text)
+        trace = str(error.get_child('trace').content)
         XMPPException.__init__(self, trace)
         self.error = error
         self.code = int(error.get('code', 0))

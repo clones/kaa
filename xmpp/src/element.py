@@ -35,6 +35,7 @@ import re
 
 # kaa imports
 import kaa
+import kaa.saxutils
 
 class JID(str):
     """
@@ -78,24 +79,11 @@ class JID(str):
         return self.full
 
 
-class Element(object):
+class Element(kaa.saxutils.Element):
     """
     A basic XML element that supports __getitem__ and __setitem__ for attribute
     access and has an iterator and helper functions for child nodes.
     """
-    def __init__(self, tagname, xmlns=None, xmlcontent=None, **attr):
-        self.tagname = tagname
-        self.xmlns = xmlns
-        self.text = ''
-        self._children = []
-        self._attr = attr
-        if xmlcontent:
-            if isinstance(xmlcontent, (list, tuple)):
-                self._children = xmlcontent
-            elif isinstance(xmlcontent, Element):
-                self._children = [ xmlcontent ]
-            else:
-                self.text = xmlcontent
 
     def _escape(self, str):
         """
@@ -115,13 +103,13 @@ class Element(object):
             # FIXME: unicode handling for value
             if value is not None:
                 s += ' %s="%s"' % (self._escape(key), self._escape(str(value)))
-        if not self._children and not self.text:
+        if not self._children and not self._content:
             return s +'/>'
         s += '>'
         for c in self._children:
             s += c.__xml__()
         # FIXME: content may be CDATA
-        return s + self._escape(self.text.strip()) + '</%s>' % self.tagname
+        return s + self._escape(self._content.strip()) + '</%s>' % self.tagname
 
     def __str__(self):
         """
@@ -129,92 +117,21 @@ class Element(object):
         """
         return self.__xml__().encode('latin-1')
 
-    def append(self, node):
+    def add_child(self, tagname, xmlns=None, content=None, **attr):
         """
         Append a node to the list of children.
         """
-        self._children.append(node)
-
-    def add_child(self, tagname, xmlns=None, xmlcontent=None, **attr):
-        """
-        Append a node to the list of children.
-        """
-        node = Element(tagname, xmlns, xmlcontent, **attr)
-        self._children.append(node)
-        return node
-
-    def has_child(self, name):
-        """
-        Return if the node has at least one child with the given node name.
-        """
-        return self.get_child(name) is not None
-
-    def get_child(self, name):
-        """
-        Return the first child with the given name or None.
-        """
-        for child in self._children:
-            if child.tagname == name:
-                return child
-        return None
-
-    def get_children(self, name=None):
-        """
-        Return a list of children with the given name.
-        """
-        if name is None:
-            return self._children[:]
-        children = []
-        for child in self._children:
-            if child.tagname == name:
-                children.append(child)
-        return children
-
-    def __iter__(self):
-        """
-        Iterate through the children.
-        """
-        return self._children.__iter__()
-
-    def get(self, item, default=None):
-        """
-        Get the given attribute value or None if not set.
-        """
-        return self._attr.get(item, default)
-
-    def __getitem__(self, item):
-        """
-        Get the given attribute value or raise a KeyError if not set.
-        """
-        return self._attr[item]
-
-    def __setitem__(self, item, value):
-        """
-        Set the given attribute to a new value.
-        """
-        self._attr[item] = value
-
-    def __getattr__(self, attr):
-        """
-        Magic function to return the attribute or child with the given name.
-        """
-        result = self._attr.get(attr)
-        if result is not None:
-            return result
-        return self.get_child(attr)
-
-    def __cmp__(self, other):
-        if isinstance(other, (str, unicode)):
-            return cmp(self.tagname, other)
-        return object.__cmp__(self, other)
+        child = Element(tagname, xmlns, content, **attr)
+        self.append(child)
+        return child
 
 
 class Message(Element):
     """
     XMPP <message> stanza.
     """
-    def __init__(self, xfrom, xto, tagname, xmlns=None, xmlcontent=None, **attr):
-        Element.__init__(self, tagname, xmlns, xmlcontent, **attr)
+    def __init__(self, xfrom, xto, tagname, xmlns=None, content=None, **attr):
+        Element.__init__(self, tagname, xmlns, content, **attr)
         self._routing = ''
         if xfrom:
             self._routing += ' from="%s"' % self._escape(xfrom)
@@ -237,8 +154,8 @@ class IQ(kaa.InProgress, Message):
     # internal unique id counter
     _next_id = 0
 
-    def __init__(self, xtype, xfrom, xto, tagname, xmlns=None, xmlcontent=None, **attr):
-        Message.__init__(self, xfrom, xto, tagname, xmlns, xmlcontent, **attr)
+    def __init__(self, xtype, xfrom, xto, tagname, xmlns=None, content=None, **attr):
+        Message.__init__(self, xfrom, xto, tagname, xmlns, content, **attr)
         kaa.InProgress.__init__(self)
         IQ._next_id += 1
         self.id = '%s_%s' % (tagname, IQ._next_id)
@@ -292,7 +209,7 @@ class Error(Result):
             error = []
         if not isinstance(error, (list, tuple)):
             error = [ error ]
-        Result.__init__(self, 'error', code=code, type=type, xmlcontent=error)
+        Result.__init__(self, 'error', code=code, type=type, content=error)
 
     def __xml__(self):
         """

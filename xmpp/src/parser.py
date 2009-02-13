@@ -186,7 +186,7 @@ class ElementParser(object):
         """
         SAX callback for character data.
         """
-        self.stack[-1].text += c
+        self.stack[-1]._content += c
 
     def get_result(self):
         """

@@ -106,13 +106,13 @@ class Credentials(object):
         """
         Return XEP-250 offer for X.509
         """
-        return xmpp.Element('keyinfo', NS_PUBKEY, xmpp.Element('name', xmlcontent=self.x509_keyinfo.fingerprint))
+        return xmpp.Element('keyinfo', NS_PUBKEY, xmpp.Element('name', content=self.x509_keyinfo.fingerprint))
 
     def x509_offer_check(self, keyinfo):
         """
         Check if the XEP-250 offer for X.509 contains a known certificate
         """
-        fingerprint = keyinfo.get_child('name').text
+        fingerprint = keyinfo.get_child('name').content
         for known in self.known_clients_x509:
             if fingerprint == known.fingerprint:
                 return True

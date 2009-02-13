@@ -298,8 +298,8 @@ class XMPPStream(object):
             else:
                 trace = ''.join(traceback.format_exception(cls, e, trace)).strip()
                 result.add_child('undefined-condition')
-                result.add_child('text', xmlcontent=str(e))
-                result.add_child('trace', xmlcontent=trace)
+                result.add_child('text', content=str(e))
+                result.add_child('trace', content=trace)
         result.set_request(iq)
         self.send(result)
 

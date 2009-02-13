@@ -72,19 +72,17 @@ class Node(object):
         Query node (XEP-0030)
         """
         cmd = xmpp.Element('query', node=self.name)
-        return self._send(xmlns=NS_DISCO+'#info', xmlcontent=cmd)
+        return self._send(xmlns=NS_DISCO+'#info', content=cmd)
 
     def configure(self):
         """
         """
-        return self._send(xmlns=NS_DISCO+'#owner',
-            xmlcontent=xmpp.Element('configure', node=self.name))
+        return self._send(xmlns=NS_DISCO+'#owner', content=xmpp.Element('configure', node=self.name))
 
     def subscriptions(self):
         """
         """
-        return self._send(xmlns=NS_DISCO+'#owner',
-            xmlcontent=xmpp.Element('subscriptions', node=self.name))
+        return self._send(xmlns=NS_DISCO+'#owner', content=xmpp.Element('subscriptions', node=self.name))
 
     #
     # Node handling
@@ -100,7 +98,7 @@ class Node(object):
             xmpp.Element('configure')
         ]
         try:
-            yield self._send(xmlns=NS_PUBSUB, xmlcontent=cmd)
+            yield self._send(xmlns=NS_PUBSUB, content=cmd)
         except xmpp.XMPPException, e:
             if e.code != 409:
                 # ignore error that the node is already created
@@ -111,7 +109,7 @@ class Node(object):
         Delete the node. Returns an InProgress object
         """
         cmd = xmpp.Element('delete', node=self.name)
-        return self._send(xmlns=NS_PUBSUB + '#owner', xmlcontent=cmd)
+        return self._send(xmlns=NS_PUBSUB + '#owner', content=cmd)
 
     def subscribe(self, jid):
         """
@@ -119,7 +117,7 @@ class Node(object):
         InProgress object
         """
         cmd = xmpp.Element('subscribe', node=self.name, jid=jid)
-        return self._send(xmlns=NS_PUBSUB, xmlcontent=cmd)
+        return self._send(xmlns=NS_PUBSUB, content=cmd)
 
 
     #
@@ -132,8 +130,8 @@ class Node(object):
         InProgress object
         """
         cmd = xmpp.Element('publish', node=self.name)
-        cmd.add_child('item', id=id, xmlcontent=[item])
-        return self._send(xmlns=NS_PUBSUB, xmlcontent=cmd)
+        cmd.add_child('item', id=id, content=item)
+        return self._send(xmlns=NS_PUBSUB, content=cmd)
 
     def delete(self, id):
         """
@@ -141,7 +139,7 @@ class Node(object):
         """
         cmd = xmpp.Element('retract', node=self.name)
         cmd.add_child('item', id=id)
-        return self._send(xmlns=NS_PUBSUB, xmlcontent=cmd)
+        return self._send(xmlns=NS_PUBSUB, content=cmd)
 
     @kaa.coroutine()
     def items(self, max_items=0):
@@ -150,7 +148,7 @@ class Node(object):
         with maximal max_items entries.
         """
         cmd = xmpp.Element('items', max_items=(max_items or None), node=self.name)
-        items = yield self._send(xmlns=NS_PUBSUB, xmlcontent=cmd)
+        items = yield self._send(xmlns=NS_PUBSUB, content=cmd)
         yield items.get_child('items').get_children()
 
 

@@ -94,44 +94,44 @@ class RemoteNode(object):
             return self.stream.send(stanza)
         return stream.send(stanza)
 
-    def message(self, tagname, xmlns=None, xmlcontent=None, **attr):
+    def message(self, tagname, xmlns=None, content=None, **attr):
         """
         Send a message stanza
 
         :param tagname: tag name of the element inside the message stanza
         :param xmlns: namespace of the tag
-        :param xmlcontent: content or children of the node
+        :param content: content or children of the node
         :param attr: XML attributes for the node. The additional argument xmppstream can be used to select a stream
         """
         stream = attr.pop('xmppstream', None)
-        m = Message(self.client.jid, self.jid, tagname, xmlns, xmlcontent, **attr)
+        m = Message(self.client.jid, self.jid, tagname, xmlns, content, **attr)
         self.send_stanza(m, stream)
 
-    def iqset(self, tagname, xmlns=None, xmlcontent=None, **attr):
+    def iqset(self, tagname, xmlns=None, content=None, **attr):
         """
         Send an <iq> set stanza
 
         :param tagname: tag name of the element inside the iq stanza
         :param xmlns: namespace of the tag
-        :param xmlcontent: content or children of the node
+        :param content: content or children of the node
         :param attr: XML attributes for the node. The additional argument xmppstream can be used to select a stream
         """
         stream = attr.pop('xmppstream', None)
-        i = IQ('set', self.client.jid, self.jid, tagname, xmlns, xmlcontent, **attr)
+        i = IQ('set', self.client.jid, self.jid, tagname, xmlns, content, **attr)
         self.send_stanza(i, stream)
         return i
 
-    def iqget(self, tagname, xmlns=None, xmlcontent=None, **attr):
+    def iqget(self, tagname, xmlns=None, content=None, **attr):
         """
         Send an <iq> get stanza
 
         :param tagname: tag name of the element inside the iq stanza
         :param xmlns: namespace of the tag
-        :param xmlcontent: content or children of the node
+        :param content: content or children of the node
         :param attr: XML attributes for the node. The additional argument xmppstream can be used to select a stream
         """
         stream = attr.pop('xmppstream', None)
-        i = IQ('get', self.client.jid, self.jid, tagname, xmlns, xmlcontent, **attr)
+        i = IQ('get', self.client.jid, self.jid, tagname, xmlns, content, **attr)
         self.send_stanza(i, stream)
         return i
 

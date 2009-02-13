@@ -141,29 +141,29 @@ class Client(object):
         """
         return self.stream.send(stanza)
 
-    def message(self, tagname, xmlns=None, xmlcontent=None, **attr):
+    def message(self, tagname, xmlns=None, content=None, **attr):
         """
         Send a message stanza
         """
         to = attr.pop('to', None)
-        m = Message(self.jid, to, tagname, xmlns, xmlcontent, **attr)
+        m = Message(self.jid, to, tagname, xmlns, content, **attr)
         self.send_stanza(m)
 
-    def iqset(self, tagname, xmlns=None, xmlcontent=None, **attr):
+    def iqset(self, tagname, xmlns=None, content=None, **attr):
         """
         Send an <iq> set stanza
         """
         to = attr.pop('to', None)
-        i = IQ('set', self.jid, to, tagname, xmlns, xmlcontent, **attr)
+        i = IQ('set', self.jid, to, tagname, xmlns, content, **attr)
         self.send_stanza(i)
         return i
 
-    def iqget(self, tagname, xmlns=None, xmlcontent=None, **attr):
+    def iqget(self, tagname, xmlns=None, content=None, **attr):
         """
         Send an <iq> get stanza
         """
         to = attr.pop('to', None)
-        i = IQ('get', self.jid, to, tagname, xmlns, xmlcontent, **attr)
+        i = IQ('get', self.jid, to, tagname, xmlns, content, **attr)
         self.send_stanza(i)
         return i
 

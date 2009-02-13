@@ -164,7 +164,7 @@ class Roster(xmpp.ClientPlugin):
         ver = self.get_extension('disco').capabilities
         c = xmpp.Element('c', xmlns='http://jabber.org/protocol/caps', hash='sha-1',
                  node=self.client.appname, ver=ver)
-        self._send_presence(self.client.jid, None, xmlcontent=c)
+        self._send_presence(self.client.jid, None, content=c)
 
     # roster API
 
@@ -187,7 +187,7 @@ class Roster(xmpp.ClientPlugin):
         Remove node from roster and unsubscribe if subscribed.
         """
         item = xmpp.Element('item', jid=jid, subscription='remove')
-        self.client.iqset('query', xmlns=NS_ROSTER, xmlcontent=item)
+        self.client.iqset('query', xmlns=NS_ROSTER, content=item)
 
 
 # register plugin as client.roster

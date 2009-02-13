@@ -79,7 +79,7 @@ class Session(object):
         Send jingle iq stanza
         """
         return self.xmppnode.iqset('jingle', xmlns=NS_JINGLE, action=action,
-            initiator=self.initiator, sid=self.sid, xmlcontent=content)
+            initiator=self.initiator, sid=self.sid, content=content)
 
     @kaa.coroutine()
     def initiate(self):
@@ -124,8 +124,7 @@ class Initiator(xmpp.RemotePlugin):
         :param description: description XML object
         :param transport: transport XML object
         """
-        content = xmpp.Element('content', creator='initiator', name=name,
-            xmlcontent=[ description, transport ])
+        content = xmpp.Element('content', creator='initiator', name=name, content=[ description, transport ])
         session = Session(self.remote, sid, self.client.jid, content)
         self._sessions[sid] = session
         return session
