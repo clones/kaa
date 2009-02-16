@@ -159,6 +159,7 @@ def enhance_client(client):
             # add to plugins list of shutdown
             client._plugins[name] = plugins[-1]
             setattr(client, name, plugins[-1])
+            plugins[-1]._xmpp_disco = disconames
             for disconame in disconames:
                 if not disconame in client.features:
                     client.features.append(disconame)
@@ -190,6 +191,15 @@ def get_plugin(plugin):
     if not plugin in _plugins:
         raise RuntimeError('unknown plugin %s' % plugin)
     return _plugins.get(plugin)
+
+def get_plugin_by_namespace(ns):
+    """
+    Get the given plugin
+    """
+    for name, (disconames, client_ext, remote_ext, auto) in _plugins.items():
+        if ns in disconames:
+            return name
+    raise RuntimeError('unknown plugin namespace %s' % ns)
 
 def extensions(features):
     """

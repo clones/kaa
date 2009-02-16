@@ -147,6 +147,12 @@ class RemoteNode(object):
             self._plugins[ext]._extension_activate()
         return self._plugins.get(ext)
 
+    def get_extension_by_namespace(self, ns):
+        """
+        Return the plugin for the given extension.
+        """
+        return self.get_extension(plugin.get_plugin_by_namespace(ns))
+
     @property
     def extensions(self):
         """

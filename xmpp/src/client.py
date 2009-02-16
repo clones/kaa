@@ -202,6 +202,15 @@ class Client(object):
         """
         return self._plugins.get(ext)
 
+    def get_extension_by_namespace(self, ns):
+        """
+        Return the plugin for the given extension.
+        """
+        for plugin in self._plugins.values():
+            if ns in plugin._xmpp_disco:
+                return plugin
+        return None
+
     @property
     def extensions(self):
         """
