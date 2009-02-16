@@ -17,7 +17,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.xmpp - XMPP framework for the Kaa Media Repository
-# Copyright (C) 2008 Dirk Meyer
+# Copyright (C) 2008-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -45,6 +45,8 @@ __all__ = [ 'IBBSocket', 'IBB', 'Client', 'NS_IBB' ]
 # python imports
 import logging
 import base64
+import random
+import string
 from functools import partial as inherit
 
 # kaa imports
@@ -54,8 +56,9 @@ from .. import api as xmpp
 # get logging object
 log = logging.getLogger('xmpp')
 
-#: Namespace for In-Band Bytestreams
+#: Namespaces for In-Band Bytestreams
 NS_IBB = 'http://jabber.org/protocol/ibb'
+NS_JINGLE_IBB = 'urn:xmpp:jingle:transports:ibb:0'
 
 class IBBSocket(object):
     """
@@ -166,26 +169,6 @@ class IBB(xmpp.RemotePlugin):
         self.callbacks[sid] = callback
 
     @kaa.coroutine()
-    def jingle_open(self, session):
-        """
-        Jingle integration: open a session
-        """
-        socket = yield self.open(session.sid)
-        session.socket = socket
-
-    def jingle_listen(self, session):
-        """
-        Jingle integration: listing to incoming connection
-        """
-        self.listen(session.sid, lambda socket: setattr(session, 'socket', socket))
-
-    def jingle_transport(self):
-        """
-        Jingle integration: transport description
-        """
-        return xmpp.Element('transport', xmlns='urn:xmpp:tmp:jingle:transports:ibb')
-
-    @kaa.coroutine()
     def _handle_open(self, jid, stanza, const, stream):
         """
         Open request from remote node
@@ -272,5 +255,26 @@ class Client(xmpp.ClientPlugin):
         return self.client.get_node(jid).get_extension('ibb').listen(sid, callback)
 
 
+class JingleIBB(IBB):
+
+    def jingle_initiate(self):
+        """
+        Create transport for Jingle session
+        """
+        return xmpp.Element('transport', NS_JINGLE_IBB, **{'sid': xmpp.create_id(), 'block-size': 4096, 'stanza': 'iq'})
+
+    @kaa.coroutine()
+    def jingle_transport_info(self, session, transport):
+        """
+        Jingle integration: transport description
+        """
+        # There is only one transport info for IBB and that is inside session-initiate.
+        socket, ibb = yield self._create(transport.sid, transport.block_size, self.remote.stream)
+        self._streams[transport.sid] = ibb
+        session.socket = socket
+        # IBB has nothing more to do
+        session.transport_ready()
+
 # register extension plugin
 xmpp.add_extension('ibb', NS_IBB, Client, IBB)
+xmpp.add_extension('jingle-ibb', NS_JINGLE_IBB, None, JingleIBB)

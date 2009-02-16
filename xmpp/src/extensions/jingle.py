@@ -5,13 +5,10 @@
 # $Id$
 #
 # Status: experimental
-# Todo: This module can only handle IBB based transports and can only
-#   create a session. No complex session negotiation is possible, not
-#   even session shutdown. This module needs much more love.
 #
 # -----------------------------------------------------------------------------
 # kaa.xmpp - XMPP framework for the Kaa Media Repository
-# Copyright (C) 2008 Dirk Meyer
+# Copyright (C) 2008-2009 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -49,6 +46,9 @@ log = logging.getLogger('xmpp')
 #: Jingle namespace
 NS_JINGLE = 'urn:xmpp:tmp:jingle'
 
+MODULE_DESCRIPTION = 'description'
+MODULE_TRANSPORT = 'transport'
+
 class Session(object):
     """
     Jingle Session handling
@@ -57,7 +57,7 @@ class Session(object):
     STATE_ACTIVE = 'STATE_ACTIVE'
     STATE_ENDED = 'STATE_ENDED'
 
-    def __init__(self, xmppnode, sid, initiator, content):
+    def __init__(self, remote, sid, initiator, content):
         """
         Create jingle session
         """
@@ -66,20 +66,37 @@ class Session(object):
         #: current state
         self.state = Session.STATE_PENDING
         #: peer object
-        self.xmppnode = xmppnode
+        self.remote = remote
         #: initiator jid
         self.initiator = initiator
         #: session id
         self.sid = sid
         #: jingle content
         self.content = content
+        self.initializing = [ MODULE_TRANSPORT, MODULE_DESCRIPTION ]
 
     def _send(self, action, content):
         """
         Send jingle iq stanza
         """
-        return self.xmppnode.iqset('jingle', xmlns=NS_JINGLE, action=action,
+        return self.remote.iqset('jingle', xmlns=NS_JINGLE, action=action,
             initiator=self.initiator, sid=self.sid, content=content)
+
+    @kaa.coroutine()
+    def transport_ready(self):
+        self.initializing.remove(MODULE_TRANSPORT)
+        if self.initiator == self.remote.jid:
+            yield self._send('session-accept', self.content)
+            self.initializing.remove(MODULE_DESCRIPTION)
+        if not self.initializing:
+            self.state = Session.STATE_ACTIVE
+            self.signals['state-change'].emit()
+
+    def description_ready(self):
+        self.initializing.remove(MODULE_DESCRIPTION)
+        if not self.initializing:
+            self.state = Session.STATE_ACTIVE
+            self.signals['state-change'].emit()
 
     @kaa.coroutine()
     def initiate(self):
@@ -88,21 +105,25 @@ class Session(object):
         """
         try:
             yield self._send('session-initiate', self.content)
+            transport = self.remote.get_extension_by_namespace(self.content.transport.xmlns)
+            transport.jingle_transport_info(self, self.content.transport)
         except Exception, e:
             log.exception('session-initiate')
             self.state = Session.STATE_ENDED
             self.signals['state-change'].emit()
-            yield False
-        yield True
+        if self.state == Session.STATE_PENDING:
+            yield self.signals.subset('state-change').any()
+        yield self.state == Session.STATE_ACTIVE
 
     @kaa.coroutine()
     def accept(self):
         """
-        Send session-accept
         """
-        yield self._send('session-accept', self.content)
-        self.state = Session.STATE_ACTIVE
-        self.signals['state-change'].emit()
+        transport = self.remote.get_extension_by_namespace(self.content.transport.xmlns)
+        transport.jingle_transport_info(self, self.content.transport)
+        if self.state == Session.STATE_PENDING:
+            yield self.signals.subset('state-change').any()
+        yield self.state == Session.STATE_ACTIVE
 
     def close(self):
         log.debug('jingle session closed')
@@ -115,15 +136,16 @@ class Initiator(xmpp.RemotePlugin):
     """
     Initiator of a jingle session (RemoteNode plugin)
     """
-    def create_session(self, sid, name, description, transport):
+    def create_session(self, name, description, transport):
         """
         Create a new session
 
-        :param sid: session id
         :param name: application name
         :param description: description XML object
         :param transport: transport XML object
         """
+        sid = xmpp.create_id()
+        transport = self.get_extension(transport).jingle_initiate()
         content = xmpp.Element('content', creator='initiator', name=name, content=[ description, transport ])
         session = Session(self.remote, sid, self.client.jid, content)
         self._sessions[sid] = session
@@ -154,15 +176,6 @@ class Responder(xmpp.ClientPlugin):
     """
     Initiator to a jingle session-initiate (Client plugin)
     """
-    def __init__(self):
-        self.applications = {}
-
-    def register(self, application, callback):
-        """
-        Register an application callback for session-initiate
-        """
-        self.applications[application] = callback
-
     def get_session(self, jid, sid):
         """
         Get the session object for the given sid or None if not found.
@@ -184,17 +197,18 @@ class Responder(xmpp.ClientPlugin):
         sid = stanza.sid
         if stanza.action == 'session-initiate':
             content = stanza.content
-            if not content.name in self.applications:
+            application = self.client.get_extension_by_namespace(content.description.xmlns)
+            if application is None:
                 raise xmpp.CancelException('service-unavailable')
-            session = Session(self.client.get_node(jid), sid, jid, content)
-            self.client.get_node(jid).get_extension('jingle')._sessions[sid] = session
-            if not self.applications[content.name](session):
-                raise xmpp.CancelException('service-unavailable')
+            remote = self.client.get_node(jid)
+            session = Session(remote, stanza.sid, remote.jid, content)
+            remote.get_extension('jingle')._sessions[stanza.sid] = session
+            # notify the application and do nothing until we get an accept
+            application.jingle_session_initiate(session)
             return xmpp.Result(None)
         if stanza.action == 'session-accept':
             session = self.get_session(jid, sid)
-            session.state = Session.STATE_ACTIVE
-            session.signals['state-change'].emit()
+            session.description_ready()
             return xmpp.Result(None)
         # FIXME: handle shutdown
         raise NotImplementedError
