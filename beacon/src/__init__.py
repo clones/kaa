@@ -35,7 +35,7 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.rpc2
+import kaa.rpc
 import kaa.utils
 
 # kaa.beacon imports
@@ -87,7 +87,7 @@ def require_connect():
             if not _client.connected:
                 try:
                     # wait for next connect
-                    if _client.channel.status != kaa.rpc2.CONNECTED:
+                    if _client.channel.status != kaa.rpc.CONNECTED:
                         # this may raise an exception
                         yield kaa.inprogress(_client.channel)
                     if not _client.connected:

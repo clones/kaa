@@ -41,7 +41,7 @@ import logging
 # kaa imports
 import kaa
 from kaa.utils import property
-import kaa.rpc, kaa.rpc2
+import kaa.rpc
 from kaa.weakref import weakref
 
 # kaa.beacon imports
@@ -79,7 +79,7 @@ class Client(object):
         # add ourself to shutdown handler for correct disconnect
         kaa.main.signals['shutdown'].connect(self._shutdown)
         self.status = DISCONNECTED
-        self.channel = kaa.rpc2.connect('beacon', retry=1)
+        self.channel = kaa.rpc.connect('beacon', retry=1)
         self.channel.signals["closed"].connect(self._disconnected)
         self.channel.register(self)
         self.rpc = self.channel.rpc

@@ -40,7 +40,7 @@ import stat
 import kaa
 import kaa.metadata
 import kaa.imlib2
-import kaa.rpc, kaa.rpc2
+import kaa.rpc
 
 # kaa.beacon imports
 from .. import libthumb
@@ -81,7 +81,7 @@ class Thumbnailer(object):
         self.jobs = []
         self._delayed_jobs = {}
         self._timer = kaa.OneShotTimer(self.step)
-        self._ipc = kaa.rpc2.Server(os.path.join(tmpdir, 'socket'))
+        self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
         self._ipc.signals['client-connected'].connect(self.client_connect)
         self._ipc.register(self)
         # video module

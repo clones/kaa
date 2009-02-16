@@ -43,7 +43,7 @@ import stat
 
 # kaa imports
 import kaa
-import kaa.rpc, kaa.rpc2
+import kaa.rpc
 from kaa.weakref import weakref
 from kaa.utils import property
 import kaa.metadata
@@ -245,12 +245,12 @@ class Client(object):
         start = time.time()
         while True:
             try:
-                channel = kaa.rpc2.connect('thumb/socket')
+                channel = kaa.rpc.connect('thumb/socket')
                 channel.register(self)
                 self.rpc = channel.rpc
                 yield kaa.inprogress(channel)
                 yield None
-            except kaa.rpc.ConnectError, e:
+            except Exception, e:
                 if start + 3 < time.time():
                     # start time is up, something is wrong here
                     raise RuntimeError('unable to connect to thumbnail server')

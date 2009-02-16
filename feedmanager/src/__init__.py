@@ -32,9 +32,6 @@
 # python imports
 import os
 
-# kaa imports
-import kaa.rpc
-
 # feedmanager imports
 import manager
 import core

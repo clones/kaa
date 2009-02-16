@@ -34,7 +34,7 @@ import logging
 
 # kaa imports
 import kaa
-import kaa.rpc, kaa.rpc2
+import kaa.rpc
 from kaa.utils import localtime2utc
 
 # kaa.epg imports
@@ -60,7 +60,7 @@ class Client(Guide):
         self.signals = kaa.Signals('connected', 'disconnected')
         self._server_address = address
         self._server_secret = secret
-        self.channel = kaa.rpc2.connect(self._server_address, auth_secret=self._server_secret, retry=1)
+        self.channel = kaa.rpc.connect(self._server_address, auth_secret=self._server_secret, retry=1)
         self.channel.register(self)
         self.channel.signals['closed'].connect_weak(self._disconnected)
 
@@ -100,7 +100,7 @@ class Client(Guide):
             means until the end of the guide data.
         @param cls: class to use to create programs or None to return raw data
         """
-        if self.channel.status == kaa.rpc2.DISCONNECTED:
+        if self.channel.status == kaa.rpc.DISCONNECTED:
             raise EPGError('Client is not connected')
         if not utc:
             # convert to utc because the server may have a different
@@ -125,7 +125,7 @@ class Client(Guide):
         """
         Update the database
         """
-        if self.channel.status == kaa.rpc2.DISCONNECTED:
+        if self.channel.status == kaa.rpc.DISCONNECTED:
             raise EPGError('Client is not connected')
         return self.channel.rpc('update')
 
@@ -138,7 +138,7 @@ class Server(object):
         self._clients = []
         # initial sync
         self.guide = guide
-        self._rpc = kaa.rpc2.Server(address, secret)
+        self._rpc = kaa.rpc.Server(address, secret)
         self._rpc.signals['client-connected'].connect(self.client_connected)
         self._rpc.register(self)
 
