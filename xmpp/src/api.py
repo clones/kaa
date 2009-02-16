@@ -31,6 +31,8 @@
 # 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
+import string
+import random
 
 from client import Client
 from remote import RemoteNode
@@ -41,3 +43,6 @@ from error import *
 from plugin import ClientPlugin, RemotePlugin, add_extension
 import stream
 import config
+
+def create_id():
+    return ''.join([random.choice(string.letters + string.digits) for i in range(8)])
