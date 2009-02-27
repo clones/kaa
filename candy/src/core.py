@@ -265,6 +265,8 @@ class Properties(dict, Modifier):
         for key, value in element.attributes():
             if key in ('opacity', 'depth'):
                 value = int(value)
+            elif key in ('rotation','xrotation','yrotation','zrotation'):
+                value = float(value)
             elif key in ('xalign', 'yalign'):
                 value = value.lower()
             elif key in ('keep_aspect', 'passive'):

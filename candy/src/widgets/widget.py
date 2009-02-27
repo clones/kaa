@@ -184,6 +184,9 @@ class Widget(object):
     __depth = 0
     __opacity = 255
     __rotation = 0
+    __xrotation = 0.0
+    __yrotation = 0.0
+    __zrotation = 0.0
     # real size of the object, should be set by the widget
     _intrinsic_size = None
 
@@ -506,6 +509,12 @@ class Widget(object):
             # basic rotation, inherit from this class to not rotate
             # based on anchor_point or align
             self._obj.set_rotation(backend.Z_AXIS, self.__rotation, 0, 0, 0)
+        if 'xrotation' in self._sync_properties:
+            self._obj.set_rotation(backend.X_AXIS, self.__xrotation, 0, 0, 0)
+        if 'yrotation' in self._sync_properties:
+            self._obj.set_rotation(backend.Y_AXIS, self.__yrotation, 0, 0, 0)
+        if 'zrotation' in self._sync_properties:
+            self._obj.set_rotation(backend.Z_AXIS, self.__zrotation, 0, 0, 0)
         if 'stack-position' in self._sync_properties:
             self._obj.lower_actor(self._sync_properties['stack-position']._obj)
         return True
@@ -703,6 +712,33 @@ class Widget(object):
         self._queue_sync_properties('rotation')
 
     @property
+    def xrotation(self):
+        return self.__xrotation
+
+    @xrotation.setter
+    def xrotation(self, xrotation):
+        self.__xrotation = xrotation
+        self._queue_sync_properties('xrotation')
+
+    @property
+    def yrotation(self):
+        return self.__yrotation
+
+    @yrotation.setter
+    def yrotation(self, yrotation):
+        self.__yrotation = yrotation
+        self._queue_sync_properties('yrotation')
+
+    @property
+    def zrotation(self):
+        return self.__zrotation
+
+    @zrotation.setter
+    def zrotation(self, zrotation):
+        self.__zrotation = zrotation
+        self._queue_sync_properties('zrotation')
+
+    @property
     def parent(self):
         if self._candy__parent is None:
             return None
@@ -743,7 +779,7 @@ class Widget(object):
           <widget x='10' y='20' width='100' height='50'>
               <widget x='0' y='0' use-as='content'/>
           </widget>
-          
+
         This will return a dictionary with pos, size, and content.
         """
         parameter = _dict(pos=element.pos, size=(element.width, element.height))

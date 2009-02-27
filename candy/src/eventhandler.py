@@ -88,6 +88,14 @@ class Eventhandler(core.Modifier):
                 end = x2, y2
                 widget.x = x1
                 widget.y = y1
+            elif animation.behaviour in ('xrotation', 'yrotation', 'zrotation'):
+                start = end = getattr(widget, animation.behaviour)
+                if animation.start is not None:
+                    start = int(animation.start)
+                    setattr(widget, animation.behaviour, start)
+                if animation.end is not None:
+                    end = int(animation.end)
+                widget.rotation = start
             elif animation.behaviour == 'opacity':
                 start = end = widget.opacity
                 if animation.start is not None:

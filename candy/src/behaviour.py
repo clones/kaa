@@ -31,7 +31,8 @@
 
 __all__ = [ 'Behaviour', 'BehaviourOpacity', 'BehaviourScale', 'BehaviourColor',
             'MAX_ALPHA', 'create_behaviour', 'register_behaviour',
-            'create_alpha', 'register_alpha' ]
+            'create_alpha', 'register_alpha', 'BehaviourXRotation',
+            'BehaviourYRotation', 'BehaviourZRotation']
 
 import sys
 
@@ -115,6 +116,51 @@ class BehaviourScale(Behaviour):
             widget.scale = scale
 
 
+class BehaviourXRotation(Behaviour):
+    """
+    Behaviour to change the x rotation value
+    """
+    def _apply(self, x_value, widgets):
+        """
+        Update widgets based on x rotation value
+        @param x_value: x value between 0 and 365
+        @param widgets: widgets to modify
+        """
+        rotation = int(self.get_current(x_value))
+        for widget in widgets:
+            widget.xrotation = rotation
+
+
+class BehaviourYRotation(Behaviour):
+    """
+    Behaviour to change the y rotation value
+    """
+    def _apply(self, y_value, widgets):
+        """
+        Update widgets based on alpha value
+        @param y rotation: y_value value between 0 and 360
+        @param widgets: widgets to modify
+        """
+        rotation = int(self.get_current(y_value))
+        for widget in widgets:
+            widget.yrotation = rotation
+
+
+class BehaviourZRotation(Behaviour):
+    """
+    Behaviour to change the z rotation value
+    """
+    def _apply(self, alpha_value, widgets):
+        """
+        Update widgets based on  z rotation value
+        @param z rotation: z rotation value between 0 and 360
+        @param widgets: widgets to modify
+        """
+        rotation = int(self.get_current(z_value))
+        for widget in widgets:
+            widget.zrotation = rotation
+
+
 class BehaviourMove(Behaviour):
     """
     Behaviour to move widgets
@@ -161,6 +207,9 @@ _behaviour['opacity'] = BehaviourOpacity
 _behaviour['scale'] = BehaviourScale
 _behaviour['move'] = BehaviourMove
 _behaviour['color'] = BehaviourColor
+_behaviour['xrotation'] = BehaviourXRotation
+_behaviour['yrotation'] = BehaviourYRotation
+_behaviour['zrotation'] = BehaviourZRotation
 
 def create_behaviour(name, *args, **kwargs):
     return _behaviour.get(name)(*args, **kwargs)
