@@ -298,8 +298,6 @@ class Client(object):
             # in returning an InProgress object.
             m = yield self._db.medialist.add(id, prop)
             new_media.append(m)
-        self.status = CONNECTED
-        self.signals['connect'].emit()
         # reconnect query monitors
         for query in self._queries[:]:
             if query == None:
@@ -313,6 +311,9 @@ class Client(object):
                 self.signals['media.add'].emit(m)
         # FIXME: if this fails we will never notice
         yield thumbnail.connect()
+        # OK, we are done
+        self.status = CONNECTED
+        self.signals['connect'].emit()
 
 
     @kaa.rpc.expose('notify')
