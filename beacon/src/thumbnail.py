@@ -251,6 +251,10 @@ class Client(object):
                 yield kaa.inprogress(channel)
                 yield None
             except Exception, e:
+                # FIXME: rather than this kludge, catch only the exceptions likely to happen
+                # if connection to thumbnail server fails.
+                if isinstance(e, GeneratorExit):
+                    raise
                 if start + 3 < time.time():
                     # start time is up, something is wrong here
                     raise RuntimeError('unable to connect to thumbnail server')
