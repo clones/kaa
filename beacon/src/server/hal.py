@@ -172,7 +172,7 @@ def start():
             _bus = dbus.SystemBus()
     except Exception, e:
         # unable to connect to dbus
-        emit_signal('failed', 'Unable to connect to D-Bus')
+        emit_signal('failed', 'Unable to connect to D-Bus: %s' % e.message)
         return False
     try:
         obj = _bus.get_object(HAL, '/org/freedesktop/Hal/Manager')
