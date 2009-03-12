@@ -156,7 +156,7 @@ class Crawler(object):
         self._scan_list = []
         self._scan_dict = []
         if self._coroutine:
-            self._coroutine.stop()
+            self._coroutine.abort()
             self._coroutine = None
             self._scan_handle_result([], False, False)
         # stop inotify
