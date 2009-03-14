@@ -1,0 +1,99 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# Webinfo
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.webinfo - Receive Metadata from the Web
+# Copyright (C) 2009 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+import re
+import os
+import sys
+import getopt
+
+import kaa
+import kaa.webmetadata
+
+@kaa.coroutine()
+def main():
+    tvdb = kaa.webmetadata.TVDB(os.path.expanduser("~/.beacon/tvdb"))
+    opts, args = getopt.gnu_getopt(sys.argv[1:], '', ['sync', 'search', 'match' ])
+    for o, a in opts:
+        if o == '--sync':
+            # Sync the db. Call this every day or so
+            yield tvdb.sync()
+            sys.exit(0)
+
+        if o == '--search':
+            # tvdb --search list of filenames
+            for filename in args:
+                f = tvdb.from_filename(filename)
+                print filename
+                for data in (yield f.search()):
+                    print data['id'], data['SeriesName'], data['FirstAired']
+                print
+            sys.exit(0)
+
+        if o == '--match':
+            # create a match between series name in filename and an id
+            # in the db. Use --search to get an id
+            # tvdb --match TVDB_ID filename
+            sid, filename = args
+            f = tvdb.from_filename(filename)
+            if not (yield f.match(sid)):
+                print 'not found'
+                sys.exit(1)
+            print 'add alias "%s" to "%s"' % (f.alias, f.series.name)
+            sys.exit(0)
+
+    for filename in args:
+        f = tvdb.from_filename(filename)
+        if f.series:
+            for key, value in f.episode.items():
+                print '%s: %s' % (key, value)
+            print
+            continue
+        # try something else
+        searchstring = kaa.webmetadata.searchstring(filename)
+        print filename, '--->', searchstring
+        result = (yield kaa.webmetadata.movie(searchstring))
+        if not result:
+            print filename, 'not found'
+            continue
+        if len(result) > 1:
+            print 'possible movie names'
+            for r in result:
+                print r.title
+            print
+            print 'results for for first hit'
+        for key, value in (yield result[0].fetch()).items():
+            print '%s: %s' % (key, value)
+        print
+    sys.exit(0)
+
+main()
+kaa.main.run()

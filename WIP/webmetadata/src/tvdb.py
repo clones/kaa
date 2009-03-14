@@ -1,7 +1,6 @@
 import sys
 import xml.sax
 import urllib
-import getopt
 import re
 import time
 
@@ -36,6 +35,11 @@ class Episode(object):
         if records:
             self.data = records[0]
 
+    def items(self):
+        if not self.data:
+            return {}
+        return self.data['data'].items()
+    
 class Season(object):
     def __init__(self, tvdb, series, season):
         self.tvdb = tvdb
@@ -70,8 +74,7 @@ class Filename(object):
         self.filename = filename
         self.tvdb = tvdb
         if not re.search(VIDEO_SHOW_REGEXP, filename.lower()):
-            print '%s is not correct filename' % filename
-            self.alias, self._season, self._episode = None
+            self.alias = self._season = self._episode = None
             return
         self.alias = kaa.str_to_unicode(' '.join(re.split('[.-_ :]', VIDEO_SHOW_REGEXP_SPLIT(filename.lower())[0])))
         self._season, self._episode = [ int(x) for x in re.search(VIDEO_SHOW_REGEXP, filename.lower()).groups() ]
@@ -111,9 +114,9 @@ class Filename(object):
 
 
 class TVDB(object):
-    def __init__(self, apikey):
+    def __init__(self, database, apikey='1E9534A23E6D7DC0'):
         self._apikey = apikey
-        self._db = kaa.db.Database('mydb')
+        self._db = kaa.db.Database(database)
         self._db.register_object_type_attrs("metadata",
             servertime = (int, kaa.db.ATTR_SEARCHABLE),
             localtime = (int, kaa.db.ATTR_SEARCHABLE),
@@ -223,50 +226,3 @@ class TVDB(object):
                     yield self._process(url, parent=parent)
             # FIXME: banner update
         self._db.update_object(metadata, servertime=int(attr['time']), localtime=int(time.time()))
-
-
-@kaa.coroutine()
-def main():
-
-    print 'add API key first'
-    sys.exit(0)
-    
-    tvdb = TVDB('INSERT_API_KEY_HERE')
-
-    opts, args = getopt.gnu_getopt(sys.argv[1:], '', ['sync', 'search', 'match', 'info'])
-    for o, a in opts:
-        if o == '--sync':
-            # Sync the db. Call this every day or so
-            yield tvdb.sync()
-
-        if o == '--search':
-            # tvdb --search list of filenames
-            for filename in args:
-                f = tvdb.from_filename(filename)
-                print filename
-                for data in (yield f.search()):
-                    print data['id'], data['SeriesName'], data['FirstAired']
-                print
-        if o == '--match':
-            # create a match between series name in filename and an id
-            # in the db. Use --search to get an id
-            # tvdb --match TVDB_ID filename
-            sid, filename = args
-            f = tvdb.from_filename(filename)
-            if not (yield f.match(sid)):
-                print 'not found'
-                sys.exit(1)
-            print 'add alias "%s" to "%s"' % (f.alias, f.series.name)
-        if o == '--info':
-            # tvdb --info list of filenames
-            for filename in args:
-                f = tvdb.from_filename(filename)
-                if not f.series:
-                    print filename, 'not found'
-                    continue
-                print f.episode.data
-                print
-    sys.exit(0)
-
-main()
-kaa.main.run()
