@@ -1,3 +1,4 @@
+import os
 import sys
 import xml.sax
 import urllib
@@ -72,12 +73,13 @@ VIDEO_SHOW_REGEXP_SPLIT = re.compile("[\.\- ]" + VIDEO_SHOW_REGEXP + "[\.\- ]*")
 class Filename(object):
     def __init__(self, tvdb, filename):
         self.filename = filename
+        filename = os.path.basename(filename).lower()
         self.tvdb = tvdb
-        if not re.search(VIDEO_SHOW_REGEXP, filename.lower()):
+        if not re.search(VIDEO_SHOW_REGEXP, filename):
             self.alias = self._season = self._episode = None
             return
-        self.alias = kaa.str_to_unicode(' '.join(re.split('[.-_ :]', VIDEO_SHOW_REGEXP_SPLIT(filename.lower())[0])))
-        self._season, self._episode = [ int(x) for x in re.search(VIDEO_SHOW_REGEXP, filename.lower()).groups() ]
+        self.alias = kaa.str_to_unicode(' '.join(re.split('[.-_ :]', VIDEO_SHOW_REGEXP_SPLIT(filename)[0])))
+        self._season, self._episode = [ int(x) for x in re.search(VIDEO_SHOW_REGEXP, filename).groups() ]
 
     @property
     def series(self):

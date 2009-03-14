@@ -54,7 +54,7 @@ def main():
                 f = tvdb.from_filename(filename)
                 print filename
                 for data in (yield f.search()):
-                    print data['id'], data['SeriesName'], data['FirstAired']
+                    print data['id'], data['SeriesName'], data.get('FirstAired')
                 print
             sys.exit(0)
 
