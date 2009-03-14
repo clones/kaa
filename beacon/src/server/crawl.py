@@ -393,11 +393,11 @@ class Crawler(object):
         del self._scan_dict[directory.filename]
         coroutine = self._scan(directory, force_thumbnail_check)
         # handle result
-        if coroutine.is_finished():
+        if coroutine.finished:
             # already done, handle result in a OneShotTimer to throttle down
             # and to avoid too much recursive calls.
             self._coroutine = kaa.OneShotTimer(
-                self._scan_handle_result, coroutine.get_result(), recursive, force_thumbnail_check)
+                self._scan_handle_result, coroutine.result, recursive, force_thumbnail_check)
             return self._coroutine.start(interval)
         self._coroutine = coroutine
         self._coroutine.set_interval(interval)
