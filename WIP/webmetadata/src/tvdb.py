@@ -112,6 +112,7 @@ class Filename(object):
         if not series:
             yield False
         series.add_alias(self.alias)
+        # FIXME: also add possible other names where the alias matches
         current = kaa.str_to_unicode(VIDEO_SHOW_REGEXP_SPLIT(os.path.basename(self.filename.lower()))[0])
         series.add_alias(current)
         self.tvdb._db.commit()
