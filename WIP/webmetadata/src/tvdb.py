@@ -112,6 +112,9 @@ class Filename(object):
         if not series:
             yield False
         series.add_alias(self.alias)
+        current = kaa.str_to_unicode(VIDEO_SHOW_REGEXP_SPLIT(os.path.basename(self.filename.lower()))[0])
+        series.add_alias(current)
+        self.tvdb._db.commit()
         yield True
 
 
@@ -185,6 +188,7 @@ class TVDB(object):
         yield self._process('http://www.thetvdb.com/api/%s/series/%s/all/en.xml' % (self._apikey, id))
         # FIXME: fetch banner
         data = self._db.query(type='series', tvdb=id)
+        self._db.commit()
         if data:
             yield Series(self, data[0])
 
@@ -228,3 +232,4 @@ class TVDB(object):
                     yield self._process(url, parent=parent)
             # FIXME: banner update
         self._db.update_object(metadata, servertime=int(attr['time']), localtime=int(time.time()))
+        self._db.commit()
