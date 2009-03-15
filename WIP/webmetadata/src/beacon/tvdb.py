@@ -58,10 +58,11 @@ def sync(entry, metadata):
     Sync the data from tvdb.Filename entry to metadata
     """
     if entry.episode:
-        desc = entry.episode.data['data'].get('Overview')
-        if desc:
+        if entry.episode.Overview:
             log.info('add description to %s', entry.filename)
-            metadata['description'] = desc
+            metadata['description'] = entry.episode.Overview
+        if entry.episode.image:
+            metadata['image'] = entry.episode.image
 
 def parser(item, attributes, type):
     """

@@ -69,19 +69,7 @@ def parse(url):
     return e.attr, results
 
 
-class Episode(object):
-    """
-    Object for an episode
-    """
-    def __init__(self, tvdb, series, season, episode):
-        self.tvdb = tvdb
-        self.series = series
-        self.season = season
-        self.episode = episode
-        records = self.tvdb._db.query(type='episode', parent=('series', series.id), season=self.season.season, episode=self.episode)
-        self.data = None
-        if records:
-            self.data = records[0]
+class Entry(object):
 
     def items(self):
         """
@@ -91,8 +79,41 @@ class Episode(object):
             return {}
         return self.data['data'].items()
 
+    def __getattr__(self, attr):
+        """
+        Get season metadata from db
+        """
+        if attr in self.data.keys():
+            return self.data[attr]
+        data = self.data.get('data') or {}
+        if attr in data:
+            return data[attr]
 
-class Season(object):
+
+class Episode(Entry):
+    """
+    Object for an episode
+    """
+    def __init__(self, tvdb, series, season, episode):
+        self.tvdb = tvdb
+        self.series = series
+        self.season = season
+        self.episode = episode
+        records = self.tvdb._db.query(type='episode', parent=('series', series.id), season=self.season.season, episode=self.episode)
+        self.data = {}
+        if records:
+            self.data = records[0]
+
+    @property
+    def image(self):
+        """
+        Episode image
+        """
+        if self.filename:
+            return 'http://www.thetvdb.com/banners/' + self.filename
+
+
+class Season(Entry):
     """
     Object for a season
     """
@@ -108,7 +129,7 @@ class Season(object):
         return Episode(self.tvdb, self.series, self, episode)
 
 
-class Series(object):
+class Series(Entry):
     """
     Object for a series
     """
@@ -131,15 +152,6 @@ class Series(object):
         """
         return Season(self.tvdb, self, season)
 
-    def __getattr__(self, attr):
-        """
-        Get season metadata from db
-        """
-        if attr in self.data.keys():
-            return self.data[attr]
-        data = self.data.get('data') or {}
-        if attr in data:
-            return data[attr]
 
 # we need a better regexp
 VIDEO_SHOW_REGEXP = "s?([0-9]|[0-9][0-9])[xe]([0-9]|[0-9][0-9])[^0-9]"
