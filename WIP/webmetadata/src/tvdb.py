@@ -212,7 +212,6 @@ class Filename(object):
             return []
         return self.tvdb.search_series(self.alias)
 
-    @kaa.coroutine()
     def match(self, id):
         """
         Match this filename to the given server id
