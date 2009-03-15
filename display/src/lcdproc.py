@@ -233,8 +233,7 @@ class LCD(object):
             yield False
         self._send('hello')
         wait = kaa.inprogress(self.socket.signals['read'])
-        yield wait
-        line = wait.get_result().strip().split()
+        line = (yield wait).strip().split()
         self._send('client_set name kaa')
         self.size = int(line[7]), int(line[9])
         self.width, self.height = self.size
