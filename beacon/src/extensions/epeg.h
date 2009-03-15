@@ -32,9 +32,4 @@ const void   *epeg_pixels_get                (Epeg_Image *im);
 void          epeg_pixels_free               (Epeg_Image *im, const void *data);
 void          epeg_close                     (Epeg_Image *im);
 
-METHODDEF(void) _jpeg_init_source(j_decompress_ptr cinfo);
-METHODDEF(boolean) _jpeg_fill_input_buffer(j_decompress_ptr cinfo);
-METHODDEF(void) _jpeg_skip_input_data(j_decompress_ptr cinfo, long num_bytes);
-METHODDEF(void) _jpeg_term_source(j_decompress_ptr cinfo);
-
 #endif

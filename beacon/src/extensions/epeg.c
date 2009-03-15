@@ -111,6 +111,11 @@ static int           _epeg_scale               (Epeg_Image *im);
 
 static void          _epeg_fatal_error_handler (j_common_ptr cinfo);
 
+METHODDEF(void) _jpeg_init_source(j_decompress_ptr cinfo);
+METHODDEF(boolean) _jpeg_fill_input_buffer(j_decompress_ptr cinfo);
+METHODDEF(void) _jpeg_skip_input_data(j_decompress_ptr cinfo, long num_bytes);
+METHODDEF(void) _jpeg_term_source(j_decompress_ptr cinfo);
+
 static const JOCTET fake_EOI[2] = { 0xFF, JPEG_EOI };
 
 /**
