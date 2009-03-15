@@ -273,10 +273,8 @@ def _parse(db, item, mtime):
 
     # now call extention plugins
     ext = os.path.splitext(item.filename)[1]
-    if ext in extention_plugins:
-        for function in extention_plugins[ext]:
-            function(item, attributes)
-
+    for function in extention_plugins.get(ext, []) + extention_plugins.get(None, []):
+        function(item, attributes, type)
     while db.read_lock.is_locked():
         # wait for the db to be free for write access
         yield db.read_lock.yield_unlock()

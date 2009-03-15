@@ -145,7 +145,7 @@ class Database(object):
         """
         # internal db dir, it contains the real db and the
         # overlay dir for the beacon
-        self._db_directory = dbdir
+        self.directory = dbdir
         self.medialist = MediaList()
 
         # handle changes in a list and add them to the database
@@ -153,10 +153,10 @@ class Database(object):
         self.changes = []
 
         # create db
-        overlay = os.path.join(self._db_directory, 'overlays')
+        overlay = os.path.join(self.directory, 'overlays')
         if not os.path.isdir(overlay):
             os.makedirs(overlay)
-        self._db = db.Database(self._db_directory + '/db')
+        self._db = db.Database(self.directory + '/db')
 
         self.signals = {
             'changed': kaa.Signal()
@@ -167,7 +167,8 @@ class Database(object):
         """
         Get main beacon directory.
         """
-        return self._db_directory
+        # FIXME: deprecated
+        return self.directory
 
 
     # -------------------------------------------------------------------------
@@ -238,7 +239,7 @@ class Database(object):
             return result
         # TODO: it's a bit ugly to set url here, but we have no other choice
         media.url = result['content'] + '://' + media.mountpoint
-        media.overlay = os.path.join(self._db_directory, 'overlays', id)
+        media.overlay = os.path.join(self.directory, 'overlays', id)
         dbid = ('media', result['id'])
         media._beacon_id = dbid
         root = self._db.query(parent=dbid)[0]
