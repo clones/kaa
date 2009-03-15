@@ -63,8 +63,11 @@
 #include <sys/stat.h>
 #include <setjmp.h>
 #include <jpeglib.h>
+#include <jerror.h>
 
 #include "epeg.h"
+
+typedef struct _epeg_error_mgr *emptr;
 
 struct _epeg_error_mgr
 {
@@ -105,6 +108,8 @@ struct _Epeg_Image
 static Epeg_Image   *_epeg_open_header         (Epeg_Image *im);
 static int           _epeg_decode              (Epeg_Image *im);
 static int           _epeg_scale               (Epeg_Image *im);
+
+static void          _epeg_fatal_error_handler (j_common_ptr cinfo);
 
 static const JOCTET fake_EOI[2] = { 0xFF, JPEG_EOI };
 
@@ -350,6 +355,7 @@ _epeg_open_header(Epeg_Image *im)
    struct jpeg_source_mgr *src_mgr = NULL;
 
    im->in.jinfo.err = jpeg_std_error(&(im->jerr.pub));
+   im->jerr.pub.error_exit = _epeg_fatal_error_handler;
 
    if (setjmp(im->jerr.setjmp_buffer))
      {
@@ -371,7 +377,11 @@ _epeg_open_header(Epeg_Image *im)
 	/* Setup RAM source manager. */
 	src_mgr = calloc(1, sizeof(struct jpeg_source_mgr));
 	if (!src_mgr) goto error;
+	src_mgr->init_source = _jpeg_init_source;
+	src_mgr->fill_input_buffer = _jpeg_fill_input_buffer;
+	src_mgr->skip_input_data = _jpeg_skip_input_data;
 	src_mgr->resync_to_restart = jpeg_resync_to_restart;
+	src_mgr->term_source = _jpeg_term_source;
 	src_mgr->bytes_in_buffer = im->in.mem.size;
 	src_mgr->next_input_byte = (JOCTET *) im->in.mem.data;
    	im->in.jinfo.src = (struct jpeg_source_mgr *) src_mgr;
@@ -515,3 +525,45 @@ _epeg_scale(Epeg_Image *im)
      }
    return 0;
 }
+
+METHODDEF(void)
+_jpeg_init_source(j_decompress_ptr cinfo)
+{
+}
+
+METHODDEF(boolean)
+_jpeg_fill_input_buffer(j_decompress_ptr cinfo)
+{
+   WARNMS(cinfo, JWRN_JPEG_EOF);
+   
+   /* Insert a fake EOI marker */
+   cinfo->src->next_input_byte = fake_EOI;
+   cinfo->src->bytes_in_buffer = sizeof(fake_EOI);
+   return TRUE;
+}
+
+METHODDEF(void)
+_jpeg_skip_input_data(j_decompress_ptr cinfo, long num_bytes)
+{
+   if (num_bytes > (long)(cinfo)->src->bytes_in_buffer)
+     ERREXIT(cinfo, 0);
+   
+   (cinfo)->src->next_input_byte += num_bytes;
+   (cinfo)->src->bytes_in_buffer -= num_bytes;
+}
+
+METHODDEF(void)
+_jpeg_term_source(j_decompress_ptr cinfo)
+{
+}
+
+static void 
+_epeg_fatal_error_handler(j_common_ptr cinfo)
+{
+   emptr errmgr;
+   
+   errmgr = (emptr)cinfo->err;
+   longjmp(errmgr->setjmp_buffer, 1);
+   return;
+}
+
