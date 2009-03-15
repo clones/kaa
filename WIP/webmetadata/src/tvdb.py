@@ -274,7 +274,7 @@ class TVDB(kaa.Object):
         try:
             version = open(self._versionfile).read()
         except ValueError:
-            self.version += 1
+            version = self.version + 1
         if version != self.version:
             self.version = version
             self.signals['changed'].emit()
