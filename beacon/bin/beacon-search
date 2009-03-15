@@ -205,7 +205,7 @@ def main():
         info = kaa.beacon.get_db_info()
         if isinstance(info, kaa.InProgress):
             yield info
-            info = info.get_result()
+            info = info.result
         print 'Beacon database information:'
         print
         print 'Total objects:'.rjust(20), info['total']
