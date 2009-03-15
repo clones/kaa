@@ -217,14 +217,7 @@ class Filename(object):
         """
         Match this filename to the given server id
         """
-        if not self.alias:
-            yield False
-        series = (yield self.tvdb.get_series_by_id(id))
-        if not series:
-            yield False
-        series.add_alias(self.alias)
-        self.tvdb._db.commit()
-        yield True
+        return self.tvdb.match_series(self.alias, id)
 
 
 class TVDB(kaa.Object):
@@ -396,6 +389,20 @@ class TVDB(kaa.Object):
         """
         url = 'http://www.thetvdb.com/api/GetSeries.php?seriesname=%s' % urllib.quote(name)
         yield [ data for name, data in (yield parse(url))[1] ]
+
+    @kaa.coroutine()
+    def match_series(self, alias, id):
+        """
+        Match this filename to the given server id
+        """
+        if not alias:
+            yield False
+        series = (yield self.get_series_by_id(id))
+        if not series:
+            yield False
+        series.add_alias(alias)
+        self._db.commit()
+        yield True
 
     @kaa.coroutine()
     def sync(self):
