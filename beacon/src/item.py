@@ -30,6 +30,7 @@
 # -----------------------------------------------------------------------------
 
 # python imports
+import os
 import logging
 
 # kaa imports
@@ -91,6 +92,17 @@ class Item(object):
                     image = self._beacon_parent.get('image')
                 if not image:
                     return default
+            if image.startswith('http://'):
+                fname = self._beacon_controller._db.md5url(image, 'images')
+                if key == 'image':
+                    if not os.path.isfile(fname):
+                        # FIXME: We need to fetch the image. Right now this will not happen
+                        # until beacon restarts or a thumbnail is requested
+                        return default
+                    return fname
+                if key == 'thumbnail':
+                    # the thumbnail code will take care of downloading
+                    return Thumbnail(image, self._beacon_media)
             if key == 'image':
                 return image
             if key == 'thumbnail':

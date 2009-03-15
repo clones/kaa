@@ -97,20 +97,26 @@ class Thumbnail(object):
         @param media: beacon Media object to determine the thumbnailing directory
         @param url: url to store in the thumbnail
         """
-        if not name.startswith('/'):
-            # FIXME: realpath should not be needed here because
-            # beacon itself should take care of it.
-            name = os.path.abspath(name)
-        self.name = name
         self.destdir = media.thumbnails
+        if name.startswith('http://'):
+            # remote filename
+            self.url = name
+            name = media._beacon_controller._db.md5url(name, 'images')
+        else:
+            if not name.startswith('/'):
+                # FIXME: realpath should not be needed here because
+                # beacon itself should take care of it.
+                name = os.path.abspath(name)
+            self.url = None
+        self.name = name
         # create url to be placed in the thumbnail
         # os.path.normpath(name) should be used but takes
         # extra CPU time and beacon should always create
         # a correct path
         # FIXME: handle media.mountpoint
-        self.url = url or 'file://' + name
         # create digest for filename (with %s for the size)
-        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(self.url).hexdigest() + '.png'
+        furl = url or 'file://' + name
+        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(furl).hexdigest() + '.png'
 
     def _get_thumbnail(self, type='any', check_mtime=False):
         """
@@ -122,6 +128,8 @@ class Thumbnail(object):
             returned.
         :returns: full path to thumbnail file or None
         """
+        if not os.path.isfile(self.name):
+            return None
         if check_mtime:
             image = self._get_thumbnail(type)
             if image:
@@ -229,7 +237,7 @@ class Thumbnail(object):
             priority = Thumbnail.PRIORITY_NORMAL
         Thumbnail._next_id += 1
         # schedule thumbnail creation
-        _client.schedule(Thumbnail._next_id, self.name, self._thumbnail, priority)
+        _client.schedule(Thumbnail._next_id, self.name, self._thumbnail, self.url, priority)
         job = Job(self, Thumbnail._next_id, priority)
         return job.signal
 
@@ -260,13 +268,13 @@ class Client(object):
                     raise RuntimeError('unable to connect to thumbnail server')
                 yield kaa.delay(0.01)
 
-    def schedule(self, id, filename, imagename, priority):
+    def schedule(self, id, filename, imagename, url, priority):
         if not self.id:
             # Not connected yet, schedule job later
-            self._schedules.append((id, filename, imagename, priority))
+            self._schedules.append((id, filename, imagename, url, priority))
             return
         # server rpc calls
-        self.rpc('schedule', (self.id, id), filename, imagename, priority)
+        self.rpc('schedule', (self.id, id), filename, imagename, url, priority)
 
     @kaa.rpc.expose('connect')
     def _server_callback_connected(self, id):

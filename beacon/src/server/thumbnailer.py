@@ -33,6 +33,7 @@
 import os
 import sys
 import logging
+import urllib
 import time
 import stat
 
@@ -51,6 +52,22 @@ import cpuinfo
 log = logging.getLogger('beacon.thumbnail')
 
 THUMBNAIL_TIMER = 0.1
+DOWNLOAD_THREAD = 'beacon.download'
+
+
+@kaa.threaded(DOWNLOAD_THREAD)
+def download(url, filename):
+    """
+    Download url and store in filename
+    """
+    if os.path.exists(filename):
+        return None
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+    log.info('fetch %s', url)
+    image = urllib.urlopen(url).read()
+    open(filename, 'w').write(image)
+
 
 class Job(object):
     """
@@ -157,7 +174,6 @@ class Thumbnailer(object):
             return False
 
         job = self.jobs.pop(0)
-
         for size in ('large', 'normal'):
             # iterate over the sizes
             imagefile = job.imagefile % size
@@ -176,7 +192,6 @@ class Thumbnailer(object):
             self.notify_client(job)
             self.schedule_next(fast=True)
             return True
-
         if job.filename.lower().endswith('jpg'):
             # try epeg for fast thumbnailing
             try:
@@ -187,7 +202,6 @@ class Thumbnailer(object):
                 return True
             except (IOError, ValueError):
                 pass
-
         try:
             # try normal imlib2 thumbnailing
             libthumb.png(job.filename, job.imagefile % 'large', (256, 256))
@@ -197,7 +211,6 @@ class Thumbnailer(object):
             return True
         except (IOError, ValueError), e:
             pass
-
         # maybe this is no image
         metadata = kaa.metadata.parse(job.filename)
         if metadata and metadata['media'] == kaa.metadata.MEDIA_AV:
@@ -246,7 +259,10 @@ class Thumbnailer(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose()
-    def schedule(self, id, filename, imagefile, priority):
+    @kaa.coroutine()
+    def schedule(self, id, filename, imagefile, url, priority):
+        if url and not os.path.isfile(filename):
+            yield download(url, filename)
         # FIXME: check if job is already scheduled!!!!
         job = Job(id, filename, imagefile, priority)
         self.jobs.append(job)

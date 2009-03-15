@@ -88,7 +88,7 @@ def parse(db, item, force_thumbnail_check=False):
             return 0
         # neither dir nor file, it can not have a mtime
         image = item._beacon_data.get('image')
-        if image and os.path.exists(image):
+        if image and (image.startswith('http://') or os.path.exists(image)):
             t = thumbnail.Thumbnail(image, item._beacon_media)
             if t.needs_update:
                 log.debug('create missing image %s for %s', image, item)
@@ -112,7 +112,7 @@ def parse(db, item, force_thumbnail_check=False):
         # thumbnail is valid or not.
         if force_thumbnail_check and item._beacon_data.get('image'):
             image = item._beacon_data.get('image')
-            if os.path.exists(image):
+            if image.startswith('http://') or os.path.exists(image):
                 t = thumbnail.Thumbnail(image, item._beacon_media)
                 if t.needs_update:
                     log.debug('create missing image %s for %s', image, item)
@@ -248,6 +248,16 @@ def _parse(db, item, mtime):
                 attributes['image'] = item.filename + ext
                 break
 
+    attributes['metadata'] = metadata
+
+    # now call extention plugins
+    ext = os.path.splitext(item.filename)[1]
+    for function in extention_plugins.get(ext, []) + extention_plugins.get(None, []):
+        function(item, attributes, type)
+    while db.read_lock.is_locked():
+        # wait for the db to be free for write access
+        yield db.read_lock.yield_unlock()
+
     if attributes.get('image'):
         # create thumbnail
         t = thumbnail.Thumbnail(attributes.get('image'), item._beacon_media)
@@ -268,16 +278,6 @@ def _parse(db, item, mtime):
     # add kaa.metadata results, the db module will add everything known
     # to the db. After that add or update the database.
     #
-
-    attributes['metadata'] = metadata
-
-    # now call extention plugins
-    ext = os.path.splitext(item.filename)[1]
-    for function in extention_plugins.get(ext, []) + extention_plugins.get(None, []):
-        function(item, attributes, type)
-    while db.read_lock.is_locked():
-        # wait for the db to be free for write access
-        yield db.read_lock.yield_unlock()
 
     if item._beacon_id:
         # Update old db entry

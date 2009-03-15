@@ -36,6 +36,7 @@ import os
 import stat
 import logging
 import time
+import md5
 
 # kaa imports
 import kaa
@@ -170,6 +171,12 @@ class Database(object):
         # FIXME: deprecated
         return self.directory
 
+
+    def md5url(self, url, subdir):
+        """
+        Convert url into md5 sum
+        """
+        return os.path.join(self.directory, subdir, md5.md5(url).hexdigest() + os.path.splitext(url)[1])
 
     # -------------------------------------------------------------------------
     # Query functions
