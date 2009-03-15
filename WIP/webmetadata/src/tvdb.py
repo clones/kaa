@@ -1,16 +1,59 @@
+# -*- coding: iso-8859-1 -*-
+# -----------------------------------------------------------------------------
+# tvdb.py - TVDB Database
+# -----------------------------------------------------------------------------
+# $Id$
+#
+# -----------------------------------------------------------------------------
+# kaa.webmetadata - Receive Metadata from the Web
+# Copyright (C) 2009 Dirk Meyer
+#
+# First Edition: Dirk Meyer <dischi@freevo.org>
+# Maintainer:    Dirk Meyer <dischi@freevo.org>
+#
+# Please see the file AUTHORS for a complete list of authors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MER-
+# CHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# -----------------------------------------------------------------------------
+
+__all__ = [ 'TVDB' ]
+
+# python imports
 import os
 import sys
 import xml.sax
 import urllib
 import re
 import time
+import logging
 
+# kaa imports
 import kaa
 import kaa.db
+from kaa.inotify import INotify
 from kaa.saxutils import ElementParser
+
+# get logging object
+log = logging.getLogger('beacon.tvdb')
 
 @kaa.threaded()
 def parse(url):
+    """
+    Threaded XML parser
+    """
     results = []
     def handle(element):
         info = {}
@@ -25,7 +68,11 @@ def parse(url):
     parser.parse(url)
     return e.attr, results
 
+
 class Episode(object):
+    """
+    Object for an episode
+    """
     def __init__(self, tvdb, series, season, episode):
         self.tvdb = tvdb
         self.series = series
@@ -37,40 +84,71 @@ class Episode(object):
             self.data = records[0]
 
     def items(self):
+        """
+        Return items in the TVDB dict
+        """
         if not self.data:
             return {}
         return self.data['data'].items()
-    
+
+
 class Season(object):
+    """
+    Object for a season
+    """
     def __init__(self, tvdb, series, season):
         self.tvdb = tvdb
         self.series = series
         self.season = season
 
     def get_episode(self, episode):
+        """
+        Get Episode object
+        """
         return Episode(self.tvdb, self.series, self, episode)
 
 
 class Series(object):
+    """
+    Object for a series
+    """
     def __init__(self, tvdb, data):
         self.tvdb = tvdb
         self.data = data
 
     def add_alias(self, alias):
+        """
+        Add an alias name for the series
+        """
         self.tvdb._updatedb('alias', alias, parent=('series', self.data['id']))
+        self.tvdb._db.commit()
+        self.tvdb.version += 1
+        open(self.tvdb._versionfile, 'w').write(str(self.tvdb.version))
 
     def get_season(self, season):
+        """
+        Get Season object
+        """
         return Season(self.tvdb, self, season)
 
     def __getattr__(self, attr):
+        """
+        Get season metadata from db
+        """
         if attr in self.data.keys():
             return self.data[attr]
+        data = self.data.get('data') or {}
+        if attr in data:
+            return data[attr]
 
 # we need a better regexp
 VIDEO_SHOW_REGEXP = "s?([0-9]|[0-9][0-9])[xe]([0-9]|[0-9][0-9])[^0-9]"
 VIDEO_SHOW_REGEXP_SPLIT = re.compile("[\.\- ]" + VIDEO_SHOW_REGEXP + "[\.\- ]*").split
 
 class Filename(object):
+    """
+    Object for a video filename
+    """
     def __init__(self, tvdb, filename):
         self.filename = filename
         filename = os.path.basename(filename).lower()
@@ -83,49 +161,91 @@ class Filename(object):
 
     @property
     def series(self):
+        """
+        Series object
+        """
         if not self.alias:
             return None
         return self.tvdb.get_series_by_alias(kaa.str_to_unicode(self.alias))
 
     @property
     def season(self):
+        """
+        Season object
+        """
         if not self._season:
             return None
-        return self.series.get_season(self._season)
+        series = self.series
+        if not series:
+            return None
+        return series.get_season(self._season)
 
     @property
     def episode(self):
+        """
+        Episode object
+        """
         if not self._episode:
             return None
-        return self.season.get_episode(self._episode)
+        season = self.season
+        if not season:
+            return None
+        return season.get_episode(self._episode)
 
     def search(self):
+        """
+        Search server what this filename may be
+        """
         if not self.alias:
             return []
         return self.tvdb.search_series(self.alias)
 
     @kaa.coroutine()
     def match(self, id):
+        """
+        Match this filename to the given server id
+        """
         if not self.alias:
             yield False
         series = (yield self.tvdb.get_series_by_id(id))
         if not series:
             yield False
         series.add_alias(self.alias)
-        # FIXME: also add possible other names where the alias matches
-        current = kaa.str_to_unicode(VIDEO_SHOW_REGEXP_SPLIT(os.path.basename(self.filename.lower()))[0])
-        series.add_alias(current)
         self.tvdb._db.commit()
         yield True
 
 
-class TVDB(object):
+class TVDB(kaa.Object):
+    """
+    Database object for thetvdb.org
+    """
+    __kaasignals__ = {
+        'changed':
+            '''
+            Signal when the database on disc changes
+            ''',
+        }
+
     def __init__(self, database, apikey='1E9534A23E6D7DC0'):
+        super(TVDB, self).__init__()
         self._apikey = apikey
+        # set up the database and the version file
+        if not os.path.exists(os.path.dirname(database)):
+            os.makedirs(os.path.dirname(database))
         self._db = kaa.db.Database(database)
+        self._versionfile = database + '.version'
+        if not os.path.exists(self._versionfile):
+            open(self._versionfile, 'w').write('0')
+        try:
+            self.version = int(open(self._versionfile).read())
+        except ValueError:
+            self.version = 0
+        INotify().watch(self._versionfile).connect(self._db_updated)
+        # set up the database itself
         self._db.register_object_type_attrs("metadata",
             servertime = (int, kaa.db.ATTR_SEARCHABLE),
             localtime = (int, kaa.db.ATTR_SEARCHABLE),
+            metadata = (dict, kaa.db.ATTR_SIMPLE),
         )
         self._db.register_object_type_attrs("series",
             tvdb = (int, kaa.db.ATTR_SEARCHABLE),
@@ -143,7 +263,52 @@ class TVDB(object):
             data = (dict, kaa.db.ATTR_SIMPLE),
         )
 
+    def _db_updated(self, *args):
+        """
+        Callback from INotify when the version file changed
+        """
+        try:
+            version = open(self._versionfile).read()
+        except ValueError:
+            self.version += 1
+        if version != self.version:
+            self.version = version
+            self.signals['changed'].emit()
+
+    @property
+    def aliases(self):
+        """
+        Aliases known to the DB
+        """
+        return [ a['tvdb'] for a in self._db.query(type='alias') ]
+
+    def get_metadata(self, key):
+        """
+        Get database metadata
+        """
+        if not self._db.query(type='metadata'):
+            return None
+        metadata = self._db.query(type='metadata')[0]['metadata']
+        if not metadata:
+            return None
+        return metadata.get(key)
+
+    def set_metadata(self, key, value):
+        """
+        Set database metadata
+        """
+        if not self._db.query(type='metadata'):
+            return None
+        entry = self._db.query(type='metadata')[0]
+        metadata = entry['metadata'] or {}
+        metadata[key] = value
+        self._db.update_object(entry, metadata=metadata)
+        self._db.commit()
+
     def _updatedb(self, type, tvdb, parent=None, **kwargs):
+        """
+        Update the database, does not commit changes
+        """
         if parent:
             current = self._db.query(type=type, tvdb=tvdb, parent=parent)
         else:
@@ -157,6 +322,10 @@ class TVDB(object):
 
     @kaa.coroutine()
     def _process(self, url, parent=None):
+        """
+        Process XML URL and update DB. The changes are commited but
+        the version is not changed
+        """
         for name, data in (yield parse(url))[1]:
             if name == 'Episode':
                 if not parent:
@@ -164,13 +333,18 @@ class TVDB(object):
                 self._updatedb('episode', int(data.get('id')), name=data.get('EpisodeName'), parent=parent,
                                season=int(data.get('SeasonNumber')), episode=int(data.get('EpisodeNumber')), data=data)
             elif name == 'Series':
+                data['timestamp'] = time.time()
                 parent = ('series', self._updatedb('series', int(data.get('id')), name=data.get('SeriesName'), data=data))
             elif name == 'Banner':
                 pass
             else:
                 print name, data
+        self._db.commit()
 
     def get_series_by_alias(self, alias):
+        """
+        Get a Series object based on the alias name
+        """
         data = self._db.query(type='alias', tvdb=alias)
         if not data:
             return None
@@ -178,6 +352,9 @@ class TVDB(object):
 
     @kaa.coroutine()
     def get_series_by_id(self, id):
+        """
+        Get a Series object based on the series ID
+        """
         data = self._db.query(type='series', tvdb=id)
         if data:
             yield Series(self, data[0])
@@ -189,20 +366,30 @@ class TVDB(object):
         yield self._process('http://www.thetvdb.com/api/%s/series/%s/all/en.xml' % (self._apikey, id))
         # FIXME: fetch banner
         data = self._db.query(type='series', tvdb=id)
-        self._db.commit()
+        self.version += 1
+        open(self._versionfile, 'w').write(str(self.version))
         if data:
             yield Series(self, data[0])
 
     def from_filename(self, filename):
+        """
+        Return a fully parsed Filename object
+        """
         return Filename(self, filename)
 
     @kaa.coroutine()
     def search_series(self, name):
+        """
+        Search for a series
+        """
         url = 'http://www.thetvdb.com/api/GetSeries.php?seriesname=%s' % urllib.quote(name)
         yield [ data for name, data in (yield parse(url))[1] ]
 
     @kaa.coroutine()
     def sync(self):
+        """
+        Sync database with server
+        """
         if not self._db.query(type='metadata'):
             yield
         metadata = self._db.query(type='metadata')[0]
@@ -233,4 +420,5 @@ class TVDB(object):
                     yield self._process(url, parent=parent)
             # FIXME: banner update
         self._db.update_object(metadata, servertime=int(attr['time']), localtime=int(time.time()))
-        self._db.commit()
+        self.version += 1
+        open(self._versionfile, 'w').write(str(self.version))
