@@ -7,27 +7,29 @@ import kaa.webmetadata.tvdb
 def main():
     tvdb = kaa.webmetadata.tvdb.TVDB(os.path.expanduser("~/.beacon/tvdb"))
     f = tvdb.from_filename(sys.argv[1])
-    print f.series.data
+    print 'Series Information'
+    for key, value in f.series.items():
+        print '  %s: %s' % (key, value)
     print
-    print f.episode.data
+    print 'Episode Information'
+    for key, value in f.episode.items():
+        print '  %s: %s' % (key, value)
     print
-    print f.series.banner
-    print 
     print 'Fanart'
     for banner in f.series.fanart:
-        print banner
+        print ' ', banner
     print
     print 'Poster'
     for banner in f.series.poster:
-        print banner
+        print ' ', banner
     print
-    print 'Series'
+    print 'Series Banner'
     for banner in f.series.banner:
-        print banner
+        print ' ', banner
     print
-    print 'Season'
+    print 'Season Banner'
     for banner in f.season.banner:
-        print banner
+        print ' ', banner
     print
     sys.exit(0)
 
