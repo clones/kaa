@@ -1,9 +1,6 @@
 import os
 import re
 
-from tvdb import TVDB
-import imdb
-
 REMOVE_FROM_SEARCH = []
 
 def searchstring(filename):

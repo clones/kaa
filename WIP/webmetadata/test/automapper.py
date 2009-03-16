@@ -1,13 +1,13 @@
 import os
 import sys
-import kaa.webmetadata
+import kaa.webmetadata.tvdb
 import kaa.beacon
 
 @kaa.coroutine()
 def main():
     print 'check for missing tvdb mapping'
     print '------------------------------'
-    tvdb = kaa.webmetadata.TVDB(os.path.expanduser("~/.beacon/tvdb"))
+    tvdb = kaa.webmetadata.tvdb.TVDB(os.path.expanduser("~/.beacon/tvdb"))
     missing = []
     for alias in (yield kaa.beacon.query(type='video', attr='tvdb_alias')):
         if alias in tvdb.aliases:

@@ -36,11 +36,11 @@ import sys
 import getopt
 
 import kaa
-import kaa.webmetadata
+import kaa.webmetadata.tvdb
 
 @kaa.coroutine()
 def main():
-    tvdb = kaa.webmetadata.TVDB(os.path.expanduser("~/.beacon/tvdb"))
+    tvdb = kaa.webmetadata.tvdb.TVDB(os.path.expanduser("~/.beacon/tvdb"))
     opts, args = getopt.gnu_getopt(sys.argv[1:], '', ['sync', 'search', 'match' ])
     for o, a in opts:
         if o == '--sync':
@@ -78,22 +78,6 @@ def main():
             print
             continue
         print filename, 'not found'
-        continue
-#         # try something else
-#         searchstring = kaa.webmetadata.searchstring(filename)
-#         print filename, '--->', searchstring
-#         result = (yield kaa.webmetadata.movie(searchstring))
-#         if not result:
-#             print filename, 'not found'
-#             continue
-#         if len(result) > 1:
-#             print 'possible movie names'
-#             for r in result:
-#                 print r.title
-#             print
-#             print 'results for for first hit'
-#         for key, value in (yield result[0].fetch()).items():
-#             print '%s: %s' % (key, value)
         print
     sys.exit(0)
 
