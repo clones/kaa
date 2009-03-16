@@ -38,7 +38,7 @@ import time
 
 # kaa imports
 import kaa
-import kaa.webmetadata
+import kaa.webmetadata.tvdb
 import kaa.beacon
 
 # relative beacon server imports
@@ -53,6 +53,8 @@ tvdb = None
 # beacon database object
 beacondb = None
 
+PLUGIN_VERSION = 0.1
+
 def sync(entry, metadata):
     """
     Sync the data from tvdb.Filename entry to metadata
@@ -63,6 +65,21 @@ def sync(entry, metadata):
             metadata['description'] = entry.episode.Overview
         if entry.episode.image:
             metadata['image'] = entry.episode.image
+        if entry.series.data:
+            metadata['tvdb_series'] = entry.series.data['name']
+        try:
+            if entry.episode.SeasonNumber:
+                metadata['tvdb_season'] = int(entry.episode.SeasonNumber)
+        except (ValueError, IndexError), e:
+            pass
+        try:
+            if entry.episode.EpisodeNumber:
+                metadata['tvdb_episode'] = int(entry.episode.EpisodeNumber)
+        except (ValueError, IndexError), e:
+            pass
+        if entry.episode.name:
+            metadata['tvdb_title'] = entry.episode.name
+
 
 def parser(item, attributes, type):
     """
@@ -89,7 +106,7 @@ def tvdb_populate():
         item['tvdb_alias'] = entry.alias
         if entry.alias:
             sync(entry, item)
-    tvdb.set_metadata('beacon_init', True)
+    tvdb.set_metadata('beacon_init', PLUGIN_VERSION)
     tvdb.set_metadata('beacon_aliases', aliases)
     tvdb.set_metadata('beacon_timestamp', time.time())
     tvdb.set_metadata('beacon_version', tvdb.version)
@@ -117,14 +134,18 @@ def plugin_init(server, db):
     Init the plugin.
     """
     kaa.beacon.register_file_type_attrs('video',
-        tvdb_alias  = (unicode, kaa.beacon.ATTR_SEARCHABLE))
+        tvdb_alias = (unicode, kaa.beacon.ATTR_SEARCHABLE),
+        tvdb_series = (unicode, kaa.beacon.ATTR_SEARCHABLE),
+        tvdb_season = (int, kaa.beacon.ATTR_SEARCHABLE),
+        tvdb_episode = (int, kaa.beacon.ATTR_SEARCHABLE),
+        tvdb_title = (unicode, kaa.beacon.ATTR_SIMPLE))
     global tvdb
     global beacondb
     beacondb = db
     beacon_register(None, parser)
-    tvdb = kaa.webmetadata.TVDB(db.directory + '/tvdb')
+    tvdb = kaa.webmetadata.tvdb.TVDB(db.directory + '/tvdb')
     tvdb.signals['changed'].connect(tvdb_changed)
-    if not tvdb.get_metadata('beacon_init'):
+    if tvdb.get_metadata('beacon_init') != PLUGIN_VERSION:
         # kaa.beacon does not know about this db, we need to create
         # the metadata for tvdb.
         tvdb_populate()
