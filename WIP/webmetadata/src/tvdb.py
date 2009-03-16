@@ -128,6 +128,14 @@ class Season(Entry):
         """
         return Episode(self.tvdb, self.series, self, episode)
 
+    @property
+    def banner(self):
+        banner = []
+        for entry in self.series._get_banner(u'season'):
+            if entry.get('Season') == str(self.season):
+                banner.append(entry)
+        return banner
+
 
 class Series(Entry):
     """
@@ -152,6 +160,44 @@ class Series(Entry):
         """
         return Season(self.tvdb, self, season)
 
+    @property
+    def banner2(self):
+        return self.tvdb._db.query(type='banner', parent=('series', self.data['id']))
+
+    def _get_banner(self, btype):
+        banner = []
+        for r in self.tvdb._db.query(type='banner', parent=('series', self.data['id']), btype=btype):
+            entry = r.get('data')
+            for key, value in entry.items():
+                if key.lower().endswith('path'):
+                    entry[key] = 'http://www.thetvdb.com/banners/' + str(value)
+            entry.pop('BannerType')
+            entry.pop('id')
+            banner.append(entry)
+        return banner
+
+    @property
+    def fanart(self):
+        banner = []
+        for entry in self._get_banner(u'fanart'):
+            entry['resolution'] = entry.pop('BannerType2')
+            banner.append(entry)
+        return banner
+
+    @property
+    def poster(self):
+        banner = []
+        for entry in self._get_banner(u'poster'):
+            entry['resolution'] = entry.pop('BannerType2')
+            banner.append(entry)
+        return banner
+
+    @property
+    def banner(self):
+        banner = []
+        for entry in self._get_banner(u'series'):
+            banner.append(entry)
+        return banner
 
 # we need a better regexp
 VIDEO_SHOW_REGEXP = "s?([0-9]|[0-9][0-9])[xe]([0-9]|[0-9][0-9])[^0-9]"
@@ -266,6 +312,11 @@ class TVDB(kaa.Object):
             episode = (int, kaa.db.ATTR_SEARCHABLE),
             data = (dict, kaa.db.ATTR_SIMPLE),
         )
+        self._db.register_object_type_attrs("banner",
+            tvdb = (int, kaa.db.ATTR_SEARCHABLE),
+            btype = (unicode, kaa.db.ATTR_SEARCHABLE),
+            data = (dict, kaa.db.ATTR_SIMPLE),
+        )
 
     def _db_updated(self, *args):
         """
@@ -340,10 +391,11 @@ class TVDB(kaa.Object):
                 data['timestamp'] = time.time()
                 parent = ('series', self._updatedb('series', int(data.get('id')), name=data.get('SeriesName'), data=data))
             elif name == 'Banner':
-                pass
+                self._updatedb('banner', int(data.get('id')), btype=data.get('BannerType'), data=data, parent=parent)
             else:
-                print name, data
+                log.error('unknown element: %s', name)
         self._db.commit()
+        yield parent
 
     def get_series_by_alias(self, alias):
         """
@@ -367,8 +419,8 @@ class TVDB(kaa.Object):
             attr, data = (yield parse('http://www.thetvdb.com/api/%s/updates/' % self._apikey))
             self._db.add_object('metadata', servertime=int(attr['time']), localtime=int(time.time()))
         print 'sync data'
-        yield self._process('http://www.thetvdb.com/api/%s/series/%s/all/en.xml' % (self._apikey, id))
-        # FIXME: fetch banner
+        parent = (yield self._process('http://www.thetvdb.com/api/%s/series/%s/all/en.xml' % (self._apikey, id)))
+        yield self._process('http://www.thetvdb.com/api/%s/series/%s/banners.xml' % (self._apikey, id), parent=parent)
         data = self._db.query(type='series', tvdb=id)
         self.version += 1
         open(self._versionfile, 'w').write(str(self.version))
@@ -424,6 +476,7 @@ class TVDB(kaa.Object):
         url = 'http://www.thetvdb.com/api/%s/updates/%s' % (self._apikey, update)
         print url
         attr, updates = (yield parse(url))
+        banners = []
         for element, data in updates:
             if element == 'Series':
                 if int(data['id']) in series and int(data['time']) > metadata['servertime']:
@@ -436,7 +489,14 @@ class TVDB(kaa.Object):
                     print url
                     parent = 'series', self._db.query(type='series', tvdb=int(data['Series']))[0]['id']
                     yield self._process(url, parent=parent)
-            # FIXME: banner update
+            if element == 'Banner':
+                if int(data['Series']) in series: # and int(data['time']) > metadata['servertime']:
+                    if not int(data['Series']) in banners:
+                        banners.append(int(data['Series']))
+        # banner update
+        for series in banners:
+            parent = 'series', self._db.query(type='series', tvdb=series)[0]['id']
+            yield self._process('http://www.thetvdb.com/api/%s/series/%s/banners.xml' % (self._apikey, series), parent=parent)
         self._db.update_object(metadata, servertime=int(attr['time']), localtime=int(time.time()))
         self.version += 1
         open(self._versionfile, 'w').write(str(self.version))
