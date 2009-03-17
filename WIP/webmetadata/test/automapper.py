@@ -14,8 +14,14 @@ def main():
             continue
         print 'Missing mapping for "%s"' % alias
         print 'Files:'
+        sure = False
         for item in (yield kaa.beacon.query(type='video', tvdb_alias=alias)):
             print ' ', item.filename
+            sure = sure or item.get('tvdb_sure')
+        if not sure:
+            print 'May not be a tv series'
+            print
+            continue
         results = yield tvdb.search_series(alias)
         if len(results) == 0:
             print 'No query results'

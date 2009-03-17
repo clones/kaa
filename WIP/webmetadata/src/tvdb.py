@@ -199,23 +199,43 @@ class Series(Entry):
             banner.append(entry)
         return banner
 
-# we need a better regexp
-VIDEO_SHOW_REGEXP = "s?([0-9]|[0-9][0-9])[xe]([0-9]|[0-9][0-9])[^0-9]"
-VIDEO_SHOW_REGEXP_SPLIT = re.compile("[\.\- ]" + VIDEO_SHOW_REGEXP + "[\.\- ]*").split
+
+# This regular expression matches most tv shows. It requires the
+# format to be either like s01e02 or 1x02. There are files out there
+# in file sharing tools that will not work, e.g. a small search showed
+# files like series.102.title. It is hard to detect that this in fact
+# is a series and the 102 not part of a movie name.
+VIDEO_SHOW_REGEXP = 's?([0-9]|[0-9][0-9])[xe]([0-9]|[0-9][0-9])[ \-\._]'
+
+# Next regexp for bad files as described above. If the show is in the
+# database already, it is ok if the file starts with a known name
+# followed by a three or four digest number.
+VIDEO_SHOW_REGEXP2 = '[ \-\._]([0-9]?[0-9])([0-9][0-9])[ \-\._]'
 
 class Filename(object):
     """
     Object for a video filename
     """
+    # indicator if we are sure that is a tv series or not
+    sure = True
+
     def __init__(self, tvdb, filename):
         self.filename = filename
         filename = os.path.basename(filename).lower()
         self.tvdb = tvdb
-        if not re.search(VIDEO_SHOW_REGEXP, filename):
-            self.alias = self._season = self._episode = None
-            return
-        self.alias = kaa.str_to_unicode(' '.join(re.split('[.-_ :]', VIDEO_SHOW_REGEXP_SPLIT(filename)[0])))
-        self._season, self._episode = [ int(x) for x in re.search(VIDEO_SHOW_REGEXP, filename).groups() ]
+        match = re.split(VIDEO_SHOW_REGEXP, filename)
+        if len(match) != 4:
+            # try the other regexp
+            match = re.split(VIDEO_SHOW_REGEXP2, filename)
+            if len(match) != 4:
+                # it is no tv series
+                self.alias = self._season = self._episode = None
+                return
+            # we are not sure
+            self.sure = False
+        self.alias = kaa.str_to_unicode(' '.join(re.split('[.-_ :]', match[0]))).strip()
+        self._season = int(match[1])
+        self._episode = int(match[2])
 
     @property
     def series(self):
@@ -290,7 +310,7 @@ class TVDB(kaa.Object):
             self.version = int(open(self._versionfile).read())
         except ValueError:
             self.version = 0
-        INotify().watch(self._versionfile).connect(self._db_updated)
+        INotify().watch(self._versionfile, INotify.CLOSE_WRITE).connect(self._db_updated)
         # set up the database itself
         self._db.register_object_type_attrs("metadata",
             servertime = (int, kaa.db.ATTR_SEARCHABLE),
@@ -323,7 +343,7 @@ class TVDB(kaa.Object):
         Callback from INotify when the version file changed
         """
         try:
-            version = open(self._versionfile).read()
+            version = int(open(self._versionfile).read())
         except ValueError:
             version = self.version + 1
         if version != self.version:

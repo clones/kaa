@@ -53,7 +53,7 @@ tvdb = None
 # beacon database object
 beacondb = None
 
-PLUGIN_VERSION = 0.1
+PLUGIN_VERSION = 0.2
 
 def sync(entry, metadata):
     """
@@ -89,8 +89,12 @@ def parser(item, attributes, type):
         return
     entry = tvdb.from_filename(item.filename)
     if entry.alias:
+        # store the alias and if we where sure this is a tv series
         attributes['tvdb_alias'] = entry.alias
-        sync(entry, attributes)
+        attributes['tvdb_sure'] = entry.sure
+        if entry.series:
+            # sync if it is a known series
+            sync(entry, attributes)
 
 @kaa.coroutine()
 def tvdb_populate():
@@ -103,8 +107,11 @@ def tvdb_populate():
         if not item.filename:
             continue
         entry = tvdb.from_filename(item.filename)
+        # store the alias and if we where sure this is a tv series
         item['tvdb_alias'] = entry.alias
-        if entry.alias:
+        item['tvdb_sure'] = entry.sure
+        if entry.series:
+            # sync if it is a known series
             sync(entry, item)
     tvdb.set_metadata('beacon_init', PLUGIN_VERSION)
     tvdb.set_metadata('beacon_aliases', aliases)
@@ -135,6 +142,7 @@ def plugin_init(server, db):
     """
     kaa.beacon.register_file_type_attrs('video',
         tvdb_alias = (unicode, kaa.beacon.ATTR_SEARCHABLE),
+        tvdb_sure = (bool, kaa.beacon.ATTR_SIMPLE),
         tvdb_series = (unicode, kaa.beacon.ATTR_SEARCHABLE),
         tvdb_season = (int, kaa.beacon.ATTR_SEARCHABLE),
         tvdb_episode = (int, kaa.beacon.ATTR_SEARCHABLE),
