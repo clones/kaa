@@ -95,13 +95,17 @@ class Device(object):
         """
         Mount the device.
         """
+        def success(*args):
+            pass
+        def error(error):
+            log.error('unable to mount %s: %s', self.prop.get('block.device'), error)
         if self.prop.get('volume.mount_point'):
             # already mounted
             return False
         if not self.prop.get('volume.fstype'):
             log.error('unknown filesystem type for %s', self.udi)
         vol = self.get_interface(HAL_DEVICE + '.Volume')
-        vol.Mount('', self.prop.get('volume.fstype'), [])
+        vol.Mount('', self.prop.get('volume.fstype'), [], reply_handler=success, error_handler=error)
         return True
 
     @kaa.threaded(kaa.GOBJECT)
@@ -193,6 +197,7 @@ def start():
 
 _devices = []
 _blockdevices = {}
+_noparent = []
 
 def _device_all(device_names):
     """
@@ -201,9 +206,7 @@ def _device_all(device_names):
     """
     for name in device_names:
         obj = _bus.get_object(HAL, str(name))
-        obj.GetAllProperties(dbus_interface=HAL_DEVICE,
-                             reply_handler=kaa.Callback(_device_add, name),
-                             error_handler=log.error)
+        obj.GetAllProperties(dbus_interface=HAL_DEVICE, reply_handler=kaa.Callback(_device_add, name), error_handler=log.error)
 
 def _device_new(udi):
     """
@@ -211,9 +214,7 @@ def _device_new(udi):
     Called by dbus in GOBJECT thread.
     """
     obj = _bus.get_object(HAL, udi)
-    obj.GetAllProperties(dbus_interface=HAL_DEVICE,
-                         reply_handler=kaa.Callback(_device_add, udi, True),
-                         error_handler=log.error)
+    obj.GetAllProperties(dbus_interface=HAL_DEVICE, reply_handler=kaa.Callback(_device_add, udi), error_handler=log.error)
 
 def _device_remove(udi):
     """
@@ -230,51 +231,52 @@ def _device_remove(udi):
         return True
     # this causes an error later (no such id). Well, there is no disc with
     # that id, but we need to unreg, right? FIXME by reading hal doc.
-    sig = _bus.remove_signal_receiver
-    sig(dev._modified, "PropertyModified", HAL_DEVICE,
-        HAL, udi)
+    _bus.remove_signal_receiver(dev._modified, "PropertyModified", HAL_DEVICE, HAL, udi)
     _devices.remove(dev)
     # signal changes
     if isinstance(dev.prop.get('info.parent'), dict):
         emit_signal('remove', dev)
 
-def _device_add(prop, udi, removable=False):
+def _device_add(prop, udi):
     """
-    Hal callback for property list of a new device. If removable is set to
-    False this functions tries to detect if it is removable or not.
+    Hal callback for property list of a new device.
     Called by dbus in GOBJECT thread.
     """
     prop = dict(prop)
     if not 'volume.mount_point' in prop:
+        # no partition
         if 'linux.sysfs_path' in prop and 'block.device' in prop:
+            # block device with partitions
             _blockdevices[udi] = prop
-            for dev in _devices:
-                if dev.prop.get('info.parent') == udi:
-                    dev.prop['info.parent'] = prop
-                    emit_signal('add', dev)
+            for dev in _noparent[:]:
+                if dev.get('info.parent') == udi:
+                    dev['info.parent'] = prop
+                    _noparent.remove(dev)
+                    _device_scan(dev)
         return
-    if prop.get('block.device').startswith('/dev/mapper') or \
-           (prop.get('block.device') and config.discs and \
-            (prop.get('block.device')[:-1] in config.discs.split(' ') or \
-             prop.get('block.device')[:-2] in config.discs.split(' '))):
-        # fixed device set in config
+    parent = _blockdevices.get(prop.get('info.parent'))
+    if parent:
+        prop['info.parent'] = parent
+        _device_scan(prop)
         return
-    if config.discs:
-        # fixed drives are set so this is a removable
-        removable = True
-    if not prop.get('volume.is_disc') and not removable:
+    _noparent.append(prop)
+
+def _device_scan(prop):
+    """
+    Scan if the device is a removable disc
+    Called by _device_add in GOBJECT thread.
+    """
+    if prop.get('info.parent').get('block.device') in config.discs.split(' '):
+        log.info('%s should not be mounted', prop.get('block.device'))
+        return
+    if not prop.get('volume.is_disc'):
         # No disc and not already marked as removable.
         # Check if the device is removable
-        try:
-            fd = open(os.path.dirname(prop["linux.sysfs_path"]) + '/removable')
-            rm = fd.read(1)
-            fd.close()
-            if rm != '1':
-                # not removable
-                return
-        except (OSError, KeyError):
-            # Error reading info. Either file not found, linux.sysfs_path_device
-            # not in prop or no read permissions. So not removable in that case.
+        if prop.get('volume.fsusage') != 'filesystem':
+            log.info('%s has no mountable filesystem (%s)', prop.get('block.device'), prop.get('volume.fstype'))
+            return
+        if not prop.get('info.parent').get('storage.removable') and not prop.get('info.parent').get('storage.bus') == 'usb' and not config.discs:
+            log.info('%s (%s) is not removable', prop.get('block.device'), prop.get('volume.fstype'))
             return
     elif prop.get('volume.is_disc') and prop.get('block.device'):
         # Set nice beacon unique id for discs
@@ -285,13 +287,9 @@ def _device_add(prop, udi, removable=False):
             return
     dev = Device(prop, _bus)
     _devices.append(dev)
-    _bus.add_signal_receiver(dev._modified, "PropertyModified", HAL_DEVICE, HAL,
-                             prop['info.udi'])
-    parent = _blockdevices.get(prop.get('info.parent'))
-    if parent:
-        prop['info.parent'] = parent
-        # signal changes
-        emit_signal('add', dev)
+    _bus.add_signal_receiver(dev._modified, "PropertyModified", HAL_DEVICE, HAL, prop['info.udi'])
+    # signal changes
+    emit_signal('add', dev)
 
 
 if __name__ == '__main__':

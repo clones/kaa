@@ -76,7 +76,6 @@ class Media(object):
         """
         Create a media object
         """
-        log.info('new media %s', id)
         self._beacon_controller = controller
         self.id = id
         # needed by server.
@@ -128,6 +127,7 @@ class Media(object):
         self.prop = prop
         self.device = str(prop.get('block.device',''))
         self.mountpoint = str(prop.get('volume.mount_point',''))
+        log.info('new media %s (%s) at %s', self.id, self.device, self.mountpoint)
         if not self.mountpoint:
             self.mountpoint = self.device
         if not self.mountpoint.endswith('/'):
@@ -200,11 +200,7 @@ class MediaList(object):
         if id in self._dict:
             yield self._dict.get(id)
         media = Media(id, self._beacon_controller)
-        async = media._beacon_update(prop)
-        if isinstance(async, kaa.InProgress):
-            # This will happen for the client because update
-            # needs to lock the db.
-            yield async
+        yield media._beacon_update(prop)
         self._dict[id] = media
         self._idlist = [ m._beacon_id[1] for m in self._dict.values() ]
         yield media
@@ -217,6 +213,7 @@ class MediaList(object):
         if not id in self._dict:
             log.error('%s not in list' % id)
             return None
+        log.info('media %s removed from the list', id)
         media = self._dict.pop(id)
         self._idlist = [ m._beacon_id[1] for m in self._dict.values() ]
         return media

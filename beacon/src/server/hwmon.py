@@ -133,6 +133,14 @@ class HardwareMonitor(object):
         id = dev.get('beacon.id')
         if self._db.medialist.get_by_media_id(id):
             # already in db
+            media = self._db.query_media(id)
+            if media['content'] == 'file' and not dev.get('volume.mount_point'):
+                # it was mounted before and is now umounted. We remove it from the media list
+                # FIXME: it will never be updated again, even if it is mounted again later
+                # This is because hal removes the device from the list and does not get
+                # any future notifications.
+                self.eject(dev)
+                return
             media = self._db.medialist.get_by_media_id(id)
             media._beacon_update(dev)
             self.handler.media_changed(media)
@@ -208,7 +216,7 @@ class HardwareMonitor(object):
                     parent=('audio', aid),
                     media=mid)
         else:
-            log.info('detect %s as normal filesystem' % id)
+            log.info('detect %s as %s' % (id, dev.get('volume.fstype', '<unknown filesystem>')))
             mid = self._db.add_object("media", name=id, content='file')['id']
             mtime = 0                   # FIXME: wrong for /
             if dev.get('block.device'):
