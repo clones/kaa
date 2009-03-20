@@ -67,23 +67,32 @@ class HardwareMonitor(object):
         self.devices = {}
         self._update_device(rootfs)
         if hal:
-            hal.signals['failed'].connect(self.__backend_hal_failure)
-            self.__backend_start(hal)
+            hal.signals['failed'].connect(self._backend_hal_failure)
+            self._backend_start(hal)
         elif cdrom:
-            self.__backend_start(cdrom)
+            self._backend_start(cdrom)
 
-    def __backend_start(self, service):
-        service.signals['add'].connect(self.__backend_device_new)
-        service.signals['remove'].connect(self.__backend_device_remove)
-        service.signals['changed'].connect(self.__backend_device_changed)
+    def _backend_start(self, service):
+        """
+        Start the given backend (cdrom or hal)
+        """
+        service.signals['add'].connect(self._backend_device_new)
+        service.signals['remove'].connect(self._backend_device_remove)
+        service.signals['changed'].connect(self._backend_device_changed)
         service.start()
 
-    def __backend_hal_failure(self, reason):
+    def _backend_hal_failure(self, reason):
+        """
+        The hal backend failed, try cdrom
+        """
         log.error(reason)
         if cdrom:
-            self.__backend_start(cdrom)
+            self._backend_start(cdrom)
 
-    def __backend_device_new(self, dev):
+    def _backend_device_new(self, dev):
+        """
+        The backend reports a new device
+        """
         if dev.prop.get('volume.uuid'):
             dev.prop['beacon.id'] = str(dev.prop.get('volume.uuid'))
         else:
@@ -95,7 +104,10 @@ class HardwareMonitor(object):
         self.devices[dev.get('beacon.id')] = dev
         self._update_device(dev.prop)
 
-    def __backend_device_remove(self, dev):
+    def _backend_device_remove(self, dev):
+        """
+        The backend reports that a device is removed
+        """
         try:
             del self.devices[dev.get('beacon.id')]
         except KeyError:
@@ -105,13 +117,20 @@ class HardwareMonitor(object):
         self.handler.media_removed(self._db.medialist.get_by_media_id(beacon_id))
         self._db.medialist.remove(beacon_id)
 
-    def __backend_device_changed(self, dev, prop):
+    def _backend_device_changed(self, dev, prop):
+        """
+        The backend reports that a device has changed (e.g. mounted)
+        """
         prop['beacon.id'] = dev.prop.get('beacon.id')
         beacon_id = dev.prop.get('beacon.id')
         log.info('change device %s', beacon_id)
         self._update_device(prop)
 
     def get_backend_device(self, dev):
+        """
+        Return the 'raw' backend device object. This function takes
+        either a Media object from beacon or a cdrom or hal device.
+        """
         if hasattr(dev, 'prop'):
             # media object
             return self.devices.get(dev.prop.get('beacon.id'))
@@ -119,20 +138,29 @@ class HardwareMonitor(object):
         return self.devices.get(dev.get('beacon.id'))
 
     def mount(self, dev):
+        """
+        Mount the given device
+        """
         backend = self.get_backend_device(dev)
         if backend:
             return backend.mount()
 
     def eject(self, dev):
+        """
+        Eject/Umount the given device
+        """
         backend = self.get_backend_device(dev)
         if backend:
             backend.eject()
 
     @kaa.coroutine()
     def _update_device(self, dev):
+        """
+        Device update handling
+        """
         id = dev.get('beacon.id')
         if self._db.medialist.get_by_media_id(id):
-            # already in db
+            # The device is already in the MediaList
             media = self._db.query_media(id)
             if media['content'] == 'file' and not dev.get('volume.mount_point'):
                 # it was mounted before and is now umounted. We remove it from the media list
@@ -141,26 +169,35 @@ class HardwareMonitor(object):
                 # any future notifications.
                 self.eject(dev)
                 return
+            # update the medialist Media
             media = self._db.medialist.get_by_media_id(id)
             media._beacon_update(dev)
             self.handler.media_changed(media)
             return
+        # get media information from the db
         media = self._db.query_media(id)
         if not media:
+            # it is a new/unknown device
             if not dev.get('volume.is_disc') == True:
-                # fake scanning for other media than rom drives
+                # It is a directory, no additional metadata
                 metadata = None
             else:
+                # It is a DVD, AudioCD, etc. Scan with kaa.metadata
                 backend = self.get_backend_device(dev)
                 parse = kaa.ThreadCallback(kaa.metadata.parse)
                 metadata = yield parse(dev.get('block.device'))
+            # Add the new device to the database
             yield self._add_device_to_db(metadata, dev)
-        media = self._db.query_media(id)
+            media = self._db.query_media(id)
+        # now we have a valid media object from the db
         if media['content'] == 'file' and not dev.get('volume.mount_point'):
+            # It is a disc or partition with directories and
+            # files. Mount it to become valid and wait for an update.
             # FIXME: mount only on request
             log.info('mount %s', dev.get('block.device'))
             self.mount(dev)
             return
+        # add the device to the MediaList, returns Media object
         m = yield self._db.medialist.add(id, dev)
         # create overlay directory structure
         if not os.path.isdir(m.overlay):
@@ -173,11 +210,14 @@ class HardwareMonitor(object):
         # be read only and the flag is not set.
         if dev.get('volume.is_disc'):
             dev['volume.read_only'] = True
+        # signal change
         self.handler.media_changed(m)
-        return
 
     @kaa.coroutine(policy=kaa.POLICY_SYNCHRONIZED)
     def _add_device_to_db(self, metadata, dev):
+        """
+        Add the device to the database
+        """
         while self._db.read_lock.is_locked():
             yield self._db.read_lock.yield_unlock()
         # FIXME: check if the device is still valid
@@ -189,37 +229,25 @@ class HardwareMonitor(object):
             type = metadata['mime'][6:]
             log.info('detect %s as %s' % (id, type))
             mid = self._db.add_object("media", name=id, content=type)['id']
-            # FIXME: better label
-            vid = self._db.add_object(
-                "video", name="", parent=('media', mid),
-                title=unicode(get_title(metadata['label'])), media = mid)['id']
+            vid = self._db.add_object("video", name="", parent=('media', mid), title=unicode(get_title(metadata['label'])), media = mid)['id']
             for track in metadata.tracks:
-                self._db.add_object(
-                    'track_%s' % type, name='%02d' % track.trackno,
-                    parent=('video', vid), media=mid,
-                    chapters=track.chapters, length=track.length,
-                    audio=[ x.convert() for x in track.audio ],
-                    subtitles=[ x.convert() for x in track.subtitles ])
-        elif dev.get('volume.disc.has_audio') and metadata:
+                self._db.add_object('track_%s' % type, name='%02d' % track.trackno, parent=('video', vid), media=mid, chapters=track.chapters,
+                    length=track.length, audio=[ x.convert() for x in track.audio ], subtitles=[ x.convert() for x in track.subtitles ])
+            return
+        if dev.get('volume.disc.has_audio') and metadata:
             # Audio CD
             log.info('detect %s as audio cd' % id)
             mid = self._db.add_object("media", name=id, content='cdda')['id']
-            # FIXME: better label
-            aid = self._db.add_object(
-                "audio", name='', title = metadata.get('title'),
-                artist = metadata.get('artist'), parent=('media', mid),
-                media = mid)['id']
+            aid = self._db.add_object("audio", name='', title = metadata.get('title'), artist = metadata.get('artist'),
+                parent=('media', mid), media = mid)['id']
             for track in metadata.tracks:
-                self._db.add_object(
-                    'track_cdda', name=str(track.trackno),
-                    title=track.get('title'), artist=track.get('artist'),
-                    parent=('audio', aid),
-                    media=mid)
-        else:
-            log.info('detect %s as %s' % (id, dev.get('volume.fstype', '<unknown filesystem>')))
-            mid = self._db.add_object("media", name=id, content='file')['id']
-            mtime = 0                   # FIXME: wrong for /
-            if dev.get('block.device'):
-                mtime = os.stat(dev.get('block.device'))[stat.ST_MTIME]
-            dir = self._db.add_object(
-                "dir", name="", parent=('media', mid), media=mid, mtime=mtime)
+                self._db.add_object('track_cdda', name=str(track.trackno), title=track.get('title'), artist=track.get('artist'),
+                    parent=('audio', aid), media=mid)
+            return
+        # filesystem
+        log.info('detect %s as %s' % (id, dev.get('volume.fstype', '<unknown filesystem>')))
+        mid = self._db.add_object("media", name=id, content='file')['id']
+        mtime = 0                   # FIXME: wrong for /
+        if dev.get('block.device'):
+            mtime = os.stat(dev.get('block.device'))[stat.ST_MTIME]
+        self._db.add_object("dir", name="", parent=('media', mid), media=mid, mtime=mtime)
