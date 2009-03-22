@@ -218,11 +218,11 @@ def main():
 
 
     if mode == 'list-media':
-        for m in (yield kaa.beacon.list_media()):
+        for m in (yield kaa.beacon.list_media(available=False)):
             available = ''
-            if m['object']:
-                available = '(available)'
-            print '%4d %s %s' % (m['id'], m['name'], available)
+            if m.device:
+                available = '(%s)' % m.device
+            print '%4d %s %s' % (m.beaconid, m.label, available)
         sys.exit(0)
 
 

@@ -48,6 +48,7 @@ from kaa.weakref import weakref
 from db import Database
 from query import Query
 from item import Item
+from media import Media
 import thumbnail
 
 # get logging object
@@ -162,13 +163,18 @@ class Client(object):
 
 
     @kaa.coroutine()
-    def list_media(self):
+    def list_media(self, available=True):
+        """
+        List all media objects
+        """
         result = []
-        media = yield self.query(type='media', media='ignore')
-        for pos, m in enumerate(media):
+        for m in (yield self.query(type='media', media='ignore')):
             m = dict(m)
-            m['object'] = self._db.medialist.get_by_beacon_id(('media', m['id']))
-            result.append(m)
+            media = self._db.medialist.get_by_beacon_id(('media', m['id']))
+            if not available and media is None:
+                media = Media(m['name'], self, m['id'])
+            if media:
+                result.append(media)
         yield result
 
     def delete_media(self, id):

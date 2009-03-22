@@ -163,13 +163,11 @@ def monitor(directory):
     return _client.monitor(directory)
 
 @require_connect()
-def list_media():
+def list_media(available=True):
     """
     List all media objects.
-
-    :returns: list of the available media
     """
-    return _client.list_media()
+    return _client.list_media(available)
 
 @require_connect()
 def delete_media(id):

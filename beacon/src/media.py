@@ -72,12 +72,18 @@ class Media(object):
     @note: Objects are created by the hardware monitor subsystem, do not create
         Media objects from outside beacon.
     """
-    def __init__(self, id, controller):
+    def __init__(self, id, controller, beaconid=None):
         """
         Create a media object
         """
         self._beacon_controller = controller
         self.id = id
+        # basic stuff
+        self.label = id
+        self.prop = {}
+        self.device = None
+        self.mountpoint = None
+        self.beaconid = beaconid
         # needed by server.
         self.crawler = None
 
@@ -138,6 +144,7 @@ class Media(object):
             # This will happen for the client because in the client
             # _beacon_media_information needs to lock the db.
             media = yield media
+        self.beaconid = media['id']
         prop['beacon.content'] = media['content']
         self._beacon_isdir = False
         if media['content'] == 'file':
@@ -157,6 +164,8 @@ class Media(object):
             if parent.get('info.product'):
                 self.label += parent.get('info.product')
             self.label.strip()
+            if self.device:
+                self.label += ' (%s)' % self.device
             if not self.label:
                 self.label = self.id
         else:
