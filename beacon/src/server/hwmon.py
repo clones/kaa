@@ -113,9 +113,11 @@ class HardwareMonitor(object):
         except KeyError:
             log.error('unable to find %s', dev.get('beacon.id'))
         beacon_id = dev.prop.get('beacon.id')
-        log.info('remove device %s' % beacon_id)
-        self.handler.media_removed(self._db.medialist.get_by_media_id(beacon_id))
-        self._db.medialist.remove(beacon_id)
+        media = self._db.medialist.get_by_media_id(beacon_id)
+        if media is not None:
+            log.info('remove device %s' % beacon_id)
+            self.handler.media_removed(media)
+            self._db.medialist.remove(beacon_id)
 
     def _backend_device_changed(self, dev, prop):
         """
