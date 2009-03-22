@@ -20,6 +20,7 @@ def update(progress):
 
     
 def scan(files, progress):
+    global num_deleted
     for thumbnail in files:
         progress.update()
         metadata = kaa.metadata.parse(thumbnail)
