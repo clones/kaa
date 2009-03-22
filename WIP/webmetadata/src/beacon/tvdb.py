@@ -95,6 +95,7 @@ def parser(item, attributes, type):
         if entry.series:
             # sync if it is a known series
             sync(entry, attributes)
+            # FIXME: make sure we download the thumbnails
 
 @kaa.coroutine()
 def tvdb_populate():
@@ -113,6 +114,7 @@ def tvdb_populate():
         if entry.series:
             # sync if it is a known series
             sync(entry, item)
+            # FIXME: make sure we download the thumbnails
     tvdb.set_metadata('beacon_init', PLUGIN_VERSION)
     tvdb.set_metadata('beacon_aliases', aliases)
     tvdb.set_metadata('beacon_timestamp', time.time())
