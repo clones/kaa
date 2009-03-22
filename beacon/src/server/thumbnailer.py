@@ -195,6 +195,8 @@ class Thumbnailer(object):
         if job.filename.lower().endswith('jpg'):
             # try epeg for fast thumbnailing
             try:
+                if os.stat(job.filename)[stat.ST_SIZE] < 1024*1024:
+                    raise ValueError('no photo, use imlib2')
                 libthumb.epeg(job.filename, job.imagefile % 'large', (256, 256))
                 libthumb.epeg(job.filename, job.imagefile % 'normal', (128, 128))
                 self.notify_client(job)
@@ -262,7 +264,15 @@ class Thumbnailer(object):
     @kaa.coroutine()
     def schedule(self, id, filename, imagefile, url, priority):
         if url and not os.path.isfile(filename):
-            yield download(url, filename)
+            if not os.path.isdir(os.path.dirname(filename)):
+                os.makedirs(os.path.dirname(filename))
+            try:
+                yield download(url, filename)
+            except Exception, e:
+                # FIXME: handle failed download
+                if os.path.isfile(filename):
+                    os.unlink(filename)
+                raise e
         # FIXME: check if job is already scheduled!!!!
         job = Job(id, filename, imagefile, priority)
         self.jobs.append(job)
