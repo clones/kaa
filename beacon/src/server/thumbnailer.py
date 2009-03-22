@@ -73,11 +73,12 @@ class Job(object):
     """
     A job with thumbnail information.
     """
-    def __init__(self, id, filename, imagefile, priority):
+    def __init__(self, id, filename, imagefile, url, priority):
         self.client, self.id = id
         self.filename = filename
         # imagefile has %s for normal/large and not ext
         self.imagefile = imagefile
+        self.url = url
         self.priority = priority
         self._cmdid = imagefile
 
@@ -166,6 +167,27 @@ class Thumbnailer(object):
         return
 
 
+    @kaa.coroutine()
+    def download(self, job):
+        if not os.path.isdir(os.path.dirname(job.filename)):
+            os.makedirs(os.path.dirname(job.filename))
+        try:
+            yield download(job.url, job.filename)
+        except Exception, e:
+            log.error('unable to download image: %s', str(e))
+            if os.path.isfile(job.filename):
+                os.unlink(job.filename)
+            # FIXME: handle failed download
+            yield False
+        metadata = kaa.metadata.parse(job.filename)
+        if not metadata or metadata['media'] != kaa.metadata.MEDIA_IMAGE:
+            log.error('%s is no image', job.url)
+            yield False
+        self.jobs.append(job)
+        self.jobs.sort(lambda x,y: cmp(x.priority, y.priority))
+        self.schedule_next()
+
+
     def step(self):
         """
         Process one job
@@ -174,6 +196,13 @@ class Thumbnailer(object):
             return False
 
         job = self.jobs.pop(0)
+
+        if job.url and not os.path.isfile(job.filename):
+            # we need to download first
+            self.download(job)
+            self.schedule_next(fast=True)
+            return True
+
         for size in ('large', 'normal'):
             # iterate over the sizes
             imagefile = job.imagefile % size
@@ -261,20 +290,9 @@ class Thumbnailer(object):
     # -------------------------------------------------------------------------
 
     @kaa.rpc.expose()
-    @kaa.coroutine()
     def schedule(self, id, filename, imagefile, url, priority):
-        if url and not os.path.isfile(filename):
-            if not os.path.isdir(os.path.dirname(filename)):
-                os.makedirs(os.path.dirname(filename))
-            try:
-                yield download(url, filename)
-            except Exception, e:
-                # FIXME: handle failed download
-                if os.path.isfile(filename):
-                    os.unlink(filename)
-                raise e
         # FIXME: check if job is already scheduled!!!!
-        job = Job(id, filename, imagefile, priority)
+        job = Job(id, filename, imagefile, url, priority)
         self.jobs.append(job)
         self.jobs.sort(lambda x,y: cmp(x.priority, y.priority))
         self.schedule_next()
