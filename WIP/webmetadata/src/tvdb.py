@@ -233,7 +233,7 @@ class Filename(object):
                 return
             # we are not sure
             self.sure = False
-        self.alias = kaa.str_to_unicode(' '.join(re.split('[.-_ :]', match[0]))).strip()
+        self.alias = kaa.str_to_unicode(' '.join(re.split('[.\-_ :]', match[0]))).strip()
         self._season = int(match[1])
         self._episode = int(match[2])
 
