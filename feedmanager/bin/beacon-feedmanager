@@ -120,15 +120,11 @@ elif sys.argv[1] in ('--update', '-u'):
         n = None
         if len(sys.argv) > 2:
             n = int(sys.argv[2])
-        feeds = rpc('feeds.list')
-        yield feeds
-        for f in feeds.get_result():
+        for f in (yield rpc('feeds.list')):
             if n is None or n == f.get('id'):
                 print 'update', f.get('url'), '...',
                 sys.stdout.flush()
-                result = rpc('feeds.update', f.get('id'))
-                yield result
-                if result.get_result():
+                if (yield rpc('feeds.update', f.get('id'))):
                     print 'ok'
                 else:
                     print 'failed'
@@ -150,9 +146,7 @@ elif sys.argv[1] in ('--update', '-u'):
             if active == 0:
                 sys.exit(0)
                 
-        feeds = rpc('feeds.list')
-        yield feeds
-        for f in feeds.get_result():
+        for f in (yield rpc('feeds.list')):
             active += 1
             print 'update', f.get('url')
             rpc('feeds.update', f.get('id')).connect(finished, f)
