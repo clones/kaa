@@ -173,15 +173,14 @@ class Thumbnailer(object):
             os.makedirs(os.path.dirname(job.filename))
         try:
             yield download(job.url, job.filename)
+            metadata = kaa.metadata.parse(job.filename)
+            if not metadata or metadata['media'] != kaa.metadata.MEDIA_IMAGE:
+                raise IOError('%s is no image' % job.url)
         except Exception, e:
             log.error('unable to download image: %s', str(e))
             if os.path.isfile(job.filename):
                 os.unlink(job.filename)
             # FIXME: handle failed download
-            yield False
-        metadata = kaa.metadata.parse(job.filename)
-        if not metadata or metadata['media'] != kaa.metadata.MEDIA_IMAGE:
-            log.error('%s is no image', job.url)
             yield False
         self.jobs.append(job)
         self.jobs.sort(lambda x,y: cmp(x.priority, y.priority))
