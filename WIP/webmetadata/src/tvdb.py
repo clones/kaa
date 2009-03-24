@@ -487,7 +487,7 @@ class TVDB(kaa.Object):
         if diff < 24 * 60 * 60:
             update = 'updates_day.xml'
         elif diff < 7 * 24 * 60 * 60:
-            uodate = 'updates_week.xml'
+            update = 'updates_week.xml'
         elif diff < 28 * 7 * 24 * 60 * 60:
             update = 'updates_month.xml'
         else:
