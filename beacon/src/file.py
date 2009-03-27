@@ -76,16 +76,6 @@ class File(Item):
         # Note: this function is not used internally
         return self._beacon_controller.query(parent=self, recursive=recursive)
 
-    def scan(self):
-        """
-        Request the item to be scanned.
-        """
-        # Note: this function is not used by the server
-        result = self._beacon_controller._beacon_parse(self)
-        if isinstance(result, kaa.InProgress):
-            result.connect_once(self._beacon_database_update)
-        return result
-
     def _beacon_listdir(self, cache=False):
         """
         Internal function to list all files in the directory and the overlay

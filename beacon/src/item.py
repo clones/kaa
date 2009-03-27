@@ -208,7 +208,11 @@ class Item(object):
         """
         Request the item to be scanned.
         """
-        return False
+        # Note: this function is not used by the server
+        result = self._beacon_controller._beacon_parse(self)
+        if isinstance(result, kaa.InProgress):
+            result.connect_once(self._beacon_database_update)
+        return result
 
     @property
     def ancestors(self):
