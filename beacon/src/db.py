@@ -176,6 +176,8 @@ class Database(object):
         """
         Convert url into md5 sum
         """
+        if url.startswith('http://'):
+            subdir += '/%s/' % url[7:url[7:].find('/')+7]
         return os.path.join(self.directory, subdir, md5.md5(url).hexdigest() + os.path.splitext(url)[1])
 
     # -------------------------------------------------------------------------
