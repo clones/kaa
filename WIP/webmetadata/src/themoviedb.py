@@ -128,5 +128,11 @@ def search(string):
 def get(id):
     if not API_KEY:
         raise RuntimeError('API_KEY not given')
-    url = 'http://%s/2.0/Movie.getInfo?%s' % (API_SERVER, urllib.urlencode({'id': id, 'api_key': API_KEY}))
-    yield (yield _parse(url))[0]
+    if isinstance(id, (str, unicode)) and id.startswith('tt'):
+        url = 'http://%s/2.0/Movie.imdbLookup?%s' % (API_SERVER, urllib.urlencode({'imdb_id': id, 'api_key': API_KEY}))
+    else:
+        url = 'http://%s/2.0/Movie.getInfo?%s' % (API_SERVER, urllib.urlencode({'id': id, 'api_key': API_KEY}))
+    result = yield _parse(url)
+    if not result:
+        yield None
+    yield result[0]
