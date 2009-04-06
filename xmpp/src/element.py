@@ -93,7 +93,7 @@ class Message(Element):
         return u'<message%s>%s</message>' % (self._routing, Element.__unicode__(self))
 
 
-class IQ(kaa.InProgress, Message):
+class IQ(Message, kaa.InProgress):
     """
     XMPP <iq> stanza used for set and get. The object is also an InProgress
     object waiting for the result.
