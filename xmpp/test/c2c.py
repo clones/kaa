@@ -30,7 +30,7 @@ class Foo(object):
         print 'c2:     stream properties:', stream.properties
         return kaa.xmpp.Result('bar', xmlns='test')
 
-class Credentials(kaa.xmpp.extensions.e2e_streams.Credentials):
+class Credentials(kaa.xmpp.extensions.xtls.Credentials):
 
     def srp_supported(self):
         return True

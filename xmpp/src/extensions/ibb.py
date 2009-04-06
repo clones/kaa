@@ -257,24 +257,31 @@ class Client(xmpp.ClientPlugin):
 
 class JingleIBB(IBB):
 
-    def jingle_initiate(self):
+    def jingle_initiate(self, session):
         """
-        Create transport for Jingle session
+        Create transport for Jingle session-initiate
         """
         return xmpp.Element('transport', NS_JINGLE_IBB, **{'sid': xmpp.create_id(), 'block-size': 4096, 'stanza': 'iq'})
+
+    def jingle_accept(self, session, initiate):
+        """
+        Create transport for Jingle session-accept
+        """
+        self.jingle_transport_info(session, initiate)
+        return xmpp.Element('transport', NS_JINGLE_IBB, **{'sid': initiate.sid, 'block-size': initiate.block_size, 'stanza': initiate.stanza})
 
     @kaa.coroutine()
     def jingle_transport_info(self, session, transport):
         """
         Jingle integration: transport description
         """
-        # There is only one transport info for IBB and that is inside session-initiate.
         socket, ibb = yield self._create(transport.sid, transport.block_size, self.remote.stream)
         self._streams[transport.sid] = ibb
         session.socket = socket
         # IBB has nothing more to do
         session.transport_ready()
 
+
 # register extension plugin
 xmpp.add_extension('ibb', NS_IBB, Client, IBB)
-xmpp.add_extension('jingle-ibb', NS_JINGLE_IBB, None, JingleIBB)
+xmpp.add_extension('jingle-ibb', NS_JINGLE_IBB, xmpp.ClientPlugin, JingleIBB)

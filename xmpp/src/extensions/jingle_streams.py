@@ -4,8 +4,6 @@
 # -----------------------------------------------------------------------------
 # $Id$
 #
-# Status: Working
-#
 # -----------------------------------------------------------------------------
 # kaa.xmpp - XMPP framework for the Kaa Media Repository
 # Copyright (C) 2008-2009 Dirk Meyer
@@ -46,7 +44,7 @@ NS_XMLSTREAM = 'urn:xmpp:tmp:jingle:apps:xmlstream'
 
 class Initiator(xmpp.RemotePlugin):
 
-    requires = [ 'jingle-ibb', 'jingle', 'e2e-streams' ]
+    requires = [ 'jingle', 'e2e-streams', 'xtls', 'jingle-ibb' ]
 
     @kaa.coroutine()
     def connect(self):
@@ -54,11 +52,15 @@ class Initiator(xmpp.RemotePlugin):
         Open new secure connection
         """
         description = xmpp.Element('description', xmlns=NS_XMLSTREAM)
-        session = self.get_extension('jingle').create_session('xmlstream', description, 'jingle-ibb')
+        session = self.get_extension('jingle').create_session('xmlstream', description, 'jingle-ibb', 'xtls')
+        session.description_ready()
         if not (yield session.initiate()):
             raise RuntimeError('error during e2e-streams connect to %s' % self.remote.jid)
+        log.info('jingle initiator ready')
         stream = self.get_extension('e2e-streams').create_stream(session.socket)
         stream.connect()
+        stream.properties['secure'] = True
+        stream.properties['peer-certificate'] = session.cert
         if (yield stream.signals.subset('connected', 'closed').any())[0]:
             # closed before connected
             raise RuntimeError('error during e2e-streams connect to %s' % self.remote.jid)
@@ -68,15 +70,21 @@ class Initiator(xmpp.RemotePlugin):
 
 class Responder(xmpp.ClientPlugin):
 
-    requires = [ 'jingle', 'e2e-streams' ]
+    requires = [ 'jingle', 'e2e-streams', 'xtls', 'jingle-ibb' ]
 
     @kaa.coroutine()
     def jingle_session_initiate(self, session):
+        session.description_ready()
         if not (yield session.accept()):
             log.error('error on jingle session setup')
             yield None
+        log.info('jingle responder ready')
         initiator = self.client.get_node(session.initiator)
-        stream = yield self.get_extension('e2e-streams').new_connection(session.socket, initiator)
+        stream = self.get_extension('e2e-streams').create_stream(session.socket, initiator)
+        stream.properties['secure'] = True
+        stream.properties['peer-certificate'] = session.cert
+        # override stream object
+        self.client.get_node(stream.routing.get('from')).stream = stream
 
 # register extension plugin
 xmpp.add_extension('jingle-streams', NS_XMLSTREAM, Responder, Initiator)

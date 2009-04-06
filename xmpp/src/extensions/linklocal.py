@@ -40,10 +40,15 @@
 # python imports
 import logging
 
+# tls support
+import tlslite.api
+
 # kaa imports
 import kaa
+from kaa.utils import property
 import kaa.net.mdns
 import kaa.net.tls
+import kaa.weakref
 
 # kaa.xmpp imports
 from .. import api as xmpp
@@ -51,12 +56,160 @@ from .. import api as xmpp
 # get logging object
 log = logging.getLogger('xmpp')
 
+NS_TLS = 'urn:ietf:params:xml:ns:xmpp-tls'
+
+class TLSServerFeature(xmpp.Feature):
+    """
+    STARTTLS feature: Responder part.
+    """
+
+    # feature identifier
+    identifier = 'starttls', NS_TLS
+
+    def __init__(self, stream, client, credentials):
+        """
+        Create object and add it to a stream.
+        """
+        super(TLSServerFeature, self).__init__(stream)
+        self.client = kaa.weakref.weakref(client)
+        self.credentials = credentials
+
+    @property
+    def xmlnode(self):
+        """
+        Create <feature> node
+        """
+        return xmpp.Element('starttls', NS_TLS, [ xmpp.Element('required'), self.credentials.handshake_initiator() ])
+
+    @xmpp.stanza(xmlns=NS_TLS, coroutine=True)
+    def _handle_starttls(self, starttls):
+        """
+        <starttls> from the client, initiate TLS
+        """
+        if starttls.security:
+            response = self.credentials.handshake_finalize(starttls.security)
+            if not response:
+                self.send(xmpp.Element('failure', NS_TLS))
+                # FIXME: close stream
+                yield None
+            self.method = response.method.name
+            # send final offer back
+            self.send(xmpp.Element('proceed', NS_TLS, content=response))
+        else:
+            # fallback if XEP-250 is unsupported
+            self.method = 'x509'
+            self.send(xmpp.Element('proceed', NS_TLS))
+        kwargs = {}
+        if self.method == 'x509':
+            kwargs['key'] = self.credentials.x509_keyinfo
+            kwargs['request_cert'] = True
+        if self.method == 'srp':
+            jid = self.stream.routing.get('from')
+            password = self.credentials.srp_get_password(jid)
+            if isinstance(password, kaa.InProgress):
+                password = yield password
+            db = tlslite.api.VerifierDB()
+            db[jid] = db.makeVerifier(jid, password, 2048)
+            kwargs['srp'] = db
+        yield self.stream.starttls(checker=self.check, **kwargs)
+        self.finish(None)
+
+    def check(self, connection):
+        """
+        tlslite checker that accepts all keys and stores the key as
+        self.server_cert and self.client_cert in this object.
+        """
+        if self.method == 'x509':
+            cert = connection.session.clientCertChain
+            self.stream.properties['peer-certificate'] = cert
+            if not self.credentials.x509_check(cert):
+                raise kaa.net.tls.TLSAuthenticationError('peer certificate unknown')
+        if self.method == 'srp':
+            if not connection.session.srpUsername:
+                raise kaa.net.tls.TLSAuthenticationError('peer SRP unknown')
+        self.stream.properties['secure'] = True
+
+
+class TLSClientFeature(xmpp.Feature):
+    """
+    STARTTLS feature: Initiator part.
+    """
+
+    # feature identifier
+    identifier = 'starttls', NS_TLS
+
+    def __init__(self, stream, client, remote, credentials):
+        """
+        Create object and add it to a stream.
+        """
+        super(TLSClientFeature, self).__init__(stream)
+        self.client = kaa.weakref.weakref(client)
+        self.remote = kaa.weakref.weakref(remote)
+        self.credentials = credentials
+
+    def run(self, feature):
+        """
+        Start the feature
+        """
+        starttls = xmpp.Element('starttls', NS_TLS)
+        if feature.security:
+            starttls.append(self.credentials.handshake_responder(feature.security))
+        self.send(starttls)
+        return self
+
+    @xmpp.stanza(xmlns=NS_TLS, coroutine=True)
+    def _handle_proceed(self, proceed):
+        """
+        Callback from the server to proceed with TLS
+        """
+        self.method = 'x509'
+        if proceed.security:
+            self.method = proceed.security.method.name
+        kwargs = {}
+        if self.method == 'x509':
+            kwargs['key'] = self.credentials.x509_keyinfo
+        if self.method == 'srp':
+            password = self.credentials.srp_get_password(self.remote.jid)
+            if isinstance(password, kaa.InProgress):
+                password = yield password
+            kwargs['srp'] = (self.client.jid, password)
+        yield self.stream.starttls(checker=self.check, **kwargs)
+        self.finish(None)
+
+    @xmpp.stanza(xmlns=NS_TLS, coroutine=True)
+    def _handle_failure(self, failure):
+        """
+        Callback from the server on TLS failure
+        """
+        # FIXME: this does not work
+        self.throw(IOError, IOError('TLS Failure'), None)
+
+    def check(self, connection):
+        """
+        tlslite checker that accepts all keys and stores the key as
+        self.server_cert and self.client_cert in this object.
+        """
+        if self.method == 'x509':
+            cert = connection.session.serverCertChain
+            self.stream.properties['peer-certificate'] = cert
+            if not self.credentials.x509_check(cert):
+                raise kaa.net.tls.TLSAuthenticationError('peer certificate unknown')
+        if self.method == 'srp':
+            if not connection.session.srpUsername:
+                raise kaa.net.tls.TLSAuthenticationError('peer SRP unknown')
+        self.stream.properties['secure'] = True
+
+
+
 class XEP0174(xmpp.ClientPlugin):
     """
     Plugin for XEP-0174: Link-local messaging.
     """
 
-    requires = [ 'e2e-streams', 'disco' ]
+    requires = [ 'e2e-streams', 'xtls', 'disco' ]
+
+    # tcp port for incoming connections
+    __port = None
 
     def _extension_activate(self, announce=False):
         """
@@ -77,7 +230,7 @@ class XEP0174(xmpp.ClientPlugin):
         Announce presence.
         """
         kaa.net.mdns.provide(
-            self.client.appname, '_presence._tcp', self.get_extension('e2e-streams').port, {
+            self.client.appname, '_presence._tcp', self.port, {
               'ver' : self.get_extension('disco').capabilities,
               'jid' : self.client.jid,
               'node': self.client.appname,
@@ -103,6 +256,9 @@ class XEP0174(xmpp.ClientPlugin):
         # create initiator stream and connect to RemoteNode object
         remote = self.client.get_node(jid)
         stream = remote.get_extension('e2e-streams').create_stream((info.address, info.port))
+        credentials = self.client.get_extension('xtls').credentials(self.client)
+        # we need to save the feature somewhere for the reference counter/gc
+        stream._feature_tls = TLSClientFeature(stream, self.client, remote, credentials)
         # FIXME: bad code
         remote.stream = stream
         # store and emit signal
@@ -118,6 +274,39 @@ class XEP0174(xmpp.ClientPlugin):
             remote = self._streams.pop(node)
             # FIXME: update remote to reflect new status
             self.client.signals['presence'].emit(remote)
+
+    @property
+    def port(self):
+        """
+        Return client to client communication port.
+        """
+        if self.__port is None:
+            self.__port = kaa.net.tls.TLSSocket()
+            self.__port.signals['new-client'].connect(self._new_connection)
+            self.__port.listen(0)
+        return self.__port.address[1]
+
+    @kaa.coroutine()
+    def _new_connection(self, socket):
+        """
+        New connection on the socket.
+        """
+        stream = self.get_extension('e2e-streams').create_stream(socket, None)
+        # connect server features
+        tls = TLSServerFeature(stream, self.client, self.get_extension('xtls').credentials(self.client))
+        # wait for connect
+        if (yield stream.signals.subset('connected', 'closed').any())[0]:
+            # closed before connected
+            log.error('error during e2e-streams connect to %s', stream.routing.get('from'))
+            yield None
+        if not stream.routing.get('from'):
+            log.error('no "from" provided in <stream>')
+            stream.close()
+            yield None
+        # override stream object
+        self.client.get_node(stream.routing.get('from')).stream = stream
+        yield stream
+
 
 # register extension plugin
 xmpp.add_extension('link-local', None, XEP0174, None)
