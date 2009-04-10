@@ -200,12 +200,6 @@ class Guide(object):
         """
         return self._channels_by_name.get(name)
 
-    def get_channel_by_db_id(self, db_id):
-        """
-        Get channel by database id.
-        """
-        return self._channels_by_db_id,get(db_id)
-
     def get_channel_by_tuner_id(self, tuner_id):
         """
         Get channel by tuner id.

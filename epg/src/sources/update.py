@@ -67,14 +67,15 @@ class Updater(object):
         self._db = db
         # Members for job queue.
         self._jobs = []
-        # load current channels
-        self._tuner_ids = []
+        # Tuner ids: id -> name
+        self._tuner_ids = {}
         for c in self._db.query(type = "channel"):
             for t in c["tuner_id"]:
                 if t in self._tuner_ids:
-                    log.warning('duplicate tuner %s', t)
+                    log.warning('duplicate tuner id %s', t)
                 else:
-                    self._tuner_ids.append(t)
+                    self._tuner_ids[t] = c['name']
+
 
     @kaa.coroutine()
     def update(self, backend = None, *args, **kwargs):
@@ -83,12 +84,22 @@ class Updater(object):
         only call update() from that specific backend.  Otherwise call update
         on all enabled backends in the 'sources' config value.
         """
+        # Prune obsolete programs from database.
+        expired_time = time.time() - config.expired_days * 60 * 60 * 24
+        count = self._db.delete_by_query(type = "program", stop = QExpr('<', expired_time))
+        if count:
+            log.info('Deleted %d expired programs from database' % count)
+        # Vacuum database, which removes keywords with count=0
+        log.info('Vacuuming database')
+        self._db.vacuum()
+
         if backend:
             backends = [backend]
         elif config.sources:
             backends = config.sources.replace(' ', '').split(',')
         else:
             backends = []
+
         for backend in backends[:]:
             if backend not in sources:
                 log.error("No such update backend '%s'" % backend)
@@ -105,26 +116,17 @@ class Updater(object):
             except Exception, e:
                 log.exception('Backend %s failed' % backend)
             self.sync()
+
         if not backends:
             log.warning('No valid backends specified for update.')
             return
         log.info('update complete')
 
-        # Prune obsolete programs from database.
-        expired_time = time.time() - config.expired_days * 60 * 60 * 24
-        count = self._db.delete_by_query(type = "program", stop = QExpr('<', expired_time))
-        if count:
-            log.info('Deleted %d expired programs from database' % count)
-
-        # Vacuum database, which removes keywords with count=0
-        log.info('Vacuuming database')
-        self._db.vacuum()
-
         self._db.commit()
+
         # Load some statistics
         res = self._db._db_query("SELECT count(*) FROM objects_program")
-        if len(res): num_programs = res[0][0]
-        else: num_programs = 0
+        num_programs = res[0][0] if len(res) else 0
         log.info('Database commit; %d programs in db' % num_programs)
 
     # -------------------------------------------------------------------------
@@ -159,40 +161,41 @@ class Updater(object):
             return None
         if not name:
             # then there must be one of the others
-            if tuner_id: name = tuner_id[0]
-            else: name = long_name
+            name = tuner_id[0] if tuner_id else long_name
         if not long_name:
             # then there must be one of the others
-            if name: long_name = name
-            elif tuner_id: long_name = tuner_id[0]
+            long_name = name if name else tuner_id[0]
         if not tuner_id:
             tuner_id = [ name ]
-        channel = self._db.query(type = "channel", name = name)
-        if channel:
-            channel = channel[0]
-            for t in tuner_id:
-                if t not in channel["tuner_id"]:
-                    if t in self._tuner_ids:
-                        log.warning('not adding tuner_id %s for channel %s - '+\
-                            'it is claimed by another channel (%s)', t, name, self._tuner_ids[t])
-                    else:
-                        # only add this id if it's not already there and not
-                        # claimed by another channel
-                        channel["tuner_id"].append(t)
-                        self._tuner_ids.append(t)
-            # TODO: if everything is the same do not update
-            log.debug('Updating channel %s', name)
-            self._db.update_object(("channel", channel["id"]), tuner_id = channel["tuner_id"], long_name = long_name)
-            return channel["id"]
+
         for t in tuner_id:
-            if t in self._tuner_ids:
-                log.warning('not adding tuner_id %s for channel %s - it is '+\
-                            'claimed by another channel', t, name)
-                tuner_id.remove(t)
-            else:
-                self._tuner_ids.append(t)
-        log.debug('Adding channel %s %s %s', tuner_id, name, long_name)
-        return self._db.add_object("channel", tuner_id = tuner_id, name = name, long_name = long_name)["id"]
+            if self._tuner_ids.get(t) != name:
+                # The tuner id for this new channel is mapped to another one, so
+                # remove the old one.
+                channel = self._db.query(type='channel', name=self._tuner_ids[t])[0]
+                log.warning('Reassigning tuner id %s from channel %s (%s) to %s (%s)',
+                            t, channel['name'], channel['long_name'], name, long_name)
+                channel['tuner_id'].remove(t)
+                self._db.update_object(('channel', channel['id']), tuner_id=channel['tuner_id'])
+                # TODO: if channel now has no tuner ids, and after processing the update
+                # has no programs, we can remove it.
+
+
+        if name in self._tuner_ids.values():
+            # Channel with this name already in database, so update it.
+            channel = self._db.query(type='channel', name=name)[0]
+            db_tuner_ids = set(channel['tuner_id'] + tuner_id)
+            if set(channel['tuner_id']) != db_tuner_ids or channel['long_name'] != long_name:
+                # Either tuner id(s) or long name has changed, so update db.
+                log.debug('Updating channel %s %s (%s)', db_tuner_ids, name, long_name)
+                self._db.update_object(('channel', channel['id']), tuner_id=list(db_tuner_ids),
+                                       name=name, long_name=long_name)
+            return channel['id']
+
+        # New channel not in db, so add new object.
+        log.debug('Adding channel %s %s (%s)', tuner_id, name, long_name)
+        return self._db.add_object('channel', tuner_id=tuner_id, name=name, long_name=long_name)['id']
+
 
     def sync(self):
         """
@@ -238,7 +241,7 @@ class Updater(object):
             self._db.add_object("program", parent = ("channel", channel_db_id),
                 start = start, stop = stop, title = title, **attributes)
         self._db.commit()
-        log.debug('db commit took %0.3f secs', (time.time() - t0))
+        log.info('db commit took %0.3f secs', (time.time() - t0))
         return False
 
     def add_program(self, channel_db_id, start, stop, title, **attributes):
@@ -247,7 +250,7 @@ class Updater(object):
         overlapping. This is called by the source update thread.
         """
         self._jobs.append((channel_db_id, int(start), int(stop), title, attributes))
-        if len(self._jobs) > 20:
+        if len(self._jobs) > 5000:
             self.sync()
 
 
