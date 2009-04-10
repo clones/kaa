@@ -179,11 +179,12 @@ class Updater(object):
                 self._db.update_object(('channel', channel['id']), tuner_id=channel['tuner_id'])
                 # TODO: if channel now has no tuner ids, and after processing the update
                 # has no programs, we can remove it.
+            self._tuner_ids[t] = name
 
-
-        if name in self._tuner_ids.values():
+        channel = self._db.query(type='channel', name=name)
+        if channel:
             # Channel with this name already in database, so update it.
-            channel = self._db.query(type='channel', name=name)[0]
+            channel = channel[0]
             db_tuner_ids = set(channel['tuner_id'] + tuner_id)
             if set(channel['tuner_id']) != db_tuner_ids or channel['long_name'] != long_name:
                 # Either tuner id(s) or long name has changed, so update db.
