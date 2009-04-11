@@ -187,12 +187,14 @@ class Guide(object):
             return _time.mktime(dt.astimezone(kaa.dateutils.local).timetuple())
 
         if time is not None:
+            # Find all programs currently playing at (or within) the given
+            # time(s).  We push in the boundaries by 1 second as a heuristic to
+            # prevent duplicates if the given time occurs on a boundary between
+            # 2 programs.  e.g. if program A ends at 15:00 and B starts at 15:00,
+            # searching for start=15:00 should return B and not A.
             if isinstance(time, (tuple, list)):
-                start, stop = convert(time[0]), convert(time[1])
+                start, stop = convert(time[0]) + 1, convert(time[1]) - 1
             else:
-                # Find all programs currently playing at the given time.  We
-                # add 1 second as a heuristic to prevent duplicates if the
-                # given time occurs on a boundary between 2 programs.
                 start = stop = convert(time) + 1
             
             if stop > 0:
