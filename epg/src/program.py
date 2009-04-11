@@ -29,32 +29,40 @@
 
 __all__ = [ 'Program' ]
 
+from datetime import datetime
+
 from kaa import unicode_to_str
-from kaa.utils import utc2localtime
+import kaa.dateutils
+
 
 class Program(object):
     """
     kaa.epg.Program class.
     """
-    def __init__(self, channel, dbdata, utc):
+    def __init__(self, channel, dbdata):
         self.channel = channel
         self._dbdata = dbdata
-        self._utc = utc
+
 
     def __getattr__(self, attr):
         """
         Defer accessing the ObjectRow (dbdata) until referenced, as this will
         defer any ObjectRow unpickling.
         """
-        if attr != '_dbdata':
-            self.start_utc = self._dbdata.get('start', 0)
-            self.start_local = utc2localtime(self.start_utc)
-            self.stop_utc = self._dbdata.get('stop', 0)
-            self.stop_local = utc2localtime(self.stop_utc)
-            if self._utc:
-                self.start, self.stop = self.start_utc, self.stop_utc
-            else:
-                self.start, self.stop = self.start_local, self.stop_local
+        if hasattr(self, '_dbdata') and attr != '_dbdata':
+            # Unix timestamps are always seconds since epoch UTC.
+            self.start_timestamp = self._dbdata.get('start', 0)
+            self.stop_timestamp = self._dbdata.get('stop', 0)
+            # Timezone-aware datetime objects in the local timezone.
+            self.start = datetime.fromtimestamp(self.start_timestamp, kaa.dateutils.local)
+            self.stop = datetime.fromtimestamp(self.stop_timestamp, kaa.dateutils.local)
+
+            # These are deprecated as far as I'm concerned.
+            self.start_utc = self.start_timestamp
+            self.start_local = kaa.dateutils.utc2localtime(self.start_utc)
+            self.stop_utc = self.stop_timestamp
+            self.stop_local = kaa.dateutils.utc2localtime(self.stop_utc)
+
             self.title = self._dbdata.get('title', u'')
             self.description = self._dbdata.get('desc', u'')
             self.subtitle = self._dbdata.get('subtitle',  u'')

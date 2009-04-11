@@ -36,7 +36,8 @@ import logging
 # kaa imports
 import kaa
 from kaa.db import *
-from kaa.utils import property, localtime2utc
+from kaa.utils import property
+import kaa.dateutils
 
 # kaa.epg imports
 from channel import Channel
@@ -119,36 +120,87 @@ class Guide(object):
                 else:
                     self._channels_by_tuner_id[t] = chan
 
-    def search(self, channel=None, time=None, utc=False, cls=Program, **kwargs):
-        """
-        Search the db
 
-        @param channel: kaa.epg.Channel or list of Channels or None for all
-        @param time: int/float or list of start,stop or None for all, stop=0
-            means until the end of the guide data.
-        @param cls: class to use to create programs or None to return raw data
+    def search(self, channel=None, time=None, cls=Program, **kwargs):
+        """
+        Search the EPG for programs.
+
+        :param channel: Indicates the channel or channels within which to search
+                        for programs.  Channels are specified by :class:`~kaa.epg.Channel`
+                        objects.  If None is specified, all channels are searched.
+        :type channel: :class:`~kaa.epg.Channel` object, list, or None
+        :param time: Specifies a point in time or range of times.  If a range is
+                     specified, a 2-tuple is used representing (start, stop).
+                     Times can be specified as UNIX timestamps (seconds since
+                     epoch UTC), or as Python datetime objects.  If a naive
+                     datetime object is given (i.e. no tzinfo assigned), it is
+                     treated as localtime.  A stop time of 0 means infinity. If
+                     any part of the program's runtime intersects with the time
+                     or time range provided, it matches.
+        :type time: int or float, datetime, or 2-tuple of previous
+        :param cls: Class used for program results.  The default is to return
+                    :class:`~kaa.epg.Program` objects.  If None is given,
+                    the raw query data (from kaa.db) is returned.
+        :return: a list of :class:`~kaa.epg.Program` objects (or raw database
+                 rows if ``cls=None``) matching the search criteria.
+
+
+        Keyword arguments corresponding to the searchable columns of the
+        underlying kaa.db database can also be specified.  They are:
+
+            * ``title``: the title of the program (unicode)
+            * ``desc``: the program's full description (unicode)
+            * ``start``: program start time as unix timestamp (seconds since
+                         epoch in UTC); you probably want to use the time kwarg
+                         instead.
+            * ``stop``: program start time as unix timestamp; you probably want
+                        to use the time kwarg instead.
+            * ``genres``: one or more genres (unicode or list of unicode); all
+                          possible genres currently in the EPG can be gotten
+                          using :meth:`~Guide.get_genres`.
+            * ``date``: Original air date of the program, expressed as a UNIX
+                        timestamp (int).
+            * ``year``: for movies, the year of release (int).
+            * ``score``: the critical rating for the program, especially for
+                         movies (float); out of 4.0.
+            * ``keywords``: one or more keywords which match against the program
+                            title, description, and subtitle.
+
+        With the exception of ``keywords`` and ``genres``, a :class:`~kaa.db.QExpr`
+        object can be used with any of the above kwargs.
         """
         if channel is not None:
             if isinstance(channel, Channel):
                 kwargs["parent"] = "channel", channel.db_id
             if isinstance(channel, (tuple, list)):
                 kwargs["parent"] = [ ("channel", c.db_id) for c in channel ]
+
+        def convert(dt):
+            'Converts a time to a unix timestamp (seconds since epoch UTC)'
+            import time as _time
+            if isinstance(dt, (int, float, long)):
+                return dt
+            if not dt.tzinfo:
+                # No tzinfo, treat as localtime.
+                return _time.mktime(dt.timetuple())
+            # tzinfo present, convert to local tz (which is what time.mktime wants)
+            return _time.mktime(dt.astimezone(kaa.dateutils.local).timetuple())
+
         if time is not None:
-            if isinstance(time, (int, float, long)):
+            if isinstance(time, (tuple, list)):
+                start, stop = convert(time[0]), convert(time[1])
+            else:
                 # Find all programs currently playing at the given time.  We
                 # add 1 second as a heuristic to prevent duplicates if the
                 # given time occurs on a boundary between 2 programs.
-                start, stop = time + 1, time + 1
-            else:
-                start, stop = time
-            if not utc:
-                start = localtime2utc(start)
-                stop = localtime2utc(stop)
+                start = stop = convert(time) + 1
+            
             if stop > 0:
                 kwargs["start"] = QExpr("range", (int(start) - self._max_program_length, int(stop)))
                 kwargs["stop"]  = QExpr(">=", int(start))
             else:
                 kwargs["start"] = QExpr(">=", (int(start) - self._max_program_length))
+
         query_data = self._db.query(type='program', **kwargs)
         # Convert raw search result data
         if kwargs.get('attrs'):
@@ -159,6 +211,7 @@ class Guide(object):
         if cls is None:
             # return raw data:
             return query_data
+
         # Convert raw search result data from the server into python objects.
         results = []
         channel = None
@@ -167,7 +220,7 @@ class Guide(object):
                 if row['parent_id'] not in self._channels_by_db_id:
                     continue
                 channel = self._channels_by_db_id[row['parent_id']]
-            results.append(cls(channel, row, utc))
+            results.append(cls(channel, row))
         return results
 
     def new_channel(self, tuner_id=None, name=None, long_name=None):
