@@ -31,11 +31,12 @@ __all__ = [ 'Client', 'Server' ]
 
 # python imports
 import logging
+from datetime import datetime
 
 # kaa imports
 import kaa
 import kaa.rpc
-from kaa.utils import localtime2utc
+import kaa.dateutils
 
 # kaa.epg imports
 from channel import Channel
@@ -91,24 +92,74 @@ class Client(Guide):
             self.signals["connected"].emit()
 
     @kaa.coroutine()
-    def search(self, channel=None, time=None, utc=False, cls=Program, **kwargs):
+    def search(self, channel=None, time=None, cls=Program, **kwargs):
         """
-        Search the db
+        Search the EPG for programs.
 
-        @param channel: kaa.epg.Channel or list of Channels or None for all
-        @param time: int/float or list of start,stop or None for all, stop=0
-            means until the end of the guide data.
-        @param cls: class to use to create programs or None to return raw data
+        :param channel: Indicates the channel or channels within which to search
+                        for programs.  Channels are specified by :class:`~kaa.epg.Channel`
+                        objects.  If None is specified, all channels are searched.
+        :type channel: :class:`~kaa.epg.Channel` object, list, or None
+        :param time: Specifies a point in time or range of times.  If a range is
+                     specified, a 2-tuple is used representing (start, stop).
+                     Times can be specified as UNIX timestamps (seconds since
+                     epoch UTC), or as Python datetime objects.  If a naive
+                     datetime object is given (i.e. no tzinfo assigned), it is
+                     treated as localtime.  A stop time of 0 means infinity. If
+                     any part of the program's runtime intersects with the time
+                     or time range provided, it matches.
+        :type time: int or float, datetime, or 2-tuple of previous
+        :param cls: Class used for program results.  The default is to return
+                    :class:`~kaa.epg.Program` objects.  If None is given,
+                    the raw query data (from kaa.db) is returned.
+        :return: a list of :class:`~kaa.epg.Program` objects (or raw database
+                 rows if ``cls=None``) matching the search criteria.
+
+
+        Keyword arguments corresponding to the searchable columns of the
+        underlying kaa.db database can also be specified.  They are:
+
+            * ``title``: the title of the program (unicode)
+            * ``desc``: the program's full description (unicode)
+            * ``start``: program start time as unix timestamp (seconds since
+                         epoch in UTC); you probably want to use the time kwarg
+                         instead.
+            * ``stop``: program start time as unix timestamp; you probably want
+                        to use the time kwarg instead.
+            * ``genres``: one or more genres (unicode or list of unicode); all
+                          possible genres currently in the EPG can be gotten
+                          using :meth:`~Guide.get_genres`.
+            * ``date``: Original air date of the program, expressed as a UNIX
+                        timestamp (int).
+            * ``year``: for movies, the year of release (int).
+            * ``score``: the critical rating for the program, especially for
+                         movies (float); out of 4.0.
+            * ``keywords``: one or more keywords which match against the program
+                            title, description, and subtitle.
+
+        With the exception of ``keywords`` and ``genres``, a :class:`~kaa.db.QExpr`
+        object can be used with any of the above kwargs.
         """
+        def convert(dt):
+            'Converts a time to a unix timestamp (seconds since epoch UTC)'
+            import time as _time
+            if isinstance(dt, (int, float, long)):
+                return dt
+            if not dt.tzinfo:
+                # No tzinfo, treat as localtime.
+                return _time.mktime(dt.timetuple())
+            # tzinfo present, convert to local tz (which is what time.mktime wants)
+            return _time.mktime(dt.astimezone(kaa.dateutils.local).timetuple())
+
         if self.channel.status == kaa.rpc.DISCONNECTED:
             raise EPGError('Client is not connected')
-        if not utc:
-            # convert to utc because the server may have a different
-            # local timezone set.
-            if isinstance(time, (int, float, long)):
-                time = localtime2utc(time)
-            if isinstance(time, (list, tuple)):
-                time = [ localtime2utc(t) for t in time ]
+        # convert to UTC because the server may have a different
+        # local timezone set.
+        if time is not None:
+            if isinstance(time, (tuple, list)):
+                time = convert(time[0]), convert(time[1])
+            else:
+                time = convert(time)
         query_data = yield self.channel.rpc('search', channel, time, True, None, **kwargs)
         # Convert raw search result data from the server into python objects.
         results = []
@@ -118,7 +169,7 @@ class Client(Guide):
                 if row['parent_id'] not in self._channels_by_db_id:
                     continue
                 channel = self._channels_by_db_id[row['parent_id']]
-            results.append(cls(channel, row, utc))
+            results.append(cls(channel, row))
         yield results
 
     def update(self):
@@ -143,11 +194,11 @@ class Server(object):
         self._rpc.register(self)
 
     @kaa.rpc.expose()
-    def search(self, channel, time, utc, cls, **kwargs):
+    def search(self, channel, time, cls, **kwargs):
         """
         Remote search
         """
-        return self.guide.search(channel, time, utc, cls, **kwargs)
+        return self.guide.search(channel, time, cls, **kwargs)
 
     @kaa.rpc.expose()
     def get_keywords(self, associated=None, prefix=None):
