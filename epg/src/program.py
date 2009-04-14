@@ -57,12 +57,6 @@ class Program(object):
             self.start = datetime.fromtimestamp(self.start_timestamp, kaa.dateutils.local)
             self.stop = datetime.fromtimestamp(self.stop_timestamp, kaa.dateutils.local)
 
-            # These are deprecated as far as I'm concerned.
-            self.start_utc = self.start_timestamp
-            self.start_local = kaa.dateutils.utc2localtime(self.start_utc)
-            self.stop_utc = self.stop_timestamp
-            self.stop_local = kaa.dateutils.utc2localtime(self.stop_utc)
-
             self.title = self._dbdata.get('title', u'')
             self.description = self._dbdata.get('desc', u'')
             self.subtitle = self._dbdata.get('subtitle',  u'')
