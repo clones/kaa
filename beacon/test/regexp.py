@@ -14,5 +14,5 @@ regexp = kaa.beacon.QExpr('regexp', u'^%s.*' % regexp)
 
 ip = kaa.beacon.query(type='audio', title=regexp)
 ip.wait()
-for m in op.get_result().get():
+for m in ip.result.get():
     print m
