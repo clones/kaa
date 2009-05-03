@@ -500,10 +500,17 @@ class Crawler(object):
         subdirs = []
         counter = 0
 
+        # check if we should crawl deeper
+        recursive = not os.path.exists(os.path.join(directory.filename, '.beacon-no-crawl'))
+        
         for child in (yield self._db.query(parent=directory)):
             if child._beacon_isdir:
-                # add directory to list of files to return
-                subdirs.append(child)
+                if child.scanned and not recursive:
+                    # FIXME: it would be nice to activate inotify
+                    log.info('skip crawling/monitoring %s', child.filename)
+                else:
+                    # add directory to list of files to return
+                    subdirs.append(child)
                 continue
             # check file
             async = parse(self._db, child, force_thumbnail_check=force_thumbnail_check)
