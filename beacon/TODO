@@ -49,3 +49,5 @@ G. Add config variable or db key to skip the crawler for some directories inside
    come up but the existing directories will never change.
 
 E. Parse image tags into the database and add query on tags
+
+F. Moving directories is somehow broken
