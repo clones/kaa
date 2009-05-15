@@ -60,7 +60,11 @@ class Movie(object):
     class Image(object):
         url = thumbnail = ''
 
-    plot = year = None
+        @kaa.threaded()
+        def fetch(self):
+            return urllib.urlopen(self.url).read()
+
+    plot = year = imdb = None
 
     def __init__(self, element):
         self._element = element
@@ -69,6 +73,8 @@ class Movie(object):
             self.plot = element.short_overview.content
         if element.release and len(element.release.content.split('-')) == 3:
             self.year = element.release.content.split('-')[0]
+        if element.imdb:
+            self.imdb = element.imdb.content
         # FIXME: add more stuff. The details also include new
         # information Maybe a self.update() function could be used to
         # move from search result to detailed info
@@ -76,7 +82,8 @@ class Movie(object):
     def _images(self, tagname, large):
         result = []
         for p in self._element.get_children(tagname):
-            m = re.match('http://www.themoviedb.org/image/[^/]*/([0-9]*)/', p.content)
+            # m = re.match('http://www.themoviedb.org/image/[^/]*/([0-9]*)/', p.content)
+            m = re.match('http://images.themoviedb.org/[^/]*/([0-9]*)/', p.content)
             if not m:
                 log.warning('error in image check: %s', p.content)
                 continue
