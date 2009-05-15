@@ -119,10 +119,10 @@ class VideoThumb(object):
                 elif mminfo.video[0].length:
                     length = mminfo.video[0].length
 
-                # Pick a random position between 40-60%.  By randomizing, we give
+                # Pick a random position between 30-70%.  By randomizing, we give
                 # the user the option to delete the original thumbnail and regenerate
                 # a (likely) new one, in case the previous one wasn't very representative.
-                pos = length * random.randrange(40, 60) / 100.0
+                pos = length * random.randrange(30, 70) / 100.0
                 if hasattr(mminfo, 'type'):
                     # FIXME: dischi, this logic needs a comment.
                     if mminfo.type in ('MPEG-TS', 'MPEG-PES'):
