@@ -64,7 +64,7 @@ class VideoThumb(object):
         self._current = None
         self.notify_client = thumbnailer.notify_client
         self.create_failed = thumbnailer.create_failed
-        self.mplayer = kaa.Process(['mplayer', '-nosound', '-vo', 'png:z=2',
+        self.mplayer = kaa.Process(['mplayer', '-nosound', '-vo', 'png:z=2', '-benchmark',
                '-frames', '10', '-osdlevel', '0', '-nocache', '-zoom', '-ss' ])
         self.mplayer.signals['stdout'].connect(self._handle_mplayer_debug)
         self.mplayer.signals['stderr'].connect(self._handle_mplayer_debug)
