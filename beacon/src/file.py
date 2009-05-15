@@ -96,10 +96,15 @@ class File(Item):
         except OSError:
             # No overlay
             overlay_results = []
+
         try:
-            # Try to list the directory. If that fails for some reason,
-            # return an empty list
-            fs_results = os.listdir(self.filename)
+            # XXX: http://bugs.python.org/issue1608818 describes how
+            # os.listdir can fail randomly.  If listdir() fails, we try it
+            # once more and give up.
+            try:
+                fs_results = os.listdir(self.filename)
+            except OSError:
+                fs_results = os.listdir(self.filename)
         except OSError, e:
             log.warning(e)
             self._beacon_listdir_cache = time.time(), [], {}
