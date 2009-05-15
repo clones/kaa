@@ -40,6 +40,7 @@ import glob
 import os
 import stat
 import logging
+import random
 
 # kaa imports
 import kaa
@@ -101,26 +102,50 @@ class VideoThumb(object):
             # not changed, refuse the recreate thumbnail
             self._current = None
             return self.start_mplayer()
+
         try:
-            mminfo = self._current.metadata
-            pos = str(int(mminfo.video[0].length / 2.0))
-            if hasattr(mminfo, 'type'):
-                if mminfo.type in ('MPEG-TS', 'MPEG-PES'):
-                    pos = str(int(mminfo.video[0].length / 20.0))
-        except:
-            # else arbitrary consider that file is 1Mbps and grab position at 10%
+            mpargs = [self._current.filename]
+            pos = 0
             try:
-                pos = os.stat(self._current.filename)[stat.ST_SIZE]/1024/1024/10.0
-            except (OSError, IOError):
-                # send message to client, we are done here
-                self.create_failed(self._current)
-                self.notify_client()
-                return
-            if pos < 10:
-                pos = '10'
-            else:
-                pos = str(int(pos))
-        self.mplayer.start([pos, self._current.filename]).connect(self.create_thumbnail)
+                mminfo = self._current.metadata
+                length = mminfo.length
+                if mminfo.type == u'DVD':
+                    # Find longest title.
+                    track = sorted(mminfo.tracks, key = lambda x: x.length)[-1]
+                    length = track.video[0].length
+                    mpargs[0] = 'dvd://%d' % track.trackno
+                    mpargs.extend(['-dvd-device', self._current.filename])
+                elif mminfo.video[0].length:
+                    length = mminfo.video[0].length
+
+                # Pick a random position between 40-60%.  By randomizing, we give
+                # the user the option to delete the original thumbnail and regenerate
+                # a (likely) new one, in case the previous one wasn't very representative.
+                pos = length * random.randrange(40, 60) / 100.0
+                if hasattr(mminfo, 'type'):
+                    # FIXME: dischi, this logic needs a comment.
+                    if mminfo.type in ('MPEG-TS', 'MPEG-PES'):
+                        pos = length / 20.0
+            except (AttributeError, IndexError, TypeError):
+                # else arbitrary consider that file is 1Mbps and grab position at 10%
+                try:
+                    pos = os.stat(self._current.filename)[stat.ST_SIZE]/1024/1024/10.0
+                except (OSError, IOError):
+                    # send message to client, we are done here
+                    self.create_failed(self._current)
+                    self.notify_client()
+                    return
+
+                if pos < 10:
+                    # FIXME: needs another comment; is this because keyframes tend to be
+                    # every 10 seconds?  But if pos < 10, won't we risk seeking to EOF and
+                    # not getting any thumbnail at all?"
+                    pos = 10
+
+            self.mplayer.start([str(pos)] + mpargs).connect(self.create_thumbnail)
+        except:
+            log.exception('Thumbnail generation failure')
+
 
     def create_thumbnail(self, code):
         """
@@ -153,17 +178,22 @@ class VideoThumb(object):
                 image = kaa.imlib2.open_without_cache(current_capture)
                 if image.width > width or image.height > height:
                     image = image.scale_preserve_aspect((width,height))
-                if image.width * 3 > image.height * 4:
-                    # fix image with blank bars to be 4:3
-                    nh = (image.width*3)/4
-                    ni = kaa.imlib2.new((image.width, nh))
-                    ni.draw_rectangle((0,0), (image.width, nh), (0,0,0,255), True)
-                    ni.blend(image, dst_pos=(0,(nh- image.height) / 2))
-                    image = ni
-                elif image.width * 3 < image.height * 4:
-                    # strange aspect, let's guess it's 4:3
-                    new_size = (image.width, (image.width*3)/4)
-                    image = image.scale((new_size))
+
+                # XXX: why are we assuming 4:3 here?  This is a display policy
+                # and belongs at the display layer.  Thumbnails should retain the
+                # native aspect ratio of the source.
+                #
+                #if image.width * 3 > image.height * 4:
+                #    # fix image with blank bars to be 4:3
+                #    nh = (image.width*3)/4
+                #    ni = kaa.imlib2.new((image.width, nh))
+                #    ni.draw_rectangle((0,0), (image.width, nh), (0,0,0,255), True)
+                #    ni.blend(image, dst_pos=(0,(nh- image.height) / 2))
+                #    image = ni
+                #elif image.width * 3 < image.height * 4:
+                #    # strange aspect, let's guess it's 4:3
+                #    new_size = (image.width, (image.width*3)/4)
+                #    image = image.scale((new_size))
                 try:
                     libthumb.png(job.filename, job.imagefile % size, (width, height), image._image)
                 except (IOError, ValueError):

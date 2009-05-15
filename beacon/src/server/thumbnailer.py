@@ -241,9 +241,10 @@ class Thumbnailer(object):
             return True
         except (IOError, ValueError), e:
             pass
+
         # maybe this is no image
         metadata = kaa.metadata.parse(job.filename)
-        if metadata and metadata['media'] == kaa.metadata.MEDIA_AV:
+        if metadata and (metadata['media'] == kaa.metadata.MEDIA_AV or metadata.type == u'DVD'):
             # video file
             job.metadata = metadata
             self.videothumb.append(job)

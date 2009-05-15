@@ -200,7 +200,7 @@ class Thumbnail(object):
         """
         The large thumbnail
         """
-        return self._set_thumbnail(image. LARGE)
+        return self._set_thumbnail(image, LARGE)
 
     @property
     def failed(self):
@@ -289,7 +289,7 @@ class Client(object):
 
     @kaa.rpc.expose('finished')
     def _server_callback_finished(self, id, filename, imagefile):
-        log.info('finished job %s->%s', filename, imagefile)
+        log.info('finished job %s->%s', filename, imagefile % ('large' if '%s' in imagefile else ()))
         for job in Job.all[:]:
             if job.id == id:
                 # found updated job
