@@ -104,6 +104,8 @@ class File(Item):
             try:
                 fs_results = os.listdir(self.filename)
             except OSError:
+                # Dummy system call to clear errno
+                time.sleep(0.0001)
                 fs_results = os.listdir(self.filename)
         except OSError, e:
             log.warning(e)
