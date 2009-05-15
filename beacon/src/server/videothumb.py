@@ -166,12 +166,9 @@ class VideoThumb(object):
                 return kaa.OneShotTimer(self.start_mplayer).start(1)
             self.start_mplayer()
             return
-        # find the best image
-        current_capture = captures[0], os.stat(captures[0])[stat.ST_SIZE]
-        for c in captures[1:]:
-            if os.stat(c)[stat.ST_SIZE] > current_capture[1]:
-                current_capture = c, os.stat(c)[stat.ST_SIZE]
-        current_capture = current_capture[0]
+
+        # find the largest image (making assumption it's the best)
+        current_capture = sorted(captures, key=lambda x: os.stat(x)[stat.ST_SIZE])[-1]
         try:
             # scale thumbnail
             for size, width, height in (('large',256,256), ('normal',128,128)):
