@@ -64,10 +64,9 @@ class VideoThumb(object):
         self._current = None
         self.notify_client = thumbnailer.notify_client
         self.create_failed = thumbnailer.create_failed
-        self.mplayer = kaa.Process(['mplayer', '-nosound', '-vo', 'png:z=2', '-benchmark',
+        self.mplayer = kaa.Process2(['mplayer', '-nosound', '-vo', 'png:z=2', '-benchmark', '-quiet',
                '-frames', '10', '-osdlevel', '0', '-nocache', '-zoom', '-ss' ])
-        self.mplayer.signals['stdout'].connect(self._handle_mplayer_debug)
-        self.mplayer.signals['stderr'].connect(self._handle_mplayer_debug)
+        self.mplayer.signals['read'].connect(self._handle_mplayer_debug)
 
     def append(self, job):
         """
@@ -86,8 +85,7 @@ class VideoThumb(object):
         """
         Start mplayer for the next job
         """
-        if self.mplayer.is_alive() or not self.jobs or self._current or \
-               kaa.main.is_shutting_down():
+        if self.mplayer.running or not self.jobs or self._current or kaa.main.is_shutting_down():
             return True
         self._current = self.jobs.pop(0)
         for size in ('large', 'normal'):
@@ -101,6 +99,7 @@ class VideoThumb(object):
         else:
             # not changed, refuse the recreate thumbnail
             self._current = None
+            # XXX: why are we recursing here?
             return self.start_mplayer()
 
         try:
@@ -111,9 +110,11 @@ class VideoThumb(object):
                 length = mminfo.length
                 if mminfo.type == u'DVD':
                     # Find longest title.
-                    track = sorted(mminfo.tracks, key = lambda x: x.length)[-1]
-                    length = track.video[0].length
-                    mpargs[0] = 'dvd://%d' % track.trackno
+                    longest = sorted(mminfo.tracks, key = lambda t: t.length)[-1]
+                    # Small heuristic: favor lowest title that's at least 80% of the longest title.
+                    track = min([t.trackno for t in mminfo.tracks if t.length > longest.length * 0.8])
+                    length = mminfo.tracks[track].length
+                    mpargs[0] = 'dvd://%d' % track
                     mpargs.extend(['-dvd-device', self._current.filename])
                 elif mminfo.video[0].length:
                     length = mminfo.video[0].length
@@ -138,16 +139,19 @@ class VideoThumb(object):
 
                 if pos < 10:
                     # FIXME: needs another comment; is this because keyframes tend to be
-                    # every 10 seconds?  But if pos < 10, won't we risk seeking to EOF and
+                    # every 10 seconds?  But if length < 10, won't we risk seeking to EOF and
                     # not getting any thumbnail at all?"
                     pos = 10
 
-            self.mplayer.start([str(pos)] + mpargs).connect(self.create_thumbnail)
+            ip = self.mplayer.start([str(pos)] + mpargs)
+            # Give MPlayer 10 seconds to generate the thumbnail before we give up
+            # and kill it.  Some video files cause mplayer to runaway.
+            ip.timeout(10, abort=True).connect_both(self.create_thumbnail)
         except:
             log.exception('Thumbnail generation failure')
 
 
-    def create_thumbnail(self, code):
+    def create_thumbnail(self, code, *args):
         """
         Create thumbnail based on the captures
         """
@@ -160,8 +164,11 @@ class VideoThumb(object):
             self.create_failed(job)
             self.notify_client(job)
             job = None
-            if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
-                cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20):
+            if self.mplayer.running:
+                # MPlayer is still running, which means we timed out.
+                # Restart when MPlayer child process is truly dead.
+                return self.mplayer.signals['finished'].connect(lambda exitcode: self.start_mplayer())
+            elif cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20:
                 # too much CPU load, slow down
                 return kaa.OneShotTimer(self.start_mplayer).start(1)
             self.start_mplayer()
@@ -173,25 +180,8 @@ class VideoThumb(object):
             # scale thumbnail
             for size, width, height in (('large',256,256), ('normal',128,128)):
                 image = kaa.imlib2.open_without_cache(current_capture)
-                if image.width > width or image.height > height:
-                    image = image.scale_preserve_aspect((width,height))
-
-                # XXX: why are we assuming 4:3 here?  This is a display policy
-                # and belongs at the display layer.  Thumbnails should retain the
-                # native aspect ratio of the source.
-                #
-                #if image.width * 3 > image.height * 4:
-                #    # fix image with blank bars to be 4:3
-                #    nh = (image.width*3)/4
-                #    ni = kaa.imlib2.new((image.width, nh))
-                #    ni.draw_rectangle((0,0), (image.width, nh), (0,0,0,255), True)
-                #    ni.blend(image, dst_pos=(0,(nh- image.height) / 2))
-                #    image = ni
-                #elif image.width * 3 < image.height * 4:
-                #    # strange aspect, let's guess it's 4:3
-                #    new_size = (image.width, (image.width*3)/4)
-                #    image = image.scale((new_size))
                 try:
+                    # FIXME: Thumb::Mimetype ends up being wrong.
                     libthumb.png(job.filename, job.imagefile % size, (width, height), image._image)
                 except (IOError, ValueError):
                     self.create_failed(job)
