@@ -273,7 +273,13 @@ class Thumbnailer(object):
         """
         if self._timer.active() or not self.jobs:
             return
-        delay = (1 + self.jobs[0].priority * 5) * THUMBNAIL_TIMER
+
+        if len(self.jobs) == 1:
+            # Initial job, start thumbnailer immediately.
+            delay = 0
+        else:
+            delay = (1 + self.jobs[0].priority * 5) * THUMBNAIL_TIMER
+
         if fast or not self.jobs[0].priority:
             # do fast scanning, we skiped the last one or we have a
             # very high priority
@@ -281,7 +287,8 @@ class Thumbnailer(object):
         elif (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
               cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 15):
             # too much CPU load, slow down
-            delay *= 2
+            delay = delay*2 if delay else 1
+
         self._timer.start(delay)
 
 
