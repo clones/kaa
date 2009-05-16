@@ -228,7 +228,7 @@ class LCD(object):
             yield self.socket.connect((server, port))
         except Exception, e:
             # try again later
-            log.error('LCDproc: %s. Will try again later', result)
+            log.error('LCDproc connection error; will try again later')
             kaa.OneShotTimer(self._connect, server, port).start(10)
             yield False
         self._send('hello')
