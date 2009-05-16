@@ -247,7 +247,7 @@ class Thumbnailer(object):
         if metadata and (metadata['media'] == kaa.metadata.MEDIA_AV or metadata.type == u'DVD'):
             # video file
             job.metadata = metadata
-            self.videothumb.append(job)
+            self.videothumb.queue(job)
             self.schedule_next()
             return True
 
