@@ -205,7 +205,10 @@ if not pid:
         daemonize_lock.ignore()
 
     # loop
-    kaa.main.run()
+    try:
+        kaa.main.run()
+    except Exception:
+        log.exception('Thumbnailer died:')
     log.info('stop thumbnail')
     sys.exit(0)
 
