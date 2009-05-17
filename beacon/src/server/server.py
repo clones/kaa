@@ -134,12 +134,8 @@ class Server(object):
 
         config.set_filename(os.path.join(dbdir, "config"))
         config.load()
-        # We need to save at this point because we may have new
-        # variables now we did not have before. This is a very bad
-        # way of doing this, maybe save() should check if saving makes
-        # sense or the complete schema could have a checksum we can
-        # compare.
-        config.save()
+        # Save the config if the schema has changed (or if no config exists yet).
+        config.save_if_needed()
         config.watch()
 
         # commit and wait for the results (there are no results,
