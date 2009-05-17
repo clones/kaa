@@ -132,10 +132,7 @@ class Server(object):
         # list of current clients
         self.clients = []
 
-        config.set_filename(os.path.join(dbdir, "config"))
-        config.load()
-        # Save the config if the schema has changed (or if no config exists yet).
-        config.save_if_needed()
+        config.load(os.path.join(dbdir, "config"), sync=True)
         config.watch()
 
         # commit and wait for the results (there are no results,
