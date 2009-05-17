@@ -90,8 +90,15 @@ class Crawler(object):
     support is enabled in the kernel, this class will use it to avoid
     polling the filesystem.
     """
+    # Number of active Crawler instances, one per monitored filesystem.  A
+    # Crawler is active when it is currently traversing the filesystem tree.
+    # If INotify is available, a Crawler is not considered active after its
+    # initial traversal.  If INotify is not available, the Crawler is more
+    # or less always active (except for the 10 second moratorium after
+    # crawling is finished).
     active = 0
-    nextid = 0
+    # The id of the last Crawler instance.
+    lastid = 0
 
     def __init__(self, db, use_inotify=True):
         """
@@ -99,8 +106,7 @@ class Crawler(object):
         Parameter db is a beacon.db.Database object.
         """
         self._db = db
-        Crawler.nextid += 1
-        self.num = Crawler.nextid
+        self.num = Crawler.lastid = Crawler.lastid + 1
 
         # set up inotify
         self._inotify = None
@@ -120,19 +126,12 @@ class Crawler(object):
         # root items that are 'appended'
         self._root_items = []
 
-        # If this env var is non-zero, initialize the update timer to
-        # 0 so that we do initial indexing as quickly as possible.  Mainly
-        # used for debugging/testing.
-        self.parse_timer = config.crawler.scantime
-        if os.getenv("BEACON_EAT_CYCLES"):
-            log.info('all your cpu are belong to me')
-            self.parse_timer = 0
-
         kaa.main.signals["shutdown"].connect_weak(self.stop)
 
         # create internal scan variables
         self._scan_list = []
         self._scan_dict = {}
+        # CoroutineInProgress for self._scanner
         self._coroutine = None
         self._scan_restart_timer = None
         self._crawl_start_time = None
@@ -158,7 +157,6 @@ class Crawler(object):
         if self._coroutine:
             self._coroutine.abort()
             self._coroutine = None
-            self._scan_handle_result([], False, False)
         # stop inotify
         self._inotify = None
         # stop restart timer
@@ -168,7 +166,7 @@ class Crawler(object):
 
 
     def __repr__(self):
-        return '<kaa.beacon.Crawler>'
+        return '<kaa.beacon.Crawler id=%d>' % self.num
 
 
     # -------------------------------------------------------------------------
@@ -276,8 +274,7 @@ class Crawler(object):
             name = args[0]
 
         if os.path.exists(name):
-            # The file exists. So it is either created or modified, we don't
-            # care right now.
+            # The file or directory exists.  So it is either created or modified.
             if item._beacon_isdir:
                 # It is a directory. Just do a full directory rescan.
                 recursive = not (mask & INotify.MODIFY)
@@ -287,6 +284,7 @@ class Crawler(object):
                     self._scan_add(item._beacon_parent, recursive=False, force_thumbnail_check=False)
                 return True
 
+            # Modified item is a file.
             # handle bursts of inotify events when a file is growing very
             # fast (e.g. cp)
             if mask & INotify.CLOSE_WRITE:
@@ -336,7 +334,8 @@ class Crawler(object):
 
     def _scan_add(self, directory, recursive, force_thumbnail_check):
         """
-        Add a directory to the list of directories to scan.
+        Add a directory to the list of directories to scan, and start
+        the scanner coroutine if it's not already running.
         """
         if directory.filename in self._scan_dict:
             # ok then, already in list and close to the beginning
@@ -355,7 +354,7 @@ class Crawler(object):
             # from inotify. In both cases, add to the end of the list because
             # this takes much time.
             if directory.filename in self.monitoring:
-                # already scanned
+                # already scanned and being monitored
                 # TODO: softlink dirs are not handled correctly, they may be
                 # scanned twiece.
                 return False
@@ -363,66 +362,52 @@ class Crawler(object):
         self._scan_dict[directory.filename] = directory
 
         # start scanning
-        if self._coroutine == None:
-            Crawler.active += 1
-            self._scan_next_item()
+        if not self._coroutine or self._coroutine.finished:
+            self._coroutine = self._scanner()
+            self._coroutine.signals['abort'].connect_weak(self._scan_completed)
 
 
-    def _scan_next_item(self):
-        """
-        Start the scan function
-        """
-        if self._coroutine != None:
-            # already running
-            return
-        if self._crawl_start_time is None:
-            # remember start time for debugging output
-            self._crawl_start_time = time.time()
-        # get interval to reduce CPU load
-        interval = self.parse_timer * Crawler.active
-        if interval < 1 and cpuinfo.check(idle=40, io=20):
-            # too much CPU load, slow down
-            interval *= 2
-        if interval < 1 and cpuinfo.check(idle=20, io=40):
-            # way too much CPU load, slow down even more
-            interval *= 2
-        # get next item to scan and start the scanning
-        directory, recursive, force_thumbnail_check = self._scan_list.pop(0)
-        del self._scan_dict[directory.filename]
-        coroutine = self._scan(directory, force_thumbnail_check)
-        # handle result
-        if coroutine.finished:
-            # already done, handle result in a OneShotTimer to throttle down
-            # and to avoid too much recursive calls.
-            self._coroutine = kaa.OneShotTimer(
-                self._scan_handle_result, coroutine.result, recursive, force_thumbnail_check)
-            return self._coroutine.start(interval)
-        self._coroutine = coroutine
-        self._coroutine.set_interval(interval)
-        self._coroutine.connect(self._scan_handle_result, recursive, force_thumbnail_check)
+    @kaa.coroutine()
+    def _scanner(self):
+        Crawler.active += 1
+        log.warning('Starting scanner %d', Crawler.active)
+        # remember start time for debugging output
+        self._crawl_start_time = time.time()
 
+        while self._scan_list:
+            # get interval to reduce CPU load
+            interval = config.crawler.scantime * Crawler.active
+            if self._scan_restart_timer:
+                # Directory rescanning when INotify is not available.  This is
+                # an idle task, so slow it down.
+                interval = 1
 
-    def _scan_handle_result(self, subdirs, recursive, force_thumbnail_check):
-        """
-        The scan function finished.
-        """
-        if recursive:
-            # add results to the list of files to scan
-            for d in subdirs:
-                self._scan_add(d, True, force_thumbnail_check=force_thumbnail_check)
-        self._coroutine = None
-        if self._scan_list:
-            # start again
-            self._scan_next_item()
-            return
-        # crawler finished
-        log.info('crawler %s finished; took %0.1f seconds.', \
-                 self.num, time.time() - self._crawl_start_time)
-        self._crawl_start_time = None
-        Crawler.active -= 1
+            if interval < 1 and cpuinfo.check(idle=40, io=20):
+                # too much CPU load, slow down
+                interval *= 2
+            if interval < 1 and cpuinfo.check(idle=20, io=40):
+                # way too much CPU load, slow down even more
+                interval *= 2
 
-        # commit changes so that the client may get notified
-        self._db.commit()
+            # get next item to scan and start the scanning
+            directory, recursive, force_thumbnail_check = self._scan_list.pop(0)
+            del self._scan_dict[directory.filename]
+
+            ip = self._scan(directory, force_thumbnail_check)
+            if ip.finished:
+                # already done, handle result in a OneShotTimer to throttle down
+                # and to avoid too much recursive calls.
+                yield kaa.delay(interval)
+            else:
+                ip.set_interval(interval)
+
+            subdirs = yield ip
+            if recursive:
+                # add results to the list of files to scan
+                for d in subdirs:
+                    self._scan_add(d, True, force_thumbnail_check=force_thumbnail_check)
+
+        self._scan_completed()
 
         if not self._inotify:
             # Inotify is not in use. This means we have to start crawling
@@ -434,13 +419,24 @@ class Crawler(object):
             self._scan_restart_timer.start(10)
 
 
+    def _scan_completed(self):
+        """
+        Called when the scanner is either completed successfully or aborted
+        (such as when stop() is called).
+        """
+        # crawler finished
+        log.info('crawler %s finished; took %0.1f seconds.', self.num, time.time() - self._crawl_start_time)
+        self._crawl_start_time = None
+        Crawler.active -= 1
+
+        # commit changes so that the client may get notified
+        self._db.commit()
+
+
     def _scan_restart(self):
         """
         Restart the crawler when inotify is not enabled.
         """
-        # set parser time to one second to keep load down
-        self.parse_timer = 1
-
         # reset self.monitoring and add all directories once passed to
         # this object with 'append' again.
         self.monitoring = MonitorList(self._inotify)
