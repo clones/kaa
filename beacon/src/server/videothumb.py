@@ -106,7 +106,7 @@ class VideoThumb(object):
                 # No thumb generation needed.
                 continue
 
-            if cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20:
+            if cpuinfo.check(idle=40, io=20):
                 # too much CPU load, slow down
                 yield kaa.delay(0.5)
 

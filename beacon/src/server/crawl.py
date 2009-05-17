@@ -380,12 +380,10 @@ class Crawler(object):
             self._crawl_start_time = time.time()
         # get interval to reduce CPU load
         interval = self.parse_timer * Crawler.active
-        if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 40 or \
-            cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 20) and interval < 1:
+        if interval < 1 and cpuinfo.check(idle=40, io=20):
             # too much CPU load, slow down
             interval *= 2
-        if (cpuinfo.cpuinfo()[cpuinfo.IDLE] < 80 or \
-            cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 40) and interval < 1:
+        if interval < 1 and cpuinfo.check(idle=20, io=40):
             # way too much CPU load, slow down even more
             interval *= 2
         # get next item to scan and start the scanning
@@ -522,8 +520,7 @@ class Crawler(object):
                 # throttle down
                 counter -= 20
                 yield kaa.NotFinished
-                if cpuinfo.cpuinfo()[cpuinfo.IDLE] < 50 or \
-                       cpuinfo.cpuinfo()[cpuinfo.IOWAIT] > 30:
+                if cpuinfo.check(idle=50, io=30):
                     yield kaa.NotFinished
 
         if not subdirs:

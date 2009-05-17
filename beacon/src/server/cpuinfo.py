@@ -29,7 +29,7 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'cpuinfo', 'USER', 'NICE', 'SYSTEM', 'IDLE', 'IOWAIT',
+__all__ = [ 'cpuinfo', 'check', 'USER', 'NICE', 'SYSTEM', 'IDLE', 'IOWAIT',
             'IRQ', 'SOFTIRQ', 'CURRENT_PROC' ]
 
 # python imports
@@ -58,7 +58,7 @@ def _poll(pid):
     poll /proc files and remeber lines we need later.
     """
     global _stat, _proc, _cache
-    _stat = file('/proc/stat').readline(), _stat[0]
+    _stat = [line for line in file('/proc/stat') if line.startswith('cpu')], _stat[0]
     _proc = file('/proc/%s/stat' % pid).readline(), _proc[0], _timer.interval
     _cache = None
     if not _last_request_time:
@@ -103,24 +103,30 @@ def cpuinfo():
     # iowait: waiting for I/O to complete
     # irq: servicing interrupts
     # softirq: servicing softirqs
-    if not _stat or _stat[0] == _stat[1]:
-        return 0, 0, 0, 100, 0, 0, 0, 0, 0
-    info = [ i for i in _stat[0].strip().split(' ') if i ]
-    last = [ i for i in _stat[1].strip().split(' ') if i ]
-    all = 0
-    for i in range(1, len(info)):
-        all += long(info[i]) - long(last[i])
-    res = []
-    for i in range(1, len(info)):
-        res.append((100 * (long(info[i]) - long(last[i]))) / all)
-    info = long(_proc[0].split(' ')[13]) + long(_proc[0].split(' ')[14])
-    last = long(_proc[1].split(' ')[13]) + long(_proc[1].split(' ')[14])
+    noinfo = 0, 0, 0, 100, 0, 0, 0, 0, 0, 0
+    if None in _stat:
+        return [noinfo]
 
-    # FIXME: This is wrong. We need to call jiffies_to_clock_t() here
-    # to convert this into seconds into percent. For me this is
-    # correct because the value seems to be 100, but it could be
-    # wrong. So a C wrapper is needed here I guess.
-    res.append(int((info - last) / _proc[2]))
+    res = []
+    for n, (l_info, l_last) in enumerate(zip(_stat[0], _stat[1])):
+        info = [float(i) for i in l_info.strip().split(' ')[1:] if i]
+        last = [float(i) for i in l_last.strip().split(' ')[1:] if i]
+        if info == last:
+            res.append(noinfo)
+            continue
+
+        total = sum(i-l for i,l in zip(info, last))
+        res.append([100 * (i-l) / total for i,l in zip(info, last)])
+
+        info = sum(float(n) for n in _proc[0].split(' ')[13:15])
+        last = sum(float(n) for n in _proc[1].split(' ')[13:15])
+
+        if n == 0:
+            # FIXME: This is wrong. We need to call jiffies_to_clock_t() here
+            # to convert this into seconds into percent. For me this is
+            # correct because the value seems to be 100, but it could be
+            # wrong. So a C wrapper is needed here I guess.
+            res[-1].append((info - last) / _proc[2])
 
     if time.time() - _last_request_time < 2 and _timer.interval != 0.2:
         # CPU time is being requested a lot, so increase poll timer frequency
@@ -135,10 +141,26 @@ def cpuinfo():
     return res
 
 
+def check(user=None, nice=None, sys=None, all=None, nonnice=None, idle=None, io=None):
+    info = cpuinfo()[0]
+
+    if (user is not None and info[USER] >= user) or \
+       (nice is not None and info[NICE] >= nice) or \
+       (sys is not None and info[SYSTEM] >= sys) or \
+       (all is not None and info[USER] + info[NICE] + info[SYSTEM] >= all) or \
+       (nonnice is not None and info[USER] + info[SYSTEM] >= nonnice) or \
+       (idle is not None and info[IDLE] < idle) or \
+       (io is not None and info[IOWAIT] >= io):
+        return True
+    return False
+
+
 if __name__ == '__main__':
 
     def debug():
-        print "CPU:", cpuinfo()
+        print '-----------------'
+        for n, info in enumerate(cpuinfo()):
+            print '%d.  cpu=%.2f  idle=%.2f  io=%.2f' % (n, sum(info[:3]), info[IDLE], info[IOWAIT])
 
     @kaa.coroutine()
     def add_load():
@@ -149,7 +171,7 @@ if __name__ == '__main__':
 
     add_load()
     t = kaa.Timer(debug)
-    t.start(1)
-    kaa.OneShotTimer(t.stop).start(4)
-    kaa.OneShotTimer(t.start, 1).start(10)
+    t.start(0.5)
+    #kaa.OneShotTimer(t.stop).start(4)
+    #kaa.OneShotTimer(t.start, 1).start(10)
     kaa.main.run()

@@ -5,7 +5,7 @@
     <list name="monitors" default="True">
         <desc lang="en">
             List of directories to monitor.  Paths can contain environment variables
-            in the form $ENV or ${ENV}, and tidle (~) will be expanded to home
+            in the form $ENV or ${ENV}, and tilde (~) will be expanded to home
             directory.  e.g.
             monitors[0] = /media/mp3
             monitors[1] = $(HOME)/mp3
