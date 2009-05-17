@@ -40,7 +40,7 @@ from kaa.db import *
 
 # beacon imports
 from ..item import Item
-from ..db import Database as RO_Database
+from ..db import Database as RO_Database, create_directory
 
 # get logging object
 log = logging.getLogger('beacon.db')
@@ -50,6 +50,24 @@ MAX_BUFFER_CHANGES = 200
 class ReadLock(object):
     """
     Read lock for the database.
+
+    Clients that want to read directly from the database will send a 'db_lock'
+    rpc.  The first such client to do so will cause the 'lock' signal to emit,
+    which will call commit() on the server, causing sqlite to release the
+    exclusive flock on the database so that other processes can read.
+    
+    At this point, clients may acquire the read lock indefinitely.  The server
+    must not attempt to write to the database.
+
+    When the server side wants to write to the database, it will wait until
+    the read lock is unlocked by yielding yield_unlock().  Once the coroutine
+    is resumed, all clients will have relinquished their readlock, and db
+    writes may be performed.
+
+    *NB* If the server-side coroutine subsequently yields for any reason, it
+    MUST test the read lock before attempting to write again.  Otherwise, a
+    client 'db_lock' rpc could be processed before reentering the coroutine,
+    and a db write may cause the client to barf in the middle of a db read.
     """
     def __init__(self):
         self._clients = []
@@ -74,11 +92,11 @@ class ReadLock(object):
         unlock the database.
         """
         log.debug('lock--')
-        if client in self._clients:
+        while client in self._clients:
             self._clients.remove(client)
-            if all:
-                # remove all locks from client
-                return self.unlock(client, all)
+            if not all:
+                break
+
         if len(self._clients) == 0:
             self.signals['unlock'].emit()
             log.debug('unlocked')
@@ -96,6 +114,8 @@ class ReadLock(object):
         Return InProgress object to wait until the db is
         not used by any reader.
         """
+        if not self._clients:
+            return kaa.InProgress().finish(True)
         return kaa.inprogress(self.signals['unlock'])
 
 
@@ -106,11 +126,28 @@ class Database(RO_Database):
     A kaa.db based database.
     """
 
+    __kaasignals__ = {
+        'changed':
+            '''
+            Emitted when the database has been modified.
+
+            .. describe:: def callback(changes)
+
+               :param changes: list of kaa.db ids (2-tuple of (type, id)) for
+                               the objects that have been added, removed, or
+                               updated in the database.
+            '''
+    }
+
     def __init__(self, dbdir):
         """
         Init function
         """
         super(Database,self).__init__(dbdir)
+
+        # handle changes in a list and add them to the database
+        # on commit.
+        self.changes = []
 
         # server lock when a client is doing something
         self.read_lock = ReadLock()
@@ -142,8 +179,36 @@ class Database(RO_Database):
             name = (str, ATTR_SEARCHABLE | ATTR_INVERTED_INDEX, 'keywords', db.split_path),
             content = (str, ATTR_SIMPLE))
 
-        # commit
+        # Commit any schema changes we might have performed above.
         self._db.commit()
+
+
+    def acquire_read_lock(self):
+        if not self.read_lock.is_locked():
+            return kaa.InProgress().finish(None)
+        return self.read_lock.yield_lock()
+
+
+    def _query_filename_get_dir_create(self, name, parent):
+        """
+        Adds a directory to the db.  Called from _query_filename_get_dir in
+        the superclass.
+        """
+        # FIXME: this function will change the database even when
+        # the db is locked. I do not see a good way around it and
+        # it should not happen often. To make the write lock a very
+        # short time we commit just after adding.
+        c = self.add_object("dir", name=name, parent=parent)
+        if self.read_lock.is_locked():
+            # We just stuffed a client who's reading from the db.  sqlite's
+            # locking mechanism should prevent the client from getting garbage
+            # data, but will likely result in the client getting blocked.  So
+            # commit now so we release the exclusive flock on the db, allowing
+            # the client to resume.
+            self.commit()
+
+        return create_directory(c, parent)
+
 
 
     # -------------------------------------------------------------------------

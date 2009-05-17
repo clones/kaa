@@ -41,7 +41,6 @@ import md5
 # kaa imports
 import kaa
 from kaa import db
-from kaa.db import *
 
 # beacon imports
 from item import Item
@@ -49,8 +48,6 @@ from media import MediaList, FakeMedia
 
 # get logging object
 log = logging.getLogger('beacon.db')
-
-MAX_BUFFER_CHANGES = 30
 
 # Item generation mapping
 from file import File
@@ -84,7 +81,7 @@ def create_item(data, parent):
 
 def create_file(data, parent, overlay=False, isdir=False):
     """
-    Create a file or directory
+    Create a File object representing either a file or directory.
     """
     if isinstance(data, str):
         # fake item, there is no database entry
@@ -111,12 +108,13 @@ def create_file(data, parent, overlay=False, isdir=False):
         filename = media.mountpoint
     else:
         raise ValueError('unable to create File item from %s', data)
+
     return File(id, filename, data, parent, media, overlay, isdir)
 
 
 def create_directory(data, parent):
     """
-    Create a directory
+    Create a File object representing a directory.
     """
     return create_file(data, parent, isdir=True)
 
@@ -132,37 +130,47 @@ def create_by_type(data, parent, overlay=False, isdir=False):
     return create_file(data, parent, overlay, isdir)
 
 
-class Database(object):
+class Database(kaa.Object):
     """
-    A kaa.db based database.
+    Database API for the client side, providing read-only access to the
+    beacon database.
+
+    This class is subclassed by the server for the read/write database.
     """
-
-    # functions that will be given by the server
-    delete_object = add_object = commit = None
-
     def __init__(self, dbdir):
         """
         Init function
         """
+        super(Database, self).__init__()
         # internal db dir, it contains the real db and the
         # overlay dir for the beacon
         self.directory = dbdir
         self.medialist = MediaList()
 
-        # handle changes in a list and add them to the database
-        # on commit.
-        self.changes = []
-
-        # create db
+        # create or open db
         overlay = os.path.join(self.directory, 'overlays')
         if not os.path.isdir(overlay):
             os.makedirs(overlay)
         self._db = db.Database(self.directory + '/db')
 
-        self.signals = {
-            'changed': kaa.Signal()
-            }
 
+    # These methods are stubs on the client side, and will be implemented in
+    # the server db.
+    def commit():
+        pass
+
+    def add_object(*args, **kwargs):
+        pass
+
+    def delete_object(*args, **kwargs):
+        pass
+
+    def acquire_read_lock(self):
+        return kaa.InProgress.finish(None)
+
+
+
+    # Common methods for both client and server.
 
     def get_directory(self):
         """
@@ -240,22 +248,27 @@ class Database(object):
             # object is only an id
             id = media
             media = None
+
         result = self._db.query(type="media", name=id)
         if not result:
             return None
+
         result = result[0]
         if not media:
             return result
+
         # TODO: it's a bit ugly to set url here, but we have no other choice
         media.url = result['content'] + '://' + media.mountpoint
         media.overlay = os.path.join(self.directory, 'overlays', id)
         dbid = ('media', result['id'])
         media._beacon_id = dbid
         root = self._db.query(parent=dbid)[0]
+
         if root['type'] == 'dir':
             media.root = create_directory(root, media)
         else:
             media.root = create_item(root, media)
+
         return result
 
 
@@ -291,12 +304,7 @@ class Database(object):
 
         pos = -1
 
-        # If we have a delete_object function we will use it. This means
-        # we have to wait for a lock. The server needs to provide
-        # the read_lock variable. I known this is ugly but I do not
-        # want to duplicate this whole function just for this.
-        while self.delete_object and self.read_lock.is_locked():
-            yield self.read_lock.yield_unlock()
+        yield self.acquire_read_lock()
 
         pos = -1
         for f, fullname, overlay, stat_res in listing[0]:
@@ -310,6 +318,7 @@ class Database(object):
                     continue
                 items.append(create_file(f, parent, overlay))
                 continue
+
             while pos < len(items) and f > items[pos]._beacon_name:
                 # file deleted
                 i = items[pos]
@@ -318,13 +327,15 @@ class Database(object):
                     pos += 1
                     continue
                 items.remove(i)
-                if self.delete_object:
-                    # delete from database by adding it to the internal changes
-                    # list. It will be deleted right before the next commit.
-                    self.delete_object(i)
+                # Server only: delete from database by adding it to the
+                # internal changes list. It will be deleted right before the
+                # next commit.
+                self.delete_object(i)
+
             if pos < len(items) and f == items[pos]._beacon_name:
                 # same file
                 continue
+
             # new file
             if isdir:
                 if not overlay:
@@ -339,10 +350,10 @@ class Database(object):
                     # A remote URL in the directory
                     continue
                 items.remove(i)
-                if self.delete_object:
-                    # delete from database by adding it to the internal changes
-                    # list. It will be deleted right before the next commit.
-                    self.delete_object(i)
+                # Server only: delete from database by adding it to the
+                # internal changes list. It will be deleted right before the
+                # next commit.
+                self.delete_object(i)
 
         # no need to sort the items again, they are already sorted based
         # on name, let us keep it that way. And name is unique in a directory.
@@ -541,20 +552,13 @@ class Database(object):
         if c:
             return create_directory(c[0], parent)
 
-        if not self.add_object:
-            # we have no add_object function. This means we have
-            # to return a dummy object (client)
-            return create_directory(name, parent)
-        # add object to the database.
-        # NOTICE: this function will change the database even when
-        # the db is locked. I do not see a good way around it and
-        # it should not happen often. To make the write lock a very
-        # short time we commit just after adding.
-        c = self.add_object("dir", name=name, parent=parent)
-        if self.read_lock.is_locked():
-            # commit changes
-            self.commit()
-        return create_directory(c, parent)
+        return self._query_filename_get_dir_create(name, parent)
+
+
+
+    def _query_filename_get_dir_create(self, name, parent):
+        return create_directory(name, parent)
+
 
 
     # -------------------------------------------------------------------------
