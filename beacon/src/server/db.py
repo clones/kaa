@@ -186,7 +186,7 @@ class Database(RO_Database):
     def acquire_read_lock(self):
         if not self.read_lock.is_locked():
             return kaa.InProgress().finish(None)
-        return self.read_lock.yield_lock()
+        return self.read_lock.yield_unlock()
 
 
     def _query_filename_get_dir_create(self, name, parent):
