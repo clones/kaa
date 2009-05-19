@@ -158,12 +158,16 @@ class Thumbnailer(object):
                 break
         if not search:
             return
+
         for j in [ j for j in self.jobs[:] if j == job ]:
             self.notify_client(j, False)
             self.jobs.remove(j)
         for j in [ j for j in self.videothumb.jobs[:] if j == job ]:
             self.notify_client(j, False)
             self.videothumb.jobs.remove(j)
+
+        if not self.jobs and not self.videothumb.jobs:
+            log.info('All queued thumbnails processed')
 
 
     def create_failed(self, job):
