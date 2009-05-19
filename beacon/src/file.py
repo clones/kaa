@@ -108,6 +108,7 @@ class File(Item):
                 time.sleep(0.0001)
                 fs_results = os.listdir(self.filename)
         except OSError, e:
+            # FIXME: this workaround does not work.
             log.warning(e)
             self._beacon_listdir_cache = time.time(), [], {}
             return [], {}

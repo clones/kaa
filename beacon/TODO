@@ -50,4 +50,5 @@ G. Add config variable or db key to skip the crawler for some directories inside
 
 E. Parse image tags into the database and add query on tags
 
+# This might be fixed with r4000, please verify.
 F. Moving directories is somehow broken

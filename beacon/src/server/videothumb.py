@@ -41,6 +41,7 @@ import os
 import stat
 import logging
 import random
+import re
 
 # kaa imports
 import kaa
@@ -49,7 +50,7 @@ import kaa.imlib2
 
 # kaa.beacon imports
 from .. import libthumb
-import cpuinfo
+import scheduler
 
 # get logging object
 log = logging.getLogger('beacon.thumbnail')
@@ -59,11 +60,23 @@ class VideoThumb(object):
     """
     Class to handle video thumbnailing.
     """
-    def __init__(self, thumbnailer):
+    def __init__(self, thumbnailer, config):
         self.notify_client = thumbnailer.notify_client
         self.create_failed = thumbnailer.create_failed
 
-        self.mplayer = kaa.Process2(['mplayer', '-nosound', '-vo', 'png:z=2', '-benchmark', '-quiet',
+        # Determine the best supported schedtool policy for this OS.
+        policies = os.popen('schedtool -r').read()
+        for policy, switch in ('IDLEPRIO', '-D'), ('BATCH', '-B'):
+            if re.search(r'SCHED_%s.*prio' % policy, policies):
+                sched = ['schedtool', switch, '-e']
+                break
+        else:
+            # Schedtool not available; fallback to nice.
+            sched = ['nice']
+
+        # Config object passed from Thumbnailer instance.
+        self.config = config
+        self.mplayer = kaa.Process2(sched + ['mplayer', '-nosound', '-vo', 'png:z=2', '-benchmark', '-quiet',
                                      '-frames', '10', '-osdlevel', '0', '-nocache', '-zoom', '-ss' ])
         # Dummy read handler, consuming mplayer's stdout/stderr so that flow control
         # doesn't block us.
@@ -106,9 +119,14 @@ class VideoThumb(object):
                 # No thumb generation needed.
                 continue
 
-            if cpuinfo.check(idle=40, io=20):
+            # XXX: this isn't very effective because we can't throttle mplayer
+            # once it's running.  We run mplayer at the lowest possible priority
+            # (if schedtool is available), so that'll have to suffice.
+            # IDEA: actually we can throttle mplayer, if we remove -benchmark and pass -fps.
+            delay = scheduler.next(self.config.scheduler.policy) * self.config.scheduler.multiplier
+            if delay:
                 # too much CPU load, slow down
-                yield kaa.delay(0.5)
+                yield kaa.delay(delay)
 
             try:
                 success = yield self._generate(job)

@@ -41,7 +41,7 @@ from kaa.inotify import INotify
 # kaa.beacon imports
 from parser import parse
 from config import config
-import cpuinfo
+import scheduler
 import utils
 import time
 
@@ -112,7 +112,7 @@ class Crawler(object):
         self._inotify = None
         cb = kaa.WeakCallback(self._inotify_event, INotify.MODIFY)
         cb.user_args_first = True
-        self._bursthandler = utils.BurstHandler(config.crawler.growscan, cb)
+        self._bursthandler = utils.BurstHandler(config.scheduler.growscan, cb)
         if use_inotify:
             try:
                 self._inotify = INotify()
@@ -375,31 +375,24 @@ class Crawler(object):
         self._crawl_start_time = time.time()
 
         while self._scan_list:
-            # get interval to reduce CPU load
-            interval = config.crawler.scantime * Crawler.active
+            interval = scheduler.next(config.scheduler.policy) * config.scheduler.multiplier
             if self._scan_restart_timer:
                 # Directory rescanning when INotify is not available.  This is
                 # an idle task, so slow it down.
-                interval = 1
-
-            if interval < 1 and cpuinfo.check(idle=40, io=20):
-                # too much CPU load, slow down
-                interval *= 2
-            if interval < 1 and cpuinfo.check(idle=20, io=40):
-                # way too much CPU load, slow down even more
-                interval *= 2
+                interval *= 5
 
             # get next item to scan and start the scanning
             directory, recursive, force_thumbnail_check = self._scan_list.pop(0)
             del self._scan_dict[directory.filename]
 
+            log.warning('------ new item: %s, interval=%s', directory.filename, interval)
+
             ip = self._scan(directory, force_thumbnail_check)
             if ip.finished:
-                # already done, handle result in a OneShotTimer to throttle down
-                # and to avoid too much recursive calls.
-                yield kaa.delay(interval)
-            else:
-                ip.set_interval(interval)
+                # Already done.
+                yield kaa.delay(interval) if interval else kaa.NotFinished
+            #else:
+            #    ip.set_interval(interval)
 
             subdirs = yield ip
             if recursive:
@@ -407,7 +400,7 @@ class Crawler(object):
                 for d in subdirs:
                     self._scan_add(d, True, force_thumbnail_check=force_thumbnail_check)
 
-        self._scan_completed()
+        self._scan_completed(aborted=False)
 
         if not self._inotify:
             # Inotify is not in use. This means we have to start crawling
@@ -419,13 +412,14 @@ class Crawler(object):
             self._scan_restart_timer.start(10)
 
 
-    def _scan_completed(self):
+    def _scan_completed(self, aborted=True):
         """
         Called when the scanner is either completed successfully or aborted
         (such as when stop() is called).
         """
         # crawler finished
-        log.info('crawler %s finished; took %0.1f seconds.', self.num, time.time() - self._crawl_start_time)
+        duration = time.time() - self._crawl_start_time
+        log.info('crawler %s %s; took %0.1f seconds.', self.num, 'aborted' if aborted else 'finished', duration)
         self._crawl_start_time = None
         Crawler.active -= 1
 
@@ -455,11 +449,9 @@ class Crawler(object):
             log.info('unable to scan %s', directory.filename)
             yield []
 
-        if directory._beacon_parent and \
-               not directory._beacon_parent._beacon_isdir:
+        if directory._beacon_parent and not directory._beacon_parent._beacon_isdir:
             log.warning('parent of %s is no directory item', directory)
-            if hasattr(directory, 'filename') and \
-                   directory.filename + '/' in self.monitoring:
+            if hasattr(directory, 'filename') and directory.filename + '/' in self.monitoring:
                 self.monitoring.remove(directory.filename + '/', recursive=True)
             yield []
 
@@ -471,8 +463,7 @@ class Crawler(object):
         # check if it is still a directory
         if not directory._beacon_isdir:
             log.warning('%s is no directory item', directory)
-            if hasattr(directory, 'filename') and \
-                   directory.filename + '/' in self.monitoring:
+            if hasattr(directory, 'filename') and directory.filename + '/' in self.monitoring:
                 self.monitoring.remove(directory.filename + '/', recursive=True)
             yield []
 
@@ -506,18 +497,15 @@ class Crawler(object):
                     # add directory to list of files to return
                     subdirs.append(child)
                 continue
+
             # check file
             async = parse(self._db, child, force_thumbnail_check=force_thumbnail_check)
             if isinstance(async, kaa.InProgress):
                 async = yield async
-            # adjust load counter
-            counter += async * 5 + 1
-            while counter >= 20:
-                # throttle down
-                counter -= 20
-                yield kaa.NotFinished
-                if cpuinfo.check(idle=50, io=30):
-                    yield kaa.NotFinished
+
+            delay = scheduler.next(config.scheduler.policy) * config.scheduler.multiplier
+            if delay:
+                yield kaa.delay(delay)
 
         if not subdirs:
             # No subdirectories that need to be checked. Add some extra

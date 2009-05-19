@@ -6,28 +6,76 @@
         <desc lang="en">
             List of directories to monitor.  Paths can contain environment variables
             in the form $ENV or ${ENV}, and tilde (~) will be expanded to home
-            directory.  e.g.
-            monitors[0] = /media/mp3
-            monitors[1] = $(HOME)/mp3
+            directory.  e.g.:
+
+                monitors[] = /media/mp3
+                monitors[] = $HOME/mp3
         </desc>
         <var type="str">
             <desc>Path of directory</desc>
         </var>
     </list>
 
-    <group name="crawler">
-        <desc>Settings for filesystem crawler</desc>
-        <var name="scantime" type="float" default="0.04">
+    <group name="scheduler">
+        <desc>Settings that control how Beacon will use system resources.</desc>
+
+        <var name="policy" default="balanced">
+            <values>
+                <value>polite</value>
+                <value>balanced</value>
+                <value>aggressive</value>
+                <value>greedy</value>
+            </values>
+            <desc lang="en">
+                The scheduler policy specifies the trade-off between beacon's
+                performance and its effect on other running processes and
+                system resources.  Available policies are:
+
+                    polite: runs all beacon processes at low priority (niced),
+                    attempts not to be very noticeable, and will back off
+                    considerably when other processes are consuming CPU and IO.
+                    This is the most unintrusive and power-friendly mode.
+
+                    balanced: thumbnail services are niced, but the master
+                    server process runs at normal priority in order to be
+                    responsive to clients.  The goal of this policy is to
+                    provide an ideal trade-off between performance and its
+                    impact on the system.
+
+                    aggressive: beacon will run as fast as possible, but will
+                    back off moderately if other processes begin competing for
+                    CPU and I/O.
+
+                    greedy: no throttling is attempted, beacon will consume as
+                    much system resources as the operating system allows.  This
+                    policy is not suitable for long-running beacon servers, but
+                    is useful when you want beacon to function as quickly as
+                    possible, such as the first time your media collection is
+                    being indexed.
+
+                This value may be adjusted while beacon is running, however
+                changing from 'polite' to another policy will require a restart
+                to be fully effective.
+            </desc>
+        </var>
+
+        <var name="multiplier" type="float" default="1.0">
             <desc>
-                Internal timer for scanning. Decreasing it will speed up the scanner
-                but slow down the system. Increasing it will save CPU time and slow
-                machines.
+                Allows the scheduler policy to be tweaked by multiplying the 
+                sleep times with the specified value.  A value greater than 1.0
+                will cause beacon to sleep more than the scheduler policy normally
+                requires (and therefore run more slowly), while a value less
+                than 1.0 will cause beacon to sleep less (and therefore run more
+                quickly).
+
+                The multiplier has no effect on the 'greedy' policy.
             </desc>
         </var>
         <var name="growscan" default="10">
             <desc>
-                Internal in seconds how often still growing files should be
-                scanned
+                Interval in seconds specifying how often still growing files
+                should be scanned.  Files undergoing rapid modification will be
+                rescanned each interval.
             </desc>
         </var>
     </group>

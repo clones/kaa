@@ -62,6 +62,7 @@ media_types = {
 }
 
 #: parse in a named thread
+# TODO: make this abortable
 parse_thread = kaa.NamedThreadCallback('beacon:metadata', kaa.metadata.parse)
 
 def register(ext, function):
@@ -230,8 +231,7 @@ def _parse(db, item, mtime):
                         log.exception('image thumbnail')
         else:
             base = os.path.splitext(item.filename)[0]
-            if type == 'video' and not attributes.get('image') and \
-                   thumbnail.SUPPORT_VIDEO:
+            if type == 'video' and not attributes.get('image') and thumbnail.SUPPORT_VIDEO:
                 attributes['image'] = item.filename
             if metadata.get('thumbnail') and not attributes.get('image'):
                 attributes['image'] = item.filename
@@ -255,7 +255,8 @@ def _parse(db, item, mtime):
         ext = os.path.splitext(item.filename)[1]
         for function in extention_plugins.get(ext, []) + extention_plugins.get(None, []):
             function(item, attributes, type)
-        while db.read_lock.is_locked():
+
+        if db.read_lock.is_locked():
             # wait for the db to be free for write access
             yield db.read_lock.yield_unlock()
     
@@ -316,6 +317,10 @@ def _parse(db, item, mtime):
         # parsing done
         log.info('scan %s (%0.3f)' % (item, time.time() - t1))
 
+    except GeneratorExit:
+        # Don't catch this, otherwise if the coroutine is aborted you get
+        # "_parse() ignored GeneratorExit"
+        raise
     except Exception, e:
         log.exception('parser error: %s', item)
 

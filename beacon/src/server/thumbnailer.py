@@ -46,12 +46,12 @@ import kaa.rpc
 # kaa.beacon imports
 from .. import libthumb
 from videothumb import VideoThumb
-import cpuinfo
+from config import config
+import scheduler
 
 # get logging object
 log = logging.getLogger('beacon.thumbnail')
 
-THUMBNAIL_TIMER = 0.1
 DOWNLOAD_THREAD = 'beacon.download'
 
 
@@ -93,7 +93,7 @@ class Thumbnailer(object):
     """
     Main thumbnailer class.
     """
-    def __init__(self, tmpdir):
+    def __init__(self, tmpdir, config_dir, scheduler=None):
         self.next_client_id = 0
         self.clients = []
         self.jobs = []
@@ -102,9 +102,16 @@ class Thumbnailer(object):
         self._ipc = kaa.rpc.Server(os.path.join(tmpdir, 'socket'))
         self._ipc.signals['client-connected'].connect(self.client_connect)
         self._ipc.register(self)
-        # video module
-        self.videothumb = VideoThumb(self)
 
+        # Load configuration for scheduler settings.
+        config.load(os.path.join(config_dir, 'config'))
+        config.watch()
+        if scheduler:
+            config.autosave = False
+            config.scheduler.policy = scheduler
+
+        # video module
+        self.videothumb = VideoThumb(self, config)
 
     # -------------------------------------------------------------------------
     # Client handling
@@ -274,19 +281,16 @@ class Thumbnailer(object):
         if self._timer.active() or not self.jobs:
             return
 
-        if len(self.jobs) == 1:
-            # Initial job, start thumbnailer immediately.
+        if fast:
+            # We already waited the last delay, but didn't end up consuming
+            # CPU, so consider our debt paid.
             delay = 0
         else:
-            delay = (1 + self.jobs[0].priority * 5) * THUMBNAIL_TIMER
+            delay = scheduler.next(config.scheduler.policy) * config.scheduler.multiplier
 
-        if fast or not self.jobs[0].priority:
-            # do fast scanning, we skiped the last one or we have a
-            # very high priority
-            delay = delay / 10
-        elif cpuinfo.check(idle=40, io=15):
-            # too much CPU load, slow down
-            delay = delay*2 if delay else 1
+        if self.jobs[0].priority:
+            # Thumbnail is high priority, use less of a delay.
+            delay /= 10.0
 
         self._timer.start(delay)
 
@@ -314,7 +318,8 @@ class Thumbnailer(object):
                 schedule.sort(lambda x,y: cmp(x.priority, y.priority))
                 return
 
-def create():
+
+def create(config_dir, scheduler=None):
     """
     Create thumbnail Unix socket and object
     """
@@ -324,7 +329,7 @@ def create():
         os.mkdir(tmpdir)
     os.chdir(tmpdir)
     try:
-        return Thumbnailer(tmpdir)
+        return Thumbnailer(tmpdir, config_dir, scheduler=None)
     except IOError, e:
         log.error('thumbnail: %s' % e)
         time.sleep(0.1)

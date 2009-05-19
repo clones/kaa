@@ -33,11 +33,11 @@ __all__ = [ 'config', 'BeaconServer', 'Thumbnailer' ]
 
 from config import config
 
-def BeaconServer(database):
+def BeaconServer(db_dir, scheduler=None):
     import server
-    return server.Server(database)
+    return server.Server(db_dir, scheduler)
 
 
-def Thumbnailer():
+def Thumbnailer(config_dir, scheduler=None):
     import thumbnailer
-    return thumbnailer.create()
+    return thumbnailer.create(config_dir, scheduler)

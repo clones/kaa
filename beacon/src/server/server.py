@@ -56,7 +56,7 @@ class Server(object):
     Server for the virtual filesystem to handle write access to the db and
     scanning / monitoring of queries.
     """
-    def __init__(self, dbdir):
+    def __init__(self, dbdir, scheduler=None):
         log.info('start beacon')
         try:
             self.ipc = kaa.rpc.Server('beacon')
@@ -134,6 +134,10 @@ class Server(object):
 
         config.load(os.path.join(dbdir, "config"), sync=True)
         config.watch()
+        log.warning("USING SCHEDULER: %s", scheduler)
+        if scheduler:
+            config.autosave = False
+            config.scheduler.policy = scheduler
 
         # commit and wait for the results (there are no results,
         # this code is only used to force waiting until the db is

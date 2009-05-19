@@ -98,7 +98,8 @@ mode     = 'start'
 detach   = True
 shutdown = False
 monitor  = False
-database = os.path.expanduser("~/.beacon")
+greedy   = False
+db_dir   = os.path.expanduser("~/.beacon")
 monitor  = []
 
 for o, a in opts:
@@ -107,9 +108,10 @@ for o, a in opts:
     elif o == '--monitor':
         monitor = a.split(':')
     elif o == '--greedy':
-        os.environ['BEACON_EAT_CYCLES'] = "1"
+        log.info("all your cpu are belong to me")
+        greedy = True
     elif o == '--db':
-        database = a
+        db_dir = a
     elif o == '--fg':
         detach = False
     elif o == '--autoshutdown':
@@ -158,7 +160,7 @@ if kaa.utils.is_running('beacon-daemon'):
 
 if detach:
     if not logfile:
-        logfile = os.path.join(database, 'server.log')
+        logfile = os.path.join(db_dir, 'server.log')
     daemonize_lock = kaa.utils.daemonize(wait = True)
 
 kaa.utils.set_running('beacon-daemon')
@@ -192,7 +194,7 @@ thumb_lock = kaa.utils.Lock()
 # fork thumbnailer
 pid = os.fork()
 if not pid:
-    thumb = kaa.beacon.server.Thumbnailer()
+    thumb = kaa.beacon.server.Thumbnailer(db_dir, scheduler='greedy' if greedy else None)
 
     # signal readyness to main app
     thumb_lock.release(1)
@@ -234,7 +236,7 @@ try:
     kaa.beacon.thumbnail.connect().wait()
     log.info('connection to thumbnailer established')
 
-    server = kaa.beacon.server.BeaconServer(database)
+    server = kaa.beacon.server.BeaconServer(db_dir, scheduler='greedy' if greedy else None)
     if os.environ.get('BEACON_MONITOR'):
         monitor += os.environ.get('BEACON_MONITOR').split(':')
     for dirname in monitor:
