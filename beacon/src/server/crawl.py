@@ -385,14 +385,10 @@ class Crawler(object):
             directory, recursive, force_thumbnail_check = self._scan_list.pop(0)
             del self._scan_dict[directory.filename]
 
-            log.warning('------ new item: %s, interval=%s', directory.filename, interval)
-
             ip = self._scan(directory, force_thumbnail_check)
             if ip.finished:
                 # Already done.
                 yield kaa.delay(interval) if interval else kaa.NotFinished
-            #else:
-            #    ip.set_interval(interval)
 
             subdirs = yield ip
             if recursive:
