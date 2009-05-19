@@ -166,9 +166,6 @@ class Thumbnailer(object):
             self.notify_client(j, False)
             self.videothumb.jobs.remove(j)
 
-        if not self.jobs and not self.videothumb.jobs:
-            log.info('All queued thumbnails processed')
-
 
     def create_failed(self, job):
         job.imagefile = job.imagefile % '/fail/beacon/'
