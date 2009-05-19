@@ -134,7 +134,6 @@ class Server(object):
 
         config.load(os.path.join(dbdir, "config"), sync=True)
         config.watch()
-        log.warning("USING SCHEDULER: %s", scheduler)
         if scheduler:
             config.autosave = False
             config.scheduler.policy = scheduler
