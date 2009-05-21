@@ -72,6 +72,11 @@ IRQ = 5
 SOFTIRQ = 6
 CURRENT_PROC = -1
 
+try:
+    jiffy = float(os.sysconf('SC_CLK_TCK'))
+except ValueError:
+    # This should only fail on non-linux.  Assume 100 for now.
+    jiffy = 100.0
 
 def to_longs(line, start=0):
     return [long(i) for i in line.strip().split(' ')[start:] if i]
@@ -126,23 +131,17 @@ class Scheduler(object):
 
     def get_pids(self):
         """
-        Returns a list of pids (including threads) whose cmdline begins with procname.
+        Returns a list of pids whose cmdline begins with procname.
         """
-        all = [long(pid) for pid in os.listdir('/proc') if pid.isdigit()]
-        scanned = set(all)
+        all = (long(pid) for pid in os.listdir('/proc') if pid.isdigit())
         matched = []
-        while all:
-            pid = all.pop(0)
+        for pid in all:
             try:
                 if not file('/proc/%d/cmdline' % pid).readline().startswith(self.procname):
                     continue
                 matched.append(pid)
-                tids = [long(tid) for tid in os.listdir('/proc/%d/task' % pid) if long(tid) not in scanned]
             except (IOError, OSError):
-                continue
-
-            all.extend(tids)
-            scanned.update(tids)
+                pass
 
         self.pids = matched
 
@@ -179,12 +178,7 @@ class Scheduler(object):
             # Take the most idle core, because the OS can alawys schedule on that one.
             min_cpu = min(i[USER] + i[NICE] + i[SYSTEM] for i in sample[CPU0:])
             min_nonnice = min(i[USER] + i[SYSTEM] for i in sample[CPU0:])
-
-            # FIXME: This is wrong. We need to call jiffies_to_clock_t() here
-            # to convert this into seconds into percent. For me this is
-            # correct because the value seems to be 100, but it could be
-            # wrong. So a C wrapper is needed here I guess.
-            proc_cpu = (now_proc - self.last_proc) / (t - self.last_time)
+            proc_cpu = ((now_proc - self.last_proc) / jiffy) / (t - self.last_time) * 100.0
 
             sample[AGGR] = (min_cpu, min_nonnice, max_io, proc_cpu)
 
@@ -213,7 +207,7 @@ class Scheduler(object):
         over the history period.
         """
         n = len(self.history)
-        t0 = self.history[0][TIMESTAMP]
+        t0 = self.history[0][TIMESTAMP] if n else 0
 
         if n < 2:
             return 0
