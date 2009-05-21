@@ -142,7 +142,7 @@ class Thumbnailer(object):
                         self.videothumb.jobs.remove(j)
                 if client_info == self.clients[0]:
                     # the main beacon process stopped
-                    sys.exit(0)
+                    kaa.main.stop()
                 self.clients.remove(client_info)
                 return
 
