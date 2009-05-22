@@ -128,15 +128,24 @@ class Thumbnail(object):
             returned.
         :returns: full path to thumbnail file or None
         """
-        if not os.path.isfile(self.name):
+        # We can thumbnail a file of course, but also a directory, such as in
+        # the case of a DVD tree (that contains VIDEO_TS), which kaa.metadata
+        # will recognize as a video "file."
+        try:
+            statinfo = os.stat(self.name)
+        except OSError:
             return None
+
+        if not stat.S_ISREG(statinfo.st_mode) and not stat.S_ISDIR(statinfo.st_mode):
+            return None
+
         if check_mtime:
             image = self._get_thumbnail(type)
             if image:
                 metadata = kaa.metadata.parse(image)
                 if metadata:
                     mtime = metadata.get('Thumb::MTime')
-                    if mtime == str(os.stat(self.name)[stat.ST_MTIME]):
+                    if mtime == str(statinfo[stat.ST_MTIME]):
                         return image
             # mtime check failed, return no image
             return None
