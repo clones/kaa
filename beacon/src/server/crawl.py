@@ -456,9 +456,12 @@ class Crawler(object):
         if isinstance(async, kaa.InProgress):
             yield async
 
-        # check if it is still a directory
+        # Having parsed the directory, check to see if the item is still flagged
+        # as a directory.  This happens, for example, with a DVD directory tree.
         if not directory._beacon_isdir:
-            log.warning('%s is no directory item', directory)
+            if directory.get('scheme') != 'dvd':
+                # Only warn if this isn't a DVD tree.
+                log.warning('%s turned out not to be a directory after parsing', directory)
             if hasattr(directory, 'filename') and directory.filename + '/' in self.monitoring:
                 self.monitoring.remove(directory.filename + '/', recursive=True)
             yield []
