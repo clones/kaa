@@ -117,6 +117,7 @@ class Thumbnailer(object):
     # Client handling
     # -------------------------------------------------------------------------
 
+    @kaa.coroutine()
     def client_connect(self, client):
         """
         Connect a new client to the server.
@@ -124,7 +125,12 @@ class Thumbnailer(object):
         client.signals['closed'].connect(self.client_disconnect, client)
         self.next_client_id += 1
         self.clients.append((self.next_client_id, client))
-        client.rpc('connect', self.next_client_id)
+        try:
+            yield client.rpc('connect', self.next_client_id)
+        except IOError:
+            # Client disconnected as soon as it connected.  This happens during,
+            # for example, beacon-search --info.
+            pass
 
 
     def client_disconnect(self, client):
