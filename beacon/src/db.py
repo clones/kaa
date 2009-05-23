@@ -302,8 +302,6 @@ class Database(kaa.Object):
         # it scan time or something like that. Also make it an option so the
         # user can turn the feature off.
 
-        pos = -1
-
         yield self.acquire_read_lock()
 
         pos = -1
