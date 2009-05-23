@@ -65,7 +65,7 @@ class VideoThumb(object):
         self.create_failed = thumbnailer.create_failed
 
         # Determine the best supported schedtool policy for this OS.
-        policies = os.popen('schedtool -r').read()
+        policies = os.popen('schedtool -r 2>/dev/null').read()
         for policy, switch in ('IDLEPRIO', '-D'), ('BATCH', '-B'):
             if re.search(r'SCHED_%s.*prio' % policy, policies):
                 sched = ['schedtool', switch, '-e']
