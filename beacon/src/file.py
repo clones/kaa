@@ -98,20 +98,12 @@ class File(Item):
             overlay_results = []
 
         try:
-            # XXX: http://bugs.python.org/issue1608818 describes how
-            # os.listdir can fail randomly.  If listdir() fails, we try it
-            # once more and give up.
-            try:
-                fs_results = os.listdir(self.filename)
-            except OSError:
-                # Dummy system call to clear errno
-                time.sleep(0.0001)
-                fs_results = os.listdir(self.filename)
+            fs_results = os.listdir(self.filename)
         except OSError, e:
-            # FIXME: this workaround does not work.
             log.warning(e)
             self._beacon_listdir_cache = time.time(), [], {}
             return [], {}
+
         results_file_map = {}
         timer = time.time()
         for is_overlay, prefix, results in \
