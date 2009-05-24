@@ -166,7 +166,7 @@ class Database(kaa.Object):
         pass
 
     def acquire_read_lock(self):
-        return kaa.InProgress.finish(None)
+        return kaa.InProgress().finish(None)
 
 
 
