@@ -202,9 +202,12 @@ class Animation(object):
         """
         Class method to call all running animations
         """
-        _lock_lock.acquire()
         if config.performance_debug:
             t1 = time.time()
+            if config.performance_debug == 'fps' and Animation.__active is not True:
+                log.info('fps timer %s', t1 - Animation.__active)
+            Animation.__active = t1
+        _lock_lock.acquire()
         try:
             for a in cls.__animations[:]:
                 if a.delay:
@@ -215,13 +218,13 @@ class Animation(object):
                 if a.current_frame_num == a.n_frames:
                     a.stop()
             signals['candy-update'].emit()
-            if config.performance_debug:
-                diff = time.time() - t1
-                if diff > 0.02:
-                    log.warning('animations.step() took %2.3f secs' % diff)
         except Exception, e:
             log.exception('animation')
         _lock_lock.release()
+        if config.performance_debug:
+            diff = time.time() - t1
+            if diff > 0.02:
+                log.warning('animations.step() took %2.3f secs' % diff)
         if cls.__animations:
             return True
         Animation.__active = False
