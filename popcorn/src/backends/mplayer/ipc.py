@@ -114,6 +114,7 @@ class ChildProcess(object):
         if self._gdb:
             signal = self._child.start(self._command)
             self._child.write("run %s\n" % ' '.join(args))
+            self._child.delimiter = ['\n', '\r']
             self._child.signals['readline'].connect_weak(self._child_handle_line)
             return signal
         return self._child.start(args)

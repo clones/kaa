@@ -339,10 +339,10 @@ class MPlayer(MediaPlayer):
         # work that way so we have to run mplayer with -identify first.
         args = "-nolirc -nojoystick -identify -vo null -ao null -frames 0 -nocache"
         ident = kaa.Process(self._mp_cmd)
+        ident.delimiter = ['\n', '\r']
         signal = ident.start(args.split(' ') + self._media.mplayer_args)
         signal.connect_weak(self._ident_exited)
-        ident.signals["stdout"].connect_weak(self._child_handle_line)
-        ident.signals["stderr"].connect_weak(self._child_handle_line)
+        ident.signals['readline'].connect_weak(self._child_handle_line)
 
 
     def _ident_exited(self, code):
