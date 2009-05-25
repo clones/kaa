@@ -285,7 +285,7 @@ class Thumbnailer(object):
         """
         Schedule next thumbnail based on priority.
         """
-        if self._timer.active() or not self.jobs:
+        if self._timer.active or not self.jobs:
             return
 
         if fast:

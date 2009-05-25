@@ -239,14 +239,14 @@ class Scheduler(object):
         Checks the most recent sample against the given kwargs.
         """
         self.last_request_time = time.time()
-        if self.poll_timer.active() or not self.history:
+        if self.poll_timer.active or not self.history:
             # No data, conservatively assume 50% idle, 50% iowait, 50% proc cpu
             info = 0, 0, 0, 50, 50, 0, 0, 0, 0, 0, 50
         else:
             # take average row from latest sample
             info = self.history[-1][SAMPLE][AVG]
 
-        if not self.poll_timer.active():
+        if not self.poll_timer.active:
             self.poll_timer.start(0.3)
 
         if (user is not None and info[USER] >= user) or \
@@ -269,7 +269,7 @@ class Scheduler(object):
         policy value corresponds to config.scheduler.policy.
         """
         self.last_request_time = time.time()
-        if not self.poll_timer.active():
+        if not self.poll_timer.active:
             self.poll_timer.start(0.3)
 
         if self.cache and (not self.history or (self.history and self.history[-1][TIMESTAMP] <= self.cache[1])):

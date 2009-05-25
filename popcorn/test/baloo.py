@@ -47,7 +47,7 @@ class Baloo(object):
         self.xml.get_widget('title').set_text('<no match>')
         for t in ('pause', 'prev', 'next'):
             self.xml.get_widget(t).set_sensitive(False)
-        if self.timer.active():
+        if self.timer.active:
             self.timer.stop()
         return True
     
@@ -62,7 +62,7 @@ class Baloo(object):
             self.player.stop()
         else:
             self.play_next()
-        if not self.timer.active():
+        if not self.timer.active:
             self.timer.start(0.1)
         
     def on_pause_clicked(self, data=None):

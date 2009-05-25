@@ -73,7 +73,7 @@ class Master(object):
                 c[0] = True
         for m, c in self.monitors:
             c[1].extend(changes)
-        if not self.timer.active():
+        if not self.timer.active:
             self.timer.start(0.02)
 
 

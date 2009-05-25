@@ -116,7 +116,7 @@ def parse(db, item, force_thumbnail_check=False):
             if image.startswith('http://') or os.path.exists(image):
                 t = thumbnail.Thumbnail(image, item._beacon_media)
                 if t.needs_update:
-                    log.debug('create missing image %s for %s', image, item)
+                    log.info('create missing image %s for %s', image, item)
                     t.create(t.PRIORITY_LOW)
                 return 0
             else:
