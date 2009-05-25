@@ -406,12 +406,18 @@ class MPlayer(MediaPlayer):
             filters.append('pp')
             args.add(autoq=100)
 
+        try:
+            cpus = kaa.utils.get_num_cpus()
+            args.add(lavdopts='fast:skiploopfilter=nonref:threads=%d' % cpus)
+        except RuntimeError:
+            pass
+
         # set monitor aspect (needed sometimes, not sure when and why)
         args.add(monitoraspect='%s:%s' % tuple(aspect))
 
         filters += self._filters_add
-        if 'overlay' in self._mp_info['video_filters']:
-            filters.append("overlay=%s" % self._osd_shmkey)
+        #if 'overlay' in self._mp_info['video_filters']:
+        #    filters.append("overlay=%s" % self._osd_shmkey)
 
         if isinstance(self._window, kaa.display.X11Window):
             if config.mplayer.embedded:
@@ -486,8 +492,8 @@ class MPlayer(MediaPlayer):
         if 'x11' in self._mp_info['video_drivers']:
             args.append('-nomouseinput')
 
-        if 'outbuf' in self._mp_info['video_filters']:
-            filters.append("outbuf=%s:yv12" % self._frame_shmkey)
+        #if 'outbuf' in self._mp_info['video_filters']:
+        #    filters.append("outbuf=%s:yv12" % self._frame_shmkey)
 
         if self._properties['deinterlace'] == True or \
                (self._properties['deinterlace'] == 'auto' and \
@@ -552,8 +558,7 @@ class MPlayer(MediaPlayer):
             args.add(cache=self._properties.get('cache'))
 
         # connect to signals
-        self._mplayer.signals["stdout"].connect_weak(self._child_handle_line)
-        self._mplayer.signals["stderr"].connect_weak(self._child_handle_line)
+        self._mplayer.signals['readline'].connect_weak(self._child_handle_line)
 
         # start playback
         self._mplayer.start(self._media).connect_weak(self._child_exited)

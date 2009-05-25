@@ -85,8 +85,9 @@ class ChildProcess(object):
     def __init__(self, command=None, gdb = False):
         # create argument list
         self._gdb = gdb
-        self.args = Arguments("-v -slave -osdlevel 0 -nolirc -nojoystick " +
-                              "-nodouble -fixed-vo -identify -framedrop")
+        # Do not add -framedrop to this list, mplayer has issues with some
+        # codecs.
+        self.args = Arguments("-v -slave -osdlevel 0 -nolirc -nojoystick -fixed-vo -identify -nodouble")
         self.filters = []
         if not command:
             return
@@ -97,7 +98,7 @@ class ChildProcess(object):
             self._child = kaa.Process(command)
         self.signals = self._child.signals
         stop = kaa.WeakCallback(self._child_stop)
-        self._child.set_stop_command(stop)
+        self._child._stop_command = stop
 
 
     def start(self, media):
@@ -113,8 +114,7 @@ class ChildProcess(object):
         if self._gdb:
             signal = self._child.start(self._command)
             self._child.write("run %s\n" % ' '.join(args))
-            self._child.signals["stdout"].connect_weak(self._child_handle_line)
-            self._child.signals["stderr"].connect_weak(self._child_handle_line)
+            self._child.signals['readline'].connect_weak(self._child_handle_line)
             return signal
         return self._child.start(args)
 
@@ -138,7 +138,7 @@ class ChildProcess(object):
 
 
     def is_alive(self):
-        return self._child and self._child.is_alive()
+        return self._child and self._child.alive
 
 
     def __getattr__(self, attr):

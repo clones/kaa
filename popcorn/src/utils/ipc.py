@@ -76,8 +76,8 @@ class ChildProcess(object):
         else:
             self._child = kaa.Process([sys.executable, '-u', script])
             self._gdb = None
-        self._child.signals["stdout"].connect_weak(self._handle_line)
-        self._child.signals["stderr"].connect_weak(self._handle_line)
+        self._child.stdout.signals['readline'].connect_weak(self._handle_line)
+        self._child.stderr.signals['readline'].connect_weak(self._handle_line)
         self._name = os.path.basename(os.path.dirname(script))
 
 
@@ -119,7 +119,7 @@ class ChildProcess(object):
             # More debugging stuff; use log.info here because debug loglevel
             # is too verbose for most cases (and logger doesn't support
             # debug levels)
-            log.info('[%d] %s' % (self._child.child.pid, line))
+            log.info('[%d] %s' % (self._child.pid, line))
 
         if self.gdb:
             if line.startswith("Program received signal"):
@@ -135,7 +135,7 @@ class ChildProcess(object):
             if f:
                 line = line[delim+1:]
                 function = f
-        function("[%s-%d] %s", self._name, self._child.child.pid, line)
+        function("[%s-%d] %s", self._name, self._child.pid, line)
 
 
     def __getattr__(self, attr):
