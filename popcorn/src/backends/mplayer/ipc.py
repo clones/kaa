@@ -96,6 +96,7 @@ class ChildProcess(object):
             self._command = command
         else:
             self._child = kaa.Process(command)
+        self._child.delimiter = ['\n', '\r']
         self.signals = self._child.signals
         stop = kaa.WeakCallback(self._child_stop)
         self._child.stop_command = stop
@@ -139,7 +140,7 @@ class ChildProcess(object):
 
 
     def is_alive(self):
-        return self._child and self._child.alive
+        return self._child and self._child.running
 
 
     def __getattr__(self, attr):

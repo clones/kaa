@@ -301,7 +301,7 @@ class MPlayer(MediaPlayer):
 
 
     def _is_alive(self):
-        return self._mplayer and self._mplayer.is_alive()
+        return self._mplayer and self._mplayer.running
 
 
 

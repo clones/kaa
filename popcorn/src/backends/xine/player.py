@@ -72,7 +72,7 @@ class Xine(MediaPlayer):
         # as default because it messes up kaa shutdown handling.
         # gdb = log.getEffectiveLevel() == logging.DEBUG
         self._xine = ChildProcess(self, script, gdb=False)
-        self._xine.set_stop_command(kaa.WeakCallback(self._xine.die))
+        self._xine.stop_command = kaa.WeakCallback(self._xine.die)
         signal = self._xine.start(str(self._osd_shmkey))
         signal.connect_weak(self._child_exited)
         self._xine_configured = False
