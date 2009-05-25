@@ -54,7 +54,7 @@ for directory in ('fail/kaa', 'large', 'normal'):
         for thumbnail in os.listdir(path):
             files.append(path + '/' + thumbnail)
 
-progress = kaa.InProgress.Progress(len(files))
+progress = kaa.InProgressStatus(len(files))
 progress.connect(update)
 scan(files, progress)
 print
