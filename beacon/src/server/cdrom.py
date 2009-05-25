@@ -145,8 +145,8 @@ class Device(object):
         if umount:
             cmd = ('umount', self.prop['block.device'])
         proc = kaa.Process(cmd)
-        proc.signals['stdout'].connect(log.warning)
-        proc.signals['stderr'].connect(log.error)
+        proc.stdout.signals['readline'].connect(log.warning)
+        proc.stderr.signals['readline'].connect(log.error)
         proc.start()
         return True
 

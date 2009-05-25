@@ -76,7 +76,7 @@ class VideoThumb(object):
 
         # Config object passed from Thumbnailer instance.
         self.config = config
-        self.mplayer = kaa.Process2(sched + ['mplayer', '-nosound', '-vo', 'png:z=2', '-benchmark', '-quiet',
+        self.mplayer = kaa.Process(sched + ['mplayer', '-nosound', '-vo', 'png:z=2', '-benchmark', '-quiet',
                                      '-frames', '10', '-osdlevel', '0', '-nocache', '-zoom', '-ss' ])
         # Dummy read handler, consuming mplayer's stdout/stderr so that flow control
         # doesn't block us.
