@@ -98,7 +98,7 @@ class ChildProcess(object):
             self._child = kaa.Process(command)
         self.signals = self._child.signals
         stop = kaa.WeakCallback(self._child_stop)
-        self._child._stop_command = stop
+        self._child.stop_command = stop
 
 
     def start(self, media):
