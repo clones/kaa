@@ -176,7 +176,7 @@ class Updater(object):
                 log.warning('Reassigning tuner id %s from channel %s (%s) to %s (%s)',
                             t, channel['name'], channel['long_name'], name, long_name)
                 channel['tuner_id'].remove(t)
-                self._db.update_object(('channel', channel['id']), tuner_id=channel['tuner_id'])
+                self._db.update(('channel', channel['id']), tuner_id=channel['tuner_id'])
                 # TODO: if channel now has no tuner ids, and after processing the update
                 # has no programs, we can remove it.
             self._tuner_ids[t] = name
@@ -189,13 +189,13 @@ class Updater(object):
             if set(channel['tuner_id']) != db_tuner_ids or channel['long_name'] != long_name:
                 # Either tuner id(s) or long name has changed, so update db.
                 log.debug('Updating channel %s %s (%s)', db_tuner_ids, name, long_name)
-                self._db.update_object(('channel', channel['id']), tuner_id=list(db_tuner_ids),
-                                       name=name, long_name=long_name)
+                self._db.update(('channel', channel['id']), tuner_id=list(db_tuner_ids),
+                                name=name, long_name=long_name)
             return channel['id']
 
         # New channel not in db, so add new object.
         log.debug('Adding channel %s %s (%s)', tuner_id, name, long_name)
-        return self._db.add_object('channel', tuner_id=tuner_id, name=name, long_name=long_name)['id']
+        return self._db.add('channel', tuner_id=tuner_id, name=name, long_name=long_name)['id']
 
 
     def sync(self):
@@ -220,8 +220,8 @@ class Updater(object):
                 if current['title'] != title:
                     log.debug('Updating existing program %s (channel db id=%d, start=%d, stop=%d)',
                               title, channel_db_id, start, stop)
-                    self._db.update_object(("program", current["id"]), start = start,
-                                           stop = stop, title = title, **attributes)
+                    self._db.update(("program", current["id"]), start = start,
+                                    stop = stop, title = title, **attributes)
                 continue
             # Check for overlapping entries
             removed = []
@@ -239,8 +239,8 @@ class Updater(object):
             # Add the new program
             log.debug('Adding program %s (channel db id=%d, start=%d, stop=%d)',
                 title, channel_db_id, start, stop)
-            self._db.add_object("program", parent = ("channel", channel_db_id),
-                start = start, stop = stop, title = title, **attributes)
+            self._db.add("program", parent = ("channel", channel_db_id),
+                         start = start, stop = stop, title = title, **attributes)
         self._db.commit()
         log.info('db commit took %0.3f secs', (time.time() - t0))
         return False

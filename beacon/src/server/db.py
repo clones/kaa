@@ -267,7 +267,7 @@ class Database(RO_Database):
             kwargs['media'] = kwargs.get('parent')._beacon_media._beacon_id[1]
             kwargs['parent'] = kwargs.get('parent')._beacon_id
 
-        result = self._db.add_object(type, **kwargs)
+        result = self._db.add(type, **kwargs)
         self.changes.append((result['type'], result['id']))
         if len(self.changes) > MAX_BUFFER_CHANGES:
             self.commit()
@@ -290,7 +290,7 @@ class Database(RO_Database):
         if 'media' in kwargs:
             del kwargs['media']
         try:
-            self._db.update_object((type, id), **kwargs)
+            self._db.update((type, id), **kwargs)
         except AssertionError, e:
             log.exception('update (%s,%s)', type, id)
             raise e
@@ -320,14 +320,14 @@ class Database(RO_Database):
             if not key == 'id' and key in old_entry:
                 metadata[key] = old_entry[key]
 
-        metadata = self._db.add_object(new_type, **metadata)
+        metadata = self._db.add(new_type, **metadata)
         new_beacon_id = (type, metadata['id'])
 
         # move all children to new parent
         for child in self._db.query(parent=(type, id)):
             log.warning('untested code: mode parent for %s' % child)
             id = (child['type'], child['id'])
-            self._db.update_object(id, parent=new_beacon_id)
+            self._db.update(id, parent=new_beacon_id)
 
         # delete old
         self.delete_object((type, id))

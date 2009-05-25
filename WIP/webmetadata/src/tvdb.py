@@ -377,7 +377,7 @@ class TVDB(kaa.Object):
         entry = self._db.query(type='metadata')[0]
         metadata = entry['metadata'] or {}
         metadata[key] = value
-        self._db.update_object(entry, metadata=metadata)
+        self._db.update(entry, metadata=metadata)
         self._db.commit()
 
     def _updatedb(self, type, tvdb, parent=None, **kwargs):
@@ -391,8 +391,8 @@ class TVDB(kaa.Object):
         if not current:
             if parent:
                 kwargs['parent'] = parent
-            return self._db.add_object(type, tvdb=tvdb, **kwargs)['id']
-        self._db.update_object(current[0], **kwargs)
+            return self._db.add(type, tvdb=tvdb, **kwargs)['id']
+        self._db.update(current[0], **kwargs)
         return current[0]['id']
 
     @kaa.coroutine()
@@ -437,7 +437,7 @@ class TVDB(kaa.Object):
         if not self._db.query(type='metadata'):
             print 'sync metadata'
             attr, data = (yield parse('http://www.thetvdb.com/api/%s/updates/' % self._apikey))
-            self._db.add_object('metadata', servertime=int(attr['time']), localtime=int(time.time()))
+            self._db.add('metadata', servertime=int(attr['time']), localtime=int(time.time()))
         print 'sync data'
         parent = (yield self._process('http://www.thetvdb.com/api/%s/series/%s/all/en.xml' % (self._apikey, id)))
         yield self._process('http://www.thetvdb.com/api/%s/series/%s/banners.xml' % (self._apikey, id), parent=parent)
@@ -517,6 +517,6 @@ class TVDB(kaa.Object):
         for series in banners:
             parent = 'series', self._db.query(type='series', tvdb=series)[0]['id']
             yield self._process('http://www.thetvdb.com/api/%s/series/%s/banners.xml' % (self._apikey, series), parent=parent)
-        self._db.update_object(metadata, servertime=int(attr['time']), localtime=int(time.time()))
+        self._db.update(metadata, servertime=int(attr['time']), localtime=int(time.time()))
         self.version += 1
         open(self._versionfile, 'w').write(str(self.version))
