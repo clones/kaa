@@ -186,11 +186,14 @@ class Xine(Wrapper):
         if not obj:
             obj = _xine.Xine()
 
-        obj.log_callback = kaa.WeakCallback(self._log_callback)
         self.signals = {
             "log": kaa.Signal()
         }
         super(Xine, self).__init__(obj)
+        # FIXME: this line was before the super call but it calls
+        # __repr__ internaly which requires _obj which is set in the
+        # super init call. No idea why but it works now.
+        obj.log_callback = kaa.WeakCallback(self._log_callback)
 
     def _get_vo_display_size(self, width, height, aspect):
         if width == 0 or height == 0:
