@@ -234,7 +234,7 @@ class Updater(object):
                     continue
                 log.debug('Removing conflicting program %s (channel db id=%d, start=%d, stop=%d)',
                           r['title'], channel_db_id, r['start'], r['stop'])
-                self._db.delete_object(("program", r['id']))
+                self._db.delete(("program", r['id']))
                 removed.append(r['id'])
             # Add the new program
             log.debug('Adding program %s (channel db id=%d, start=%d, stop=%d)',
