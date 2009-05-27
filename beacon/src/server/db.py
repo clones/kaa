@@ -299,7 +299,7 @@ class Database(RO_Database):
             self.commit()
 
 
-    def update_object_type(self, (type, id), new_type):
+    def update_object_type(self, obj, new_type):
         """
         Change the type of an object. Returns complete db data
         from the object with the new type.
@@ -307,31 +307,11 @@ class Database(RO_Database):
         if self.read_lock.is_locked():
             raise IOError('database is locked')
 
-        old_entry = self._db.query(type=type, id=id)
-        if not old_entry:
-            # already changed by something
-            return None
-        # FIXME: crashes with new ObjectRows code
-        old_entry = dict(old_entry[0])
-
-        # copy metadata to new object
-        metadata = {}
-        for key in self._db._object_types[new_type][1].keys():
-            if not key == 'id' and key in old_entry:
-                metadata[key] = old_entry[key]
-
-        metadata = self._db.add(new_type, **metadata)
-        new_beacon_id = (type, metadata['id'])
-
-        # move all children to new parent
-        for child in self._db.query(parent=(type, id)):
-            log.warning('untested code: mode parent for %s' % child)
-            id = (child['type'], child['id'])
-            self._db.update(id, parent=new_beacon_id)
-
-        # delete old
-        self.delete_object((type, id))
-        return metadata
+        try:
+            return self._db.retype(obj, new_type)
+        except ValueError:
+            # object doesn't exist, already changed by something?
+            pass
 
 
     def register_inverted_index(self, name, *args, **kwargs):
@@ -366,7 +346,7 @@ class Database(RO_Database):
         for child in self._db.query(parent = entry):
             self._delete_object_recursive((child['type'], child['id']))
         # FIXME: if the item has a thumbnail, delete it!
-        self._db.delete_object(entry)
+        self._db.delete(entry)
         self.changes.append(entry)
 
 
@@ -395,9 +375,9 @@ class Database(RO_Database):
         for child in self._db.query(media = id):
             entry = (str(child['type']), child['id'])
             # FIXME: if the item has a thumbnail, delete it!
-            self._db.delete_object(entry)
+            self._db.delete(entry)
             self.changes.append(entry)
-        self._db.delete_object(('media', id))
+        self._db.delete(('media', id))
         self.changes.append(('media', id))
         self.commit()
 
