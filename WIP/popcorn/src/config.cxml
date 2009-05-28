@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<config>
+    <desc lang="en">player configuration</desc>
+    <var name="preferred" default="xine">
+        <values>
+            <value>xine</value>
+            <value>mplayer</value>
+            <value>gstreamer</value>
+        </values>
+        <desc lang="en">
+            Preferred player backend.
+        </desc>
+    </var>
+
+    <group name="video">
+        <desc lang="en">video settings</desc>
+        <var name="driver" default="xv">
+            <values>
+                <value>xv</value>
+                <value>x11</value>
+            </values>
+            <desc>
+                Video driver; xv is the only supported video driver at this
+                moment. Please help us und extend kaa.popcorn to support other
+                video drivers as well.
+            </desc>
+        </var>
+        <var name="monitoraspect" default="4:3">
+            <desc>Aspect ratio of the monitor or tv.</desc>
+        </var>
+    </group>
+
+    <group name="audio">
+        <desc lang="en">audio settings</desc>
+        <var name="driver" default="alsa">
+            <values>
+                <value>alsa</value>
+                <value>oss</value>
+            </values>
+            <desc>audio driver (alsa or oss)</desc>
+        </var>
+        <group name="device">
+            <desc lang="en">
+                Device settings (only used by alsa). Set them to a specific alsa
+                device, e.g. hw:0,0 or default or special devices like
+                plug:front:default. If not set, player defaults will be used.
+            </desc>
+            <var name="mono" type="str"/>
+            <var name="stereo" type="str"/>
+            <var name="surround40" type="str"/>
+            <var name="surround51" type="str"/>
+            <var name="passthrough" type="str"/>
+        </group>
+        <var name="channels" default="2">
+            <values>
+                <value>2</value>
+                <value>4</value>
+                <value>6</value>
+            </values>
+            <desc>number of channels (2, 4 or 6)</desc>
+        </var>
+        <var name="passthrough" default="False">
+            <desc>AC3 and DTS passthrough</desc>
+        </var>
+        <var name="delay" default="0.0">
+            <desc>
+                Audio delay applied by default to all streams.  A positive
+                value causes the audio to after the video, while a negative
+                value causes the audio to come before.
+
+                This global setting is useful for lipsync correction on
+                panel displays that have a fixed video lag.
+            </desc>
+        </var>
+    </group>
+
+    <group name="language">
+        <desc lang="en">
+            Language settings for prefered audio or subtitle language. Set the
+            variables to a comma seperated list of language codes.
+        </desc>
+        <var name="audio" default="en"/>
+        <var name="subtitle" default="en,de,fr"/>
+    </group>
+
+    <code>
+        import backends
+        for n, c in backends.config:
+            config.add_variable(n, c)
+    </code>
+</config>
