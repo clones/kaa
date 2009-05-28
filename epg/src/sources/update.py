@@ -169,7 +169,7 @@ class Updater(object):
             tuner_id = [ name ]
 
         for t in tuner_id:
-            if self._tuner_ids.get(t) != name:
+            if t in self._tuner_ids and self._tuner_ids[t] != name:
                 # The tuner id for this new channel is mapped to another one, so
                 # remove the old one.
                 channel = self._db.query(type='channel', name=self._tuner_ids[t])[0]
