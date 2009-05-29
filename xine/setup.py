@@ -39,9 +39,9 @@ except ImportError:
 config = ConfigFile('src/config.h')
 
 files = ['src/xine.c', 'src/video_port.c', 'src/audio_port.c', 'src/stream.c',
-         'src/post.c', 'src/drivers/video_out_kaa.c',
+         'src/post.c', 'src/drivers/video_out_kaa.c', 'src/drivers/video_out_shm.c',
          'src/post_out.c', 'src/post_in.c', 'src/event.c', 'src/event_queue.c',
-         'src/utils.c', 'src/vo_driver.c', 'src/drivers/kaa.c',
+         'src/utils.c', 'src/vo_driver.c', 'src/drivers/kaa.c', 'src/drivers/shm.c',
          'src/drivers/yuv2rgb.c', 'src/drivers/yuv2rgb_mmx.c', 'src/drivers/dummy.c',
          'src/drivers/video_out_dummy.c', 'src/drivers/common.c', 'src/drivers/fb.c'
         ]
@@ -69,7 +69,7 @@ for dir in libdirs:
 
         glxtest_code = 'glXGetProcAddressARB((unsigned char *)"glXWaitVideoSyncSGI");'
         if xineso.check_cc(['<GL/glx.h>'], glxtest_code, '-lGL -Werror -L%s' % dir):
-            config.define("HAVE_OPENGL_VSYNC")
+            #config.define("HAVE_OPENGL_VSYNC")
             print "+ Runtime OpenGL vsync detection enabled"
         else:
             print "- Runtime OpenGL vsync detection disabled (no glXGetProcAddressARB in libGL)"
