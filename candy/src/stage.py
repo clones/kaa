@@ -120,7 +120,7 @@ class Stage(Group):
         """
         key = self._keysyms.get(event.keyval)
         if key is not None:
-            kaa.MainThreadCallback(self.signals['key-press'].emit)(key)
+            kaa.MainThreadCallable(self.signals['key-press'].emit)(key)
 
     def _schedule_sync(self):
         """

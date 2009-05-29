@@ -89,8 +89,8 @@ def _get_mplayer_info(path, callback = None, mtime = None):
             # We need to run MPlayer to get these values.  Create a signal,
             # call ourself as a thread, and return the signal back to the
             # caller.
-            async = kaa.ThreadCallback(_get_mplayer_info, path, None, mtime)()
-            # ThreadCallback class ensures the callbacks get invoked in the main
+            async = kaa.ThreadCallable(_get_mplayer_info, path, None, mtime)()
+            # ThreadCallable class ensures the callbacks get invoked in the main
             # thread.
             async.connect_both(callback, callback)
             return None

@@ -91,8 +91,8 @@ if DISPLAY_TYPE == 'x11':
 
     vo = x.open_video_driver(
         "xv", wid = win.get_id(),
-        frame_output_cb = kaa.WeakCallback(x._default_frame_output_cb, win), 
-        dest_size_cb = kaa.WeakCallback(x._default_dest_size_cb, win))
+        frame_output_cb = kaa.WeakCallable(x._default_frame_output_cb, win), 
+        dest_size_cb = kaa.WeakCallable(x._default_dest_size_cb, win))
 
     # Hook the first resize event so we can show the window once we're resized
     # to the proper movie size.

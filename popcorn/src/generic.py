@@ -65,7 +65,7 @@ def required_states(*states):
                 return kaa.InProgress().execute(func, self, *args, **kwargs)
             # add callback to list of pending calls
             async = kaa.InProgress()
-            callback = kaa.Callback(func, self, *args, **kwargs)
+            callback = kaa.Callable(func, self, *args, **kwargs)
             self._pending.append((states, async, callback))
             return async
         try:
@@ -136,13 +136,12 @@ class Player(object):
             "pause": kaa.Signal(),
             "pause_toggle": kaa.Signal(),
 
-            # "seek": kaa.Signal(),
-            # Process died (shared memory will go away)
-            # "shm_quit": kaa.Signal()
-
-            # pass thru signals from player
+            # Stream position has changed
             "elapsed": kaa.Signal(),
+            # Emits when information about the stream (width, height, aspect, etc.)
+            # has changed.
             "stream_changed": kaa.Signal(),
+
             # Emitted when a new frame is availabnle.  See
             # set_frame_output_mode() doc for more info.
             "frame": kaa.Signal(), # CAP_CANVAS

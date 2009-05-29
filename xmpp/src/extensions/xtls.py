@@ -171,7 +171,7 @@ class XTLS(xmpp.RemotePlugin):
 
     @kaa.coroutine()
     def starttls(self, session):
-        kwargs = {'checker': kaa.Callback(self.tls_checker, session) }
+        kwargs = {'checker': kaa.Callable(self.tls_checker, session) }
         if session.initiator == self.client.jid:
             if session.xtls_method == 'x509':
                 kwargs['key'] = self.credentials.x509_keyinfo

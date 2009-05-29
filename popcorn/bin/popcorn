@@ -31,13 +31,13 @@ import kaa.display
 import kaa.popcorn
 import kaa.input.stdin
 
+#logging.getLogger('popcorn').setLevel(logging.DEBUG)
+
 mrllist = sys.argv[1:]
 player = kaa.popcorn.Player()
 window = kaa.display.X11Window(size = (800,600), title = "kaa.popcorn")
 
-cfgfile = os.path.expanduser('~/.popcorn.conf')
-kaa.popcorn.config.load(cfgfile)
-kaa.popcorn.config.save(cfgfile)
+kaa.popcorn.config.load('~/.popcorn.conf', sync=True)
 
 def play_next():
     """

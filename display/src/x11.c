@@ -144,11 +144,13 @@ PyMethodDef display_methods[] = {
     { NULL }
 };
 
-void init_X11(void)
+DL_EXPORT (void)
+init_X11(void)
 {
     PyObject *m, *display_c_api;
     static void *display_api_ptrs[3];
 
+    PyEval_InitThreads();
     m = Py_InitModule("_X11", display_methods);
 
     if (PyType_Ready(&X11Display_PyObject_Type) < 0)

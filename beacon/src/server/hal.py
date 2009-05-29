@@ -206,7 +206,7 @@ def _device_all(device_names):
     """
     for name in device_names:
         obj = _bus.get_object(HAL, str(name))
-        obj.GetAllProperties(dbus_interface=HAL_DEVICE, reply_handler=kaa.Callback(_device_add, name), error_handler=log.error)
+        obj.GetAllProperties(dbus_interface=HAL_DEVICE, reply_handler=kaa.Callable(_device_add, name), error_handler=log.error)
 
 def _device_new(udi):
     """
@@ -214,7 +214,7 @@ def _device_new(udi):
     Called by dbus in GOBJECT thread.
     """
     obj = _bus.get_object(HAL, udi)
-    obj.GetAllProperties(dbus_interface=HAL_DEVICE, reply_handler=kaa.Callback(_device_add, udi), error_handler=log.error)
+    obj.GetAllProperties(dbus_interface=HAL_DEVICE, reply_handler=kaa.Callable(_device_add, udi), error_handler=log.error)
 
 def _device_remove(udi):
     """

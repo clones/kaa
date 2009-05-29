@@ -193,7 +193,7 @@ class Xine(Wrapper):
         # FIXME: this line was before the super call but it calls
         # __repr__ internaly which requires _obj which is set in the
         # super init call. No idea why but it works now.
-        obj.log_callback = kaa.WeakCallback(self._log_callback)
+        obj.log_callback = kaa.WeakCallable(self._log_callback)
 
     def _get_vo_display_size(self, width, height, aspect):
         if width == 0 or height == 0:
@@ -242,9 +242,9 @@ class Xine(Wrapper):
                 window = kwargs["window"]
                 assert(isinstance(window, display.X11Window))
                 if "frame_output_cb" not in kwargs:
-                    kwargs["frame_output_cb"] = kaa.WeakCallback(self._default_frame_output_cb, window)
+                    kwargs["frame_output_cb"] = kaa.WeakCallable(self._default_frame_output_cb, window)
                 if "dest_size_cb" not in kwargs:
-                    kwargs["dest_size_cb"] = kaa.WeakCallback(self._default_dest_size_cb, window)
+                    kwargs["dest_size_cb"] = kaa.WeakCallable(self._default_dest_size_cb, window)
                 window._aspect = -1
                 kwargs["window"] = window._window
 
@@ -579,7 +579,7 @@ class Stream(Wrapper):
 
     def new_event_queue(self):
         o = _wrap_xine_object(self._obj.new_event_queue())
-        o._obj.event_callback = kaa.WeakCallback(self._new_event_callback)
+        o._obj.event_callback = kaa.WeakCallable(self._new_event_callback)
         return o
 
     def send_event(self, type, **kwargs):

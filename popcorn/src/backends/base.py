@@ -101,7 +101,7 @@ class MediaPlayer(object):
             if callable(func) and hasattr(func, '_runtime_policy'):
                 func = getattr(self, name)
                 name = name[10:].replace('_', '-')
-                self._property_callbacks[name] = kaa.WeakCallback(func)
+                self._property_callbacks[name] = kaa.WeakCallable(func)
 
 
     def __repr__(self):

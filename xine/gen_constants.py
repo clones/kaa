@@ -11,7 +11,7 @@ out = file("constants.py", "w")
 defines = []
 last = None
 max_width = 0
-for line in open("/usr/include/xine.h").readlines():
+for line in open("/opt/xine/current/include/xine.h").readlines():
     line = line.strip()
     if "VERSION" in line:
         continue

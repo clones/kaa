@@ -31,7 +31,7 @@ import sys
 import os
 
 # kaa imports
-from kaa import WeakCallback
+from kaa import WeakCallable
 
 # kaa.popcorn imports
 from kaa.popcorn.backends.base import MediaPlayer, runtime_policy, \
@@ -64,7 +64,7 @@ class GStreamer(MediaPlayer):
         if not self._gst:
             script = os.path.join(os.path.dirname(__file__), 'main.py')
             self._gst = ChildProcess(self, script)
-            self._gst.set_stop_command(WeakCallback(self._gst.die))
+            self._gst.set_stop_command(WeakCallable(self._gst.die))
             self._gst.start().connect_weak(self._child_exited)
         self.position = 0.0
         self.state = STATE_OPENING

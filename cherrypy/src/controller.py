@@ -161,7 +161,7 @@ def expose(template=None, engine=None, mainloop=False, content_type='text/html',
                 response = cherrypy.serving.response
 
             if mainloop and not kaa.is_mainthread():
-                result = kaa.MainThreadCallback(func)(self, ctx, *args, **kwargs).wait()
+                result = kaa.MainThreadCallable(func)(self, ctx, *args, **kwargs).wait()
             else:
                 result = func(self, ctx, *args, **kwargs)
 

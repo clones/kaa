@@ -250,4 +250,4 @@ class BeaconFS(fuse.Fuse):
 
         self.check()
         fuse.Fuse.main(self)
-        kaa.MainThreadCallback(kaa.main.stop)()
+        kaa.MainThreadCallable(kaa.main.stop)()

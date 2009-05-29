@@ -67,6 +67,7 @@ class XinePlayerChild(Player):
         self._stream = self._vo = self._ao = None
         self._osd_shmkey = int(osd_shmkey)
         self._osd_shmem = None
+        self._driver_control = None
 
         self._window_size = 0, 0
         self._window_aspect = -1
@@ -84,6 +85,21 @@ class XinePlayerChild(Player):
         self._xine.set_config_value("effects.goom.height", 384)
         self._xine.set_config_value("effects.goom.csc_method", "Slow but looks better")
         # self._xine.set_config_value("video.device.xv_autopaint_colorkey", True)
+
+        # Config options for multi-threaded decoding with ffmpeg; the first
+        # is needed in order for thread_count to take effect.
+        try:
+            self._xine.set_config_value('video.processing.ffmpeg_choose_speed_over_accuracy', True)
+            try:
+                cpus = kaa.utils.get_num_cpus()
+                self._xine.set_config_value('video.processing.ffmpeg_thread_count', cpus)
+            except RuntimeError:
+                # Couldn't determine number of cpus, so we didn't set the config value.
+                pass
+        except xine.XineError:
+            # One of the config names doesn't exist, probably an older version of
+            # xine-lib.  Not a big deal.
+            pass
 
 
     # #########################################################################
@@ -175,8 +191,11 @@ class XinePlayerChild(Player):
                 # use cache when nothing has changed
                 return self._vo_settings_calculated
 
-        self._vo_settings = True, (width, height, aspect)
+        # If we're here, frame size or aspect changed, so inform parent of
+        # new frame info.
+        self.parent.frame_reconfigure(width, height, float(width) / height * aspect)
 
+        self._vo_settings = True, (width, height, aspect)
         vid_w, vid_h, vid_a = width, height, aspect
 
         if self._stream_settings['zoom'] < 100 and 0:
@@ -206,7 +225,7 @@ class XinePlayerChild(Player):
         if self._stream_settings['scale'] == SCALE_IGNORE:
             # ignore aspect. The whole window is used and the video
             # is scaled to fill it. The aspect is ignore to do that.
-            aspect = (float(vid_w) * win_h) / (float(win_w) * vid_h)
+            aspect = (float(vid_w) * win_h) / (float(win_w) * vid_h) * vid_a
         else:
             # get aspect from pre-calculated value
             aspect = self._stream_settings['pixel-aspect']
@@ -217,10 +236,6 @@ class XinePlayerChild(Player):
                 # force 16:9
                 aspect *= (float(vid_w) * 9) / (float(16) * vid_h)
             # FIXME: add SCALE_ZOOM
-
-        # keep given video aspect in calculation (in most cases 1.0)
-        # Why multiply by vid_a?  This isn't right.
-        # aspect *= vid_a
 
         self._vo_settings_calculated = (0, 0), (0, 0), (win_w, win_h), aspect
         return self._vo_settings_calculated
@@ -317,6 +332,7 @@ class XinePlayerChild(Player):
         # if colorkey is not None:
         #     self._xine.set_config_value("video.device.xv_colorkey", colorkey)
 
+        """
         frame_notify_pipe = os.pipe()
         kaa.IOMonitor(self._frame_notify_cb, frame_notify_pipe[0]).register(frame_notify_pipe[0])
 
@@ -324,11 +340,16 @@ class XinePlayerChild(Player):
         self._vo = self._xine.open_video_driver(
             "kaa", control_return = control_return,
             notify_fd = frame_notify_pipe[1],
-            osd_configure_cb = kaa.WeakCallback(self._osd_configure),
-            frame_output_cb = kaa.WeakCallback(self._xine_frame_output_cb),
-            dest_size_cb = kaa.WeakCallback(self._xine_dest_size_cb),
+            osd_configure_cb = kaa.WeakCallable(self._osd_configure),
+            frame_output_cb = kaa.WeakCallable(self._xine_frame_output_cb),
+            dest_size_cb = kaa.WeakCallable(self._xine_dest_size_cb),
             **vo_kwargs)
         self._driver_control = control_return[0]
+        """
+        self._vo = self._xine.open_video_driver(vo_kwargs['passthrough'],
+            frame_output_cb = kaa.WeakCallable(self._xine_frame_output_cb),
+            dest_size_cb = kaa.WeakCallable(self._xine_dest_size_cb),
+            **vo_kwargs)
 
         # Set new vo on filter chain and configure filters.
         self._vfilter.set_vo(self._vo)
@@ -421,6 +442,8 @@ class XinePlayerChild(Player):
         Open mrl to play.
         """
         try:
+            # XXX: this sometimes deadlocks, there's not much we can do
+            # about it, it happens inside xine. :(
             self._stream.open(mrl)
             if not self._stream.get_info(xine.STREAM_INFO_HAS_VIDEO)\
                    and self._vo_visible:
@@ -447,6 +470,7 @@ class XinePlayerChild(Player):
             self.parent.set_streaminfo(False, None)
             log.error('unable to play stream')
             return False
+
         self.parent.set_streaminfo(True, self._get_streaminfo())
         self._status.start(0.03)
         self._vo_settings = None

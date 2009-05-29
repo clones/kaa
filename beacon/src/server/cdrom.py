@@ -65,7 +65,7 @@ except:
 
 # kaa imports
 import kaa
-from kaa import Timer, MainThreadCallback
+from kaa import Timer, MainThreadCallable
 from kaa.ioctl import ioctl
 import kaa.metadata
 
@@ -237,11 +237,11 @@ class RomDrive(object):
             if self.disc and os.path.ismount(self.mountpoint) and not \
                    self.disc.prop.get('volume.mount_point'):
                 # disc is mounted
-                MainThreadCallback(self.disc._set_mountpoint)(self.mountpoint)
+                MainThreadCallable(self.disc._set_mountpoint)(self.mountpoint)
             if self.disc and not os.path.ismount(self.mountpoint) and \
                    self.disc.prop.get('volume.mount_point'):
                 # disc is mounted
-                MainThreadCallback(self.disc._set_mountpoint)()
+                MainThreadCallable(self.disc._set_mountpoint)()
             return
         # remember status
         self.status = s
@@ -263,7 +263,7 @@ class RomDrive(object):
         if type in (2,4):
             prop['volume.disc.has_data'] = True
         self.disc = Device(prop)
-        MainThreadCallback(signals['add'].emit)(self.disc)
+        MainThreadCallable(signals['add'].emit)(self.disc)
 
 
 def start():

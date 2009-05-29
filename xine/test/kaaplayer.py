@@ -195,8 +195,8 @@ x = xine.Xine()
 #vo = x.open_video_driver("sdl", window = win)
 #vo = x.open_video_driver("xv", window = win)
 win._aspect = -1
-vo = x.open_video_driver("xv", wid = win.get_id(), frame_output_cb = kaa.WeakCallback(x._default_frame_output_cb, win), 
-    dest_size_cb = kaa.WeakCallback(x._default_dest_size_cb, win))
+vo = x.open_video_driver("xv", wid = win.get_id(), frame_output_cb = kaa.WeakCallable(x._default_frame_output_cb, win), 
+    dest_size_cb = kaa.WeakCallable(x._default_dest_size_cb, win))
 
 ao = x.open_audio_driver()
 stream = x.new_stream(ao, vo)

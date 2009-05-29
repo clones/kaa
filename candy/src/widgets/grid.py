@@ -631,10 +631,10 @@ class SelectionGrid2(Grid):
             self._selections.pop(0).unparent()
         if secs:
             if self._selections and self._selections[-1].opacity:
-                callback = kaa.Callback(self._apply_behaviour, self._selections[-1]._grid_item, self._selections[-1].opacity, 0)
+                callback = kaa.Callable(self._apply_behaviour, self._selections[-1]._grid_item, self._selections[-1].opacity, 0)
                 self._selections[-1].animate(secs, callback=callback).behave('opacity', self._selections[-1].opacity, 0)
             selection.opacity = 0
-            callback = kaa.Callback(self._apply_behaviour, selection._grid_item, 0, 255)
+            callback = kaa.Callable(self._apply_behaviour, selection._grid_item, 0, 255)
             selection.animate(secs, callback=callback).behave('opacity', 0, 255)
         else:
             for old_selection in self._selections:

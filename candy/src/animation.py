@@ -142,7 +142,7 @@ class Animation(object):
         if self.__inprogress is None:
             return
         Animation.__animations.remove(self)
-        kaa.MainThreadCallback(self.__inprogress.finish)(None)
+        kaa.MainThreadCallable(self.__inprogress.finish)(None)
         self.__inprogress = None
         self.callback = None
 

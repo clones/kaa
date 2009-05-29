@@ -98,7 +98,7 @@ class ChildProcess(object):
             self._child = kaa.Process(command)
         self._child.delimiter = ['\n', '\r']
         self.signals = self._child.signals
-        stop = kaa.WeakCallback(self._child_stop)
+        stop = kaa.WeakCallable(self._child_stop)
         self._child.stop_command = stop
 
 

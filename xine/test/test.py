@@ -199,7 +199,7 @@ def buffer_vo_callback(command, data, window):
             print "fps %d\n" % c
             c=0
             lf=time.time()
-        kaa.MainThreadCallback(update_evas, data, window)()
+        kaa.MainThreadCallable(update_evas, data, window)()
 """
 def update_evas((width, height, aspect, buffer, unlock_cb), window):
     if window.movie.size_get() != (width, height) or aspect != window.movie.aspect:
@@ -256,7 +256,7 @@ if 0:
     win2.movie.layer_set(10)
     win2.movie.show()
 
-    #cb = kaa.Callback(buffer_vo_callback, win2)
+    #cb = kaa.Callable(buffer_vo_callback, win2)
     vo = x.open_video_driver("buffer", passthrough = x.load_video_output_plugin("xv", window=win))
     #vo = x.open_video_driver("xv", window = win)
 else:

@@ -63,7 +63,7 @@ media_types = {
 
 #: parse in a named thread
 # TODO: make this abortable
-parse_thread = kaa.NamedThreadCallback('beacon:metadata', kaa.metadata.parse)
+parse_thread = kaa.ThreadPoolCallable('beacon:metadata', kaa.metadata.parse)
 
 def register(ext, function):
     """

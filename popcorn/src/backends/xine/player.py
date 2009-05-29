@@ -72,7 +72,7 @@ class Xine(MediaPlayer):
         # as default because it messes up kaa shutdown handling.
         # gdb = log.getEffectiveLevel() == logging.DEBUG
         self._xine = ChildProcess(self, script, gdb=False)
-        self._xine.stop_command = kaa.WeakCallback(self._xine.die)
+        self._xine.stop_command = kaa.WeakCallable(self._xine.die)
         signal = self._xine.start(str(self._osd_shmkey))
         signal.connect_weak(self._child_exited)
         self._xine_configured = False
@@ -172,6 +172,14 @@ class Xine(MediaPlayer):
         if changed:
             self.signals["stream_changed"].emit()
 
+    def _child_frame_reconfigure(self, width, height, aspect):
+        si = self.streaminfo.copy()
+        si.update({
+            'width': width,
+            'height': height,
+            'aspect': aspect
+        })
+        self._child_set_streaminfo(True, si)
 
     def _child_xine_event(self, event, data):
         if event == xine.EVENT_UI_NUM_BUTTONS:

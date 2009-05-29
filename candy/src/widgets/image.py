@@ -55,7 +55,7 @@ class Imlib2Texture(Widget):
     __keep_aspect = False
     async = False
 
-    _imageloader = kaa.NamedThreadCallback('candy.image', kaa.imlib2.Image)
+    _imageloader = kaa.ThreadPoolCallable('candy.image', kaa.imlib2.Image)
 
     def __init__(self, pos=None, size=None, context=None):
         """
