@@ -36,7 +36,7 @@
 
 extern plugin_info_t xine_vo_shm_plugin_info[];
 
-#define NUM_BUFFERS 3
+#define NUM_BUFFERS 7
 
 typedef struct shm_frame_s {
     vo_frame_t vo_frame;
@@ -74,14 +74,14 @@ typedef struct shm_visual_s {
 } shm_visual_t;
 
 typedef struct {
-    uint8_t lock;
+    int8_t lock;
     uint16_t width, height, stride;
     uint32_t format;
     double aspect;
-} buffer_header_t;
+    int64_t pts;
+} frame_buffer_header_t;
 
 typedef struct {
     uint32_t shm_id, offset;
-    uint8_t padding[8];
-} notify_packet_t;
-
+    uint8_t _padding[24];
+} frame_notifiy_packet_t;

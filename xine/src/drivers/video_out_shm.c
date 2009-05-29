@@ -37,14 +37,20 @@
 #include "video_out_shm.h"
 
 
+static long long get_usecs(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)((tv.tv_sec * 1000000.0) + tv.tv_usec);
+}
+
 static int
 check_shmem(shm_driver_t *this, shm_frame_t *frame)
 {
     int i, bufsize;
-    bufsize = 32 + frame->vo_frame.pitches[0] * frame->height * (frame->format == XINE_IMGFMT_YUY2 ? 1 : 2);
+    bufsize = 64 + frame->vo_frame.pitches[0] * frame->height * (frame->format == XINE_IMGFMT_YUY2 ? 1 : 2);
     if (this->bufsize >= bufsize)
         return 0;
-
 
     if (this->shm_id) {
         struct shmid_ds shmemds;
@@ -67,19 +73,22 @@ check_shmem(shm_driver_t *this, shm_frame_t *frame)
     return 0;
 }
 
-static inline void
-wait_for_buffer(uint8_t *lock, float max_wait)
+static inline int8_t
+wait_for_buffer(frame_buffer_header_t *header, float max_wait)
 {
     struct timeval curtime;
     double start, now;
 
-    gettimeofday(&curtime, NULL);
-    start = now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
-    while (*lock && now - start < max_wait) {
+    if (header->lock > 0) {
         gettimeofday(&curtime, NULL);
-        now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
-        usleep(1);
+        start = now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
+        while (header->lock > 0 && now - start < max_wait) {
+            gettimeofday(&curtime, NULL);
+            now = curtime.tv_sec + (curtime.tv_usec/(1000.0*1000));
+            usleep(100);
+        }
     }
+    return header->lock;
 }
 
 static uint32_t 
@@ -199,37 +208,45 @@ shm_display_frame (vo_driver_t *this_gen, vo_frame_t *frame_gen)
 {
     shm_driver_t *this = (shm_driver_t *)this_gen;
     shm_frame_t *frame = (shm_frame_t *)frame_gen;
-    uint8_t *lock;
-    notify_packet_t notify;
-    buffer_header_t header = {
-        .lock = 1,
-        .width = frame->width,
-        .height = frame->height,
-        .stride = frame->vo_frame.pitches[0],
-        .format = frame->format,
-        .aspect = frame->ratio 
-    };
+    frame_buffer_header_t *header;
+    frame_notifiy_packet_t notify;
+    int wait;
 
     if (check_shmem(this, frame) == -1)
         return;
-    lock = this->buffers[this->cur_buffer_idx];
-    if (*lock)
-        wait_for_buffer(lock, 0.1);
+
+    header = (frame_buffer_header_t *)this->buffers[this->cur_buffer_idx];
+    wait = wait_for_buffer(header, 0.1) < 0;
 
     if (frame->format == XINE_IMGFMT_YV12) {
-        xine_fast_memcpy(32 + lock, frame->vo_frame.base[0],
+        xine_fast_memcpy((uint8_t *)header + 64, frame->vo_frame.base[0],
                          (frame->vo_frame.pitches[0] * frame->height) +
                          (frame->vo_frame.pitches[1] * frame->height/2) * 2);
     } 
     else if (frame->format == XINE_IMGFMT_YUY2) {
-        xine_fast_memcpy(32 + lock, frame->vo_frame.base[0], frame->vo_frame.pitches[0] * frame->height);
-    } 
-    xine_fast_memcpy(lock, &header, sizeof(header));
+        xine_fast_memcpy((uint8_t *)header + 64, frame->vo_frame.base[0], 
+                         frame->vo_frame.pitches[0] * frame->height);
+    }
+ 
+    header->lock = 1;
+    header->width = frame->width;
+    header->height = frame->height;
+    header->stride = frame->vo_frame.pitches[0];
+    header->format = frame->format;
+    header->aspect = frame->ratio;
+    header->pts = (int64_t)frame->vo_frame.vpts;
 
     notify.shm_id = this->shm_id;
-    notify.offset = lock - this->buffers[0];
+    notify.offset = (uint8_t *)header - this->buffers[0];
     write(this->fd_notify, &notify, sizeof(notify));
     fsync(this->fd_notify);
+
+    if (wait) {
+        long long t0=get_usecs();
+        wait_for_buffer(header, 0.5);
+        printf("MUST WAIT! %d   -----------\n", get_usecs()-t0);
+    }
+
     this->cur_buffer_idx++;
     if (this->cur_buffer_idx == NUM_BUFFERS)
         this->cur_buffer_idx = 0;
