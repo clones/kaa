@@ -33,7 +33,6 @@
 import re
 import os
 import sys
-import popen2
 
 try:
     # kaa base imports
