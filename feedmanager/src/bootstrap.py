@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# beacon/feedmanager.py - Beacon server plugin
+# bootstrap.py - Plugin hooks to bootstrap into beeacon
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -40,8 +40,40 @@ import kaa.net.url
 import kaa.feedmanager
 import kaa.rpc
 
-# plugin config object
-config = kaa.feedmanager.config
+class Plugin:
+    """
+    This is class is used as a namespace and is exposed to beacon.
+    """
+    # plugin config object
+    config = kaa.feedmanager.config
+
+    @staticmethod
+    def init(server, db):
+        """
+        Init the plugin.
+        """
+        # configure logger
+        log = logging.getLogger('feedmanager')
+        log.setLevel(logging.DEBUG)
+
+        logfile = os.path.join(db.get_directory(), 'feedmanager/log')
+        if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
+            os.makedirs(os.path.dirname(logfile))
+        # create rotating log file with 1MB for each file with a backup of 3
+        handler = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=3)
+        f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
+                              '%(filename)s %(lineno)s: %(message)s')
+        handler.setFormatter(f)
+        log.addHandler(handler)
+
+        # use ~/.beacon/feedmanager as base dir
+        database = os.path.join(db.get_directory(), 'feedmanager')
+        kaa.feedmanager.set_database(database)
+        server.ipc.register(IPC())
+        # add password information
+        for auth in kaa.feedmanager.config.authentication:
+            kaa.net.url.add_password(None, auth.site, auth.username, auth.password)
+
 
 
 class IPC(object):
@@ -80,30 +112,3 @@ class IPC(object):
         if isinstance(feed, dict):
             feed = feed.get('id')
         return kaa.feedmanager.update_feed(feed)
-
-
-def plugin_init(server, db):
-    """
-    Init the plugin.
-    """
-    # configure logger
-    log = logging.getLogger('feedmanager')
-    log.setLevel(logging.DEBUG)
-
-    logfile = os.path.join(db.get_directory(), 'feedmanager/log')
-    if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
-        os.makedirs(os.path.dirname(logfile))
-    # create rotating log file with 1MB for each file with a backup of 3
-    handler = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=3)
-    f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
-                          '%(filename)s %(lineno)s: %(message)s')
-    handler.setFormatter(f)
-    log.addHandler(handler)
-
-    # use ~/.beacon/feedmanager as base dir
-    database = os.path.join(db.get_directory(), 'feedmanager')
-    kaa.feedmanager.set_database(database)
-    server.ipc.register(IPC())
-    # add password information
-    for auth in kaa.feedmanager.config.authentication:
-        kaa.net.url.add_password(None, auth.site, auth.username, auth.password)
