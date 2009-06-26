@@ -66,7 +66,7 @@ files.extend(['src/backend/gen_libcandy.c', 'src/backend/libcandymodule.c'])
 libcandy = Extension('kaa/candy/backend/libcandy', files)
 
 # check dependencies
-if not libcandy.check_library('clutter-0.9', '0.8.2'):
+if not libcandy.check_library('clutter-0.8', '0.8.2'):
     print 'clutter-0.8 >= 0.8.2 not found'
     sys.exit(1)
 if not libcandy.check_library('pygtk-2.0', '2.10.0'):
@@ -111,9 +111,10 @@ for m in libcandy_modules:
 
 # now trigger the python magic
 setup(
-    module       = 'candy',
-    version      = '0.0.9',
-    license      = 'LGPL',
-    summary      = 'Third generation Canvas System using Clutter as backend.',
-    ext_modules  = [ libcandy ]
+    module = 'candy',
+    version = '0.0.9',
+    license = 'LGPL',
+    summary = 'Third generation Canvas System using Clutter as backend.',
+    ext_modules  = [ libcandy ],
+    namespace_packages = ['kaa']
 )
