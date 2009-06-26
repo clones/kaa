@@ -114,13 +114,15 @@ def connect():
 
 def launch(autoshutdown=False, verbose='none'):
     """
-    Lauch a beacon server and connect to it. Returns InProgress.
+    Lauch a beacon server and connect to it.  beacon-daemon should be in
+    $PATH.
 
     :param autoshutdown: shutdown server when no client is connected anymore
     :param verbose: verbose level for the server log
+    :returns: an InProgress object
     """
-    beacon = os.path.dirname(__file__), '../../../../../bin/beacon-daemon'
-    beacon = os.path.realpath(os.path.join(*beacon))
+    beacon = os.path.dirname(__file__).split('/python')[0], '../bin/beacon-daemon'
+    beacon = os.path.normpath(os.path.join(*beacon))
     if not os.path.isfile(beacon):
         # we hope it is in the PATH somewhere
         beacon = 'beacon-daemon'

@@ -39,22 +39,46 @@
 import os
 import kaa.config
 
-plugindir = os.path.dirname(__file__)
+def get_plugins():
+    """
+    Returns a dict of Plugin classes for all available plugins.
+    """
+    plugins = {}
+    try:
+        import pkg_resources
+    except ImportError:
+        # No setuptools.
+        pass
+    else:
+        # Fetch a list of all entry points (defined as entry_points kwarg passed to
+        # setup() for plugin modules) and load them, which returns the Plugin class
+        # they were registered with.
+        for entrypoint in pkg_resources.iter_entry_points('kaa.beacon.server.plugins'):
+            plugins[entrypoint.name] = entrypoint.load()
+
+    # Inspect plugins/ from kaa.beacon on-disk source tree (if there is one).
+    plugindir = os.path.dirname(__file__)
+    if os.path.isdir(plugindir):
+        for plugin in os.listdir(plugindir):
+            if not plugin.endswith('.py') or plugin == '__init__.py':
+                continue
+            plugin_name = plugin[:-3]
+            exec('import %s as plugin' % plugin_name)
+            plugins[plugin_name] = plugin.Plugin
+
+    return plugins
+
 
 def get_config():
     """
     Return the plugin config object.
     """
     config = None
-    for plugin in os.listdir(plugindir):
-        if not plugin.endswith('.py') or plugin == '__init__.py':
-            continue
-        plugin_name = plugin[:-3]
-        exec('import %s as plugin' % plugin_name)
+    for name, plugin in get_plugins().items():
         if hasattr(plugin, 'config'):
             if config == None:
                 config = kaa.config.Group([])
-            config.add_variable(plugin_name, plugin.config)
+            config.add_variable(name, plugin.config)
     return config
 
 
@@ -63,9 +87,5 @@ def load(server, db):
     Load external plugins. Called by server on creating. The db object
     is from kaa.beacon, not kaa.db.
     """
-    for plugin in os.listdir(plugindir):
-        if not plugin.endswith('.py') or plugin == '__init__.py':
-            continue
-        plugin_name = plugin[:-3]
-        exec('import %s as plugin' % plugin_name)
-        plugin.plugin_init(server, db)
+    for plugin in get_plugins().values():
+        plugin.init(server, db)

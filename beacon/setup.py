@@ -46,6 +46,15 @@ except ImportError, e:
     print 'kaa.base not installed'
     sys.exit(1)
 
+
+# Check for dependencies on other kaa modules.
+try:
+    import kaa.imlib2
+    import kaa.metadata
+except ImportError, e:
+    print 'kaa.%s is not installed and is required.' % e.message.split(' ')[-1]
+    sys.exit(1)
+
 thumb_ext = Extension("kaa.beacon.libthumb",
     ["src/extensions/libthumb.c", "src/extensions/libpng.c" ], config='src/extensions/config.h')
 
@@ -78,15 +87,19 @@ except ImportError:
 ext_modules = [ thumb_ext ]
 
 
-setup (module      = 'beacon',
-       version     = '0.1.0',
-       license     = 'LGPL',
-       summary     = "Media-oriented virtual filesystem",
-       scripts     = [ 'bin/kaa-thumb', 'bin/beacon-daemon', 'bin/beacon-search',
-                       'bin/beacon-mount' ],
-       rpminfo     = {
-           'requires':       'python-kaa-base >= 0.1.2, imlib2 >= 1.2.1',
-           'build_requires': 'python-kaa-base >= 0.1.2, imlib2-devel >= 1.2.1, python-devel >= 2.4.0'
-       },
-       ext_modules = ext_modules
-      )
+setup(
+    module = 'beacon',
+    version = '0.1.0',
+    license = 'LGPL',
+    summary = "Media-oriented virtual filesystem",
+    scripts = ['bin/kaa-thumb', 'bin/beacon-daemon', 'bin/beacon-search', 'bin/beacon-mount'],
+    rpminfo = {
+        'requires': 'python-kaa-base >= 0.1.2, imlib2 >= 1.2.1',
+        'build_requires': 'python-kaa-base >= 0.1.2, imlib2-devel >= 1.2.1, python-devel >= 2.4.0'
+    },
+    ext_modules = ext_modules,
+    # Source references __file__ in a couple places, but it's nothing that should
+    # prevent zipping into a .egg, so indicate it's zippable.
+    zip_safe = True,
+    namespace_packages = ['kaa']
+)
