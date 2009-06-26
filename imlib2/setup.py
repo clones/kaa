@@ -59,13 +59,15 @@ else:
     print "POSIX shared memory disabled"
 
 
-setup(module      = 'imlib2',
-      version     = '0.2.4',
-      license     = 'LGPL',
-      summary     = 'Python bindings for Imlib2',
-      rpminfo     = {
-          'requires':       'python-kaa-base >= 0.1.2, imlib2 >= 1.2.1',
-          'build_requires': 'python-kaa-base >= 0.1.2, imlib2-devel >= 1.2.1'
-      },
-      ext_modules = [ imlib2so ]
+setup(
+    module = 'imlib2',
+    version = '0.2.4',
+    license = 'LGPL',
+    summary = 'Python bindings for Imlib2',
+    rpminfo = {
+        'requires': 'python-kaa-base >= 0.1.2, imlib2 >= 1.2.1',
+        'build_requires': 'python-kaa-base >= 0.1.2, imlib2-devel >= 1.2.1'
+    },
+    ext_modules = [imlib2so],
+    namespace_packages = ['kaa']
 )

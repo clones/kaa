@@ -45,8 +45,10 @@ except ImportError, e:
     print 'kaa.base not installed'
     sys.exit(1)
 
-setup (module      = 'xmpp',
-       version     = '0.1.0',
-       license     = 'LGPL',
-       summary     = 'XMPP',
-      )
+setup(
+    module = 'xmpp',
+    version = '0.1.0',
+    license = 'LGPL',
+    summary = 'XMPP',
+    namespace_packages = ['kaa']
+)

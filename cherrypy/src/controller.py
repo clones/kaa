@@ -48,6 +48,7 @@ engines = []
 default_engine = None
 
 # load template engines
+# TODO: support being installed as an egg
 for f in os.listdir(os.path.dirname(__file__)):
     if not f.startswith('templ_') or not f.endswith('.py'):
         # this is no template engine

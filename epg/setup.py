@@ -37,12 +37,14 @@ except ImportError:
     sys.exit(1)
 
 
-setup(module       = 'epg',
-      version      = '0.1.0',
-      license      = 'LGPL',
-      summary      = 'Electronic Program Guide',
-      rpminfo      = {
-          'requires':       'python-kaa-base >= 0.1.2',
-          'build_requires': 'python-kaa-base >= 0.1.2'
-      }
-      )
+setup(
+    module = 'epg',
+    version = '0.1.0',
+    license = 'LGPL',
+    summary = 'Electronic Program Guide',
+    rpminfo = {
+        'requires': 'python-kaa-base >= 0.1.2',
+        'build_requires': 'python-kaa-base >= 0.1.2'
+    },
+    namespace_packages = ['kaa']
+)

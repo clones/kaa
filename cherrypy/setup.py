@@ -38,12 +38,14 @@ except ImportError:
     sys.exit(1)
 
 # call setup
-setup(module      = 'cherrypy',
-      version     = '0.1.0',
-      license     = 'GPL',
-      summary     = 'Web framework based on cherrypy',
-      rpminfo     = {
-            'requires':       'python-kaa-base >= 0.1.2',
-            'build_requires': 'python-kaa-base >= 0.1.2'
-      }
+setup(
+    module = 'cherrypy',
+    version = '0.1.0',
+    license = 'GPL',
+    summary = 'Web framework based on cherrypy',
+    rpminfo = {
+        'requires': 'python-kaa-base >= 0.1.2',
+        'build_requires': 'python-kaa-base >= 0.1.2'
+    },
+    namespace_packages = ['kaa']
 )

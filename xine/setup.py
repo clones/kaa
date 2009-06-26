@@ -99,19 +99,21 @@ elif arch == "i386":
 requires_common =       'python-kaa-base >= 0.1.2, python-kaa-display >= 0.1.0, xine-lib >= 1.1.0'
 build_requires_common = 'python-kaa-base >= 0.1.2, xine-lib-devel >= 1.1.0, python-devel >= 2.4.0'
 
-setup(module      = 'xine',
-      version     = '0.9.0',
-      license     = 'GPL',
-      summary     = 'Python bindings for xine-lib',
-      rpminfo     = {
-          'requires':       'libX11 >= 1.0.0, mesa-libGL >= 6.5.0, ' + requires_common,
-          'build_requires': 'libX11-devel >= 1.0.0, mesa-libGL-devel >= 6.5.0, ' + build_requires_common,
-          'fc4': {
-              'requires':       'xorg-x11 >= 6.8.0, ' + requires_common,
-              'build_requires': 'xorg-x11-devel >= 6.8.0, ' + build_requires_common
-          }
-      },
-      ext_modules = [ xineso ]
+setup(
+    module = 'xine',
+    version = '0.9.0',
+    license = 'GPL',
+    summary = 'Python bindings for xine-lib',
+    rpminfo = {
+        'requires': 'libX11 >= 1.0.0, mesa-libGL >= 6.5.0, ' + requires_common,
+        'build_requires': 'libX11-devel >= 1.0.0, mesa-libGL-devel >= 6.5.0, ' + build_requires_common,
+        'fc4': {
+            'requires': 'xorg-x11 >= 6.8.0, ' + requires_common,
+            'build_requires': 'xorg-x11-devel >= 6.8.0, ' + build_requires_common
+        }
+    },
+    ext_modules = [xineso],
+    namespace_packages = ['kaa']
 )
 
 config.unlink()

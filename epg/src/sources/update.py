@@ -48,6 +48,7 @@ log = logging.getLogger('epg.update')
 
 sources = {}
 
+# TODO: Support for egg.
 for c in kaa.utils.get_plugins(os.path.dirname(__file__)):
     if not c.startswith('config_'):
         continue
