@@ -1,6 +1,5 @@
 import os
 import kaa.utils
 
-# load all extensions
-for plugin in kaa.utils.get_plugins(os.path.dirname(__file__)):
-    exec('import %s' % plugin)
+# import all extensions
+kaa.utils.get_plugins(group='kaa.xmpp.plugins', location=__file__)

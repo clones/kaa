@@ -50,5 +50,7 @@ setup(
     version = '0.1.0',
     license = 'LGPL',
     summary = 'XMPP',
+    # Source references __file__ for plugin loading, which works with zipped eggs.
+    zip_safe = True,
     namespace_packages = ['kaa']
 )
