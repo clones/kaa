@@ -40,6 +40,7 @@ import urlparse
 
 # kaa imports
 import kaa
+from config_schedulesdirect import config as sourcecfg
 from config import config
 
 # get logging object

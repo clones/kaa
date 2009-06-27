@@ -42,6 +42,7 @@ import xml.sax.saxutils
 import kaa
 
 # config file
+from config_epgdata import config as sourcecfg
 from config import config
 
 # get logging object

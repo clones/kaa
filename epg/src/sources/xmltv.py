@@ -42,6 +42,7 @@ import xml.sax.saxutils
 import kaa
 
 # config file
+from config_xmltv import config as sourcecfg
 from config import config
 
 # get logging object

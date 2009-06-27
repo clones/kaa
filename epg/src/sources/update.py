@@ -48,18 +48,14 @@ log = logging.getLogger('epg.update')
 
 sources = {}
 
-# TODO: Support for egg.
-for c in kaa.utils.get_plugins(os.path.dirname(__file__)):
-    if not c.startswith('config_'):
-        continue
-    name = c[7:]
-    try:
-        exec('import %s as module' % name)
-        exec('import %s as cfg' % c)
-    except ImportError:
-        continue
-    sources[name] = module
-    config.add_variable(name, cfg.config)
+# Plugins are modules that define:
+#    1. a config Group object called 'sourcecfg' (optional)
+#    2. An async function update() that takes 1 argument (epg)
+filter = lambda x: x != 'update' and not x.startswith('config')
+for name, plugin in kaa.utils.get_plugins('kaa.epg.sources', __file__, filter=filter).items():
+    if hasattr(plugin, 'sourcecfg'):
+        config.add_variable(name, plugin.sourcecfg)
+    sources[name] = plugin
 
 class Updater(object):
     """
