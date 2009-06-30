@@ -35,9 +35,9 @@ submodules = [ 'base', 'imlib2', 'display', 'mevas', 'epg',
                'metadata', 'xine', 'cherrypy', 'beacon', 'popcorn',
                'feedmanager' ]
 
-# We require python 2.4 or later, so complain if that isn't satisfied.
-if sys.version.split()[0] < '2.4':
-    print "Python 2.4 or later required."
+# We require python 2.5 or later, so complain if that isn't satisfied.
+if sys.hexversion < 0x02050000:
+    print "Python 2.5 or later required."
     sys.exit(1)
 
 for a in sys.argv:
