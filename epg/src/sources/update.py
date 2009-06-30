@@ -53,6 +53,9 @@ sources = {}
 #    2. An async function update() that takes 1 argument (epg)
 filter = lambda x: x != 'update' and not x.startswith('config')
 for name, plugin in kaa.utils.get_plugins('kaa.epg.sources', __file__, filter=filter).items():
+    if isinstance(plugin, Exception):
+        log.error('Failed to load plugin %s: %s', name, plugin)
+        continue
     if hasattr(plugin, 'sourcecfg'):
         config.add_variable(name, plugin.sourcecfg)
     sources[name] = plugin

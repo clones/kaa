@@ -37,9 +37,13 @@
 # -----------------------------------------------------------------------------
 
 import os
+import logging
 
 import kaa.config
 import kaa.utils
+
+# get logging object
+log = logging.getLogger('beacon.server')
 
 def get_config():
     """
@@ -61,5 +65,8 @@ def load(server, db):
     is from kaa.beacon, not kaa.db.
     """
     plugins = kaa.utils.get_plugins('kaa.beacon.server.plugins', __file__, attr='Plugin')
-    for plugin in plugins.values():
-        plugin.init(server, db)
+    for name, plugin in plugins.items():
+        if isinstance(plugin, Exception):
+            log.error('Failed to import plugin %s: %s', name, plugin)
+        else:
+            plugin.init(server, db)
