@@ -47,14 +47,6 @@ except ImportError, e:
     sys.exit(1)
 
 
-# Check for dependencies on other kaa modules.
-try:
-    import kaa.imlib2
-    import kaa.metadata
-except ImportError, e:
-    print 'kaa.%s is not installed and is required.' % e.args[0].split(' ')[-1]
-    sys.exit(1)
-
 thumb_ext = Extension("kaa.beacon.libthumb",
     ["src/extensions/libthumb.c", "src/extensions/libpng.c" ], config='src/extensions/config.h')
 
