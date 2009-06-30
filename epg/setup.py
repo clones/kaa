@@ -46,7 +46,5 @@ setup(
         'requires': 'python-kaa-base >= 0.1.2',
         'build_requires': 'python-kaa-base >= 0.1.2'
     },
-    # Source references __file__ for plugin loading, which works with zipped eggs.
-    zip_safe = True,
     namespace_packages = ['kaa']
 )
