@@ -52,7 +52,7 @@ try:
     import kaa.imlib2
     import kaa.metadata
 except ImportError, e:
-    print 'kaa.%s is not installed and is required.' % e.message.split(' ')[-1]
+    print 'kaa.%s is not installed and is required.' % e.args[0].split(' ')[-1]
     sys.exit(1)
 
 thumb_ext = Extension("kaa.beacon.libthumb",
