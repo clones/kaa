@@ -134,18 +134,19 @@ for o, a in opts:
 if mode == 'stop':
     # stop a running beacon
 
-    def shutdown(client):
-        client.rpc('shutdown')
+    @kaa.coroutine()
+    def main():
+        try:
+            yield kaa.beacon.connect()
+        except kaa.beacon.ConnectError:
+            print 'beacon-daemon does not appear to be runing.'
+            sys.exit(1)
+        kaa.beacon.rpc('shutdown')
         kaa.main.step()
         print 'Shutdown command issued to beacon-daemon.'
         sys.exit(0)
 
-    try:
-        client = kaa.beacon.Client()
-        client.signals['connect'].connect(shutdown, client)
-    except kaa.beacon.ConnectError:
-        print 'beacon-daemon does not appear to be runing.'
-        sys.exit(1)
+    main()
     kaa.main.run()
     sys.exit(0)
 
@@ -269,17 +270,17 @@ try:
 
 except Exception, e:
     log.exception('beacon startup')
-    try:
-        os.kill(pid, 15)
-    except (OSError, IOError):
-        pass
     if detach:
         # release waiting main process with error
         daemonize_lock.release(1)
 
 log.info('stop beacon')
 
-#wait for dead child
+# kill and wait for thumbnail child
+try:
+    os.kill(pid, 15)
+except (OSError, IOError):
+    pass
 try:
     os.waitpid(pid, 0)
 except OSError:

@@ -229,3 +229,10 @@ def get_db_info():
     :returns: basic database information
     """
     return _client._db.get_db_info()
+
+@require_connect()
+def rpc(command, *args, **kwargs):
+    """
+    Send a RPC command to the server
+    """
+    return _client.rpc(command, *args, **kwargs)
