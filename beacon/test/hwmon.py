@@ -1,7 +1,7 @@
 import kaa
 
 try:
-    from kaa.beacon.hwmon import hal
+    from kaa.beacon.server.hwmon import hal
     signals = hal.signals
     print 'Start HAL monitor'
     hal.start()
