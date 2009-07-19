@@ -138,26 +138,35 @@ def tvdb_changed():
                 entry = tvdb.from_filename(item.filename)
                 sync(entry, item)
 
-def plugin_init(server, db):
+
+class Plugin:
     """
-    Init the plugin.
+    This is class is used as a namespace and is exposed to beacon.
     """
-    kaa.beacon.register_file_type_attrs('video',
-        tvdb_alias = (unicode, kaa.beacon.ATTR_SEARCHABLE),
-        tvdb_sure = (bool, kaa.beacon.ATTR_SIMPLE),
-        tvdb_series = (unicode, kaa.beacon.ATTR_SEARCHABLE),
-        tvdb_season = (int, kaa.beacon.ATTR_SEARCHABLE),
-        tvdb_episode = (int, kaa.beacon.ATTR_SEARCHABLE),
-        tvdb_title = (unicode, kaa.beacon.ATTR_SIMPLE))
-    global tvdb
-    global beacondb
-    beacondb = db
-    beacon_register(None, parser)
-    tvdb = kaa.webmetadata.tvdb.TVDB(db.directory + '/tvdb')
-    tvdb.signals['changed'].connect(tvdb_changed)
-    if tvdb.get_metadata('beacon_init') != PLUGIN_VERSION:
-        # kaa.beacon does not know about this db, we need to create
-        # the metadata for tvdb.
-        tvdb_populate()
-    elif tvdb.get_metadata('beacon_version') != tvdb.version:
-        tvdb_changed()
+    # plugin config object
+    config = kaa.feedmanager.config
+
+    @staticmethod
+    def init(server, db):
+        """
+        Init the plugin.
+        """
+        kaa.beacon.register_file_type_attrs('video',
+            tvdb_alias = (unicode, kaa.beacon.ATTR_SEARCHABLE),
+            tvdb_sure = (bool, kaa.beacon.ATTR_SIMPLE),
+            tvdb_series = (unicode, kaa.beacon.ATTR_SEARCHABLE),
+            tvdb_season = (int, kaa.beacon.ATTR_SEARCHABLE),
+            tvdb_episode = (int, kaa.beacon.ATTR_SEARCHABLE),
+            tvdb_title = (unicode, kaa.beacon.ATTR_SIMPLE))
+        global tvdb
+        global beacondb
+        beacondb = db
+        beacon_register(None, parser)
+        tvdb = kaa.webmetadata.tvdb.TVDB(db.directory + '/tvdb')
+        tvdb.signals['changed'].connect(tvdb_changed)
+        if tvdb.get_metadata('beacon_init') != PLUGIN_VERSION:
+            # kaa.beacon does not know about this db, we need to create
+            # the metadata for tvdb.
+            tvdb_populate()
+        elif tvdb.get_metadata('beacon_version') != tvdb.version:
+            tvdb_changed()
