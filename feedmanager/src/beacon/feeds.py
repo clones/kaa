@@ -1,6 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------------
-# bootstrap.py - Plugin hooks to bootstrap into beeacon
+# feeds.py - Thin wrapper to be installed in beacon on-disk plugins/ tree when
+#            eggs are not used.
 # -----------------------------------------------------------------------------
 # $Id$
 #
@@ -29,86 +30,5 @@
 #
 # -----------------------------------------------------------------------------
 
-# python imports
-import os
-import logging
-from logging.handlers import RotatingFileHandler
-
-# kaa imports
-import kaa
-import kaa.net.url
-import kaa.feedmanager
-import kaa.rpc
-
-class Plugin:
-    """
-    This is class is used as a namespace and is exposed to beacon.
-    """
-    # plugin config object
-    config = kaa.feedmanager.config
-
-    @staticmethod
-    def init(server, db):
-        """
-        Init the plugin.
-        """
-        # configure logger
-        log = logging.getLogger('feedmanager')
-        log.setLevel(logging.DEBUG)
-
-        logfile = os.path.join(db.get_directory(), 'feedmanager/log')
-        if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
-            os.makedirs(os.path.dirname(logfile))
-        # create rotating log file with 1MB for each file with a backup of 3
-        handler = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=3)
-        f = logging.Formatter('%(asctime)s %(levelname)-8s [%(name)6s] '+\
-                              '%(filename)s %(lineno)s: %(message)s')
-        handler.setFormatter(f)
-        log.addHandler(handler)
-
-        # use ~/.beacon/feedmanager as base dir
-        database = os.path.join(db.get_directory(), 'feedmanager')
-        kaa.feedmanager.set_database(database)
-        server.ipc.register(IPC())
-        # add password information
-        for auth in kaa.feedmanager.config.authentication:
-            kaa.net.url.add_password(None, auth.site, auth.username, auth.password)
-
-
-
-class IPC(object):
-    """
-    Class to connect the feedmanager to the beacon server ipc.
-    """
-
-    @kaa.rpc.expose('feeds.list')
-    def list(self):
-        """
-        List feeds.
-        """
-        return kaa.feedmanager.list_feeds()
-
-    @kaa.rpc.expose('feeds.add')
-    def add(self, url, destdir, download=True, num=0, keep=True):
-        """
-        Add a feed.
-        """
-        return kaa.feedmanager.add_feed(url, destdir, download, num, keep)
-
-    @kaa.rpc.expose('feeds.remove')
-    def remove(self, feed):
-        """
-        Remove the given feed.
-        """
-        if isinstance(feed, dict):
-            feed = feed.get('id')
-        return kaa.feedmanager.remove_feed(feed)
-
-    @kaa.rpc.expose('feeds.update')
-    def update(self, feed):
-        """
-        Update the given feed.
-        """
-        if isinstance(feed, dict):
-            feed = feed.get('id')
-        return kaa.feedmanager.update_feed(feed)
+# Expose Plugin class.
+from kaa.feedmanager.bootstrap import Plugin
