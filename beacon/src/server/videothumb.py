@@ -206,11 +206,16 @@ class VideoThumb(object):
             # scale thumbnail
             for size, width, height in (('large', 256, 256), ('normal', 128, 128)):
                 image = kaa.imlib2.open_without_cache(current_capture)
-                # FIXME: Thumb::Mimetype ends up being wrong.
-                libthumb.png(job.filename, job.imagefile % size, (width, height), image._image)
-
+                try:
+                    # FIXME: Thumb::Mimetype ends up being wrong.
+                    libthumb.png(job.filename, job.imagefile % size, (width, height), image._image)
+                except (IOError, ValueError):
+                    self.create_failed(job)
+                    break
+            # remove old stuff
+            os.rename(current_capture, os.path.basename(job.filename) + '.png')
             # remove old files.
-            [ os.remove(fname) for fname in captures ]
+            [ os.remove(fname) for fname in captures if os.path.isfile(fname) ]
         except Exception, e:
             log.exception('Thumbnailing of MPlayer screenshots failed')
             yield False
