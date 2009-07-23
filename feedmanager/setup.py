@@ -49,6 +49,8 @@ setup(
     summary = 'RSS/Atom Feedmanager plugin for beacon.',
     # used when setuptools is not available
     plugins = {'kaa.beacon.server.plugins': 'src/beacon'},
+    # used when setuptools is available and plugin is installed as an egg
+    entry_points = {'kaa.beacon.server.plugins': 'feeds = kaa.feedmanager.bootstrap:Plugin'},
     scripts = ['bin/beacon-feedmanager'],
     rpminfo = {
         'requires': 'python-kaa-beacon >= 0.1.0',
