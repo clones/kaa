@@ -208,7 +208,7 @@ class ProgramParser(BaseParser):
         self.add_program(db_id, start, stop, title, **attr)
 
 
-@kaa.threaded('epg')
+@kaa.threaded('kaa.epg::update')
 def update(epg):
     """
     Interface to source_epgdata.

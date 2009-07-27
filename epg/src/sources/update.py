@@ -48,6 +48,9 @@ log = logging.getLogger('epg.update')
 
 sources = {}
 
+# Register thread pool for backends.
+kaa.register_thread_pool('kaa.epg::update', kaa.ThreadPool())
+
 # Plugins are modules that define:
 #    1. a config Group object called 'sourcecfg' (optional)
 #    2. An async function update() that takes 1 argument (epg)
@@ -108,26 +111,29 @@ class Updater(object):
             log.info('Updating backend %s', backend)
             # Backend's update() MUST return an InProgress object
             try:
-                # The yield may crash on Python 2.5 using throw
-                # An error message will not be visible for 2.4
                 yield sources[backend].update(self, *args, **kwargs)
-            except (KeyboardInterrupt, SystemExit):
-                sys.exit(0)
             except Exception, e:
                 log.exception('Backend %s failed' % backend)
             self.sync()
 
         if not backends:
             log.warning('No valid backends specified for update.')
-            return
-        log.info('update complete')
+        else:
+            log.info('Update complete.')
 
+        # Update db metadata with current statistics
+        row = self._db._db_query_row('SELECT count(*) FROM objects_program')
+        num_programs = row[0] if row else 0
+        self._db.set_metadata('kaa.epg::num_programs', num_programs)
+
+        row = self._db._db_query_row('''SELECT stop-start AS length 
+                                          FROM objects_program 
+                                      ORDER BY length 
+                                          DESC LIMIT 1''')
+        self._db.set_metadata('kaa.epg::max_program_length', row[0] if row else 0)
         self._db.commit()
+        log.info('Database committed with %d programs.', num_programs)
 
-        # Load some statistics
-        res = self._db._db_query("SELECT count(*) FROM objects_program")
-        num_programs = res[0][0] if len(res) else 0
-        log.info('Database commit; %d programs in db' % num_programs)
 
     # -------------------------------------------------------------------------
     # functions called by source_* modules
@@ -244,6 +250,7 @@ class Updater(object):
         self._db.commit()
         log.info('db commit took %0.3f secs', (time.time() - t0))
         return False
+
 
     def add_program(self, channel_db_id, start, stop, title, **attributes):
         """

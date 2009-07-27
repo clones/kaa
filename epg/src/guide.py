@@ -92,20 +92,16 @@ class Guide(object):
         )
         self._sync()
 
+
     def _sync(self):
         """
-        Sync database. The guide may changed. Load some basic settings from the db.
+        Sync cached guide data from database.
         """
-        # Load some basic information from the db.
-        self._max_program_length = self._num_programs = 0
-        q = 'SELECT stop-start AS length FROM objects_program ' + \
-            'ORDER BY length DESC LIMIT 1'
-        res = self._db._db_query(q)
-        if len(res):
-            self._max_program_length = res[0][0]
-        res = self._db._db_query("SELECT count(*) FROM objects_program")
-        if len(res):
-            self._num_programs = res[0][0]
+        # Load some basic information from the db, stored as metadata during last update.
+        self._max_program_length = int(self._db.get_metadata('kaa.epg::max_program_length', 0))
+        self._num_programs = int(self._db.get_metadata('kaa.epg::num_programs', 0))
+
+        # Build channel mappings (keyed by name, db id, and tuner id)
         self._channels_by_name = {}
         self._channels_by_db_id = {}
         self._channels_by_tuner_id = {}
@@ -272,12 +268,15 @@ class Guide(object):
             return channels
         return self._channels_by_name.values()
 
+
+    @kaa.coroutine()
     def update(self, backend = None, *args, **kwargs):
         """
         Update the database
         """
         import sources
-        return sources.update(self._db, backend, *args, **kwargs)
+        yield sources.update(self._db, backend, *args, **kwargs)
+        kaa.MainThreadCallable(self._sync)()
 
 
     def get_keywords(self, associated=None, prefix=None):

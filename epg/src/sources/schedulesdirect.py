@@ -325,7 +325,7 @@ class Handler(xml.sax.handler.ContentHandler):
             self._program_info[pid]['genres'] = sorted(genres.keys(), key=lambda x: genres[x])
 
 
-@kaa.threaded('epg')
+@kaa.threaded('kaa.epg::update')
 def update(epg, start = None, stop = None):
     from gzip import GzipFile
 

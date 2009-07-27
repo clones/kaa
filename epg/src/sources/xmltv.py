@@ -263,7 +263,7 @@ class XmltvParser(object):
             self.channels[channel_id][1] = (start, title, attr)
 
 
-@kaa.threaded('epg')
+@kaa.threaded('kaa.epg::update')
 def update(epg, xmltv_file=None):
     """
     Interface to source_xmltv.
