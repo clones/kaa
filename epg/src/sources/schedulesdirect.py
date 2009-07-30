@@ -26,6 +26,7 @@
 # 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
+from __future__ import absolute_import
 
 # python imports
 import os
@@ -40,8 +41,9 @@ import urlparse
 
 # kaa imports
 import kaa
-from config_schedulesdirect import config as sourcecfg
-from config import config
+from .config_schedulesdirect import config as sourcecfg
+from .config import config
+from .. import Program
 
 # get logging object
 log = logging.getLogger('epg.schedulesdirect')
@@ -174,18 +176,26 @@ class Handler(xml.sax.handler.ContentHandler):
             # Schedule elements map programs to times, but they are defined
             # before programs in the xml, so we have to keep this map in
             # memory.
+
+            # Mandatory attributes
             try:
                 program = attrs.getValue('program')
                 station = attrs.getValue('station')
                 pgtime = attrs.getValue('time')
                 duration = attrs.getValue('duration')
-                if 'tvRating' in attrs.getNames():
-                    rating = attrs.getValue('tvRating')
-                else:
-                    rating = None
-
             except KeyError, e:
                 log.warning('Malformed schedule element; no %s attribute.' % e)
+
+            # Optional attributes
+            keys = attrs.getNames()
+            rating = attrs.getValue('tvRating') if 'tvRating' in keys else None
+            flags = 0
+            for bit, attr in ((Program.FLAG_HDTV, 'hdtv'), (Program.FLAG_CC, 'closeCaptioned'),
+                              (Program.FLAG_NEW, 'new')):
+                # According to the schema definition, these attributes are not
+                # present unless they are true.
+                if attr in keys:
+                    flags |= bit
 
             if station not in self._stations_by_id:
                 log.warning('Schedule defined for unknown station %s' % station)
@@ -205,7 +215,8 @@ class Handler(xml.sax.handler.ContentHandler):
                 'duration': duration_secs,
                 'start': start,
                 'stop': stop,
-                'rating': rating
+                'rating': rating,
+                'flags': flags
             })
 
         elif name == 'program':
@@ -311,7 +322,7 @@ class Handler(xml.sax.handler.ContentHandler):
                                       date = program.get('date'), episode = program.get('episode'),
                                       genres = program.get('genres'), score = program.get('score'),
                                       subtitle = program.get('subtitle'), year = program.get('year'),
-                                      rating = rating)
+                                      rating = rating, flags = schedule['flags'])
 
         elif name == 'genre':
             self._obj['genres'][self._obj['_class']] = self._obj['_relevance']

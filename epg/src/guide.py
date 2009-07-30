@@ -88,7 +88,9 @@ class Guide(object):
             # List of unicode strings indicating any program advisors (violence, etc)
             advisories = (list, ATTR_SIMPLE),
             # A critical rating for the show/film.  Should be out of 4.0.
-            score = (float, ATTR_SEARCHABLE)
+            score = (float, ATTR_SEARCHABLE),
+            # Bitmask for the kaa.epg.Program.FLAG_* constants
+            flags = (int, ATTR_SEARCHABLE)
         )
         self._sync()
 

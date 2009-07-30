@@ -39,6 +39,14 @@ class Program(object):
     """
     kaa.epg.Program class.
     """
+    # Constants for the flags bitmask
+    #: If the program is broadcast in HD
+    FLAG_HDTV = 1
+    #: If the program is a premiere (e.g. new episode of a show).
+    FLAG_NEW = 2
+    #: If closed captioning is available for the program.
+    FLAG_CC = 4
+
     def __init__(self, channel, dbdata):
         self.channel = channel
         self._dbdata = dbdata
@@ -50,6 +58,7 @@ class Program(object):
         defer any ObjectRow unpickling.
         """
         if hasattr(self, '_dbdata') and attr != '_dbdata':
+            self.db_id = self._dbdata.get('type'), self._dbdata.get('id')
             # Unix timestamps are always seconds since epoch UTC.
             self.start_timestamp = self._dbdata.get('start', 0)
             self.stop_timestamp = self._dbdata.get('stop', 0)
@@ -65,6 +74,7 @@ class Program(object):
             self.advisories = self._dbdata.get('advisories', [])
             self.rating = self._dbdata.get('rating')
             self.score = self._dbdata.get('score')
+            self.flags = self._dbdata.get('flags')
             del self._dbdata
         return self.__getattribute__(attr)
 
