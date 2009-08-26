@@ -32,7 +32,6 @@ import types
 import math
 import os
 import glob
-import md5
 
 from version import VERSION
 
