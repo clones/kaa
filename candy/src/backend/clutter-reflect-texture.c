@@ -63,7 +63,7 @@ enum
 
 G_DEFINE_TYPE (ClutterReflectTexture,
 	       clutter_reflect_texture,
-	       CLUTTER_TYPE_CLONE_TEXTURE);
+	       CLUTTER_TYPE_CLONE);
 
 #define CLUTTER_REFLECT_TEXTURE_GET_PRIVATE(obj) \
 (G_TYPE_INSTANCE_GET_PRIVATE ((obj), CLUTTER_TYPE_REFLECT_TEXTURE, ClutterReflectTexturePrivate))
@@ -79,24 +79,25 @@ clutter_reflect_texture_paint (ClutterActor *actor)
 {
   ClutterReflectTexturePrivate *priv;
   ClutterReflectTexture *texture;
-  ClutterCloneTexture   *clone;
+  ClutterClone          *clone;
   ClutterTexture        *parent;
   guint                  width, height;
+  gfloat                 fwidth, fheight;
   gint                   r_height;
   gint                   opacity;
   gint                   bottom;
 
   CoglHandle        cogl_texture;
   CoglTextureVertex tvert[4];
-  ClutterFixed      rty;
+  CoglFixed      rty;
 
   texture = CLUTTER_REFLECT_TEXTURE (actor);
-  clone = CLUTTER_CLONE_TEXTURE (actor);
+  clone = CLUTTER_CLONE (actor);
 
-  parent = clutter_clone_texture_get_parent_texture (clone);
-  if (!parent)
+  parent = (ClutterTexture*) clutter_clone_get_source (clone);
+  if (!parent) 
     return;
-
+  
   if (!CLUTTER_ACTOR_IS_REALIZED (parent))
     clutter_actor_realize (CLUTTER_ACTOR (parent));
 
@@ -106,7 +107,10 @@ clutter_reflect_texture_paint (ClutterActor *actor)
 
   priv = texture->priv;
 
-  clutter_actor_get_size (CLUTTER_ACTOR(parent), &width, &height);
+  clutter_actor_get_size (CLUTTER_ACTOR(parent), &fwidth, &fheight);
+  width = fwidth;
+  height = fheight;
+      
   if (!height)
       // probably won't happen, but just in case, to avoid divide by zero.
       return;
@@ -118,24 +122,24 @@ clutter_reflect_texture_paint (ClutterActor *actor)
   if (r_height < 0 || r_height > height)
     r_height = height;
 
-#define FX(x) CLUTTER_INT_TO_FIXED(x)
+#define FX(x) COGL_FIXED_FROM_INT(x)
 
-  rty = CFX_DIV(FX(bottom ? height-r_height : r_height),FX(height));
+  rty = COGL_FIXED_FAST_DIV(FX(bottom ? height-r_height : r_height),FX(height));
 
   /* clockise vertices and tex coords and colors! */
 
   tvert[0].x = tvert[0].y = tvert[0].z = 0;
-  tvert[0].tx = 0; tvert[0].ty = bottom ? CFX_ONE : rty;
+  tvert[0].tx = 0; tvert[0].ty = bottom ? COGL_FIXED_1 : rty;
   tvert[0].color.red = tvert[0].color.green = tvert[0].color.blue = 0xff;
   tvert[0].color.alpha = bottom ? opacity : 0;
 
   tvert[1].x = FX(width); tvert[1].y = tvert[1].z = 0;
-  tvert[1].tx = CFX_ONE; tvert[1].ty = bottom ? CFX_ONE : rty;
+  tvert[1].tx = COGL_FIXED_1; tvert[1].ty = bottom ? COGL_FIXED_1 : rty;
   tvert[1].color.red = tvert[1].color.green = tvert[1].color.blue = 0xff;
   tvert[1].color.alpha = bottom ? opacity : 0;
 
   tvert[2].x = FX(width); tvert[2].y = FX(r_height); tvert[2].z = 0;
-  tvert[2].tx = CFX_ONE; tvert[2].ty = bottom ? rty : 0;
+  tvert[2].tx = COGL_FIXED_1; tvert[2].ty = bottom ? rty : 0;
   tvert[2].color.red = tvert[2].color.green = tvert[2].color.blue = 0xff;
   tvert[2].color.alpha = bottom ? 0 : opacity;
 
@@ -146,8 +150,10 @@ clutter_reflect_texture_paint (ClutterActor *actor)
 
   cogl_push_matrix ();
 
-  cogl_texture_polygon (cogl_texture, 4, tvert, TRUE);
-
+  cogl_set_source_texture(cogl_texture);
+  /* FIXME: this does not work as expected */
+  /* cogl_polygon(tvert, 4, TRUE); */
+  
   cogl_pop_matrix ();
 }
 
@@ -256,7 +262,7 @@ clutter_reflect_texture_new (ClutterTexture *texture, gint reflection_height)
   g_return_val_if_fail (texture == NULL || CLUTTER_IS_TEXTURE (texture), NULL);
 
   return g_object_new (CLUTTER_TYPE_REFLECT_TEXTURE,
- 		       "parent-texture", texture,
+ 		       "source", texture,
 		       "reflection-height", reflection_height,
 		       "reflect-bottom", TRUE,
 		       NULL);

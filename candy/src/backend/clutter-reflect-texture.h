@@ -66,7 +66,7 @@ typedef struct _ClutterReflectTextureClass   ClutterReflectTextureClass;
 
 struct _ClutterReflectTexture
 {
-  ClutterCloneTexture              parent;
+  ClutterClone              parent;
 
   /*< priv >*/
   ClutterReflectTexturePrivate    *priv;
@@ -74,7 +74,7 @@ struct _ClutterReflectTexture
 
 struct _ClutterReflectTextureClass
 {
-  ClutterCloneTextureClass parent_class;
+  ClutterCloneClass parent_class;
 
   /* padding for future expansion */
   void (*_clutter_reflect_1) (void);

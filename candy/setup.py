@@ -66,34 +66,34 @@ files.extend(['src/backend/gen_libcandy.c', 'src/backend/libcandymodule.c'])
 libcandy = Extension('kaa/candy/backend/libcandy', files)
 
 # check dependencies
-if not libcandy.check_library('clutter-0.8', '0.8.2'):
-    print 'clutter-0.8 >= 0.8.2 not found'
+if not libcandy.check_library('clutter-1.0', '1.0.4'):
+    print 'clutter-1.0 >= 1.0.4 not found'
     sys.exit(1)
-if not libcandy.check_library('pygtk-2.0', '2.10.0'):
-    print 'pygtk >= 2.10.0 not found'
-    sys.exit(1)
-
-# check for pygtk-codegen to generate python bindings
-# should be part of pygtk
-pygtk_codegen = kaa.utils.which('pygtk-codegen-2.0')
-if not pygtk_codegen:
-    print 'pygtk-codegen-2.0 not found, should be part of pygtk'
+if not libcandy.check_library('pygobject-2.0', '2.16.0'):
+    print 'pygobject >= 2.16.0 not found'
     sys.exit(1)
 
-# check for pyclutter defs for pygtk-codegen
-for version in '0.8',:
+# check for pygobject-codegen to generate python bindings
+# should be part of pygobject
+pygobject_codegen = kaa.utils.which('pygobject-codegen-2.0')
+if not pygobject_codegen:
+    print 'pygobject-codegen-2.0 not found, should be part of pygobject'
+    sys.exit(1)
+
+# check for pyclutter defs for pygobject-codegen
+for version in ('0.9', '1.0'):
     clutter_defs = os.popen('pkg-config pyclutter-%s --variable=defsdir' % version).read().strip()
     if clutter_defs:
         break
 else:
-    print 'pyclutter-0.8 not found'
+    print 'pyclutter-0.9 not found'
     sys.exit(1)
 # ok, add defs file to the path
 clutter_defs += '/clutter-base-types.defs'
 
 # now check if we need to build the wrapper code file
 # Note: the defs file was created by
-# python /usr/share/pygtk/2.0/codegen/h2def.py clutter-reflect-texture.h
+# python /usr/lib/python2.6/site-packages/gtk-2.0/codegen/h2def.py clutter-reflect-texture.h
 # This it may be needed in the future to edit this file manually it is
 # in svn and not generated on the fly
 gen_stat = 0
@@ -106,7 +106,7 @@ for m in libcandy_modules:
             '%s -I src/backend/libcandy --py_ssize_t-clean --prefix libcandy ' \
             '--register %s --override src/backend/libcandy.override ' \
             'src/backend/libcandy.defs > src/backend/gen_libcandy.c' \
-            % (pygtk_codegen,clutter_defs))
+            % (pygobject_codegen,clutter_defs))
         break
 
 # now trigger the python magic

@@ -54,13 +54,6 @@ def import_modules():
     for key in dir(clutter):
         if key[0].isalpha():
             globals()[key] = getattr(clutter, key)
-    try:
-        import cairotexture
-    except ImportError:
-        log.exception('unable to import clutter.cairo')
-        sys.exit(0)
-    global CairoTexture
-    CairoTexture = cairotexture.CairoTexture
     global ReflectTexture
     try:
         import libcandy

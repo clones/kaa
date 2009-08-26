@@ -33,7 +33,7 @@ __all__ = [ 'Imlib2Texture', 'CairoTexture', 'Image', 'Thumbnail' ]
 
 # python imports
 import os
-import md5
+import hashlib
 import logging
 
 # kaa imports
@@ -47,12 +47,16 @@ from widget import Widget
 # get logging object
 log = logging.getLogger('kaa.candy')
 
+# create thread pool for image loading
+kaa.register_thread_pool('candy.image', kaa.ThreadPool())
+
 class Imlib2Texture(Widget):
     """
     Clutter Texture widget.
     """
 
     __keep_aspect = False
+    __failed_image = False
     async = False
 
     _imageloader = kaa.ThreadPoolCallable('candy.image', kaa.imlib2.Image)
@@ -110,6 +114,9 @@ class Imlib2Texture(Widget):
             self._obj = backend.Texture()
             self._obj.show()
             self._clutter_set_obj_size()
+            if not self._imagedata:
+                self.__failed_image = True
+                self._obj.hide()
         if 'size' in self._sync_properties or self.__keep_aspect:
             width, height = self.inner_width, self.inner_height
             if self.__keep_aspect and self._imagedata:
@@ -119,10 +126,17 @@ class Imlib2Texture(Widget):
                 else:
                     width = int(height * aspect)
             self._clutter_set_obj_size(width, height)
-        if 'imagedata' in self._sync_properties and self._imagedata:
-            width, height = self._imagedata.size
-            self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
-                 width, height, width*4, 4, backend.TEXTURE_RGB_FLAG_BGR)
+        if 'imagedata' in self._sync_properties:
+            if self._imagedata:
+                if self.__failed_image:
+                    self.__failed_image = False
+                    self._obj.show()
+                width, height = self._imagedata.size
+                self._obj.set_from_rgb_data(self._imagedata.get_raw_data(), True,
+                     width, height, width*4, 4, backend.TEXTURE_RGB_FLAG_BGR)
+            elif not self.__failed_image:
+                self.__failed_image = True
+                self._obj.hide()
 
 
 class CairoTexture(Widget):
@@ -185,7 +199,7 @@ class Image(Imlib2Texture):
         if url.startswith('http://'):
             # remote image, create local cachefile
             # FIXME: how to handle updates on the remote side?
-            base = md5.md5(url).hexdigest() + os.path.splitext(url)[1]
+            base = hashlib.md5(url).hexdigest() + os.path.splitext(url)[1]
             cachefile = kaa.tempfile('candy-images/' + base)
             if not os.path.isfile(cachefile):
                 # Download the image

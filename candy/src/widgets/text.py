@@ -147,7 +147,7 @@ class Text(Widget):
         # FIXME: handle text larger than text widget size
         if not self._obj or 'size' in self._sync_properties:
             if not self._obj:
-                self._obj = backend.Label()
+                self._obj = backend.Text()
                 self._obj.show()
             self._clutter_set_obj_size()
         self._obj.set_line_wrap(True)
@@ -164,11 +164,11 @@ class Text(Widget):
         """
         super(Text, self)._clutter_sync_layout()
         if self.xalign == Widget.ALIGN_LEFT:
-            self._obj.set_alignment(Text.ALIGN_LEFT)
+            self._obj.set_line_alignment(Text.ALIGN_LEFT)
         if self.xalign == Widget.ALIGN_CENTER:
-            self._obj.set_alignment(Text.ALIGN_CENTER)
+            self._obj.set_line_alignment(Text.ALIGN_CENTER)
         if self.xalign == Widget.ALIGN_RIGHT:
-            self._obj.set_alignment(Text.ALIGN_RIGHT)
+            self._obj.set_line_alignment(Text.ALIGN_RIGHT)
 
     @classmethod
     def candyxml_parse(cls, element):

@@ -9,7 +9,7 @@ modulename libcandy
 %%
 import gobject.GObject as PyGObject_Type
 import clutter.Texture as PyClutterTexture_Type
-import clutter.CloneTexture as PyClutterCloneTexture_Type
+import clutter.Clone as PyClutterClone_Type
 %%
 ignore-glob
   *_get_type

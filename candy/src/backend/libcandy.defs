@@ -2,7 +2,7 @@
 ; object definitions ...
 (define-object ReflectTexture
   (in-module "Clutter")
-  (parent "ClutterCloneTexture")
+  (parent "ClutterClone")
   (c-name "ClutterReflectTexture")
   (gtype-id "CLUTTER_TYPE_REFLECT_TEXTURE")
 )
