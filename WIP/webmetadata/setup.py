@@ -42,7 +42,10 @@ setup(module       = 'webmetadata',
       license      = 'LGPL',
       summary      = 'Receive Metadata from the Web',
       scripts      = [ 'bin/webinfo' ],
-      plugins      = { 'kaa.beacon.server.plugins': 'src/beacon' },
+      # used when setuptools is not available
+      plugins      = { 'kaa.beacon.server.plugins': 'src/plugin' },
+      # used when setuptools is available and plugin is installed as an egg
+      entry_points = {'kaa.beacon.server.plugins': 'tvdb = kaa.webmetadata.bootstrap:Plugin'},
       rpminfo      = {
           'requires':       'python-kaa-base >= 0.1.2',
           'build_requires': 'python-kaa-base >= 0.1.2'
