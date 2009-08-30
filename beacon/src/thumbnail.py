@@ -36,7 +36,7 @@ LARGE   = 'large'
 
 # python imports
 import os
-import md5
+import hashlib
 import time
 import logging
 import stat
@@ -116,7 +116,7 @@ class Thumbnail(object):
         # FIXME: handle media.mountpoint
         # create digest for filename (with %s for the size)
         furl = url or 'file://' + name
-        self._thumbnail = media.thumbnails + '/%s/' + md5.md5(furl).hexdigest() + '.png'
+        self._thumbnail = media.thumbnails + '/%s/' + hashlib.md5(furl).hexdigest() + '.png'
 
     def _get_thumbnail(self, type='any', check_mtime=False):
         """

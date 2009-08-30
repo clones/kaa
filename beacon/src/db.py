@@ -36,7 +36,7 @@ import os
 import stat
 import logging
 import time
-import md5
+import hashlib
 
 # kaa imports
 import kaa
@@ -186,7 +186,7 @@ class Database(kaa.Object):
         """
         if url.startswith('http://'):
             subdir += '/%s/' % url[7:url[7:].find('/')+7]
-        return os.path.join(self.directory, subdir, md5.md5(url).hexdigest() + os.path.splitext(url)[1])
+        return os.path.join(self.directory, subdir, hashlib.md5(url).hexdigest() + os.path.splitext(url)[1])
 
     # -------------------------------------------------------------------------
     # Query functions
