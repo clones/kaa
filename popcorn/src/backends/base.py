@@ -32,7 +32,7 @@ __all__ = [ 'MediaPlayer', 'runtime_property', 'APPLY_ALWAYS',
 # python imports
 import sets
 import os
-import md5
+import hashlib
 import logging
 
 # kaa imports
@@ -87,10 +87,10 @@ class MediaPlayer(object):
         self.streaminfo = {}
 
         # shared memory keys
-        key = md5.md5(self._instance_id + "osd").hexdigest()[:7]
+        key = hashlib.md5(self._instance_id + "osd").hexdigest()[:7]
         self._osd_shmkey = int(key, 16)
         self._osd_shmem = None
-        key = md5.md5(self._instance_id + "frame").hexdigest()[:7]
+        key = hashlib.md5(self._instance_id + "frame").hexdigest()[:7]
         self._frame_shmkey = int(key, 16)
         self._frame_shmem = None
 

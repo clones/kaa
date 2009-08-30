@@ -32,7 +32,7 @@
 # python imports
 import sys
 import os
-import md5
+import hashlib
 import urllib
 import urllib2
 import logging
@@ -162,7 +162,7 @@ class Feed(object):
         filename.
         """
         url = kaa.unicode_to_str(url)
-        fname = md5.md5(url).hexdigest() + os.path.splitext(url)[1]
+        fname = hashlib.md5(url).hexdigest() + os.path.splitext(url)[1]
         fname = os.path.join(self.IMAGEDIR, fname)
         if os.path.isfile(fname):
             yield fname

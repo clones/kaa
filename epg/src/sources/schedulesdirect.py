@@ -30,7 +30,6 @@ from __future__ import absolute_import
 
 # python imports
 import os
-import md5
 import time
 import httplib
 import gzip
@@ -49,7 +48,7 @@ from .. import Program
 log = logging.getLogger('epg.schedulesdirect')
 
 def H(m):
-    return md5.md5(m).hexdigest()
+    return hashlib.md5(m).hexdigest()
 
 soap_download_request = \
 '''<?xml version="1.0" encoding="utf-8"?>
@@ -76,7 +75,7 @@ def get_auth_digest_response_header(username, passwd, uri, auth):
         return None
 
     nc = "00000001"
-    cnonce = md5.md5("%s:%s:%s:%s" % (nc, params["nonce"], time.ctime(),
+    cnonce = hashlib.md5("%s:%s:%s:%s" % (nc, params["nonce"], time.ctime(),
                                       open("/dev/urandom").read(8))).hexdigest()
 
     A1 = "%s:%s:%s" % (username, params["realm"], passwd)
@@ -84,7 +83,7 @@ def get_auth_digest_response_header(username, passwd, uri, auth):
     response = "%s:%s:%s:%s:%s:%s" % (H(A1), params["nonce"], nc, cnonce,
                                       params["qop"], H(A2))
 
-    response = md5.md5(response).hexdigest()
+    response = hashlib.md5(response).hexdigest()
 
     hdr = ('Digest username="%s", realm="%s", qop="%s", algorithm="MD5", ' +
           'uri="%s", nonce="%s", nc="%s", cnonce="%s", response="%s"') % \

@@ -29,7 +29,6 @@
 # python imports
 import sys
 import os
-import md5
 import struct
 import logging
 
