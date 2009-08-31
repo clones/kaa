@@ -67,7 +67,7 @@ else:
     print 'libjpeg not installed, deactivating fast thumbnailer'
 
 try:
-    from pysqlite2 import dbapi2 as sqlite
+    from kaa.db import sqlite
     if sqlite.version_info < ( 2, 3 ):
         version = '.'.join([ str(x) for x in sqlite.version_info ])
         print 'pysqlite2 >= 2.3.0 required, found %s' % version
