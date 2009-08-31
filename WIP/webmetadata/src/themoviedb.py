@@ -46,7 +46,7 @@ log = logging.getLogger('webmetadata')
 
 # API key for themoviedb API access. We do not have a key for kaa
 # yet. Maybe the request got lost.
-API_KEY=''
+API_KEY = '21dfe870a9244b78b4ad0d4783251c63'
 
 API_SERVER='api.themoviedb.org'
 
