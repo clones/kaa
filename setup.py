@@ -86,9 +86,8 @@ else:
     for m in submodules:
         print '[setup] Entering kaa submodule', m
         os.chdir(m)
-        try:
-            execfile('setup.py')
-        except SystemExit:
+        res = os.spawnvp(os.P_WAIT, 'python', ['python'] + sys.argv)
+        if res != 0:
             print 'failed to build', m
             failed.append(m)
             if m == 'base':
@@ -101,12 +100,18 @@ else:
         if m == 'base':
             # Adding base/build/lib to the python path so that all kaa modules
             # can find the distribution file of kaa.base
+            path = []
             for subdir in os.listdir('base/build'):
                 if not subdir.startswith('lib'):
                     continue
-                sys.path.insert(0, '../base/build/%s' % subdir)
+                path.append('../base/build/%s' % subdir)
+            os.putenv('PYTHONPATH', '%s:%s' % (':'.join(path), os.getenv('PYTHONPATH')))
 
     print
     print 'Summary:'
-    print '+', ', '.join(build)
-    print '-', ', '.join(failed)
+    if build:
+        print 'Successful:', ', '.join(build)
+    if failed:
+        print 'Failed:', ', '.join(failed)
+    else:
+        print 'No sub-modules failed.'
