@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------
 # themoviedb.py - Access themoviedb.org
 # -----------------------------------------------------------------------------
-# $Id: tvdb.py 3955 2009-03-24 13:05:32Z dmeyer $
+# $Id$
 #
 # -----------------------------------------------------------------------------
 # kaa.webmetadata - Receive Metadata from the Web
@@ -29,27 +29,29 @@
 #
 # -----------------------------------------------------------------------------
 
-__all__ = [ 'Movie', 'search', 'get' ]
+__all__ = [ 'MovieDB' ]
 
 # python imports
-import urllib
+import os
 import re
 import xml.sax
 import logging
+import urllib
 
 # kaa imports
 import kaa
-from kaa.saxutils import ElementParser
+import kaa.db
+from kaa.saxutils import ElementParser, Element
 
 # get logging object
 log = logging.getLogger('webmetadata')
 
-# API key for themoviedb API access. We do not have a key for kaa
-# yet. Maybe the request got lost.
-API_KEY = '21dfe870a9244b78b4ad0d4783251c63'
-
 API_SERVER='api.themoviedb.org'
 
+REMOVE_FROM_SEARCH = []
+
+IMDB_REGEXP = re.compile('http://[a-z]+.imdb.[a-z]+/[a-z/]+([0-9]+)')
+IMAGE_REGEXP = re.compile('.*/([0-9]*)/')
 
 class Movie(object):
     """
@@ -64,29 +66,21 @@ class Movie(object):
         def fetch(self):
             return urllib.urlopen(self.url).read()
 
-    plot = year = imdb = None
-
-    def __init__(self, element):
-        self._element = element
-        self.title = element.title.content
-        if element.short_overview:
-            self.plot = element.short_overview.content
-        if element.release and len(element.release.content.split('-')) == 3:
-            self.year = element.release.content.split('-')[0]
-        if element.imdb:
-            self.imdb = element.imdb.content
+    def __init__(self, data):
+        self._data = data
+        self.title = data['title']
+        self.plot = data.get('short_overview')
+        self.year = None
+        if data.get('release') and len(data.get('release').split('-')) == 3:
+            self.year = data.get('release').split('-')[0]
         # FIXME: add more stuff. The details also include new
         # information Maybe a self.update() function could be used to
         # move from search result to detailed info
 
-    def _images(self, tagname, large):
+    def _images(self, tagname, size):
         result = []
-        for p in self._element.get_children(tagname):
-            # m = re.match('http://www.themoviedb.org/image/[^/]*/([0-9]*)/', p.content)
-            m = re.match('http://images.themoviedb.org/[^/]*/([0-9]*)/', p.content)
-            if not m:
-                log.warning('error in image check: %s', p.content)
-                continue
+        for urlsize, url in self._data[tagname]:
+            m = IMAGE_REGEXP.match(url)
             i = int(m.groups()[0])
             for r in result:
                 if r._id == i:
@@ -96,12 +90,15 @@ class Movie(object):
                 r._id = i
                 result.append(r)
             if not r.url:
-                r.url = p.content
-            if p.size == 'thumb':
-                r.thumbnail = p.content
-            if p.size == large:
-                r.url = p.content
+                r.url = url
+            if urlsize == 'thumb':
+                r.thumbnail = url
+            if urlsize == size:
+                r.url = url
         return result
+
+    def items(self):
+        return self._data.items()
 
     @property
     def images(self):
@@ -112,34 +109,118 @@ class Movie(object):
         return self._images('backdrop', 'original')
 
 
-@kaa.threaded()
-def _parse(url):
-    results = []
-    def handle(element):
-        if not element.content:
-            results.append(Movie(element))
-    e = ElementParser('movie')
-    e.handle = handle
-    parser = xml.sax.make_parser()
-    parser.setContentHandler(e)
-    parser.parse(url)
-    return results
+class Filename(object):
 
-def search(string):
-    if not API_KEY:
-        raise RuntimeError('API_KEY not given')
-    url = 'http://%s/2.0/Movie.search?%s' % (API_SERVER, urllib.urlencode({'title': string.strip(), 'api_key': API_KEY}))
-    return _parse(url)
+    available = False
 
-@kaa.coroutine()
-def get(id):
-    if not API_KEY:
-        raise RuntimeError('API_KEY not given')
-    if isinstance(id, (str, unicode)) and id.startswith('tt'):
-        url = 'http://%s/2.0/Movie.imdbLookup?%s' % (API_SERVER, urllib.urlencode({'imdb_id': id, 'api_key': API_KEY}))
-    else:
-        url = 'http://%s/2.0/Movie.getInfo?%s' % (API_SERVER, urllib.urlencode({'id': id, 'api_key': API_KEY}))
-    result = yield _parse(url)
-    if not result:
-        yield None
-    yield result[0]
+    def __init__(self, moviedb, apikey, filename, parsed):
+        self.filename = filename
+        self._db = moviedb
+        self._apikey = apikey
+        self._searchdata = parsed
+        self._movie = None
+        if parsed[2]:
+            movie = self._db.query(imdb=unicode(parsed[2]), type='movie')
+            if movie:
+                self._movie = Movie(movie[0]['data'])
+                self.available = True
+
+    @kaa.threaded()
+    def _fetch_and_parse(self, url):
+        results = []
+        def handle(element):
+            if not element.content:
+                data = dict(categories=[], actor=[], director=[], backdrop=[], poster=[])
+                for child in element:
+                    if child.content:
+                        if child.tagname in ('backdrop', 'poster'):
+                            data[child.tagname].append((child.size, child.content))
+                            continue
+                        data[child.tagname] = child.content
+                        continue
+                    if child.tagname == 'categories':
+                        for c in child:
+                            data['categories'].append(c.name.content)
+                        continue
+                    if child.tagname == 'people':
+                        for p in child:
+                            if p.job in ('director', 'actor'):
+                                data[p.job].append(p.name.content)
+                        continue
+                results.append(Movie(data))
+        e = ElementParser('movie')
+        e.handle = handle
+        parser = xml.sax.make_parser()
+        parser.setContentHandler(e)
+        parser.parse(url)
+        return results
+
+    def search(self, string=None):
+        if not string:
+            string = self._searchdata[0]
+        url = 'http://%s/2.0/Movie.search?%s' % (API_SERVER, urllib.urlencode({'title': string.strip(), 'api_key': self._apikey}))
+        return self._fetch_and_parse(url)
+
+    @kaa.coroutine()
+    def fetch(self, id=None):
+        if self._movie:
+            yield self._movie
+        if id is None and self._searchdata[2]:
+            id = self._searchdata[2]
+        if id is None:
+            yield None
+        if isinstance(id, (str, unicode)) and id.startswith('tt'):
+            url = 'http://%s/2.0/Movie.imdbLookup?%s' % (API_SERVER, urllib.urlencode({'imdb_id': id, 'api_key': self._apikey}))
+            result = yield self._fetch_and_parse(url)
+            if not result:
+                yield None
+            id = result[0]._data['id']
+        url = 'http://%s/2.0/Movie.getInfo?%s' % (API_SERVER, urllib.urlencode({'id': id, 'api_key': self._apikey}))
+        result = yield self._fetch_and_parse(url)
+        if not result:
+            yield None
+        movie = result[0]
+        self._db.add('movie', moviedb=int(movie._data['id']), title=movie.title, imdb=movie._data.get('imdb', ''), data=movie._data)
+        yield movie
+
+    def __getattr__(self, attr):
+        if not self._movie:
+            raise AttributeError('%s is no invalid' % self.filename)
+        return getattr(self._movie, attr)
+
+
+class MovieDB(object):
+
+    def __init__(self, database, apikey='21dfe870a9244b78b4ad0d4783251c63'):
+        self._apikey = apikey
+        # set up the database and the version file
+        if not os.path.exists(os.path.dirname(database)):
+            os.makedirs(os.path.dirname(database))
+        self._db = kaa.db.Database(database)
+        self._db.register_object_type_attrs("movie",
+            moviedb = (int, kaa.db.ATTR_SEARCHABLE),
+            imdb = (unicode, kaa.db.ATTR_SEARCHABLE),
+            title = (unicode, kaa.db.ATTR_SEARCHABLE),
+            data = (dict, kaa.db.ATTR_SIMPLE),
+        )
+
+    def from_filename(self, filename):
+        """
+        """
+        search = ''
+        imdb = None
+        nfo = os.path.splitext(filename)[0] + '.nfo'
+        if os.path.exists(nfo):
+            match = IMDB_REGEXP.search(open(nfo).read())
+            if match:
+                imdb = 'tt' + match.groups()[0]
+        for part in re.split('[\._ -]', os.path.splitext(os.path.basename(filename))[0]):
+            if part.lower() in REMOVE_FROM_SEARCH:
+                break
+            try:
+                if len(search) and int(part) > 1900 and int(part) < 2100:
+                    return Filename(self._db, self._apikey, filename, (search.strip(), int(part), imdb))
+            except ValueError:
+                pass
+            search += ' ' + part
+        return Filename(self._db, self._apikey, filename, (search.strip(), None, imdb))
