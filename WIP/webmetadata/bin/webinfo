@@ -36,11 +36,15 @@ import sys
 import getopt
 
 import kaa
-import kaa.webmetadata.tvdb
+import kaa.webmetadata
+
+kaa.webmetadata.init()
 
 @kaa.coroutine()
 def main():
-    tvdb = kaa.webmetadata.tvdb.TVDB(os.path.expanduser("~/.beacon/tvdb"))
+    tvdb = kaa.webmetadata.thetvdb
+    moviedb = kaa.webmetadata.themoviedb
+
     opts, args = getopt.gnu_getopt(sys.argv[1:], '', ['sync', 'search', 'match' ])
     for o, a in opts:
         if o == '--sync':
@@ -51,10 +55,39 @@ def main():
         if o == '--search':
             # tvdb --search list of filenames
             for filename in args:
-                f = tvdb.from_filename(filename)
-                print filename
-                for data in (yield f.search()):
-                    print data['id'], data['SeriesName'], data.get('FirstAired')
+                print 'Trying to find information for', os.path.basename(filename)
+                series = tvdb.from_filename(filename)
+                if series.series:
+                    print 'known as "%s %sx%02d - %s"' % (series.series.SeriesName, series.episode.SeasonNumber, \
+                          int(series.episode.EpisodeNumber), series.episode.EpisodeName)
+                    print
+                    continue
+                movie = moviedb.from_filename(filename)
+                if movie.available:
+                    print 'known as "%s (%s)"' % (movie.title, movie.year)
+                    print
+                    continue
+                (yield movie.fetch())
+                if movie.available:
+                    print 'added as "%s (%s)"' % (movie.title, movie.year)
+                    print
+                    continue
+                # ok, now let's search the various databases
+                if series.alias:
+                    result = (yield series.search())
+                    if len(result):
+                        print 'It could be one of the following TV shows'
+                        for data in result:
+                            print ' tvdb:%s %s (%s)' % (data['id'], data['SeriesName'], data.get('FirstAired'))
+                        print
+                        continue
+                result =(yield movie.search())
+                if result:
+                    for r in result:
+                        print ' moviedb:%s %s (%s)' % (r._data['id'], kaa.unicode_to_str(r.title), r.year)
+                    print
+                    continue
+                print 'error: unable to get any additional information'
                 print
             sys.exit(0)
 
@@ -63,18 +96,25 @@ def main():
             # in the db. Use --search to get an id
             # tvdb --match TVDB_ID filename
             sid, filename = args
-            f = tvdb.from_filename(filename)
-            if not (yield f.match(sid)):
-                print 'not found'
-                sys.exit(1)
-            print 'add alias "%s" to "%s"' % (f.alias, f.series.name)
+            if sid.startswith('tvdb:'):
+                f = tvdb.from_filename(filename)
+                if not (yield f.match(sid[5:])):
+                    print 'not found'
+                    sys.exit(1)
+                print 'add alias "%s" to "%s"' % (f.alias, f.series.name)
+            elif sid.startswith('moviedb:'):
+                print 'TheMovieDB backend has no --match support yet'
+            else:
+                print 'unsupported id'
             sys.exit(0)
 
+    
     for filename in args:
-        f = tvdb.from_filename(filename)
-        if f.series:
-            for key, value in f.episode.items():
-                print '%s: %s' % (key, value)
+        print filename
+        f = kaa.webmetadata.parse(filename)
+        if f:
+            for key, value in f.items():
+                print ' ', kaa.unicode_to_str(u'%s: %s' % (key, value))
             print
             continue
         print filename, 'not found'

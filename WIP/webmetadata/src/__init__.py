@@ -1,20 +1,21 @@
 import os
-import re
 
-REMOVE_FROM_SEARCH = []
+themoviedb = None
+thetvdb = None
 
-def searchstring(filename):
-    search = ''
-    for part in re.split('[\._ -]', os.path.splitext(os.path.basename(filename))[0]):
-        if part.lower() in REMOVE_FROM_SEARCH:
-            break
-        try:
-            if len(search) and int(part) > 1900 and int(part) < 2100:
-                return search.strip(), int(part)
-        except ValueError:
-            pass
-        search += ' ' + part
-    return search.strip(), None
+def init():
+    global themoviedb
+    import themoviedb as backend
+    themoviedb = backend.MovieDB(os.path.expanduser("~/.beacon/moviedb"))
+    global thetvdb
+    import tvdb as backend
+    thetvdb = tvdb.TVDB(os.path.expanduser("~/.beacon/tvdb"))
 
-def movie(search):
-    return imdb.search(search)
+def parse(filename):
+    series = thetvdb.from_filename(filename)
+    if series.series and series.episode:
+        return series.episode
+    movie = themoviedb.from_filename(filename)
+    if movie.available:
+        return movie._movie
+    return None
