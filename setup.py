@@ -52,7 +52,7 @@ if len(sys.argv) == 1:
 
 if len(sys.argv) == 2 and sys.argv[1] == 'clean':
     for m in submodules:
-        for file in ('build', 'dist', 'src/version.py', 'MANIFEST'):
+        for file in ('build', 'dist', 'doc/.build', 'src/version.py', 'MANIFEST'):
             if m == 'base' and file == 'src/version.py':
                 continue
             file = os.path.join(m, file)
