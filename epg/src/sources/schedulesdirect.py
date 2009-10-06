@@ -37,6 +37,7 @@ import calendar
 import logging
 import xml.sax
 import urlparse
+import hashlib
 
 # kaa imports
 import kaa
