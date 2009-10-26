@@ -50,7 +50,7 @@ API_SERVER='api.themoviedb.org'
 
 REMOVE_FROM_SEARCH = []
 
-IMDB_REGEXP = re.compile('http://[a-z]+.imdb.[a-z]+/[a-z/]+([0-9]+)')
+IMDB_REGEXP = re.compile('http://[a-z\.]*imdb.[a-z]+/[a-z/]+([0-9]+)')
 IMAGE_REGEXP = re.compile('.*/([0-9]*)/')
 
 class Movie(object):
@@ -181,11 +181,13 @@ class Filename(object):
             yield None
         movie = result[0]
         self._db.add('movie', moviedb=int(movie._data['id']), title=movie.title, imdb=movie._data.get('imdb', ''), data=movie._data)
+        self._movie = movie
+        self.available = True
         yield movie
 
     def __getattr__(self, attr):
         if not self._movie:
-            raise AttributeError('%s is no invalid' % self.filename)
+            raise AttributeError('%s is invalid' % self.filename)
         return getattr(self._movie, attr)
 
 
