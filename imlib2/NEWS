@@ -1,9 +1,12 @@
 Release Notes, see ChangeLog for a detailed list of changes.
 
-0.2.4, 2008-??-??
+0.2.4, 2009-??-??
+
 * Fix possible thread deadlock
 * No longer explicitly link to libpng
 * get_pixel() now returns color in RGBA rather than BGRA
+* Add SVG support
+
 
 0.2.3, 2008-02-04
 
