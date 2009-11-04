@@ -61,7 +61,7 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     int len, w, h, i;
     guchar *svgdata;
 
-    GError *error;
+    GError *error = NULL;
     RsvgHandle *svg;
     GdkPixbuf *pixbuf;
     gboolean res;
@@ -77,11 +77,22 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     cbdata.h = h;
 
     svg = rsvg_handle_new();
-    rsvg_handle_set_size_callback(svg, size_cb, &cbdata, NULL);
+    if ( w && h )
+	rsvg_handle_set_size_callback(svg, size_cb, &cbdata, NULL);
     res = rsvg_handle_write(svg, svgdata, len, &error);
-    /* FIXME: add error handling before processing further */
+    if (error != NULL) 	{
+	PyErr_Format(PyExc_RuntimeError, "SVG Error: %s", error->message);
+	g_error_free (error);
+	return NULL;
+    }
+    
     res = rsvg_handle_close(svg, &error);
-    /* FIXME: add error handling before processing further */
+    if (error != NULL) {
+	PyErr_Format(PyExc_RuntimeError, "SVG Error: %s", error->message);
+	g_error_free (error);
+	return NULL;
+    }
+
     pixbuf = rsvg_handle_get_pixbuf(svg);
 
     w = gdk_pixbuf_get_width(pixbuf);

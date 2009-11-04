@@ -93,21 +93,25 @@ def open_from_memory(buf):
     return Image(img)
 
 
-def open_svg(fname, size):
+def open_svg_from_memory(data, size = None):
     """
-    Special SVG handler
+    Special SVG handler loading a SVG image from memory. The data is
+    the XML string. If size is given, the SVG is loaded with that
+    size. If omited the size is taken from the SVG itself (if given).
     """
-    data = file(fname).read()
+    if not size:
+        size = 0,0
     w, h, buf = _Imlib2.render_svg_to_buffer(size[0], size[1], data)
     return new((w,h), buf, from_format = 'BGRA', copy = True)
 
 
-def open_svg_from_memory(data, size):
+def open_svg(fname, size = None):
     """
-    Special SVG handler
+    Special SVG handler loading a SVG image from the given file. If
+    size is given, the SVG is loaded with that size. If omited the
+    size is taken from the SVG itself (if given).
     """
-    w, h, buf = _Imlib2.render_svg_to_buffer(size[0], size[1], data)
-    return new((w,h), buf, from_format = 'BGRA', copy = True)
+    return open_svg_from_memory(file(fname).read(), size)
 
 
 def new(size, bytes = None, from_format = 'BGRA', copy = True):
