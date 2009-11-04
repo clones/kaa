@@ -54,10 +54,16 @@ if not imlib2so.check_library('imlib2', '1.2.1'):
 
 if imlib2so.check_cc(['<fcntl.h>'], 'shm_open("foobar");', '-lrt'):
     imlib2so.config('#define HAVE_POSIX_SHMEM')
+    files.append('src/svg.c')
     print "POSIX shared memory enabled"
 else:
     print "POSIX shared memory disabled"
 
+if imlib2so.check_library("librsvg-2.0", "2.10.0"):
+    imlib2so.config('#define HAVE_SVG')
+    print "+ svg support enabled"
+else:
+    print "- svg support disabled"
 
 setup(
     module = 'imlib2',

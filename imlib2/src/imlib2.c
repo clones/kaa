@@ -285,11 +285,24 @@ PyObject *imlib2_load_font(PyObject *self, PyObject *args)
 }
 
 
+#ifdef HAVE_SVG
+extern PyObject *
+render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs);
+#else
+PyObject *
+render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
+{
+    PyErr_Format(PyExc_IOError, "SVG support missing");
+    return NULL;
+}
+#endif
+
 PyMethodDef Imlib2_methods[] = {
     { "add_font_path", imlib2_add_font_path, METH_VARARGS },
     { "load_font", imlib2_load_font, METH_VARARGS },
     { "create", imlib2_create, METH_VARARGS },
     { "open", imlib2_open, METH_VARARGS },
+    { "render_svg_to_buffer", ( PyCFunction ) render_svg_to_buffer, METH_VARARGS },
     { "open_from_memory", imlib2_open_from_memory, METH_VARARGS },
     { NULL }
 };
@@ -300,6 +313,9 @@ init_Imlib2(void)
     PyObject *m, *c_api;
     static void *api_ptrs[2];
 
+#ifdef HAVE_SVG
+    g_type_init();
+#endif
     m = Py_InitModule("_Imlib2", Imlib2_methods);
     if (PyType_Ready(&Image_PyObject_Type) < 0)
         return;

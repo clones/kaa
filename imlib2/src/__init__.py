@@ -93,6 +93,15 @@ def open_from_memory(buf):
     return Image(img)
 
 
+def open_svg(fname, size):
+    """
+    Special SVG handler
+    """
+    data = file(fname).read()
+    w, h, buf = _Imlib2.render_svg_to_buffer(size[0], size[1], data)
+    return new((w,h), buf, from_format = 'BGRA', copy = True)
+
+
 def new(size, bytes = None, from_format = 'BGRA', copy = True):
     """
     Generates a new Image of size 'size', which is a tuple holding the width
