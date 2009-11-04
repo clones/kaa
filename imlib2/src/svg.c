@@ -79,9 +79,10 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     svg = rsvg_handle_new();
     rsvg_handle_set_size_callback(svg, size_cb, &cbdata, NULL);
     res = rsvg_handle_write(svg, svgdata, len, &error);
+    /* FIXME: add error handling before processing further */
     res = rsvg_handle_close(svg, &error);
+    /* FIXME: add error handling before processing further */
     pixbuf = rsvg_handle_get_pixbuf(svg);
-    rsvg_handle_free(svg);
 
     w = gdk_pixbuf_get_width(pixbuf);
     h = gdk_pixbuf_get_height(pixbuf);
@@ -89,6 +90,7 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     buffer = PyBuffer_New(w*h*4);
     PyObject_AsWriteBuffer(buffer, (void **)&buffer_ptr, &len);
     memcpy(buffer_ptr, gdk_pixbuf_get_pixels(pixbuf), w*h*4);
+    rsvg_handle_free(svg);
     g_object_unref(pixbuf);
 
     // RGBA to BGRA conversion.
