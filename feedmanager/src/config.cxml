@@ -6,9 +6,9 @@
         <desc lang="en">
 	    Username and password information to receive feeds and
             data from specfic sides, e.g.
-            authentication[0].site = http://www.example.com
-            authentication[0].username = myname
-            authentication[0].password = secret
+            authentication[+].site = http://www.example.com
+            authentication[].username = myname
+            authentication[].password = secret
         </desc>
         <var name="site" type="str"/>
         <var name="username" type="str"/>
