@@ -7,8 +7,8 @@
 	    Username and password information to receive feeds and
             data from specfic sides, e.g.
             authentication[+].site = http://www.example.com
-            authentication[].username = myname
-            authentication[].password = secret
+            authentication[ ].username = myname
+            authentication[ ].password = secret
         </desc>
         <var name="site" type="str"/>
         <var name="username" type="str"/>
