@@ -155,7 +155,7 @@ class Label(Widget):
         else:
             if width != self._obj.get_width() or height != self._obj.get_height():
                 self._clutter_set_obj_size(width, height)
-                self._obj.surface_resize(int(width), int(height))
+                self._obj.set_surface_size(int(width), int(height))
             self._obj.clear()
         # draw new text string
         context = self._obj.cairo_create()

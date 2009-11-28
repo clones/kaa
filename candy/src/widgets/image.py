@@ -158,7 +158,7 @@ class CairoTexture(Widget):
             self._obj.set_size(int(self.inner_width), int(self.inner_height))
             if self._clutter_resize_surface:
                 w, h = self._obj.get_size()
-                self._obj.surface_resize(int(w), int(h))
+                self._obj.set_surface_size(int(w), int(h))
         self._obj.clear()
 
 
