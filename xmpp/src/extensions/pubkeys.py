@@ -33,12 +33,13 @@
 
 # python imports
 import logging
-import tlslite.api
 import hashlib
 
 # kaa imports
 import kaa
 from kaa.utils import property
+# FIXME: TLS support
+from kaa.net.tls.tlslite import tlsapi
 
 # kaa.xmpp imports
 from .. import api as xmpp
@@ -48,7 +49,7 @@ log = logging.getLogger('xmpp')
 
 NS_PUBKEY = 'urn:xmpp:tmp:pubkey'
 
-class X509(object, tlslite.api.X509):
+class X509(object, tlsapi.X509):
 
     @property
     def base64(self):
@@ -68,7 +69,7 @@ class X509(object, tlslite.api.X509):
 
     @property
     def chain(self):
-        return tlslite.api.X509CertChain([self])
+        return tlsapi.X509CertChain([self])
 
 class KeyInfo(object):
 
@@ -106,7 +107,7 @@ class KeyInfo(object):
 
     def load_pemfile(self, fname):
         pem = open(fname).read()
-        self.__private = tlslite.api.parsePEMKey(pem, private=True)
+        self.__private = tlsapi.parsePEMKey(pem, private=True)
         self.__x509 = X509()
         self.__x509.parse(pem)
 

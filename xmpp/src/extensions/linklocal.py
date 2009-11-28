@@ -40,15 +40,14 @@
 # python imports
 import logging
 
-# tls support
-import tlslite.api
-
 # kaa imports
 import kaa
 from kaa.utils import property
 import kaa.net.mdns
 import kaa.net.tls
 import kaa.weakref
+# FIXME: TLS support
+from kaa.net.tls.tlslite import tlsapi
 
 # kaa.xmpp imports
 from .. import api as xmpp
@@ -108,7 +107,7 @@ class TLSServerFeature(xmpp.Feature):
             password = self.credentials.srp_get_password(jid)
             if isinstance(password, kaa.InProgress):
                 password = yield password
-            db = tlslite.api.VerifierDB()
+            db = tlsapi.VerifierDB()
             db[jid] = db.makeVerifier(jid, password, 2048)
             kwargs['srp'] = db
         yield self.stream.starttls(checker=self.check, **kwargs)

@@ -4,12 +4,12 @@ __all__ = [ 'XTLS' ]
 import os
 import logging
 
-# tls support
-import tlslite.api
-
 # kaa imports
 import kaa
 import kaa.net.tls
+# FIXME: TLS support
+from kaa.net.tls.tlslite import tlsapi
+
 from .. import api as xmpp
 from pubkeys import KeyInfo
 
@@ -189,7 +189,7 @@ class XTLS(xmpp.RemotePlugin):
                 password = self.credentials.srp_get_password(session.initiator)
                 if isinstance(password, kaa.InProgress):
                     password = yield password
-                db = tlslite.api.VerifierDB()
+                db = tlsapi.VerifierDB()
                 db[session.initiator] = db.makeVerifier(session.initiator, password, 2048)
                 kwargs['srp'] = db
             yield session.socket.starttls_server(**kwargs)
