@@ -293,3 +293,7 @@ class Guide(object):
         Retrieves a list of genres in the database.
         """
         return self._db.get_inverted_index_terms('genres', associated, prefix)
+
+    @property
+    def num_programs(self):
+        return self._num_programs

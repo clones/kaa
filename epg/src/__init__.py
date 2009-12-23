@@ -54,6 +54,7 @@ def load(database):
     """
     global guide
     guide = Guide(database)
+    return guide
 
 def connect(address='epg', secret=''):
     """
@@ -62,6 +63,7 @@ def connect(address='epg', secret=''):
     global guide
     from rpc import Client
     guide = Client(address, secret)
+    return guide
 
 def listen(address='epg', secret=''):
     """
