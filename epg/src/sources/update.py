@@ -63,6 +63,8 @@ for name, plugin in kaa.utils.get_plugins('kaa.epg.sources', __file__, filter=fi
         config.add_variable(name, plugin.sourcecfg)
     sources[name] = plugin
 
+
+# TODO: support removing channels not in updates
 class Updater(object):
     """
     """
@@ -223,7 +225,7 @@ class Updater(object):
                    stop == s1[0]['stop'] == s2[0]['stop']:
                 # yes, update object if it is different
                 current = s1[0]
-                if current['title'] != title:
+                if current['title'] != title or any(attributes[k] != current.get(k) for k in attributes):
                     log.debug('Updating existing program %s (channel db id=%d, start=%d, stop=%d)',
                               title, channel_db_id, start, stop)
                     self._db.update(("program", current["id"]), start = start,
