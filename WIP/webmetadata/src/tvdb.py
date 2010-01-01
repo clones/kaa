@@ -49,7 +49,9 @@ from kaa.saxutils import ElementParser
 # get logging object
 log = logging.getLogger('beacon.tvdb')
 
-@kaa.threaded()
+WORKER_THREAD = 'WEBMETADATA'
+
+@kaa.threaded(WORKER_THREAD)
 def parse(url):
     """
     Threaded XML parser

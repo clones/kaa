@@ -1,7 +1,10 @@
 import os
+import kaa
 
 themoviedb = None
 thetvdb = None
+
+WORKER_THREAD = 'WEBMETADATA'
 
 def init():
     global themoviedb
@@ -19,3 +22,5 @@ def parse(filename):
     if movie.available:
         return movie._movie
     return None
+
+kaa.register_thread_pool(WORKER_THREAD, kaa.ThreadPool())
