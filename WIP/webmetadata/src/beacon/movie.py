@@ -85,14 +85,17 @@ class Plugin:
             # that this item has changed. No idea how we can do this
             # in a plugin.
             yield None
-        if not item._beacon_id in processed:
-            entry.fetch()
-            # FIXME: processed is an ugly variable to avoid fetching
-            # an item that cannot be fetched over and over again. We
-            # will retry on the next startup since this variable is
-            # not cached. This is ugly
-            processed[item._beacon_id] = True
-            yield self.parser(item, attributes, type)
+        if item._beacon_id in processed:
+            failed = self.themoviedb.get_metadata('beacon_failed') or []
+            self.themoviedb.set_metadata('beacon_failed', failed)
+            yield None
+        yield entry.fetch()
+        # FIXME: processed is an ugly variable to avoid fetching
+        # an item that cannot be fetched over and over again. We
+        # will retry on the next startup since this variable is
+        # not cached. This is ugly
+        processed[item._beacon_id] = True
+        yield self.parser(item, attributes, type)
 
     @staticmethod
     @kaa.coroutine()
@@ -104,7 +107,7 @@ class Plugin:
         plugin.beacondb = db
         beacon_register(None, plugin.parser)
         plugin.themoviedb = kaa.webmetadata.themoviedb.MovieDB(db.directory + '/themoviedb')
-        if plugin.themoviedb.get_metadata('beacon_init') != PLUGIN_VERSION:
+        if plugin.themoviedb.get_metadata('beacon_init') != PLUGIN_VERSION + 1:
             # kaa.beacon does not know about this db, we need to create
             # the metadata for themoviedb.
             log.info('populate database with themoviedb metadata')
@@ -113,10 +116,12 @@ class Plugin:
                 if not item.filename:
                     continue
                 todo.append(item._beacon_id[1])
-            plugin.themoviedb.set_metadata('beacon_init', PLUGIN_VERSION)
+            plugin.themoviedb.set_metadata('beacon_init', PLUGIN_VERSION + 3)
             plugin.themoviedb.set_metadata('beacon_todo', todo)
             plugin.themoviedb.set_metadata('beacon_timestamp', time.time())
         todo = plugin.themoviedb.get_metadata('beacon_todo')
+        failed = plugin.themoviedb.get_metadata('beacon_failed') or []
+        todo = todo + failed
         while todo:
             items = yield plugin.beacondb.query(type='video', id=todo.pop(0))
             if items:

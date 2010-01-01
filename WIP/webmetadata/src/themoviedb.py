@@ -36,7 +36,9 @@ import os
 import re
 import xml.sax
 import logging
+import socket
 import urllib
+import urllib2
 
 # kaa imports
 import kaa
@@ -153,7 +155,14 @@ class Filename(object):
         e.handle = handle
         parser = xml.sax.make_parser()
         parser.setContentHandler(e)
-        parser.parse(url)
+        try:
+            parser.parse(urllib2.urlopen(url, timeout=10))
+        except socket.timeout, e:
+            log.error('urllib2 timeout')
+            return []
+        except Exception, e:
+            log.exception('parse error')
+            return []
         return results
 
     def search(self, string=None):
