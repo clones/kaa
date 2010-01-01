@@ -49,6 +49,7 @@ log = logging.getLogger('webmetadata')
 API_SERVER='api.themoviedb.org'
 
 REMOVE_FROM_SEARCH = []
+WORKER_THREAD = 'WEBMETADATA'
 
 IMDB_REGEXP = re.compile('http://[a-z\.]*imdb.[a-z]+/[a-z/]+([0-9]+)')
 IMAGE_REGEXP = re.compile('.*/([0-9]*)/')
@@ -62,7 +63,7 @@ class Movie(object):
     class Image(object):
         url = thumbnail = ''
 
-        @kaa.threaded()
+        @kaa.threaded(WORKER_THREAD)
         def fetch(self):
             return urllib.urlopen(self.url).read()
 
@@ -125,7 +126,7 @@ class Filename(object):
                 self._movie = Movie(movie[0]['data'])
                 self.available = True
 
-    @kaa.threaded()
+    @kaa.threaded(WORKER_THREAD)
     def _fetch_and_parse(self, url):
         results = []
         def handle(element):
@@ -195,16 +196,44 @@ class MovieDB(object):
 
     def __init__(self, database, apikey='21dfe870a9244b78b4ad0d4783251c63'):
         self._apikey = apikey
-        # set up the database and the version file
+        # set up the database
         if not os.path.exists(os.path.dirname(database)):
             os.makedirs(os.path.dirname(database))
         self._db = kaa.db.Database(database)
+        self._db.register_object_type_attrs("metadata",
+            metadata = (dict, kaa.db.ATTR_SIMPLE),
+        )
         self._db.register_object_type_attrs("movie",
             moviedb = (int, kaa.db.ATTR_SEARCHABLE),
             imdb = (unicode, kaa.db.ATTR_SEARCHABLE),
             title = (unicode, kaa.db.ATTR_SEARCHABLE),
             data = (dict, kaa.db.ATTR_SIMPLE),
         )
+        if not self._db.query(type='metadata'):
+            self._db.add('metadata', metadata={})
+
+    def get_metadata(self, key):
+        """
+        Get database metadata
+        """
+        if not self._db.query(type='metadata'):
+            return None
+        metadata = self._db.query(type='metadata')[0]['metadata']
+        if not metadata:
+            return None
+        return metadata.get(key)
+
+    def set_metadata(self, key, value):
+        """
+        Set database metadata
+        """
+        if not self._db.query(type='metadata'):
+            return None
+        entry = self._db.query(type='metadata')[0]
+        metadata = entry['metadata'] or {}
+        metadata[key] = value
+        self._db.update(entry, metadata=metadata)
+        self._db.commit()
 
     def from_filename(self, filename):
         """
