@@ -38,6 +38,7 @@ import time
 
 # kaa imports
 import kaa
+import kaa.webmetadata
 import kaa.webmetadata.tvdb
 import kaa.beacon
 
@@ -143,8 +144,6 @@ class Plugin:
     """
     This is class is used as a namespace and is exposed to beacon.
     """
-    # plugin config object
-    config = kaa.feedmanager.config
 
     @staticmethod
     def init(server, db):
