@@ -35,7 +35,6 @@ import logging
 # kaa imports
 import kaa
 import kaa.shm
-import kaa.xine as xine
 
 # kaa.popcorn imports
 from kaa.popcorn.backends.base import MediaPlayer, runtime_policy, \
@@ -49,6 +48,42 @@ log = logging.getLogger('popcorn.xine')
 
 BUFFER_UNLOCKED = 0x10
 BUFFER_LOCKED = 0x20
+
+# these are constants from kaa.xine copied here to avoid importing
+# kaa.xine into the file. I know it is ugly, but besides the fact that
+# we do not need kaa.xine in the main app, importing kaa.xine loads
+# _xine.so which loads the complete libxine into out application. This
+# causes the clutter-based Freevo to crash, I guess because libxine is
+# doing something on load which creates the crash with clutter and the
+# glib running in a thread. Clutter is very picky about that, e.g. the
+# different clutter libraries must also be loaded in a special order.
+
+XINE_SPEED_PAUSE                           = 0
+XINE_EVENT_UI_NUM_BUTTONS                  = 10
+XINE_EVENT_INPUT_MENU1                     = 103
+XINE_EVENT_INPUT_MENU2                     = 104
+XINE_EVENT_INPUT_MENU3                     = 105
+XINE_EVENT_INPUT_MENU4                     = 106
+XINE_EVENT_INPUT_UP                        = 110
+XINE_EVENT_INPUT_DOWN                      = 111
+XINE_EVENT_INPUT_LEFT                      = 112
+XINE_EVENT_INPUT_RIGHT                     = 113
+XINE_EVENT_INPUT_SELECT                    = 114
+XINE_EVENT_INPUT_NEXT                      = 115
+XINE_EVENT_INPUT_PREVIOUS                  = 116
+XINE_EVENT_INPUT_ANGLE_NEXT                = 117
+XINE_EVENT_INPUT_ANGLE_PREVIOUS            = 118
+XINE_EVENT_INPUT_NUMBER_0                  = 120
+XINE_EVENT_INPUT_NUMBER_1                  = 121
+XINE_EVENT_INPUT_NUMBER_2                  = 122
+XINE_EVENT_INPUT_NUMBER_3                  = 123
+XINE_EVENT_INPUT_NUMBER_4                  = 124
+XINE_EVENT_INPUT_NUMBER_5                  = 125
+XINE_EVENT_INPUT_NUMBER_6                  = 126
+XINE_EVENT_INPUT_NUMBER_7                  = 127
+XINE_EVENT_INPUT_NUMBER_8                  = 128
+XINE_EVENT_INPUT_NUMBER_9                  = 129
+XINE_EVENT_INPUT_NUMBER_10_ADD             = 130
 
 class Xine(MediaPlayer):
 
@@ -124,9 +159,9 @@ class Xine(MediaPlayer):
                 return
             if self.state not in (STATE_PAUSED, STATE_PLAYING):
                 self.state = STATE_PLAYING
-            if speed == xine.SPEED_PAUSE and self.state != STATE_PAUSED:
+            if speed == XINE_SPEED_PAUSE and self.state != STATE_PAUSED:
                 self.state = STATE_PAUSED
-            elif speed > xine.SPEED_PAUSE and self.state != STATE_PLAYING:
+            elif speed > XINE_SPEED_PAUSE and self.state != STATE_PLAYING:
                 prev_state = self.state
                 self.state = STATE_PLAYING
             # TODO:
@@ -181,7 +216,7 @@ class Xine(MediaPlayer):
         self._child_set_streaminfo(True, si)
 
     def _child_xine_event(self, event, data):
-        if event == xine.EVENT_UI_NUM_BUTTONS:
+        if event == XINE_EVENT_UI_NUM_BUTTONS:
             self._is_in_menu = data["num_buttons"] > 0
 
 
@@ -357,29 +392,29 @@ class Xine(MediaPlayer):
         Issue the navigation command to the player.
         """
         map = {
-            "up": xine.EVENT_INPUT_UP,
-            "down": xine.EVENT_INPUT_DOWN,
-            "left": xine.EVENT_INPUT_LEFT,
-            "right": xine.EVENT_INPUT_RIGHT,
-            "select": xine.EVENT_INPUT_SELECT,
-            "prev": xine.EVENT_INPUT_PREVIOUS,
-            "next": xine.EVENT_INPUT_NEXT,
-            "angle_prev": xine.EVENT_INPUT_ANGLE_PREVIOUS,
-            "angle_next": xine.EVENT_INPUT_ANGLE_NEXT,
-            "menu1": xine.EVENT_INPUT_MENU1,
-            "menu2": xine.EVENT_INPUT_MENU2,
-            "menu3": xine.EVENT_INPUT_MENU3,
-            "menu4": xine.EVENT_INPUT_MENU4,
-            "0": xine.EVENT_INPUT_NUMBER_0,
-            "1": xine.EVENT_INPUT_NUMBER_1,
-            "2": xine.EVENT_INPUT_NUMBER_2,
-            "3": xine.EVENT_INPUT_NUMBER_3,
-            "4": xine.EVENT_INPUT_NUMBER_4,
-            "5": xine.EVENT_INPUT_NUMBER_5,
-            "6": xine.EVENT_INPUT_NUMBER_6,
-            "7": xine.EVENT_INPUT_NUMBER_7,
-            "8": xine.EVENT_INPUT_NUMBER_8,
-            "9": xine.EVENT_INPUT_NUMBER_9
+            "up": XINE_EVENT_INPUT_UP,
+            "down": XINE_EVENT_INPUT_DOWN,
+            "left": XINE_EVENT_INPUT_LEFT,
+            "right": XINE_EVENT_INPUT_RIGHT,
+            "select": XINE_EVENT_INPUT_SELECT,
+            "prev": XINE_EVENT_INPUT_PREVIOUS,
+            "next": XINE_EVENT_INPUT_NEXT,
+            "angle_prev": XINE_EVENT_INPUT_ANGLE_PREVIOUS,
+            "angle_next": XINE_EVENT_INPUT_ANGLE_NEXT,
+            "menu1": XINE_EVENT_INPUT_MENU1,
+            "menu2": XINE_EVENT_INPUT_MENU2,
+            "menu3": XINE_EVENT_INPUT_MENU3,
+            "menu4": XINE_EVENT_INPUT_MENU4,
+            "0": XINE_EVENT_INPUT_NUMBER_0,
+            "1": XINE_EVENT_INPUT_NUMBER_1,
+            "2": XINE_EVENT_INPUT_NUMBER_2,
+            "3": XINE_EVENT_INPUT_NUMBER_3,
+            "4": XINE_EVENT_INPUT_NUMBER_4,
+            "5": XINE_EVENT_INPUT_NUMBER_5,
+            "6": XINE_EVENT_INPUT_NUMBER_6,
+            "7": XINE_EVENT_INPUT_NUMBER_7,
+            "8": XINE_EVENT_INPUT_NUMBER_8,
+            "9": XINE_EVENT_INPUT_NUMBER_9
         }
         if input in map:
             self._xine.input(map[input])
