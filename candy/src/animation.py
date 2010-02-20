@@ -9,7 +9,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa-candy - Third generation Canvas System using Clutter as backend
-# Copyright (C) 2008-2009 Dirk Meyer, Jason Tackaberry
+# Copyright (C) 2008-2010 Dirk Meyer, Jason Tackaberry
 #
 # First Version: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -31,6 +31,8 @@
 # 02110-1301 USA
 #
 # -----------------------------------------------------------------------------
+
+from __future__ import with_statement
 
 __all__ = [ 'Animation', 'thread_enter', 'thread_leave', 'thread_locked' ]
 
@@ -131,8 +133,9 @@ class Animation(object):
         if not Animation.__active:
             # register to gobject
             Animation.__active = True
-            gobject.timeout_add(1000 / config.fps, Animation.__step)
-        Animation.__animations.append(self)
+            gobject.timeout_add(1000 / config.fps, Animation._clutter_step)
+        with _lock_lock:
+            Animation.__animations.append(self)
         return self.__inprogress
 
     def stop(self):
@@ -141,7 +144,8 @@ class Animation(object):
         """
         if self.__inprogress is None:
             return
-        Animation.__animations.remove(self)
+        with _lock_lock:
+            Animation.__animations.remove(self)
         kaa.MainThreadCallable(self.__inprogress.finish)(None)
         self.__inprogress = None
         self.callback = None
@@ -159,9 +163,10 @@ class Animation(object):
 
     def apply(self, widget):
         """
-        Add a widget to the animation
+        Add a widget to the animation.
         """
-        self.__refs.append(_weakref.ref(widget))
+        with _lock_lock:
+            self.__refs.append(_weakref.ref(widget))
 
     def __inprogress__(self):
         """
@@ -176,18 +181,21 @@ class Animation(object):
 
     @property
     def widgets(self):
-        widgets = []
-        for ref in self.__refs[:]:
-            widget = ref()
-            if widget is None:
-                self.__refs.remove(ref)
-            else:
-                widgets.append(widget)
-        return widgets
+        with _lock_lock:
+            widgets = []
+            for ref in self.__refs[:]:
+                widget = ref()
+                if widget is None:
+                    self.__refs.remove(ref)
+                else:
+                    widgets.append(widget)
+            return widgets
 
     def _clutter_animate(self, alpha_value):
         """
-        Animate one step
+        Animate one step. This function is always called from the
+        clutter mainloop. The lock is always set when this function is
+        called.
         """
         widgets = self.widgets
         if not widgets:
@@ -198,29 +206,31 @@ class Animation(object):
             self.callback(alpha_value)
 
     @classmethod
-    def __step(cls):
+    def _clutter_step(cls):
         """
-        Class method to call all running animations
+        Class method to call all running animations. This function is
+        called from the clutter thread using a gobject timer to ensure
+        that delays in the main application to not disturb the
+        animation.
         """
         if config.performance_debug:
             t1 = time.time()
             if config.performance_debug == 'fps' and Animation.__active is not True:
                 log.info('fps timer %s', t1 - Animation.__active)
             Animation.__active = t1
-        _lock_lock.acquire()
-        try:
-            for a in cls.__animations[:]:
-                if a.delay:
-                    a.delay -= 1
-                    continue
-                a.current_frame_num += 1
-                a._clutter_animate(a.alpha_func(a.current_frame_num, a.n_frames))
-                if a.current_frame_num == a.n_frames:
-                    a.stop()
-            signals['candy-update'].emit()
-        except Exception, e:
-            log.exception('animation')
-        _lock_lock.release()
+        with _lock_lock:
+            try:
+                for a in cls.__animations[:]:
+                    if a.delay:
+                        a.delay -= 1
+                        continue
+                    a.current_frame_num += 1
+                    a._clutter_animate(a.alpha_func(a.current_frame_num, a.n_frames))
+                    if a.current_frame_num == a.n_frames:
+                        a.stop()
+                signals['candy-update'].emit()
+            except Exception, e:
+                log.exception('animation')
         if config.performance_debug:
             diff = time.time() - t1
             if diff > 0.02:
