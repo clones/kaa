@@ -135,7 +135,7 @@ class ChildProcess(object):
             if f:
                 line = line[delim+1:]
                 function = f
-        function("[%s-%d] %s", self._name, self._child.pid, line)
+        function("[%s-%d] %s", self._name, self._child.pid, line.rstrip())
 
 
     def __getattr__(self, attr):
