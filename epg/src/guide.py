@@ -52,8 +52,9 @@ class Guide(object):
     EPG guide with db access.
     """
     def __init__(self, database):
-        if not os.path.isdir(os.path.dirname(database)):
-            os.makedirs(os.path.dirname(database))
+        db_dir = os.path.dirname(database)
+        if db_dir and not os.path.isdir(db_dir):
+            os.makedirs(db_dir)
         self._db = Database(database)
         # create the db and register objects
         self._db.register_inverted_index('keywords', min = 2, max = 30)
