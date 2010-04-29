@@ -160,7 +160,7 @@ class Client(Guide):
                 time = convert(time[0]), convert(time[1])
             else:
                 time = convert(time)
-        query_data = yield self.channel.rpc('search', channel, time, True, None, **kwargs)
+        query_data = yield self.channel.rpc('search', channel, time, None, **kwargs)
         # Convert raw search result data from the server into python objects.
         results = []
         channel = None
