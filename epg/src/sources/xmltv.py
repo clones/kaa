@@ -92,7 +92,6 @@ class XmltvParser(object):
             'title':'title',
             'sub-title':'subtitle',
             'episode-num':'episode',
-            'category':'genre',
             'desc':'desc',
             'date':'date'
             }
@@ -156,6 +155,9 @@ class XmltvParser(object):
             stop = attrs.get('stop',None)
             self._dict['stop'] = stop
             self._dict['channel_id'] = attrs.get('channel',None)
+        elif name == 'category':
+            self._dict.setdefault('genres', []).append(u'')
+            self._current = name
         elif name in self.mapping:
             # translate element name using self.mapping
             name = self.mapping[name]
@@ -171,7 +173,9 @@ class XmltvParser(object):
         if self._dict is not None and self._current:
             if self._current == 'display-name':
                 # there might be more than one display-name
-                self._dict['display-name'][-1] +=ch
+                self._dict['display-name'][-1] += ch
+            elif self._current == 'category':
+                self._dict['genres'][-1] += ch
             else:
                 self._dict[self._current] += ch
 
@@ -187,6 +191,7 @@ class XmltvParser(object):
             # fill programme info to database
             self.handle_programme(self._dict)
             self._dict = None
+            
         # in any case:
         self._current = None
 
@@ -217,8 +222,11 @@ class XmltvParser(object):
             # stuff, maybe others work different. Maybe check the <tv> tag
             # for the used grabber somehow.
             name = display or station
-            db_id = self.add_channel(tuner_id=channel, name=station, long_name=name)
-            self.channels[attr['channel_id']] = [db_id, None]
+        if not channel:
+            channel = channel_id
+            
+        db_id = self.add_channel(tuner_id=channel, name=station, long_name=name)
+        self.channels[attr['channel_id']] = [db_id, None]
 
     def handle_programme(self, attr):
         """
