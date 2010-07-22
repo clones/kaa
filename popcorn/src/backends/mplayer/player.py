@@ -366,7 +366,11 @@ class MPlayer(MediaPlayer):
         # ratio on the monitor and using software scaler.
 
         aspect, dsize = self.aspect
-        size = self._window.get_size()
+        if hasattr(self._window, 'get_size'):
+            size = self._window.get_size()
+        else:
+            # kaa.candy widget
+            size = self._window.width, self._window.height
         # This may be needed for some non X based displays
         args.add(screenw=size[0], screenh=size[1])
 
@@ -427,8 +431,10 @@ class MPlayer(MediaPlayer):
             display = self._window.get_display().get_string()
             args.add(vo=config.video.driver, display=display,
                      colorkey=config.video.colorkey)
+        elif self._window:
+            args.append('-fs')
+            args.add(vo=config.video.driver, colorkey=config.video.colorkey)
         else:
-            # FIXME: add support for DFB/FB/etc
             args.add(vo='null')
 
 

@@ -170,7 +170,11 @@ class MediaPlayer(object):
         """
         if not self._window:
             raise AttributeError("No window set")
-        size = self._window.get_size()
+        if hasattr(self._window, 'get_size'):
+            size = self._window.get_size()
+        else:
+            # kaa.candy widget
+            size = self._window.width, self._window.height
         if hasattr(self._window, 'get_display'):
             size = self._window.get_display().get_size()
         aspect = [ int(x) for x in config.video.monitoraspect.split(':') ]
