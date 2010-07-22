@@ -33,7 +33,7 @@ import distutils.core
 
 submodules = [ 'base', 'imlib2', 'display', 'mevas', 'epg',
                'metadata', 'xine', 'cherrypy', 'beacon', 'popcorn',
-               'feedmanager' ]
+               'feedmanager', 'candy' ]
 
 # We require python 2.5 or later, so complain if that isn't satisfied.
 if sys.hexversion < 0x02050000:
