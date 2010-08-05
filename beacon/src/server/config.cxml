@@ -8,8 +8,8 @@
             in the form $ENV or ${ENV}, and tilde (~) will be expanded to home
             directory.  e.g.:
 
-                monitors[] = /media/mp3
-                monitors[] = $HOME/mp3
+                monitors[+] = /media/mp3
+                monitors[+] = $HOME/mp3
         </desc>
         <var type="str">
             <desc>Path of directory</desc>
