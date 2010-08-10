@@ -16,15 +16,22 @@ def start(p):
 @kaa.coroutine()
 def key(code, p):
     print 'PRESS', code
-    if code == 'left':
-        p.seek(-10)
-    elif code == 'right':
-        p.seek(10)
+    if code in ('left', 'right', 'up', 'down'):
+        p.seek({'left': -10, 'right': 10, 'up': 60, 'down': -60}.get(code))
     elif code == 'space':
         p.pause_toggle()
     elif code == 'q':
         yield p.stop()
         raise SystemExit
+    elif code == 'a':
+        p.stream.audio_delay += 0.1
+        print 'Audio delay is', p.stream.audio_delay
+    elif code == 'A':
+        p.stream.audio_delay -= 0.1
+        print 'Audio delay is', p.stream.audio_delay
+    elif code == 'D':
+        p.stream.deinterlace = not p.stream.deinterlace
+        print 'Deinterlacing is', p.stream.deinterlace
 
 
 def status(oldpos, newpos):
@@ -32,6 +39,7 @@ def status(oldpos, newpos):
     sys.stdout.flush()
 
 
+config.video.driver = 'vdpau'
 p = kaa.popcorn2.Player()
 
 kaa.signals['stdin_key_press_event'].connect(key, p)

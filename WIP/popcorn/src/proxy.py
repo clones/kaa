@@ -299,7 +299,22 @@ class Player(kaa.Object):
     @property
     def stream(self):
         """
-        Namespace for stream-specific properties.
+        Stream-specific properties.
+
+        Once a stream is open, fetching or modifying the actual properties
+        of the stream should be done through this object.  Modifying properties
+        of the Player object will only affect the next opened stream.
+
+        For example::
+
+            >>> p = Player()
+            >>> p.open('video.avi').wait()
+            >>> p.play().wait()
+            >>> p.deinterlace
+            'auto'
+            >>> p.stream.deinterlace
+            False
+            >>> p.stream.deinterlace = True
         """
         if not self._backend:
             return None
@@ -323,7 +338,6 @@ class Player(kaa.Object):
 
     @property
     def deinterlace(self):
-        # TODO: define different generic deinterlacing modes.
         return 'auto' if self._prop_deinterlace is None else self._prop_deinterlace
 
     @deinterlace.setter

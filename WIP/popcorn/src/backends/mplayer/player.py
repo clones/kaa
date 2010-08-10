@@ -30,6 +30,7 @@ import logging
 import re
 import os
 import stat
+import string
 
 # kaa imports
 import kaa
@@ -160,7 +161,7 @@ class MPlayer(object):
 
     @property
     def audio_delay(self):
-        return self._stream_info.get('audio_delay', 0.0)
+        return -self._stream_info.get('audio_delay', 0.0)
 
     @audio_delay.setter
     def audio_delay(self, value):
@@ -177,6 +178,16 @@ class MPlayer(object):
         # Cache is not settable while MPlayer is running.
         self._stream_info['cache'] = value
 
+    @property
+    def deinterlace(self):
+        return self._stream_info.get('deinterlace', False)
+
+    @deinterlace.setter
+    def deinterlace(self, value):
+        self._stream_info['deinterlace'] = bool(value)
+        if self._child:
+            self._slave_cmd('set_property deinterlace %d' % int(value))
+        
 
     #########################################
     # Private Methods
@@ -233,6 +244,20 @@ class MPlayer(object):
                 self.state = STATE_PLAYING
                 self._proxy.signals['play'].emit()
             elif self.state == STATE_OPEN:
+                # We start the file with deinterlacing enabled.  Need to decide
+                # now whether to disable it or leave it enabled.  We also set
+                # the stream deinterlaced property to the actual True/False value
+                # in case it was set to 'auto'
+                si_deint = self._stream_info['deinterlace']
+                if not si_deint or (si_deint == 'auto' and not getattr(self._media, 'interlaced', False)):
+                    # User set deinterlacing to False (from auto) or it's auto but
+                    # kaa.metadata says the video is not interlaced, so we disable.
+                    self._slave_cmd('set_property deinterlace 0')
+                    self._stream_info['deinterlace'] = False
+                else:
+                    # We've left deinterlacing enabled.
+                    self._stream_info['deinterlace'] = True
+
                 self.state = STATE_PLAYING
                 self._proxy.signals['stream-changed'].emit()
                 self._proxy.signals['start'].emit()
@@ -402,11 +427,36 @@ class MPlayer(object):
             # the index for next time.
             args.append('-idx')
 
+        if config.video.driver == 'vdpau':
+            deint = {'cheap': 1, 'good': 2, 'better': 3, 'best': 4}.get(config.video.deinterlacer, 3)
+            args.add(vo='vdpau:deint=%d' % deint)
+            args.add(vc='ffh264vdpau,ffvc1vdpau,ffwmv3vdpau,ffodivxvdpau,ffmpeg12vdpau,')
+            # If the display rate is less than the frame rate, -framedrop is
+            # needed or else the audio will continually drift.
+            # TODO: we could decide to add this only if the above condition is 
+            args.append('-framedrop')
+        else:
+            args.add(vo=config.video.driver)
+            vf.append(getattr(config.mplayer.deinterlacer, config.video.deinterlacer))
+
         if vf:
             args.add(vf=','.join(vf))
 
+        # There is no way to make MPlayer ignore keys from the X11 window.  So
+        # this hack makes a temp input file that maps all keys to a dummy (and
+        # non-existent) command which causes MPlayer not to react to any key
+        # presses, allowing us to implement our own handlers.
+        tempfile = kaa.tempfile('popcorn/mplayer-input.conf')
+        if not os.path.isfile(tempfile):
+            keys = filter(lambda x: x not in string.whitespace, string.printable)
+            keys = list(keys) + self._mp_info['keylist']
+            fd = open(tempfile, 'w')
+            for key in keys:
+                fd.write("%s noop\n" % key)
+            fd.close()
+        args.add(input='conf=%s' % tempfile)
 
-        log.debug('Starting MPlayer with args: %s', str(args))
+        log.debug('Starting MPlayer with args: %s', args)
         self._spawn(args, interactive=True)
 
         yield self._wait_for_signals('play', task='Play')

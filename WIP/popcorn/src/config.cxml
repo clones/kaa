@@ -17,6 +17,7 @@
         <var name="driver" default="xv">
             <values>
                 <value>xv</value>
+                <value>vdpau</value>
                 <value>x11</value>
             </values>
             <desc>
@@ -27,6 +28,23 @@
         </var>
         <var name="monitoraspect" default="4:3">
             <desc>Aspect ratio of the monitor or tv.</desc>
+        </var>
+        <var name='deinterlacer' default='better'>
+            <values>
+                <value>cheap</value>
+                <value>good</value>
+                <value>better</value>
+                <value>best</value>
+            </values>
+            <desc>
+                Deinterlacer mode to use when deinterlacing is enabled.
+                Options progress from fast to slow, and from low quality to
+                high quality.
+
+                Actual deinterlacer used depends on the backend and video
+                driver.  Each backend may provide additional options to 
+                override these values.
+            </desc>
         </var>
     </group>
 

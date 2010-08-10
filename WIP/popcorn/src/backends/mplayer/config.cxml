@@ -28,12 +28,22 @@
         </var>
     </group>
 
-    <var name="deinterlacer" default="yadif=0">
+    <group name="deinterlacer">
         <desc lang="en">
-            Deinterlacer video filter to use.  Multiple filters are allowed,
-            separated by commas.  
+            Deinterlacer video filter to use for the various deinterlacer
+            modes.  Multiple filters are allowed, separated by commas.
+
+            If the vdpau video output driver is selected in the video.device
+            option, this option has no effect.
+
+            Note that some deinterlacers cannot be enabled/disabled while a
+            video is playing.  Refer to MPlayer's man page for details.
         </desc>
-    </var>
+        <var name="cheap" default="tfields=4" />
+        <var name="good" default="kerndeint" />
+        <var name="better" default="yadif=0" />
+        <var name="best" default="yadif=1" />
+    </group>
  
     <var name="audiocodecs" type="str">
         <desc lang="en">
@@ -50,7 +60,6 @@
             0 (unable to play) up to 10 (perfect).  You can adjust these
             to cause MPlayer to be preferred in certain situations, but in
             general you should not need to adjust these values.
-            you know what you are doing.
         </desc>
         <var name="dvd" default="8"/>
         <var name="dvdmenu" default="0"/>
