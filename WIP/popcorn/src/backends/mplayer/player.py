@@ -196,7 +196,7 @@ class MPlayer(object):
     def fullscreen(self, value):
         self._stream_info['fullscreen'] = bool(value)
         if self._child:
-            self._slave_cmd('set_property fullscreen %d' % int(value))
+            self._slave_cmd('vo_fullscreen %d' % int(value))
         
 
     #########################################
