@@ -266,6 +266,7 @@ class Player(kaa.Object):
         # they are set to None, the value from config is used.  Otherwise
         # they are user-specified values that override config.
         self._prop_deinterlace = None
+        self._prop_fullscreen = None
         self._prop_cache = None
         self._prop_audio_delay = None
 
@@ -343,6 +344,15 @@ class Player(kaa.Object):
     @deinterlace.setter
     def deinterlace(self, value):
         self._prop_deinterlace = value
+
+
+    @property
+    def fullscreen(self):
+        return 'auto' if self._prop_fullscreen is None else self._prop_fullscreen
+
+    @fullscreen.setter
+    def fullscreen(self, value):
+        self._prop_fullscreen = value
 
 
     @property

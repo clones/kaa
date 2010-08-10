@@ -10,6 +10,7 @@ logging.getLogger('popcorn').setLevel(logging.DEBUG)
 @kaa.coroutine()
 def start(p):
     yield p.open(sys.argv[1])
+    p.stream.fullscreen = True
     yield p.play()
 
 
@@ -39,9 +40,8 @@ def status(oldpos, newpos):
     sys.stdout.flush()
 
 
-config.video.driver = 'vdpau'
+#config.video.driver = 'vdpau'
 p = kaa.popcorn2.Player()
-
 kaa.signals['stdin_key_press_event'].connect(key, p)
 p.signals['position-changed'].connect(status)
 start(p)

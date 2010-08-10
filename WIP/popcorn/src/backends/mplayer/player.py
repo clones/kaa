@@ -188,6 +188,16 @@ class MPlayer(object):
         if self._child:
             self._slave_cmd('set_property deinterlace %d' % int(value))
         
+    @property
+    def fullscreen(self):
+        return self._stream_info.get('fullscreen', False)
+
+    @fullscreen.setter
+    def fullscreen(self, value):
+        self._stream_info['fullscreen'] = bool(value)
+        if self._child:
+            self._slave_cmd('set_property fullscreen %d' % int(value))
+        
 
     #########################################
     # Private Methods
@@ -298,6 +308,7 @@ class MPlayer(object):
         self._stream_info = {
             'audio_delay': self._proxy.audio_delay,
             'deinterlace': self._proxy.deinterlace,
+            'fullscreen': self._proxy.fullscreen,
             'cache': self._proxy.cache
         }
         # Position in seconds in stream (float)
@@ -441,6 +452,9 @@ class MPlayer(object):
 
         if vf:
             args.add(vf=','.join(vf))
+
+        if self._stream_info['fullscreen'] is True:
+            args.append('-fs')
 
         # There is no way to make MPlayer ignore keys from the X11 window.  So
         # this hack makes a temp input file that maps all keys to a dummy (and
