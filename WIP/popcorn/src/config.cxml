@@ -1,84 +1,126 @@
 <?xml version="1.0"?>
 <config>
     <desc lang="en">player configuration</desc>
-    <var name="preferred" default="xine">
-        <values>
-            <value>xine</value>
+    <var name="preferred" default="mplayer">
+        <enum>
             <value>mplayer</value>
+            <value>xine</value>
             <value>gstreamer</value>
-        </values>
+        </enum>
         <desc lang="en">
             Preferred player backend.
         </desc>
     </var>
 
     <group name="video">
-        <desc lang="en">video settings</desc>
-        <var name="driver" default="xv">
-            <values>
-                <value>xv</value>
-                <value>vdpau</value>
-                <value>x11</value>
-            </values>
-            <desc>
-                Video driver; xv is the only supported video driver at this
-                moment. Please help us und extend kaa.popcorn to support other
-                video drivers as well.
-            </desc>
-        </var>
-        <var name="monitoraspect" default="4:3">
+        <desc lang="en">Video settings</desc>
+        <group name='vdpau'>
+            <var name="enabled" default="False">
+                <desc lang="en">
+                    Prefer VDPAU if available in the backend.  If VDPAU is not
+                    available or fails for a particular file, Xv will be used as
+                    a fallback.
+                </desc>
+            </var>
+            <var name="formats" default="h264, divx, mpeg12">
+                <desc lang="en">
+                    Comma-separated list of video formats for which to enable VDPAU.
+
+                    Options are: h264, vc1, wmv3, divx, mpeg12.
+                </desc>
+            </var>
+        </group>
+
+        <var name="monitoraspect" default="16:9">
             <desc>Aspect ratio of the monitor or tv.</desc>
         </var>
-        <var name='deinterlacer' default='better'>
-            <values>
-                <value>cheap</value>
-                <value>good</value>
-                <value>better</value>
-                <value>best</value>
-            </values>
-            <desc>
-                Deinterlacer mode to use when deinterlacing is enabled.
-                Options progress from fast to slow, and from low quality to
-                high quality.
 
-                Actual deinterlacer used depends on the backend and video
-                driver.  Each backend may provide additional options to 
-                override these values.
-            </desc>
-        </var>
+        <group name='deinterlacing'>
+            <var name='enabled' default='auto'>
+                <desc lang="en">
+                    Controls whether deinterlacing is on or off when a stream
+                    begins playing.  If 'auto', deinterlacing will be enabled
+                    if it is detected that the video stream is interlaced.
+
+                    Interlacing can always be toggled after the stream is
+                    playing.  This value controls the initial state of the
+                    deinterlacer.
+                </desc>
+                <enum>
+                    <value>auto</value>
+                    <value>yes</value>
+                    <value>no</value>
+                </enum>
+            </var>
+
+            <var name='method' default='better'>
+                <enum>
+                    <value>cheap</value>
+                    <value>good</value>
+                    <value>better</value>
+                    <value>best</value>
+                </enum>
+                <desc>
+                    Deinterlacer mode to use when deinterlacing is enabled.
+                    Options progress from fast to slow, and from low quality to
+                    high quality.
+
+                    Actual deinterlacer used depends on the backend and video
+                    driver.  Each backend may provide additional options to 
+                    override these values.
+                </desc>
+            </var>
+        </group>
     </group>
 
     <group name="audio">
-        <desc lang="en">audio settings</desc>
+        <desc lang="en">Audio settings</desc>
         <var name="driver" default="alsa">
-            <values>
+            <enum>
                 <value>alsa</value>
                 <value>oss</value>
-            </values>
-            <desc>audio driver (alsa or oss)</desc>
+            </enum>
+            <desc>Audio driver (alsa or oss)</desc>
         </var>
-        <group name="device">
-            <desc lang="en">
-                Device settings (only used by alsa). Set them to a specific alsa
-                device, e.g. hw:0,0 or default or special devices like
-                plug:front:default. If not set, player defaults will be used.
-            </desc>
-            <var name="mono" type="str"/>
-            <var name="stereo" type="str"/>
-            <var name="surround40" type="str"/>
-            <var name="surround51" type="str"/>
-            <var name="passthrough" type="str"/>
+        <group name="alsa">
+            <var name="default" type="str">
+                <desc lang="en">
+                    Sets the default ALSA device for all content.  If this
+                    value is empty, a default device (stereo, surround51, etc.)
+                    will be used depending on the number of channels in the
+                    content.  Examples: spdif, iec958, hdmi, hw:0,0
+                </desc>
+            </var>
+            <group name="devices">
+                <desc lang="en">
+                    Override standard ALSA devices.  If any of these values are set,
+                    they will be used when the number of channels in the content
+                    matches.  Otherwise the default device will be used if set.
+                </desc>
+                <var name="mono" type="str"/>
+                <var name="stereo" type="str"/>
+                <var name="surround40" type="str"/>
+                <var name="surround51" type="str"/>
+                <var name="surround71" type="str"/>
+                <var name="passthrough" type="str">
+                    <desc lang="en">
+                        Passthrough device is only used when audio.passthrough = True
+                        and when the audio stream is AC3 or DTS.
+                    </desc>
+                </var>
+            </group>
         </group>
-        <var name="channels" default="2">
-            <values>
+        <var name="channels" default="6">
+            <enum>
                 <value>2</value>
                 <value>4</value>
                 <value>6</value>
-            </values>
-            <desc>number of channels (2, 4 or 6)</desc>
+                <value>8</value>
+            </enum>
+            <desc>Number of audio channels: stereo (2), 4.0 (4), 5.1 (6), or 7.1 (8)</desc>
         </var>
         <var name="passthrough" default="False">
-            <desc>AC3 and DTS passthrough</desc>
+            <desc>Passthrough AC3 and DTS bitstreams</desc>
         </var>
         <var name="delay" default="0.0">
             <desc>
@@ -100,6 +142,13 @@
         <var name="audio" default="en"/>
         <var name="subtitle" default="en,de,fr"/>
     </group>
+
+    <var name='cache' default='1024' type="int">
+        <desc lang="en">
+            How much memory (in kilobytes) to use when precaching a stream.
+            A value of 0 will disable the cache completely.
+        </desc>
+    </var>
 
     <code>
         import backends

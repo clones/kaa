@@ -90,20 +90,25 @@ def get_mplayer_info(path):
         "mtime": mtime,
         "video_filters": {},
         "video_drivers": {},
+        "video_codecs": {},
         "audio_filters": {},
         "audio_drivers": {},
-        "keylist": []
+        "audio_codecs": {},
+        "keylist": [],
+        "max_channels": 6,
     }
 
     groups = {
         'video_filters': ('Available video filters', r'\s*(\w+)\s+:\s+(.*)'),
         'video_drivers': ('Available video output', r'\s*(\w+)\s+(.*)'),
+        'video_codecs': ('Available video codecs', r'\s*(\w+)\s+(\S+)\s+(\S+)\s+(.*)'),
         'audio_filters': ('Available audio filters', r'\s*(\w+)\s+:\s+(.*)'),
-        'audio_drivers': ('Available audio output', r'\s*(\w+)\s+(.*)')
+        'audio_drivers': ('Available audio output', r'\s*(\w+)\s+(.*)'),
+        'audio_codecs': ('Available audio codecs', r'\s*(\w+)\s+(\S+)\s+(\S+)\s+(.*)'),
     }
 
     curgroup = None
-    for line in os.popen('%s -vf help -af help -vo help -ao help' % path):
+    for line in os.popen('%s -vf help -af help -vo help -ao help -vc help -ac help 2>/dev/null' % path):
         # Check version
         if line.startswith("MPlayer "):
             info['version'] = line.split()[1]
@@ -120,19 +125,33 @@ def get_mplayer_info(path):
         if not m:
             continue
 
-        if len(m.groups()) == 2:
+        if len(m.groups()) > 2:
+            info[curgroup][m.group(1)] = m.groups()[1:]
+        elif len(m.groups()) == 2:
             info[curgroup][m.group(1)] = m.group(2)
         else:
             info[curgroup].append(m.group(1))
 
     # Another pass for key list.
-    for line in os.popen('%s -input keylist' % path):
+    for line in os.popen('%s -input keylist 2>/dev/null' % path):
         # Check regexp
         m = re.match(r'^(\w+)$', line.strip())
         if not m:
             continue
         info['keylist'].append(m.group(1))
 
-
+    # Detect 6 or 8 channel audio based on MPlayer version.  We could call it
+    # again with -channels 8 and check the exit code, but we've already called
+    # it twice and the overhead for each call is high.
+    m = re.search(r'-(r|svn)(\d{5,})', info['version'])
+    if m:
+        # 8 channel audio support added to r29868 (2009-11-10).
+        prefix, ver = m.group(1), int(m.group(2)) if m.group(2).isdigit() else 0
+        if (prefix == 'r' and ver >= 29868) or (prefix == 'svn' and ver >= 20091110):
+            info['max_channels'] = 8
+    elif info['version'] >= '1.0rc3':
+        # Available in 1.0rc3 or later.
+        info['max_channels'] = 8
+           
     _cache[path] = info
     return info

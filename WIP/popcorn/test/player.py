@@ -10,7 +10,6 @@ logging.getLogger('popcorn').setLevel(logging.DEBUG)
 @kaa.coroutine()
 def start(p):
     yield p.open(sys.argv[1])
-    p.stream.fullscreen = True
     yield p.play()
 
 
@@ -18,7 +17,8 @@ def start(p):
 def key(code, p):
     print 'PRESS', code
     if code in ('left', 'right', 'up', 'down'):
-        p.seek({'left': -10, 'right': 10, 'up': 60, 'down': -60}.get(code))
+        pos = yield p.seek({'left': -10, 'right': 10, 'up': 60, 'down': -60}.get(code))
+        print 'Seeked:', pos
     elif code == 'space':
         p.pause_toggle()
     elif code == 'q':
@@ -33,6 +33,12 @@ def key(code, p):
     elif code == 'D':
         p.stream.deinterlace = not p.stream.deinterlace
         print 'Deinterlacing is', p.stream.deinterlace
+    elif code == 'f':
+        p.window.set_fullscreen(not p.window.get_fullscreen())
+    elif code == 'r':
+        p.window.resize(1024, 768)
+    elif code == 'p':
+        yield start(p)
 
 
 def status(oldpos, newpos):
@@ -40,8 +46,18 @@ def status(oldpos, newpos):
     sys.stdout.flush()
 
 
-#config.video.driver = 'vdpau'
+config.save('popcorn.conf')
 p = kaa.popcorn2.Player()
+
+# Various things we can test before starting movie.
+config.video.vdpau.enabled = True
+# print 'WINDOW ID: 0x%x' % p.window.id
+# p.window.set_fullscreen()
+# p.window = None
+# p.config.video.vdpau.enabled = False
+# p.config.video.deinterlacing.method = 'best'
+# p.config.video.vdpau.formats += ', vc1'
+
 kaa.signals['stdin_key_press_event'].connect(key, p)
 p.signals['position-changed'].connect(status)
 start(p)

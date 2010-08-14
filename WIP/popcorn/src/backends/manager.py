@@ -76,7 +76,7 @@ def import_backends():
     _backends_imported = True
 
 
-def get_player_class(media, caps=None, exclude=None, force=None):
+def get_player_class(media, caps=None, exclude=None, force=None, cfg=None):
     """
     Searches the registered players for the most capable player given the mrl
     or required capabilities.  A specific player can be returned by specifying
@@ -85,8 +85,11 @@ def get_player_class(media, caps=None, exclude=None, force=None):
     the given mrl).  The player's class object is returned if a suitable
     player is found, otherwise None.
     """
-
     import_backends()
+
+    if cfg is None:
+        # No user-overridden config specified, use global default.
+        cfg = config
 
     # Ensure all players have their capabilities fetched.
     for player_id in _players.keys()[:]:
@@ -154,12 +157,6 @@ def get_player_class(media, caps=None, exclude=None, force=None):
             log.debug('skip %s, in exclude list', player_id)
             continue
 
-        if caps and CAP_VIDEO in caps and config.video.driver not in player['vdriver']:
-            # video driver not supported
-            log.debug('skip %s, does not support vo %s and CAP_VIDEO specified', 
-                      player_id, config.video.driver)
-            continue
-
         rating = 0
         if caps:
             # Rate player on the given capabilities. If one or more needed
@@ -187,7 +184,7 @@ def get_player_class(media, caps=None, exclude=None, force=None):
                 # config indicates backend should be preferred for this codec
                 rating += 10
             
-        if config.preferred == player_id:
+        if cfg.preferred == player_id:
             # Bump up the rating if this is specified as the prefered player,
             # to bias our selection in favor of this one.
             rating += 5

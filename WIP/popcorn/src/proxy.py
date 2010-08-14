@@ -33,6 +33,7 @@ import kaa
 import kaa.metadata
 from kaa.weakref import weakref
 from kaa.utils import property
+import kaa.display
 
 # kaa.popcorn imports
 from backends import manager
@@ -249,11 +250,14 @@ class Player(kaa.Object):
             '''
     }
 
-    def __init__(self, window=None):
+    def __init__(self):
         super(Player, self).__init__()
         # Backend instance currently in use.  This is assigned in open()
         self._backend = None
-        self._window = window
+        # kaa.display.X11Window object; False means video disabled.
+        self._window = None
+        # The inner window that is created and managed by the backend.
+        self._window_inner = None
         # kaa.metadata Media object for the currently opened mrl.
         self._media = None
         self._stream = StreamProperties(self)
@@ -262,17 +266,82 @@ class Player(kaa.Object):
         self._open_inprogress = None
         self._finished_inprogress = kaa.InProgress()
 
-        # Properties that apply to all streams when they first open.  When
-        # they are set to None, the value from config is used.  Otherwise
-        # they are user-specified values that override config.
-        self._prop_deinterlace = None
-        self._prop_fullscreen = None
-        self._prop_cache = None
-        self._prop_audio_delay = None
-
+        # Either the globally default config, or a copy-on-write clone of the global
+        # config if the user accessed the config property.
+        self._config = config
 
     #########################################
     # Properties
+
+    @property
+    def window(self):
+        """
+        A :class:`kaa.display.X11Window` object in which the video will be
+        displayed.
+
+        This property may be set to None, which will disable video output in
+        the backend.  It may also be set to another X11Window object.
+
+        If you've set this property to None (disabling video output) but want
+        to undo that so that on next play() a window is used, you can delete
+        the property:
+
+            >>> player.window = None
+            >>> del player.window
+        """
+        if self._window is False:
+            # User explicitly disabled video output.
+            return None
+        if not self._window:
+            # Create a new window on demand.  We invoke the window setter
+            # method to do some standard setup on the window.
+            self.window = kaa.display.X11Window(size=(1,1), title='Popcorn Player')
+        return self._window
+
+    @window.setter
+    def window(self, window):
+        if window is None:
+            # User wants to disable video output.
+            if self._window:
+                # Clean up the existing window.
+                self._window.signals['expose_event'].disconnect(self._window_handle_expose)
+                self._window.signals['resize_event'].disconnect(self._window_handle_resize)
+                self._window.signals['delete_event'].disconnect(self._window_handle_delete)
+            self._window = False
+        elif window != self._window:
+            self._window = window
+            window.signals['expose_event'].connect_weak(self._window_handle_expose)
+            window.signals['resize_event'].connect_weak(self._window_handle_resize)
+            window.signals['delete_event'].connect_weak(self._window_handle_delete)
+            # The inner child window is where the video actually displays, and
+            # it must be created and managed by the backend.  'window' is the
+            # outer window which will contain any black bars we draw to
+            # maintain aspect.
+            # TODO: we could be clever and instead of destroying any existing
+            # inner window, reparent it.
+            # FIXME: if we destroy the inner window while the backend is running,
+            # ugly things will happen.
+            self._window_inner = None
+
+    @window.deleter
+    def window(self):
+        self.window = None
+        self._window = None
+
+    @property
+    def config(self):
+        if self._config is config:
+            # Right now we're just using the global config.  Make a copy-on-write
+            # clone to pass back to the user.
+            self._config = config.copy(copy_on_write=True)
+        return self._config
+
+    @config.setter
+    def config(self, value):
+        if not isinstance(value, (type(config), type(None))):
+            raise ValueError('config value must be Config object or None')
+        self._config = config if value is None else value
+
 
     @property
     def media(self):
@@ -337,41 +406,6 @@ class Player(kaa.Object):
         return self._backend._player_caps
 
 
-    @property
-    def deinterlace(self):
-        return 'auto' if self._prop_deinterlace is None else self._prop_deinterlace
-
-    @deinterlace.setter
-    def deinterlace(self, value):
-        self._prop_deinterlace = value
-
-
-    @property
-    def fullscreen(self):
-        return 'auto' if self._prop_fullscreen is None else self._prop_fullscreen
-
-    @fullscreen.setter
-    def fullscreen(self, value):
-        self._prop_fullscreen = value
-
-
-    @property
-    def cache(self):
-        return 'auto' if self._prop_cache is None else self._prop_cache
-
-    @cache.setter
-    def cache(self, value):
-        self._prop_cache = value
-
-
-    @property
-    def audio_delay(self):
-        return config.audio.delay if self._prop_audio_delay is None else self._prop_audio_delay
-
-    @audio_delay.setter
-    def audio_delay(self, value):
-        self._prop_audio_delay = value
-
 
     #########################################
     # Methods
@@ -393,6 +427,41 @@ class Player(kaa.Object):
                 if callable(val):
                     return val
         return object.__getattribute__(self, attr)
+
+
+    def _window_layout(self):
+        """
+        Resizes and moves the inner window to fill the outer window while
+        maintaining aspect ratio, and paints black bars to fill the rest.
+        """
+        outer, inner, backend = self._window, self._window_inner, self._backend
+        if not outer or not inner or not backend:
+            return
+
+        o_width, o_height = self._window.get_size()
+        o_aspect = float(o_width) / o_height
+        if backend.aspect >= o_aspect:
+            # Need bars on top/bottom; so inner window fills outer width
+            # and inner height is based on aspect.
+            i_width, i_height = o_width, int(o_width / backend.aspect)
+        else:
+            # Need bars on left/right; so inner window fills outer height
+            # and inner width is based on aspect.
+            i_width, i_height = int(o_height * backend.aspect), o_height
+
+        inner.resize(i_width, i_height)
+        inner.move((o_width - i_width) / 2, (o_height - i_height) / 2)
+        outer.draw_rectangle((0, 0), (o_width, o_height), '#000000')
+
+    def _window_handle_expose(self, regions):
+        self._window_layout()
+
+    def _window_handle_resize(self, oldsize, newsize):
+        self._window_layout()
+
+    def _window_handle_delete(self):
+        self._window.hide()
+        self.stop()
 
 
     def _emit_finished(self, exc):
@@ -432,11 +501,11 @@ class Player(kaa.Object):
 
     @kaa.coroutine()
     def _open(self, media, caps, player):
-        if self._window and CAP_VIDEO not in caps:
+        if self._window is not False and caps and CAP_VIDEO not in caps:
             caps = tuple(caps) + (CAP_VIDEO,)
 
         # TODO: iterate through available players, keeping track of failed.
-        cls = manager.get_player_class(media, caps, [], player)
+        cls = manager.get_player_class(media, caps, [], player, self._config)
         log.info('Chose backend %s for mrl %s', cls._player_id, media.url)
         if self._backend:
             # We already have a backend. The backend has to be stopped if
@@ -463,7 +532,6 @@ class Player(kaa.Object):
             self._backend = cls(self)
 
         self._media = media
-        self._backend.window = self._window
         yield self._backend.open(self.media)
 
 
