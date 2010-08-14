@@ -430,7 +430,7 @@ class MPlayer(object):
         args.extend('-slave -v -osdlevel 0 -fixed-vo -demuxer lavf')
 
         if self.audio_delay:
-            args.add(delay=-self.audio_delay)
+            args.add(delay=self.audio_delay)
         if self.cache == 0:
             args.add(nocache=True)
         elif isinstance(self.cache, (long, float, int)) or self.cache.isdigit():
