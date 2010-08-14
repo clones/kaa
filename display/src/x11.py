@@ -416,7 +416,7 @@ class X11Window(object):
     def set_fullscreen(self, fs = True):
         if not fs:
             if self._fs_size_save:
-                self.resize(self._fs_size_save, force = True)
+                self.resize(*self._fs_size_save, force=True)
                 self._window.set_fullscreen(False)
                 self._fs_size_save = None
                 return True
@@ -429,7 +429,7 @@ class X11Window(object):
         self._fs_size_save = self.get_size()
         display_size = self.get_display().get_size()
         self._window.set_fullscreen(True)
-        self.resize(display_size, force = True)
+        self.resize(*display_size, force=True)
 
     def get_fullscreen(self):
         return self._fs_size_save != None
