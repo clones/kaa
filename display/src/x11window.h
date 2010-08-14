@@ -49,8 +49,8 @@ typedef struct {
     Window   window;
     Cursor   invisible_cursor;
 
-    PyObject *wid;
-    int owner;
+    PyObject *wid,
+             *owner;
 } X11Window_PyObject;
 
 extern PyTypeObject X11Window_PyObject_Type;

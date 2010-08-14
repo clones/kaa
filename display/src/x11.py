@@ -101,6 +101,7 @@ class X11Display(object):
     XEVENT_UNMAP_NOTIFY = 18
     XEVENT_MAP_NOTIFY = 19
     XEVENT_CONFIGURE_NOTIFY = 22
+    XEVENT_CLIENT_MESSAGE = 33
 
     #XEVENT_WINDOW_EVENTS = (6, 12, 4, 2, 22, 18, 19)
 
@@ -224,18 +225,21 @@ class X11Window(object):
             else:
                 raise ValueError, "window parameter must be an integer."
         else:
-            assert("size" in kwargs)
             if "title" in kwargs:
                 assert(type(kwargs["title"]) == str)
             if "parent" in kwargs:
                 assert(isinstance(kwargs["parent"], X11Window))
                 kwargs["parent"] = kwargs["parent"]._window
+            if 'size' not in kwargs:
+                # Dummy size.  Don't want to make it 0,0 since we'll barf
+                # if we try to map it.
+                kwargs['size'] = 1, 1
 
             self._window = _X11.X11Window(display._display, kwargs["size"], **kwargs)
 
         self._display = display
         display._windows[self._window.wid] = weakref.ref(self)
-        self._cursor_hide_timeout = -1
+        self._cursor_hide_timeout = 1
         self._cursor_hide_timer = kaa.WeakOneShotTimer(self._cursor_hide_cb)
         self._cursor_visible = True
         self._fs_size_save = None
@@ -249,6 +253,7 @@ class X11Window(object):
             "map_event",       # ?
             "unmap_event",     # ?
             "resize_event",    # window resized
+            "delete_event",
             "configure_event") # ?
 
     def __str__(self):
@@ -300,10 +305,10 @@ class X11Window(object):
         for event, data in events:
             if event == X11Display.XEVENT_MOTION_NOTIFY:
                 # Mouse moved, so show cursor.
-                if self._cursor_hide_timeout != 0 and not self._cursor_visible:
-                    self.set_cursor_visible(True)
-
-                self._cursor_hide_timer.start(self._cursor_hide_timeout)
+                if not self._cursor_visible:
+                    if self._cursor_hide_timeout != 0:
+                            self.set_cursor_visible(True)
+                    self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
             elif event == X11Display.XEVENT_KEY_PRESS:
                 key = data["key"]
@@ -338,17 +343,30 @@ class X11Window(object):
                 self.signals["focus_in_event"].emit()
             elif event == X11Display.XEVENT_FOCUS_OUT:
                 self.signals["focus_out_event"].emit()
+            elif event == X11Display.XEVENT_CLIENT_MESSAGE:
+                if data['type'] == 'delete':
+                    if len(self.signals['delete_event']) == 0:
+                        # Default action on a delete event: just unmap it.
+                        self.hide()
+                    else:
+                        self.signals['delete_event'].emit()
 
 
         if len(expose_regions) > 0:
             self.signals["expose_event"].emit(expose_regions)
 
 
-    def move(self, pos, force = False):
-        return self.set_geometry(pos, (-1, -1))
+    def move(self, x, y=None, force=False):
+        if y is None:
+            log.warning('X11Window.move() now takes 2 arguments instead of 1 tuple')
+            x, y = x
+        return self.set_geometry((x, y), (-1, -1), force=force)
 
-    def resize(self, size, force = False):
-        return self.set_geometry((-1, -1), size, force)
+    def resize(self, width, height=None, force=False):
+        if height is None:
+            log.warning('X11Window.resize() now takes 2 arguments instead of 1 tuple')
+            width, height = width
+        return self.set_geometry((-1, -1), (width, height), force)
 
     def set_geometry(self, pos, size, force = False):
         if self.get_fullscreen() and not force:
@@ -429,6 +447,19 @@ class X11Window(object):
     @property
     def id(self):
         return self._window.wid
+
+    @property
+    def owner(self):
+        """
+        True if the X11Window python object owns the underlying X11 Window
+        construct.   If True, the window will be destroyed when the python
+        wrapper object is deallocated.
+        """
+        return self._window.owner
+
+    @owner.setter
+    def owner(self, value):
+        self._window.owner = value
 
     def focus(self):
         return self._window.focus()
@@ -536,3 +567,8 @@ class X11Window(object):
         @param setting: True if the window should be decorated, false if not.
         """
         self._window.set_decorated(setting)
+
+    def draw_rectangle(self, pos, size, color):
+        if isinstance(color, basestring) and color[0] == '#' and len(color) == 7:
+            color = int(color[1:3], 16), int(color[3:5], 16), int(color[5:], 16)
+        self._window.draw_rectangle(pos, size, color)

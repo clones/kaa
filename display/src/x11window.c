@@ -149,6 +149,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 
         last_error = NULL;
         XSetErrorHandler(old_handler);
+        self->owner = Py_False;
     } else {
         screen = DefaultScreen(self->display);
         attr.backing_store = NotUseful;
@@ -168,9 +169,12 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 
         if (window_title)
             XStoreName(self->display, self->window, window_title);
-        self->owner = True;
+        self->owner = Py_True;
     }
     self->wid = PyLong_FromUnsignedLong(self->window);
+    Py_INCREF(self->owner);
+    // Needed to handle event for window close via window manager
+    XSetWMProtocols(self->display, self->window, &display->wmDeleteMessage, 1);
     XUnlockDisplay(self->display);
     return (PyObject *)self;
 }
@@ -185,15 +189,16 @@ X11Window_PyObject__init(X11Window_PyObject *self, PyObject *args,
 void
 X11Window_PyObject__dealloc(X11Window_PyObject * self)
 {
-    if (self->window ) {
+    if (self->window) {
         XLockDisplay(self->display);
-        if (self->owner)
+        if (self->owner == Py_True)
             XDestroyWindow(self->display, self->window);
         Py_XDECREF(self->wid);
         if (self->invisible_cursor)
             XFreeCursor(self->display, self->invisible_cursor);
         XUnlockDisplay(self->display);
     }
+    Py_DECREF(self->owner);
     Py_XDECREF(self->display_pyobject);
     X11Window_PyObject__clear(self);
     self->ob_type->tp_free((PyObject*)self);
@@ -644,6 +649,33 @@ X11Window_PyObject__set_decorated(X11Window_PyObject * self, PyObject * args)
     return Py_None;
 }
 
+PyObject *
+X11Window_PyObject__draw_rectangle(X11Window_PyObject * self, PyObject * args)
+{
+    int x, y, width, height;
+    unsigned long color;
+    int depth, r, g, b;
+    GC gc;
+
+    if (!PyArg_ParseTuple(args, "(ii)(ii)(iii)", &x, &y, &width, &height, &r, &g, &b))
+        return NULL;
+ 
+    XLockDisplay(self->display);
+    depth = DefaultDepth(self->display, DefaultScreen(self->display));
+    if (depth == 16)
+        color = ((r & 248) << 8) + ((g & 252) << 3) + ((b & 248) >> 3);
+    else
+        color = (r << 16) + (g << 8) + b;
+    gc = XCreateGC(self->display, self->window, 0, 0);
+    XSetForeground(self->display, gc, color);
+    XFillRectangle(self->display, self->window, gc, x, y, width, height);
+    XFreeGC(self->display, gc);
+    XUnlockDisplay(self->display);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 PyMethodDef X11Window_PyObject_methods[] = {
     { "show", (PyCFunction)X11Window_PyObject__show, METH_VARARGS },
     { "hide", (PyCFunction)X11Window_PyObject__hide, METH_VARARGS },
@@ -664,6 +696,7 @@ PyMethodDef X11Window_PyObject_methods[] = {
     { "set_shape_mask", (PyCFunction)X11Window_PyObject__set_shape_mask, METH_VARARGS },
     { "reset_shape_mask", (PyCFunction)X11Window_PyObject__reset_shape_mask, METH_VARARGS },
     { "set_decorated", (PyCFunction)X11Window_PyObject__set_decorated, METH_VARARGS },
+    { "draw_rectangle", (PyCFunction)X11Window_PyObject__draw_rectangle, METH_VARARGS },
     { NULL, NULL }
 };
 
@@ -720,6 +753,7 @@ int x11window_object_decompose(X11Window_PyObject *win, Window *window, Display 
 
 static PyMemberDef X11Window_PyObject_members[] = {
     {"wid", T_OBJECT_EX, offsetof(X11Window_PyObject, wid), 0, ""},
+    {"owner", T_OBJECT_EX, offsetof(X11Window_PyObject, owner), 0, ""},
     {NULL}  /* Sentinel */
 };
 

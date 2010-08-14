@@ -69,6 +69,7 @@ X11Display_PyObject__new(PyTypeObject *type, PyObject * args,
 
     self = (X11Display_PyObject *)type->tp_alloc(type, 0);
     self->display = display;
+    self->wmDeleteMessage = XInternAtom(self->display, "WM_DELETE_WINDOW", False);
     return (PyObject *)self;
 }
 
@@ -99,7 +100,6 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     PyObject *events = PyList_New(0), *o;
     XEvent ev;
 
-//    printf("START HANDLE EVENTS\n");
     XLockDisplay(self->display);
     XSync(self->display, False);
     while (XPending(self->display)) {
@@ -142,6 +142,16 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
                               "window", ev.xconfigure.window,
                               "pos", ev.xconfigure.x, ev.xconfigure.y,
                               "size", ev.xconfigure.width, ev.xconfigure.height);
+            PyList_Append(events, o);
+            Py_DECREF(o);
+        }
+        else if (ev.type == ClientMessage) {
+            char *msgtype = "unknown";
+            if (ev.xclient.data.l[0] == self->wmDeleteMessage)
+                msgtype = "delete";
+            o = Py_BuildValue("(i{s:i,s:s})", ClientMessage,
+                              "window", ev.xclient.window,
+                              "type", msgtype);
             PyList_Append(events, o);
             Py_DECREF(o);
         }

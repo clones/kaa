@@ -39,6 +39,7 @@ typedef struct {
 
     Display *display;
     PyObject *socket;
+    Atom wmDeleteMessage;
 } X11Display_PyObject;
 
 extern PyTypeObject X11Display_PyObject_Type;
