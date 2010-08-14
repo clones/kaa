@@ -48,7 +48,7 @@ log = logging.getLogger('popcorn.mplayer')
 # Global constants
 # regexp whose groups() is (vpos, apos, speed)
 RE_STATUS = re.compile(r'(?:V:\s*([\d.]+)|A:\s*([\d.]+)\s\W)(?:.*\s([\d.]+x))?')
-RE_ERROR = re.compile(r'^(File not found|Failed to open|MPlayer interrupt|Unknown option|Error parsing)')
+RE_ERROR = re.compile(r'^(File not found|Failed to open|MPlayer interrupt|Unknown option|Error parsing|FATAL:)')
 
 STREAM_INFO_MAP = { 
     'VIDEO_FORMAT': ('vfourcc', str),
@@ -116,7 +116,6 @@ class MPlayer(object):
     def state(self, value):
         if self._state != value:
             log.info('State change: %s -> %s', self._state, value)
-            self._state = value
             if value == STATE_NOT_RUNNING:
                 # MPlayer destroys the window on exit so it's no longer valid.  Set
                 # it to none now so the proxy doesn't try to do anything with it,
@@ -129,6 +128,9 @@ class MPlayer(object):
                     # playing because there will be no resize event to do that
                     # for us otherwise.
                     self._proxy.window.hide()
+
+            self._state = value
+                
 
     @property
     def position(self):
@@ -206,7 +208,7 @@ class MPlayer(object):
 
     def _handle_child_exit(self, code):
         self._child = None
-        if self.state in (STATE_PLAYING, STATE_PAUSED):
+        if self.state in (STATE_STARTING, STATE_PLAYING, STATE_PAUSED):
             # Child died when we didn't expect it to.  Adjust state now and
             # emit appropriate signals.
             cause = self._error_message if self._error_message else 'Unknown failure caused abort'
@@ -214,10 +216,9 @@ class MPlayer(object):
             exc = PlayerError(cause)
             self._proxy._emit_finished(exc)
             self._proxy.signals['error'].emit(exc, self.state, STATE_NOT_RUNNING)
-            self.state = STATE_NOT_RUNNING
-
         else:
             log.info('MPlayer child exited: state=%s', self.state)
+        self.state = STATE_NOT_RUNNING
 
 
     def _spawn(self, args, interactive=False):
@@ -247,9 +248,9 @@ class MPlayer(object):
             old = self._position
             self._position = float((m.group(1) or m.group(2)).replace(',', '.'))
             
-            if self._stream_changed and self.state != STATE_OPEN:
+            if self._stream_changed and self.state != STATE_STARTING:
                 # Stream changed so emit.  We don't bother emitting if the
-                # stream state is STATE_OPEN since we handle that later.
+                # stream state is STATE_STARTING since we handle that later.
                 self._stream_changed = False
                 self._proxy.signals['stream-changed'].emit()
 
@@ -259,7 +260,7 @@ class MPlayer(object):
             elif self.state == STATE_PAUSED:
                 self.state = STATE_PLAYING
                 self._proxy.signals['play'].emit()
-            elif self.state == STATE_OPEN:
+            elif self.state == STATE_STARTING:
                 # We start the file with deinterlacing enabled.  Need to decide
                 # now whether to disable it or leave it enabled.  We also set
                 # the stream deinterlaced property to the actual True/False value
@@ -426,7 +427,7 @@ class MPlayer(object):
         config = self._proxy._config
         vf = []
         args = self._media._mplayer_args[:]
-        args.extend('-slave -v -osdlevel 0 -fixed-vo -demuxer lavf -ac ffac3,')
+        args.extend('-slave -v -osdlevel 0 -fixed-vo -demuxer lavf')
 
         if self.audio_delay:
             args.add(delay=-self.audio_delay)
@@ -504,6 +505,7 @@ class MPlayer(object):
         args.add(input='conf=%s' % tempfile)
 
         log.debug('Starting MPlayer with args: %s', ' '.join(args))
+        self.state = STATE_STARTING
         self._spawn(args, interactive=True)
 
         yield self._wait_for_signals('play', task='Play')
@@ -536,7 +538,7 @@ class MPlayer(object):
         # Child is dead, adjust state.
         self.state = STATE_NOT_RUNNING
         self._reset_stream()
-        if orig_state in (STATE_PLAYING, STATE_PAUSED):
+        if orig_state in (STATE_STARTING, STATE_PLAYING, STATE_PAUSED):
             self._proxy.signals['stop'].emit()
 
 

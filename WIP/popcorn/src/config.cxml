@@ -22,7 +22,7 @@
                     a fallback.
                 </desc>
             </var>
-            <var name="formats" default="h264, divx, mpeg12">
+            <var name="formats" default="h264, vc1, mpeg12">
                 <desc lang="en">
                     Comma-separated list of video formats for which to enable VDPAU.
 

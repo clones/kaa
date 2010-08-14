@@ -34,16 +34,25 @@ CAP_DEINTERLACE = 'CAP_DEINTERLACE'
 CAP_VIDEO = 'CAP_VIDEO'
 CAP_VO_SHM = 'CAP_VO_SHM'
 
+# Backend child process (e.g. MPlayer) not running
 STATE_NOT_RUNNING = 'STATE_NOT_RUNNING'
+# Backend child process is running and ready for open()
 STATE_IDLE = 'STATE_IDLE'
+# open() issued, waiting for completion
 STATE_OPENING = 'STATE_OPENING'
+# open() completed successfully, stream properties ready and can now play()
 STATE_OPEN = 'STATE_OPEN'
+# play() issued, waiting for stream to begin playing
+STATE_STARTING = 'STATE_STARTING'
+# Stream is playing
 STATE_PLAYING = 'STATE_PLAYING'
+# Stream is paused
 STATE_PAUSED = 'STATE_PAUSED'
+# stop() issued, waiting for completion
 STATE_STOPPING = 'STATE_STOPPING'
 
 # States in which the backend is available.
-STATES_ACTIVE = (STATE_OPENING, STATE_IDLE, STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
+STATES_ACTIVE = (STATE_OPENING, STATE_STARTING, STATE_IDLE, STATE_OPEN, STATE_PLAYING, STATE_PAUSED)
 
 SCALE_KEEP = 'SCALE_KEEP'
 SCALE_IGNORE = 'SCALE_IGNORE'
