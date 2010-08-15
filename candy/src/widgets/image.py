@@ -33,6 +33,7 @@ __all__ = [ 'Imlib2Texture', 'CairoTexture', 'Image', 'Thumbnail' ]
 
 # python imports
 import os
+import sys
 import hashlib
 import logging
 
@@ -48,7 +49,8 @@ from widget import Widget
 log = logging.getLogger('kaa.candy')
 
 # create thread pool for image loading
-kaa.register_thread_pool('candy.image', kaa.ThreadPool())
+if 'sphinx' not in sys.modules:
+    kaa.register_thread_pool('candy.image', kaa.ThreadPool())
 
 class Imlib2Texture(Widget):
     """

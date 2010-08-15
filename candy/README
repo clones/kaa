@@ -26,14 +26,8 @@ Requirements:
 kaa.base
 kaa.imlib2
 
-Latest versions of clutter-0.6, the 0.7 development releases will not
-work. When 0.8 is out the code will be updated. Get the files from
+Latest versions of clutter-1.0 and pyclutter. Get the files from
 http://www.clutter-project.org
-
-clutter-0.6.4
-clutter-cairo-0.6.2
-pyclutter-0.6 latest svn
-http://svn.o-hand.com/repos/clutter/branches/pyclutter-0-6
 
 pygtk-2 including pygtk-codegen. When you are able to install
 pyclutter you have pygtk-codegen installed.

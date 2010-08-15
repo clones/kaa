@@ -12,11 +12,12 @@
 # serve to show the default value.
 
 import sys, os
+import kaa.distribution
 
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
-sys.path.append(os.path.abspath('../build/lib.linux-i686-2.5/kaa'))
+sys.path.append(os.path.abspath('../build/%s/kaa' % kaa.distribution.get_build_directory()))
 from candy.version import VERSION
 
 # General configuration

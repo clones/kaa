@@ -1,4 +1,10 @@
 1. Improve image loading (see notes in image.py)
 
+2. Port clutter-reflect to current clutter API
+
+3. Check if the Clutter Layoutmanager could be integrated
+
 X. All FIXME, TODO and @todo messages in the code should be fixed. And add
    more doc (always a good idea)
+
+Y. Re-check thread saftly; maybe make it cleaner
