@@ -373,6 +373,8 @@ class X11Window(object):
             self._fs_size_save = size
             return False
 
+        if 0 in size:
+            raise ValueError('0 is not a valid width or height')
         self._window.set_geometry(pos, size)
         self._display.handle_events()
         return True
