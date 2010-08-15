@@ -46,7 +46,7 @@ ext_modules = []
 #else:
 #    print "- libvisual support disabled"
 
-setup(module = 'popcorn2', 
+setup(module = 'popcorn', 
       version = '0.2.0', 
 #      scripts = [ 'bin/popcorn' ],
       license = 'GPL',

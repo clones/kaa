@@ -1,5 +1,5 @@
-import kaa.popcorn2
-from kaa.popcorn2 import config
+import kaa.popcorn
+from kaa.popcorn import config
 import kaa.input.stdin
 import sys
 import logging
@@ -47,8 +47,8 @@ def status(oldpos, newpos):
 
 
 config.save('popcorn.conf')
-p = kaa.popcorn2.Player()
-#p.window = kaa.popcorn2.PlayerIndependentWindow()
+p = kaa.popcorn.Player()
+#p.window = kaa.popcorn.PlayerIndependentWindow()
 #p.window.fullscreen = False
 
 # Various things we can test before starting movie.

@@ -25,7 +25,7 @@
 
 __all__ = [ 'import_backend' ]
 
-from kaa.popcorn2.common import *
+from ...common import *
 
 def get_capabilities():
     """

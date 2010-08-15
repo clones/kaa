@@ -4,8 +4,8 @@ import time
 import os
 
 import kaa.input.stdin
-from kaa.popcorn2.backends import manager
-import kaa.popcorn2
+from kaa.popcorn.backends import manager
+import kaa.popcorn
 
 TESTCASES = []
 FILES = sys.argv[1:]
@@ -26,9 +26,9 @@ def open_normal():
     """
     Straightforward open yield.
     """
-    p = kaa.popcorn2.Player()
+    p = kaa.popcorn.Player()
     yield p.open(FILES[0])
-    assert(p.state == kaa.popcorn2.STATE_OPEN)
+    assert(p.state == kaa.popcorn.STATE_OPEN)
     yield p
 
 
@@ -39,12 +39,12 @@ def open_abort_with_stop():
     Open but don't yield, then yield stop.  Tests player's ability to abort an
     open.
     """
-    p = kaa.popcorn2.Player()
+    p = kaa.popcorn.Player()
     open_ip = p.open(FILES[0])
     stop_ip = p.stop()
     try:
         yield open_ip
-    except kaa.popcorn2.PlayerAbortedError, e:
+    except kaa.popcorn.PlayerAbortedError, e:
         # open() indicates as aborted, good.
         pass
     else:
@@ -60,7 +60,7 @@ def open_twice():
     Open but don't yield, then yield a new open.  Similar to open_abort_with_stop
     but tests internal aborting.
     """
-    p = kaa.popcorn2.Player()
+    p = kaa.popcorn.Player()
     p.open(FILES[0])
     yield p.open(FILES[1])
     assert(FILES[1] in p.stream.uri)
@@ -69,11 +69,11 @@ def open_twice():
 @testcase
 @kaa.coroutine()
 def play_premature():
-    p = kaa.popcorn2.Player()
+    p = kaa.popcorn.Player()
     p.open(FILES[0])
     try:
         yield p.play()
-    except kaa.popcorn2.PlayerError, e:
+    except kaa.popcorn.PlayerError, e:
         assert('STATE_OPENING is not' in e.message)
     else:
         raise RuntimeError('play() was improperly allowed before open() finished')
@@ -110,7 +110,7 @@ def play_induce_backend_failure():
 
     try:
         yield kaa.inprogress(p).timeout(5)
-    except kaa.popcorn2.PlayerError, e:
+    except kaa.popcorn.PlayerError, e:
         # FIXME: determine if it failed for the right reason.
         pass
     else:

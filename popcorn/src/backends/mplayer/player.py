@@ -39,7 +39,7 @@ from kaa.utils import property
 import kaa.display
 
 # kaa.popcorn imports
-from kaa.popcorn2.common import *
+from ...common import *
 from utils import *
 
 # get logging object

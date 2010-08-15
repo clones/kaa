@@ -33,8 +33,8 @@ import logging
 import kaa.metadata
 
 # kaa.popcorn imports
-from kaa.popcorn2.common import *
-from kaa.popcorn2.config import config
+from ..common import *
+from ..config import config
 
 # internal list of players
 _players = {}
