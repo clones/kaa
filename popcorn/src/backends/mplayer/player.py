@@ -481,9 +481,6 @@ class MPlayer(object):
             args.add(wid=hex(inner.id).rstrip('L'))
             window.resize(self.width, self.height)
 
-        if isinstance(window, PlayerIndependentWindow):
-            if window.fullscreen:
-                args.append('-fs')
         if vf:
             args.add(vf=','.join(vf))
 
