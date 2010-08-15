@@ -146,7 +146,11 @@ class MPlayer(object):
 
     @property
     def aspect(self):
-        return self._stream_info.get('aspect')
+        try:
+            return self._stream_info.get('aspect') or (self.width / float(self.height)) or 1.0
+        except ZeroDivisionError:
+            # Height is zero, which shouldn't happen.
+            return 1.0
 
     @property
     def vfourcc(self):

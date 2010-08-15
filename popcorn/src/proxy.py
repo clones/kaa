@@ -451,6 +451,10 @@ class Player(kaa.Object):
             # and inner width is based on aspect.
             i_width, i_height = int(o_height * backend.aspect), o_height
 
+        # We require backend to never return a zero aspect, so i_width/i_height
+        # should never be 0 unless the stream width or height reports 0.  As
+        # a last resort, if either are zero, stretch to the outer window dimension.
+        i_width, i_height = i_width or o_width, i_height or o_height
         inner.resize(i_width, i_height)
         inner.move((o_width - i_width) / 2, (o_height - i_height) / 2)
         outer.draw_rectangle((0, 0), (o_width, o_height), '#000000')
