@@ -121,7 +121,7 @@ class MPlayer(object):
                 # it to none now so the proxy doesn't try to do anything with it,
                 # and so that we recreate it on the next play().
                 self._proxy._window_inner = None
-                if self._proxy.window:
+                if isinstance(self._proxy.window, kaa.display.X11Window):
                     # Hide the window.  Again, should we do this automatically or 
                     # use a property?  XXX: note if we don't do it automatically,
                     # we will need to explicitly call proxy._window_layot() after
@@ -466,7 +466,7 @@ class MPlayer(object):
             args.add(vo='xv,x11')
             vf.append(getattr(config.mplayer.deinterlacer, config.video.deinterlacing.method))
 
-        if window:
+        if isinstance(window, kaa.display.X11Window):
             # Create a new inner window.  We must do this each time we start
             # MPlayer because MPlayer destroys the window (even the ones it
             # doesn't manage [!!]) at exit.
@@ -477,6 +477,9 @@ class MPlayer(object):
             args.add(wid=hex(inner.id).rstrip('L'))
             window.resize(self.width, self.height)
 
+        if isinstance(window, PlayerIndependentWindow):
+            if window.fullscreen:
+                args.append('-fs')
         if vf:
             args.add(vf=','.join(vf))
 
@@ -512,7 +515,7 @@ class MPlayer(object):
 
         # Play has begun successfully.  _handle_child_line() will already
         # have set state to STATE_PLAYING.
-        if window:
+        if isinstance(window, kaa.display.X11Window):
             # XXX: is it reasonable to automatically show the window now?
             # Maybe we should have an autoshow property?
             window.show()

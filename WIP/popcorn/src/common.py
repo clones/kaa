@@ -72,6 +72,9 @@ class PlayerError(Exception):
 class PlayerAbortedError(PlayerError, kaa.InProgressAborted):
     pass
 
+class PlayerIndependentWindow(object):
+    fullscreen = False
+
 
 def precondition(states=(), notstates=(), backend=None):
     """

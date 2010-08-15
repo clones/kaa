@@ -48,6 +48,8 @@ def status(oldpos, newpos):
 
 config.save('popcorn.conf')
 p = kaa.popcorn2.Player()
+#p.window = kaa.popcorn2.PlayerIndependentWindow()
+#p.window.fullscreen = False
 
 # Various things we can test before starting movie.
 config.video.vdpau.enabled = True

@@ -308,7 +308,7 @@ class Player(kaa.Object):
                 self._window.signals['resize_event'].disconnect(self._window_handle_resize)
                 self._window.signals['delete_event'].disconnect(self._window_handle_delete)
             self._window = False
-        elif window != self._window:
+        elif window != self._window and isinstance(window, kaa.display.X11Window):
             self._window = window
             window.signals['expose_event'].connect_weak(self._window_handle_expose)
             window.signals['resize_event'].connect_weak(self._window_handle_resize)
@@ -322,6 +322,8 @@ class Player(kaa.Object):
             # FIXME: if we destroy the inner window while the backend is running,
             # ugly things will happen.
             self._window_inner = None
+        elif window != self._window:
+            self._window = window
 
     @window.deleter
     def window(self):
