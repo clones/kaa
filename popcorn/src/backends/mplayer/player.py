@@ -493,6 +493,12 @@ class MPlayer(object):
         if self.vfourcc == 'H264' and ext in ('.ts', '.m2ts'):
             args.append('-nocorrect-pts')
 
+        # Audio settings
+        # XXX Currently only passthrough is handled here. All the
+        # XXX other options and what device to use are ignored.
+        if config.audio.passthrough:
+            args.add(ac='hwac3,hwdts,')
+        
         # There is no way to make MPlayer ignore keys from the X11 window.  So
         # this hack makes a temp input file that maps all keys to a dummy (and
         # non-existent) command which causes MPlayer not to react to any key
