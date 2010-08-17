@@ -153,6 +153,8 @@ class X11Display(kaa.Object):
             else:
                 log.error('An untrapped X error was received: %s', exc)
             log.error('A stack follows, but note that errors may be asynchronous:\n%s', stack)
+        else:
+            self.signals['error'].emit(exc)
 
 
     def handle_events(self):
