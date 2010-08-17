@@ -37,7 +37,7 @@
 
 void _make_invisible_cursor(X11Window_PyObject *win);
 
-int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
+int _ewmh_set_hint(X11Window_PyObject *o, char *type, long *data, int ndata)
 {
     int res, i;
     XEvent ev;
@@ -336,14 +336,14 @@ PyObject *
 X11Window_PyObject__set_fullscreen(X11Window_PyObject *self, PyObject *args)
 {
     int fs;
-    void *data[3];
+    long data[2];
 
     if (!PyArg_ParseTuple(args, "i", &fs))
         return NULL;
 
-    data[0] = (void *)(fs ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE);
-    data[1] = (void *)XInternAtom(self->display, "_NET_WM_STATE_FULLSCREEN", False);
-    return PyBool_FromLong(_ewmh_set_hint(self, "_NET_WM_STATE", data, 2));
+    data[0] = (long)(fs ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE);
+    data[1] = (long)XInternAtom(self->display, "_NET_WM_STATE_FULLSCREEN", False);
+    return PyBool_FromLong(_ewmh_set_hint(self, "_NET_WM_STATE", (long *)&data, 2));
 }
 
 PyObject *
@@ -547,7 +547,7 @@ X11Window_PyObject__get_properties(X11Window_PyObject * self, PyObject * args)
             // For other types, just return the raw buffer and we will parse
             // it in python space.
             void *buffer_ptr;
-            int buffer_len;
+            Py_ssize_t buffer_len;
             pydata = PyBuffer_New(n_items * field_len + bytes_left);
             PyObject_AsWriteBuffer(pydata, &buffer_ptr, &buffer_len);
             memmove(buffer_ptr, data, n_items * field_len);
