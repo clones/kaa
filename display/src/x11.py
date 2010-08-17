@@ -33,6 +33,7 @@
 import weakref
 import struct
 import logging
+import traceback
 
 # kaa for the socket callback
 import kaa
@@ -89,7 +90,20 @@ _keysym_names = {
     429: "kp_minus"
 }
 
-class X11Display(object):
+class X11Error(Exception):
+    def __init__(self, serial, error_code, request_code, minor_code, msg):
+        super(X11Error, self).__init__(serial, error_code, request_code, minor_code, msg)
+        self.serial = serial
+        self.error_code = error_code
+        self.request_code = request_code
+        self.minor_code = minor_code
+        self.strerror = msg
+
+    def __str__(self):
+        return '[X11 Error %d]: %s' % (self.error_code, self.strerror)
+
+
+class X11Display(kaa.Object):
 
     XEVENT_MOTION_NOTIFY = 6
     XEVENT_EXPOSE = 12
@@ -103,10 +117,20 @@ class X11Display(object):
     XEVENT_CONFIGURE_NOTIFY = 22
     XEVENT_CLIENT_MESSAGE = 33
 
-    #XEVENT_WINDOW_EVENTS = (6, 12, 4, 2, 22, 18, 19)
+    __kaasignals__ = {
+        'error':
+            '''
+            Emits when an untrapped X error occurs.
+
+            .. describe:: def callback(x11error, ...)
+
+               :param x11error: an instance of an X11Error exception
+            '''
+    }
 
     def __init__(self, dispname = ""):
-        self._display = _X11.X11Display(dispname)
+        super(X11Display, self).__init__()
+        self._display = _X11.X11Display(dispname, X11Error, kaa.WeakCallable(self._handle_error))
         self._windows = {}
 
         dispatcher = kaa.WeakIOMonitor(self.handle_events)
@@ -115,6 +139,21 @@ class X11Display(object):
         # drawing is done, the socket is read and we will miss keypress
         # events when doing drawings.
         kaa.main.signals['step'].connect_weak(self.handle_events)
+
+    def _handle_error(self, exc):
+        if len(self.signals['error']) == 0:
+            # No callbacks connected to handle errors, so just dump the error
+            # to stdout.  Shave off the last 3 stack frames since they're
+            # involved in getting us to this error handler and not of interest
+            # to the user.
+            stack = ''.join(traceback.format_stack()[:-3])
+            if isinstance(exc, X11Error):
+                log.error('An untrapped X error was received: %s (serial=%ld error=%d request=%d minor=%d)',
+                          exc.strerror, exc.serial, exc.error_code, exc.request_code, exc.minor_code)
+            else:
+                log.error('An untrapped X error was received: %s', exc)
+            log.error('A stack follows, but note that errors may be asynchronous:\n%s', stack)
+
 
     def handle_events(self):
         window_events = {}
@@ -230,12 +269,9 @@ class X11Window(object):
             if "parent" in kwargs:
                 assert(isinstance(kwargs["parent"], X11Window))
                 kwargs["parent"] = kwargs["parent"]._window
-            if 'size' not in kwargs:
-                # Dummy size.  Don't want to make it 0,0 since we'll barf
-                # if we try to map it.
-                kwargs['size'] = 1, 1
 
-            self._window = _X11.X11Window(display._display, kwargs["size"], **kwargs)
+            w, h = kwargs.get('size', (1, 1))
+            self._window = _X11.X11Window(display._display, (w or 1, h or 1), **kwargs)
 
         self._display = display
         display._windows[self._window.wid] = weakref.ref(self)
@@ -373,9 +409,8 @@ class X11Window(object):
             self._fs_size_save = size
             return False
 
-        if 0 in size:
-            raise ValueError('0 is not a valid width or height')
-        self._window.set_geometry(pos, size)
+        w, h = size
+        self._window.set_geometry(pos, (w or 1, h or 1))
         self._display.handle_events()
         return True
 

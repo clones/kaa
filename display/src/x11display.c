@@ -46,17 +46,106 @@
 #include "structmember.h"
 
 
+// defined below
 extern PyTypeObject X11Display_PyObject_Type;
 
+// Needed for handling X errors
+GSList *x_error_traps = 0;
+GHashTable *x11display_pyobjects = 0;
+
+PyObject *x_exception_from_event(X11Display_PyObject *display, XErrorEvent *error)
+{
+    PyObject *args, *exc_class, *exc;
+    char strerror[64];
+
+    if (!display || display->x11_error_class == Py_None) {
+        // This shouldn't happen.
+        exc_class = PyExc_SystemError;
+        sprintf(strerror, "Received error code %d for unknown X11 Display", error->error_code);
+        args = Py_BuildValue("(s)", strerror);
+    } else {
+        exc_class = display->x11_error_class;
+        XGetErrorText(display->display, error->error_code, strerror, 63);
+        args = Py_BuildValue("(iiiis)", error->serial, error->error_code, error->request_code,
+                                        error->minor_code, strerror);
+    }
+    exc = PyEval_CallObject(exc_class, args);
+    Py_DECREF(args);
+    return exc;
+}
+
+int x_error_handler(Display *display, XErrorEvent *error)
+{
+    X11Display_PyObject *display_pyobject;
+    X11ErrorTrap *trap;
+    display_pyobject = (X11Display_PyObject *)g_hash_table_lookup(x11display_pyobjects, display);
+    if (!x_error_traps) {
+        if (display_pyobject->error_callback != Py_None) {
+            /* We've received an error that hasn't been trapped.  Dispatch to
+             * the error_callback for the Display pyobject.
+             */
+            PyObject *exc = x_exception_from_event(display_pyobject, error),
+                     *args = Py_BuildValue("(O)", exc),
+                     *result;
+            result = PyEval_CallObject(display_pyobject->error_callback, args);
+            if (result)
+                Py_DECREF(result);
+            Py_DECREF(args);
+            Py_DECREF(exc);
+        }
+        return 0;
+    }
+
+    trap = (X11ErrorTrap *)x_error_traps->data;
+    memcpy(&trap->error, error, sizeof(XErrorEvent));
+    trap->display = display;
+    return 0;
+}
+
+void x_error_trap_push(void)
+{
+    X11ErrorTrap *trap = g_new(X11ErrorTrap, 1);
+    trap->old_handler = XSetErrorHandler(x_error_handler);
+    trap->error.error_code = 0;
+    x_error_traps = g_slist_prepend(x_error_traps, trap);
+}
+
+int x_error_trap_pop(int do_raise)
+{
+    X11ErrorTrap *trap;
+    int result;
+
+    if (!x_error_traps)
+        return 0;
+
+    trap = (X11ErrorTrap *)x_error_traps->data;
+    x_error_traps = g_slist_delete_link(x_error_traps, x_error_traps);
+    result = trap->error.error_code;
+    XSetErrorHandler(trap->old_handler);
+
+    if (result && do_raise) {
+        X11Display_PyObject *display_pyobject;
+        PyObject *exc;
+
+        display_pyobject = (X11Display_PyObject *)g_hash_table_lookup(x11display_pyobjects, trap->display);
+        exc = x_exception_from_event(display_pyobject, &trap->error);
+        if (exc)
+            PyErr_SetObject(display_pyobject->x11_error_class, exc);
+    }
+    g_free(trap);
+    return result;
+}
 
 PyObject *
 X11Display_PyObject__new(PyTypeObject *type, PyObject * args,
                          PyObject * kwargs)
 {
     X11Display_PyObject *self;
+    PyObject *x11_error_class, *error_callback;
     Display *display;
     char *display_name;
-    if (!PyArg_ParseTuple(args, "s", &display_name))
+
+    if (!PyArg_ParseTuple(args, "sOO", &display_name, &x11_error_class, &error_callback))
         return NULL;
     if (strlen(display_name) == 0)
         display_name = NULL;
@@ -70,6 +159,15 @@ X11Display_PyObject__new(PyTypeObject *type, PyObject * args,
     self = (X11Display_PyObject *)type->tp_alloc(type, 0);
     self->display = display;
     self->wmDeleteMessage = XInternAtom(self->display, "WM_DELETE_WINDOW", False);
+    self->old_handler = XSetErrorHandler(x_error_handler);
+    self->x11_error_class = x11_error_class;
+    self->error_callback = error_callback;
+    Py_INCREF(self->x11_error_class);
+    Py_INCREF(self->error_callback);
+
+    if (!x11display_pyobjects)
+        x11display_pyobjects = g_hash_table_new(g_direct_hash, g_direct_equal);
+    g_hash_table_insert(x11display_pyobjects, display, self);
     return (PyObject *)self;
 }
 
@@ -91,6 +189,10 @@ X11Display_PyObject__dealloc(X11Display_PyObject * self)
         //XCloseDisplay(self->display);
     }
     Py_XDECREF(self->socket);
+    Py_XDECREF(self->error_callback);
+    Py_XDECREF(self->x11_error_class);
+    XSetErrorHandler(self->old_handler);
+    g_hash_table_remove(x11display_pyobjects, self);
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -303,6 +405,8 @@ PyMethodDef X11Display_PyObject_methods[] = {
 
 static PyMemberDef X11Display_PyObject_members[] = {
     {"socket", T_OBJECT_EX, offsetof(X11Display_PyObject, socket), 0, ""},
+    {"x11_error_class", T_OBJECT_EX, offsetof(X11Display_PyObject, x11_error_class), 0, ""},
+    {"error_callback", T_OBJECT_EX, offsetof(X11Display_PyObject, error_callback), 0, ""},
     {NULL}  /* Sentinel */
 };
 

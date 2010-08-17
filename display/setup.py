@@ -78,8 +78,11 @@ modules = []
 if get_library('imlib2'):
     config.define('USE_IMLIB2')
 
-if get_library('X11'):
-
+if not get_library('X11'):
+    print '- X11 (no X development files)'
+elif not check_library('glib-2.0', '2.4.0'):
+    print '- X11 (glib-2.0 >= 2.4.0 required)'
+else:
     # the display so module
     x11 = Extension('kaa.display._X11module',
                     [ 'src/x11.c', 'src/x11display.c', 'src/x11window.c',
@@ -88,6 +91,7 @@ if get_library('X11'):
 
     config.define('HAVE_X11')
 
+    x11.add_library('glib-2.0')
     if check_library('XComposite', ['<X11/extensions/Xcomposite.h>'], libraries = ['Xcomposite']):
         config.define('HAVE_X11_COMPOSITE')
         x11.add_library('XComposite')
@@ -114,8 +118,6 @@ if get_library('X11'):
         print
         sys.exit(1)
     modules.append(x11)
-else:
-    print '- X11'
 
 
 if get_library('imlib2') and not 'imlib2' in disable:

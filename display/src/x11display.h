@@ -33,14 +33,30 @@
 #ifndef _X11DISPLAY_H_
 #define _X11DISPLAY_H_
 #include <X11/Xlib.h>
+#include <glib.h>
 
 typedef struct {
     PyObject_HEAD
 
     Display *display;
-    PyObject *socket;
+    PyObject *socket,
+             *x11_error_class,
+             *error_callback;
     Atom wmDeleteMessage;
+    int (*old_handler)(Display *, XErrorEvent *);
 } X11Display_PyObject;
 
+typedef struct {
+    Display *display;
+    int (*old_handler)(Display *, XErrorEvent *);
+    XErrorEvent error;
+} X11ErrorTrap;
+
 extern PyTypeObject X11Display_PyObject_Type;
+extern GSList *x_error_traps;
+extern GHashTable *x11display_pyobjects;
+int x_error_handler(Display *, XErrorEvent *);
+void x_error_trap_push(void);
+int x_error_trap_pop(int do_raise);
+
 #endif

@@ -35,8 +35,6 @@
 #include "x11display.h"
 #include "structmember.h"
 
-static XErrorEvent *last_error = NULL;
-
 void _make_invisible_cursor(X11Window_PyObject *win);
 
 int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
@@ -62,12 +60,6 @@ int _ewmh_set_hint(X11Window_PyObject *o, char *type, void **data, int ndata)
     XUnlockDisplay(o->display);
 
     return res;
-}
-
-static int x11_intercept_error(Display *display, XErrorEvent *event)
-{
-    last_error = event;
-    return 0;
 }
 
 static int
@@ -114,7 +106,6 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         window_title = PyString_AsString(PyDict_GetItemString(kwargs, "title"));
 
     self->display_pyobject = (PyObject *)display;
-    Py_INCREF(display);
     self->display = display->display;
 
     if (py_parent)
@@ -129,26 +120,24 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     XLockDisplay(self->display);
 
     if (PyMapping_HasKeyString(kwargs, "window")) {
-        XErrorHandler old_handler = XSetErrorHandler(x11_intercept_error);
-
+        x_error_trap_push();
         self->window = (Window)PyLong_AsUnsignedLong(PyDict_GetItemString(kwargs, "window"));
         XSelectInput(self->display, self->window, evmask);
         XSync(self->display, False);
 
-        if (last_error && last_error->error_code == BadAccess) {
+        if (x_error_trap_pop(False) == BadAccess) {
             // Input select failed, retry without button masks.
+            int error;
             evmask &= ~(ButtonPressMask | ButtonReleaseMask);
-            last_error = NULL;
+            x_error_trap_push();
             XSelectInput(self->display, self->window, evmask);
             XSync(self->display, False);
+            error = x_error_trap_pop(False);
+
             fprintf(stderr, "kaa.display warning: Couldn't select %s events for "
                             "external window; %s signals will not work.\n",
-                    last_error ? "any" : "button", last_error ? "window" : "button");
-        } else if (last_error)
-            old_handler(self->display, last_error);
-
-        last_error = NULL;
-        XSetErrorHandler(old_handler);
+                    error ? "any" : "button", error ? "window" : "button");
+        }
         self->owner = Py_False;
     } else {
         screen = DefaultScreen(self->display);
@@ -161,22 +150,39 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         attr.override_redirect = False;
         attr.colormap = DefaultColormap(self->display, screen);
 
+        x_error_trap_push();
         self->window = XCreateWindow(self->display, parent, 0, 0,
                             w, h, 0, DefaultDepth(self->display, screen), InputOutput,
                             DefaultVisual(self->display, screen),
                             CWBackingStore | CWColormap | CWBackPixmap | CWWinGravity |
                             CWBitGravity | CWEventMask | CWOverrideRedirect, &attr);
+        XSync(self->display, False);
 
-        if (window_title)
+        if (x_error_trap_pop(True) != Success)
+            goto fail;
+
+        if (window_title) {
+            x_error_trap_push();
             XStoreName(self->display, self->window, window_title);
+            x_error_trap_pop(False);
+        }
         self->owner = Py_True;
     }
+
     self->wid = PyLong_FromUnsignedLong(self->window);
     Py_INCREF(self->owner);
     // Needed to handle event for window close via window manager
+    x_error_trap_push();
     XSetWMProtocols(self->display, self->window, &display->wmDeleteMessage, 1);
+    x_error_trap_pop(False);
     XUnlockDisplay(self->display);
+    Py_INCREF(display);
     return (PyObject *)self;
+
+fail:
+    XUnlockDisplay(display->display);
+    type->tp_free((PyObject *)self);
+    return NULL;
 }
 
 static int
@@ -190,6 +196,7 @@ void
 X11Window_PyObject__dealloc(X11Window_PyObject * self)
 {
     if (self->window) {
+        x_error_trap_push();
         XLockDisplay(self->display);
         if (self->owner == Py_True)
             XDestroyWindow(self->display, self->window);
@@ -197,6 +204,7 @@ X11Window_PyObject__dealloc(X11Window_PyObject * self)
         if (self->invisible_cursor)
             XFreeCursor(self->display, self->invisible_cursor);
         XUnlockDisplay(self->display);
+        x_error_trap_pop(False);
     }
     Py_DECREF(self->owner);
     Py_XDECREF(self->display_pyobject);
@@ -268,7 +276,6 @@ X11Window_PyObject__set_geometry(X11Window_PyObject * self, PyObject * args)
         XMoveWindow(self->display, self->window, x, y);
     else if (w != -1)
         XResizeWindow(self->display, self->window, w, h);
-
     XSync(self->display, False);
     XUnlockDisplay(self->display);
     return Py_INCREF(Py_None), Py_None;
@@ -302,7 +309,13 @@ X11Window_PyObject__get_geometry(X11Window_PyObject * self, PyObject * args)
 
     XWindowAttributes attrs, parent_attrs;
     XLockDisplay(self->display);
+    x_error_trap_push();
     XGetWindowAttributes(self->display, self->window, &attrs);
+    if (x_error_trap_pop(True) != Success) {
+        XUnlockDisplay(self->display);
+        return NULL;
+    }
+
     if (absolute) {
         Window w = self->window, root, parent = 0, *children;
         unsigned int n_children;
@@ -496,7 +509,9 @@ X11Window_PyObject__get_properties(X11Window_PyObject * self, PyObject * args)
     PyObject *list = PyList_New(0);
 
     XLockDisplay(self->display);
+    x_error_trap_push();
     properties = XListProperties(self->display, self->window, &n_props);
+    x_error_trap_pop(False);
     if (!properties) {
         XUnlockDisplay(self->display);
         return list;
