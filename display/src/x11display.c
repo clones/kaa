@@ -130,7 +130,7 @@ int x_error_trap_pop(int do_raise)
         display_pyobject = (X11Display_PyObject *)g_hash_table_lookup(x11display_pyobjects, trap->display);
         exc = x_exception_from_event(display_pyobject, &trap->error);
         if (exc)
-            PyErr_SetObject(display_pyobject->x11_error_class, exc);
+            PyErr_SetObject(exc->ob_type, exc);
     }
     g_free(trap);
     return result;
