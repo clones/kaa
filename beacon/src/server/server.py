@@ -132,7 +132,9 @@ class Server(object):
         # list of current clients
         self.clients = []
 
-        config.load(os.path.join(dbdir, "config"), sync=True)
+        # Config file is synced in Thumbnailer.  See its constructor for
+        # rationale.
+        config.load(os.path.join(dbdir, "config"))
         config.watch()
         if scheduler:
             config.autosave = False

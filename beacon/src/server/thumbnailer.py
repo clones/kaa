@@ -103,8 +103,12 @@ class Thumbnailer(object):
         self._ipc.signals['client-connected'].connect(self.client_connect)
         self._ipc.register(self)
 
-        # Load configuration for scheduler settings.
-        config.load(os.path.join(config_dir, 'config'))
+        # Load configuration for scheduler settings.  We sync the config file
+        # if necessary here instead of Server beacon-daemon forks and starts
+        # Thumbnailer first.  If we synced in Server instead, because we are
+        # watching the config, we'd get notified of the change if the config
+        # needed syncing, causing us to revert any run-time scheduler change.
+        config.load(os.path.join(config_dir, 'config'), sync=True)
         config.watch()
         if scheduler:
             config.autosave = False
