@@ -336,7 +336,7 @@ def create(config_dir, scheduler=None):
         os.mkdir(tmpdir)
     os.chdir(tmpdir)
     try:
-        return Thumbnailer(tmpdir, config_dir, scheduler=None)
+        return Thumbnailer(tmpdir, config_dir, scheduler)
     except IOError, e:
         log.error('thumbnail: %s' % e)
         time.sleep(0.1)
