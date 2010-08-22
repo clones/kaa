@@ -279,14 +279,9 @@ def _parse(db, item, mtime):
                     utils.do_thumbnail(item.filename)):
                 t.create(t.PRIORITY_LOW)
             del attributes['image']
-    
-        if not metadata.get('title'):
-            # try to set a good title
-            # FIXME: if a file is renamed later, this tite should also update
-            title = get_title(item._beacon_data['name'], strip=not item._beacon_isdir)
-            metadata['title'] = kaa.str_to_unicode(title)
-    
-    
+
+
+
         #
         # Database code
         #
