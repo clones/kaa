@@ -248,7 +248,19 @@ def _parse(db, item, mtime):
                 if os.path.isfile(item.filename + ext):
                     attributes['image'] = item.filename + ext
                     break
-    
+
+        #
+        # Type specific attributes
+        #
+        if type == 'video':
+            # Normally db.add_object() will take care of assigning type
+            # attributes from metadata, but some attributes for videos
+            # aren't at the top-level attribute object.  For video
+            # dimensions, take the dimensions of the first video track.
+            if metadata.video:
+                attributes['width'] = metadata.video[0].get('width')
+                attributes['height'] = metadata.video[0].get('height')
+
         attributes['metadata'] = metadata
     
         # now call extention plugins
@@ -266,6 +278,7 @@ def _parse(db, item, mtime):
             if t.needs_update and (not type == 'video' or not hasattr(item, 'filename') or
                     utils.do_thumbnail(item.filename)):
                 t.create(t.PRIORITY_LOW)
+            del attributes['image']
     
         if not metadata.get('title'):
             # try to set a good title
