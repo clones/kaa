@@ -184,15 +184,18 @@ class VideoThumb(object):
                 # not getting any thumbnail at all?"
                 pos = 10
 
-        # Give MPlayer 10 seconds to generate the thumbnail before we give up
-        # and kill it.  Some video files cause mplayer to runaway.
-        self.mplayer.start([str(pos)] + mpargs).timeout(10, abort=True)
-
-        # Yield the 'finished' signal rather than self.mplayer, because the Process's
-        # IP might finish due to timeout, but we don't want to proceed until the
-        # child is dead.  (If it does timeout, the Process InProgress will be aborted,
-        # which causes the child to get killed.)
-        yield kaa.inprogress(self.mplayer.signals['finished'])
+        try:
+            # Give MPlayer 10 seconds to generate the thumbnail before we give
+            # up and kill it.  Some video files cause mplayer to runaway.
+            yield self.mplayer.start([str(pos)] + mpargs).timeout(10, abort=True)
+        except kaa.TimeoutException:
+            log.error('Thumbnailer timed out while trying to process %s', job.filename)
+            if self.mplayer.stopping:
+                # MPlayer was aborted due to timeout and is now stopping.  We
+                # want to wait until it's fully terminated before proceeding,
+                # so we yield again on its 'finished' signal which will be
+                # emitted once the abort is complete.
+                yield kaa.inprogress(self.mplayer.signals['finished'])
         
         # MPlayer is done, look for the screenshots it created.
         captures = glob.glob('000000??.png')
