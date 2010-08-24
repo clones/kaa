@@ -256,10 +256,20 @@ def _parse(db, item, mtime):
             # Normally db.add_object() will take care of assigning type
             # attributes from metadata, but some attributes for videos
             # aren't at the top-level attribute object.  For video
-            # dimensions, take the dimensions of the first video track.
-            if metadata.video:
-                attributes['width'] = metadata.video[0].get('width')
-                attributes['height'] = metadata.video[0].get('height')
+            # dimensions, take the dimensions of the first video track
+            # (of the longest title, if applicable).
+            video = None
+            if metadata.get('video'):
+                video = metadata.video[0]
+            elif metadata.get('tracks'):
+                # Find the longest title with a video track.
+                for title in sorted(metadata.tracks, key=lambda t: -t.length):
+                    if title.get('video'):
+                        video = title.video[0]
+                        break
+            if video:
+                attributes['width'] = video.get('width')
+                attributes['height'] = video.get('height')
 
         attributes['metadata'] = metadata
     
@@ -278,7 +288,6 @@ def _parse(db, item, mtime):
             if t.needs_update and (not type == 'video' or not hasattr(item, 'filename') or
                     utils.do_thumbnail(item.filename)):
                 t.create(t.PRIORITY_LOW)
-            del attributes['image']
 
 
 
