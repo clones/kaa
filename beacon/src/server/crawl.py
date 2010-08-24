@@ -173,7 +173,7 @@ class Crawler(object):
     # Internal functions - INotify
     # -------------------------------------------------------------------------
 
-    def _inotify_event(self, mask, name, *args):
+    def _inotify_event(self, mask, name, target=None):
         """
         Callback for inotify.
         """
@@ -189,11 +189,11 @@ class Crawler(object):
             # The database is locked now and we may want to change entries.
             # FIXME: make sure the inotify events still stay in the same order
             con = self._db.read_lock.signals['unlock'].connect_once
-            con(self._inotify_event, mask, name, *args)
+            con(self._inotify_event, mask, name, target)
             return True
 
         # some debugging to find a bug in beacon
-        log.info('inotify: event %s for "%s"', mask, name)
+        log.info('inotify: event %s for "%s" (target=%s)', INotify.mask_to_string(mask), name, target)
 
         item = self._db.query_filename(name)
         if not item._beacon_parent.filename in self.monitoring:
@@ -203,20 +203,20 @@ class Crawler(object):
 
         if item._beacon_name.startswith('.'):
             # hidden file, ignore except in move operations
-            if mask & INotify.MOVE and args:
+            if mask & INotify.MOVE and target:
                 # we moved from a hidden file to a good one. So handle
                 # this as a create for the new one.
-                log.info('inotify: handle move as create for %s', args[0])
-                self._inotify_event(INotify.CREATE, args[0])
+                log.info('inotify: handle move as create for %s', target)
+                self._inotify_event(INotify.CREATE, target)
             return True
 
         # ---------------------------------------------------------------------
         # MOVE_FROM -> MOVE_TO
         # ---------------------------------------------------------------------
 
-        if mask & INotify.MOVE and args and item._beacon_id:
+        if mask & INotify.MOVE and target and item._beacon_id:
             # Move information with source and destination
-            move = self._db.query_filename(args[0])
+            move = self._db.query_filename(target)
             if move._beacon_name.startswith('.'):
                 # move to hidden file, delete
                 log.info('inotify: move to hidden file, delete')
@@ -268,10 +268,10 @@ class Crawler(object):
         # MOVE_TO, CREATE, MODIFY or CLOSE_WRITE
         # ---------------------------------------------------------------------
 
-        if mask & INotify.MOVE and args:
+        if mask & INotify.MOVE and target:
             # We have a move with to and from, but the from item is not in
             # the db. So we handle it as a simple MOVE_TO
-            name = args[0]
+            name = target
 
         if os.path.exists(name):
             # The file or directory exists.  So it is either created or modified.
@@ -439,7 +439,7 @@ class Crawler(object):
         """
         Scan a directory and all files in it, return list of subdirs.
         """
-        log.info('scan directory %s', directory.filename)
+        log.info('scan directory %s (force thumbnails: %s)', directory.filename, force_thumbnail_check)
 
         if not os.path.exists(directory.filename):
             log.info('unable to scan %s', directory.filename)
