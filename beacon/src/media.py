@@ -252,8 +252,8 @@ class MediaList(object):
         """
         if not dirname.endswith('/'):
             dirname += '/'
-        all = self._dict.values()[:]
-        all.sort(lambda x,y: -cmp(x.mountpoint, y.mountpoint))
+        # Sort from longest to shortest (most specific path appears first).
+        all = sorted(self._dict.values(), key=lambda item: len(item.mountpoint), reverse=True)
         for m in all:
             if dirname.startswith(m.mountpoint):
                 return m
