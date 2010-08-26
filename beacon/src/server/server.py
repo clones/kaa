@@ -45,6 +45,7 @@ from db import *
 from monitor import Monitor
 from crawl import Crawler
 from config import config
+from ..utils import get_machine_uuid
 import plugins
 
 # get logging object
@@ -147,7 +148,7 @@ class Server(object):
 
         # give database to controller / hardware monitor
         rootfs = {
-            'beacon.id': 'kaa.beacon.root',
+            'beacon.id': 'kaa.beacon.root-' + get_machine_uuid(),
             'block.device': '',
             'volume.mount_point': '/'
         }
