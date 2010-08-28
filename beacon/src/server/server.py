@@ -37,6 +37,7 @@ import logging
 
 # kaa imports
 import kaa.rpc
+from kaa.utils import get_machine_uuid
 
 # kaa.beacon server imports
 import parser
@@ -45,7 +46,6 @@ from db import *
 from monitor import Monitor
 from crawl import Crawler
 from config import config
-from ..utils import get_machine_uuid
 import plugins
 
 # get logging object
