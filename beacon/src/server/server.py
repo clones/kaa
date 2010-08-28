@@ -148,7 +148,7 @@ class Server(object):
 
         # give database to controller / hardware monitor
         rootfs = {
-            'beacon.id': 'kaa.beacon.root-' + get_machine_uuid(),
+            'beacon.id': 'root-' + get_machine_uuid(),
             'block.device': '',
             'volume.mount_point': '/'
         }
