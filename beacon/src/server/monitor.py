@@ -74,6 +74,7 @@ class Master(object):
         for m, c in self.monitors:
             c[1].extend(changes)
         if not self.timer.active:
+            # TODO: should use scheduler to get interval
             self.timer.start(0.02)
 
 

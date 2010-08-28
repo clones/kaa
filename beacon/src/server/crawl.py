@@ -187,7 +187,9 @@ class Crawler(object):
 
         if self._db.read_lock.locked:
             # The database is locked now and we may want to change entries.
-            # FIXME: make sure the inotify events still stay in the same order
+            # When the db becomes unlocked, INotify events will be replayed in
+            # the same order because kaa.Signal will emit callbacks in the
+            # order they were connected.
             kaa.inprogress(self._db.read_lock).connect_once(self._inotify_event, mask, name, target)
             return True
 
