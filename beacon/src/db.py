@@ -203,38 +203,38 @@ class Database(kaa.Object):
         query functions in this class depending on the query. This function
         returns an InProgress.
         """
-        qlen = len(query)
-        if not 'media' in query:
-            # query only media we have right now
-            query['media'] = db.QExpr('in', self.medialist.get_all_beacon_ids())
-        else:
-            if query['media'] == 'ignore':
-                del query['media']
-            qlen -= 1
+        # Remove non-true recursive attribute from query (non-recursive is default).
+        if not query.get('recursive', True):
+            del query['recursive']
 
         # do query based on type
-        if 'filename' in query and qlen == 1:
+        if query.keys() == ['filename']:
             fname = os.path.realpath(query['filename'])
             return kaa.InProgress().execute(self.query_filename, fname)
-        if 'id' in query and qlen == 1:
+        elif query.keys() == ['id']:
             return kaa.InProgress().execute(self._db_query_id, query['id'])
-        if 'recursive' in query and not query.get('recursive'):
-            del query['recursive']
-            qlen -= 1
-        if 'parent' in query and 'recursive' in query and qlen == 2:
+        elif sorted(query.keys()) == ['parent', 'recursive']:
             if not query['parent']._beacon_isdir:
                 raise AttributeError('parent is no directory')
             return self._db_query_dir_recursive(query['parent'])
-        if 'parent' in query:
-            if qlen == 1:
+        elif 'parent' in query:
+            if len(query) == 1:
                 if query['parent']._beacon_isdir:
                     return self._db_query_dir(query['parent'])
             query['parent'] = query['parent']._beacon_id
+
+        if 'media' not in query and query.get('type') != 'media':
+            # query only media we have right now
+            query['media'] = db.QExpr('in', self.medialist.get_all_beacon_ids())
+        elif query.get('media') == 'all':
+            del query['media']
+
         if 'attr' in query:
             return kaa.InProgress().execute(self._db_query_attr, query)
-        if 'type' in query and query['type'] == 'media':
+        elif query.get('type') == 'media':
             return kaa.InProgress().execute(self._db.query, **query)
-        return self._db_query_raw(query)
+        else:
+            return self._db_query_raw(query)
 
 
     def query_media(self, media):

@@ -185,7 +185,7 @@ class MediaList(object):
     List of current known Media objects.
     """
     def __init__(self):
-        self._dict = dict()
+        self._dict = {}
         self._idlist = []
         self._beacon_controller = None
 
@@ -194,7 +194,7 @@ class MediaList(object):
         """
         Connect a controller to the medialist.
         """
-        for media in self._dict.keys()[:]:
+        for media in self._dict.keys():
             self.remove(media)
         self._beacon_controller = controller
 
