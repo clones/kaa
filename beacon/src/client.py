@@ -168,7 +168,7 @@ class Client(object):
         List all media objects
         """
         result = []
-        for m in (yield self.query(type='media', media='ignore')):
+        for m in (yield self.query(type='media')):
             m = dict(m)
             media = self._db.medialist.get_by_beacon_id(('media', m['id']))
             if not available and media is None:
