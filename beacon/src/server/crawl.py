@@ -185,11 +185,10 @@ class Crawler(object):
             # it.
             return True
 
-        if self._db.read_lock.is_locked():
+        if self._db.read_lock.locked:
             # The database is locked now and we may want to change entries.
             # FIXME: make sure the inotify events still stay in the same order
-            con = self._db.read_lock.signals['unlock'].connect_once
-            con(self._inotify_event, mask, name, target)
+            kaa.inprogress(self._db.read_lock).connect_once(self._inotify_event, mask, name, target)
             return True
 
         # some debugging to find a bug in beacon
@@ -562,8 +561,7 @@ class Crawler(object):
             # scans can remove it if it differs.
             data['image_from_items'] = True
 
-        while self._db.read_lock.is_locked():
-            yield self._db.read_lock.yield_unlock()
+        yield kaa.inprogress(self._db.read_lock)
 
         # update directory in database
         self._db.update_object(directory._beacon_id, **data)

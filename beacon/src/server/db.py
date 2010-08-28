@@ -60,9 +60,11 @@ class ReadLock(object):
     must not attempt to write to the database.
 
     When the server side wants to write to the database, it will wait until
-    the read lock is unlocked by yielding yield_unlock().  Once the coroutine
-    is resumed, all clients will have relinquished their readlock, and db
-    writes may be performed.
+    the read lock is unlocked by yielding kaa.inprogress(readlock).  (If the
+    readlock is not locked, then it will end up yielding a finished InProgress
+    which will cause the coroutine to be immediately resumed.)  Once the
+    coroutine is resumed, all clients will have relinquished their readlock,
+    and db writes may be performed.
 
     *NB* If the server-side coroutine subsequently yields for any reason, it
     MUST test the read lock before attempting to write again.  Otherwise, a
@@ -70,54 +72,59 @@ class ReadLock(object):
     and a db write may cause the client to barf in the middle of a db read.
     """
     def __init__(self):
+        self.signals = kaa.Signals('locked', 'unlocked')
         self._clients = []
-        self.signals = kaa.Signals('lock', 'unlock')
+        self._in_progress = None
+        # Precreate a finished InProgress object that we can return when
+        # not locked.
+        self._in_progress_finished = kaa.InProgress().finish(None)
+
+
+    def __inprogress__(self):
+        if self._clients:
+            # We are locked.  Create a new InProgress on-demand if necessary.
+            if not self._in_progress:
+                self._in_progress = kaa.InProgress()
+            return self._in_progress
+        else:
+            return self._in_progress_finished
 
 
     def lock(self, client):
         """
         Lock the database for reading.
         """
-        log.debug('lock++')
         self._clients.append(client)
+        log.debug('lock++ (%d)', len(self._clients))
         if len(self._clients) == 1:
-            self.signals['lock'].emit()
-            log.debug('locked')
+            self.signals['locked'].emit()
 
 
-    def unlock(self, client, all=True):
+    def unlock(self, client, all=False):
         """
         Unlock the database. If more than one lock was made
         this will only decrease the lock variable but not
         unlock the database.
         """
-        log.debug('lock--')
         while client in self._clients:
             self._clients.remove(client)
             if not all:
                 break
 
-        if len(self._clients) == 0:
-            self.signals['unlock'].emit()
-            log.debug('unlocked')
-
-
-    def is_locked(self):
-        """
-        Return True if locked.
-        """
-        return self._clients
-
-
-    def yield_unlock(self):
-        """
-        Return InProgress object to wait until the db is
-        not used by any reader.
-        """
+        log.debug('lock-- (%d)', len(self._clients))
         if not self._clients:
-            return kaa.InProgress().finish(True)
-        return kaa.inprogress(self.signals['unlock'])
+            if self._in_progress:
+                self._in_progress.finish(None)
+                self._in_progress = None
+            self.signals['unlocked'].emit()
 
+
+    @property
+    def locked(self):
+        """
+        True if locked.
+        """
+        return bool(self._clients)
 
 
 
@@ -151,7 +158,7 @@ class Database(RO_Database):
 
         # server lock when a client is doing something
         self.read_lock = ReadLock()
-        self.read_lock.signals['lock'].connect_weak(self.commit)
+        self.read_lock.signals['locked'].connect_weak(self.commit)
 
         # register basic types
         self._db.register_inverted_index('keywords', min = 2, max = 30)
@@ -184,9 +191,7 @@ class Database(RO_Database):
 
 
     def acquire_read_lock(self):
-        if not self.read_lock.is_locked():
-            return kaa.InProgress().finish(None)
-        return self.read_lock.yield_unlock()
+        return kaa.inprogress(self.read_lock)
 
 
     def _query_filename_get_dir_create(self, name, parent):
@@ -199,7 +204,7 @@ class Database(RO_Database):
         # it should not happen often. To make the write lock a very
         # short time we commit just after adding.
         c = self.add_object("dir", name=name, parent=parent)
-        if self.read_lock.is_locked():
+        if self.read_lock.locked:
             # We just stuffed a client who's reading from the db.  sqlite's
             # locking mechanism should prevent the client from getting garbage
             # data, but will likely result in the client getting blocked.  So
@@ -253,7 +258,7 @@ class Database(RO_Database):
         """
         Add an object to the db.
         """
-        if self.read_lock.is_locked():
+        if self.read_lock.locked:
             raise IOError('database is locked')
 
         if metadata:
@@ -278,7 +283,7 @@ class Database(RO_Database):
         """
         Update an object to the db.
         """
-        if self.read_lock.is_locked():
+        if self.read_lock.locked:
             raise IOError('database is locked')
 
         if metadata:
@@ -304,7 +309,7 @@ class Database(RO_Database):
         Change the type of an object. Returns complete db data
         from the object with the new type.
         """
-        if self.read_lock.is_locked():
+        if self.read_lock.locked:
             raise IOError('database is locked')
 
         try:
@@ -355,7 +360,7 @@ class Database(RO_Database):
         Delete an object from the database. entry is either an Item or
         a (type, id) tuple.
         """
-        if self.read_lock.is_locked():
+        if self.read_lock.locked:
             raise IOError('database is locked')
         if isinstance(entry, Item):
             entry = entry._beacon_id

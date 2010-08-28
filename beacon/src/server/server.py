@@ -188,7 +188,7 @@ class Server(object):
                 for m in client_info[2]:
                     m.stop()
                 self.clients.remove(client_info)
-        self._db.read_lock.unlock(client_info[1], True)
+        self._db.read_lock.unlock(client_info[1], all=True)
 
     # -------------------------------------------------------------
     # hardware monitor callbacks
@@ -334,8 +334,7 @@ class Server(object):
         """
         Update items from the client.
         """
-        while self._db.read_lock.is_locked():
-            yield self._db.read_lock.yield_unlock()
+        yield kaa.inprogress(self._db.read_lock)
         for dbid, attributes in items:
             self._db.update_object(dbid, **attributes)
         # commit to update monitors
@@ -364,8 +363,7 @@ class Server(object):
         Create a new item.
         """
         data = yield self._db.query(id=parent)
-        while self._db.read_lock.is_locked():
-            yield self._db.read_lock.yield_unlock()
+        yield kaa.inprogress(self._db.read_lock)
         yield self._db.add_object(type, parent=parent, **kwargs)
 
     @kaa.rpc.expose(coroutine=True)
@@ -373,8 +371,7 @@ class Server(object):
         """
         Create a new item.
         """
-        while self._db.read_lock.is_locked():
-            yield self._db.read_lock.yield_unlock()
+        yield kaa.inprogress(self._db.read_lock)
         self._db.delete_object(id)
 
     @kaa.rpc.expose()

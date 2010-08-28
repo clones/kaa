@@ -220,8 +220,7 @@ class HardwareMonitor(object):
         """
         Add the device to the database
         """
-        while self._db.read_lock.is_locked():
-            yield self._db.read_lock.yield_unlock()
+        yield kaa.inprogress(self._db.read_lock)
         # FIXME: check if the device is still valid
         # FIXME: handle failed dvd detection
         id = dev.get('beacon.id')

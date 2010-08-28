@@ -63,8 +63,7 @@ class Controller(object):
         Timed callback to write all changes to the db.
         Called by Item objects
         """
-        while self._db.read_lock.is_locked():
-            yield self._db.read_lock.yield_unlock()
+        yield kaa.inprogress(self._db.read_lock)
         changes = self._changed
         self._changed = []
         for item in changes:
@@ -96,8 +95,7 @@ class Controller(object):
         Delete an item.
         Called by Item objects
         """
-        while self._db.read_lock.is_locked():
-            yield self._db.read_lock.yield_unlock()
+        yield kaa.inprogress(self._db.read_lock)
         self._db.delete_object(item._beacon_id)
 
     def eject(self, media):

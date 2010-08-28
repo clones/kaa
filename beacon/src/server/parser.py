@@ -189,9 +189,7 @@ def _parse(db, item, mtime):
     
         if item._beacon_id and type != item._beacon_id[0]:
             # The item changed its type. Adjust the db
-            while db.read_lock.is_locked():
-                # wait for the db to be free for write access
-                yield db.read_lock.yield_unlock()
+            yield kaa.inprogress(db.read_lock)
             data = db.update_object_type(item._beacon_id, type)
             if not data:
                 log.error('item to change not in the db anymore')
@@ -278,9 +276,7 @@ def _parse(db, item, mtime):
         for function in extention_plugins.get(ext, []) + extention_plugins.get(None, []):
             function(item, attributes, type)
 
-        if db.read_lock.is_locked():
-            # wait for the db to be free for write access
-            yield db.read_lock.yield_unlock()
+        yield kaa.inprogress(db.read_lock)
     
         if attributes.get('image'):
             # create thumbnail
