@@ -44,7 +44,6 @@ import kaa.imlib2
 
 # kaa.beacon imports
 from .. import thumbnail
-from ..utils import get_title
 import utils
 
 # get logging object
