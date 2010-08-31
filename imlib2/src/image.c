@@ -440,7 +440,7 @@ PyObject *Image_PyObject__draw_text(PyObject *self, PyObject *args)
     Font_PyObject *font;
 
     if (!PyArg_ParseTuple(args, "O!iis(iiii)", &Font_PyObject_Type, &font, &x,
-			  &y, &text, &r, &g, &b, &a))
+                                               &y, &text, &r, &g, &b, &a))
         return NULL;
 
     PyImlib2_BEGIN_CRITICAL_SECTION
@@ -448,8 +448,7 @@ PyObject *Image_PyObject__draw_text(PyObject *self, PyObject *args)
     imlib_context_set_font(((Font_PyObject *)font)->font);
 
     imlib_context_set_color(r, g, b, a);
-    imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w,
-					&advance_h);
+    imlib_text_draw_with_return_metrics(x, y, text, &w, &h, &advance_w, &advance_h);
     PyImlib2_END_CRITICAL_SECTION
     return Py_BuildValue("(llll)", w, h, advance_w, advance_h);
 }
@@ -469,20 +468,20 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
     Font_PyObject *font;
 
     const char vals[5][5] = {
-	{0, 1, 2, 1, 0},
-	{1, 3, 4, 3, 1},
-	{2, 4, 5, 4, 2},
-	{1, 3, 4, 3, 1},
-	{0, 1, 2, 1, 0}
+        {0, 1, 2, 1, 0},
+        {1, 3, 4, 3, 1},
+        {2, 4, 5, 4, 2},
+        {1, 3, 4, 3, 1},
+        {0, 1, 2, 1, 0}
     };
 
     if (!PyArg_ParseTuple(args, "O!iisi(iiii)(iiii)(iiii)(iiii)(iiii)",
-			  &Font_PyObject_Type, &font, &x, &y, &text, &style,
-			  &color.r, &color.g, &color.b, &color.a,
-			  &shadow.r, &shadow.g, &shadow.b, &shadow.a,
-			  &outline.r, &outline.g, &outline.b, &outline.a,
-			  &glow.r, &glow.g, &glow.b, &glow.a,
-			  &glow2.r, &glow2.g, &glow2.b, &glow2.a))
+                          &Font_PyObject_Type, &font, &x, &y, &text, &style,
+                          &color.r, &color.g, &color.b, &color.a,
+                          &shadow.r, &shadow.g, &shadow.b, &shadow.a,
+                          &outline.r, &outline.g, &outline.b, &outline.a,
+                          &glow.r, &glow.g, &glow.b, &glow.a,
+                          &glow2.r, &glow2.g, &glow2.b, &glow2.a))
         return NULL;
 
     PyImlib2_BEGIN_CRITICAL_SECTION
@@ -495,75 +494,71 @@ PyObject *Image_PyObject__draw_text_with_style(PyObject *self, PyObject *args)
 
     /* shadows */
     if (style == TEXT_STYLE_SHADOW) {
-	COLOR_SET(shadow);
-	DRAW_TEXT(1, 1);
+        COLOR_SET(shadow);
+        DRAW_TEXT(1, 1);
     }
 
-    else if ((style == TEXT_STYLE_OUTLINE_SHADOW) ||
-	     (style == TEXT_STYLE_FAR_SHADOW)) {
-	COLOR_SET(shadow);
-	DRAW_TEXT(2, 2);
+    else if ((style == TEXT_STYLE_OUTLINE_SHADOW) || (style == TEXT_STYLE_FAR_SHADOW)) {
+        COLOR_SET(shadow);
+        DRAW_TEXT(2, 2);
     }
 
-    else if ((style == TEXT_STYLE_OUTLINE_SOFT_SHADOW) ||
-	     (style == TEXT_STYLE_FAR_SOFT_SHADOW)) {
-	for (j = 0; j < 5; j++) {
-	    for (i = 0; i < 5; i++) {
-		if (vals[i][j] != 0) {
-		    COLOR_SET_AMUL(shadow, vals[i][j] * 50);
-		    DRAW_TEXT(i, j);
-		}
-	    }
-	}
+    else if ((style == TEXT_STYLE_OUTLINE_SOFT_SHADOW) || (style == TEXT_STYLE_FAR_SOFT_SHADOW)) {
+        for (j = 0; j < 5; j++) {
+            for (i = 0; i < 5; i++) {
+                if (vals[i][j] != 0) {
+                    COLOR_SET_AMUL(shadow, vals[i][j] * 50);
+                    DRAW_TEXT(i, j);
+                }
+            }
+        }
     }
     else if (style == TEXT_STYLE_SOFT_SHADOW) {
-	for (j = 0; j < 5; j++) {
-	    for (i = 0; i < 5; i++) {
-		if (vals[i][j] != 0) {
-		    COLOR_SET_AMUL(shadow, vals[i][j] * 50);
-		    DRAW_TEXT(i - 1, j - 1);
-		}
-	    }
-	}
+        for (j = 0; j < 5; j++) {
+            for (i = 0; i < 5; i++) {
+                if (vals[i][j] != 0) {
+                    COLOR_SET_AMUL(shadow, vals[i][j] * 50);
+                    DRAW_TEXT(i - 1, j - 1);
+                }
+            }
+        }
     }
 
     /* glows */
     if (style == TEXT_STYLE_GLOW) {
-	for (j = 0; j < 5; j++) {
-	    for (i = 0; i < 5; i++) {
-		if (vals[i][j] != 0) {
-		    COLOR_SET_AMUL(glow, vals[i][j] * 50);
-		    DRAW_TEXT(i - 2, j - 2);
-		}
-	    }
-	}
-	COLOR_SET(glow2);
-	DRAW_TEXT(-1, 0);
-	DRAW_TEXT(1, 0);
-	DRAW_TEXT(0, -1);
-	DRAW_TEXT(0, 1);
+        for (j = 0; j < 5; j++) {
+            for (i = 0; i < 5; i++) {
+                if (vals[i][j] != 0) {
+                    COLOR_SET_AMUL(glow, vals[i][j] * 50);
+                    DRAW_TEXT(i - 2, j - 2);
+                }
+            }
+        }
+        COLOR_SET(glow2);
+        DRAW_TEXT(-1, 0);
+        DRAW_TEXT(1, 0);
+        DRAW_TEXT(0, -1);
+        DRAW_TEXT(0, 1);
     }
 
 
     /* outlines */
-    if ((style == TEXT_STYLE_OUTLINE) ||
-	(style == TEXT_STYLE_OUTLINE_SHADOW) ||
-	(style == TEXT_STYLE_OUTLINE_SOFT_SHADOW)) {
-	COLOR_SET(outline);
-	DRAW_TEXT(-1, 0);
-	DRAW_TEXT(1, 0);
-	DRAW_TEXT(0, -1);
-	DRAW_TEXT(0, 1);
-     }
-    else if (style == TEXT_STYLE_SOFT_OUTLINE) {
-	for (j = 0; j < 5; j++) {
-	    for (i = 0; i < 5; i++) {
-		if (((i != 2) || (j != 2)) && (vals[i][j] != 0)) {
-		    COLOR_SET_AMUL(outline, vals[i][j] * 50);
-		    DRAW_TEXT(i - 2, j - 2);
-		}
-	    }
-	}
+    if (style == TEXT_STYLE_OUTLINE || style == TEXT_STYLE_OUTLINE_SHADOW || 
+        style == TEXT_STYLE_OUTLINE_SOFT_SHADOW) {
+        COLOR_SET(outline);
+        DRAW_TEXT(-1, 0);
+        DRAW_TEXT(1, 0);
+        DRAW_TEXT(0, -1);
+        DRAW_TEXT(0, 1);
+    } else if (style == TEXT_STYLE_SOFT_OUTLINE) {
+        for (j = 0; j < 5; j++) {
+            for (i = 0; i < 5; i++) {
+                if (((i != 2) || (j != 2)) && (vals[i][j] != 0)) {
+                    COLOR_SET_AMUL(outline, vals[i][j] * 50);
+                    DRAW_TEXT(i - 2, j - 2);
+                }
+            }
+        }
     }
 
     COLOR_SET(color);

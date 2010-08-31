@@ -58,9 +58,8 @@ unsigned int get_raw_bytes_size(char *format)
 
 
 unsigned char* convert_raw_rgba_bytes(char *from_format, char *to_format,
-				      unsigned char *from_buf,
-				      unsigned char *to_buf,
-				      int w, int h)
+                                      unsigned char *from_buf, unsigned char *to_buf,
+                                      int w, int h)
 {
     int from_bpp, to_bpp, i;
     unsigned char fr, fb, fg, fa, tr, tb, tg, ta, *from_ptr, *to_ptr;

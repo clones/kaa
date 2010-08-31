@@ -78,19 +78,19 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
 
     svg = rsvg_handle_new();
     if ( w && h )
-	rsvg_handle_set_size_callback(svg, size_cb, &cbdata, NULL);
+        rsvg_handle_set_size_callback(svg, size_cb, &cbdata, NULL);
     res = rsvg_handle_write(svg, svgdata, len, &error);
-    if (error != NULL) 	{
-	PyErr_Format(PyExc_RuntimeError, "SVG Error: %s", error->message);
-	g_error_free (error);
-	return NULL;
+    if (error != NULL)         {
+        PyErr_Format(PyExc_RuntimeError, "SVG Error: %s", error->message);
+        g_error_free (error);
+        return NULL;
     }
     
     res = rsvg_handle_close(svg, &error);
     if (error != NULL) {
-	PyErr_Format(PyExc_RuntimeError, "SVG Error: %s", error->message);
-	g_error_free (error);
-	return NULL;
+        PyErr_Format(PyExc_RuntimeError, "SVG Error: %s", error->message);
+        g_error_free (error);
+        return NULL;
     }
 
     pixbuf = rsvg_handle_get_pixbuf(svg);

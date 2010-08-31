@@ -56,7 +56,7 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
     int w, h, copy;
     Py_ssize_t len;
     void *bytes = NULL;
-	char *from_format = "BGRA";
+    char *from_format = "BGRA";
     PyObject *data = NULL;
     Imlib_Image *image = NULL;
     Image_PyObject *o;
@@ -162,8 +162,7 @@ Image_PyObject *_imlib2_open(char *filename, int use_cache)
         if (error_return == IMLIB_LOAD_ERROR_NO_LOADER_FOR_FILE_FORMAT)
             PyErr_Format(PyExc_IOError, "no loader for file format");
         else
-            PyErr_Format(PyExc_IOError, "Could not open %s: %d", filename,
-	    	     error_return);
+            PyErr_Format(PyExc_IOError, "Could not open %s: %d", filename, error_return);
         return NULL;
     }
     o = PyObject_NEW(Image_PyObject, &Image_PyObject_Type);
