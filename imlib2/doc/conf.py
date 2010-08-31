@@ -11,12 +11,13 @@
 # All configuration values have a default value; values that are commented out
 # serve to show the default value.
 
-import sys, os
+import sys, os, glob
 
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
-sys.path.append(os.path.abspath('../build/lib.linux-i686-2.5/kaa'))
+for _lib in glob.glob('../build/lib.*/kaa'):
+    sys.path.insert(0, os.path.abspath(_lib))
 from imlib2.version import VERSION
 
 # General configuration
@@ -38,7 +39,7 @@ master_doc = 'index'
 
 # General substitutions.
 project = 'kaa.imlib2'
-copyright = '2004-2008, Dirk Meyer, Jason Tackaberry'
+copyright = '2004-2010, Dirk Meyer, Jason Tackaberry'
 
 # The default replacements for |version| and |release|, also used in various
 # other places throughout the built documents.
