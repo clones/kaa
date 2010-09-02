@@ -28,11 +28,6 @@
 #
 # -----------------------------------------------------------------------------
 
-import types
-import math
-import os
-import glob
-
 from version import VERSION
 
 # imlib2 wrapper
@@ -54,30 +49,44 @@ _image_cache = {
     'max-size': 16*1024   # 16 MB
 }
 
-def open_without_cache(file):
+def open_without_cache(filename):
     """
-    Create a new image object from the file 'file' without using the
-    internal cache.
+    Decode an image from disk without using the internal cache.
+
+    :param filename: path to the file to open
+    :type filename: str
+    :returns: :class:`~imlib2.Image` object
     """
-    return Image(file, False)
+    return Image(filename, False)
 
 
-def open(file):
+def open(filename):
     """
-    Create a new image object from the file 'file'.
-    """
-    if file in _image_cache['images']:
-        return _image_cache['images'][file].copy()
+    Decode an image from disk.
 
-    image = Image(file)
-    _image_cache['images'][file] = image
-    _image_cache['order'].insert(0, file)
+    :param filename: path to the file to open
+    :type filename: str
+    :returns: :class:`~imlib2.Image` object
+
+    This function will cache the raw image data of the loaded file, so that
+    subsequent invocations with the given filename will load from cache.
+
+    .. note::
+       The cache is currently fixed at 16MB and cannot yet be managed through
+       a public API.
+    """
+    if filename in _image_cache['images']:
+        return _image_cache['images'][filename].copy()
+
+    image = Image(filename)
+    _image_cache['images'][filename] = image
+    _image_cache['order'].insert(0, filename)
     _image_cache['size'] += image.width * image.height * 4 / 1024
 
     while _image_cache['size'] > _image_cache['max-size']:
-        file = _image_cache['order'].pop()
-        expired = _image_cache['images'][file]
-        del _image_cache['images'][file]
+        filename = _image_cache['order'].pop()
+        expired = _image_cache['images'][filename]
+        del _image_cache['images'][filename]
         _image_cache['size'] -= expired.width * expired.height * 4 / 1024
 
     return image
@@ -85,7 +94,11 @@ def open(file):
 
 def open_from_memory(buf):
     """
-    Create a new image object from a memory buffer.
+    Decode an image stored in memory.
+
+    :param buf: encoded image data
+    :type buf: str or buffer
+    :returns: :class:`~imlib2.Image` object
     """
     if type(buf) == str:
         buf = buffer(buf)
@@ -93,11 +106,16 @@ def open_from_memory(buf):
     return Image(img)
 
 
-def open_svg_from_memory(data, size = None):
+def open_svg_from_memory(data, size=None):
     """
-    Special SVG handler loading a SVG image from memory. The data is
-    the XML string. If size is given, the SVG is loaded with that
-    size. If omited the size is taken from the SVG itself (if given).
+    Render an SVG image stored in memory.
+
+    :param data: the XML data specifying the SVG
+    :type data: str
+    :param size: specifies the width and height of the rasterized image; if
+                 None, the size is taken from the SVG itself (if given).
+    :type size: 2-tuple of ints or None
+    :returns: :class:`~imlib2.Image` object
     """
     if not size:
         size = 0,0
@@ -105,60 +123,54 @@ def open_svg_from_memory(data, size = None):
     return new((w,h), buf, from_format = 'BGRA', copy = True)
 
 
-def open_svg(fname, size = None):
+def open_svg(filename, size=None):
     """
-    Special SVG handler loading a SVG image from the given file. If
-    size is given, the SVG is loaded with that size. If omited the
-    size is taken from the SVG itself (if given).
+    Render an SVG image from disk.
+
+    :param filename: path to the SVG file to open
+    :type filename: str
+    :param size: specifies the width and height of the rasterized image; if
+                 None, the size is taken from the SVG itself (if given).
+    :type size: 2-tuple of ints or None
+    :returns: :class:`~imlib2.Image` object
     """
-    return open_svg_from_memory(file(fname).read(), size)
+    return open_svg_from_memory(file(filename).read(), size)
 
 
-def new(size, bytes = None, from_format = 'BGRA', copy = True):
+def new(size, bytes=None, from_format='BGRA', copy=True):
     """
-    Generates a new Image of size 'size', which is a tuple holding the width
-    and height.  If 'bytes' is specified, the image is initialized from the
-    raw BGRA data.  If 'copy' is False, 'bytes' must be either a write buffer
-    or an integer pointing to a location in memory that will be used to hold
-    the image.  (In this caes, from_format must be BGRA.)
+    Create a new Image object (optionally) from existing raw data.
+
+    :param size: width and height of the image to create
+    :type size: 2-tuple of ints
+    :param bytes: raw image data from which to initialize the image; if an int,
+                  specifies a pointer to a location in memory holding the raw
+                  image (default: None)
+    :type bytes: str, buffer, int, None
+    :param from_format: specifies the pixel format of the supplied raw data;
+                        can be any permutation of RGB or RGBA.  (default: BGRA,
+                        which is Imlib2's native pixel format).
+    :type from_format: str
+    :param copy: if True, the raw data ``bytes`` will be copied to the Imlib2
+                 object; if False, ``bytes`` must be either a writable buffer
+                 or an integer pointing to a location in memory (in which case,
+                 from_format must be 'BGRA')
+    :type copy: bool
+    :returns: :class:`~imlib2.Image` object
+
+    ``bytes`` can be an integer, acting as a pointer to memory, which is useful
+    with interoperating with other libraries, however this should be used with
+    extreme care as incorrect values can segfault the interpeter.
     """
-    if 0 in size:
-        raise ValueError, 'Invalid image size %s' % repr(size)
     for val in size:
-        if not isinstance(val, int):
-            raise ValueError, 'Invalid image size %s' % repr(size)
+        if not isinstance(val, int) or val == 0:
+            raise ValueError('Invalid image size:' + repr(size))
     if bytes:
         if False in map(lambda x: x in 'RGBA', list(from_format)):
-            raise ValueError, 'Converting from unsupported format: ' +  from_format
+            raise ValueError('Converting from unsupported format: ' + from_format)
         if type(bytes) != int and len(bytes) < size[0]*size[1]*len(from_format):
-            raise ValueError, 'Not enough bytes for converted format: expected %d, got %d' % \
-                              (size[0]*size[1]*len(from_format), len(bytes))
+            raise ValueError('Not enough bytes for converted format: expected %d, got %d' % \
+                              (size[0]*size[1]*len(from_format), len(bytes)))
         return Image(_Imlib2.create(size, bytes, from_format, copy))
     else:
         return Image(_Imlib2.create(size))
-
-
-def add_font_path(path):
-    """
-    Add the given path to the list of paths to scan when loading fonts.
-    """
-    _Imlib2.add_font_path(path)
-
-
-def load_font(font, size):
-    """
-    Return a Font object from the given font specified in the form
-    'FontName/Size', such as 'Arial/16'
-    """
-    return Font(font + '/' + str(size))
-
-
-def get_font_style_geometry(style):
-    """
-    Return the additional pixel the font needs for the style. This function
-    will return left, top, right, bottom as number of pixels the text will
-    start to the left/top and the number of pixels it needs more at the
-    right/bottom. To avoid extra calculations the function will also return
-    the additional width and height needed for the style.
-    """
-    return TEXT_STYLE_GEOMETRY[style]
