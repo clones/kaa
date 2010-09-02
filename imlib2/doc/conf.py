@@ -11,12 +11,12 @@
 # All configuration values have a default value; values that are commented out
 # serve to show the default value.
 
-import sys, os, glob
+import sys, os, glob, platform
 
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
-for _lib in glob.glob('../build/lib.*/kaa'):
+for _lib in glob.glob('../build/lib.*%s*/kaa' % platform.machine()):
     sys.path.insert(0, os.path.abspath(_lib))
 from imlib2.version import VERSION
 
@@ -25,11 +25,11 @@ from imlib2.version import VERSION
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = [ 'sphinx.ext.autodoc' ]
+extensions = [ 'sphinx.ext.autodoc', 'kaa.base.distribution.sphinxext' ]
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['.templates']
-templates_path = []
+templates_path = ['_templates']
 
 # The suffix of source filenames.
 source_suffix = '.rst'
@@ -108,7 +108,7 @@ html_style = 'default.css'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 # html_static_path = ['.static']
-html_static_path = []
+html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.

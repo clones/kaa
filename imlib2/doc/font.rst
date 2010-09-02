@@ -1,59 +1,81 @@
-Font Objects
-============
+Fonts
+=====
 
+.. autofunction:: imlib2.auto_set_font_path
 .. autofunction:: imlib2.add_font_path
 .. autofunction:: imlib2.load_font
 .. autofunction:: imlib2.get_font_style_geometry
 
-.. autoclass:: imlib2.Font
+.. _textstyles:
 
-   The parameter fontdesc is the description of the font, in the form
-   'Fontname/Size' or as a list/tuple in the form ('Fontname', size).
-   Only TrueType fonts are supported, and the .ttf file must exist in
-   a registered font path.  Font paths can be registered by calling
-   Imlib2.add_font_path(). The color is a 3- or 4-tuple holding the
-   red, green, blue, and alpha values of the color in which to render
-   text with this font context.  If color is a 3-tuple, the implied
-   alpha is 255.  If color is not specified, the default is fully
-   opaque white.
+Text Styles
+-----------
 
-Attributes
-----------
+These constants are used with :meth:`imlib2.Image.draw_text` and
+:meth:`imlib2.Font.set_style`.
 
-.. attribute:: imlib2.Font.ascent
+.. attribute:: imlib2.TEXT_STYLE_PLAIN
 
-   the current font's ascent value in pixels.
+   No special styling.
 
-.. attribute:: imlib2.Font.descent
+.. attribute:: imlib2.TEXT_STYLE_SHADOW
 
-   the current font's descent value in pixels.
+   Draw text with a lower-right 1-pixel shadow.  The shadow color is specified
+   by the *shadow* attribute.
 
-.. attribute:: imlib2.Font.max_descent
+.. attribute:: imlib2.TEXT_STYLE_SOFT_SHADOW
 
-   the current font's maximum descent extent.
-
-.. attribute:: imlib2.Font.max_ascent
-
-   the current font's maximum ascent extent.
-
-.. attribute:: imlib2.Font.fontname
-
-   name of the font (e.g. Vera)
-
-.. attribute:: imlib2.Font.size
-
-   font size
-
-.. attribute:: imlib2.Font.style
-
-   The style of the text. See set_style for details.
+   Draw text with a lower-right blurred 5-pixel shadow, offset up and left by 1
+   pixel.  The shadow color is specified by the *shadow* attribute.
 
 
-Member Functions
-----------------
+.. attribute:: imlib2.TEXT_STYLE_FAR_SHADOW
 
-.. automethod:: imlib2.Font.get_text_size
-.. automethod:: imlib2.Font.set_color
-.. automethod:: imlib2.Font.set_size
-.. automethod:: imlib2.Font.set_style
-.. automethod:: imlib2.Font.get_style_geometry
+   Draw text with a lower-right 2-pixel shadow.  The shadow color is specified
+   by the *shadow* attribute.
+
+.. attribute:: imlib2.TEXT_STYLE_FAR_SOFT_SHADOW
+
+   Draw text with a lower-right blurred 5-pixel shadow.  The shadow color is
+   specified by the *shadow* attribute.
+
+
+.. attribute:: imlib2.TEXT_STYLE_OUTLINE
+
+   Draw text with a 1-pixel outline.  The outline color is specified by the
+   *outline* attribute.
+
+.. attribute:: imlib2.TEXT_STYLE_OUTLINE_SHADOW
+
+   Draw text with a 1-pixel outline and a lower-right 1-pixel shadow.  The
+   outline and shadow and colors are specified by the *outline* and *shadow*
+   attributes respectively.
+
+.. attribute:: imlib2.TEXT_STYLE_SOFT_OUTLINE
+
+   Draw text with a blurred 2-pixel outline.  The outline color is specified by
+   the *outline* attribute.
+
+
+.. attribute:: imlib2.TEXT_STYLE_OUTLINE_SOFT_SHADOW
+
+   Draw text with a 1-pixel outline and a lower-right blurred 5-pixel shadow.
+   The outline and shadow and colors are specified by the *outline* and
+   *shadow* attributes respectively.
+
+
+.. attribute:: imlib2.TEXT_STYLE_GLOW
+
+   Draw text with a double outline.  The outer and inner outline colors are
+   specified by the *glow* and *glow2* attributes respectively.
+
+
+Font Objects
+------------
+
+.. kaaclass:: imlib2.Font
+   :synopsis:
+
+   .. automethods::
+   .. autoproperties::
+   .. autosignals::
