@@ -1,15 +1,19 @@
 Images
 ======
 
-Creating Image Objects
-----------------------
+Opening and Creating Images
+---------------------------
 
 .. autofunction:: imlib2.open
 .. autofunction:: imlib2.open_without_cache
 .. autofunction:: imlib2.open_from_memory
-.. autofunction:: imlib2.open_svg
-.. autofunction:: imlib2.open_svg_from_memory
 .. autofunction:: imlib2.new
+
+Image Cache
+-----------
+
+.. autofunction:: imlib2.set_cache_size
+.. autofunction:: imlib2.get_cache_size
 
 Image Objects
 -------------
