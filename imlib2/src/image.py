@@ -507,7 +507,7 @@ class Image(Object):
         >>> img = imlib2.open('file.jpg')
         >>> buf = img.get_raw_data(write=True)
         # Set first pixel to white.
-        >>> buf[:4] = '\xff' * 4
+        >>> buf[:4] = '\\xff' * 4
         >>> img.put_back_raw_data(buf)
 
         .. warning:: see :func:`imlib2.new` for more information on the pixel
