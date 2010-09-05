@@ -28,10 +28,17 @@
 #
 # -----------------------------------------------------------------------------
 
+__all__ = [
+    'open', 'open_without_cache', 'open_from_memory', 'new', 'get_cache_size',
+    'set_cache_size', 'get_max_rectangle_size', 'Image', 'open_svg',
+    'open_svg_from_memory'
+]
+
 # python imports
 import types
 import math
 import os
+import errno
 
 # imlib2 wrapper
 import _Imlib2
@@ -39,6 +46,256 @@ from kaa import Signal, Object
 from kaa.utils import property
 from kaa.strutils import utf8
 from font import *
+
+
+def _open_with_error_handle(open, *args):
+    """
+    Raises an IOError based on an Imlib2 error code.  Unfortunately Imlib2
+    replaces perfectly good errno values with custom codes.  We effectively
+    undo this conversion here.
+    """
+    try:
+        return open(*args)
+    except IOError, exc:
+        if len(exc.args) != 1 or not exc.args[0].isdigit():
+            raise
+
+        map = [None, errno.ENOENT, errno.EISDIR, errno.EACCES, None, errno.ENAMETOOLONG,
+               errno.ENOENT, errno.ENOTDIR, errno.EFAULT, errno.ELOOP, errno.ENOMEM, 
+               errno.EMFILE, errno.EACCES, errno.EROFS]
+
+        filename = args[0] if type(args[0]) == str else '<memory>'
+        errcode = int(exc.args[0])
+        if errcode == 4:
+            raise IOError("No loader for file format: '%s'" % filename)
+        elif errcode > 0 and errcode < len(map):
+            raise IOError(map[errcode], "%s: '%s'" % (os.strerror(map[errcode]), filename))
+        else:
+            raise IOError("Unknown error occurred (unsupported format?): '%s'" % filename)
+
+
+def open(filename, size=None):
+    """
+    Decode an image from disk.
+
+    :param filename: path to the file to open
+    :type filename: str
+    :param size: initial width and height of the image; if either dimension is
+                 -1, it will be computed based on aspect ratio; if *size* is
+                 None, use the default image size.
+    :type size: 2-tuple of ints
+    :returns: :class:`~imlib2.Image` object
+
+    kaa.imlib2 (unlike Imlib2 natively) supports rasterization of SVG images.
+    however detection is based on file extension.  If you need to rasterize
+    an SVG file that doesn't have a ``.svg`` extension, you will need to
+    use :func:`~imlib2.open_from_memory`.
+
+    For non-SVG images, this function will cache the raw image data of the
+    loaded file, so that subsequent invocations with the given filename will
+    load from cache.
+
+    >>> from kaa import imlib2
+    >>> imlib2.open('file.jpg')
+    <kaa.imlib2.Image object size=1920x1080 0x9347eac>
+    # SVGs can be loaded the same way.
+    >>> imlib2.open('image.svg', size=(640, -1))
+    <kaa.imlib2.Image object size=640x371 at 0xb69df84c>
+    """
+    if filename.lower().endswith('.svg'):
+        return open_from_memory(file(filename).read(), size)
+    else:
+        return Image(filename, True, size)
+
+
+def open_without_cache(filename, size=None):
+    """
+    Decode an image from disk without looking in the cache (or storing
+    the result in the cache).
+
+    :param filename: path to the file to open
+    :type filename: str
+    :param size: initial width and height of the image; if either dimension is
+                 -1, it will be computed based on aspect ratio; if *size* is
+                 None, use the default image size.
+    :type size: 2-tuple of ints
+    :returns: :class:`~imlib2.Image` object
+    """
+    if filename.lower().endswith('.svg'):
+        return open_from_memory(file(filename).read(), size)
+    else:
+        return Image(filename, True, size)
+
+
+def open_from_memory(buf, size=None):
+    """
+    Decode an image stored in memory.
+
+    :param buf: encoded image data
+    :type buf: str or buffer
+    :param size: initial width and height of the image; if either dimension is
+                 -1, it will be computed based on aspect ratio; if *size* is
+                 None, use the default image size.
+    :type size: 2-tuple of ints
+    :returns: :class:`~imlib2.Image` object
+
+    .. note:: Due to limitations in Imlib2, this function uses POSIX shared
+       memory if it's available (such as on Linux).  If it's not available, a
+       temporary file will be created in /tmp.
+
+    >>> from kaa import imlib2
+    # This example is a bit contrived because you could easily use open(), but
+    # shows that if you have an existing buffer with encoded image data, you
+    # can use this function to decode it into an Image object.
+    >>> data = file('file.jpg').read()
+    >>> imlib2.open_from_memory(data)
+    <kaa.imlib2.Image object size=1920x1080 0x9347eac>
+    """
+    if type(buf) == str:
+        buf = buffer(buf)
+    if buf[:4].lower() == '<svg' or '\n<svg' in buf[:512].lower():
+        if not size:
+            size = 0,0
+        w, h, buf = _Imlib2.render_svg_to_buffer(size[0], size[1], buf)
+        return new((w,h), buf, from_format='RGBA', copy=False)
+    else:
+        # Other image
+        img = _open_with_error_handle(_Imlib2.open_from_memory, buf)
+        return Image(img, size=size)
+
+
+def open_svg_from_memory(data, size=None):
+    """
+    Deprecated: use :func:`~imlib2.open_from_memory`.
+    """
+    return open_from_memory(data, size)
+
+
+def open_svg(filename, size=None):
+    """
+    Deprecated: use :func:`~imlib2.open`.
+    """
+    return open_from_memory(file(filename).read(), size)
+
+
+def new(size, bytes=None, from_format='BGRA', copy=True):
+    """
+    Create a new Image object (optionally) from existing raw data.
+
+    :param size: width and height of the image to create
+    :type size: 2-tuple of ints
+    :param bytes: raw image data from which to initialize the image, which must be
+                  in the RGB colorspace; if an int, specifies a pointer to a
+                  location in memory holding the raw image (default: None)
+    :type bytes: str, buffer, int, None
+    :param from_format: specifies the pixel format of the supplied raw data;
+                        can be any permutation of ``RGB`` or ``RGBA``.
+                        (default: ``BGRA``, which is Imlib2's native pixel
+                        format).
+    :type from_format: str
+    :param copy: if True, the raw data *bytes* will be copied to the Imlib2
+                 object. If False, *bytes* must be either a writable buffer
+                 or an integer pointing to a location in memory; in this case,
+                 if *from_format* is ``BGRA`` then Imlib2 will directly use
+                 the supplied buffer; if it's not ``BGRA`` then a colorspace
+                 conversion is necessary, but an in-place conversion will be
+                 done if possible.
+    :type copy: bool
+    :returns: :class:`~imlib2.Image` object
+
+    *bytes* can be an integer, acting as a pointer to memory, which is useful
+    with interoperating with other libraries, however this should be used with
+    extreme care as incorrect values can segfault the interpeter.
+
+    .. warning:: Formats (e.g. ``BGRA``) indicate the byte order when the image
+       is viewed as a memory buffer on little-endian machines.  Each pixel is a
+       32-bit quantity where blue is stored in the least significant byte and
+       alpha is the most significant byte.  On big-endian architectures, the
+       format ``BGRA`` is actually stored in the order ``ARGB``.
+
+    >>> from kaa import imlib2
+    # Create a new, blank 1920x1080 image.
+    >>> imlib2.new((1920, 1080))
+    <kaa.imlib2.Image object size=1920x1080 at 0x9c0dbec>
+    # Create a new 1024x768 image initialized from existing data (all pixels
+    # 50% opaque red)
+    >>> imlib2.new((1024, 768), bytes='\\x00\\x00\\xff\\x7f' * 1024 * 768)
+    <kaa.imlib2.Image object size=1024x768 at 0x9c79d4c>
+    # Create a new 1024x768 image initialized from 24-bit data whose pixel
+    # order is RGB.  (Alpha channel is initialized to 255)
+    >>> imlib2.new((1024, 768), bytes='\\xff\\x00\\x00' * 1024 * 768, from_format='RGB')
+    <kaa.imlib2.Image object size=1024x768 at 0x9c79dec>
+
+    The following code shows how you can use the array type to share a writable
+    buffer:
+
+    >>> import array
+    # Initialize an array with 50% opaque purple.
+    >>> data = array.array('c', '\\xff\\x00\\xff\\x7f' * 1024 * 768)
+    # Create the image with copy=False so we share the buffer.
+    >>> img = imlib2.new((1024, 768), data, copy=False)
+    # Note the value of the first pixel.
+    >>> data[:4]
+    array('c', '\\xff\\x00\\xff\\x7f')
+    # Clear the image and look at the same pixel, note how it's changed in the
+    # buffer.
+    >>> img.clear()
+    >>> data[:4]
+    array('c', '\\x00\\x00\\x00\\x00')
+
+    Although you can use writable buffers directly as in the above example,
+    you can also pass a integer which represents a pointer to the buffer.
+
+    >>> data = array.array('c', '\\xff\\x00\\xff\\x7f' * 1024 * 768)
+    >>> ptr, len = data.buffer_info()
+    >>> ptr
+    3022487560L
+    >>> img = imlib2.new((1024, 768), ptr, copy=False)
+    >>> img.clear()
+    >>> data[:4]
+    array('c', '\x00\x00\x00\x00')
+
+    You would never actually do this for arrays, but if you have a pointer
+    to a buffer returned by some other library (gotten through ctypes, perhaps),
+    you can use the pointer as a buffer.  In this case, you maintain ownership
+    over the buffer, and it is your responsibility to free it.
+    """
+    for val in size:
+        if not isinstance(val, int) or val == 0:
+            raise ValueError('Invalid image size:' + repr(size))
+    if bytes:
+        if False in map(lambda x: x in 'RGBA', list(from_format)):
+            raise ValueError('Converting from unsupported format: ' + from_format)
+        if not isinstance(bytes, (int, long)) and len(bytes) < size[0]*size[1]*len(from_format):
+            raise ValueError('Not enough bytes for converted format: expected %d, got %d' % \
+                              (size[0]*size[1]*len(from_format), len(bytes)))
+        return Image(_Imlib2.create(size, bytes, from_format, copy))
+    else:
+        return Image(_Imlib2.create(size))
+
+
+def get_cache_size():
+    """
+    Return the size of Imlib2's internal image cache.
+
+    :returns: size in bytes of the cache
+    """
+    return _Imlib2.get_cache_size()
+
+def set_cache_size(size):
+    """
+    Sets the size of Imlib2's internal image cache.
+
+    :param size: size in bytes; a value of 0 will flush the cache and prevent
+                 future caching.
+    :type size: int
+    
+    When the cache size is set, Imlib2 will flush old images from the cache
+    until the current cache usage is less than or equal to the cache size.
+
+    .. note:: The cache size is initialized to 4MB.
+    """
+    _Imlib2.set_cache_size(size)
 
 
 def get_max_rectangle_size((w, h), (max_w, max_h)):
@@ -68,14 +325,12 @@ class Image(Object):
                               to clone, or a filename of the encoded image
                               to load on disk.
     :type image_or_filename: :class:`~imlib2.Image` or str
-    :param use_cache: if True, will use Imlib2's internal cache for encoded
-                      (not decoded) image data.
+    :param use_cache: if True, will use Imlib2's internal cache for image data
     :type use_cache: bool
 
     It is possible to create Image objects directly, but the
     :func:`imlib2.open` or :func:`imlib2.new` module functions are
     more likely to be useful.
-
     """
     __kaasignals__ = {
         'changed':
@@ -86,16 +341,19 @@ class Image(Object):
             '''
     }
 
-    def __init__(self, image_or_filename, use_cache=True):
+    def __init__(self, image_or_filename, use_cache=True, size=None):
         super(Image, self).__init__()
         if type(image_or_filename) in types.StringTypes:
-            self._image = _Imlib2.open(image_or_filename, use_cache)
+            self._image = _open_with_error_handle(_Imlib2.open, image_or_filename, use_cache)
         elif isinstance(image_or_filename, Image):
             self._image = image_or_filename.copy()._image
         elif type(image_or_filename) == _Imlib2.Image:
             self._image = image_or_filename
         else:
-            raise ValueError('Unsupported image type ' + type(image_or_filename))
+            raise ValueError('Unsupported image type ' + type(image_or_filename).__name__)
+
+        if size and size != self.size:
+            self._image = self.scale(size)._image
 
         self._font = None
 
@@ -183,8 +441,11 @@ class Image(Object):
         """
         True if the image has an alpha channel, False otherwise.
 
-        This can be changed via the :meth:`~imlib2.Image.set_has_alpha`
-        method.
+        This can be changed via the :meth:`~imlib2.Image.set_has_alpha` method
+        rather than setting this property, because
+        :meth:`~imlib2.Image.set_has_alpha` has a side-effect of emitting the
+        :attr:`~imlib2.Image.signals.changed` signal.
+
         """
         return bool(self._image.has_alpha)
 
@@ -194,6 +455,14 @@ class Image(Object):
         """
         :class:`~imlib2.Font` object specifying font context used by
         :meth:`~imlib2.Image.draw_text`, or None if no font was set.
+
+        >>> from kaa import imlib2
+        >>> imlib2.auto_set_font_path()
+        >>> img = imlib2.new((1920, 1080))
+        >>> img.font = imlib2.Font('VeraBd/60', '#ff55ff')
+        >>> img.font.set_style(imlib2.TEXT_STYLE_SOFT_SHADOW, shadow='#888888')
+        >>> img.draw_text((100, 100), 'Hello World!')
+        (557, 92, 557, 93)
         """
         return self._font
 
@@ -233,6 +502,17 @@ class Image(Object):
         manipulate the underlying buffer.  You must call
         :meth:`~imlib2.Image.put_back_raw_data` when you're done writing to the
         buffer.
+
+        >>> from kaa import imlib2
+        >>> img = imlib2.open('file.jpg')
+        >>> buf = img.get_raw_data(write=True)
+        # Set first pixel to white.
+        >>> buf[:4] = '\xff' * 4
+        >>> img.put_back_raw_data(buf)
+
+        .. warning:: see :func:`imlib2.new` for more information on the pixel
+           layout.  When modifying the buffer directly, you must be aware of
+           the endianness of the machine.
         """
         if False in map(lambda x: x in 'RGBA', list(format)):
             raise ValueError('Converting from unsupported format: ' + format)
@@ -249,7 +529,9 @@ class Image(Object):
         :type data: buffer
 
         Changes made directly to the buffer will not be reflected in the image
-        until this method is called.
+        until this method is called.  If you modify the buffer again, you must
+        call this method again (but you needn't call
+        :meth:`~imlib2.Image.get_raw_data` again).
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
@@ -287,10 +569,11 @@ class Image(Object):
             w = round(h * aspect)
         elif h == -1:
             h = round(w / aspect)
-        if src_w == -1:
-            src_w = self.width - x
-        if src_h == -1:
-            src_h = self.height - y
+
+        x = x if x >= 0 else self.width + x
+        y = y if y >= 0 else self.height + y
+        src_w = src_w if src_w > 0 else self.width + src_w - x
+        src_h = src_h if src_h > 0 else self.height + src_h - y
         return Image(self._image.scale(int(x), int(y), int(src_w), int(src_h), int(w), int(h)))
 
 
@@ -298,17 +581,27 @@ class Image(Object):
         """
         Crop the image and return a new image.
 
-        :param x: left offset of cropped image
-        :type x: int
-        :param y: top offset of cropped image
-        :type y: int
-        :param w: width of the cropped image (offset at x)
-        :type w: int
-        :param h: height of the cropped image (offset at y)
-        :type h: int
+        :param x, y: left/top offset of cropped image; negative values are relative
+                     to the far edge of the image.
+        :type x, y: int
+        :param w, h: width and height of the cropped image (offset at x);
+                     values less than or equal to zero are relative to the
+                     far edge of the image.
+        :type w, h: int
         :returns: a new :class:`~imlib2.Image` object
+
+        >>> from kaa import imlib2
+        >>> img = imlib2.open('file.jpg')
+        >>> img
+        <kaa.imlib2.Image object size=1920x1080 at 0xb73cef6c>
+        >>> img.crop((100, 100), (-100, -100))
+        <kaa.imlib2.Image object size=1720x880 at 0x8a73f4c>
         """
-        return self.scale((w, h), (x, y), (w, h))
+        x = x if x >= 0 else self.width + x
+        y = y if y >= 0 else self.height + y
+        w = w if w > 0 else self.width + w - x
+        h = h if h > 0 else self.height + h - y
+        return Image(self._image.scale(int(x), int(y), int(w), int(h), int(w), int(h)))
 
 
     def rotate(self, angle):
@@ -318,6 +611,16 @@ class Image(Object):
         :param angle: the angle in degrees to rotate
         :type angle: float
         :returns: a new :class:`~imlib2.Image` object
+
+        The new image will be sized to fit the full contents of the rotated
+        image, and likely quite a bit larger than it needs to be.
+
+        >>> from kaa import imlib2
+        >>> img = imlib2.open('file.png')
+        >>> img.size
+        (1920, 1080)
+        >>> img.rotate(20).size
+        (2208, 2208)
         """
         return Image(self._image.rotate(angle * math.pi / 180))
 
@@ -330,41 +633,61 @@ class Image(Object):
                             2 = rotate clockwise 180 degrees, 3 = rotate
                             clockwise 270 degrees.
         :type orientation: int
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         self._image.orientate(orientation)
         self._changed()
+        return self
 
 
     def flip_horizontal(self):
         """
-        Flip the image on its horizontal axis.
+        Flip the image horizontally (along its vertical axis).
+
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         self._image.flip(True, False, False)
         self._changed()
+        return self
 
 
     def flip_vertical(self):
         """
-        Flip the image on its vertical axis.
+        Flip the image vertically (along its horizontal axis).
+
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         self._image.flip(False, True, False)
         self._changed()
+        return self
 
 
     def flip_diagonal(self):
         """
-        Flip the image on along its diagonal.
+        Flip the image on along its diagonal, so that the top-right corner is
+        mapped to the bottom left.
+
+        :returns: self
+
+        In practice:
+
+        >>> img.flip_diagonal()
+
+        is equivalent to (but a bit faster than):
+        
+        >>> img.orientate(1).flip_horizontal()
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         self._image.flip(False, False, True)
         self._changed()
+        return self
 
 
     def blur(self, radius):
@@ -374,11 +697,13 @@ class Image(Object):
         :param radius: the size of the blur matrix radius (higher values
                        produce more blur)
         :type radius: int
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         self._image.blur(radius)
         self._changed()
+        return self
 
 
     def sharpen(self, radius):
@@ -388,11 +713,13 @@ class Image(Object):
         :param radius: the size of the sharpen radius (higher values produce
                         greater sharpening)
         :type radius: int
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         self._image.sharpen(radius)
         self._changed()
+        return self
 
 
     def scale_preserve_aspect(self, (w, h)):
@@ -429,16 +756,19 @@ class Image(Object):
         :type w: int
         :param w: the maximum height of the new image
         :type w: int
+        :returns: self
 
         This implements behaviour of the PIL function of the same name.
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         if self.width < w and self.height < h:
-            return
+            # Already within the size limit
+            return self
 
         self._image = self.scale_preserve_aspect( (w, h) )._image
         self._changed()
+        return self
 
 
     def copy_rect(self, src_pos, size, dst_pos):
@@ -455,11 +785,13 @@ class Image(Object):
         :param dst_pos: the x, y coordinates within the image where the region
                         will be moved to.
         :type dst_pos: 2-tuple of ints
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         self._image.copy_rect(src_pos, size, dst_pos)
         self._changed()
+        return self
 
 
     def blend(self, src, src_pos=(0, 0), src_size=(-1, -1),
@@ -471,7 +803,8 @@ class Image(Object):
         :param src: the image being blended onto 'self'
         :type src: :class:`~imlib2.Image` object
         :param dst_pos: the x, y coordinates where the source image will be
-                        blended onto the destination image.
+                        blended onto the destination image; if either value
+                        is negative then it is relative to the far edge
         :type dst_pos: 2-tuple of ints
         :param src_pos: the x, y coordinates within the source image where
                         blending will start.
@@ -491,6 +824,14 @@ class Image(Object):
                             the destination image's alpha channel is untouched
                             and the RGB values are compensated.
         :type merge_alpha: bool
+        :returns: self
+
+        This example overlays an image called ``a.jpg``, rotated 20 degrees
+        and 60% opaque, onto an image called ``b.jpg`` at 50, 50.
+
+        >>> from kaa import imlib2
+        >>> img = imlib2.open('b.jpg')
+        >>> img.blend(imlib2.open('a.jpg').rotate(20), dst_pos=(50, 50), alpha=60)
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
@@ -502,8 +843,12 @@ class Image(Object):
             dst_size = src_size[0], dst_size[1]
         if dst_size[1] == -1:
             dst_size = dst_size[0], src_size[1]
-        self._image.blend(src._image, src_pos, src_size, dst_pos, dst_size, int(alpha), merge_alpha)
+
+        x = dst_pos[0] if dst_pos[0] >= 0 else self.width + dst_pos[0]
+        y = dst_pos[1] if dst_pos[1] >= 0 else self.height + dst_pos[1]
+        self._image.blend(src._image, src_pos, src_size, (x, y), dst_size, int(alpha), merge_alpha)
         self._changed()
+        return self
 
 
     def clear(self, pos=(0, 0), size=(-1, -1)):
@@ -511,12 +856,14 @@ class Image(Object):
         Clear the specified rectangle, resetting all pixels in that rectangle
         to fully transparent (``#0000``).
 
-        :param pos: left/top corner of the rectangle
+        :param pos: left/top corner of the rectangle; if either value is negative
+                    then they are relative to the far edge
         :type pos: 2-tuple of ints
-        :param size: width and height of the rectangle; if either value is -1
-                     then the image is cleared to the far edge.
+        :param size: width and height of the rectangle; if either value is less
+                     than or equal to zero then they are relatve to the far edge
+                     of the image
         :type size: 2-tuple of ints
-
+        :returns: self
         
         If this method is called without arguments, the whole image will be cleared.
 
@@ -524,16 +871,13 @@ class Image(Object):
         """
         x, y = pos
         w, h = size
-        x = max(0, min(self.width, x))
-        y = max(0, min(self.height, y))
-        if w == -1:
-            w = self.width - x
-        if h == -1:
-            h = self.height - y
-        w = min(w, self.width-x)
-        h = min(h, self.height-y)
+        x = x if x >= 0 else self.width + x
+        y = y if y >= 0 else self.height + y
+        w = w if w > 0 else self.width + w - x
+        h = h if h > 0 else self.height + h - y
         self._image.clear(x, y, w, h)
         self._changed()
+        return self
 
 
     def draw_mask(self, maskimg, pos=(0,0)):
@@ -546,11 +890,29 @@ class Image(Object):
         :param pos: the left/top coordinates within the current image where the
                     alpha channel will be modified.  The mask is drawn to the
                     full width/height of maskimg.
+        :returns: self
+
+        This example creates a mask for an image with three vertical strips of
+        different shades of white.   Once the mask is drawn to the image, the
+        image will have three strips of different alpha values: 100% (255),
+        73% (187), and 53% (136).
+
+        >>> from kaa import imlib2
+        >>> img = imlib2.open('file.jpg')
+        >>> mask = imlib2.new(img.size)
+        >>> mask.draw_rectangle((0, 0), (img.width/3, img.height), color='#ffffff')
+        >>> mask.draw_rectangle((img.width/3, 0), (img.width/3, img.height), color='#bbbbbb')
+        >>> mask.draw_rectangle((img.width/3*2, 0), (img.width/3, img.height), color='#888888')
+        >>> img.draw_mask(mask)
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
-        self._image.draw_mask(maskimg._image, int(pos[0]), int(pos[1]))
+        x, y = pos
+        x = x if x >= 0 else self.width + x
+        y = y if y >= 0 else self.height + y
+        self._image.draw_mask(maskimg._image, int(x), int(y))
         self._changed()
+        return self
 
 
     def copy(self):
@@ -593,7 +955,8 @@ class Image(Object):
         Draw text on the image, optionally stylized.
 
         :param x, y: the left/top coordinates within the current image
-                     where the text will be rendered.
+                     where the text will be rendered; negative values are
+                     relative to the far edge of the image.
         :type x, y: int
         :param text: the text to be rendered
         :type text: str or unicode
@@ -609,6 +972,14 @@ class Image(Object):
         :returns: a 4-tuple representing the width, height, horizontal advance,
                   and vertical advance of the rendered text.
 
+        >>> from kaa import imlib2
+        >>> imlib2.auto_set_font_path()
+        >>> img = imlib2.new((1920, 1080))
+        # Assumes VeraBd.ttf is in the font path.
+        >>> img.draw_text((100, 100), 'Hello World!', '#ff55ff', 'VeraBd/60',
+        ...               style=imlib2.TEXT_STYLE_SOFT_SHADOW, shadow='#888888')
+        (557, 92, 557, 93)
+
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         if not font_or_fontname:
@@ -619,6 +990,8 @@ class Image(Object):
             font = font_or_fontname
 
         color = normalize_color(color or font.color)
+        x = x if x >= 0 else self.width + x
+        y = y if y >= 0 else self.height + y
 
         if style == TEXT_STYLE_PLAIN or (style == None and font.style == TEXT_STYLE_PLAIN):
             metrics = self._image.draw_text(font._font, int(x), int(y), utf8(text), color)
@@ -639,18 +1012,26 @@ class Image(Object):
         """
         Draw a rectangle (filled or outline) on the image.
 
-        :param x, y: the top left corner of the rectangle
+        :param x, y: the top left corner of the rectangle; negative values are
+                     relative to the far edge
         :type x, y: int
-        :param w, h: the width and height of the rectangle
+        :param w, h: the width and height of the rectangle; values less than or
+                     equal to zero are relative to the far edge
         :type w, h: int
         :param color: any value supported by :func:`imlib2.normalize_color`
         :param fill: True if the rectangle should be filled, False if outlined
         :type bool: bool
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
+        x = x if x >= 0 else self.width + x
+        y = y if y >= 0 else self.height + y
+        w = w if w > 0 else self.width + w - x
+        h = h if h > 0 else self.height + h - y
         self._image.draw_rectangle(int(x), int(y), int(w), int(h), normalize_color(color), fill)
         self._changed()
+        return self
 
 
     def draw_ellipse(self, (xc, yc), (a, b), color, fill=True):
@@ -664,11 +1045,15 @@ class Image(Object):
         :param color: any value supported by :func:`imlib2.normalize_color`
         :param fill: True if the ellipse should be filled, False if outlined
         :type bool: bool
+        :returns: self
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
+        xc = xc if xc >= 0 else self.width + xc
+        yc = yc if yc >= 0 else self.height + yc
         self._image.draw_ellipse(int(xc), int(yc), int(a), int(b), normalize_color(color), fill)
         self._changed()
+        return self
 
 
     def get_pixel(self, (x, y)):
@@ -680,6 +1065,8 @@ class Image(Object):
         :returns: 4-tuple of (red, green, blue, alpha) where each value is
                   between 0 and 255.
         """
+        x = x if x >= 0 else self.width + x
+        y = y if y >= 0 else self.height + y
         return self._image.get_pixel((x,y))
 
 
@@ -716,10 +1103,12 @@ class Image(Object):
         :type filename: str
         :param format: the encoding format (jpeg, png, etc.); if None, will
                        be derived from the filename extension.
+        :returns: self
         """
         if not format:
             format = os.path.splitext(filename)[1][1:]
-        return self._image.save(filename, format)
+        self._image.save(filename, format)
+        return self
 
 
     def as_gdk_pixbuf(self):
@@ -729,6 +1118,11 @@ class Image(Object):
         :raises: ImportError if pygtk is not available.
         :returns: a `gdk.Pixbuf <http://library.gnome.org/devel/pygtk/stable/class-gdkpixbuf.html>`_ 
                   object containing a copy of the image data
+
+        >>> from kaa import imlib2
+        >>> img = imlib2.open('file.png')
+        >>> img.as_gdk_pixbuf()
+        <gtk.gdk.Pixbuf object at 0x909334c (GdkPixbuf at 0x9452318)>
         """
         import gtk
         data = self.get_raw_data('RGBA')
