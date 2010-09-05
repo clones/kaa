@@ -570,8 +570,6 @@ class Image(Object):
         elif h == -1:
             h = round(w / aspect)
 
-        x = x if x >= 0 else self.width + x
-        y = y if y >= 0 else self.height + y
         src_w = src_w if src_w > 0 else self.width + src_w - x
         src_h = src_h if src_h > 0 else self.height + src_h - y
         return Image(self._image.scale(int(x), int(y), int(src_w), int(src_h), int(w), int(h)))
@@ -581,8 +579,7 @@ class Image(Object):
         """
         Crop the image and return a new image.
 
-        :param x, y: left/top offset of cropped image; negative values are relative
-                     to the far edge of the image.
+        :param x, y: left/top offset of cropped image
         :type x, y: int
         :param w, h: width and height of the cropped image (offset at x);
                      values less than or equal to zero are relative to the
@@ -597,8 +594,6 @@ class Image(Object):
         >>> img.crop((100, 100), (-100, -100))
         <kaa.imlib2.Image object size=1720x880 at 0x8a73f4c>
         """
-        x = x if x >= 0 else self.width + x
-        y = y if y >= 0 else self.height + y
         w = w if w > 0 else self.width + w - x
         h = h if h > 0 else self.height + h - y
         return Image(self._image.scale(int(x), int(y), int(w), int(h), int(w), int(h)))
@@ -789,7 +784,10 @@ class Image(Object):
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
-        self._image.copy_rect(src_pos, size, dst_pos)
+        w, h = size
+        w = w if w > 0 else self.width + w - x
+        h = h if h > 0 else self.height + h - y
+        self._image.copy_rect(src_pos, (w, h), dst_pos)
         self._changed()
         return self
 
@@ -803,8 +801,7 @@ class Image(Object):
         :param src: the image being blended onto 'self'
         :type src: :class:`~imlib2.Image` object
         :param dst_pos: the x, y coordinates where the source image will be
-                        blended onto the destination image; if either value
-                        is negative then it is relative to the far edge
+                        blended onto the destination image
         :type dst_pos: 2-tuple of ints
         :param src_pos: the x, y coordinates within the source image where
                         blending will start.
@@ -844,20 +841,17 @@ class Image(Object):
         if dst_size[1] == -1:
             dst_size = dst_size[0], src_size[1]
 
-        x = dst_pos[0] if dst_pos[0] >= 0 else self.width + dst_pos[0]
-        y = dst_pos[1] if dst_pos[1] >= 0 else self.height + dst_pos[1]
         self._image.blend(src._image, src_pos, src_size, (x, y), dst_size, int(alpha), merge_alpha)
         self._changed()
         return self
 
 
-    def clear(self, pos=(0, 0), size=(-1, -1)):
+    def clear(self, pos=(0, 0), size=(0, 0)):
         """
         Clear the specified rectangle, resetting all pixels in that rectangle
         to fully transparent (``#0000``).
 
-        :param pos: left/top corner of the rectangle; if either value is negative
-                    then they are relative to the far edge
+        :param pos: left/top corner of the rectangle
         :type pos: 2-tuple of ints
         :param size: width and height of the rectangle; if either value is less
                      than or equal to zero then they are relatve to the far edge
@@ -871,8 +865,6 @@ class Image(Object):
         """
         x, y = pos
         w, h = size
-        x = x if x >= 0 else self.width + x
-        y = y if y >= 0 else self.height + y
         w = w if w > 0 else self.width + w - x
         h = h if h > 0 else self.height + h - y
         self._image.clear(x, y, w, h)
@@ -908,8 +900,6 @@ class Image(Object):
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
         x, y = pos
-        x = x if x >= 0 else self.width + x
-        y = y if y >= 0 else self.height + y
         self._image.draw_mask(maskimg._image, int(x), int(y))
         self._changed()
         return self
@@ -955,8 +945,7 @@ class Image(Object):
         Draw text on the image, optionally stylized.
 
         :param x, y: the left/top coordinates within the current image
-                     where the text will be rendered; negative values are
-                     relative to the far edge of the image.
+                     where the text will be rendered
         :type x, y: int
         :param text: the text to be rendered
         :type text: str or unicode
@@ -990,8 +979,6 @@ class Image(Object):
             font = font_or_fontname
 
         color = normalize_color(color or font.color)
-        x = x if x >= 0 else self.width + x
-        y = y if y >= 0 else self.height + y
 
         if style == TEXT_STYLE_PLAIN or (style == None and font.style == TEXT_STYLE_PLAIN):
             metrics = self._image.draw_text(font._font, int(x), int(y), utf8(text), color)
@@ -1012,8 +999,7 @@ class Image(Object):
         """
         Draw a rectangle (filled or outline) on the image.
 
-        :param x, y: the top left corner of the rectangle; negative values are
-                     relative to the far edge
+        :param x, y: the top left corner of the rectangle
         :type x, y: int
         :param w, h: the width and height of the rectangle; values less than or
                      equal to zero are relative to the far edge
@@ -1025,8 +1011,6 @@ class Image(Object):
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
-        x = x if x >= 0 else self.width + x
-        y = y if y >= 0 else self.height + y
         w = w if w > 0 else self.width + w - x
         h = h if h > 0 else self.height + h - y
         self._image.draw_rectangle(int(x), int(y), int(w), int(h), normalize_color(color), fill)
@@ -1063,8 +1047,6 @@ class Image(Object):
         :returns: 4-tuple of (red, green, blue, alpha) where each value is
                   between 0 and 255.
         """
-        x = x if x >= 0 else self.width + x
-        y = y if y >= 0 else self.height + y
         return self._image.get_pixel((x,y))
 
 
