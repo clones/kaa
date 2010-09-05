@@ -482,14 +482,14 @@ class Image(Object):
         Return the underlying raw data of the image.
 
         :param format: the pixel format of the returned buffer; must be a
-                       permutation of RGB or RGBA (default: BGRA, Imlib2's
+                       permutation of RGB or RGBA (default: ``BGRA``, Imlib2's
                        native pixel layout).
         :type format: str
         :param write: if True, the returned buffer will be writable.
         :type write: bool
         :returns: a read-only buffer (if *write* is False and *format* is
                   ``BGRA``) or a read-write buffer (if *write* is True or
-                  *format* is not 'BGRA')
+                  *format* is not ``BGRA``)
 
         When *format* is not ``BGRA`` (i.e. not Imlib2's native buffer), pixel
         format conversion will be performed and the converted raw data copied
