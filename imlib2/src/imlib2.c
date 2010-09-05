@@ -42,6 +42,10 @@
 #include <sys/mman.h>
 #endif
 
+#ifdef HAVE_SVG
+#include <librsvg/rsvg.h>
+#endif
+
 #include "imlib2.h"
 #include "image.h"
 #include "rawformats.h"
@@ -64,14 +68,9 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "(ii)|Osi", &w, &h, &data, &from_format, &copy))
         return NULL;
 
-    if (strcmp(from_format, "BGRA") && !copy) {
-        PyErr_Format(PyExc_ValueError, "Non-BGRA format must use copy = True");
-        return NULL;
-    }
-
     if (data) {
         if (PyNumber_Check(data)) {
-            bytes = (void *)PyLong_AsLong(data);
+            bytes = (void *)PyLong_AsUnsignedLong(data);
             data = NULL;
         }
         else {
@@ -101,9 +100,14 @@ PyObject *imlib2_create(PyObject *self, PyObject *args)
             else
                 image = imlib_create_image_using_data(w, h, bytes);
         } else {
-            bytes = (void *)convert_raw_rgba_bytes(from_format, "BGRA", bytes, NULL, w, h);
+            // If the src format is 32-bit and copy is False, we can do an
+            // in-place conversion.
+            unsigned char *dstbuf = (strlen(from_format) == 4 && !copy) ? bytes : 0;
+            bytes = (void *)convert_raw_rgba_bytes(from_format, "BGRA", bytes, dstbuf, w, h);
             image = imlib_create_image_using_copied_data(w, h, bytes);
-            free(bytes);
+            if (bytes != dstbuf)
+                // In-place conversion wasn't possible so a new buffer was malloc'd.
+                free(bytes);
         }
         PyImlib2_END_CRITICAL_SECTION
 
@@ -159,10 +163,8 @@ Image_PyObject *_imlib2_open(char *filename, int use_cache)
     PyImlib2_END_CRITICAL_SECTION
 
     if (!image) {
-        if (error_return == IMLIB_LOAD_ERROR_NO_LOADER_FOR_FILE_FORMAT)
-            PyErr_Format(PyExc_IOError, "no loader for file format");
-        else
-            PyErr_Format(PyExc_IOError, "Could not open %s: %d", filename, error_return);
+        // Will be translated to something sensible by the python wrapper.
+        PyErr_Format(PyExc_IOError, "%d", error_return);
         return NULL;
     }
     o = PyObject_NEW(Image_PyObject, &Image_PyObject_Type);
@@ -296,6 +298,21 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
 }
 #endif
 
+PyObject *imlib2_get_cache_size(PyObject *self, PyObject *args)
+{
+    return PyLong_FromLong(imlib_get_cache_size());
+}
+
+PyObject *imlib2_set_cache_size(PyObject *self, PyObject *args)
+{
+    int size;
+    if (!PyArg_ParseTuple(args, "i", &size))
+        return NULL;
+    imlib_set_cache_size(size);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 PyMethodDef Imlib2_methods[] = {
     { "add_font_path", imlib2_add_font_path, METH_VARARGS },
     { "load_font", imlib2_load_font, METH_VARARGS },
@@ -303,6 +320,8 @@ PyMethodDef Imlib2_methods[] = {
     { "open", imlib2_open, METH_VARARGS },
     { "render_svg_to_buffer", ( PyCFunction ) render_svg_to_buffer, METH_VARARGS },
     { "open_from_memory", imlib2_open_from_memory, METH_VARARGS },
+    { "get_cache_size", imlib2_get_cache_size, METH_VARARGS },
+    { "set_cache_size", imlib2_set_cache_size, METH_VARARGS },
     { NULL }
 };
 
