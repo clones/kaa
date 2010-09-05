@@ -1,5 +1,8 @@
-kaa.imlib2 documentation
-========================
+kaa.imlib2 --- Image Processing Library
+=======================================
+
+What is kaa.imlib2?
+-------------------
 
 kaa.imlib2 provides thread-safe Python bindings for Imlib2, a featureful and
 efficient image processing library, which produces high quality, anti-aliased
@@ -14,8 +17,39 @@ In addition to Imlib2 itself, kaa.imlib2, as with all kaa modules, requires
 `kaa.base <http://doc.freevo.org/api/kaa/base/>`_.
 
 
-Library Documentation
-=====================
+Where do I get kaa.imlib2?
+--------------------------
+
+If you haven't already, you must install `kaa.base
+<http://doc.freevo.org/api/kaa/base/#where-do-i-get-kaa-base>`_.
+
+Source packages for *kaa.imlib2* releases are `available on SourceForge
+<http://sourceforge.net/projects/freevo/files/kaa-imlib2/>`_.
+
+Your distribution might already have *kaa.imlib2* included in its standard
+repositories::
+
+    # For Ubuntu and Debian
+    sudo apt-get install python-kaa-imlib2
+
+    # For Fedora
+    yum install python-kaa-imlib2
+
+
+If you have *setuptools* installed (package named ``python-setuptools`` on
+Ubuntu and Fedora), you can install (or upgrade to) the latest released
+version, which will very likely be more recent than the version that comes
+with your distribution::
+
+    sudo easy_install -U kaa-imlib2
+
+The most recent in-development version can be obtained via subversion::
+
+    svn co svn://svn.freevo.org/kaa/trunk/imlib2 kaa-imlib2
+
+
+API Documentation
+=================
 
 .. toctree::
    :maxdepth: 2
@@ -23,8 +57,8 @@ Library Documentation
    image
    font
 
-Usage
-=====
+How do I use kaa.imlib2?
+------------------------
 
 Here are some examples to give you a feeling for basic usage.
 
