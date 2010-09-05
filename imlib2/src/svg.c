@@ -58,7 +58,8 @@ void size_cb(gint *width, gint *height, gpointer user_data)
 PyObject *
 render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    int len, w, h, i;
+    int w, h;
+    Py_ssize_t len;
     guchar *svgdata;
 
     GError *error = NULL;
@@ -104,12 +105,5 @@ render_svg_to_buffer(PyObject *module, PyObject *args, PyObject *kwargs)
     rsvg_handle_free(svg);
     g_object_unref(pixbuf);
 
-    // RGBA to BGRA conversion.
-    // FIXME: MMXify.
-    for (i = 0; i < w*h*4; i+=4) {
-        guchar save = buffer_ptr[i+2];
-        buffer_ptr[i+2] = buffer_ptr[i];
-        buffer_ptr[i] = save;
-    }
     return Py_BuildValue("(iiO)", w, h, buffer);
 }
