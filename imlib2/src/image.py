@@ -253,7 +253,7 @@ def new(size, bytes=None, from_format='BGRA', copy=True):
     >>> img = imlib2.new((1024, 768), ptr, copy=False)
     >>> img.clear()
     >>> data[:4]
-    array('c', '\x00\x00\x00\x00')
+    array('c', '\\x00\\x00\\x00\\x00')
 
     You would never actually do this for arrays, but if you have a pointer
     to a buffer returned by some other library (gotten through ctypes, perhaps),
