@@ -1049,8 +1049,6 @@ class Image(Object):
 
         Calling this method will emit the :attr:`~imlib2.Image.signals.changed` signal.
         """
-        xc = xc if xc >= 0 else self.width + xc
-        yc = yc if yc >= 0 else self.height + yc
         self._image.draw_ellipse(int(xc), int(yc), int(a), int(b), normalize_color(color), fill)
         self._changed()
         return self
