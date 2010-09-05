@@ -30,7 +30,9 @@
 
 __all__ = [
     'add_font_path', 'load_font', 'auto_set_font_path', 'normalize_color',
-    'Font', 'TEXT_STYLE_PLAIN', 'TEXT_STYLE_SHADOW', 'TEXT_STYLE_OUTLINE',
+    'get_font_style_geometry', 'Font',
+    # TEXT_STYLE constants
+    'TEXT_STYLE_PLAIN', 'TEXT_STYLE_SHADOW', 'TEXT_STYLE_OUTLINE',
     'TEXT_STYLE_SOFT_OUTLINE', 'TEXT_STYLE_GLOW', 'TEXT_STYLE_OUTLINE_SHADOW',
     'TEXT_STYLE_FAR_SHADOW', 'TEXT_STYLE_OUTLINE_SOFT_SHADOW',
     'TEXT_STYLE_SOFT_SHADOW', 'TEXT_STYLE_FAR_SOFT_SHADOW'
