@@ -36,6 +36,7 @@ import logging
 
 # kaa imports
 import kaa
+from kaa.strutils import py3_b
 from kaa.inotify import INotify
 
 # kaa.beacon imports
@@ -177,6 +178,7 @@ class Crawler(object):
         """
         Callback for inotify.
         """
+        name = py3_b(name)
         if mask & INotify.MODIFY and self._bursthandler.is_growing(name):
             # A file was modified. Do this check as fast as we can because the
             # events may come in bursts when a file is just copied. In this case
