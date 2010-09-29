@@ -29,11 +29,14 @@
 #
 # -----------------------------------------------------------------------------
 
+from __future__ import with_statement
+
 # python imports
 import time
 import logging
 import urllib
 import urllib2
+import kaa.net.url
 
 # kaa imports
 import kaa
@@ -51,7 +54,10 @@ def feedparser(url):
     """
     feedparser.parse wrapper in a thread.
     """
-    return _feedparser.parse(urllib2.urlopen(url))
+    with kaa.net.url.auth_handler_lock:
+        kaa.net.url.auth_handler.retried = 0
+        fd = urllib2.urlopen(url)
+    return _feedparser.parse(fd)
 
 
 class Feed(core.Feed):
