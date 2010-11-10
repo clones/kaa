@@ -267,7 +267,7 @@ class Font(object):
         w, h, h_adv, v_adv = self._font.get_text_size(utf8(text))
         # Include size of any styling.
         style_w, style_h = self.get_style_geometry()[-2:]
-        return w + style_w, h + style_h, h_adv + style_w + v_adv + style_h
+        return w + style_w, h + style_h, h_adv + style_w, v_adv + style_h
 
 
     def set_color(self, color):

@@ -841,7 +841,7 @@ class Image(Object):
         if dst_size[1] == -1:
             dst_size = dst_size[0], src_size[1]
 
-        self._image.blend(src._image, src_pos, src_size, (x, y), dst_size, int(alpha), merge_alpha)
+        self._image.blend(src._image, src_pos, src_size, dst_pos, dst_size, int(alpha), merge_alpha)
         self._changed()
         return self
 
