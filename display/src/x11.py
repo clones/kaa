@@ -108,7 +108,9 @@ class X11Display(kaa.Object):
     XEVENT_MOTION_NOTIFY = 6
     XEVENT_EXPOSE = 12
     XEVENT_BUTTON_PRESS = 4
+    XEVENT_BUTTON_RELEASE = 5
     XEVENT_KEY_PRESS = 2
+    XEVENT_KEY_RELEASE = 3
     XEVENT_FOCUS_IN = 9
     XEVENT_FOCUS_OUT = 10
     XEVENT_EXPOSE = 12
@@ -284,15 +286,18 @@ class X11Window(object):
         self._last_configured_size = 0, 0
 
         self.signals = kaa.Signals(
-            "key_press_event", # key pressed
-            "focus_in_event",  # window gets focus
-            "focus_out_event", # window looses focus
-            "expose_event",    # expose event
-            "map_event",       # ?
-            "unmap_event",     # ?
-            "resize_event",    # window resized
+            "key_press_event",     # key pressed
+            "key_release_event",   # key release
+            "button_press_event",  # Button pressed
+            "button_release_event",# Button released
+            "focus_in_event",      # window gets focus
+            "focus_out_event",     # window looses focus
+            "expose_event",        # expose event
+            "map_event",           # shown/mapped on to the screen
+            "unmap_event",         # hidden/unmapped from the screen
+            "resize_event",        # window resized
             "delete_event",
-            "configure_event") # ?
+            "configure_event")     # ?
 
     def __str__(self):
         return '<X11Window object id=0x%x>' % self._window.wid
@@ -348,13 +353,22 @@ class X11Window(object):
                             self.set_cursor_visible(True)
                     self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
-            elif event == X11Display.XEVENT_KEY_PRESS:
+            elif event == X11Display.XEVENT_BUTTON_PRESS:
+                 self.signals["button_press_event"].emit(data["pos"], data["state"], data["button"])
+
+            elif event == X11Display.XEVENT_BUTTON_RELEASE:
+                 self.signals["button_release_event"].emit(data["pos"], data["state"], data["button"])
+            
+            elif event in (X11Display.XEVENT_KEY_PRESS, X11Display.XEVENT_KEY_RELEASE):
                 key = data["key"]
                 if key in _keysym_names:
                     key = _keysym_names[key]
                 elif key < 255:
                     key = chr(key)
-                self.signals["key_press_event"].emit(key)
+                if event == X11Display.XEVENT_KEY_PRESS:
+                    self.signals["key_press_event"].emit(key)
+                else:
+                    self.signals["key_release_event"].emit(key)
 
             elif event == X11Display.XEVENT_EXPOSE:
                 # Queue expose regions so we only need to emit one signal.

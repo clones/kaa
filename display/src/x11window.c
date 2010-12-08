@@ -114,8 +114,9 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         parent = DefaultRootWindow(self->display);
 
 
-    evmask = ExposureMask | ButtonPressMask | ButtonReleaseMask | 
-             StructureNotifyMask | PointerMotionMask | KeyPressMask | FocusChangeMask;
+    evmask = ExposureMask | StructureNotifyMask | FocusChangeMask |
+             ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
+             KeyPressMask | KeyReleaseMask;
 
     XLockDisplay(self->display);
 

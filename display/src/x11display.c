@@ -215,7 +215,7 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             PyList_Append(events, o);
             Py_DECREF(o);
         }
-        else if (ev.type == KeyPress) {
+        else if (ev.type == KeyPress || ev.type == KeyRelease) {
             char buf[100];
             KeySym keysym;
             static XComposeStatus stat;
@@ -225,9 +225,19 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             XLookupString(&ev.xkey, buf, sizeof(buf), &keysym, &stat);
             key = ((keysym & 0xff00) != 0 ? ((keysym & 0x00ff) + 256) : (keysym));
 
-            o = Py_BuildValue("(i{s:i,s:i})", KeyPress,
+            o = Py_BuildValue("(i{s:i,s:i})", ev.type,
                               "window", ev.xkey.window,
                               "key", key);
+            PyList_Append(events, o);
+            Py_DECREF(o);
+        }
+        else if (ev.type == ButtonPress || ev.type == ButtonRelease) {
+            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii),s:i,s:i})", ev.type,
+                              "window", ev.xbutton.window,
+                              "pos", ev.xbutton.x, ev.xbutton.y,
+                              "root_pos", ev.xbutton.x_root, ev.xbutton.y_root,
+                              "state", ev.xbutton.state,
+                              "button", ev.xbutton.button);
             PyList_Append(events, o);
             Py_DECREF(o);
         }
