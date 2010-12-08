@@ -88,10 +88,11 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     X11Window_PyObject *self, *py_parent;
     X11Display_PyObject *display;
     Window parent;
-    int w, h, screen;
-    long evmask;
+    int w, h, screen, window_events=1, mouse_events=1, key_events=1;
+    long evmask = 0;
     char *window_title = NULL;
     XSetWindowAttributes attr;
+    
 
     self = (X11Window_PyObject *)type->tp_alloc(type, 0);
     if (!args)
@@ -105,6 +106,15 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     if (PyMapping_HasKeyString(kwargs, "title"))
         window_title = PyString_AsString(PyDict_GetItemString(kwargs, "title"));
 
+    if (PyMapping_HasKeyString(kwargs, "window_events"))
+        window_events = PyInt_AsLong(PyDict_GetItemString(kwargs, "window_events"));
+
+    if (PyMapping_HasKeyString(kwargs, "mouse_events"))
+        mouse_events = PyInt_AsLong(PyDict_GetItemString(kwargs, "mouse_events"));
+
+    if (PyMapping_HasKeyString(kwargs, "key_events"))
+        key_events = PyInt_AsLong(PyDict_GetItemString(kwargs, "key_events"));
+
     self->display_pyobject = (PyObject *)display;
     self->display = display->display;
 
@@ -113,10 +123,14 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     else
         parent = DefaultRootWindow(self->display);
 
-
-    evmask = ExposureMask | StructureNotifyMask | FocusChangeMask |
-             ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
-             KeyPressMask | KeyReleaseMask;
+    if (window_events)
+        evmask = ExposureMask | StructureNotifyMask | FocusChangeMask;
+   
+    if (mouse_events)
+        evmask |= ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
+    
+    if (key_events)
+        evmask |= KeyPressMask | KeyReleaseMask;
 
     XLockDisplay(self->display);
 

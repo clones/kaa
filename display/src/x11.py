@@ -257,12 +257,21 @@ class X11Window(object):
            title: A string representing the window's title (optional)
            parent: An existing X11Window object of which the new window will
                    be a subwindow.
+        
+        The following kwargs apply in either case:
+           window_events: Boolean, default True, to indicate whether the client
+                          wishes to receive window map/unmap/focus/expose 
+                          events.
+           mouse_events: Boolean, default True, to indicate whether the client
+                         wishes to receive mouse button pressed/release events.
+           key_events: Boolean, default True, to indicate whether the client
+                       wishes to receive key button pressed/release events.
         """
         display = _get_display(display)
         if window:
             if isinstance(window, (long, int)):
                 # Create new X11Window object based on existing window id.
-                self._window = _X11.X11Window(display._display, (-1, -1), window = long(window))
+                self._window = _X11.X11Window(display._display, (-1, -1), window = long(window), **kwargs)
             elif isinstance(window, _X11.X11Window):
                 self._window = window
             else:
