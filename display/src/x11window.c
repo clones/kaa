@@ -88,7 +88,7 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     X11Window_PyObject *self, *py_parent;
     X11Display_PyObject *display;
     Window parent;
-    int w, h, screen, window_events=1, mouse_events=1, key_events=1;
+    int w, h, screen, window_events=1, mouse_events=1, key_events=1, input_only=0;
     long evmask = 0;
     char *window_title = NULL;
     XSetWindowAttributes attr;
@@ -114,6 +114,9 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 
     if (PyMapping_HasKeyString(kwargs, "key_events"))
         key_events = PyInt_AsLong(PyDict_GetItemString(kwargs, "key_events"));
+
+    if (PyMapping_HasKeyString(kwargs, "input_only"))
+        input_only = PyInt_AsLong(PyDict_GetItemString(kwargs, "input_only"));
 
     self->display_pyobject = (PyObject *)display;
     self->display = display->display;
@@ -166,11 +169,18 @@ X11Window_PyObject__new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         attr.colormap = DefaultColormap(self->display, screen);
 
         x_error_trap_push();
-        self->window = XCreateWindow(self->display, parent, 0, 0,
-                            w, h, 0, DefaultDepth(self->display, screen), InputOutput,
-                            DefaultVisual(self->display, screen),
-                            CWBackingStore | CWColormap | CWBackPixmap | CWWinGravity |
-                            CWBitGravity | CWEventMask | CWOverrideRedirect, &attr);
+        if (input_only){
+                attr.event_mask = evmask & ~ExposureMask;
+                self->window = XCreateWindow(self->display, parent, 0, 0,
+                                w, h, 0, 0, InputOnly, NULL,
+                                CWWinGravity | CWEventMask, &attr);
+        } else {
+                self->window = XCreateWindow(self->display, parent, 0, 0,
+                                w, h, 0, DefaultDepth(self->display, screen), InputOutput,
+                                DefaultVisual(self->display, screen),
+                                CWBackingStore | CWColormap | CWBackPixmap | CWWinGravity |
+                                CWBitGravity | CWEventMask | CWOverrideRedirect, &attr);
+        }
         XSync(self->display, False);
 
         if (x_error_trap_pop(True) != Success)

@@ -222,6 +222,11 @@ class X11Display(kaa.Object):
     def get_root_window(self):
         return X11Window(window = self._display.get_root_id())
 
+    def send_event(self, window, raw):
+        if isinstance(window, X11Window):
+            window = window.id
+        self._display.send_event(window, raw)
+
 
 X11Display.XEVENT_WINDOW_EVENTS_LIST = filter(lambda x: x.find("XEVENT_") != -1, dir(X11Display))
 X11Display.XEVENT_WINDOW_EVENTS = map(lambda x: getattr(X11Display, x), X11Display.XEVENT_WINDOW_EVENTS_LIST)
@@ -257,14 +262,20 @@ class X11Window(object):
            title: A string representing the window's title (optional)
            parent: An existing X11Window object of which the new window will
                    be a subwindow.
+           input_only: A boolean, default False, which indicates whether this
+                       window only captures mouse and key events, but doesn't
+                       have a graphics surface.
+           proxy_for: An X11Window to which all mouse and key events received 
+                      by this window will be sent.
         
         The following kwargs apply in either case:
-           window_events: Boolean, default True, to indicate whether the client
-                          wishes to receive window map/unmap/focus/expose 
+           window_events: A boolean, default True, to indicate whether the 
+                          client wishes to receive window (un)map/focus/expose
                           events.
-           mouse_events: Boolean, default True, to indicate whether the client
-                         wishes to receive mouse button pressed/release events.
-           key_events: Boolean, default True, to indicate whether the client
+           mouse_events: A boolean, default True, to indicate whether the 
+                         client wishes to receive mouse button pressed/release
+                         events.
+           key_events: A boolean, default True, to indicate whether the client
                        wishes to receive key button pressed/release events.
         """
         display = _get_display(display)
@@ -282,6 +293,9 @@ class X11Window(object):
             if "parent" in kwargs:
                 assert(isinstance(kwargs["parent"], X11Window))
                 kwargs["parent"] = kwargs["parent"]._window
+            if "proxy_for" in kwargs:
+                assert(isinstance(kwargs["proxy_for"], X11Window))
+                self.proxy_for = kwargs["proxy_for"]
 
             w, h = kwargs.get('size', (1, 1))
             self._window = _X11.X11Window(display._display, (w or 1, h or 1), **kwargs)
@@ -356,28 +370,40 @@ class X11Window(object):
         expose_regions = []
         for event, data in events:
             if event == X11Display.XEVENT_MOTION_NOTIFY:
-                # Mouse moved, so show cursor.
-                if not self._cursor_visible:
-                    if self._cursor_hide_timeout != 0:
-                            self.set_cursor_visible(True)
-                    self._cursor_hide_timer.start(self._cursor_hide_timeout)
+                if hasattr(self, "proxy_for"):
+                    self._display.send_event(self.proxy_for._window.wid, data['raw'])
+                else:
+                    # Mouse moved, so show cursor.
+                    if not self._cursor_visible:
+                        if self._cursor_hide_timeout != 0:
+                                self.set_cursor_visible(True)
+                        self._cursor_hide_timer.start(self._cursor_hide_timeout)
 
             elif event == X11Display.XEVENT_BUTTON_PRESS:
-                 self.signals["button_press_event"].emit(data["pos"], data["state"], data["button"])
+                if hasattr(self, "proxy_for"):
+                    self._display.send_event(self.proxy_for._window.wid, data['raw'])
+                else:
+                     self.signals["button_press_event"].emit(data["pos"], data["state"], data["button"])
 
             elif event == X11Display.XEVENT_BUTTON_RELEASE:
-                 self.signals["button_release_event"].emit(data["pos"], data["state"], data["button"])
+                if hasattr(self, "proxy_for"):
+                    self._display.send_event(self.proxy_for._window.wid, data['raw'])
+                else:
+                    self.signals["button_release_event"].emit(data["pos"], data["state"], data["button"])
             
             elif event in (X11Display.XEVENT_KEY_PRESS, X11Display.XEVENT_KEY_RELEASE):
-                key = data["key"]
-                if key in _keysym_names:
-                    key = _keysym_names[key]
-                elif key < 255:
-                    key = chr(key)
-                if event == X11Display.XEVENT_KEY_PRESS:
-                    self.signals["key_press_event"].emit(key)
+                if hasattr(self, "proxy_for"):
+                    self._display.send_event(self.proxy_for._window.wid, data['raw'])
                 else:
-                    self.signals["key_release_event"].emit(key)
+                    key = data["key"]
+                    if key in _keysym_names:
+                        key = _keysym_names[key]
+                    elif key < 255:
+                        key = chr(key)
+                    if event == X11Display.XEVENT_KEY_PRESS:
+                        self.signals["key_press_event"].emit(key)
+                    else:
+                        self.signals["key_release_event"].emit(key)
 
             elif event == X11Display.XEVENT_EXPOSE:
                 # Queue expose regions so we only need to emit one signal.

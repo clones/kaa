@@ -183,7 +183,7 @@ X11Display_PyObject__init(X11Display_PyObject *self, PyObject *args,
 void
 X11Display_PyObject__dealloc(X11Display_PyObject * self)
 {
-    printf("X11Display dealloc: %p\n", self);
+    //printf("X11Display dealloc: %p\n", self);
     if (self->display) {
         // FIXME
         //XCloseDisplay(self->display);
@@ -225,27 +225,30 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             XLookupString(&ev.xkey, buf, sizeof(buf), &keysym, &stat);
             key = ((keysym & 0xff00) != 0 ? ((keysym & 0x00ff) + 256) : (keysym));
 
-            o = Py_BuildValue("(i{s:i,s:i})", ev.type,
+            o = Py_BuildValue("(i{s:i,s:i,s:s#})", ev.type,
                               "window", ev.xkey.window,
-                              "key", key);
+                              "key", key,
+                              "raw", &ev, sizeof(ev));
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == ButtonPress || ev.type == ButtonRelease) {
-            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii),s:i,s:i})", ev.type,
+            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii),s:i,s:i,s:s#})", ev.type,
                               "window", ev.xbutton.window,
                               "pos", ev.xbutton.x, ev.xbutton.y,
                               "root_pos", ev.xbutton.x_root, ev.xbutton.y_root,
                               "state", ev.xbutton.state,
-                              "button", ev.xbutton.button);
+                              "button", ev.xbutton.button,
+                              "raw", &ev, sizeof(ev));
             PyList_Append(events, o);
             Py_DECREF(o);
         }
         else if (ev.type == MotionNotify) {
-            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii)})", MotionNotify,
+            o = Py_BuildValue("(i{s:i,s:(ii),s:(ii),s:s#})", MotionNotify,
                               "window", ev.xmotion.window,
                               "pos", ev.xmotion.x, ev.xmotion.y,
-                              "root_pos", ev.xmotion.x_root, ev.xmotion.y_root);
+                              "root_pos", ev.xmotion.x_root, ev.xmotion.y_root,
+                              "raw", &ev, sizeof(ev));
             PyList_Append(events, o);
             Py_DECREF(o);
         }
@@ -261,9 +264,10 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
             char *msgtype = "unknown";
             if (ev.xclient.data.l[0] == self->wmDeleteMessage)
                 msgtype = "delete";
-            o = Py_BuildValue("(i{s:i,s:s})", ClientMessage,
+            o = Py_BuildValue("(i{s:i,s:s,s:s#})", ClientMessage,
                               "window", ev.xclient.window,
-                              "type", msgtype);
+                              "type", msgtype,
+                              "raw", &ev, sizeof(ev));
             PyList_Append(events, o);
             Py_DECREF(o);
         }
@@ -288,6 +292,41 @@ X11Display_PyObject__handle_events(X11Display_PyObject * self, PyObject * args)
     XUnlockDisplay(self->display);
 //    printf("END HANDL EVENTS\n");
     return events;
+}
+
+PyObject *
+X11Display_PyObject__send_event(X11Display_PyObject * self, PyObject * args)
+{
+    Window window;
+    XEvent *ev;
+    int ev_size;
+    long evmask = 0;
+
+    if (!PyArg_ParseTuple(args, "is#", &window, &ev, &ev_size))
+        return NULL;
+
+    if (ev_size != sizeof(XEvent))
+    {
+        PyErr_SetString(PyExc_ValueError, "Wrong size of event structure");
+        return NULL;
+    }
+
+    switch(ev->type)
+    {
+        case ButtonPress: evmask = ButtonPressMask; ev->xbutton.window=window; break;
+        case ButtonRelease: evmask = ButtonReleaseMask; ev->xbutton.window=window; break;
+        case KeyPress: evmask = KeyPressMask; ev->xkey.window=window; break;
+        case KeyRelease: evmask = KeyReleaseMask; ev->xkey.window=window; break;
+        case MotionNotify: evmask = PointerMotionMask; ev->xmotion.window=window; break;
+    }
+    XSendEvent(self->display, window, False, evmask, ev);
+    XSync(self->display, False);
+
+    if (x_error_trap_pop(True) != Success)
+        return NULL;
+
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 PyObject *
@@ -400,6 +439,7 @@ X11Display_PyObject__get_root_id(X11Display_PyObject * self, PyObject * args)
 
 PyMethodDef X11Display_PyObject_methods[] = {
     { "handle_events", ( PyCFunction ) X11Display_PyObject__handle_events, METH_VARARGS },
+    { "send_event", ( PyCFunction ) X11Display_PyObject__send_event, METH_VARARGS },
     { "sync", ( PyCFunction ) X11Display_PyObject__sync, METH_VARARGS },
     { "lock", ( PyCFunction ) X11Display_PyObject__lock, METH_VARARGS },
     { "unlock", ( PyCFunction ) X11Display_PyObject__unlock, METH_VARARGS },
