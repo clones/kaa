@@ -250,7 +250,7 @@ def main():
                 query['keywords'] += ' ' + a
         else:
             key, value = a.split('=', 1)
-            if key in ('title', 'album', 'artist', 'show'):
+            if key in ('title', 'album', 'artist', 'series'):
                 value = unicode(value)
             elif key in ('limit', 'season', 'episode'):
                 value = int(value)
