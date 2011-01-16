@@ -52,8 +52,8 @@ import plugins
 # get logging object
 log = logging.getLogger('beacon.server')
 
-# enable tv show guessing
-kaa.metadata.enable_feature('VIDEO_SHOW_PARSER')
+# enable TV series guessing
+kaa.metadata.enable_feature('VIDEO_SERIES_PARSER')
 
 class Server(object):
     """
@@ -95,7 +95,7 @@ class Server(object):
             length = (float, ATTR_SIMPLE),
             scheme = (str, ATTR_SIMPLE),
             description = (unicode, ATTR_SIMPLE),
-            show = (unicode, ATTR_SEARCHABLE),
+            series = (unicode, ATTR_SEARCHABLE),
             season = (int, ATTR_SEARCHABLE),
             episode = (int, ATTR_SEARCHABLE),
             timestamp = (int, ATTR_SEARCHABLE))
