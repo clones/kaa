@@ -38,6 +38,7 @@ import logging
 # kaa imports
 import kaa.rpc
 from kaa.utils import get_machine_uuid
+import kaa.metadata
 
 # kaa.beacon server imports
 import parser
@@ -51,6 +52,8 @@ import plugins
 # get logging object
 log = logging.getLogger('beacon.server')
 
+# enable tv show guessing
+kaa.metadata.enable_feature('VIDEO_SHOW_PARSER')
 
 class Server(object):
     """
@@ -92,6 +95,9 @@ class Server(object):
             length = (float, ATTR_SIMPLE),
             scheme = (str, ATTR_SIMPLE),
             description = (unicode, ATTR_SIMPLE),
+            show = (unicode, ATTR_SEARCHABLE),
+            season = (int, ATTR_SEARCHABLE),
+            episode = (int, ATTR_SEARCHABLE),
             timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("audio",

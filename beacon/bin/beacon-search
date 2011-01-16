@@ -250,9 +250,9 @@ def main():
                 query['keywords'] += ' ' + a
         else:
             key, value = a.split('=', 1)
-            if key in ('title', 'album', 'artist'):
+            if key in ('title', 'album', 'artist', 'show'):
                 value = unicode(value)
-            elif key in ('limit',):
+            elif key in ('limit', 'season', 'episode'):
                 value = int(value)
             if isinstance(value, basestring) and "%" in value:
                 # Treat as wildcard search, use LIKE operator.
