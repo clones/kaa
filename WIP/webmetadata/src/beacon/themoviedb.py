@@ -104,7 +104,7 @@ class Plugin:
         plugin.beacondb = db
         beacon_register(None, plugin.parser)
         plugin.themoviedb = kaa.webmetadata.backends['themoviedb']
-        if plugin.themoviedb.get_metadata('themoviedb:beacon_init') != PLUGIN_VERSION + 1:
+        if plugin.themoviedb.get_metadata('themoviedb:beacon_init') != PLUGIN_VERSION:
             # kaa.beacon does not know about this db, we need to create
             # the metadata for themoviedb.
             log.info('populate database with themoviedb metadata')

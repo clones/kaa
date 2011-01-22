@@ -12,7 +12,7 @@ def init(base='~/'):
     if not backends:
         import themoviedb as backend
         backends['themoviedb'] = backend.MovieDB(os.path.expanduser(base + '/themoviedb'))
-        import tvdb as backend
+        import thetvdb as backend
         backends['thetvdb'] = backend.TVDB(os.path.expanduser(base + '/thetvdb'))
 
 def parse(filename, metadata=None):
