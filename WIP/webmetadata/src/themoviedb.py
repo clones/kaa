@@ -45,6 +45,8 @@ import kaa
 import kaa.db
 from kaa.saxutils import ElementParser, Element
 
+from core import Database
+
 # get logging object
 log = logging.getLogger('webmetadata')
 
@@ -201,14 +203,13 @@ class Filename(object):
         return getattr(self._movie, attr)
 
 
-class MovieDB(object):
+class MovieDB(Database):
+
+    scheme = 'themoviedb:'
 
     def __init__(self, database, apikey='21dfe870a9244b78b4ad0d4783251c63'):
+        super(MovieDB, self).__init__(database)
         self._apikey = apikey
-        # set up the database
-        if not os.path.exists(os.path.dirname(database)):
-            os.makedirs(os.path.dirname(database))
-        self._db = kaa.db.Database(database)
         self._db.register_object_type_attrs("metadata",
             metadata = (dict, kaa.db.ATTR_SIMPLE),
         )
@@ -220,29 +221,6 @@ class MovieDB(object):
         )
         if not self._db.query(type='metadata'):
             self._db.add('metadata', metadata={})
-
-    def get_metadata(self, key):
-        """
-        Get database metadata
-        """
-        if not self._db.query(type='metadata'):
-            return None
-        metadata = self._db.query(type='metadata')[0]['metadata']
-        if not metadata:
-            return None
-        return metadata.get(key)
-
-    def set_metadata(self, key, value):
-        """
-        Set database metadata
-        """
-        if not self._db.query(type='metadata'):
-            return None
-        entry = self._db.query(type='metadata')[0]
-        metadata = entry['metadata'] or {}
-        metadata[key] = value
-        self._db.update(entry, metadata=metadata)
-        self._db.commit()
 
     def from_filename(self, filename):
         """

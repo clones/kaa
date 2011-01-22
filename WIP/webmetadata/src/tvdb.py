@@ -6,7 +6,7 @@
 #
 # -----------------------------------------------------------------------------
 # kaa.webmetadata - Receive Metadata from the Web
-# Copyright (C) 2009 Dirk Meyer
+# Copyright (C) 2009-2011 Dirk Meyer
 #
 # First Edition: Dirk Meyer <dischi@freevo.org>
 # Maintainer:    Dirk Meyer <dischi@freevo.org>
@@ -43,8 +43,9 @@ import logging
 # kaa imports
 import kaa
 import kaa.db
-from kaa.inotify import INotify
 from kaa.saxutils import ElementParser
+
+from core import Database
 
 # get logging object
 log = logging.getLogger('beacon.tvdb')
@@ -59,10 +60,13 @@ def parse(url):
     results = []
     def handle(element):
         info = {}
-        for child in element:
-            if child.content:
-                info[child.tagname] = child.content
-        results.append((element.tagname, info))
+        if element.content:
+            results.append((element.tagname, element.content))
+        else:
+            for child in element:
+                if child.content:
+                    info[child.tagname] = child.content
+            results.append((element.tagname, info))
     e = ElementParser()
     e.handle = handle
     parser = xml.sax.make_parser()
@@ -101,7 +105,8 @@ class Episode(Entry):
         self.series = series
         self.season = season
         self.episode = episode
-        records = self.tvdb._db.query(type='episode', parent=('series', series.id), season=self.season.season, episode=self.episode)
+        records = self.tvdb._db.query(type='episode', parent=('series', series.id),
+            season=self.season.season, episode=self.episode)
         self.data = {}
         if records:
             self.data = records[0]
@@ -112,7 +117,7 @@ class Episode(Entry):
         Episode image
         """
         if self.filename:
-            return 'http://www.thetvdb.com/banners/' + self.filename
+            return self.tvdb.hostname + '/banners/' + self.filename
 
 
 class Season(Entry):
@@ -123,6 +128,7 @@ class Season(Entry):
         self.tvdb = tvdb
         self.series = series
         self.season = season
+        self.data = {}
 
     def get_episode(self, episode):
         """
@@ -153,8 +159,7 @@ class Series(Entry):
         """
         self.tvdb._updatedb('alias', alias, parent=('series', self.data['id']))
         self.tvdb._db.commit()
-        self.tvdb.version += 1
-        open(self.tvdb._versionfile, 'w').write(str(self.tvdb.version))
+        self.tvdb.force_resync()
 
     def get_season(self, season):
         """
@@ -172,7 +177,7 @@ class Series(Entry):
             entry = r.get('data')
             for key, value in entry.items():
                 if key.lower().endswith('path'):
-                    entry[key] = 'http://www.thetvdb.com/banners/' + str(value)
+                    entry[key] = self.tvdb.hostname + '/banners/' + str(value)
             entry.pop('BannerType')
             entry.pop('id')
             banner.append(entry)
@@ -202,117 +207,18 @@ class Series(Entry):
         return banner
 
 
-# This regular expression matches most tv shows. It requires the
-# format to be either like s01e02 or 1x02. There are files out there
-# in file sharing tools that will not work, e.g. a small search showed
-# files like series.102.title. It is hard to detect that this in fact
-# is a series and the 102 not part of a movie name.
-VIDEO_SHOW_REGEXP = 's?([0-9]|[0-9][0-9])[xe]([0-9]|[0-9][0-9])[ \-\._]'
-
-# Next regexp for bad files as described above. If the show is in the
-# database already, it is ok if the file starts with a known name
-# followed by a three or four digest number.
-VIDEO_SHOW_REGEXP2 = '[ \-\._]([0-9]?[0-9])([0-9][0-9])[ \-\._]'
-
-class Filename(object):
-    """
-    Object for a video filename
-    """
-    # indicator if we are sure that is a tv series or not
-    sure = True
-
-    def __init__(self, tvdb, filename):
-        self.filename = filename
-        filename = os.path.basename(filename).lower()
-        self.tvdb = tvdb
-        match = re.split(VIDEO_SHOW_REGEXP, filename)
-        if len(match) != 4:
-            # try the other regexp
-            match = re.split(VIDEO_SHOW_REGEXP2, filename)
-            if len(match) != 4:
-                # it is no tv series
-                self.alias = self._season = self._episode = None
-                return
-            # we are not sure
-            self.sure = False
-        self.alias = kaa.str_to_unicode(' '.join(re.split('[.\-_ :]', match[0]))).strip()
-        self._season = int(match[1])
-        self._episode = int(match[2])
-
-    @property
-    def series(self):
-        """
-        Series object
-        """
-        if not self.alias:
-            return None
-        return self.tvdb.get_series_by_alias(kaa.str_to_unicode(self.alias))
-
-    @property
-    def season(self):
-        """
-        Season object
-        """
-        if not self._season:
-            return None
-        series = self.series
-        if not series:
-            return None
-        return series.get_season(self._season)
-
-    @property
-    def episode(self):
-        """
-        Episode object
-        """
-        if not self._episode:
-            return None
-        season = self.season
-        if not season:
-            return None
-        return season.get_episode(self._episode)
-
-    def search(self):
-        """
-        Search server what this filename may be
-        """
-        if not self.alias:
-            return []
-        return self.tvdb.search_series(self.alias)
-
-    def match(self, id):
-        """
-        Match this filename to the given server id
-        """
-        return self.tvdb.match_series(self.alias, id)
-
-
-class TVDB(kaa.Object):
+class TVDB(Database):
     """
     Database object for thetvdb.org
     """
-    __kaasignals__ = {
-        'changed':
-            '''
-            Signal when the database on disc changes
-            ''',
-        }
+
+    scheme = 'thetvdb:'
 
     def __init__(self, database, apikey='1E9534A23E6D7DC0'):
-        super(TVDB, self).__init__()
+        super(TVDB, self).__init__(database)
+        self.hostname = 'http://www.thetvdb.com'
         self._apikey = apikey
-        # set up the database and the version file
-        if not os.path.exists(os.path.dirname(database)):
-            os.makedirs(os.path.dirname(database))
-        self._db = kaa.db.Database(database)
-        self._versionfile = database + '.version'
-        if not os.path.exists(self._versionfile):
-            open(self._versionfile, 'w').write('0')
-        try:
-            self.version = int(open(self._versionfile).read())
-        except ValueError:
-            self.version = 0
-        INotify().watch(self._versionfile, INotify.CLOSE_WRITE).connect(self._db_updated)
+        self.api = '%s/api/%s/' % (self.hostname, self._apikey)
         # set up the database itself
         self._db.register_object_type_attrs("metadata",
             servertime = (int, kaa.db.ATTR_SEARCHABLE),
@@ -340,47 +246,12 @@ class TVDB(kaa.Object):
             data = (dict, kaa.db.ATTR_SIMPLE),
         )
 
-    def _db_updated(self, *args):
-        """
-        Callback from INotify when the version file changed
-        """
-        try:
-            version = int(open(self._versionfile).read())
-        except ValueError:
-            version = self.version + 1
-        if version != self.version:
-            self.version = version
-            self.signals['changed'].emit()
-
     @property
     def aliases(self):
         """
         Aliases known to the DB
         """
         return [ a['tvdb'] for a in self._db.query(type='alias') ]
-
-    def get_metadata(self, key):
-        """
-        Get database metadata
-        """
-        if not self._db.query(type='metadata'):
-            return None
-        metadata = self._db.query(type='metadata')[0]['metadata']
-        if not metadata:
-            return None
-        return metadata.get(key)
-
-    def set_metadata(self, key, value):
-        """
-        Set database metadata
-        """
-        if not self._db.query(type='metadata'):
-            return None
-        entry = self._db.query(type='metadata')[0]
-        metadata = entry['metadata'] or {}
-        metadata[key] = value
-        self._db.update(entry, metadata=metadata)
-        self._db.commit()
 
     def _updatedb(self, type, tvdb, parent=None, **kwargs):
         """
@@ -407,29 +278,33 @@ class TVDB(kaa.Object):
             if name == 'Episode':
                 if not parent:
                     raise RuntimeError()
-                self._updatedb('episode', int(data.get('id')), name=data.get('EpisodeName'), parent=parent,
-                               season=int(data.get('SeasonNumber')), episode=int(data.get('EpisodeNumber')), data=data)
+                self._updatedb(
+                    'episode', int(data.get('id')), name=data.get('EpisodeName'), parent=parent,
+                    season=int(data.get('SeasonNumber')), episode=int(data.get('EpisodeNumber')),
+                    data=data)
             elif name == 'Series':
                 data['timestamp'] = time.time()
-                parent = ('series', self._updatedb('series', int(data.get('id')), name=data.get('SeriesName'), data=data))
+                parent = ('series', self._updatedb(
+                        'series', int(data.get('id')), name=data.get('SeriesName'), data=data))
             elif name == 'Banner':
-                self._updatedb('banner', int(data.get('id')), btype=data.get('BannerType'), data=data, parent=parent)
+                self._updatedb(
+                    'banner', int(data.get('id')), btype=data.get('BannerType'), data=data, parent=parent)
             else:
                 log.error('unknown element: %s', name)
         self._db.commit()
         yield parent
 
-    def get_series_by_alias(self, alias):
-        """
-        Get a Series object based on the alias name
-        """
-        data = self._db.query(type='alias', tvdb=alias)
-        if not data:
-            return None
-        return Series(self, self._db.query(type='series', id=data[0]['parent_id'])[0])
+    def _get_series_by_name(self, name):
+         """
+         Get a Series object based on the alias name
+         """
+         data = self._db.query(type='alias', tvdb=name)
+         if not data:
+             return None
+         return Series(self, self._db.query(type='series', id=data[0]['parent_id'])[0])
 
     @kaa.coroutine()
-    def get_series_by_id(self, id):
+    def _get_series_by_id(self, id):
         """
         Get a Series object based on the series ID
         """
@@ -437,43 +312,40 @@ class TVDB(kaa.Object):
         if data:
             yield Series(self, data[0])
         if not self._db.query(type='metadata'):
-            print 'sync metadata'
-            attr, data = (yield parse('http://www.thetvdb.com/api/%s/updates/' % self._apikey))
-            self._db.add('metadata', servertime=int(attr['time']), localtime=int(time.time()))
-        print 'sync data'
-        parent = (yield self._process('http://www.thetvdb.com/api/%s/series/%s/all/en.xml' % (self._apikey, id)))
-        yield self._process('http://www.thetvdb.com/api/%s/series/%s/banners.xml' % (self._apikey, id), parent=parent)
+            attr, data = (yield parse(self.hostname + '/api/Updates.php?type=none'))
+            data = dict(data)
+            self._db.add('metadata', servertime=int(data['Time']), localtime=int(time.time()))
+        parent = (yield self._process(self.api + 'series/%s/all/en.xml' % id))
+        yield self._process(self.api + 'series/%s/banners.xml' % id, parent=parent)
         data = self._db.query(type='series', tvdb=id)
-        self.version += 1
-        open(self._versionfile, 'w').write(str(self.version))
+        self.force_resync()
         if data:
             yield Series(self, data[0])
 
-    def from_filename(self, filename):
-        """
-        Return a fully parsed Filename object
-        """
-        return Filename(self, filename)
-
     @kaa.coroutine()
-    def search_series(self, name):
+    def search(self, name):
         """
         Search for a series
         """
-        url = 'http://www.thetvdb.com/api/GetSeries.php?seriesname=%s' % urllib.quote(name)
-        yield [ data for name, data in (yield parse(url))[1] ]
+        result = []
+        url = self.hostname + '/api/GetSeries.php?seriesname=%s' % urllib.quote(name)
+        for name, data in (yield parse(url))[1]:
+            result.append(('thetvdb:' + data['seriesid'], data['SeriesName'],
+                           data.get('FirstAired', None), data.get('Overview', None), data))
+        yield result
 
     @kaa.coroutine()
-    def match_series(self, alias, id):
+    def match(self, alias, id):
         """
         Match this filename to the given server id
         """
         if not alias:
             yield False
-        series = (yield self.get_series_by_id(id))
+        series = (yield self._get_series_by_id(id))
         if not series:
             yield False
         series.add_alias(alias)
+        series.add_alias(series.data['name'])
         self._db.commit()
         yield True
 
@@ -495,20 +367,17 @@ class TVDB(kaa.Object):
         else:
             update = ''
         series = [ record['tvdb'] for record in self._db.query(type='series') ]
-        url = 'http://www.thetvdb.com/api/%s/updates/%s' % (self._apikey, update)
-        print url
+        url = self.api + 'updates/%s' % update
         attr, updates = (yield parse(url))
         banners = []
         for element, data in updates:
             if element == 'Series':
                 if int(data['id']) in series and int(data['time']) > metadata['servertime']:
-                    url = 'http://www.thetvdb.com/api/%s/series/%s/en.xml' % (self._apikey, data['id'])
-                    print url
+                    url = self.api + 'series/%s/en.xml' % data['id']
                     yield self._process(url)
             if element == 'Episode':
                 if int(data['Series']) in series and int(data['time']) > metadata['servertime']:
-                    url = 'http://www.thetvdb.com/api/%s/episodes/%s/en.xml' % (self._apikey, data['id'])
-                    print url
+                    url = self.api + 'episodes/%s/en.xml' % data['id']
                     parent = 'series', self._db.query(type='series', tvdb=int(data['Series']))[0]['id']
                     yield self._process(url, parent=parent)
             if element == 'Banner':
@@ -518,7 +387,6 @@ class TVDB(kaa.Object):
         # banner update
         for series in banners:
             parent = 'series', self._db.query(type='series', tvdb=series)[0]['id']
-            yield self._process('http://www.thetvdb.com/api/%s/series/%s/banners.xml' % (self._apikey, series), parent=parent)
+            yield self._process(self.api + 'series/%s/banners.xml' % series, parent=parent)
         self._db.update(metadata, servertime=int(attr['time']), localtime=int(time.time()))
-        self.version += 1
-        open(self._versionfile, 'w').write(str(self.version))
+        self.force_resync()
