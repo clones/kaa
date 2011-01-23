@@ -127,7 +127,7 @@ def print_results(results, detailed = False):
         if detailed:
             for key in r.keys():
                 if r.get(key) and key not in IGNORE_KEYS:
-                    print ' ' * (type_col_len + 5) + '| %s: %s' % (key, r.get(key))
+                    print ' ' * (type_col_len + 5) + '| %s: %s' % (key, kaa.unicode_to_str(r.get(key)))
 
 
 
