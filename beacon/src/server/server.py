@@ -98,6 +98,7 @@ class Server(object):
             series = (unicode, ATTR_SEARCHABLE),
             season = (int, ATTR_SEARCHABLE),
             episode = (int, ATTR_SEARCHABLE),
+            hash = (str, ATTR_SIMPLE),
             timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("audio",
@@ -111,6 +112,7 @@ class Server(object):
             trackno = (int, ATTR_SIMPLE),
             userdate = (unicode, ATTR_SIMPLE),
             description = (unicode, ATTR_SIMPLE),
+            hash = (str, ATTR_SIMPLE),
             timestamp = (int, ATTR_SEARCHABLE))
 
         self.register_file_type_attrs("image",
@@ -119,6 +121,7 @@ class Server(object):
             comment = (unicode, ATTR_SEARCHABLE | ATTR_IGNORE_CASE | ATTR_INVERTED_INDEX, 'keywords'),
             rotation = (int, ATTR_SIMPLE),
             author = (unicode, ATTR_SIMPLE),
+            hash = (str, ATTR_SIMPLE),
             timestamp = (int, ATTR_SEARCHABLE))
 
         # tracks for rom discs or iso files
