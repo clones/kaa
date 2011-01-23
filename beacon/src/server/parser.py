@@ -267,7 +267,10 @@ def _parse(db, item, mtime):
             if video:
                 attributes['width'] = video.get('width')
                 attributes['height'] = video.get('height')
-
+            attributes['series'] = metadata.series
+            attributes['season'] = metadata.season
+            attributes['episode'] = metadata.episode
+            
         attributes['metadata'] = metadata
     
         # now call extention plugins
