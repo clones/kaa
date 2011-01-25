@@ -124,7 +124,7 @@ def open_without_cache(filename, size=None):
     if filename.lower().endswith('.svg'):
         return open_from_memory(file(filename).read(), size)
     else:
-        return Image(filename, True, size)
+        return Image(filename, False, size)
 
 
 def open_from_memory(buf, size=None):
