@@ -238,6 +238,7 @@ class Thumbnailer(object):
             self.notify_client(job)
             self.schedule_next(fast=True)
             return True
+        log.info('create thumbnail for %s -> %s', job.filename, job.imagefile)
         if job.filename.lower().endswith('jpg'):
             # try epeg for fast thumbnailing
             try:

@@ -201,6 +201,7 @@ class VideoThumb(object):
         captures = glob.glob('000000??.png')
         if not captures:
             # No images, Mplayer crashed on this file?
+            log.error('no images found')
             yield False
 
         # find the largest image (making assumption it's the best)

@@ -166,6 +166,15 @@ if detach:
 
 kaa.utils.set_running('beacon-daemon')
 
+thumb_lock = kaa.utils.Lock()
+
+# fork thumbnailer
+pid = os.fork()
+
+# modify logfile for thumbnailer
+if not pid and logfile:
+    logfile = os.path.join(os.path.dirname(logfile), 'thumbnailer.log')
+
 # create logger
 if logfile:
     if os.path.dirname(logfile) and not os.path.isdir(os.path.dirname(logfile)):
@@ -181,32 +190,18 @@ if logfile:
     handler.setFormatter(f)
     log.addHandler(handler)
 
-
-import kaa.beacon.server
-import kaa.beacon.server.plugins
-
-# get plugins config
-plugin_config = kaa.beacon.server.plugins.get_config()
-if plugin_config is not None:
-    kaa.beacon.server.config.add_variable('plugins', plugin_config)
-
-thumb_lock = kaa.utils.Lock()
-
-# fork thumbnailer
-pid = os.fork()
 if not pid:
-    thumb = kaa.beacon.server.Thumbnailer(db_dir, scheduler='greedy' if greedy else None)
+    import kaa.beacon.server
 
+    # thumbnailer child
+    thumb = kaa.beacon.server.Thumbnailer(db_dir, scheduler='greedy' if greedy else None)
     # signal readyness to main app
     thumb_lock.release(1)
-
     # set nice level
     os.nice(19)
-
     if detach:
         # close fifo from daemonize
         daemonize_lock.ignore()
-
     # loop
     try:
         kaa.main.run()
@@ -217,7 +212,15 @@ if not pid:
 
 
 # beacon server
+import kaa.beacon.server
 import kaa.beacon.thumbnail
+import kaa.beacon.server.plugins
+
+# get plugins config
+plugin_config = kaa.beacon.server.plugins.get_config()
+if plugin_config is not None:
+    kaa.beacon.server.config.add_variable('plugins', plugin_config)
+
 
 def garbage_collect():
     g = gc.collect()
